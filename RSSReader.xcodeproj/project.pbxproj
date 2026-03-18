@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
+		4E2BA2642F6ADE3B00C1A4C7 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		4E5607FD2F69A2DF008008E4 /* RSSReader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RSSReader.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -34,6 +35,7 @@
 			children = (
 				4E5607FF2F69A2DF008008E4 /* RSSReader */,
 				4E5607FE2F69A2DF008008E4 /* Products */,
+				4E2BA2642F6ADE3B00C1A4C7 /* README.md */,
 			);
 			sourceTree = "<group>";
 		};
