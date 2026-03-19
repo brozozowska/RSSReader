@@ -52,13 +52,12 @@
 
 #### App Foundation
 - создать структуру каталогов: App/Models/Services/ViewModels/Views/Infrastructure;
-- создать RSSApp.swift;
+- добавить AppDependencies.swift;
 - настроить контейнер SwiftData;
 - настроить базовую dependency composition;
-- добавить AppDependencies.swift;
 - подготовить конфигурацию для debug/logging;
-- настроить базовый root navigation через NavigationSplitView;
-- добавить app-level state для выбора feed/article.
+- добавить app-level state для выбора feed/article;
+- настроить базовый root navigation через NavigationSplitView.
 
 #### Domain Models
 - создать модель Feed;
