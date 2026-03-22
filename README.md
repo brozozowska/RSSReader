@@ -29,6 +29,7 @@
 - **MVVM-подход** для разделения представления и логики представления;
 - **SwiftData** для локального хранения данных;
 - **Repository pattern** для изоляции доступа к данным;
+- **Swift Concurrency (async/await)** для асинхронных операций и потоков событий через AsyncSequence/AsyncStream;
 - минимизация жёсткой связанности между UI, хранением и сетевым слоем.
 
 Базовый поток данных предполагается таким:
@@ -79,6 +80,7 @@
 - добавить поддержку Last-Modified;
 - реализовать conditional requests;
 - логировать результат fetch;
+- использовать async/await для сетевых запросов;
 - добавить retry policy на сетевые ошибки.
 
 #### Parsing / Normalization
@@ -117,6 +119,7 @@
 - реализовать refresh одного feed;
 - реализовать refresh всех active feeds;
 - ограничить параллелизм запросов;
+- использовать TaskGroup/Structured Concurrency для параллелизма;
 - исключить параллельный двойной refresh одного feed;
 - обновлять lastFetchedAt;
 - обновлять lastSuccessfulFetchAt;
@@ -152,7 +155,7 @@
 - фильтр unread only;
 - отображение состояния read/unread;
 - отображение starred state;
-- pull to refresh;
+- pull to refresh (c async/await обработкой обновления);
 - empty state для пустого списка;
 - error state для ошибки загрузки.
 
@@ -248,6 +251,7 @@
 
 - **Swift**
 - **SwiftUI**
+- **Swift Concurrency (async/await)**
 - **SwiftData**
 - **CloudKit**
 - **XCTest**

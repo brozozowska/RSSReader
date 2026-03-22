@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-import Combine
 import SwiftData
 
 // MARK: - Logging
@@ -23,8 +22,7 @@ public protocol AppDependenciesProtocol {
     var modelContainer: ModelContainer? { get }
 }
 
-public final class AppDependencies: AppDependenciesProtocol, ObservableObject {
-    public let objectWillChange = ObservableObjectPublisher()
+public final class AppDependencies: AppDependenciesProtocol {
     
     public let logger: Logging
     public let modelContainer: ModelContainer?
