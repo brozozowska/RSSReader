@@ -29,6 +29,7 @@
 - **MVVM-подход** для разделения представления и логики представления;
 - **SwiftData** для локального хранения данных;
 - **Repository pattern** для изоляции доступа к данным;
+- **Swift Concurrency (async/await)** для асинхронных операций и потоков событий через AsyncSequence/AsyncStream;
 - минимизация жёсткой связанности между UI, хранением и сетевым слоем.
 
 Базовый поток данных предполагается таким:
@@ -52,13 +53,12 @@
 
 #### App Foundation
 - создать структуру каталогов: App/Models/Services/ViewModels/Views/Infrastructure;
-- создать RSSApp.swift;
+- добавить AppDependencies.swift;
 - настроить контейнер SwiftData;
 - настроить базовую dependency composition;
-- добавить AppDependencies.swift;
 - подготовить конфигурацию для debug/logging;
-- настроить базовый root navigation через NavigationSplitView;
-- добавить app-level state для выбора feed/article.
+- добавить app-level state для выбора feed/article;
+- настроить базовый root navigation через NavigationSplitView.
 
 #### Domain Models
 - создать модель Feed;
@@ -80,6 +80,7 @@
 - добавить поддержку Last-Modified;
 - реализовать conditional requests;
 - логировать результат fetch;
+- использовать async/await для сетевых запросов;
 - добавить retry policy на сетевые ошибки.
 
 #### Parsing / Normalization
@@ -118,6 +119,7 @@
 - реализовать refresh одного feed;
 - реализовать refresh всех active feeds;
 - ограничить параллелизм запросов;
+- использовать TaskGroup/Structured Concurrency для параллелизма;
 - исключить параллельный двойной refresh одного feed;
 - обновлять lastFetchedAt;
 - обновлять lastSuccessfulFetchAt;
@@ -153,7 +155,7 @@
 - фильтр unread only;
 - отображение состояния read/unread;
 - отображение starred state;
-- pull to refresh;
+- pull to refresh (c async/await обработкой обновления);
 - empty state для пустого списка;
 - error state для ошибки загрузки.
 
@@ -249,6 +251,7 @@
 
 - **Swift**
 - **SwiftUI**
+- **Swift Concurrency (async/await)**
 - **SwiftData**
 - **CloudKit**
 - **XCTest**
