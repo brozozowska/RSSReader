@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Observation
 
 /// Сборка корневого дерева приложения с зависимостями и (при наличии) SwiftData контейнером.
 /// Создаёт корневой View c установленными зависимостями.
@@ -12,13 +13,17 @@ enum AppComposition {
         ? AppDependencies.makeDefault()
         : AppDependencies.makeWithSwiftData(models: models)
 
+        let appState = AppState()
+
         if let container = deps.modelContainer {
             RootView()
                 .environment(\.appDependencies, deps)
+                .environment(appState)
                 .modelContainer(container)
         } else {
             RootView()
                 .environment(\.appDependencies, deps)
+                .environment(appState)
         }
     }
 }
