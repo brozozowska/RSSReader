@@ -45,31 +45,30 @@
 ### Foundation
 #### Repository / Project Setup
 - инициализация Xcode-проекта;
-- настроить .gitignore;
+- настроить `.gitignore`;
 - создать milestones для фаз MVP;
 - настроить лейблы в проекте;
 - настроить GitHub Project;
-- добавить README в проект.
+- добавить `README` в проект.
 
 #### App Foundation
-- создать структуру каталогов: App/Models/Services/ViewModels/Views/Infrastructure;
-- добавить AppDependencies.swift;
-- настроить контейнер SwiftData;
+- создать структуру каталогов: `Models` / `Services` / `ViewModels` / `Views` / `Infrastructure`;
+- добавить `AppDependencies.swift`;
+- настроить контейнер `SwiftData`;
 - настроить базовую dependency composition;
-- подготовить конфигурацию для debug/logging;
-- добавить app-level state для выбора feed/article;
-- настроить базовый root navigation через NavigationSplitView.
+- подготовить конфигурацию для `debug/logging`;
+- добавить app-level state для выбора `feed/article`;
+- настроить базовый root navigation через `NavigationSplitView`.
 
 #### Domain Models
-- создать модель Feed;
-- создать модель Article;
-- создать модель ArticleState;
-- создать модель AppSettings;
-- добавить Folder model как задел на будущее;
-- продумать связи между моделями;
-- добавить уникальность/идентификацию для article externalID;
-- добавить timestamps createdAt/updatedAt;
-- описать правила удаления feed и зависимых данных.
+- создать модели `Feed`, `Article`, `ArticleState`, `AppSettings`, `Folder`;
+- определить связи между моделями;
+- гарантировать синглтон для `AppSettings`;
+- определить уникальность `Folder.name`;
+- зафиксировать правила генерации `externalID` на всех устройствах;
+- зафиксировать удаление `ArticleState` при удалении `Feed`;
+- подумать о производительности;
+- добавить `FeedFetchLog`, определить минимальный набор полей для отладки fetch.
 
 ### Feed Pipeline
 #### Networking / Feed Fetch
