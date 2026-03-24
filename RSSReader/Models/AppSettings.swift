@@ -3,7 +3,10 @@ import SwiftData
 
 @Model
 final class AppSettings {
+    static let singletonKeyValue = "app-settings"
+
     @Attribute(.unique) var id: UUID
+    @Attribute(.unique) var singletonKey: String
     var defaultReaderMode: ReaderMode
     var showUnreadOnly: Bool
     var refreshIntervalPreference: RefreshPreference
@@ -15,6 +18,7 @@ final class AppSettings {
 
     init(
         id: UUID = UUID(),
+        singletonKey: String = AppSettings.singletonKeyValue,
         defaultReaderMode: ReaderMode = .embedded,
         showUnreadOnly: Bool = false,
         refreshIntervalPreference: RefreshPreference = .manual,
@@ -25,6 +29,7 @@ final class AppSettings {
         updatedAt: Date = .now
     ) {
         self.id = id
+        self.singletonKey = singletonKey
         self.defaultReaderMode = defaultReaderMode
         self.showUnreadOnly = showUnreadOnly
         self.refreshIntervalPreference = refreshIntervalPreference
