@@ -4,7 +4,7 @@ import SwiftData
 @Model
 final class Folder {
     @Attribute(.unique) var id: UUID
-    var name: String
+    @Attribute(.unique) var name: String
     var sortOrder: Int
     @Relationship(deleteRule: .nullify)
     var feeds: [Feed] = []
