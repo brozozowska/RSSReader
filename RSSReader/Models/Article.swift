@@ -4,6 +4,7 @@ import SwiftData
 @Model
 final class Article {
     #Unique<Article>([\.feed, \.externalID])
+    #Index<Article>([\.publishedAt])
 
     @Attribute(.unique) var id: UUID
     var feed: Feed

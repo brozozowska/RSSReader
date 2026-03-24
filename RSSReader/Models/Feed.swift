@@ -3,6 +3,8 @@ import SwiftData
 
 @Model
 final class Feed {
+    #Index<Feed>([\.isActive])
+
     @Attribute(.unique) var id: UUID
     @Attribute(.unique) var url: String
     var siteURL: String?
