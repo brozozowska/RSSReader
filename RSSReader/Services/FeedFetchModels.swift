@@ -4,6 +4,11 @@ public enum FeedRequestError: Error {
     case invalidURL(String)
 }
 
+public enum FeedFetchError: Error {
+    case invalidStatusCode(Int)
+    case unsupportedContentType(String?)
+}
+
 public struct FeedRequest: Sendable {
     public let feedID: UUID
     public let url: URL
@@ -104,6 +109,19 @@ public struct FeedResponse: Sendable {
 
     public var contentType: String? {
         headers["content-type"]
+    }
+
+    public var normalizedContentType: String? {
+        guard let contentType else { return nil }
+
+        let rawValue = contentType
+            .split(separator: ";", maxSplits: 1)
+            .first?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        guard let rawValue, rawValue.isEmpty == false else { return nil }
+        return rawValue
     }
 
     public var isNotModified: Bool {
