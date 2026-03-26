@@ -1,7 +1,7 @@
 import Foundation
 
 public protocol FeedFetching: Sendable {
-    func fetch(_ request: FeedRequest) async throws -> FeedResponse
+    func fetch(_ request: FeedRequest) async throws -> FeedFetchResult
 }
 
 public struct FeedFetcher: FeedFetching {
@@ -18,14 +18,18 @@ public struct FeedFetcher: FeedFetching {
         self.httpClient = httpClient
     }
 
-    public func fetch(_ request: FeedRequest) async throws -> FeedResponse {
+    public func fetch(_ request: FeedRequest) async throws -> FeedFetchResult {
         let httpResponse = try await httpClient.execute(request.httpRequest)
         let response = FeedResponse(request: request, httpResponse: httpResponse)
 
         try validateStatusCode(response.statusCode)
         try validateContentType(response)
 
-        return response
+        if response.isNotModified {
+            return .notModified(response)
+        }
+
+        return .fetched(response)
     }
 
     private func validateStatusCode(_ statusCode: Int) throws {

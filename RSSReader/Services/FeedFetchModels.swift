@@ -9,6 +9,18 @@ public enum FeedFetchError: Error {
     case unsupportedContentType(String?)
 }
 
+public enum FeedFetchResult: Sendable {
+    case fetched(FeedResponse)
+    case notModified(FeedResponse)
+
+    public var response: FeedResponse {
+        switch self {
+        case .fetched(let response), .notModified(let response):
+            response
+        }
+    }
+}
+
 public struct FeedRequest: Sendable {
     public let feedID: UUID
     public let url: URL
