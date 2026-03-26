@@ -23,8 +23,8 @@ public struct FeedRequest: Sendable {
     ) {
         self.feedID = feedID
         self.url = url
-        self.ifNoneMatch = ifNoneMatch
-        self.ifModifiedSince = ifModifiedSince
+        self.ifNoneMatch = Self.normalizeHeaderValue(ifNoneMatch)
+        self.ifModifiedSince = Self.normalizeHeaderValue(ifModifiedSince)
     }
 
     public init(
@@ -42,6 +42,15 @@ public struct FeedRequest: Sendable {
             url: url,
             ifNoneMatch: ifNoneMatch,
             ifModifiedSince: ifModifiedSince
+        )
+    }
+
+    init(feed: Feed) throws {
+        try self.init(
+            feedID: feed.id,
+            urlString: feed.url,
+            ifNoneMatch: feed.lastETag,
+            ifModifiedSince: feed.lastModifiedHeader
         )
     }
 
@@ -63,6 +72,18 @@ public struct FeedRequest: Sendable {
 
     public var httpRequest: HTTPRequest {
         HTTPRequest(url: url, headers: headers)
+    }
+
+    public var hasConditionalHeaders: Bool {
+        ifNoneMatch != nil || ifModifiedSince != nil
+    }
+
+    private static func normalizeHeaderValue(_ value: String?) -> String? {
+        guard let value else { return nil }
+
+        let normalizedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalizedValue.isEmpty == false else { return nil }
+        return normalizedValue
     }
 }
 
