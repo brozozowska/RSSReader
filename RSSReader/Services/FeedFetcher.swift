@@ -1,11 +1,33 @@
 import Foundation
 
+public struct FeedRetryPolicy: Sendable {
+    public let maxAttempts: Int
+    public let baseDelayNanoseconds: UInt64
+
+    public init(
+        maxAttempts: Int = 3,
+        baseDelayNanoseconds: UInt64 = 500_000_000
+    ) {
+        self.maxAttempts = max(1, maxAttempts)
+        self.baseDelayNanoseconds = baseDelayNanoseconds
+    }
+
+    func delayNanoseconds(forAttempt attempt: Int) -> UInt64 {
+        guard attempt > 1 else { return 0 }
+
+        let exponent = attempt - 2
+        let multiplier = UInt64(1 << exponent)
+        return baseDelayNanoseconds * multiplier
+    }
+}
+
 public protocol FeedFetching: Sendable {
     func fetch(_ request: FeedRequest) async throws -> FeedFetchResult
 }
 
 public struct FeedFetcher: FeedFetching {
     private let httpClient: any HTTPClient
+    private let retryPolicy: FeedRetryPolicy
     private let supportedContentTypes: Set<String> = [
         "application/atom+xml",
         "application/rdf+xml",
@@ -14,22 +36,50 @@ public struct FeedFetcher: FeedFetching {
         "text/xml"
     ]
 
-    public init(httpClient: any HTTPClient) {
+    public init(
+        httpClient: any HTTPClient,
+        retryPolicy: FeedRetryPolicy = FeedRetryPolicy()
+    ) {
         self.httpClient = httpClient
+        self.retryPolicy = retryPolicy
     }
 
     public func fetch(_ request: FeedRequest) async throws -> FeedFetchResult {
-        let httpResponse = try await httpClient.execute(request.httpRequest)
-        let response = FeedResponse(request: request, httpResponse: httpResponse)
+        var lastError: Error?
 
-        try validateStatusCode(response.statusCode)
-        try validateContentType(response)
+        for attempt in 1...retryPolicy.maxAttempts {
+            do {
+                let httpResponse = try await httpClient.execute(request.httpRequest)
+                let response = FeedResponse(request: request, httpResponse: httpResponse)
 
-        if response.isNotModified {
-            return .notModified(response)
+                try validateStatusCode(response.statusCode)
+                try validateContentType(response)
+
+                if response.isNotModified {
+                    return .notModified(response)
+                }
+
+                return .fetched(response)
+            } catch {
+                if error is CancellationError {
+                    throw error
+                }
+
+                lastError = error
+
+                let shouldRetry = isTransientNetworkError(error) && attempt < retryPolicy.maxAttempts
+                guard shouldRetry else {
+                    throw error
+                }
+
+                let delayNanoseconds = retryPolicy.delayNanoseconds(forAttempt: attempt + 1)
+                if delayNanoseconds > 0 {
+                    try await Task.sleep(nanoseconds: delayNanoseconds)
+                }
+            }
         }
 
-        return .fetched(response)
+        throw lastError ?? FeedFetchError.invalidStatusCode(-1)
     }
 
     private func validateStatusCode(_ statusCode: Int) throws {
@@ -56,6 +106,28 @@ public struct FeedFetcher: FeedFetching {
 
         guard isSupportedContentType else {
             throw FeedFetchError.unsupportedContentType(response.contentType)
+        }
+    }
+
+    private func isTransientNetworkError(_ error: Error) -> Bool {
+        guard let urlError = error as? URLError else {
+            return false
+        }
+
+        switch urlError.code {
+        case .timedOut,
+                .cannotFindHost,
+                .cannotConnectToHost,
+                .dnsLookupFailed,
+                .networkConnectionLost,
+                .notConnectedToInternet,
+                .resourceUnavailable,
+                .internationalRoamingOff,
+                .callIsActive,
+                .dataNotAllowed:
+            return true
+        default:
+            return false
         }
     }
 }
