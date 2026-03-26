@@ -6,6 +6,7 @@ import SwiftData
 public protocol AppDependenciesProtocol {
     var logger: Logging { get }
     var httpClient: any HTTPClient { get }
+    var feedFetcher: any FeedFetching { get }
     var modelContainer: ModelContainer? { get }
 }
 
@@ -13,15 +14,18 @@ public final class AppDependencies: AppDependenciesProtocol {
     
     public let logger: Logging
     public let httpClient: any HTTPClient
+    public let feedFetcher: any FeedFetching
     public let modelContainer: ModelContainer?
 
     public init(
         logger: Logging,
         httpClient: any HTTPClient = URLSessionHTTPClient(),
+        feedFetcher: (any FeedFetching)? = nil,
         modelContainer: ModelContainer? = nil
     ) {
         self.logger = logger
         self.httpClient = httpClient
+        self.feedFetcher = feedFetcher ?? FeedFetcher(httpClient: httpClient)
         self.modelContainer = modelContainer
     }
 }
