@@ -56,8 +56,8 @@
 - добавить `AppDependencies.swift`;
 - настроить контейнер `SwiftData`;
 - настроить базовую dependency composition;
-- подготовить конфигурацию для `debug/logging`;
-- добавить app-level state для выбора `feed/article`;
+- подготовить конфигурацию для `debug` / `logging`;
+- добавить app-level state для выбора `feed` / `article`;
 - настроить базовый root navigation через `NavigationSplitView`.
 
 #### Domain Models
@@ -72,58 +72,56 @@
 
 ### Feed Pipeline
 #### Networking / Feed Fetch
-- создать HTTP client abstraction;
-- реализовать GET-запрос feed URL;
-- обработать HTTP errors;
-- добавить поддержку ETag;
-- добавить поддержку Last-Modified;
-- реализовать conditional requests;
-- логировать результат fetch;
-- использовать async/await для сетевых запросов;
-- добавить retry policy на сетевые ошибки.
+- создать `HTTPClient` abstraction для feed-запросов;
+- описать `FeedRequest` / `FeedResponse` модели для pipeline;
+- реализовать загрузку feed по URL через `URLSession`;
+- валидировать HTTP status code и content type ответа;
+- добавить conditional headers через `ETag` / `Last-Modified`;
+- обрабатывать `304 Not Modified` как отдельный результат fetch;
+- добавить retry policy для временных сетевых ошибок;
+- логировать результат fetch в `FeedFetchLog`;
+- подготовить маппинг transport errors в domain-level fetch errors.
 
 #### Parsing / Normalization
-- создать FeedParserService;
-- поддержать RSS parsing;
-- поддержать Atom parsing;
-- определять тип фида rss/atom/unknown;
-- извлекать метаданные feed;
-- извлекать список entries/items;
-- создать промежуточные DTO для parser layer;
-- создать NormalizationService;
-- нормализовать title/source URLs;
-- нормализовать article content/summary;
-- реализовать парсинг дат из нескольких форматов;
-- реализовать построение стабильного externalID;
-- создать DeduplicationService;
-- добавить стратегию дедупликации по externalID/guid/url;
-- отбрасывать пустые/сломанные entries.
+- создать `FeedParserService` с общим entrypoint для XML feed;
+- определять тип фида: `rss` / `atom` / `unknown`;
+- ввести parser DTO для feed metadata и entries;
+- реализовать parsing RSS 2.0: `channel` / `item`;
+- реализовать parsing Atom: `feed` / `entry`;
+- извлекать feed metadata: `title` / `subtitle` / `siteURL` / `language`;
+- извлекать article payload: `guid` / `url` / `title` / `summary` / `content` / `author` / `dates`;
+- создать `FeedNormalizationService` для очистки и приведения полей;
+- реализовать нормализацию `title` / source URLs / article content;
+- реализовать парсинг дат из RSS/Atom форматов;
+- интегрировать генерацию стабильного `externalID`;
+- создать `DeduplicationService` для слияния повторяющихся entries;
+- отбрасывать пустые и невалидные entries до persistence layer.
 
 #### Persistence / Repositories
-- создать FeedRepository;
-- создать ArticleRepository;
-- создать ArticleStateRepository;
-- создать SettingsRepository;
-- сохранение нового feed;
-- загрузка списка feeds;
-- сохранение новых статей;
-- обновление существующих статей;
-- получение статей для выбранного feed;
-- получение глобального inbox;
-- удаление feed с каскадной очисткой article cache;
-- обновление unread counts.
+- создать `FeedRepository` для CRUD и fetch metadata feed;
+- создать `ArticleRepository` для upsert и выборок статей;
+- создать `ArticleStateRepository` для чтения user state в article queries;
+- создать `AppSettingsRepository` для singleton `AppSettings`;
+- создать `FeedFetchLogRepository` для истории fetch attempts;
+- реализовать сохранение нового feed и обновление его metadata;
+- реализовать upsert статей по ключу `feed + externalID`;
+- реализовать загрузку списка feeds для sidebar;
+- реализовать загрузку статей выбранного feed с сортировкой;
+- реализовать загрузку глобального inbox;
+- реализовать расчёт unread counts по feed;
+- реализовать удаление feed с каскадной очисткой связанных данных.
 
 #### Refresh Orchestration
-- создать FeedRefreshService;
-- реализовать refresh одного feed;
+- создать `FeedRefreshService` как coordinator полного pipeline;
+- описать результат refresh: `fetched` / `notModified` / `failed`;
+- реализовать refresh одного feed от network до persistence;
 - реализовать refresh всех active feeds;
-- ограничить параллелизм запросов;
-- использовать TaskGroup/Structured Concurrency для параллелизма;
-- исключить параллельный двойной refresh одного feed;
-- обновлять lastFetchedAt;
-- обновлять lastSuccessfulFetchAt;
-- сохранять lastSyncError;
-- обрабатывать 304 Not Modified.
+- ограничить параллелизм при batch refresh;
+- исключить одновременный refresh одного и того же feed;
+- обновлять `lastFetchedAt` для каждой попытки refresh;
+- обновлять `lastSuccessfulFetchAt`, `lastSyncError`, `lastETag`, `lastModifiedHeader` по результату fetch;
+- сохранять `FeedFetchLog` для каждого завершённого refresh;
+- подготовить API для ручного refresh и будущего background refresh.
 
 ### Reading Experience
 #### User State / Reading Actions
