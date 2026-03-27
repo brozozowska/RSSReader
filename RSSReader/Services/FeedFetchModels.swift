@@ -84,7 +84,8 @@ public struct FeedRequest: Sendable {
 
     public var headers: [String: String] {
         var headers = [
-            "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.1"
+            "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.1",
+            "User-Agent": Self.feedUserAgent
         ]
 
         if let ifNoneMatch, ifNoneMatch.isEmpty == false {
@@ -113,6 +114,19 @@ public struct FeedRequest: Sendable {
         guard normalizedValue.isEmpty == false else { return nil }
         return normalizedValue
     }
+
+    private static let feedUserAgent: String = {
+        let bundle = Bundle.main
+        let bundleName = (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let bundleVersion = (bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let resolvedName = (bundleName?.isEmpty == false ? bundleName : nil) ?? "RSSReader"
+        let resolvedVersion = (bundleVersion?.isEmpty == false ? bundleVersion : nil) ?? "0"
+
+        return "\(resolvedName)/\(resolvedVersion) (Feed Fetch)"
+    }()
 }
 
 public struct FeedResponse: Sendable {
