@@ -5,8 +5,24 @@ public enum FeedRequestError: Error {
 }
 
 public enum FeedFetchError: Error {
+    case transport(FeedTransportError)
     case invalidStatusCode(Int)
     case unsupportedContentType(String?)
+}
+
+public enum FeedTransportError: Error, Sendable {
+    case timedOut
+    case cannotFindHost
+    case cannotConnectToHost
+    case dnsLookupFailed
+    case networkConnectionLost
+    case notConnectedToInternet
+    case resourceUnavailable
+    case internationalRoamingOff
+    case callIsActive
+    case dataNotAllowed
+    case invalidResponse
+    case unknown
 }
 
 public enum FeedFetchResult: Sendable {

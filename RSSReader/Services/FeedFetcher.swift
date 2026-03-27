@@ -61,7 +61,7 @@ public struct FeedFetcher: FeedFetching {
     }
 
     public func fetch(_ request: FeedRequest) async throws -> FeedFetchResult {
-        var lastError: Error?
+        var lastError: FeedFetchError?
 
         for attempt in 1...retryPolicy.maxAttempts {
             do {
@@ -85,12 +85,13 @@ public struct FeedFetcher: FeedFetching {
                     throw error
                 }
 
-                lastError = error
+                let feedError = mapToFeedFetchError(error)
+                lastError = feedError
 
-                let shouldRetry = isTransientNetworkError(error) && attempt < retryPolicy.maxAttempts
+                let shouldRetry = isTransientTransportError(feedError) && attempt < retryPolicy.maxAttempts
                 guard shouldRetry else {
-                    await logSink(makeFailureLog(for: request, error: error))
-                    throw error
+                    await logSink(makeFailureLog(for: request, error: feedError))
+                    throw feedError
                 }
 
                 let delayNanoseconds = retryPolicy.delayNanoseconds(forAttempt: attempt + 1)
@@ -105,7 +106,7 @@ public struct FeedFetcher: FeedFetching {
             throw lastError
         }
 
-        throw lastError ?? FeedFetchError.invalidStatusCode(-1)
+        throw lastError ?? FeedFetchError.transport(.unknown)
     }
 
     private func validateStatusCode(_ statusCode: Int) throws {
@@ -135,12 +136,54 @@ public struct FeedFetcher: FeedFetching {
         }
     }
 
-    private func isTransientNetworkError(_ error: Error) -> Bool {
+    private func mapToFeedFetchError(_ error: Error) -> FeedFetchError {
+        if let feedError = error as? FeedFetchError {
+            return feedError
+        }
+
+        if let httpClientError = error as? HTTPClientError {
+            switch httpClientError {
+            case .invalidResponse:
+                return .transport(.invalidResponse)
+            }
+        }
+
         guard let urlError = error as? URLError else {
-            return false
+            return .transport(.unknown)
         }
 
         switch urlError.code {
+        case .timedOut:
+            return .transport(.timedOut)
+        case .cannotFindHost:
+            return .transport(.cannotFindHost)
+        case .cannotConnectToHost:
+            return .transport(.cannotConnectToHost)
+        case .dnsLookupFailed:
+            return .transport(.dnsLookupFailed)
+        case .networkConnectionLost:
+            return .transport(.networkConnectionLost)
+        case .notConnectedToInternet:
+            return .transport(.notConnectedToInternet)
+        case .resourceUnavailable:
+            return .transport(.resourceUnavailable)
+        case .internationalRoamingOff:
+            return .transport(.internationalRoamingOff)
+        case .callIsActive:
+            return .transport(.callIsActive)
+        case .dataNotAllowed:
+            return .transport(.dataNotAllowed)
+        default:
+            return .transport(.unknown)
+        }
+    }
+
+    private func isTransientTransportError(_ error: FeedFetchError) -> Bool {
+        guard case .transport(let transportError) = error else {
+            return false
+        }
+
+        switch transportError {
         case .timedOut,
                 .cannotFindHost,
                 .cannotConnectToHost,
