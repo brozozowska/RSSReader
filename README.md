@@ -80,7 +80,9 @@
 - обрабатывать `304 Not Modified` как отдельный результат fetch;
 - добавить retry policy для временных сетевых ошибок;
 - логировать результат fetch в `FeedFetchLog`;
-- подготовить маппинг transport errors в domain-level fetch errors.
+- подготовить маппинг transport errors в domain-level fetch errors;
+- настроить `URLSessionConfiguration` и request timeout для feed-запросов;
+- добавить feed-specific `User-Agent` header.
 
 #### Parsing / Normalization
 - создать `FeedParserService` с общим entrypoint для XML feed;
@@ -103,6 +105,7 @@
 - создать `ArticleStateRepository` для чтения user state в article queries;
 - создать `AppSettingsRepository` для singleton `AppSettings`;
 - создать `FeedFetchLogRepository` для истории fetch attempts;
+- реализовать сохранение `FeedFetchLog` в persistence layer;
 - реализовать сохранение нового feed и обновление его metadata;
 - реализовать upsert статей по ключу `feed + externalID`;
 - реализовать загрузку списка feeds для sidebar;

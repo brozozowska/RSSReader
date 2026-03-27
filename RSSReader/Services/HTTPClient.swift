@@ -3,18 +3,22 @@ import Foundation
 public struct HTTPRequest: Sendable {
     public let url: URL
     public let headers: [String: String]
+    public let timeoutInterval: TimeInterval
 
     public init(
         url: URL,
-        headers: [String: String] = [:]
+        headers: [String: String] = [:],
+        timeoutInterval: TimeInterval = 30
     ) {
         self.url = url
         self.headers = headers
+        self.timeoutInterval = timeoutInterval
     }
 
     var urlRequest: URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
+        request.timeoutInterval = timeoutInterval
 
         for (header, value) in headers {
             request.setValue(value, forHTTPHeaderField: header)
@@ -51,10 +55,23 @@ public protocol HTTPClient: Sendable {
     func execute(_ request: HTTPRequest) async throws -> HTTPResponse
 }
 
+public extension URLSessionConfiguration {
+    static func feedRequestsDefault() -> URLSessionConfiguration {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 30
+        configuration.timeoutIntervalForResource = 60
+        configuration.waitsForConnectivity = true
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return configuration
+    }
+}
+
 public struct URLSessionHTTPClient: HTTPClient {
     private let session: URLSession
 
-    public init(session: URLSession = .shared) {
+    public init(
+        session: URLSession = URLSession(configuration: .feedRequestsDefault())
+    ) {
         self.session = session
     }
 
