@@ -1,5 +1,7 @@
 import Foundation
 
+typealias FeedFetchLogSink = @Sendable (FeedFetchLog) async -> Void
+
 public struct FeedRetryPolicy: Sendable {
     public let maxAttempts: Int
     public let baseDelayNanoseconds: UInt64
@@ -28,6 +30,7 @@ public protocol FeedFetching: Sendable {
 public struct FeedFetcher: FeedFetching {
     private let httpClient: any HTTPClient
     private let retryPolicy: FeedRetryPolicy
+    private let logSink: FeedFetchLogSink
     private let supportedContentTypes: Set<String> = [
         "application/atom+xml",
         "application/rdf+xml",
@@ -40,8 +43,21 @@ public struct FeedFetcher: FeedFetching {
         httpClient: any HTTPClient,
         retryPolicy: FeedRetryPolicy = FeedRetryPolicy()
     ) {
+        self.init(
+            httpClient: httpClient,
+            retryPolicy: retryPolicy,
+            logSink: { _ in }
+        )
+    }
+
+    init(
+        httpClient: any HTTPClient,
+        retryPolicy: FeedRetryPolicy = FeedRetryPolicy(),
+        logSink: @escaping FeedFetchLogSink
+    ) {
         self.httpClient = httpClient
         self.retryPolicy = retryPolicy
+        self.logSink = logSink
     }
 
     public func fetch(_ request: FeedRequest) async throws -> FeedFetchResult {
@@ -56,10 +72,14 @@ public struct FeedFetcher: FeedFetching {
                 try validateContentType(response)
 
                 if response.isNotModified {
-                    return .notModified(response)
+                    let result = FeedFetchResult.notModified(response)
+                    await logSink(makeLog(for: result))
+                    return result
                 }
 
-                return .fetched(response)
+                let result = FeedFetchResult.fetched(response)
+                await logSink(makeLog(for: result))
+                return result
             } catch {
                 if error is CancellationError {
                     throw error
@@ -69,6 +89,7 @@ public struct FeedFetcher: FeedFetching {
 
                 let shouldRetry = isTransientNetworkError(error) && attempt < retryPolicy.maxAttempts
                 guard shouldRetry else {
+                    await logSink(makeFailureLog(for: request, error: error))
                     throw error
                 }
 
@@ -77,6 +98,11 @@ public struct FeedFetcher: FeedFetching {
                     try await Task.sleep(nanoseconds: delayNanoseconds)
                 }
             }
+        }
+
+        if let lastError {
+            await logSink(makeFailureLog(for: request, error: lastError))
+            throw lastError
         }
 
         throw lastError ?? FeedFetchError.invalidStatusCode(-1)
@@ -129,5 +155,45 @@ public struct FeedFetcher: FeedFetching {
         default:
             return false
         }
+    }
+
+    private func makeLog(for result: FeedFetchResult) -> FeedFetchLog {
+        let response = result.response
+
+        let status: String = switch result {
+        case .fetched:
+            "fetched"
+        case .notModified:
+            "not_modified"
+        }
+
+        let message: String? = switch result {
+        case .fetched:
+            nil
+        case .notModified:
+            "Feed not modified"
+        }
+
+        return FeedFetchLog(
+            feedID: response.request.feedID,
+            status: status,
+            httpCode: response.statusCode,
+            message: message
+        )
+    }
+
+    private func makeFailureLog(for request: FeedRequest, error: Error) -> FeedFetchLog {
+        let httpCode: Int? = if case .invalidStatusCode(let statusCode) = error as? FeedFetchError {
+            statusCode
+        } else {
+            nil
+        }
+
+        return FeedFetchLog(
+            feedID: request.feedID,
+            status: "failed",
+            httpCode: httpCode,
+            message: String(describing: error)
+        )
     }
 }
