@@ -191,6 +191,22 @@ enum FeedParserService {
         try parseFeed(parse(response))
     }
 
+    static func parsePipeline(_ response: FeedResponse) throws -> ParsedFeedDTO {
+        let parsedFeed = try parseFeed(response)
+        return parsePipeline(parsedFeed, feedURL: response.request.url.absoluteString)
+    }
+
+    static func parsePipeline(_ data: Data, feedURL: String) throws -> ParsedFeedDTO {
+        let parsedFeed = try parseFeed(parse(data))
+        return parsePipeline(parsedFeed, feedURL: feedURL)
+    }
+
+    static func parsePipeline(_ parsedFeed: ParsedFeedDTO, feedURL: String) -> ParsedFeedDTO {
+        let normalizedFeed = FeedNormalizationService.normalize(parsedFeed, feedURL: feedURL)
+        let deduplicatedFeed = DeduplicationService.deduplicate(normalizedFeed)
+        return FeedEntryFilteringService.filterValidEntries(from: deduplicatedFeed)
+    }
+
     static func extractFeedMetadata(from document: FeedXMLDocument) throws -> ParsedFeedMetadataDTO {
         switch detectFeedKind(in: document) {
         case .rss:
