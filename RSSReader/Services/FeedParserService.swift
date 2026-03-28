@@ -199,36 +199,30 @@ enum FeedParserService {
         }
     }
 
+    static func extractArticlePayloads(from document: FeedXMLDocument) throws -> [ParsedFeedEntryDTO] {
+        switch detectFeedKind(in: document) {
+        case .rss:
+            try extractRSSArticlePayloads(from: document)
+        case .atom:
+            try extractAtomArticlePayloads(from: document)
+        case .unknown:
+            throw FeedParserError.unsupportedFeedKind(.unknown)
+        }
+    }
+
     static func parseRSS(_ document: FeedXMLDocument) throws -> ParsedFeedDTO {
         let kind = detectFeedKind(in: document)
         guard kind == .rss else {
             throw FeedParserError.unsupportedFeedKind(kind)
         }
 
-        let rootElement = document.rootElement
-        guard let channelElement = rootElement.firstChild(named: "channel") else {
+        guard document.rootElement.firstChild(named: "channel") != nil else {
             throw FeedParserError.missingRSSElement("channel")
         }
 
         let metadata = try extractRSSMetadata(from: document)
 
-        let entries = channelElement.children(named: "item").map { itemElement in
-            ParsedFeedEntryDTO(
-                guid: itemElement.firstChildText(named: "guid"),
-                url: itemElement.firstChildText(named: "link"),
-                canonicalURL: itemElement.firstChildText(named: "comments"),
-                title: itemElement.firstChildText(named: "title"),
-                summary: itemElement.firstChildText(named: "description"),
-                contentHTML: contentHTML(in: itemElement),
-                contentText: itemElement.firstChildText(named: "description"),
-                author: itemElement.firstChildText(named: "author")
-                    ?? itemElement.firstChildText(named: "dc:creator")
-                    ?? itemElement.firstChildText(named: "creator"),
-                publishedAtRaw: itemElement.firstChildText(named: "pubDate"),
-                updatedAtRaw: itemElement.firstChildText(named: "dc:date"),
-                imageURL: enclosureURL(in: itemElement)
-            )
-        }
+        let entries = try extractRSSArticlePayloads(from: document)
 
         return ParsedFeedDTO(
             kind: .rss,
@@ -254,23 +248,7 @@ enum FeedParserService {
 
         let metadata = try extractAtomMetadata(from: document)
 
-        let feedAuthor = atomAuthor(in: feedElement)
-        let entries = feedElement.children(named: "entry").map { entryElement in
-            ParsedFeedEntryDTO(
-                guid: entryElement.firstChildText(named: "id"),
-                url: atomLink(in: entryElement, rel: "alternate") ?? atomLink(in: entryElement),
-                canonicalURL: atomLink(in: entryElement, rel: "self"),
-                title: entryElement.firstChildText(named: "title"),
-                summary: entryElement.firstChildText(named: "summary"),
-                contentHTML: atomContent(in: entryElement),
-                contentText: entryElement.firstChildText(named: "content")
-                    ?? entryElement.firstChildText(named: "summary"),
-                author: atomAuthor(in: entryElement) ?? feedAuthor,
-                publishedAtRaw: entryElement.firstChildText(named: "published"),
-                updatedAtRaw: entryElement.firstChildText(named: "updated"),
-                imageURL: atomLink(in: entryElement, rel: "enclosure")
-            )
-        }
+        let entries = try extractAtomArticlePayloads(from: document)
 
         return ParsedFeedDTO(
             kind: .atom,
@@ -310,6 +288,55 @@ enum FeedParserService {
             iconURL: feedElement.firstChildText(named: "icon") ?? feedElement.firstChildText(named: "logo"),
             language: feedElement.attributes["xml:lang"] ?? feedElement.attributes["lang"]
         )
+    }
+
+    private static func extractRSSArticlePayloads(from document: FeedXMLDocument) throws -> [ParsedFeedEntryDTO] {
+        guard let channelElement = document.rootElement.firstChild(named: "channel") else {
+            throw FeedParserError.missingRSSElement("channel")
+        }
+
+        return channelElement.children(named: "item").map { itemElement in
+            ParsedFeedEntryDTO(
+                guid: itemElement.firstChildText(named: "guid"),
+                url: itemElement.firstChildText(named: "link"),
+                canonicalURL: itemElement.firstChildText(named: "comments"),
+                title: itemElement.firstChildText(named: "title"),
+                summary: itemElement.firstChildText(named: "description"),
+                contentHTML: contentHTML(in: itemElement),
+                contentText: itemElement.firstChildText(named: "description"),
+                author: itemElement.firstChildText(named: "author")
+                    ?? itemElement.firstChildText(named: "dc:creator")
+                    ?? itemElement.firstChildText(named: "creator"),
+                publishedAtRaw: itemElement.firstChildText(named: "pubDate"),
+                updatedAtRaw: itemElement.firstChildText(named: "dc:date"),
+                imageURL: enclosureURL(in: itemElement)
+            )
+        }
+    }
+
+    private static func extractAtomArticlePayloads(from document: FeedXMLDocument) throws -> [ParsedFeedEntryDTO] {
+        let feedElement = document.rootElement
+        guard feedElement.name.lowercased() == "feed" else {
+            throw FeedParserError.missingAtomElement("feed")
+        }
+
+        let feedAuthor = atomAuthor(in: feedElement)
+        return feedElement.children(named: "entry").map { entryElement in
+            ParsedFeedEntryDTO(
+                guid: entryElement.firstChildText(named: "id"),
+                url: atomLink(in: entryElement, rel: "alternate") ?? atomLink(in: entryElement),
+                canonicalURL: atomLink(in: entryElement, rel: "self"),
+                title: entryElement.firstChildText(named: "title"),
+                summary: entryElement.firstChildText(named: "summary"),
+                contentHTML: atomContent(in: entryElement),
+                contentText: entryElement.firstChildText(named: "content")
+                    ?? entryElement.firstChildText(named: "summary"),
+                author: atomAuthor(in: entryElement) ?? feedAuthor,
+                publishedAtRaw: entryElement.firstChildText(named: "published"),
+                updatedAtRaw: entryElement.firstChildText(named: "updated"),
+                imageURL: atomLink(in: entryElement, rel: "enclosure")
+            )
+        }
     }
 
     private static func contentHTML(in itemElement: FeedXMLElement) -> String? {
