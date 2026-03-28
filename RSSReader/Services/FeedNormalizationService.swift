@@ -35,6 +35,14 @@ enum FeedNormalizationService {
         )
     }
 
+    static func parsePublishedAt(for entry: ParsedFeedEntryDTO) -> Date? {
+        FeedDateParsingService.parse(entry.publishedAtRaw)
+    }
+
+    static func parseUpdatedAt(for entry: ParsedFeedEntryDTO) -> Date? {
+        FeedDateParsingService.parse(entry.updatedAtRaw)
+    }
+
     private static func normalizeScalar(_ value: String?) -> String? {
         guard let value else { return nil }
 
