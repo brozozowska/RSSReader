@@ -35,6 +35,74 @@ struct FeedXMLElement: Sendable {
     }
 }
 
+struct ParsedFeedDTO: Sendable {
+    let kind: FeedKind
+    let metadata: ParsedFeedMetadataDTO
+    let entries: [ParsedFeedEntryDTO]
+}
+
+struct ParsedFeedMetadataDTO: Sendable {
+    let title: String?
+    let subtitle: String?
+    let siteURL: String?
+    let iconURL: String?
+    let language: String?
+
+    init(
+        title: String? = nil,
+        subtitle: String? = nil,
+        siteURL: String? = nil,
+        iconURL: String? = nil,
+        language: String? = nil
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.siteURL = siteURL
+        self.iconURL = iconURL
+        self.language = language
+    }
+}
+
+struct ParsedFeedEntryDTO: Sendable {
+    let guid: String?
+    let url: String?
+    let canonicalURL: String?
+    let title: String?
+    let summary: String?
+    let contentHTML: String?
+    let contentText: String?
+    let author: String?
+    let publishedAtRaw: String?
+    let updatedAtRaw: String?
+    let imageURL: String?
+
+    init(
+        guid: String? = nil,
+        url: String? = nil,
+        canonicalURL: String? = nil,
+        title: String? = nil,
+        summary: String? = nil,
+        contentHTML: String? = nil,
+        contentText: String? = nil,
+        author: String? = nil,
+        publishedAtRaw: String? = nil,
+        updatedAtRaw: String? = nil,
+        imageURL: String? = nil
+    ) {
+        self.guid = guid
+        self.url = url
+        self.canonicalURL = canonicalURL
+        self.title = title
+        self.summary = summary
+        self.contentHTML = contentHTML
+        self.contentText = contentText
+        self.author = author
+        self.publishedAtRaw = publishedAtRaw
+        self.updatedAtRaw = updatedAtRaw
+        self.imageURL = imageURL
+    }
+}
+
 enum FeedParserService {
     static func parse(_ data: Data) throws -> FeedXMLDocument {
         let builder = FeedXMLTreeBuilder()
