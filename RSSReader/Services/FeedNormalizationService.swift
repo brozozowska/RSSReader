@@ -11,10 +11,10 @@ enum FeedNormalizationService {
 
     static func normalize(_ metadata: ParsedFeedMetadataDTO) -> ParsedFeedMetadataDTO {
         ParsedFeedMetadataDTO(
-            title: normalizeInlineText(metadata.title),
+            title: normalizeTitle(metadata.title),
             subtitle: normalizeTextBlock(metadata.subtitle),
-            siteURL: normalizeScalar(metadata.siteURL),
-            iconURL: normalizeScalar(metadata.iconURL),
+            siteURL: normalizeSourceURL(metadata.siteURL),
+            iconURL: normalizeSourceURL(metadata.iconURL),
             language: normalizeInlineText(metadata.language)
         )
     }
@@ -22,16 +22,16 @@ enum FeedNormalizationService {
     static func normalize(_ entry: ParsedFeedEntryDTO) -> ParsedFeedEntryDTO {
         ParsedFeedEntryDTO(
             guid: normalizeScalar(entry.guid),
-            url: normalizeScalar(entry.url),
-            canonicalURL: normalizeScalar(entry.canonicalURL),
-            title: normalizeInlineText(entry.title),
+            url: normalizeSourceURL(entry.url),
+            canonicalURL: normalizeSourceURL(entry.canonicalURL),
+            title: normalizeTitle(entry.title),
             summary: normalizeTextBlock(entry.summary),
-            contentHTML: normalizeTextBlock(entry.contentHTML),
-            contentText: normalizeTextBlock(entry.contentText),
+            contentHTML: normalizeHTMLContent(entry.contentHTML),
+            contentText: normalizeTextContent(entry.contentText),
             author: normalizeInlineText(entry.author),
             publishedAtRaw: normalizeScalar(entry.publishedAtRaw),
             updatedAtRaw: normalizeScalar(entry.updatedAtRaw),
-            imageURL: normalizeScalar(entry.imageURL)
+            imageURL: normalizeSourceURL(entry.imageURL)
         )
     }
 
@@ -54,6 +54,20 @@ enum FeedNormalizationService {
         return collapsedValue.isEmpty ? nil : collapsedValue
     }
 
+    private static func normalizeTitle(_ value: String?) -> String? {
+        guard let value = normalizeInlineText(value) else { return nil }
+
+        let normalizedValue = value
+            .replacingOccurrences(of: " ,", with: ",")
+            .replacingOccurrences(of: " .", with: ".")
+            .replacingOccurrences(of: " !", with: "!")
+            .replacingOccurrences(of: " ?", with: "?")
+            .replacingOccurrences(of: " :", with: ":")
+            .replacingOccurrences(of: " ;", with: ";")
+
+        return normalizedValue.isEmpty ? nil : normalizedValue
+    }
+
     private static func normalizeTextBlock(_ value: String?) -> String? {
         guard let value = normalizeScalar(value) else { return nil }
 
@@ -74,5 +88,50 @@ enum FeedNormalizationService {
             .joined(separator: "\n")
 
         return normalizedValue.isEmpty ? nil : normalizedValue
+    }
+
+    private static func normalizeTextContent(_ value: String?) -> String? {
+        normalizeTextBlock(value)?
+            .replacingOccurrences(of: "\u{00A0}", with: " ")
+    }
+
+    private static func normalizeHTMLContent(_ value: String?) -> String? {
+        guard let value = normalizeScalar(value) else { return nil }
+
+        let normalizedValue = value
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .replacingOccurrences(of: "\u{FEFF}", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return normalizedValue.isEmpty ? nil : normalizedValue
+    }
+
+    private static func normalizeSourceURL(_ value: String?) -> String? {
+        guard let value = normalizeScalar(value) else { return nil }
+        guard let components = URLComponents(string: value) else {
+            return normalizeInlineText(value)
+        }
+
+        var normalizedComponents = components
+        normalizedComponents.scheme = components.scheme?.lowercased()
+        normalizedComponents.host = components.host?.lowercased()
+        normalizedComponents.fragment = nil
+
+        if let port = normalizedComponents.port {
+            let isDefaultHTTPPort = normalizedComponents.scheme == "http" && port == 80
+            let isDefaultHTTPSPort = normalizedComponents.scheme == "https" && port == 443
+
+            if isDefaultHTTPPort || isDefaultHTTPSPort {
+                normalizedComponents.port = nil
+            }
+        }
+
+        if normalizedComponents.path.isEmpty {
+            normalizedComponents.path = "/"
+        }
+
+        return normalizedComponents.string?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? normalizeInlineText(value)
     }
 }
