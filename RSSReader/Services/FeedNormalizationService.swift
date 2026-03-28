@@ -9,6 +9,16 @@ enum FeedNormalizationService {
         )
     }
 
+    static func normalize(_ feed: ParsedFeedDTO, feedURL: String) -> ParsedFeedDTO {
+        let normalizedFeedURL = normalizeSourceURL(feedURL) ?? feedURL
+
+        return ParsedFeedDTO(
+            kind: feed.kind,
+            metadata: normalize(feed.metadata),
+            entries: feed.entries.map { normalize($0, feedURL: normalizedFeedURL) }
+        )
+    }
+
     static func normalize(_ metadata: ParsedFeedMetadataDTO) -> ParsedFeedMetadataDTO {
         ParsedFeedMetadataDTO(
             title: normalizeTitle(metadata.title),
@@ -21,6 +31,7 @@ enum FeedNormalizationService {
 
     static func normalize(_ entry: ParsedFeedEntryDTO) -> ParsedFeedEntryDTO {
         ParsedFeedEntryDTO(
+            externalID: entry.externalID,
             guid: normalizeScalar(entry.guid),
             url: normalizeSourceURL(entry.url),
             canonicalURL: normalizeSourceURL(entry.canonicalURL),
@@ -32,6 +43,37 @@ enum FeedNormalizationService {
             publishedAtRaw: normalizeScalar(entry.publishedAtRaw),
             updatedAtRaw: normalizeScalar(entry.updatedAtRaw),
             imageURL: normalizeSourceURL(entry.imageURL)
+        )
+    }
+
+    static func normalize(_ entry: ParsedFeedEntryDTO, feedURL: String) -> ParsedFeedEntryDTO {
+        let normalizedEntry = normalize(entry)
+        let publishedAt = parsePublishedAt(for: normalizedEntry)
+
+        let externalID = ArticleIdentityService.makeExternalID(
+            from: ArticleIdentityInput(
+                feedURL: feedURL,
+                guid: normalizedEntry.guid,
+                canonicalURL: normalizedEntry.canonicalURL,
+                articleURL: normalizedEntry.url,
+                title: normalizedEntry.title ?? normalizedEntry.summary ?? "",
+                publishedAt: publishedAt
+            )
+        )
+
+        return ParsedFeedEntryDTO(
+            externalID: externalID,
+            guid: normalizedEntry.guid,
+            url: normalizedEntry.url,
+            canonicalURL: normalizedEntry.canonicalURL,
+            title: normalizedEntry.title,
+            summary: normalizedEntry.summary,
+            contentHTML: normalizedEntry.contentHTML,
+            contentText: normalizedEntry.contentText,
+            author: normalizedEntry.author,
+            publishedAtRaw: normalizedEntry.publishedAtRaw,
+            updatedAtRaw: normalizedEntry.updatedAtRaw,
+            imageURL: normalizedEntry.imageURL
         )
     }
 

@@ -81,6 +81,7 @@ struct ParsedFeedMetadataDTO: Sendable {
 }
 
 struct ParsedFeedEntryDTO: Sendable {
+    let externalID: String?
     let guid: String?
     let url: String?
     let canonicalURL: String?
@@ -94,6 +95,7 @@ struct ParsedFeedEntryDTO: Sendable {
     let imageURL: String?
 
     init(
+        externalID: String? = nil,
         guid: String? = nil,
         url: String? = nil,
         canonicalURL: String? = nil,
@@ -106,6 +108,7 @@ struct ParsedFeedEntryDTO: Sendable {
         updatedAtRaw: String? = nil,
         imageURL: String? = nil
     ) {
+        self.externalID = externalID
         self.guid = guid
         self.url = url
         self.canonicalURL = canonicalURL
