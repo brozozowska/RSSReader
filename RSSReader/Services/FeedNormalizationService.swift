@@ -1,14 +1,6 @@
 import Foundation
 
 enum FeedNormalizationService {
-    static func normalize(_ feed: ParsedFeedDTO) -> ParsedFeedDTO {
-        ParsedFeedDTO(
-            kind: feed.kind,
-            metadata: normalize(feed.metadata),
-            entries: feed.entries.map { normalize($0) }
-        )
-    }
-
     static func normalize(_ feed: ParsedFeedDTO, feedURL: String) -> ParsedFeedDTO {
         let normalizedFeedURL = normalizeSourceURL(feedURL) ?? feedURL
 
@@ -19,7 +11,7 @@ enum FeedNormalizationService {
         )
     }
 
-    static func normalize(_ metadata: ParsedFeedMetadataDTO) -> ParsedFeedMetadataDTO {
+    private static func normalize(_ metadata: ParsedFeedMetadataDTO) -> ParsedFeedMetadataDTO {
         ParsedFeedMetadataDTO(
             title: normalizeTitle(metadata.title),
             subtitle: normalizeTextBlock(metadata.subtitle),
@@ -29,7 +21,7 @@ enum FeedNormalizationService {
         )
     }
 
-    static func normalize(_ entry: ParsedFeedEntryDTO) -> ParsedFeedEntryDTO {
+    private static func normalize(_ entry: ParsedFeedEntryDTO) -> ParsedFeedEntryDTO {
         ParsedFeedEntryDTO(
             externalID: entry.externalID,
             guid: normalizeScalar(entry.guid),

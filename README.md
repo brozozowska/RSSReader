@@ -97,7 +97,10 @@
 - реализовать парсинг дат из RSS/Atom форматов;
 - интегрировать генерацию стабильного `externalID`;
 - создать `DeduplicationService` для слияния повторяющихся entries;
-- отбрасывать пустые и невалидные entries до persistence layer.
+- отбрасывать пустые и невалидные entries до persistence layer;
+- создать единый parser pipeline: `parse -> normalize -> deduplicate -> filter`;
+- уточнить merge policy для duplicate entries и выбор более качественного payload;
+- добавить diagnostics для причин отбрасывания invalid entries и parser anomalies.
 
 #### Persistence / Repositories
 - создать `FeedRepository` для CRUD и fetch metadata feed;
