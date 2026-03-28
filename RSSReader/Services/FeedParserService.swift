@@ -173,6 +173,32 @@ enum FeedParserService {
         try detectFeedKind(in: parse(response))
     }
 
+    static func parseFeed(_ document: FeedXMLDocument) throws -> ParsedFeedDTO {
+        switch detectFeedKind(in: document) {
+        case .rss:
+            try parseRSS(document)
+        case .atom:
+            try parseAtom(document)
+        case .unknown:
+            throw FeedParserError.unsupportedFeedKind(.unknown)
+        }
+    }
+
+    static func parseFeed(_ response: FeedResponse) throws -> ParsedFeedDTO {
+        try parseFeed(parse(response))
+    }
+
+    static func extractFeedMetadata(from document: FeedXMLDocument) throws -> ParsedFeedMetadataDTO {
+        switch detectFeedKind(in: document) {
+        case .rss:
+            try extractRSSMetadata(from: document)
+        case .atom:
+            try extractAtomMetadata(from: document)
+        case .unknown:
+            throw FeedParserError.unsupportedFeedKind(.unknown)
+        }
+    }
+
     static func parseRSS(_ document: FeedXMLDocument) throws -> ParsedFeedDTO {
         let kind = detectFeedKind(in: document)
         guard kind == .rss else {
@@ -184,13 +210,7 @@ enum FeedParserService {
             throw FeedParserError.missingRSSElement("channel")
         }
 
-        let metadata = ParsedFeedMetadataDTO(
-            title: channelElement.firstChildText(named: "title"),
-            subtitle: channelElement.firstChildText(named: "description"),
-            siteURL: channelElement.firstChildText(named: "link"),
-            iconURL: channelElement.nestedChildText(["image", "url"]),
-            language: channelElement.firstChildText(named: "language")
-        )
+        let metadata = try extractRSSMetadata(from: document)
 
         let entries = channelElement.children(named: "item").map { itemElement in
             ParsedFeedEntryDTO(
@@ -232,13 +252,7 @@ enum FeedParserService {
             throw FeedParserError.missingAtomElement("feed")
         }
 
-        let metadata = ParsedFeedMetadataDTO(
-            title: feedElement.firstChildText(named: "title"),
-            subtitle: feedElement.firstChildText(named: "subtitle"),
-            siteURL: atomLink(in: feedElement, rel: "alternate") ?? atomLink(in: feedElement),
-            iconURL: feedElement.firstChildText(named: "icon") ?? feedElement.firstChildText(named: "logo"),
-            language: feedElement.attributes["xml:lang"] ?? feedElement.attributes["lang"]
-        )
+        let metadata = try extractAtomMetadata(from: document)
 
         let feedAuthor = atomAuthor(in: feedElement)
         let entries = feedElement.children(named: "entry").map { entryElement in
@@ -267,6 +281,35 @@ enum FeedParserService {
 
     static func parseAtom(_ response: FeedResponse) throws -> ParsedFeedDTO {
         try parseAtom(parse(response))
+    }
+
+    private static func extractRSSMetadata(from document: FeedXMLDocument) throws -> ParsedFeedMetadataDTO {
+        guard let channelElement = document.rootElement.firstChild(named: "channel") else {
+            throw FeedParserError.missingRSSElement("channel")
+        }
+
+        return ParsedFeedMetadataDTO(
+            title: channelElement.firstChildText(named: "title"),
+            subtitle: channelElement.firstChildText(named: "description"),
+            siteURL: channelElement.firstChildText(named: "link"),
+            iconURL: channelElement.nestedChildText(["image", "url"]),
+            language: channelElement.firstChildText(named: "language")
+        )
+    }
+
+    private static func extractAtomMetadata(from document: FeedXMLDocument) throws -> ParsedFeedMetadataDTO {
+        let feedElement = document.rootElement
+        guard feedElement.name.lowercased() == "feed" else {
+            throw FeedParserError.missingAtomElement("feed")
+        }
+
+        return ParsedFeedMetadataDTO(
+            title: feedElement.firstChildText(named: "title"),
+            subtitle: feedElement.firstChildText(named: "subtitle"),
+            siteURL: atomLink(in: feedElement, rel: "alternate") ?? atomLink(in: feedElement),
+            iconURL: feedElement.firstChildText(named: "icon") ?? feedElement.firstChildText(named: "logo"),
+            language: feedElement.attributes["xml:lang"] ?? feedElement.attributes["lang"]
+        )
     }
 
     private static func contentHTML(in itemElement: FeedXMLElement) -> String? {
