@@ -3,6 +3,8 @@ import Foundation
 enum FeedParserError: Error {
     case emptyDocument
     case malformedXML(line: Int, column: Int, message: String)
+    case unsupportedFeedKind(FeedKind)
+    case missingRSSElement(String)
 }
 
 struct FeedXMLDocument: Sendable {
@@ -32,6 +34,20 @@ struct FeedXMLElement: Sendable {
 
     func children(named name: String) -> [FeedXMLElement] {
         children.filter { $0.name == name }
+    }
+
+    func firstChildText(named name: String) -> String? {
+        firstChild(named: name)?.normalizedText
+    }
+
+    func nestedChildText(_ path: [String]) -> String? {
+        var currentElement: FeedXMLElement? = self
+
+        for name in path {
+            currentElement = currentElement?.firstChild(named: name)
+        }
+
+        return currentElement?.normalizedText
     }
 }
 
@@ -154,6 +170,64 @@ enum FeedParserService {
 
     static func detectFeedKind(in response: FeedResponse) throws -> FeedKind {
         try detectFeedKind(in: parse(response))
+    }
+
+    static func parseRSS(_ document: FeedXMLDocument) throws -> ParsedFeedDTO {
+        let kind = detectFeedKind(in: document)
+        guard kind == .rss else {
+            throw FeedParserError.unsupportedFeedKind(kind)
+        }
+
+        let rootElement = document.rootElement
+        guard let channelElement = rootElement.firstChild(named: "channel") else {
+            throw FeedParserError.missingRSSElement("channel")
+        }
+
+        let metadata = ParsedFeedMetadataDTO(
+            title: channelElement.firstChildText(named: "title"),
+            subtitle: channelElement.firstChildText(named: "description"),
+            siteURL: channelElement.firstChildText(named: "link"),
+            iconURL: channelElement.nestedChildText(["image", "url"]),
+            language: channelElement.firstChildText(named: "language")
+        )
+
+        let entries = channelElement.children(named: "item").map { itemElement in
+            ParsedFeedEntryDTO(
+                guid: itemElement.firstChildText(named: "guid"),
+                url: itemElement.firstChildText(named: "link"),
+                canonicalURL: itemElement.firstChildText(named: "comments"),
+                title: itemElement.firstChildText(named: "title"),
+                summary: itemElement.firstChildText(named: "description"),
+                contentHTML: contentHTML(in: itemElement),
+                contentText: itemElement.firstChildText(named: "description"),
+                author: itemElement.firstChildText(named: "author")
+                    ?? itemElement.firstChildText(named: "dc:creator")
+                    ?? itemElement.firstChildText(named: "creator"),
+                publishedAtRaw: itemElement.firstChildText(named: "pubDate"),
+                updatedAtRaw: itemElement.firstChildText(named: "dc:date"),
+                imageURL: enclosureURL(in: itemElement)
+            )
+        }
+
+        return ParsedFeedDTO(
+            kind: .rss,
+            metadata: metadata,
+            entries: entries
+        )
+    }
+
+    static func parseRSS(_ response: FeedResponse) throws -> ParsedFeedDTO {
+        try parseRSS(parse(response))
+    }
+
+    private static func contentHTML(in itemElement: FeedXMLElement) -> String? {
+        itemElement.firstChildText(named: "content:encoded")
+            ?? itemElement.firstChildText(named: "encoded")
+    }
+
+    private static func enclosureURL(in itemElement: FeedXMLElement) -> String? {
+        guard let enclosure = itemElement.firstChild(named: "enclosure") else { return nil }
+        return enclosure.attributes["url"]?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
