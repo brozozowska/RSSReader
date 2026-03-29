@@ -58,13 +58,13 @@ struct ReaderView: View {
     private func loadArticle() async {
         defer { hasLoadedArticle = true }
 
-        guard let articleID, let articleRepository = dependencies.articleRepository else {
+        guard let articleID, let articleQueryService = dependencies.articleQueryService else {
             article = nil
             return
         }
 
         do {
-            article = try articleRepository.fetchReaderArticle(id: articleID)
+            article = try articleQueryService.fetchReaderArticle(id: articleID)
         } catch {
             dependencies.logger.error("Failed to load article by ID \(articleID): \(error)")
             article = nil

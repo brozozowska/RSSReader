@@ -28,4 +28,19 @@ struct ArticleListItemDTO: Sendable, Identifiable {
         self.isStarred = state?.isStarred ?? false
         self.isHidden = state?.isHidden ?? false
     }
+
+    init(article: Article, state: ArticleUserStateSnapshot?) {
+        self.id = article.id
+        self.feedID = article.feedID
+        self.feedTitle = article.feed.title
+        self.articleExternalID = article.externalID
+        self.title = article.title
+        self.summary = article.summary
+        self.author = article.author
+        self.publishedAt = article.publishedAt
+        self.fetchedAt = article.fetchedAt
+        self.isRead = state?.isRead ?? false
+        self.isStarred = state?.isStarred ?? false
+        self.isHidden = state?.isHidden ?? false
+    }
 }

@@ -7,11 +7,6 @@ protocol ArticleRepository {
     func fetchArticle(feedID: UUID, externalID: String) throws -> Article?
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article]
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
-    func fetchArticleListItems(feedID: UUID, sortMode: ArticleSortMode) throws -> [ArticleListItemDTO]
-    func fetchArticleListItems(feedID: UUID, sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO]
-    func fetchInboxListItems(sortMode: ArticleSortMode) throws -> [ArticleListItemDTO]
-    func fetchInboxListItems(sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO]
-    func fetchReaderArticle(id: UUID) throws -> ReaderArticleDTO?
 
     @discardableResult
     func upsert(_ entry: ParsedFeedEntryDTO, into feed: Feed, fetchedAt: Date) throws -> Article?
@@ -73,44 +68,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             sortBy: sortDescriptors(for: sortMode)
         )
         return try modelContext.fetch(descriptor)
-    }
-
-    func fetchArticleListItems(feedID: UUID, sortMode: ArticleSortMode) throws -> [ArticleListItemDTO] {
-        try fetchArticleListItems(feedID: feedID, sortMode: sortMode, filter: .all)
-    }
-
-    func fetchArticleListItems(feedID: UUID, sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO] {
-        let articles = try fetchArticles(feedID: feedID, sortMode: sortMode)
-        let stateByCompositeKey = try fetchStateByCompositeKey(for: articles)
-
-        return articles.compactMap { article in
-            let state = stateByCompositeKey[articleCompositeKey(feedID: article.feedID, articleExternalID: article.externalID)]
-            let item = ArticleListItemDTO(article: article, state: state)
-            return matches(filter: filter, item: item) ? item : nil
-        }
-    }
-
-    func fetchInboxListItems(sortMode: ArticleSortMode) throws -> [ArticleListItemDTO] {
-        try fetchInboxListItems(sortMode: sortMode, filter: .all)
-    }
-
-    func fetchInboxListItems(sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO] {
-        let articles = try fetchInbox(sortMode: sortMode)
-        let stateByCompositeKey = try fetchStateByCompositeKey(for: articles)
-
-        return articles.compactMap { article in
-            let state = stateByCompositeKey[articleCompositeKey(feedID: article.feedID, articleExternalID: article.externalID)]
-            let item = ArticleListItemDTO(article: article, state: state)
-            return matches(filter: filter, item: item) ? item : nil
-        }
-    }
-
-    func fetchReaderArticle(id: UUID) throws -> ReaderArticleDTO? {
-        guard let article = try fetchArticle(id: id) else { return nil }
-
-        let stateByCompositeKey = try fetchStateByCompositeKey(for: [article])
-        let state = stateByCompositeKey[articleCompositeKey(feedID: article.feedID, articleExternalID: article.externalID)]
-        return ReaderArticleDTO(article: article, state: state)
     }
 
     @discardableResult
@@ -223,33 +180,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
                 SortDescriptor(\Article.fetchedAt, order: .reverse),
                 SortDescriptor(\Article.createdAt, order: .reverse)
             ]
-        }
-    }
-
-    private func fetchStateByCompositeKey(for articles: [Article]) throws -> [String: ArticleState] {
-        guard articles.isEmpty == false else { return [:] }
-
-        let descriptor = FetchDescriptor<ArticleState>()
-        let states = try modelContext.fetch(descriptor)
-        let relevantKeys = Set(articles.map { articleCompositeKey(feedID: $0.feedID, articleExternalID: $0.externalID) })
-
-        return states.reduce(into: [String: ArticleState]()) { partialResult, state in
-            let key = articleCompositeKey(feedID: state.feedID, articleExternalID: state.articleExternalID)
-            guard relevantKeys.contains(key) else { return }
-            partialResult[key] = state
-        }
-    }
-
-    private func matches(filter: ArticleListFilter, item: ArticleListItemDTO) -> Bool {
-        switch filter {
-        case .all:
-            item.isHidden == false
-        case .unread:
-            item.isHidden == false && item.isRead == false
-        case .starred:
-            item.isHidden == false && item.isStarred
-        case .hidden:
-            item.isHidden
         }
     }
 }

@@ -17,6 +17,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     public let feedFetcher: any FeedFetching
     let feedRepository: (any FeedRepository)?
     let articleRepository: (any ArticleRepository)?
+    let articleQueryService: (any ArticleQueryService)?
     let articleStateRepository: (any ArticleStateRepository)?
     let appSettingsRepository: (any AppSettingsRepository)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
@@ -28,28 +29,46 @@ public final class AppDependencies: AppDependenciesProtocol {
         feedFetcher: (any FeedFetching)? = nil,
         modelContainer: ModelContainer? = nil
     ) {
+        let feedRepository = modelContainer.map { container in
+            SwiftDataFeedRepository(modelContext: container.mainContext)
+        }
+        let articleRepository = modelContainer.map { container in
+            SwiftDataArticleRepository(modelContext: container.mainContext)
+        }
+        let articleStateRepository = modelContainer.map { container in
+            SwiftDataArticleStateRepository(modelContext: container.mainContext)
+        }
+        let articleQueryService: (any ArticleQueryService)? = {
+            guard let articleRepository,
+                  let articleStateRepository else {
+                return nil
+            }
+
+            return DefaultArticleQueryService(
+                articleRepository: articleRepository,
+                articleStateRepository: articleStateRepository
+            )
+        }()
+        let appSettingsRepository = modelContainer.map { container in
+            SwiftDataAppSettingsRepository(modelContext: container.mainContext)
+        }
+        let feedFetchLogRepository = modelContainer.map { container in
+            SwiftDataFeedFetchLogRepository(modelContext: container.mainContext)
+        }
+
         self.logger = logger
         self.httpClient = httpClient
         self.modelContainer = modelContainer
-        self.feedRepository = modelContainer.map { container in
-            SwiftDataFeedRepository(modelContext: container.mainContext)
-        }
-        self.articleRepository = modelContainer.map { container in
-            SwiftDataArticleRepository(modelContext: container.mainContext)
-        }
-        self.articleStateRepository = modelContainer.map { container in
-            SwiftDataArticleStateRepository(modelContext: container.mainContext)
-        }
-        self.appSettingsRepository = modelContainer.map { container in
-            SwiftDataAppSettingsRepository(modelContext: container.mainContext)
-        }
-        self.feedFetchLogRepository = modelContainer.map { container in
-            SwiftDataFeedFetchLogRepository(modelContext: container.mainContext)
-        }
+        self.feedRepository = feedRepository
+        self.articleRepository = articleRepository
+        self.articleStateRepository = articleStateRepository
+        self.articleQueryService = articleQueryService
+        self.appSettingsRepository = appSettingsRepository
+        self.feedFetchLogRepository = feedFetchLogRepository
         self.feedFetcher = feedFetcher ?? Self.makeFeedFetcher(
             httpClient: httpClient,
             logger: logger,
-            feedFetchLogRepository: self.feedFetchLogRepository
+            feedFetchLogRepository: feedFetchLogRepository
         )
     }
 }

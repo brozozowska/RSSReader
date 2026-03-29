@@ -48,7 +48,7 @@ struct ArticleListView: View {
     private func loadArticles() async {
         defer { hasLoadedArticles = true }
 
-        guard let articleRepository = dependencies.articleRepository else {
+        guard let articleQueryService = dependencies.articleQueryService else {
             articles = []
             selection = nil
             return
@@ -59,9 +59,9 @@ struct ArticleListView: View {
         do {
             switch selectedSidebarSelection {
             case .inbox:
-                articles = try articleRepository.fetchInboxListItems(sortMode: sortMode)
+                articles = try articleQueryService.fetchInboxListItems(sortMode: sortMode)
             case .feed(let selectedFeedID):
-                articles = try articleRepository.fetchArticleListItems(feedID: selectedFeedID, sortMode: sortMode)
+                articles = try articleQueryService.fetchArticleListItems(feedID: selectedFeedID, sortMode: sortMode)
             case .none:
                 articles = []
             }
