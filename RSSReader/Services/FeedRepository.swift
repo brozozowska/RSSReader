@@ -107,6 +107,9 @@ protocol FeedRepository {
     @discardableResult
     func updateMetadata(for feedID: UUID, with update: FeedMetadataUpdate) throws -> Feed?
 
+    @discardableResult
+    func delete(feedID: UUID) throws -> Bool
+
     func save() throws
     func delete(_ feed: Feed) throws
 }
@@ -239,6 +242,13 @@ final class SwiftDataFeedRepository: FeedRepository {
 
     func delete(_ feed: Feed) throws {
         try FeedDeletionService.delete(feed, in: modelContext)
+    }
+
+    @discardableResult
+    func delete(feedID: UUID) throws -> Bool {
+        guard let feed = try fetchFeed(id: feedID) else { return false }
+        try delete(feed)
+        return true
     }
 
     private func saveIfNeeded(force: Bool = false) throws {

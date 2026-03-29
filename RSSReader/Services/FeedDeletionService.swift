@@ -12,6 +12,13 @@ enum FeedDeletionService {
             }
         )
 
+        try modelContext.delete(
+            model: FeedFetchLog.self,
+            where: #Predicate<FeedFetchLog> { feedFetchLog in
+                feedFetchLog.feedID == feedID
+            }
+        )
+
         modelContext.delete(feed)
 
         if modelContext.hasChanges {
