@@ -18,6 +18,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let feedRepository: (any FeedRepository)?
     let articleRepository: (any ArticleRepository)?
     let articleStateRepository: (any ArticleStateRepository)?
+    let appSettingsRepository: (any AppSettingsRepository)?
     public let modelContainer: ModelContainer?
 
     public init(
@@ -38,6 +39,9 @@ public final class AppDependencies: AppDependenciesProtocol {
         }
         self.articleStateRepository = modelContainer.map { container in
             SwiftDataArticleStateRepository(modelContext: container.mainContext)
+        }
+        self.appSettingsRepository = modelContainer.map { container in
+            SwiftDataAppSettingsRepository(modelContext: container.mainContext)
         }
     }
 }
