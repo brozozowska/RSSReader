@@ -16,6 +16,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     public let httpClient: any HTTPClient
     public let feedFetcher: any FeedFetching
     let feedRepository: (any FeedRepository)?
+    let articleRepository: (any ArticleRepository)?
     public let modelContainer: ModelContainer?
 
     public init(
@@ -30,6 +31,9 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.modelContainer = modelContainer
         self.feedRepository = modelContainer.map { container in
             SwiftDataFeedRepository(modelContext: container.mainContext)
+        }
+        self.articleRepository = modelContainer.map { container in
+            SwiftDataArticleRepository(modelContext: container.mainContext)
         }
     }
 }

@@ -1,0 +1,194 @@
+import Foundation
+import SwiftData
+
+struct ArticleUpsertPayload: Sendable {
+    let externalID: String
+    let guid: String?
+    let url: String
+    let canonicalURL: String?
+    let title: String
+    let summary: String?
+    let contentHTML: String?
+    let contentText: String?
+    let author: String?
+    let publishedAt: Date?
+    let updatedAtSource: Date?
+    let imageURL: String?
+    let isDeletedAtSource: Bool
+    let fetchedAt: Date
+
+    init?(
+        entry: ParsedFeedEntryDTO,
+        fetchedAt: Date = .now,
+        isDeletedAtSource: Bool = false
+    ) {
+        guard
+            let externalID = entry.externalID,
+            let url = entry.url,
+            let title = entry.title ?? entry.summary
+        else {
+            return nil
+        }
+
+        self.externalID = externalID
+        self.guid = entry.guid
+        self.url = url
+        self.canonicalURL = entry.canonicalURL
+        self.title = title
+        self.summary = entry.summary
+        self.contentHTML = entry.contentHTML
+        self.contentText = entry.contentText
+        self.author = entry.author
+        self.publishedAt = FeedNormalizationService.parsePublishedAt(for: entry)
+        self.updatedAtSource = FeedNormalizationService.parseUpdatedAt(for: entry)
+        self.imageURL = entry.imageURL
+        self.isDeletedAtSource = isDeletedAtSource
+        self.fetchedAt = fetchedAt
+    }
+}
+
+@MainActor
+protocol ArticleRepository {
+    func fetchArticle(feedID: UUID, externalID: String) throws -> Article?
+    func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article]
+    func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
+
+    @discardableResult
+    func upsert(_ payload: ArticleUpsertPayload, into feed: Feed) throws -> Article
+
+    @discardableResult
+    func upsert(_ payloads: [ArticleUpsertPayload], into feed: Feed) throws -> [Article]
+
+    func save() throws
+    func delete(_ article: Article) throws
+}
+
+@MainActor
+final class SwiftDataArticleRepository: ArticleRepository {
+    private let modelContext: ModelContext
+
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
+    }
+
+    func fetchArticle(feedID: UUID, externalID: String) throws -> Article? {
+        var descriptor = FetchDescriptor<Article>(
+            predicate: #Predicate<Article> { article in
+                article.feed.id == feedID && article.externalID == externalID
+            }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
+    }
+
+    func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article] {
+        let descriptor = FetchDescriptor<Article>(
+            predicate: #Predicate<Article> { article in
+                article.feed.id == feedID && article.isDeletedAtSource == false
+            },
+            sortBy: sortDescriptors(for: sortMode)
+        )
+        return try modelContext.fetch(descriptor)
+    }
+
+    func fetchInbox(sortMode: ArticleSortMode) throws -> [Article] {
+        let descriptor = FetchDescriptor<Article>(
+            predicate: #Predicate<Article> { article in
+                article.isDeletedAtSource == false
+            },
+            sortBy: sortDescriptors(for: sortMode)
+        )
+        return try modelContext.fetch(descriptor)
+    }
+
+    @discardableResult
+    func upsert(_ payload: ArticleUpsertPayload, into feed: Feed) throws -> Article {
+        if let existingArticle = try fetchArticle(feedID: feed.id, externalID: payload.externalID) {
+            apply(payload, to: existingArticle)
+            try saveIfNeeded()
+            return existingArticle
+        }
+
+        let article = Article(
+            feed: feed,
+            externalID: payload.externalID,
+            guid: payload.guid,
+            url: payload.url,
+            canonicalURL: payload.canonicalURL,
+            title: payload.title,
+            summary: payload.summary,
+            contentHTML: payload.contentHTML,
+            contentText: payload.contentText,
+            author: payload.author,
+            publishedAt: payload.publishedAt,
+            updatedAtSource: payload.updatedAtSource,
+            imageURL: payload.imageURL,
+            isDeletedAtSource: payload.isDeletedAtSource,
+            fetchedAt: payload.fetchedAt
+        )
+
+        modelContext.insert(article)
+        try saveIfNeeded()
+        return article
+    }
+
+    @discardableResult
+    func upsert(_ payloads: [ArticleUpsertPayload], into feed: Feed) throws -> [Article] {
+        let articles = try payloads.map { payload in
+            try upsert(payload, into: feed)
+        }
+        try saveIfNeeded()
+        return articles
+    }
+
+    func save() throws {
+        try saveIfNeeded(force: true)
+    }
+
+    func delete(_ article: Article) throws {
+        modelContext.delete(article)
+        try saveIfNeeded()
+    }
+
+    private func apply(_ payload: ArticleUpsertPayload, to article: Article) {
+        article.guid = payload.guid
+        article.url = payload.url
+        article.canonicalURL = payload.canonicalURL
+        article.title = payload.title
+        article.summary = payload.summary
+        article.contentHTML = payload.contentHTML
+        article.contentText = payload.contentText
+        article.author = payload.author
+        article.publishedAt = payload.publishedAt
+        article.updatedAtSource = payload.updatedAtSource
+        article.imageURL = payload.imageURL
+        article.isDeletedAtSource = payload.isDeletedAtSource
+        article.fetchedAt = payload.fetchedAt
+        article.updatedAt = .now
+    }
+
+    private func sortDescriptors(for sortMode: ArticleSortMode) -> [SortDescriptor<Article>] {
+        switch sortMode {
+        case .publishedAtDescending:
+            [
+                SortDescriptor(\Article.publishedAt, order: .reverse),
+                SortDescriptor(\Article.fetchedAt, order: .reverse)
+            ]
+        case .publishedAtAscending:
+            [
+                SortDescriptor(\Article.publishedAt, order: .forward),
+                SortDescriptor(\Article.fetchedAt, order: .forward)
+            ]
+        case .fetchedAtDescending:
+            [
+                SortDescriptor(\Article.fetchedAt, order: .reverse),
+                SortDescriptor(\Article.createdAt, order: .reverse)
+            ]
+        }
+    }
+
+    private func saveIfNeeded(force: Bool = false) throws {
+        guard force || modelContext.hasChanges else { return }
+        try modelContext.save()
+    }
+}
