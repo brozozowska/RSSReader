@@ -4,12 +4,22 @@ struct ArticleListView: View {
     @Environment(\.appDependencies) private var dependencies
     let selectedSidebarSelection: SidebarSelection?
     @Binding var selection: UUID?
-    @State private var articles: [Article] = []
+    @State private var articles: [ArticleListItemDTO] = []
     @State private var hasLoadedArticles = false
 
     var body: some View {
         List(articles, id: \.id, selection: $selection) { article in
-            Text(article.title)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(article.title)
+                    .font(.body.weight(article.isRead ? .regular : .semibold))
+
+                if let summary = article.summary {
+                    Text(summary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
         }
         .navigationTitle("Articles")
         .overlay {
@@ -49,9 +59,9 @@ struct ArticleListView: View {
         do {
             switch selectedSidebarSelection {
             case .inbox:
-                articles = try articleRepository.fetchInbox(sortMode: sortMode)
+                articles = try articleRepository.fetchInboxListItems(sortMode: sortMode)
             case .feed(let selectedFeedID):
-                articles = try articleRepository.fetchArticles(feedID: selectedFeedID, sortMode: sortMode)
+                articles = try articleRepository.fetchArticleListItems(feedID: selectedFeedID, sortMode: sortMode)
             case .none:
                 articles = []
             }

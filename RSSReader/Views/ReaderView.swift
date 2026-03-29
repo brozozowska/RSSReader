@@ -3,7 +3,7 @@ import SwiftUI
 struct ReaderView: View {
     @Environment(\.appDependencies) private var dependencies
     let articleID: UUID?
-    @State private var article: Article?
+    @State private var article: ReaderArticleDTO?
     @State private var hasLoadedArticle = false
 
     var body: some View {
@@ -13,6 +13,10 @@ struct ReaderView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text(article.title)
                             .font(.title2.weight(.semibold))
+
+                        Text(article.feedTitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
 
                         if let author = article.author {
                             Text(author)
@@ -60,7 +64,7 @@ struct ReaderView: View {
         }
 
         do {
-            article = try articleRepository.fetchArticle(id: articleID)
+            article = try articleRepository.fetchReaderArticle(id: articleID)
         } catch {
             dependencies.logger.error("Failed to load article by ID \(articleID): \(error)")
             article = nil
