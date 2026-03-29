@@ -13,7 +13,15 @@ struct SidebarView: View {
 
             Section("Feeds") {
                 ForEach(feeds) { feed in
-                    Text(feed.title)
+                    HStack {
+                        Text(feed.title)
+                        Spacer()
+                        if feed.unreadCount > 0 {
+                            Text(feed.unreadCount, format: .number)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                         .tag(Optional(SidebarSelection.feed(feed.id)))
                 }
             }
@@ -47,6 +55,18 @@ struct SidebarView: View {
         } catch {
             dependencies.logger.error("Failed to load sidebar feeds: \(error)")
             feeds = []
+            return
+        }
+
+        if let articleStateRepository = dependencies.articleStateRepository {
+            do {
+                let unreadCounts = try articleStateRepository.fetchUnreadCounts(feedIDs: feeds.map(\.id))
+                feeds = feeds.map { feed in
+                    feed.withUnreadCount(unreadCounts[feed.id, default: 0])
+                }
+            } catch {
+                dependencies.logger.error("Failed to load unread counts for sidebar feeds: \(error)")
+            }
         }
 
         if let selection {

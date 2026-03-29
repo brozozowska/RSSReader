@@ -33,6 +33,7 @@ protocol ArticleStateRepository {
     func fetchStateSnapshot(feedID: UUID, articleExternalID: String) throws -> ArticleUserStateSnapshot?
     func fetchStateSnapshots(feedID: UUID, articleExternalIDs: [String]) throws -> [String: ArticleUserStateSnapshot]
     func fetchStateSnapshots(for articles: [Article]) throws -> [String: ArticleUserStateSnapshot]
+    func fetchUnreadCounts(feedIDs: [UUID]) throws -> [UUID: Int]
 }
 
 @MainActor
@@ -95,6 +96,38 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository {
         }
 
         return snapshotsByCompositeKey
+    }
+
+    func fetchUnreadCounts(feedIDs: [UUID]) throws -> [UUID: Int] {
+        let normalizedFeedIDs = Set(feedIDs)
+        guard normalizedFeedIDs.isEmpty == false else { return [:] }
+
+        let articleDescriptor = FetchDescriptor<Article>(
+            predicate: #Predicate<Article> { article in
+                article.isDeletedAtSource == false
+            }
+        )
+        let articles = try modelContext.fetch(articleDescriptor)
+
+        let relevantArticles = articles.filter { normalizedFeedIDs.contains($0.feedID) }
+        guard relevantArticles.isEmpty == false else {
+            return Dictionary(uniqueKeysWithValues: normalizedFeedIDs.map { ($0, 0) })
+        }
+
+        let stateSnapshots = try fetchStateSnapshots(for: relevantArticles)
+        var unreadCounts = Dictionary(uniqueKeysWithValues: normalizedFeedIDs.map { ($0, 0) })
+
+        for article in relevantArticles {
+            let key = compositeKey(feedID: article.feedID, articleExternalID: article.externalID)
+            let state = stateSnapshots[key]
+            let isHidden = state?.isHidden ?? false
+            let isRead = state?.isRead ?? false
+
+            guard isHidden == false, isRead == false else { continue }
+            unreadCounts[article.feedID, default: 0] += 1
+        }
+
+        return unreadCounts
     }
 
     private func compositeKey(feedID: UUID, articleExternalID: String) -> String {

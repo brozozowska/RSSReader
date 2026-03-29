@@ -42,12 +42,38 @@ struct FeedSidebarItem: Sendable, Identifiable {
     let title: String
     let iconURL: String?
     let folderName: String?
+    let unreadCount: Int
 
-    init(feed: Feed) {
+    init(feed: Feed, unreadCount: Int = 0) {
         self.id = feed.id
         self.title = feed.title
         self.iconURL = feed.iconURL
         self.folderName = feed.folder?.name
+        self.unreadCount = unreadCount
+    }
+
+    func withUnreadCount(_ unreadCount: Int) -> FeedSidebarItem {
+        FeedSidebarItem(
+            id: id,
+            title: title,
+            iconURL: iconURL,
+            folderName: folderName,
+            unreadCount: unreadCount
+        )
+    }
+
+    private init(
+        id: UUID,
+        title: String,
+        iconURL: String?,
+        folderName: String?,
+        unreadCount: Int
+    ) {
+        self.id = id
+        self.title = title
+        self.iconURL = iconURL
+        self.folderName = folderName
+        self.unreadCount = unreadCount
     }
 }
 
@@ -137,7 +163,9 @@ final class SwiftDataFeedRepository: FeedRepository {
     }
 
     func fetchSidebarItems() throws -> [FeedSidebarItem] {
-        try fetchActiveFeeds().map(FeedSidebarItem.init(feed:))
+        try fetchActiveFeeds().map { feed in
+            FeedSidebarItem(feed: feed)
+        }
     }
 
     func fetchMetadata(for feedID: UUID) throws -> FeedFetchMetadata? {
