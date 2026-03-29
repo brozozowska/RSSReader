@@ -7,6 +7,12 @@ protocol FeedFetchLogRepository {
     func fetchLatestLog(feedID: UUID) throws -> FeedFetchLog?
 
     @discardableResult
+    func insert(_ entry: FeedFetchLogEntry) throws -> FeedFetchLog
+
+    @discardableResult
+    func insert(_ entries: [FeedFetchLogEntry]) throws -> [FeedFetchLog]
+
+    @discardableResult
     func insert(_ log: FeedFetchLog) throws -> FeedFetchLog
 
     @discardableResult
@@ -42,6 +48,24 @@ final class SwiftDataFeedFetchLogRepository: FeedFetchLogRepository {
 
     func fetchLatestLog(feedID: UUID) throws -> FeedFetchLog? {
         try fetchLogs(feedID: feedID, limit: 1).first
+    }
+
+    @discardableResult
+    func insert(_ entry: FeedFetchLogEntry) throws -> FeedFetchLog {
+        let log = FeedFetchLog(entry: entry)
+        modelContext.insert(log)
+        try saveIfNeeded()
+        return log
+    }
+
+    @discardableResult
+    func insert(_ entries: [FeedFetchLogEntry]) throws -> [FeedFetchLog] {
+        let logs = entries.map(FeedFetchLog.init(entry:))
+        for log in logs {
+            modelContext.insert(log)
+        }
+        try saveIfNeeded()
+        return logs
     }
 
     @discardableResult

@@ -1,6 +1,6 @@
 import Foundation
 
-typealias FeedFetchLogSink = @Sendable (FeedFetchLog) async -> Void
+typealias FeedFetchLogSink = @Sendable (FeedFetchLogEntry) async -> Void
 
 public struct FeedRetryPolicy: Sendable {
     public let maxAttempts: Int
@@ -200,7 +200,7 @@ public struct FeedFetcher: FeedFetching {
         }
     }
 
-    private func makeLog(for result: FeedFetchResult) -> FeedFetchLog {
+    private func makeLog(for result: FeedFetchResult) -> FeedFetchLogEntry {
         let response = result.response
 
         let status: String = switch result {
@@ -217,7 +217,7 @@ public struct FeedFetcher: FeedFetching {
             "Feed not modified"
         }
 
-        return FeedFetchLog(
+        return FeedFetchLogEntry(
             feedID: response.request.feedID,
             status: status,
             httpCode: response.statusCode,
@@ -225,14 +225,14 @@ public struct FeedFetcher: FeedFetching {
         )
     }
 
-    private func makeFailureLog(for request: FeedRequest, error: Error) -> FeedFetchLog {
+    private func makeFailureLog(for request: FeedRequest, error: Error) -> FeedFetchLogEntry {
         let httpCode: Int? = if case .invalidStatusCode(let statusCode) = error as? FeedFetchError {
             statusCode
         } else {
             nil
         }
 
-        return FeedFetchLog(
+        return FeedFetchLogEntry(
             feedID: request.feedID,
             status: "failed",
             httpCode: httpCode,
