@@ -37,6 +37,20 @@ struct FeedFetchMetadata: Sendable {
     }
 }
 
+struct FeedSidebarItem: Sendable, Identifiable {
+    let id: UUID
+    let title: String
+    let iconURL: String?
+    let folderName: String?
+
+    init(feed: Feed) {
+        self.id = feed.id
+        self.title = feed.title
+        self.iconURL = feed.iconURL
+        self.folderName = feed.folder?.name
+    }
+}
+
 struct FeedMetadataUpdate: Sendable {
     var siteURL: String? = nil
     var title: String? = nil
@@ -58,6 +72,7 @@ protocol FeedRepository {
     func fetchFeed(url: String) throws -> Feed?
     func fetchAllFeeds() throws -> [Feed]
     func fetchActiveFeeds() throws -> [Feed]
+    func fetchSidebarItems() throws -> [FeedSidebarItem]
     func fetchMetadata(for feedID: UUID) throws -> FeedFetchMetadata?
 
     @discardableResult
@@ -119,6 +134,10 @@ final class SwiftDataFeedRepository: FeedRepository {
             ]
         )
         return try modelContext.fetch(descriptor)
+    }
+
+    func fetchSidebarItems() throws -> [FeedSidebarItem] {
+        try fetchActiveFeeds().map(FeedSidebarItem.init(feed:))
     }
 
     func fetchMetadata(for feedID: UUID) throws -> FeedFetchMetadata? {
