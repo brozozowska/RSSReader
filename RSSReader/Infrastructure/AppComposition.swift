@@ -6,6 +6,14 @@ import Observation
 /// Создаёт корневой View c установленными зависимостями.
 /// - Parameter models: Список SwiftData моделей. Если пустой — контейнер не создаётся.
 enum AppComposition {
+    static let appModels: [any PersistentModel.Type] = [
+        AppSettings.self,
+        Article.self,
+        ArticleState.self,
+        Feed.self,
+        FeedFetchLog.self,
+        Folder.self
+    ]
 
     @ViewBuilder
     static func makeRoot(models: [any PersistentModel.Type] = []) -> some View {
