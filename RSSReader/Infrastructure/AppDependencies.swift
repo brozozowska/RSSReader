@@ -15,6 +15,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     public let logger: Logging
     public let httpClient: any HTTPClient
     public let feedFetcher: any FeedFetching
+    let feedRepository: (any FeedRepository)?
     public let modelContainer: ModelContainer?
 
     public init(
@@ -27,6 +28,9 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.httpClient = httpClient
         self.feedFetcher = feedFetcher ?? FeedFetcher(httpClient: httpClient)
         self.modelContainer = modelContainer
+        self.feedRepository = modelContainer.map { container in
+            SwiftDataFeedRepository(modelContext: container.mainContext)
+        }
     }
 }
 
@@ -51,6 +55,9 @@ public extension AppDependencies {
         let baseLogger = OSLogger(category: "app")
         let logger: Logging = FilteredLogger(minLevel: .info, base: baseLogger)
 #endif
-        return AppDependencies(logger: logger)
+        let schema = Schema(models)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let modelContainer = try? ModelContainer(for: schema, configurations: [configuration])
+        return AppDependencies(logger: logger, modelContainer: modelContainer)
     }
 }
