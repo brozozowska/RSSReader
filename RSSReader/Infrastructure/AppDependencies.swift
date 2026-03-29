@@ -15,6 +15,12 @@ public final class AppDependencies: AppDependenciesProtocol {
     public let logger: Logging
     public let httpClient: any HTTPClient
     public let feedFetcher: any FeedFetching
+    let feedRepository: (any FeedRepository)?
+    let articleRepository: (any ArticleRepository)?
+    let articleQueryService: (any ArticleQueryService)?
+    let articleStateRepository: (any ArticleStateRepository)?
+    let appSettingsRepository: (any AppSettingsRepository)?
+    let feedFetchLogRepository: (any FeedFetchLogRepository)?
     public let modelContainer: ModelContainer?
 
     public init(
@@ -23,10 +29,47 @@ public final class AppDependencies: AppDependenciesProtocol {
         feedFetcher: (any FeedFetching)? = nil,
         modelContainer: ModelContainer? = nil
     ) {
+        let feedRepository = modelContainer.map { container in
+            SwiftDataFeedRepository(modelContext: container.mainContext)
+        }
+        let articleRepository = modelContainer.map { container in
+            SwiftDataArticleRepository(modelContext: container.mainContext)
+        }
+        let articleStateRepository = modelContainer.map { container in
+            SwiftDataArticleStateRepository(modelContext: container.mainContext)
+        }
+        let articleQueryService: (any ArticleQueryService)? = {
+            guard let articleRepository,
+                  let articleStateRepository else {
+                return nil
+            }
+
+            return DefaultArticleQueryService(
+                articleRepository: articleRepository,
+                articleStateRepository: articleStateRepository
+            )
+        }()
+        let appSettingsRepository = modelContainer.map { container in
+            SwiftDataAppSettingsRepository(modelContext: container.mainContext)
+        }
+        let feedFetchLogRepository = modelContainer.map { container in
+            SwiftDataFeedFetchLogRepository(modelContext: container.mainContext)
+        }
+
         self.logger = logger
         self.httpClient = httpClient
-        self.feedFetcher = feedFetcher ?? FeedFetcher(httpClient: httpClient)
         self.modelContainer = modelContainer
+        self.feedRepository = feedRepository
+        self.articleRepository = articleRepository
+        self.articleStateRepository = articleStateRepository
+        self.articleQueryService = articleQueryService
+        self.appSettingsRepository = appSettingsRepository
+        self.feedFetchLogRepository = feedFetchLogRepository
+        self.feedFetcher = feedFetcher ?? Self.makeFeedFetcher(
+            httpClient: httpClient,
+            logger: logger,
+            feedFetchLogRepository: feedFetchLogRepository
+        )
     }
 }
 
@@ -51,6 +94,34 @@ public extension AppDependencies {
         let baseLogger = OSLogger(category: "app")
         let logger: Logging = FilteredLogger(minLevel: .info, base: baseLogger)
 #endif
-        return AppDependencies(logger: logger)
+        let schema = Schema(models)
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let modelContainer = try? ModelContainer(for: schema, configurations: [configuration])
+        return AppDependencies(logger: logger, modelContainer: modelContainer)
+    }
+}
+
+private extension AppDependencies {
+    static func makeFeedFetcher(
+        httpClient: any HTTPClient,
+        logger: Logging,
+        feedFetchLogRepository: (any FeedFetchLogRepository)?
+    ) -> any FeedFetching {
+        guard let feedFetchLogRepository else {
+            return FeedFetcher(httpClient: httpClient)
+        }
+
+        return FeedFetcher(
+            httpClient: httpClient,
+            logSink: { log in
+                do {
+                    try await MainActor.run(resultType: Void.self) {
+                        try feedFetchLogRepository.insert(log)
+                    }
+                } catch {
+                    logger.error("Failed to persist FeedFetchLog: \(error)")
+                }
+            }
+        )
     }
 }

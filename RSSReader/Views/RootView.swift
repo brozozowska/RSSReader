@@ -4,9 +4,9 @@ struct RootView: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        let feedSelection = Binding<UUID?>(
-            get: { appState.selectedFeedID },
-            set: { appState.selectedFeedID = $0 }
+        let sidebarSelection = Binding<SidebarSelection?>(
+            get: { appState.selectedSidebarSelection },
+            set: { appState.selectedSidebarSelection = $0 }
         )
         let articleSelection = Binding<UUID?>(
             get: { appState.selectedArticleID },
@@ -14,9 +14,9 @@ struct RootView: View {
         )
 
         NavigationSplitView {
-            SidebarView(selection: feedSelection)
+            SidebarView(selection: sidebarSelection)
         } content: {
-            ArticleListView(selectedFeedID: appState.selectedFeedID, selection: articleSelection)
+            ArticleListView(selectedSidebarSelection: appState.selectedSidebarSelection, selection: articleSelection)
         } detail: {
             ReaderView(articleID: appState.selectedArticleID)
         }
