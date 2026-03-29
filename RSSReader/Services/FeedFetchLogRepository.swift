@@ -22,8 +22,8 @@ protocol FeedFetchLogRepository {
 }
 
 @MainActor
-final class SwiftDataFeedFetchLogRepository: FeedFetchLogRepository {
-    private let modelContext: ModelContext
+final class SwiftDataFeedFetchLogRepository: FeedFetchLogRepository, SwiftDataRepositoryContext {
+    let modelContext: ModelContext
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
@@ -86,10 +86,5 @@ final class SwiftDataFeedFetchLogRepository: FeedFetchLogRepository {
 
     func save() throws {
         try saveIfNeeded(force: true)
-    }
-
-    private func saveIfNeeded(force: Bool = false) throws {
-        guard force || modelContext.hasChanges else { return }
-        try modelContext.save()
     }
 }

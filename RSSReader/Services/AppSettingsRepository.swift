@@ -23,21 +23,20 @@ protocol AppSettingsRepository {
 }
 
 @MainActor
-final class SwiftDataAppSettingsRepository: AppSettingsRepository {
-    private let modelContext: ModelContext
+final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepositoryContext {
+    let modelContext: ModelContext
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
     }
 
     func fetch() throws -> AppSettings? {
-        var descriptor = FetchDescriptor<AppSettings>(
+        let descriptor = FetchDescriptor<AppSettings>(
             predicate: #Predicate<AppSettings> { appSettings in
                 appSettings.singletonKey == "app-settings"
             }
         )
-        descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first
+        return try fetchFirst(descriptor)
     }
 
     func fetchOrCreate() throws -> AppSettings {
@@ -87,10 +86,5 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository {
 
     func save() throws {
         try saveIfNeeded(force: true)
-    }
-
-    private func saveIfNeeded(force: Bool = false) throws {
-        guard force || modelContext.hasChanges else { return }
-        try modelContext.save()
     }
 }

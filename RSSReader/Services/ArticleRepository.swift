@@ -30,31 +30,29 @@ protocol ArticleRepository {
 }
 
 @MainActor
-final class SwiftDataArticleRepository: ArticleRepository {
-    private let modelContext: ModelContext
+final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryContext {
+    let modelContext: ModelContext
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
     }
 
     func fetchArticle(id: UUID) throws -> Article? {
-        var descriptor = FetchDescriptor<Article>(
+        let descriptor = FetchDescriptor<Article>(
             predicate: #Predicate<Article> { article in
                 article.id == id
             }
         )
-        descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first
+        return try fetchFirst(descriptor)
     }
 
     func fetchArticle(feedID: UUID, externalID: String) throws -> Article? {
-        var descriptor = FetchDescriptor<Article>(
+        let descriptor = FetchDescriptor<Article>(
             predicate: #Predicate<Article> { article in
                 article.feed.id == feedID && article.externalID == externalID
             }
         )
-        descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first
+        return try fetchFirst(descriptor)
     }
 
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article] {
@@ -86,7 +84,7 @@ final class SwiftDataArticleRepository: ArticleRepository {
         let stateByCompositeKey = try fetchStateByCompositeKey(for: articles)
 
         return articles.compactMap { article in
-            let state = stateByCompositeKey[compositeKey(feedID: article.feedID, articleExternalID: article.externalID)]
+            let state = stateByCompositeKey[articleCompositeKey(feedID: article.feedID, articleExternalID: article.externalID)]
             let item = ArticleListItemDTO(article: article, state: state)
             return matches(filter: filter, item: item) ? item : nil
         }
@@ -101,7 +99,7 @@ final class SwiftDataArticleRepository: ArticleRepository {
         let stateByCompositeKey = try fetchStateByCompositeKey(for: articles)
 
         return articles.compactMap { article in
-            let state = stateByCompositeKey[compositeKey(feedID: article.feedID, articleExternalID: article.externalID)]
+            let state = stateByCompositeKey[articleCompositeKey(feedID: article.feedID, articleExternalID: article.externalID)]
             let item = ArticleListItemDTO(article: article, state: state)
             return matches(filter: filter, item: item) ? item : nil
         }
@@ -111,7 +109,7 @@ final class SwiftDataArticleRepository: ArticleRepository {
         guard let article = try fetchArticle(id: id) else { return nil }
 
         let stateByCompositeKey = try fetchStateByCompositeKey(for: [article])
-        let state = stateByCompositeKey[compositeKey(feedID: article.feedID, articleExternalID: article.externalID)]
+        let state = stateByCompositeKey[articleCompositeKey(feedID: article.feedID, articleExternalID: article.externalID)]
         return ReaderArticleDTO(article: article, state: state)
     }
 
@@ -233,17 +231,13 @@ final class SwiftDataArticleRepository: ArticleRepository {
 
         let descriptor = FetchDescriptor<ArticleState>()
         let states = try modelContext.fetch(descriptor)
-        let relevantKeys = Set(articles.map { compositeKey(feedID: $0.feedID, articleExternalID: $0.externalID) })
+        let relevantKeys = Set(articles.map { articleCompositeKey(feedID: $0.feedID, articleExternalID: $0.externalID) })
 
         return states.reduce(into: [String: ArticleState]()) { partialResult, state in
-            let key = compositeKey(feedID: state.feedID, articleExternalID: state.articleExternalID)
+            let key = articleCompositeKey(feedID: state.feedID, articleExternalID: state.articleExternalID)
             guard relevantKeys.contains(key) else { return }
             partialResult[key] = state
         }
-    }
-
-    private func compositeKey(feedID: UUID, articleExternalID: String) -> String {
-        "\(feedID.uuidString)|\(articleExternalID)"
     }
 
     private func matches(filter: ArticleListFilter, item: ArticleListItemDTO) -> Bool {
@@ -257,10 +251,5 @@ final class SwiftDataArticleRepository: ArticleRepository {
         case .hidden:
             item.isHidden
         }
-    }
-
-    private func saveIfNeeded(force: Bool = false) throws {
-        guard force || modelContext.hasChanges else { return }
-        try modelContext.save()
     }
 }

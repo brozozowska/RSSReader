@@ -1,6 +1,38 @@
 import Foundation
 import SwiftData
 
+@MainActor
+protocol SwiftDataRepositoryContext {
+    var modelContext: ModelContext { get }
+}
+
+extension SwiftDataRepositoryContext {
+    func saveIfNeeded(force: Bool = false) throws {
+        guard force || modelContext.hasChanges else { return }
+        try modelContext.save()
+    }
+
+    func fetchFirst<Model>(_ descriptor: FetchDescriptor<Model>) throws -> Model?
+    where Model: PersistentModel {
+        var descriptor = descriptor
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
+    }
+
+    func normalizedIdentifier(_ value: String) -> String? {
+        let normalizedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalizedValue.isEmpty ? nil : normalizedValue
+    }
+
+    func normalizedIdentifiers(_ values: [String]) -> [String] {
+        Array(Set(values.compactMap(normalizedIdentifier)))
+    }
+
+    func articleCompositeKey(feedID: UUID, articleExternalID: String) -> String {
+        "\(feedID.uuidString)|\(articleExternalID)"
+    }
+}
+
 struct FeedFetchMetadata: Sendable {
     let id: UUID
     let url: String
@@ -115,31 +147,29 @@ protocol FeedRepository {
 }
 
 @MainActor
-final class SwiftDataFeedRepository: FeedRepository {
-    private let modelContext: ModelContext
+final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext {
+    let modelContext: ModelContext
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
     }
 
     func fetchFeed(id: UUID) throws -> Feed? {
-        var descriptor = FetchDescriptor<Feed>(
+        let descriptor = FetchDescriptor<Feed>(
             predicate: #Predicate<Feed> { feed in
                 feed.id == id
             }
         )
-        descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first
+        return try fetchFirst(descriptor)
     }
 
     func fetchFeed(url: String) throws -> Feed? {
-        var descriptor = FetchDescriptor<Feed>(
+        let descriptor = FetchDescriptor<Feed>(
             predicate: #Predicate<Feed> { feed in
                 feed.url == url
             }
         )
-        descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first
+        return try fetchFirst(descriptor)
     }
 
     func fetchAllFeeds() throws -> [Feed] {
@@ -249,10 +279,5 @@ final class SwiftDataFeedRepository: FeedRepository {
         guard let feed = try fetchFeed(id: feedID) else { return false }
         try delete(feed)
         return true
-    }
-
-    private func saveIfNeeded(force: Bool = false) throws {
-        guard force || modelContext.hasChanges else { return }
-        try modelContext.save()
     }
 }

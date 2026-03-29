@@ -63,21 +63,20 @@ protocol ArticleStateRepository {
 }
 
 @MainActor
-final class SwiftDataArticleStateRepository: ArticleStateRepository {
-    private let modelContext: ModelContext
+final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRepositoryContext {
+    let modelContext: ModelContext
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
     }
 
     func fetchState(feedID: UUID, articleExternalID: String) throws -> ArticleState? {
-        var descriptor = FetchDescriptor<ArticleState>(
+        let descriptor = FetchDescriptor<ArticleState>(
             predicate: #Predicate<ArticleState> { articleState in
                 articleState.feedID == feedID && articleState.articleExternalID == articleExternalID
             }
         )
-        descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first
+        return try fetchFirst(descriptor)
     }
 
     func fetchOrCreate(feedID: UUID, articleExternalID: String) throws -> ArticleState {
@@ -90,12 +89,7 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository {
     }
 
     func fetchStateSnapshots(feedID: UUID, articleExternalIDs: [String]) throws -> [String: ArticleUserStateSnapshot] {
-        let normalizedIDs = Array(
-            Set(
-                articleExternalIDs.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .filter { $0.isEmpty == false }
-            )
-        )
+        let normalizedIDs = normalizedIdentifiers(articleExternalIDs)
 
         guard normalizedIDs.isEmpty == false else { return [:] }
 
@@ -121,7 +115,7 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository {
             let snapshots = try fetchStateSnapshots(feedID: feedID, articleExternalIDs: articleExternalIDs)
 
             for (externalID, snapshot) in snapshots {
-                snapshotsByCompositeKey[compositeKey(feedID: feedID, articleExternalID: externalID)] = snapshot
+                snapshotsByCompositeKey[articleCompositeKey(feedID: feedID, articleExternalID: externalID)] = snapshot
             }
         }
 
@@ -148,7 +142,7 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository {
         var unreadCounts = Dictionary(uniqueKeysWithValues: normalizedFeedIDs.map { ($0, 0) })
 
         for article in relevantArticles {
-            let key = compositeKey(feedID: article.feedID, articleExternalID: article.externalID)
+            let key = articleCompositeKey(feedID: article.feedID, articleExternalID: article.externalID)
             let state = stateSnapshots[key]
             let isHidden = state?.isHidden ?? false
             let isRead = state?.isRead ?? false
@@ -218,10 +212,6 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository {
         try saveIfNeeded(force: true)
     }
 
-    private func compositeKey(feedID: UUID, articleExternalID: String) -> String {
-        "\(feedID.uuidString)|\(articleExternalID)"
-    }
-
     private func fetchOrCreate(
         feedID: UUID,
         articleExternalID: String,
@@ -247,7 +237,7 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository {
         articleExternalIDs: [String],
         update: ArticleStateUpsert
     ) throws -> [ArticleState] {
-        let normalizedIDs = normalizedArticleExternalIDs(articleExternalIDs)
+        let normalizedIDs = normalizedIdentifiers(articleExternalIDs)
         guard normalizedIDs.isEmpty == false else { return [] }
 
         let articleStates = try normalizedIDs.map { articleExternalID in
@@ -306,17 +296,4 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository {
         }
     }
 
-    private func normalizedArticleExternalIDs(_ articleExternalIDs: [String]) -> [String] {
-        Array(
-            Set(
-                articleExternalIDs.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .filter { $0.isEmpty == false }
-            )
-        )
-    }
-
-    private func saveIfNeeded(force: Bool = false) throws {
-        guard force || modelContext.hasChanges else { return }
-        try modelContext.save()
-    }
 }
