@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ArticleListView: View {
     @Environment(\.appDependencies) private var dependencies
-    let selectedFeedID: UUID?
+    let selectedSidebarSelection: SidebarSelection?
     @Binding var selection: UUID?
     @State private var articles: [Article] = []
     @State private var hasLoadedArticles = false
@@ -14,22 +14,22 @@ struct ArticleListView: View {
         .navigationTitle("Articles")
         .overlay {
             if hasLoadedArticles {
-                if selectedFeedID == nil {
+                if selectedSidebarSelection == nil {
                     ContentUnavailableView(
-                        "No Feed Selected",
+                        "No Source Selected",
                         systemImage: "sidebar.left",
-                        description: Text("Select a feed in the sidebar to load its articles.")
+                        description: Text("Select Inbox or a feed in the sidebar to load articles.")
                     )
                 } else if articles.isEmpty {
                     ContentUnavailableView(
                         "No Articles",
                         systemImage: "newspaper",
-                        description: Text("This feed has no stored articles yet.")
+                        description: Text(emptyStateDescription)
                     )
                 }
             }
         }
-        .task(id: selectedFeedID) {
+        .task(id: selectedSidebarSelection) {
             await loadArticles()
         }
     }
@@ -38,10 +38,7 @@ struct ArticleListView: View {
     private func loadArticles() async {
         defer { hasLoadedArticles = true }
 
-        guard
-            let selectedFeedID,
-            let articleRepository = dependencies.articleRepository
-        else {
+        guard let articleRepository = dependencies.articleRepository else {
             articles = []
             selection = nil
             return
@@ -50,14 +47,32 @@ struct ArticleListView: View {
         let sortMode = await loadSortMode()
 
         do {
-            articles = try articleRepository.fetchArticles(feedID: selectedFeedID, sortMode: sortMode)
+            switch selectedSidebarSelection {
+            case .inbox:
+                articles = try articleRepository.fetchInbox(sortMode: sortMode)
+            case .feed(let selectedFeedID):
+                articles = try articleRepository.fetchArticles(feedID: selectedFeedID, sortMode: sortMode)
+            case .none:
+                articles = []
+            }
         } catch {
-            dependencies.logger.error("Failed to load articles for feed \(selectedFeedID): \(error)")
+            dependencies.logger.error("Failed to load article list for selection \(String(describing: selectedSidebarSelection)): \(error)")
             articles = []
         }
 
         if let selection, articles.contains(where: { $0.id == selection }) == false {
             self.selection = articles.first?.id
+        }
+    }
+
+    private var emptyStateDescription: String {
+        switch selectedSidebarSelection {
+        case .inbox:
+            "Your global inbox has no stored articles yet."
+        case .feed:
+            "This feed has no stored articles yet."
+        case .none:
+            "Select Inbox or a feed in the sidebar to load articles."
         }
     }
 
@@ -80,7 +95,7 @@ struct ArticleListView: View {
     struct PreviewContainer: View {
         @State var selection: UUID? = nil
         var body: some View {
-            ArticleListView(selectedFeedID: nil, selection: $selection)
+            ArticleListView(selectedSidebarSelection: .inbox, selection: $selection)
         }
     }
     return PreviewContainer()

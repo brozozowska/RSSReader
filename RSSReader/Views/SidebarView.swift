@@ -2,13 +2,21 @@ import SwiftUI
 
 struct SidebarView: View {
     @Environment(\.appDependencies) private var dependencies
-    @Binding var selection: UUID?
+    @Binding var selection: SidebarSelection?
     @State private var feeds: [FeedSidebarItem] = []
     @State private var hasLoadedFeeds = false
 
     var body: some View {
-        List(feeds, id: \.id, selection: $selection) { feed in
-            Text(feed.title)
+        List(selection: $selection) {
+            Label("Inbox", systemImage: "tray.full")
+                .tag(Optional(SidebarSelection.inbox))
+
+            Section("Feeds") {
+                ForEach(feeds) { feed in
+                    Text(feed.title)
+                        .tag(Optional(SidebarSelection.feed(feed.id)))
+                }
+            }
         }
         .navigationTitle("Feeds")
         .overlay {
@@ -41,15 +49,22 @@ struct SidebarView: View {
             feeds = []
         }
 
-        if let selection, feeds.contains(where: { $0.id == selection }) == false {
-            self.selection = feeds.first?.id
+        if let selection {
+            switch selection {
+            case .inbox:
+                break
+            case .feed(let feedID):
+                if feeds.contains(where: { $0.id == feedID }) == false {
+                    self.selection = .inbox
+                }
+            }
         }
     }
 }
 
 #Preview {
     struct PreviewContainer: View {
-        @State var selection: UUID? = nil
+        @State var selection: SidebarSelection? = .inbox
         var body: some View {
             SidebarView(selection: $selection)
         }
