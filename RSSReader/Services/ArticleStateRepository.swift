@@ -27,13 +27,39 @@ struct ArticleUserStateSnapshot: Sendable {
     }
 }
 
+struct ArticleStateUpsert: Sendable {
+    var isRead: Bool? = nil
+    var readAt: Date? = nil
+    var isStarred: Bool? = nil
+    var starredAt: Date? = nil
+    var isHidden: Bool? = nil
+    var hiddenAt: Date? = nil
+    var lastInteractionAt: Date? = nil
+    var updatedAt: Date = .now
+}
+
 @MainActor
 protocol ArticleStateRepository {
     func fetchState(feedID: UUID, articleExternalID: String) throws -> ArticleState?
+    func fetchOrCreate(feedID: UUID, articleExternalID: String) throws -> ArticleState
     func fetchStateSnapshot(feedID: UUID, articleExternalID: String) throws -> ArticleUserStateSnapshot?
     func fetchStateSnapshots(feedID: UUID, articleExternalIDs: [String]) throws -> [String: ArticleUserStateSnapshot]
     func fetchStateSnapshots(for articles: [Article]) throws -> [String: ArticleUserStateSnapshot]
     func fetchUnreadCounts(feedIDs: [UUID]) throws -> [UUID: Int]
+
+    @discardableResult
+    func upsert(feedID: UUID, articleExternalID: String, update: ArticleStateUpsert) throws -> ArticleState
+
+    @discardableResult
+    func bulkSetRead(feedID: UUID, articleExternalIDs: [String], isRead: Bool, at: Date) throws -> [ArticleState]
+
+    @discardableResult
+    func bulkSetStarred(feedID: UUID, articleExternalIDs: [String], isStarred: Bool, at: Date) throws -> [ArticleState]
+
+    @discardableResult
+    func bulkSetHidden(feedID: UUID, articleExternalIDs: [String], isHidden: Bool, at: Date) throws -> [ArticleState]
+
+    func save() throws
 }
 
 @MainActor
@@ -52,6 +78,10 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository {
         )
         descriptor.fetchLimit = 1
         return try modelContext.fetch(descriptor).first
+    }
+
+    func fetchOrCreate(feedID: UUID, articleExternalID: String) throws -> ArticleState {
+        try fetchOrCreate(feedID: feedID, articleExternalID: articleExternalID, saveAfterCreation: true)
     }
 
     func fetchStateSnapshot(feedID: UUID, articleExternalID: String) throws -> ArticleUserStateSnapshot? {
@@ -130,7 +160,163 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository {
         return unreadCounts
     }
 
+    @discardableResult
+    func upsert(feedID: UUID, articleExternalID: String, update: ArticleStateUpsert) throws -> ArticleState {
+        let articleState = try fetchOrCreate(
+            feedID: feedID,
+            articleExternalID: articleExternalID,
+            saveAfterCreation: false
+        )
+        apply(update, to: articleState)
+        try saveIfNeeded()
+        return articleState
+    }
+
+    @discardableResult
+    func bulkSetRead(feedID: UUID, articleExternalIDs: [String], isRead: Bool, at: Date = .now) throws -> [ArticleState] {
+        try bulkUpdate(
+            feedID: feedID,
+            articleExternalIDs: articleExternalIDs,
+            update: ArticleStateUpsert(
+                isRead: isRead,
+                readAt: isRead ? at : nil,
+                lastInteractionAt: at,
+                updatedAt: at
+            )
+        )
+    }
+
+    @discardableResult
+    func bulkSetStarred(feedID: UUID, articleExternalIDs: [String], isStarred: Bool, at: Date = .now) throws -> [ArticleState] {
+        try bulkUpdate(
+            feedID: feedID,
+            articleExternalIDs: articleExternalIDs,
+            update: ArticleStateUpsert(
+                isStarred: isStarred,
+                starredAt: isStarred ? at : nil,
+                lastInteractionAt: at,
+                updatedAt: at
+            )
+        )
+    }
+
+    @discardableResult
+    func bulkSetHidden(feedID: UUID, articleExternalIDs: [String], isHidden: Bool, at: Date = .now) throws -> [ArticleState] {
+        try bulkUpdate(
+            feedID: feedID,
+            articleExternalIDs: articleExternalIDs,
+            update: ArticleStateUpsert(
+                isHidden: isHidden,
+                hiddenAt: isHidden ? at : nil,
+                lastInteractionAt: at,
+                updatedAt: at
+            )
+        )
+    }
+
+    func save() throws {
+        try saveIfNeeded(force: true)
+    }
+
     private func compositeKey(feedID: UUID, articleExternalID: String) -> String {
         "\(feedID.uuidString)|\(articleExternalID)"
+    }
+
+    private func fetchOrCreate(
+        feedID: UUID,
+        articleExternalID: String,
+        saveAfterCreation: Bool
+    ) throws -> ArticleState {
+        if let existingState = try fetchState(feedID: feedID, articleExternalID: articleExternalID) {
+            return existingState
+        }
+
+        let articleState = ArticleState(
+            articleExternalID: articleExternalID,
+            feedID: feedID
+        )
+        modelContext.insert(articleState)
+        if saveAfterCreation {
+            try saveIfNeeded()
+        }
+        return articleState
+    }
+
+    private func bulkUpdate(
+        feedID: UUID,
+        articleExternalIDs: [String],
+        update: ArticleStateUpsert
+    ) throws -> [ArticleState] {
+        let normalizedIDs = normalizedArticleExternalIDs(articleExternalIDs)
+        guard normalizedIDs.isEmpty == false else { return [] }
+
+        let articleStates = try normalizedIDs.map { articleExternalID in
+            let articleState = try fetchOrCreate(
+                feedID: feedID,
+                articleExternalID: articleExternalID,
+                saveAfterCreation: false
+            )
+            apply(update, to: articleState)
+            return articleState
+        }
+
+        try saveIfNeeded()
+        return articleStates
+    }
+
+    private func apply(_ update: ArticleStateUpsert, to articleState: ArticleState) {
+        var didChange = false
+
+        if let isRead = update.isRead, articleState.isRead != isRead {
+            articleState.isRead = isRead
+            articleState.readAt = isRead ? (update.readAt ?? update.updatedAt) : nil
+            didChange = true
+        } else if update.isRead == nil, let readAt = update.readAt {
+            articleState.readAt = readAt
+            didChange = true
+        }
+
+        if let isStarred = update.isStarred, articleState.isStarred != isStarred {
+            articleState.isStarred = isStarred
+            articleState.starredAt = isStarred ? (update.starredAt ?? update.updatedAt) : nil
+            didChange = true
+        } else if update.isStarred == nil, let starredAt = update.starredAt {
+            articleState.starredAt = starredAt
+            didChange = true
+        }
+
+        if let isHidden = update.isHidden, articleState.isHidden != isHidden {
+            articleState.isHidden = isHidden
+            articleState.hiddenAt = isHidden ? (update.hiddenAt ?? update.updatedAt) : nil
+            didChange = true
+        } else if update.isHidden == nil, let hiddenAt = update.hiddenAt {
+            articleState.hiddenAt = hiddenAt
+            didChange = true
+        }
+
+        if let lastInteractionAt = update.lastInteractionAt {
+            articleState.lastInteractionAt = lastInteractionAt
+            didChange = true
+        } else if didChange {
+            articleState.lastInteractionAt = update.updatedAt
+        }
+
+        if didChange || update.lastInteractionAt != nil {
+            articleState.updatedAt = update.updatedAt
+        }
+    }
+
+    private func normalizedArticleExternalIDs(_ articleExternalIDs: [String]) -> [String] {
+        Array(
+            Set(
+                articleExternalIDs.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { $0.isEmpty == false }
+            )
+        )
+    }
+
+    private func saveIfNeeded(force: Bool = false) throws {
+        guard force || modelContext.hasChanges else { return }
+        try modelContext.save()
     }
 }

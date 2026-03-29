@@ -115,7 +115,11 @@
 - реализовать загрузку статей выбранного feed с сортировкой;
 - реализовать загрузку глобального inbox;
 - реализовать расчёт unread counts по feed;
-- реализовать удаление feed с каскадной очисткой связанных данных.
+- реализовать удаление feed с каскадной очисткой связанных данных;
+- расширить `ArticleStateRepository` write-side API: `fetchOrCreate` / `upsert` / bulk updates для `read` / `starred` / `hidden`;
+- добавить выборку статьи по `articleID` для reader flow и будущих user actions;
+- добавить read-model/query DTO для article list и reader, чтобы UI получал объединённые данные `Article + ArticleState + Feed`;
+- расширить query API репозиториев под следующие экраны: фильтры `unread` / `starred` / `hidden` для inbox и feed article lists.
 
 #### Refresh Orchestration
 - создать `FeedRefreshService` как coordinator полного pipeline;
