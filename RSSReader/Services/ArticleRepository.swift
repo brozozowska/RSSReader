@@ -54,6 +54,12 @@ protocol ArticleRepository {
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
 
     @discardableResult
+    func upsert(_ entry: ParsedFeedEntryDTO, into feed: Feed, fetchedAt: Date) throws -> Article?
+
+    @discardableResult
+    func upsert(_ entries: [ParsedFeedEntryDTO], into feed: Feed, fetchedAt: Date) throws -> [Article]
+
+    @discardableResult
     func upsert(_ payload: ArticleUpsertPayload, into feed: Feed) throws -> Article
 
     @discardableResult
@@ -102,40 +108,29 @@ final class SwiftDataArticleRepository: ArticleRepository {
     }
 
     @discardableResult
-    func upsert(_ payload: ArticleUpsertPayload, into feed: Feed) throws -> Article {
-        if let existingArticle = try fetchArticle(feedID: feed.id, externalID: payload.externalID) {
-            apply(payload, to: existingArticle)
-            try saveIfNeeded()
-            return existingArticle
+    func upsert(_ entry: ParsedFeedEntryDTO, into feed: Feed, fetchedAt: Date = .now) throws -> Article? {
+        guard let payload = ArticleUpsertPayload(entry: entry, fetchedAt: fetchedAt) else {
+            return nil
         }
 
-        let article = Article(
-            feed: feed,
-            externalID: payload.externalID,
-            guid: payload.guid,
-            url: payload.url,
-            canonicalURL: payload.canonicalURL,
-            title: payload.title,
-            summary: payload.summary,
-            contentHTML: payload.contentHTML,
-            contentText: payload.contentText,
-            author: payload.author,
-            publishedAt: payload.publishedAt,
-            updatedAtSource: payload.updatedAtSource,
-            imageURL: payload.imageURL,
-            isDeletedAtSource: payload.isDeletedAtSource,
-            fetchedAt: payload.fetchedAt
-        )
+        return try upsert(payload, into: feed)
+    }
 
-        modelContext.insert(article)
-        try saveIfNeeded()
-        return article
+    @discardableResult
+    func upsert(_ entries: [ParsedFeedEntryDTO], into feed: Feed, fetchedAt: Date = .now) throws -> [Article] {
+        let payloads = entries.compactMap { ArticleUpsertPayload(entry: $0, fetchedAt: fetchedAt) }
+        return try upsert(payloads, into: feed)
+    }
+
+    @discardableResult
+    func upsert(_ payload: ArticleUpsertPayload, into feed: Feed) throws -> Article {
+        try upsert(payload, into: feed, saveAfterOperation: true)
     }
 
     @discardableResult
     func upsert(_ payloads: [ArticleUpsertPayload], into feed: Feed) throws -> [Article] {
         let articles = try payloads.map { payload in
-            try upsert(payload, into: feed)
+            try upsert(payload, into: feed, saveAfterOperation: false)
         }
         try saveIfNeeded()
         return articles
@@ -165,6 +160,44 @@ final class SwiftDataArticleRepository: ArticleRepository {
         article.isDeletedAtSource = payload.isDeletedAtSource
         article.fetchedAt = payload.fetchedAt
         article.updatedAt = .now
+    }
+
+    private func upsert(
+        _ payload: ArticleUpsertPayload,
+        into feed: Feed,
+        saveAfterOperation: Bool
+    ) throws -> Article {
+        if let existingArticle = try fetchArticle(feedID: feed.id, externalID: payload.externalID) {
+            apply(payload, to: existingArticle)
+            if saveAfterOperation {
+                try saveIfNeeded()
+            }
+            return existingArticle
+        }
+
+        let article = Article(
+            feed: feed,
+            externalID: payload.externalID,
+            guid: payload.guid,
+            url: payload.url,
+            canonicalURL: payload.canonicalURL,
+            title: payload.title,
+            summary: payload.summary,
+            contentHTML: payload.contentHTML,
+            contentText: payload.contentText,
+            author: payload.author,
+            publishedAt: payload.publishedAt,
+            updatedAtSource: payload.updatedAtSource,
+            imageURL: payload.imageURL,
+            isDeletedAtSource: payload.isDeletedAtSource,
+            fetchedAt: payload.fetchedAt
+        )
+
+        modelContext.insert(article)
+        if saveAfterOperation {
+            try saveIfNeeded()
+        }
+        return article
     }
 
     private func sortDescriptors(for sortMode: ArticleSortMode) -> [SortDescriptor<Article>] {
