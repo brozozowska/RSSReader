@@ -1,6 +1,13 @@
 import Foundation
 import SwiftData
 
+enum ArticleListFilter: String, Sendable, CaseIterable {
+    case all
+    case unread
+    case starred
+    case hidden
+}
+
 struct ArticleListItemDTO: Sendable, Identifiable {
     let id: UUID
     let feedID: UUID
@@ -126,7 +133,9 @@ protocol ArticleRepository {
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article]
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
     func fetchArticleListItems(feedID: UUID, sortMode: ArticleSortMode) throws -> [ArticleListItemDTO]
+    func fetchArticleListItems(feedID: UUID, sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO]
     func fetchInboxListItems(sortMode: ArticleSortMode) throws -> [ArticleListItemDTO]
+    func fetchInboxListItems(sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO]
     func fetchReaderArticle(id: UUID) throws -> ReaderArticleDTO?
 
     @discardableResult
@@ -194,24 +203,32 @@ final class SwiftDataArticleRepository: ArticleRepository {
     }
 
     func fetchArticleListItems(feedID: UUID, sortMode: ArticleSortMode) throws -> [ArticleListItemDTO] {
+        try fetchArticleListItems(feedID: feedID, sortMode: sortMode, filter: .all)
+    }
+
+    func fetchArticleListItems(feedID: UUID, sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO] {
         let articles = try fetchArticles(feedID: feedID, sortMode: sortMode)
         let stateByCompositeKey = try fetchStateByCompositeKey(for: articles)
 
         return articles.compactMap { article in
             let state = stateByCompositeKey[compositeKey(feedID: article.feedID, articleExternalID: article.externalID)]
             let item = ArticleListItemDTO(article: article, state: state)
-            return item.isHidden ? nil : item
+            return matches(filter: filter, item: item) ? item : nil
         }
     }
 
     func fetchInboxListItems(sortMode: ArticleSortMode) throws -> [ArticleListItemDTO] {
+        try fetchInboxListItems(sortMode: sortMode, filter: .all)
+    }
+
+    func fetchInboxListItems(sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO] {
         let articles = try fetchInbox(sortMode: sortMode)
         let stateByCompositeKey = try fetchStateByCompositeKey(for: articles)
 
         return articles.compactMap { article in
             let state = stateByCompositeKey[compositeKey(feedID: article.feedID, articleExternalID: article.externalID)]
             let item = ArticleListItemDTO(article: article, state: state)
-            return item.isHidden ? nil : item
+            return matches(filter: filter, item: item) ? item : nil
         }
     }
 
@@ -352,6 +369,19 @@ final class SwiftDataArticleRepository: ArticleRepository {
 
     private func compositeKey(feedID: UUID, articleExternalID: String) -> String {
         "\(feedID.uuidString)|\(articleExternalID)"
+    }
+
+    private func matches(filter: ArticleListFilter, item: ArticleListItemDTO) -> Bool {
+        switch filter {
+        case .all:
+            item.isHidden == false
+        case .unread:
+            item.isHidden == false && item.isRead == false
+        case .starred:
+            item.isHidden == false && item.isStarred
+        case .hidden:
+            item.isHidden
+        }
     }
 
     private func saveIfNeeded(force: Bool = false) throws {
