@@ -49,6 +49,7 @@ struct ArticleUpsertPayload: Sendable {
 
 @MainActor
 protocol ArticleRepository {
+    func fetchArticle(id: UUID) throws -> Article?
     func fetchArticle(feedID: UUID, externalID: String) throws -> Article?
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article]
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
@@ -75,6 +76,16 @@ final class SwiftDataArticleRepository: ArticleRepository {
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
+    }
+
+    func fetchArticle(id: UUID) throws -> Article? {
+        var descriptor = FetchDescriptor<Article>(
+            predicate: #Predicate<Article> { article in
+                article.id == id
+            }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
     }
 
     func fetchArticle(feedID: UUID, externalID: String) throws -> Article? {
