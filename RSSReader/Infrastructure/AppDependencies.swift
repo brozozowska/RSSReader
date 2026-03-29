@@ -19,6 +19,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let articleRepository: (any ArticleRepository)?
     let articleStateRepository: (any ArticleStateRepository)?
     let appSettingsRepository: (any AppSettingsRepository)?
+    let feedFetchLogRepository: (any FeedFetchLogRepository)?
     public let modelContainer: ModelContainer?
 
     public init(
@@ -42,6 +43,9 @@ public final class AppDependencies: AppDependenciesProtocol {
         }
         self.appSettingsRepository = modelContainer.map { container in
             SwiftDataAppSettingsRepository(modelContext: container.mainContext)
+        }
+        self.feedFetchLogRepository = modelContainer.map { container in
+            SwiftDataFeedFetchLogRepository(modelContext: container.mainContext)
         }
     }
 }
