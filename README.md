@@ -44,215 +44,235 @@
 
 ### Foundation
 #### Repository / Project Setup
-- инициализация Xcode-проекта;
-- настроить `.gitignore`;
-- создать milestones для фаз MVP;
-- настроить лейблы в проекте;
-- настроить GitHub Project;
-- добавить `README` в проект.
+- [x] инициализация Xcode-проекта;
+- [x] настроить `.gitignore`;
+- [x] создать milestones для фаз MVP;
+- [x] настроить лейблы в проекте;
+- [x] настроить GitHub Project;
+- [x] добавить `README` в проект.
 
 #### App Foundation
-- создать структуру каталогов: `Models` / `Services` / `ViewModels` / `Views` / `Infrastructure`;
-- добавить `AppDependencies.swift`;
-- настроить контейнер `SwiftData`;
-- настроить базовую dependency composition;
-- подготовить конфигурацию для `debug` / `logging`;
-- добавить app-level state для выбора `feed` / `article`;
-- настроить базовый root navigation через `NavigationSplitView`.
+- [x] создать структуру каталогов: `Models` / `Services` / `ViewModels` / `Views` / `Infrastructure`;
+- [x] добавить `AppDependencies.swift`;
+- [x] настроить контейнер `SwiftData`;
+- [x] настроить базовую dependency composition;
+- [x] подготовить конфигурацию для `debug` / `logging`;
+- [x] добавить app-level state для выбора `feed` / `article`;
+- [x] настроить базовый root navigation через `NavigationSplitView`.
 
 #### Domain Models
-- создать модели `Feed`, `Article`, `ArticleState`, `AppSettings`, `Folder`;
-- определить связи между моделями;
-- гарантировать синглтон для `AppSettings`;
-- определить уникальность `Folder.name`;
-- зафиксировать правила генерации `externalID` на всех устройствах;
-- зафиксировать удаление `ArticleState` при удалении `Feed`;
-- подумать о производительности;
-- добавить `FeedFetchLog`, определить минимальный набор полей для отладки fetch.
+- [x] создать модели `Feed`, `Article`, `ArticleState`, `AppSettings`, `Folder`;
+- [x] определить связи между моделями;
+- [x] гарантировать синглтон для `AppSettings`;
+- [x] определить уникальность `Folder.name`;
+- [x] зафиксировать правила генерации `externalID` на всех устройствах;
+- [x] зафиксировать удаление `ArticleState` при удалении `Feed`;
+- [x] подумать о производительности;
+- [x] добавить `FeedFetchLog`, определить минимальный набор полей для отладки fetch.
 
 ### Feed Pipeline
 #### Networking / Feed Fetch
-- создать `HTTPClient` abstraction для feed-запросов;
-- описать `FeedRequest` / `FeedResponse` модели для pipeline;
-- реализовать загрузку feed по URL через `URLSession`;
-- валидировать HTTP status code и content type ответа;
-- добавить conditional headers через `ETag` / `Last-Modified`;
-- обрабатывать `304 Not Modified` как отдельный результат fetch;
-- добавить retry policy для временных сетевых ошибок;
-- логировать результат fetch в `FeedFetchLog`;
-- подготовить маппинг transport errors в domain-level fetch errors;
-- настроить `URLSessionConfiguration` и request timeout для feed-запросов;
-- добавить feed-specific `User-Agent` header.
+- [x] создать `HTTPClient` abstraction для feed-запросов;
+- [x] описать `FeedRequest` / `FeedResponse` модели для pipeline;
+- [x] реализовать загрузку feed по URL через `URLSession`;
+- [x] валидировать HTTP status code и content type ответа;
+- [x] добавить conditional headers через `ETag` / `Last-Modified`;
+- [x] обрабатывать `304 Not Modified` как отдельный результат fetch;
+- [x] добавить retry policy для временных сетевых ошибок;
+- [x] логировать результат fetch в `FeedFetchLog`;
+- [x] подготовить маппинг transport errors в domain-level fetch errors;
+- [x] настроить `URLSessionConfiguration` и request timeout для feed-запросов;
+- [x] добавить feed-specific `User-Agent` header.
 
 #### Parsing / Normalization
-- создать `FeedParserService` с общим entrypoint для XML feed;
-- определять тип фида: `rss` / `atom` / `unknown`;
-- ввести parser DTO для feed metadata и entries;
-- реализовать parsing RSS 2.0: `channel` / `item`;
-- реализовать parsing Atom: `feed` / `entry`;
-- извлекать feed metadata: `title` / `subtitle` / `siteURL` / `language`;
-- извлекать article payload: `guid` / `url` / `title` / `summary` / `content` / `author` / `dates`;
-- создать `FeedNormalizationService` для очистки и приведения полей;
-- реализовать нормализацию `title` / source URLs / article content;
-- реализовать парсинг дат из RSS/Atom форматов;
-- интегрировать генерацию стабильного `externalID`;
-- создать `DeduplicationService` для слияния повторяющихся entries;
-- отбрасывать пустые и невалидные entries до persistence layer;
-- создать единый parser pipeline: `parse -> normalize -> deduplicate -> filter`;
-- уточнить merge policy для duplicate entries и выбор более качественного payload;
-- добавить diagnostics для причин отбрасывания invalid entries и parser anomalies.
+- [x] создать `FeedParserService` с общим entrypoint для XML feed;
+- [x] определять тип фида: `rss` / `atom` / `unknown`;
+- [x] ввести parser DTO для feed metadata и entries;
+- [x] реализовать parsing RSS 2.0: `channel` / `item`;
+- [x] реализовать parsing Atom: `feed` / `entry`;
+- [x] извлекать feed metadata: `title` / `subtitle` / `siteURL` / `language`;
+- [x] извлекать article payload: `guid` / `url` / `title` / `summary` / `content` / `author` / `dates`;
+- [x] создать `FeedNormalizationService` для очистки и приведения полей;
+- [x] реализовать нормализацию `title` / source URLs / article content;
+- [x] реализовать парсинг дат из RSS/Atom форматов;
+- [x] интегрировать генерацию стабильного `externalID`;
+- [x] создать `DeduplicationService` для слияния повторяющихся entries;
+- [x] отбрасывать пустые и невалидные entries до persistence layer;
+- [x] создать единый parser pipeline: `parse -> normalize -> deduplicate -> filter`;
+- [x] уточнить merge policy для duplicate entries и выбор более качественного payload;
+- [x] добавить diagnostics для причин отбрасывания invalid entries и parser anomalies.
 
 #### Persistence / Repositories
-- создать `FeedRepository` для CRUD и fetch metadata feed;
-- создать `ArticleRepository` для upsert и выборок статей;
-- создать `ArticleStateRepository` для чтения user state в article queries;
-- создать `AppSettingsRepository` для singleton `AppSettings`;
-- создать `FeedFetchLogRepository` для истории fetch attempts;
-- реализовать сохранение `FeedFetchLog` в persistence layer;
-- реализовать сохранение нового feed и обновление его metadata;
-- реализовать upsert статей по ключу `feed + externalID`;
-- реализовать загрузку списка feeds для sidebar;
-- реализовать загрузку статей выбранного feed с сортировкой;
-- реализовать загрузку глобального inbox;
-- реализовать расчёт unread counts по feed;
-- реализовать удаление feed с каскадной очисткой связанных данных;
-- расширить `ArticleStateRepository` write-side API: `fetchOrCreate` / `upsert` / bulk updates для `read` / `starred` / `hidden`;
-- добавить выборку статьи по `articleID` для reader flow и будущих user actions;
-- добавить read-model/query DTO для article list и reader, чтобы UI получал объединённые данные `Article + ArticleState + Feed`;
-- расширить query API репозиториев под следующие экраны: фильтры `unread` / `starred` / `hidden` для inbox и feed article lists.
+- [x] создать `FeedRepository` для CRUD и fetch metadata feed;
+- [x] создать `ArticleRepository` для upsert и выборок статей;
+- [x] создать `ArticleStateRepository` для чтения user state в article queries;
+- [x] создать `AppSettingsRepository` для singleton `AppSettings`;
+- [x] создать `FeedFetchLogRepository` для истории fetch attempts;
+- [x] реализовать сохранение `FeedFetchLog` в persistence layer;
+- [x] реализовать сохранение нового feed и обновление его metadata;
+- [x] реализовать upsert статей по ключу `feed + externalID`;
+- [x] реализовать загрузку списка feeds для sidebar;
+- [x] реализовать загрузку статей выбранного feed с сортировкой;
+- [x] реализовать загрузку глобального inbox;
+- [x] реализовать расчёт unread counts по feed;
+- [x] реализовать удаление feed с каскадной очисткой связанных данных;
+- [x] расширить `ArticleStateRepository` write-side API: `fetchOrCreate` / `upsert` / bulk updates для `read` / `starred` / `hidden`;
+- [x] добавить выборку статьи по `articleID` для reader flow и будущих user actions;
+- [x] добавить read-model/query DTO для article list и reader, чтобы UI получал объединённые данные `Article + ArticleState + Feed`;
+- [x] расширить query API репозиториев под следующие экраны: фильтры `unread` / `starred` / `hidden` для inbox и feed article lists.
 
 #### Refresh Orchestration
-- создать `FeedRefreshService` как coordinator полного pipeline;
-- описать результат refresh: `fetched` / `notModified` / `failed`;
-- реализовать refresh одного feed от network до persistence;
-- реализовать refresh всех active feeds;
-- ограничить параллелизм при batch refresh;
-- исключить одновременный refresh одного и того же feed;
-- обновлять `lastFetchedAt` для каждой попытки refresh;
-- обновлять `lastSuccessfulFetchAt`, `lastSyncError`, `lastETag`, `lastModifiedHeader` по результату fetch;
-- сохранять `FeedFetchLog` для каждого завершённого refresh;
-- подготовить API для ручного refresh и будущего background refresh.
+- [x] создать `FeedRefreshService` как единый coordinator refresh pipeline;
+- [ ] определить и зафиксировать публичный API сервиса: `refresh(feedID:)`, `refreshAllActiveFeeds()`, `refreshFeeds(_:)`, entrypoint для первого refresh после добавления feed;
+- [ ] определить и зафиксировать batch refresh result contract с агрегированными итогами по feeds и списком per-feed результатов;
+- [ ] определить и зафиксировать `FeedRefreshResult` для одного feed с полями статуса `fetched` / `notModified` / `failed`, `startedAt`, `finishedAt`, `duration`, количеством обработанных/upsert/rejected entries и diagnostics summary;
+- [ ] определить transactional boundary refresh одного feed и явно зафиксировать, какие изменения должны сохраняться атомарно;
+- [ ] определить и реализовать policy для `304 Not Modified`, включая обновление feed metadata и итоговый result/status;
+- [ ] определить и реализовать policy для parser anomalies и rejected entries: что входит в diagnostics, что пишется в лог, что считается soft failure;
+- [ ] определить и реализовать reconciliation policy для статей, которые отсутствуют в свежем feed payload;
+- [ ] определить и реализовать batch refresh policy с продолжением обработки остальных feeds при ошибке одного feed;
+- [ ] реализовать refresh одного feed от network до persistence через этапы `fetch -> parse -> normalize -> deduplicate -> filter -> reconcile -> upsert`;
+- [ ] реализовать загрузку feed metadata из persistence и сборку `FeedRequest` с conditional headers перед каждым refresh;
+- [ ] реализовать обновление metadata feed из parsed payload при успешном refresh;
+- [ ] реализовать обновление `lastFetchedAt` для каждой попытки refresh независимо от исхода;
+- [ ] реализовать обновление `lastSuccessfulFetchAt` только для успешного refresh с новым payload;
+- [ ] реализовать обновление `lastSyncError` по результату refresh и очистку ошибки после успешного завершения;
+- [ ] реализовать обновление `lastETag` и `lastModifiedHeader` по результату HTTP fetch;
+- [ ] реализовать сохранение `FeedFetchLog` для каждого завершённого refresh с нормализованным статусом, HTTP code, сообщением ошибки и diagnostics summary;
+- [ ] реализовать защиту от одновременного refresh одного и того же feed;
+- [ ] реализовать in-flight deduplication повторного запроса на refresh одного и того же feed по выбранной policy;
+- [ ] реализовать refresh всех active feeds через `FeedRepository.fetchActiveFeeds()`;
+- [ ] ограничить параллелизм при batch refresh конфигурируемым лимитом;
+- [ ] реализовать агрегирование batch refresh результатов: количество `fetched`, `notModified`, `failed`, список ошибок и общее время выполнения;
+- [ ] реализовать cancellation semantics для refresh одного feed без повреждения persistence state;
+- [ ] реализовать cancellation semantics для batch refresh с корректным завершением уже запущенных или отменённых подзадач;
+- [ ] подготовить orchestration API для ручного refresh из UI без привязки UI к низкоуровневым fetch/parse сервисам;
+- [ ] подготовить orchestration API и контракты результата для будущего background refresh без реализации background scheduling в этом эпике;
+- [ ] добавить integration tests для single feed refresh: `fetched`, `notModified`, `failed`;
+- [ ] добавить integration tests для batch refresh: частичный успех, ошибки отдельных feeds, ограничение параллелизма и отмена;
+- [ ] добавить integration tests на защиту от concurrent refresh одного и того же feed;
+- [ ] добавить integration tests на обновление feed metadata и reconciliation статей после refresh.
 
 ### Reading Experience
 #### User State / Reading Actions
-- создать ArticleStateService;
-- реализовать markAsRead;
-- реализовать markAsUnread;
-- реализовать toggleStarred;
-- добавить markAsReadOnOpen;
-- добавить bulk action markAllVisibleAsRead;
-- обновлять updatedAt при каждом пользовательском изменении;
-- подготовить логику last-write-wins для конфликтов состояния.
+- [ ] создать ArticleStateService;
+- [ ] реализовать markAsRead;
+- [ ] реализовать markAsUnread;
+- [ ] реализовать toggleStarred;
+- [ ] добавить markAsReadOnOpen;
+- [ ] добавить bulk action markAllVisibleAsRead;
+- [ ] обновлять updatedAt при каждом пользовательском изменении;
+- [ ] подготовить логику last-write-wins для конфликтов состояния.
 
 #### Sidebar UI
-- создать SidebarViewModel;
-- экран sidebar со списком feeds;
-- показ unread counts;
-- добавить smart sections: All;
-- добавить smart sections: Unread;
-- добавить smart sections: Starred;
-- добавить выбор активного feed;
-- добавить empty state для отсутствия подписок.
+- [ ] создать SidebarViewModel;
+- [ ] экран sidebar со списком feeds;
+- [ ] показ unread counts;
+- [ ] добавить smart sections: All;
+- [ ] добавить smart sections: Unread;
+- [ ] добавить smart sections: Starred;
+- [ ] добавить выбор активного feed;
+- [ ] добавить empty state для отсутствия подписок.
 
 #### Article List UI
-- создать ArticleListViewModel;
-- список статей выбранного feed;
-- глобальный список всех статей;
-- сортировка по publishedAt desc;
-- фильтр unread only;
-- отображение состояния read/unread;
-- отображение starred state;
-- pull to refresh (c async/await обработкой обновления);
-- empty state для пустого списка;
-- error state для ошибки загрузки.
+- [ ] создать ArticleListViewModel;
+- [ ] список статей выбранного feed;
+- [ ] глобальный список всех статей;
+- [ ] сортировка по publishedAt desc;
+- [ ] фильтр unread only;
+- [ ] отображение состояния read/unread;
+- [ ] отображение starred state;
+- [ ] pull to refresh (c async/await обработкой обновления);
+- [ ] empty state для пустого списка;
+- [ ] error state для ошибки загрузки.
 
 #### Reader UI
-- создать ReaderViewModel;
-- экран чтения статьи;
-- показ title/source/date;
-- показ summary/content;
-- действие open in browser;
-- действие share;
-- действие mark unread;
-- действие star/unstar;
-- автоматическая отметка read on appear.
+- [ ] создать ReaderViewModel;
+- [ ] экран чтения статьи;
+- [ ] показ title/source/date;
+- [ ] показ summary/content;
+- [ ] действие open in browser;
+- [ ] действие share;
+- [ ] действие mark unread;
+- [ ] действие star/unstar;
+- [ ] автоматическая отметка read on appear.
 
 #### Add Feed Flow
-- создать AddFeedViewModel;
-- экран добавления feed по URL;
-- валидация URL;
-- превью найденного feed;
-- сохранение feed;
-- первый refresh после добавления;
-- обработка ошибки при невалидном или неподдерживаемом feed;
-- empty/error UX для add feed flow.
+- [ ] создать AddFeedViewModel;
+- [ ] экран добавления feed по URL;
+- [ ] валидация URL;
+- [ ] превью найденного feed;
+- [ ] сохранение feed;
+- [ ] первый refresh после добавления;
+- [ ] обработка ошибки при невалидном или неподдерживаемом feed;
+- [ ] empty/error UX для add feed flow.
 
 #### Settings
-- создать SettingsViewModel;
-- экран настроек;
-- markAsReadOnOpen;
-- show unread only default;
-- sort mode;
-- iCloud sync indicator;
-- ручной refresh.
+- [ ] создать SettingsViewModel;
+- [ ] экран настроек;
+- [ ] markAsReadOnOpen;
+- [ ] show unread only default;
+- [ ] sort mode;
+- [ ] iCloud sync indicator;
+- [ ] ручной refresh.
 
 ### Sync
 #### Sync / CloudKit
-- настроить SwiftData + CloudKit;
-- проверить синк Feed;
-- проверить синк ArticleState;
-- проверить синк AppSettings;
-- добавить Folder в sync scope;
-- реализовать SyncCoordinator;
-- обработка конфликтов ArticleState по updatedAt;
-- проверить сценарий запуска на втором устройстве;
-- добавить UI-индикатор состояния синка;
-- логирование sync-ошибок.
+- [ ] настроить SwiftData + CloudKit;
+- [ ] проверить синк Feed;
+- [ ] проверить синк ArticleState;
+- [ ] проверить синк AppSettings;
+- [ ] добавить Folder в sync scope;
+- [ ] реализовать SyncCoordinator;
+- [ ] обработка конфликтов ArticleState по updatedAt;
+- [ ] проверить сценарий запуска на втором устройстве;
+- [ ] добавить UI-индикатор состояния синка;
+- [ ] логирование sync-ошибок.
 
 ### Background Refresh
 #### Background Refresh
-- создать BackgroundRefreshService;
-- зарегистрировать background task;
-- планировать следующий refresh;
-- запускать FeedRefreshService в фоне;
-- корректно завершать background task;
-- обновлять данные после background refresh;
-- проверить поведение при отсутствии сети.
+- [ ] создать BackgroundRefreshService;
+- [ ] зарегистрировать background task;
+- [ ] планировать следующий refresh;
+- [ ] запускать FeedRefreshService в фоне;
+- [ ] корректно завершать background task;
+- [ ] обновлять данные после background refresh;
+- [ ] проверить поведение при отсутствии сети.
 
 ### Polish
 #### Testing
-- unit tests для normalizer;
-- unit tests для date parsing;
-- unit tests для external ID generation;
-- unit tests для deduplication;
-- unit tests для article state transitions;
-- integration tests для refresh pipeline;
-- UI tests для add feed flow;
-- UI tests для read/unread flow.
+- [ ] unit tests для normalizer;
+- [ ] unit tests для date parsing;
+- [ ] unit tests для external ID generation;
+- [ ] unit tests для deduplication;
+- [ ] unit tests для article state transitions;
+- [ ] integration tests для refresh pipeline;
+- [ ] UI tests для add feed flow;
+- [ ] UI tests для read/unread flow.
 
 #### Polish / Release Prep
-- улучшить launch/empty/loading states;
-- улучшить сообщения об ошибках;
-- проверить accessibility labels;
-- проверить performance на длинных списках;
-- подготовить app icons;
-- подготовить screenshots;
-- подготовить privacy notes;
-- подготовить TestFlight checklist;
-- подготовить release checklist.
+- [ ] улучшить launch/empty/loading states;
+- [ ] улучшить сообщения об ошибках;
+- [ ] проверить accessibility labels;
+- [ ] проверить performance на длинных списках;
+- [ ] подготовить app icons;
+- [ ] подготовить screenshots;
+- [ ] подготовить privacy notes;
+- [ ] подготовить TestFlight checklist;
+- [ ] подготовить release checklist.
 
 ### Post-MVP
 #### Post-MVP backlog
-- feed discovery по URL сайта;
-- OPML import;
-- OPML export;
-- full text extraction/reader mode;
-- image prefetch;
-- advanced smart folders;
-- скрытие статьи;
-- поиск по статьям;
-- macOS/iPad polish;
-- advanced conflict UI.
+- [ ] feed discovery по URL сайта;
+- [ ] OPML import;
+- [ ] OPML export;
+- [ ] full text extraction/reader mode;
+- [ ] image prefetch;
+- [ ] advanced smart folders;
+- [ ] скрытие статьи;
+- [ ] поиск по статьям;
+- [ ] macOS/iPad polish;
+- [ ] advanced conflict UI.
 
 ## Tech Stack
 

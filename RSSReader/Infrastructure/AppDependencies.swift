@@ -15,6 +15,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     public let logger: Logging
     public let httpClient: any HTTPClient
     public let feedFetcher: any FeedFetching
+    let feedRefreshService: FeedRefreshService?
     let feedRepository: (any FeedRepository)?
     let articleRepository: (any ArticleRepository)?
     let articleQueryService: (any ArticleQueryService)?
@@ -55,21 +56,36 @@ public final class AppDependencies: AppDependenciesProtocol {
         let feedFetchLogRepository = modelContainer.map { container in
             SwiftDataFeedFetchLogRepository(modelContext: container.mainContext)
         }
+        let resolvedFeedFetcher = feedFetcher ?? Self.makeFeedFetcher(
+            httpClient: httpClient,
+            logger: logger,
+            feedFetchLogRepository: feedFetchLogRepository
+        )
+        let feedRefreshService: FeedRefreshService? = {
+            guard let feedRepository, let articleRepository else {
+                return nil
+            }
+
+            return FeedRefreshService(
+                logger: logger,
+                feedFetcher: resolvedFeedFetcher,
+                feedRepository: feedRepository,
+                articleRepository: articleRepository,
+                feedFetchLogRepository: feedFetchLogRepository
+            )
+        }()
 
         self.logger = logger
         self.httpClient = httpClient
         self.modelContainer = modelContainer
+        self.feedRefreshService = feedRefreshService
         self.feedRepository = feedRepository
         self.articleRepository = articleRepository
         self.articleStateRepository = articleStateRepository
         self.articleQueryService = articleQueryService
         self.appSettingsRepository = appSettingsRepository
         self.feedFetchLogRepository = feedFetchLogRepository
-        self.feedFetcher = feedFetcher ?? Self.makeFeedFetcher(
-            httpClient: httpClient,
-            logger: logger,
-            feedFetchLogRepository: feedFetchLogRepository
-        )
+        self.feedFetcher = resolvedFeedFetcher
     }
 }
 
