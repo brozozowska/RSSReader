@@ -12,6 +12,7 @@ struct FeedRefreshContext: Sendable {
 
 @MainActor
 protocol FeedRefreshCoordinating {
+    var transactionBoundary: FeedRefreshTransactionBoundary { get }
     func refresh(feedID: UUID) async -> FeedRefreshResult
     func refreshFeeds(_ feedIDs: [UUID]) async -> FeedRefreshBatchResult
     func refreshAllActiveFeeds() async -> FeedRefreshBatchResult
@@ -21,6 +22,7 @@ protocol FeedRefreshCoordinating {
 
 @MainActor
 final class FeedRefreshService: FeedRefreshCoordinating {
+    let transactionBoundary: FeedRefreshTransactionBoundary = .singleFeedRefresh
     private let logger: Logging
     private let feedFetcher: any FeedFetching
     private let feedRepository: any FeedRepository

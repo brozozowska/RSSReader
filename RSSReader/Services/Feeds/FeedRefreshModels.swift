@@ -30,6 +30,40 @@ struct FeedRefreshDiagnosticsSummary: Sendable, Equatable {
     }
 }
 
+enum FeedRefreshPersistenceComponent: String, Sendable, CaseIterable {
+    case articleUpserts
+    case articleReconciliation
+    case feedContentMetadata
+    case feedFetchState
+    case feedFetchLog
+}
+
+struct FeedRefreshTransactionBoundary: Sendable, Equatable {
+    let atomicComponents: Set<FeedRefreshPersistenceComponent>
+    let nonAtomicComponents: Set<FeedRefreshPersistenceComponent>
+
+    var allComponents: Set<FeedRefreshPersistenceComponent> {
+        atomicComponents.union(nonAtomicComponents)
+    }
+
+    var storesArticlesAtomically: Bool {
+        atomicComponents.contains(.articleUpserts) &&
+        atomicComponents.contains(.articleReconciliation)
+    }
+
+    static let singleFeedRefresh = FeedRefreshTransactionBoundary(
+        atomicComponents: [
+            .articleUpserts,
+            .articleReconciliation,
+            .feedContentMetadata,
+            .feedFetchState
+        ],
+        nonAtomicComponents: [
+            .feedFetchLog
+        ]
+    )
+}
+
 struct FeedRefreshResult: Sendable, Identifiable {
     let feedID: UUID
     let status: FeedRefreshStatus
