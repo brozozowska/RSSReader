@@ -49,6 +49,10 @@ struct FeedRefreshResult: Sendable, Identifiable {
         max(0, finishedAt.timeIntervalSince(startedAt))
     }
 
+    var isSuccess: Bool {
+        status != .failed
+    }
+
     init(
         feedID: UUID,
         status: FeedRefreshStatus,
@@ -69,6 +73,65 @@ struct FeedRefreshResult: Sendable, Identifiable {
         self.rejectedEntryCount = max(0, rejectedEntryCount)
         self.diagnosticsSummary = diagnosticsSummary
         self.errorDescription = errorDescription
+    }
+
+    static func fetched(
+        feedID: UUID,
+        startedAt: Date,
+        finishedAt: Date = Date(),
+        processedEntryCount: Int,
+        upsertedEntryCount: Int,
+        rejectedEntryCount: Int,
+        diagnosticsSummary: FeedRefreshDiagnosticsSummary = FeedRefreshDiagnosticsSummary()
+    ) -> FeedRefreshResult {
+        FeedRefreshResult(
+            feedID: feedID,
+            status: .fetched,
+            startedAt: startedAt,
+            finishedAt: finishedAt,
+            processedEntryCount: processedEntryCount,
+            upsertedEntryCount: upsertedEntryCount,
+            rejectedEntryCount: rejectedEntryCount,
+            diagnosticsSummary: diagnosticsSummary
+        )
+    }
+
+    static func notModified(
+        feedID: UUID,
+        startedAt: Date,
+        finishedAt: Date = Date(),
+        diagnosticsSummary: FeedRefreshDiagnosticsSummary = FeedRefreshDiagnosticsSummary()
+    ) -> FeedRefreshResult {
+        FeedRefreshResult(
+            feedID: feedID,
+            status: .notModified,
+            startedAt: startedAt,
+            finishedAt: finishedAt,
+            diagnosticsSummary: diagnosticsSummary
+        )
+    }
+
+    static func failed(
+        feedID: UUID,
+        startedAt: Date,
+        finishedAt: Date = Date(),
+        processedEntryCount: Int = 0,
+        upsertedEntryCount: Int = 0,
+        rejectedEntryCount: Int = 0,
+        diagnosticsSummary: FeedRefreshDiagnosticsSummary = FeedRefreshDiagnosticsSummary(),
+        errorDescription: String
+    ) -> FeedRefreshResult {
+        FeedRefreshResult(
+            feedID: feedID,
+            status: .failed,
+            startedAt: startedAt,
+            finishedAt: finishedAt,
+            processedEntryCount: processedEntryCount,
+            upsertedEntryCount: upsertedEntryCount,
+            rejectedEntryCount: rejectedEntryCount,
+            diagnosticsSummary: diagnosticsSummary,
+            errorDescription: errorDescription
+        )
     }
 }
 

@@ -123,11 +123,9 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         startedAt: Date,
         errorDescription: String
     ) -> FeedRefreshResult {
-        FeedRefreshResult(
+        FeedRefreshResult.failed(
             feedID: feedID,
-            status: .failed,
             startedAt: startedAt,
-            finishedAt: Date(),
             errorDescription: errorDescription
         )
     }
