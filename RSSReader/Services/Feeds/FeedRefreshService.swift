@@ -26,6 +26,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     let notModifiedPolicy: FeedRefreshNotModifiedPolicy = .default
     let diagnosticsPolicy: FeedRefreshDiagnosticsPolicy = .default
     let reconciliationPolicy: FeedRefreshReconciliationPolicy = .markMissingArticlesAsDeletedAtSource
+    let batchPolicy: FeedRefreshBatchPolicy = .default
     private let logger: Logging
     private let feedFetcher: any FeedFetching
     private let feedRepository: any FeedRepository
@@ -98,14 +99,10 @@ final class FeedRefreshService: FeedRefreshCoordinating {
 
     func refreshFeeds(_ feedIDs: [UUID]) async -> FeedRefreshBatchResult {
         let startedAt = Date()
-        let uniqueFeedIDs = uniquePreservingOrder(feedIDs)
-        var results: [FeedRefreshResult] = []
-        results.reserveCapacity(uniqueFeedIDs.count)
-
-        for feedID in uniqueFeedIDs {
-            let result = await refresh(feedID: feedID)
-            results.append(result)
-        }
+        let batchFeedIDs = batchPolicy.deduplicatesFeedIDs
+            ? uniquePreservingOrder(feedIDs)
+            : feedIDs
+        let results = await executeBatchRefresh(feedIDs: batchFeedIDs)
 
         return FeedRefreshBatchResult(
             startedAt: startedAt,
@@ -243,6 +240,27 @@ final class FeedRefreshService: FeedRefreshCoordinating {
 
             return reconciledCount
         }
+    }
+
+    private func executeBatchRefresh(feedIDs: [UUID]) async -> [FeedRefreshResult] {
+        var results: [FeedRefreshResult] = []
+        results.reserveCapacity(feedIDs.count)
+
+        for feedID in feedIDs {
+            let result = await refresh(feedID: feedID)
+            results.append(result)
+
+            if result.status == .failed {
+                logger.error("Batch refresh failed for feed \(feedID.uuidString)")
+            }
+
+            switch batchPolicy.errorPolicy {
+            case .continueOnError:
+                continue
+            }
+        }
+
+        return results
     }
 
     private func uniquePreservingOrder(_ feedIDs: [UUID]) -> [UUID] {

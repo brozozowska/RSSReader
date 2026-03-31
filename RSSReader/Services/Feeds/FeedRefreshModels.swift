@@ -119,6 +119,20 @@ enum FeedRefreshReconciliationPolicy: String, Sendable {
     case markMissingArticlesAsDeletedAtSource
 }
 
+enum FeedRefreshBatchErrorPolicy: String, Sendable {
+    case continueOnError
+}
+
+struct FeedRefreshBatchPolicy: Sendable, Equatable {
+    let errorPolicy: FeedRefreshBatchErrorPolicy
+    let deduplicatesFeedIDs: Bool
+
+    static let `default` = FeedRefreshBatchPolicy(
+        errorPolicy: .continueOnError,
+        deduplicatesFeedIDs: true
+    )
+}
+
 struct FeedRefreshResult: Sendable, Identifiable {
     let feedID: UUID
     let status: FeedRefreshStatus
