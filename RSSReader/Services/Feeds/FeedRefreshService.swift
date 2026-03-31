@@ -25,6 +25,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     let transactionBoundary: FeedRefreshTransactionBoundary = .singleFeedRefresh
     let notModifiedPolicy: FeedRefreshNotModifiedPolicy = .default
     let diagnosticsPolicy: FeedRefreshDiagnosticsPolicy = .default
+    let reconciliationPolicy: FeedRefreshReconciliationPolicy = .markMissingArticlesAsDeletedAtSource
     private let logger: Logging
     private let feedFetcher: any FeedFetching
     private let feedRepository: any FeedRepository
@@ -217,6 +218,30 @@ final class FeedRefreshService: FeedRefreshCoordinating {
 
         if diagnosticsAreSoftFailure(diagnostics) {
             logger.info("Feed \(feedID.uuidString) refresh diagnostics treated as soft failure")
+        }
+    }
+
+    private func reconcileArticles(
+        for feedID: UUID,
+        entries: [ParsedFeedEntryDTO],
+        fetchedAt: Date
+    ) throws -> Int {
+        switch reconciliationPolicy {
+        case .markMissingArticlesAsDeletedAtSource:
+            let incomingExternalIDs = Set(entries.compactMap(\.externalID))
+            let reconciledCount = try articleRepository.reconcileArticles(
+                feedID: feedID,
+                keepingExternalIDs: incomingExternalIDs,
+                fetchedAt: fetchedAt
+            )
+
+            if reconciledCount > 0 {
+                logger.info(
+                    "Feed \(feedID.uuidString) reconciliation marked \(reconciledCount) articles as changed deleted-at-source state"
+                )
+            }
+
+            return reconciledCount
         }
     }
 

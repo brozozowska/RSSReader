@@ -115,6 +115,10 @@ struct FeedRefreshDiagnosticsPolicy: Sendable, Equatable {
     }
 }
 
+enum FeedRefreshReconciliationPolicy: String, Sendable {
+    case markMissingArticlesAsDeletedAtSource
+}
+
 struct FeedRefreshResult: Sendable, Identifiable {
     let feedID: UUID
     let status: FeedRefreshStatus

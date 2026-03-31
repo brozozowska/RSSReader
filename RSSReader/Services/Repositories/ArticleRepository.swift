@@ -5,8 +5,10 @@ import SwiftData
 protocol ArticleRepository {
     func fetchArticle(id: UUID) throws -> Article?
     func fetchArticle(feedID: UUID, externalID: String) throws -> Article?
+    func fetchArticles(feedID: UUID) throws -> [Article]
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article]
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
+    func reconcileArticles(feedID: UUID, keepingExternalIDs: Set<String>, fetchedAt: Date) throws -> Int
 
     @discardableResult
     func upsert(_ entry: ParsedFeedEntryDTO, into feed: Feed, fetchedAt: Date) throws -> Article?
@@ -48,6 +50,15 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             }
         )
         return try fetchFirst(descriptor)
+    }
+
+    func fetchArticles(feedID: UUID) throws -> [Article] {
+        let descriptor = FetchDescriptor<Article>(
+            predicate: #Predicate<Article> { article in
+                article.feed.id == feedID
+            }
+        )
+        return try modelContext.fetch(descriptor)
     }
 
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article] {
@@ -106,6 +117,27 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     func delete(_ article: Article) throws {
         modelContext.delete(article)
         try saveIfNeeded()
+    }
+
+    func reconcileArticles(feedID: UUID, keepingExternalIDs: Set<String>, fetchedAt: Date) throws -> Int {
+        let normalizedExternalIDs = Set(keepingExternalIDs.compactMap(normalizedIdentifier))
+        let articles = try fetchArticles(feedID: feedID)
+        var reconciledCount = 0
+
+        for article in articles {
+            let shouldKeep = normalizedExternalIDs.contains(article.externalID)
+            let newDeletedAtSource = shouldKeep == false
+
+            if article.isDeletedAtSource != newDeletedAtSource {
+                article.isDeletedAtSource = newDeletedAtSource
+                article.fetchedAt = fetchedAt
+                article.updatedAt = .now
+                reconciledCount += 1
+            }
+        }
+
+        try saveIfNeeded()
+        return reconciledCount
     }
 
     private func apply(_ payload: ArticleUpsertPayload, to article: Article) {
