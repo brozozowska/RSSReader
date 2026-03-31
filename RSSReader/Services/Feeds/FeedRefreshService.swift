@@ -24,6 +24,7 @@ protocol FeedRefreshCoordinating {
 final class FeedRefreshService: FeedRefreshCoordinating {
     let transactionBoundary: FeedRefreshTransactionBoundary = .singleFeedRefresh
     let notModifiedPolicy: FeedRefreshNotModifiedPolicy = .default
+    let diagnosticsPolicy: FeedRefreshDiagnosticsPolicy = .default
     private let logger: Logging
     private let feedFetcher: any FeedFetching
     private let feedRepository: any FeedRepository
@@ -182,6 +183,41 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             startedAt: startedAt,
             finishedAt: finishedAt
         )
+    }
+
+    private func diagnosticsSummary(for diagnostics: FeedParsePipelineDiagnostics) -> FeedRefreshDiagnosticsSummary {
+        diagnosticsPolicy.makeSummary(from: diagnostics)
+    }
+
+    private func diagnosticsAreSoftFailure(_ diagnostics: FeedParsePipelineDiagnostics) -> Bool {
+        diagnosticsPolicy.treatsDiagnosticsAsSoftFailure(diagnostics)
+    }
+
+    private func logDiagnosticsIfNeeded(
+        _ diagnostics: FeedParsePipelineDiagnostics,
+        feedID: UUID
+    ) {
+        guard diagnostics.hasIssues else { return }
+
+        if diagnosticsPolicy.logsParserAnomalies, diagnostics.parserAnomalies.isEmpty == false {
+            let summary = "Feed \(feedID.uuidString) parser anomalies: \(diagnostics.parserAnomalies.count)"
+            logger.info(summary)
+            for anomaly in diagnostics.parserAnomalies {
+                logger.info("Feed \(feedID.uuidString) anomaly [\(String(describing: anomaly.kind))]: \(anomaly.message)")
+            }
+        }
+
+        if diagnosticsPolicy.logsRejectedEntries, diagnostics.rejectedEntries.isEmpty == false {
+            logger.info("Feed \(feedID.uuidString) rejected entries: \(diagnostics.rejectedEntries.count)")
+            for rejectedEntry in diagnostics.rejectedEntries {
+                let reasons = rejectedEntry.reasons.map(\.rawValue).joined(separator: ", ")
+                logger.info("Feed \(feedID.uuidString) rejected entry reasons: \(reasons)")
+            }
+        }
+
+        if diagnosticsAreSoftFailure(diagnostics) {
+            logger.info("Feed \(feedID.uuidString) refresh diagnostics treated as soft failure")
+        }
     }
 
     private func uniquePreservingOrder(_ feedIDs: [UUID]) -> [UUID] {

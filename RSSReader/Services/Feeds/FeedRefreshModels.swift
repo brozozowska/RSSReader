@@ -28,6 +28,10 @@ struct FeedRefreshDiagnosticsSummary: Sendable, Equatable {
     var hasIssues: Bool {
         parserAnomalyCount > 0 || rejectedEntryCount > 0
     }
+
+    var hasSoftFailures: Bool {
+        hasIssues
+    }
 }
 
 enum FeedRefreshPersistenceComponent: String, Sendable, CaseIterable {
@@ -78,6 +82,37 @@ struct FeedRefreshNotModifiedPolicy: Sendable, Equatable {
         clearsLastSyncError: true,
         updatesLastSuccessfulFetchAt: false
     )
+}
+
+struct FeedRefreshDiagnosticsPolicy: Sendable, Equatable {
+    let includesParserAnomaliesInDiagnostics: Bool
+    let includesRejectedEntriesInDiagnostics: Bool
+    let logsParserAnomalies: Bool
+    let logsRejectedEntries: Bool
+    let parserAnomaliesAreSoftFailures: Bool
+    let rejectedEntriesAreSoftFailures: Bool
+
+    static let `default` = FeedRefreshDiagnosticsPolicy(
+        includesParserAnomaliesInDiagnostics: true,
+        includesRejectedEntriesInDiagnostics: true,
+        logsParserAnomalies: true,
+        logsRejectedEntries: true,
+        parserAnomaliesAreSoftFailures: true,
+        rejectedEntriesAreSoftFailures: true
+    )
+
+    func makeSummary(from diagnostics: FeedParsePipelineDiagnostics) -> FeedRefreshDiagnosticsSummary {
+        FeedRefreshDiagnosticsSummary(
+            parserAnomalyCount: includesParserAnomaliesInDiagnostics ? diagnostics.parserAnomalies.count : 0,
+            rejectedEntryCount: includesRejectedEntriesInDiagnostics ? diagnostics.rejectedEntries.count : 0
+        )
+    }
+
+    func treatsDiagnosticsAsSoftFailure(_ diagnostics: FeedParsePipelineDiagnostics) -> Bool {
+        let hasParserAnomalies = parserAnomaliesAreSoftFailures && diagnostics.parserAnomalies.isEmpty == false
+        let hasRejectedEntries = rejectedEntriesAreSoftFailures && diagnostics.rejectedEntries.isEmpty == false
+        return hasParserAnomalies || hasRejectedEntries
+    }
 }
 
 struct FeedRefreshResult: Sendable, Identifiable {
