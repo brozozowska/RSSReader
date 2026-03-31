@@ -64,6 +64,22 @@ struct FeedRefreshTransactionBoundary: Sendable, Equatable {
     )
 }
 
+struct FeedRefreshNotModifiedPolicy: Sendable, Equatable {
+    let resultStatus: FeedRefreshStatus
+    let updatesLastFetchedAt: Bool
+    let updatesCacheValidatorsFromResponse: Bool
+    let clearsLastSyncError: Bool
+    let updatesLastSuccessfulFetchAt: Bool
+
+    static let `default` = FeedRefreshNotModifiedPolicy(
+        resultStatus: .notModified,
+        updatesLastFetchedAt: true,
+        updatesCacheValidatorsFromResponse: true,
+        clearsLastSyncError: true,
+        updatesLastSuccessfulFetchAt: false
+    )
+}
+
 struct FeedRefreshResult: Sendable, Identifiable {
     let feedID: UUID
     let status: FeedRefreshStatus

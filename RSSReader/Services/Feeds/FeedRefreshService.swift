@@ -23,6 +23,7 @@ protocol FeedRefreshCoordinating {
 @MainActor
 final class FeedRefreshService: FeedRefreshCoordinating {
     let transactionBoundary: FeedRefreshTransactionBoundary = .singleFeedRefresh
+    let notModifiedPolicy: FeedRefreshNotModifiedPolicy = .default
     private let logger: Logging
     private let feedFetcher: any FeedFetching
     private let feedRepository: any FeedRepository
@@ -70,8 +71,19 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         let startedAt = Date()
 
         do {
-            _ = try makeRefreshContext(for: feedID)
-            return makeNotImplementedResult(feedID: feedID, startedAt: startedAt)
+            let context = try makeRefreshContext(for: feedID)
+            let fetchResult = try await feedFetcher.fetch(context.request)
+
+            switch fetchResult {
+            case .notModified(let response):
+                return try handleNotModifiedResponse(
+                    response,
+                    metadata: context.metadata,
+                    startedAt: startedAt
+                )
+            case .fetched:
+                return makeNotImplementedResult(feedID: feedID, startedAt: startedAt)
+            }
         } catch {
             logger.error("Failed to prepare refresh for feed \(feedID.uuidString): \(error)")
             return makeFailureResult(
@@ -137,6 +149,38 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             feedID: feedID,
             startedAt: startedAt,
             errorDescription: String(describing: FeedRefreshServiceError.refreshPipelineNotImplemented)
+        )
+    }
+
+    private func handleNotModifiedResponse(
+        _ response: FeedResponse,
+        metadata: FeedFetchMetadata,
+        startedAt: Date
+    ) throws -> FeedRefreshResult {
+        let finishedAt = Date()
+
+        var update = FeedMetadataUpdate(updatedAt: finishedAt)
+        if notModifiedPolicy.updatesLastFetchedAt {
+            update.lastFetchedAt = finishedAt
+        }
+        if notModifiedPolicy.updatesCacheValidatorsFromResponse {
+            update.lastETag = response.eTag
+            update.lastModifiedHeader = response.lastModified
+        }
+        if notModifiedPolicy.clearsLastSyncError {
+            update.clearLastSyncError = true
+        }
+        if notModifiedPolicy.updatesLastSuccessfulFetchAt {
+            update.lastSuccessfulFetchAt = finishedAt
+        }
+
+        _ = try feedRepository.updateMetadata(for: metadata.id, with: update)
+        logger.info("Feed \(metadata.id.uuidString) not modified; metadata updated after conditional fetch")
+
+        return FeedRefreshResult.notModified(
+            feedID: metadata.id,
+            startedAt: startedAt,
+            finishedAt: finishedAt
         )
     }
 

@@ -121,6 +121,7 @@ struct FeedMetadataUpdate: Sendable {
     var lastETag: String? = nil
     var lastModifiedHeader: String? = nil
     var lastSyncError: String? = nil
+    var clearLastSyncError: Bool = false
     var updatedAt: Date = .now
 }
 
@@ -256,7 +257,9 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
             feed.lastModifiedHeader = lastModifiedHeader
         }
 
-        if let lastSyncError = update.lastSyncError {
+        if update.clearLastSyncError {
+            feed.lastSyncError = nil
+        } else if let lastSyncError = update.lastSyncError {
             feed.lastSyncError = lastSyncError
         }
 
