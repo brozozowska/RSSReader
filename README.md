@@ -124,7 +124,7 @@
 #### Refresh Orchestration
 - [x] создать `FeedRefreshService` как единый coordinator refresh pipeline;
 - [x] определить и зафиксировать публичный API сервиса: `refresh(feedID:)`, `refreshAllActiveFeeds()`, `refreshFeeds(_:)`, entrypoint для первого refresh после добавления feed;
-- [ ] определить и зафиксировать batch refresh result contract с агрегированными итогами по feeds и списком per-feed результатов;
+- [x] определить и зафиксировать batch refresh result contract с агрегированными итогами по feeds и списком per-feed результатов;
 - [ ] определить и зафиксировать `FeedRefreshResult` для одного feed с полями статуса `fetched` / `notModified` / `failed`, `startedAt`, `finishedAt`, `duration`, количеством обработанных/upsert/rejected entries и diagnostics summary;
 - [ ] определить transactional boundary refresh одного feed и явно зафиксировать, какие изменения должны сохраняться атомарно;
 - [ ] определить и реализовать policy для `304 Not Modified`, включая обновление feed metadata и итоговый result/status;

@@ -77,38 +77,53 @@ struct FeedRefreshBatchSummary: Sendable, Equatable {
     let fetchedCount: Int
     let notModifiedCount: Int
     let failedCount: Int
-    let processedEntryCount: Int
-    let upsertedEntryCount: Int
-    let rejectedEntryCount: Int
+    let totalProcessedEntryCount: Int
+    let totalUpsertedEntryCount: Int
+    let totalRejectedEntryCount: Int
 }
 
 struct FeedRefreshBatchResult: Sendable {
     let startedAt: Date
     let finishedAt: Date
     let results: [FeedRefreshResult]
+    let summary: FeedRefreshBatchSummary
+
+    init(
+        startedAt: Date,
+        finishedAt: Date,
+        results: [FeedRefreshResult]
+    ) {
+        self.startedAt = startedAt
+        self.finishedAt = finishedAt
+        self.results = results
+        self.summary = Self.makeSummary(from: results)
+    }
 
     var duration: TimeInterval {
         max(0, finishedAt.timeIntervalSince(startedAt))
-    }
-
-    var summary: FeedRefreshBatchSummary {
-        FeedRefreshBatchSummary(
-            totalFeedCount: results.count,
-            fetchedCount: results.filter { $0.status == .fetched }.count,
-            notModifiedCount: results.filter { $0.status == .notModified }.count,
-            failedCount: results.filter { $0.status == .failed }.count,
-            processedEntryCount: results.reduce(0) { $0 + $1.processedEntryCount },
-            upsertedEntryCount: results.reduce(0) { $0 + $1.upsertedEntryCount },
-            rejectedEntryCount: results.reduce(0) { $0 + $1.rejectedEntryCount }
-        )
     }
 
     var failedResults: [FeedRefreshResult] {
         results.filter { $0.status == .failed }
     }
 
+    var failedFeedIDs: [UUID] {
+        failedResults.map(\.feedID)
+    }
+
     var failureDescriptions: [String] {
         failedResults.compactMap(\.errorDescription)
     }
-}
 
+    private static func makeSummary(from results: [FeedRefreshResult]) -> FeedRefreshBatchSummary {
+        FeedRefreshBatchSummary(
+            totalFeedCount: results.count,
+            fetchedCount: results.filter { $0.status == .fetched }.count,
+            notModifiedCount: results.filter { $0.status == .notModified }.count,
+            failedCount: results.filter { $0.status == .failed }.count,
+            totalProcessedEntryCount: results.reduce(0) { $0 + $1.processedEntryCount },
+            totalUpsertedEntryCount: results.reduce(0) { $0 + $1.upsertedEntryCount },
+            totalRejectedEntryCount: results.reduce(0) { $0 + $1.rejectedEntryCount }
+        )
+    }
+}
