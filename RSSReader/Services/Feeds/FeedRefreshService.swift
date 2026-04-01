@@ -74,6 +74,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
 
         do {
             let context = try makeRefreshContext(for: feedID)
+            try markRefreshAttemptStarted(for: context.metadata.id, startedAt: startedAt)
             let fetchResult = try await feedFetcher.fetch(context.request)
 
             switch fetchResult {
@@ -154,9 +155,6 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         let finishedAt = Date()
 
         var update = FeedMetadataUpdate(updatedAt: finishedAt)
-        if notModifiedPolicy.updatesLastFetchedAt {
-            update.lastFetchedAt = finishedAt
-        }
         if notModifiedPolicy.updatesCacheValidatorsFromResponse {
             update.lastETag = response.eTag
             update.lastModifiedHeader = response.lastModified
@@ -176,6 +174,12 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             startedAt: startedAt,
             finishedAt: finishedAt
         )
+    }
+
+    private func markRefreshAttemptStarted(for feedID: UUID, startedAt: Date) throws {
+        var update = FeedMetadataUpdate(updatedAt: startedAt)
+        update.lastFetchedAt = startedAt
+        _ = try feedRepository.updateMetadata(for: feedID, with: update)
     }
 
     private func handleFetchedResponse(
