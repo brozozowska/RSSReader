@@ -155,19 +155,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     ) throws -> FeedRefreshResult {
         let finishedAt = Date()
 
-        var update = FeedMetadataUpdate(updatedAt: finishedAt)
-        if notModifiedPolicy.updatesCacheValidatorsFromResponse {
-            update.lastETag = response.eTag
-            update.lastModifiedHeader = response.lastModified
-        }
-        if notModifiedPolicy.clearsLastSyncError {
-            update.clearLastSyncError = true
-        }
-        if notModifiedPolicy.updatesLastSuccessfulFetchAt {
-            update.lastSuccessfulFetchAt = finishedAt
-        }
-
-        _ = try feedRepository.updateMetadata(for: metadata.id, with: update)
+        try updateNotModifiedFetchState(from: response, feedID: metadata.id, finishedAt: finishedAt)
         logger.info("Feed \(metadata.id.uuidString) not modified; metadata updated after conditional fetch")
 
         return FeedRefreshResult.notModified(
@@ -212,6 +200,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
 
         logDiagnosticsIfNeeded(diagnostics, feedID: metadata.id)
         try markRefreshSucceededWithPayload(for: metadata.id, finishedAt: fetchedAt)
+        try updateCacheValidators(from: response, feedID: metadata.id, updatedAt: fetchedAt)
         try updateFeedContentMetadata(
             for: metadata.id,
             parsedFeed: pipelineResult.feed,
@@ -250,6 +239,37 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             rejectedEntryCount: diagnostics.rejectedEntries.count,
             diagnosticsSummary: diagnosticsSummary
         )
+    }
+
+    private func updateNotModifiedFetchState(
+        from response: FeedResponse,
+        feedID: UUID,
+        finishedAt: Date
+    ) throws {
+        var update = FeedMetadataUpdate(updatedAt: finishedAt)
+        if notModifiedPolicy.updatesCacheValidatorsFromResponse {
+            update.lastETag = response.eTag
+            update.lastModifiedHeader = response.lastModified
+        }
+        if notModifiedPolicy.clearsLastSyncError {
+            update.clearLastSyncError = true
+        }
+        if notModifiedPolicy.updatesLastSuccessfulFetchAt {
+            update.lastSuccessfulFetchAt = finishedAt
+        }
+
+        _ = try feedRepository.updateMetadata(for: feedID, with: update)
+    }
+
+    private func updateCacheValidators(
+        from response: FeedResponse,
+        feedID: UUID,
+        updatedAt: Date
+    ) throws {
+        var update = FeedMetadataUpdate(updatedAt: updatedAt)
+        update.lastETag = response.eTag
+        update.lastModifiedHeader = response.lastModified
+        _ = try feedRepository.updateMetadata(for: feedID, with: update)
     }
 
     private func updateFeedContentMetadata(
