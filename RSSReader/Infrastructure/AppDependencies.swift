@@ -57,9 +57,7 @@ public final class AppDependencies: AppDependenciesProtocol {
             SwiftDataFeedFetchLogRepository(modelContext: container.mainContext)
         }
         let resolvedFeedFetcher = feedFetcher ?? Self.makeFeedFetcher(
-            httpClient: httpClient,
-            logger: logger,
-            feedFetchLogRepository: feedFetchLogRepository
+            httpClient: httpClient
         )
         let feedRefreshService: FeedRefreshService? = {
             guard let feedRepository, let articleRepository else {
@@ -119,25 +117,8 @@ public extension AppDependencies {
 
 private extension AppDependencies {
     static func makeFeedFetcher(
-        httpClient: any HTTPClient,
-        logger: Logging,
-        feedFetchLogRepository: (any FeedFetchLogRepository)?
+        httpClient: any HTTPClient
     ) -> any FeedFetching {
-        guard let feedFetchLogRepository else {
-            return FeedFetcher(httpClient: httpClient)
-        }
-
-        return FeedFetcher(
-            httpClient: httpClient,
-            logSink: { log in
-                do {
-                    try await MainActor.run(resultType: Void.self) {
-                        try feedFetchLogRepository.insert(log)
-                    }
-                } catch {
-                    logger.error("Failed to persist FeedFetchLog: \(error)")
-                }
-            }
-        )
+        FeedFetcher(httpClient: httpClient)
     }
 }

@@ -138,7 +138,7 @@
 - [x] реализовать обновление `lastSuccessfulFetchAt` только для успешного refresh с новым payload;
 - [x] реализовать обновление `lastSyncError` по результату refresh и очистку ошибки после успешного завершения;
 - [x] реализовать обновление `lastETag` и `lastModifiedHeader` по результату HTTP fetch;
-- [ ] реализовать сохранение `FeedFetchLog` для каждого завершённого refresh с нормализованным статусом, HTTP code, сообщением ошибки и diagnostics summary;
+- [x] реализовать сохранение `FeedFetchLog` для каждого завершённого refresh с нормализованным статусом, HTTP code, сообщением ошибки и diagnostics summary;
 - [ ] реализовать защиту от одновременного refresh одного и того же feed;
 - [ ] реализовать in-flight deduplication повторного запроса на refresh одного и того же feed по выбранной policy;
 - [ ] реализовать refresh всех active feeds через `FeedRepository.fetchActiveFeeds()`;

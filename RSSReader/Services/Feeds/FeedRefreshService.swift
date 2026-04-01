@@ -79,25 +79,54 @@ final class FeedRefreshService: FeedRefreshCoordinating {
 
             switch fetchResult {
             case .notModified(let response):
-                return try handleNotModifiedResponse(
+                let result = try handleNotModifiedResponse(
                     response,
                     metadata: context.metadata,
                     startedAt: startedAt
                 )
+                try persistRefreshLog(
+                    feedID: context.metadata.id,
+                    status: result.status,
+                    httpCode: response.statusCode,
+                    diagnosticsSummary: result.diagnosticsSummary,
+                    errorDescription: result.errorDescription,
+                    finishedAt: result.finishedAt,
+                    baseMessage: "Feed not modified"
+                )
+                return result
             case .fetched(let response):
-                return try handleFetchedResponse(
+                let result = try handleFetchedResponse(
                     response,
                     metadata: context.metadata,
                     startedAt: startedAt
                 )
+                try persistRefreshLog(
+                    feedID: context.metadata.id,
+                    status: result.status,
+                    httpCode: response.statusCode,
+                    diagnosticsSummary: result.diagnosticsSummary,
+                    errorDescription: result.errorDescription,
+                    finishedAt: result.finishedAt
+                )
+                return result
             }
         } catch {
-            try? markRefreshFailed(feedID: feedID, finishedAt: Date(), errorDescription: String(describing: error))
+            let finishedAt = Date()
+            let errorDescription = String(describing: error)
+            try? markRefreshFailed(feedID: feedID, finishedAt: finishedAt, errorDescription: errorDescription)
+            try? persistRefreshLog(
+                feedID: feedID,
+                status: .failed,
+                httpCode: httpCode(from: error),
+                diagnosticsSummary: FeedRefreshDiagnosticsSummary(),
+                errorDescription: errorDescription,
+                finishedAt: finishedAt
+            )
             logger.error("Failed to refresh feed \(feedID.uuidString): \(error)")
             return makeFailureResult(
                 feedID: feedID,
                 startedAt: startedAt,
-                errorDescription: String(describing: error)
+                errorDescription: errorDescription
             )
         }
     }
@@ -270,6 +299,72 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         update.lastETag = response.eTag
         update.lastModifiedHeader = response.lastModified
         _ = try feedRepository.updateMetadata(for: feedID, with: update)
+    }
+
+    private func persistRefreshLog(
+        feedID: UUID,
+        status: FeedRefreshStatus,
+        httpCode: Int?,
+        diagnosticsSummary: FeedRefreshDiagnosticsSummary,
+        errorDescription: String?,
+        finishedAt: Date,
+        baseMessage: String? = nil
+    ) throws {
+        guard let feedFetchLogRepository else { return }
+
+        let logEntry = FeedFetchLogEntry(
+            feedID: feedID,
+            status: normalizedLogStatus(for: status),
+            httpCode: httpCode,
+            message: logMessage(
+                baseMessage: baseMessage,
+                diagnosticsSummary: diagnosticsSummary,
+                errorDescription: errorDescription
+            ),
+            createdAt: finishedAt
+        )
+
+        try feedFetchLogRepository.insert(logEntry)
+    }
+
+    private func normalizedLogStatus(for status: FeedRefreshStatus) -> String {
+        switch status {
+        case .fetched:
+            "fetched"
+        case .notModified:
+            "not_modified"
+        case .failed:
+            "failed"
+        }
+    }
+
+    private func logMessage(
+        baseMessage: String?,
+        diagnosticsSummary: FeedRefreshDiagnosticsSummary,
+        errorDescription: String?
+    ) -> String? {
+        var parts: [String] = []
+
+        if let baseMessage, baseMessage.isEmpty == false {
+            parts.append(baseMessage)
+        }
+
+        parts.append(
+            "diagnostics(parser_anomalies=\(diagnosticsSummary.parserAnomalyCount), rejected_entries=\(diagnosticsSummary.rejectedEntryCount))"
+        )
+
+        if let errorDescription, errorDescription.isEmpty == false {
+            parts.append("error=\(errorDescription)")
+        }
+
+        return parts.isEmpty ? nil : parts.joined(separator: "; ")
+    }
+
+    private func httpCode(from error: Error) -> Int? {
+        guard case .invalidStatusCode(let statusCode) = error as? FeedFetchError else {
+            return nil
+        }
+        return statusCode
     }
 
     private func updateFeedContentMetadata(
