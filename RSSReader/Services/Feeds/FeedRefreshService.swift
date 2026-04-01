@@ -2,7 +2,6 @@ import Foundation
 
 enum FeedRefreshServiceError: Error {
     case feedNotFound(UUID)
-    case refreshPipelineNotImplemented
 }
 
 struct FeedRefreshContext: Sendable {
@@ -84,11 +83,15 @@ final class FeedRefreshService: FeedRefreshCoordinating {
                     metadata: context.metadata,
                     startedAt: startedAt
                 )
-            case .fetched:
-                return makeNotImplementedResult(feedID: feedID, startedAt: startedAt)
+            case .fetched(let response):
+                return try handleFetchedResponse(
+                    response,
+                    metadata: context.metadata,
+                    startedAt: startedAt
+                )
             }
         } catch {
-            logger.error("Failed to prepare refresh for feed \(feedID.uuidString): \(error)")
+            logger.error("Failed to refresh feed \(feedID.uuidString): \(error)")
             return makeFailureResult(
                 feedID: feedID,
                 startedAt: startedAt,
@@ -143,14 +146,6 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         )
     }
 
-    private func makeNotImplementedResult(feedID: UUID, startedAt: Date) -> FeedRefreshResult {
-        makeFailureResult(
-            feedID: feedID,
-            startedAt: startedAt,
-            errorDescription: String(describing: FeedRefreshServiceError.refreshPipelineNotImplemented)
-        )
-    }
-
     private func handleNotModifiedResponse(
         _ response: FeedResponse,
         metadata: FeedFetchMetadata,
@@ -180,6 +175,52 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             feedID: metadata.id,
             startedAt: startedAt,
             finishedAt: finishedAt
+        )
+    }
+
+    private func handleFetchedResponse(
+        _ response: FeedResponse,
+        metadata: FeedFetchMetadata,
+        startedAt: Date
+    ) throws -> FeedRefreshResult {
+        let pipelineResult = try FeedParserService.parsePipelineResult(response)
+        let diagnostics = pipelineResult.diagnostics
+        let diagnosticsSummary = diagnosticsSummary(for: diagnostics)
+        let fetchedAt = Date()
+
+        logDiagnosticsIfNeeded(diagnostics, feedID: metadata.id)
+
+        guard let feed = try feedRepository.fetchFeed(id: metadata.id) else {
+            throw FeedRefreshServiceError.feedNotFound(metadata.id)
+        }
+
+        let reconciledCount = try reconcileArticles(
+            for: metadata.id,
+            entries: pipelineResult.feed.entries,
+            fetchedAt: fetchedAt
+        )
+        let upsertedArticles = try articleRepository.upsert(
+            pipelineResult.feed.entries,
+            into: feed,
+            fetchedAt: fetchedAt
+        )
+        let processedEntryCount = pipelineResult.feed.entries.count + diagnostics.rejectedEntries.count
+
+        if diagnosticsAreSoftFailure(diagnostics) {
+            logger.info("Feed \(metadata.id.uuidString) fetched with soft-failure diagnostics")
+        }
+        if reconciledCount > 0 {
+            logger.info("Feed \(metadata.id.uuidString) reconciliation affected \(reconciledCount) articles")
+        }
+
+        return FeedRefreshResult.fetched(
+            feedID: metadata.id,
+            startedAt: startedAt,
+            finishedAt: Date(),
+            processedEntryCount: processedEntryCount,
+            upsertedEntryCount: upsertedArticles.count,
+            rejectedEntryCount: diagnostics.rejectedEntries.count,
+            diagnosticsSummary: diagnosticsSummary
         )
     }
 
