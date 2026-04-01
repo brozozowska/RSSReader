@@ -136,7 +136,7 @@
 - [x] реализовать обновление metadata feed из parsed payload при успешном refresh;
 - [x] реализовать обновление `lastFetchedAt` для каждой попытки refresh независимо от исхода;
 - [x] реализовать обновление `lastSuccessfulFetchAt` только для успешного refresh с новым payload;
-- [ ] реализовать обновление `lastSyncError` по результату refresh и очистку ошибки после успешного завершения;
+- [x] реализовать обновление `lastSyncError` по результату refresh и очистку ошибки после успешного завершения;
 - [ ] реализовать обновление `lastETag` и `lastModifiedHeader` по результату HTTP fetch;
 - [ ] реализовать сохранение `FeedFetchLog` для каждого завершённого refresh с нормализованным статусом, HTTP code, сообщением ошибки и diagnostics summary;
 - [ ] реализовать защиту от одновременного refresh одного и того же feed;

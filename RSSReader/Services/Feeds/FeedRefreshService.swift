@@ -92,6 +92,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
                 )
             }
         } catch {
+            try? markRefreshFailed(feedID: feedID, finishedAt: Date(), errorDescription: String(describing: error))
             logger.error("Failed to refresh feed \(feedID.uuidString): \(error)")
             return makeFailureResult(
                 feedID: feedID,
@@ -185,6 +186,17 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     private func markRefreshSucceededWithPayload(for feedID: UUID, finishedAt: Date) throws {
         var update = FeedMetadataUpdate(updatedAt: finishedAt)
         update.lastSuccessfulFetchAt = finishedAt
+        update.clearLastSyncError = true
+        _ = try feedRepository.updateMetadata(for: feedID, with: update)
+    }
+
+    private func markRefreshFailed(
+        feedID: UUID,
+        finishedAt: Date,
+        errorDescription: String
+    ) throws {
+        var update = FeedMetadataUpdate(updatedAt: finishedAt)
+        update.lastSyncError = errorDescription
         _ = try feedRepository.updateMetadata(for: feedID, with: update)
     }
 
