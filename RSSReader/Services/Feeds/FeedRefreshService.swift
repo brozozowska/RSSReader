@@ -51,8 +51,8 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             throw FeedRefreshServiceError.feedNotFound(feedID)
         }
 
-        let request = try makeRequest(for: metadata)
-        logger.debug("Prepared refresh context for feed \(feedID.uuidString)")
+        let request = try makeConditionalFeedRequest(for: metadata)
+        logger.debug("Prepared refresh context with conditional request headers for feed \(feedID.uuidString)")
 
         return FeedRefreshContext(
             metadata: metadata,
@@ -60,7 +60,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         )
     }
 
-    private func makeRequest(for metadata: FeedFetchMetadata) throws -> FeedRequest {
+    private func makeConditionalFeedRequest(for metadata: FeedFetchMetadata) throws -> FeedRequest {
         try FeedRequest(
             feedID: metadata.id,
             urlString: metadata.url,
