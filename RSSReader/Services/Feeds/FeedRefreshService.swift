@@ -189,6 +189,11 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         let fetchedAt = Date()
 
         logDiagnosticsIfNeeded(diagnostics, feedID: metadata.id)
+        try updateFeedContentMetadata(
+            for: metadata.id,
+            parsedFeed: pipelineResult.feed,
+            updatedAt: fetchedAt
+        )
 
         guard let feed = try feedRepository.fetchFeed(id: metadata.id) else {
             throw FeedRefreshServiceError.feedNotFound(metadata.id)
@@ -222,6 +227,26 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             rejectedEntryCount: diagnostics.rejectedEntries.count,
             diagnosticsSummary: diagnosticsSummary
         )
+    }
+
+    private func updateFeedContentMetadata(
+        for feedID: UUID,
+        parsedFeed: ParsedFeedDTO,
+        updatedAt: Date
+    ) throws {
+        let metadata = parsedFeed.metadata
+        let update = FeedMetadataUpdate(
+            siteURL: metadata.siteURL,
+            title: metadata.title,
+            subtitle: metadata.subtitle,
+            iconURL: metadata.iconURL,
+            language: metadata.language,
+            kind: parsedFeed.kind,
+            updatedAt: updatedAt
+        )
+
+        _ = try feedRepository.updateMetadata(for: feedID, with: update)
+        logger.info("Feed \(feedID.uuidString) content metadata updated from parsed payload")
     }
 
     private func diagnosticsSummary(for diagnostics: FeedParsePipelineDiagnostics) -> FeedRefreshDiagnosticsSummary {

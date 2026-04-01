@@ -133,7 +133,7 @@
 - [x] определить и реализовать batch refresh policy с продолжением обработки остальных feeds при ошибке одного feed: использовать `continueOnError`, сохранять per-feed `failed` result в batch result и продолжать обработку оставшихся feeds;
 - [x] реализовать refresh одного feed от network до persistence через этапы `fetch -> parse -> normalize -> deduplicate -> filter -> reconcile -> upsert`;
 - [x] реализовать загрузку feed metadata из persistence и сборку `FeedRequest` с conditional headers перед каждым refresh;
-- [ ] реализовать обновление metadata feed из parsed payload при успешном refresh;
+- [x] реализовать обновление metadata feed из parsed payload при успешном refresh;
 - [ ] реализовать обновление `lastFetchedAt` для каждой попытки refresh независимо от исхода;
 - [ ] реализовать обновление `lastSuccessfulFetchAt` только для успешного refresh с новым payload;
 - [ ] реализовать обновление `lastSyncError` по результату refresh и очистку ошибки после успешного завершения;
