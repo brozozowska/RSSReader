@@ -182,6 +182,12 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         _ = try feedRepository.updateMetadata(for: feedID, with: update)
     }
 
+    private func markRefreshSucceededWithPayload(for feedID: UUID, finishedAt: Date) throws {
+        var update = FeedMetadataUpdate(updatedAt: finishedAt)
+        update.lastSuccessfulFetchAt = finishedAt
+        _ = try feedRepository.updateMetadata(for: feedID, with: update)
+    }
+
     private func handleFetchedResponse(
         _ response: FeedResponse,
         metadata: FeedFetchMetadata,
@@ -193,6 +199,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         let fetchedAt = Date()
 
         logDiagnosticsIfNeeded(diagnostics, feedID: metadata.id)
+        try markRefreshSucceededWithPayload(for: metadata.id, finishedAt: fetchedAt)
         try updateFeedContentMetadata(
             for: metadata.id,
             parsedFeed: pipelineResult.feed,
