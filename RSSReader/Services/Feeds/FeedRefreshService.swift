@@ -283,7 +283,6 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         let fetchedAt = Date()
 
         logDiagnosticsIfNeeded(diagnostics, feedID: metadata.id)
-        try markRefreshSucceededWithPayload(for: metadata.id, finishedAt: fetchedAt)
         try updateCacheValidators(from: response, feedID: metadata.id, updatedAt: fetchedAt)
         try updateFeedContentMetadata(
             for: metadata.id,
@@ -314,10 +313,13 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             logger.info("Feed \(metadata.id.uuidString) reconciliation affected \(reconciledCount) articles")
         }
 
+        let finishedAt = Date()
+        try markRefreshSucceededWithPayload(for: metadata.id, finishedAt: finishedAt)
+
         return FeedRefreshResult.fetched(
             feedID: metadata.id,
             startedAt: startedAt,
-            finishedAt: Date(),
+            finishedAt: finishedAt,
             processedEntryCount: processedEntryCount,
             upsertedEntryCount: upsertedArticles.count,
             rejectedEntryCount: diagnostics.rejectedEntries.count,
