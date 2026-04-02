@@ -459,6 +459,128 @@ struct RSSReaderTests {
         #expect(logs.count == 1)
         #expect(logs.first?.status == "fetched")
     }
+
+    @Test
+    func refreshUpdatesFeedMetadataAndMarksMissingArticlesAsDeletedAtSource() async throws {
+        let feedURL = "https://example.com/reconcile-feed.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: [
+                            "Content-Type": "application/rss+xml; charset=utf-8"
+                        ],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Reconciled Feed Title",
+                            channelLink: "https://example.com/reconciled/",
+                            language: "fr",
+                            itemTitle: "Current Article",
+                            itemLink: "https://example.com/reconciled/articles/current",
+                            itemGUID: "current-article",
+                            itemDescription: "Current article summary",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+
+        let feed = try #require(try harness.insertFeeds(urls: [feedURL]).first)
+        feed.title = "Stale Feed Title"
+        feed.siteURL = "https://example.com/old/"
+        feed.language = "en"
+        feed.kind = .unknown
+        try harness.saveModelContext()
+
+        try harness.insertArticle(
+            feed: feed,
+            externalID: "obsolete-article",
+            guid: "obsolete-article",
+            url: "https://example.com/reconciled/articles/obsolete",
+            title: "Obsolete Article"
+        )
+
+        let result = await harness.service.refresh(feedID: feed.id)
+
+        #expect(result.status == .fetched)
+        #expect(result.upsertedEntryCount == 1)
+
+        let refreshedFeed = try #require(try harness.fetchFeed(id: feed.id))
+        #expect(refreshedFeed.title == "Reconciled Feed Title")
+        #expect(refreshedFeed.siteURL == "https://example.com/reconciled/")
+        #expect(refreshedFeed.language == "fr")
+        #expect(refreshedFeed.kind == .rss)
+
+        let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        #expect(articles.count == 2)
+
+        let obsoleteArticle = try #require(articles.first { $0.externalID == "obsolete-article" })
+        #expect(obsoleteArticle.isDeletedAtSource == true)
+
+        let currentArticle = try #require(articles.first { $0.guid == "current-article" })
+        #expect(currentArticle.isDeletedAtSource == false)
+        #expect(currentArticle.title == "Current Article")
+    }
+
+    @Test
+    func refreshReactivatesArticleWhenItReappearsInFeedPayload() async throws {
+        let feedURL = "https://example.com/reappearing-feed.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: [
+                            "Content-Type": "application/rss+xml; charset=utf-8"
+                        ],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Reappearing Feed",
+                            channelLink: "https://example.com/reappearing/",
+                            language: "en",
+                            itemTitle: "Revived Article",
+                            itemLink: "https://example.com/reappearing/articles/revived",
+                            itemGUID: "revived-article",
+                            itemDescription: "Revived article summary",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+
+        let feed = try #require(try harness.insertFeeds(urls: [feedURL]).first)
+        let refreshedEntryExternalID = ArticleIdentityService.makeExternalID(
+            from: ArticleIdentityInput(
+                feedURL: feedURL,
+                guid: "revived-article",
+                articleURL: "https://example.com/reappearing/articles/revived",
+                title: "Revived Article",
+                publishedAt: FeedDateParsingService.parse("Tue, 02 Jan 2024 10:00:00 GMT")
+            )
+        )
+        try harness.insertArticle(
+            feed: feed,
+            externalID: refreshedEntryExternalID,
+            guid: "revived-article",
+            url: "https://example.com/reappearing/articles/revived",
+            title: "Stale Revived Article",
+            isDeletedAtSource: true
+        )
+
+        let result = await harness.service.refresh(feedID: feed.id)
+
+        #expect(result.status == .fetched)
+        #expect(result.upsertedEntryCount == 1)
+
+        let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        #expect(articles.count == 1)
+
+        let revivedArticle = try #require(articles.first)
+        #expect(revivedArticle.externalID == refreshedEntryExternalID)
+        #expect(revivedArticle.isDeletedAtSource == false)
+        #expect(revivedArticle.title == "Revived Article")
+    }
 }
 
 private extension RSSReaderTests {
@@ -556,6 +678,32 @@ private struct TestHarness {
             )
             return try feedRepository.insert(feed)
         }
+    }
+
+    @MainActor
+    func insertArticle(
+        feed: Feed,
+        externalID: String,
+        guid: String? = nil,
+        url: String,
+        title: String,
+        isDeletedAtSource: Bool = false
+    ) throws {
+        let article = Article(
+            feed: feed,
+            externalID: externalID,
+            guid: guid,
+            url: url,
+            title: title,
+            isDeletedAtSource: isDeletedAtSource
+        )
+        modelContainer.mainContext.insert(article)
+        try modelContainer.mainContext.save()
+    }
+
+    @MainActor
+    func saveModelContext() throws {
+        try modelContainer.mainContext.save()
     }
 }
 

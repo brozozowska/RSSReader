@@ -152,7 +152,7 @@
 - [x] добавить integration tests для single feed refresh: `fetched`, `notModified`, `failed`, `cancelled`;
 - [x] добавить integration tests для batch refresh: частичный успех, ошибки отдельных feeds, ограничение параллелизма и отмена;
 - [x] добавить integration tests на защиту от concurrent refresh одного и того же feed;
-- [ ] добавить integration tests на обновление feed metadata и reconciliation статей после refresh.
+- [x] добавить integration tests на обновление feed metadata и reconciliation статей после refresh.
 
 ### Reading Experience
 #### User State / Reading Actions
