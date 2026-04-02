@@ -149,6 +149,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         } catch {
             let finishedAt = Date()
             let errorDescription = String(describing: error)
+            feedRepository.rollback()
             try? markRefreshFailed(feedID: feedID, finishedAt: finishedAt, errorDescription: errorDescription)
             try? persistRefreshLog(
                 feedID: feedID,
@@ -254,11 +255,19 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         _ = try feedRepository.updateMetadata(for: feedID, with: update)
     }
 
-    private func markRefreshSucceededWithPayload(for feedID: UUID, finishedAt: Date) throws {
+    private func markRefreshSucceededWithPayload(
+        for feedID: UUID,
+        finishedAt: Date,
+        saveAfterOperation: Bool = true
+    ) throws {
         var update = FeedMetadataUpdate(updatedAt: finishedAt)
         update.lastSuccessfulFetchAt = finishedAt
         update.clearLastSyncError = true
-        _ = try feedRepository.updateMetadata(for: feedID, with: update)
+        _ = try feedRepository.updateMetadata(
+            for: feedID,
+            with: update,
+            saveAfterOperation: saveAfterOperation
+        )
     }
 
     private func markRefreshFailed(
@@ -283,11 +292,17 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         let fetchedAt = Date()
 
         logDiagnosticsIfNeeded(diagnostics, feedID: metadata.id)
-        try updateCacheValidators(from: response, feedID: metadata.id, updatedAt: fetchedAt)
+        try updateCacheValidators(
+            from: response,
+            feedID: metadata.id,
+            updatedAt: fetchedAt,
+            saveAfterOperation: false
+        )
         try updateFeedContentMetadata(
             for: metadata.id,
             parsedFeed: pipelineResult.feed,
-            updatedAt: fetchedAt
+            updatedAt: fetchedAt,
+            saveAfterOperation: false
         )
 
         guard let feed = try feedRepository.fetchFeed(id: metadata.id) else {
@@ -297,12 +312,14 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         let reconciledCount = try reconcileArticles(
             for: metadata.id,
             entries: pipelineResult.feed.entries,
-            fetchedAt: fetchedAt
+            fetchedAt: fetchedAt,
+            saveAfterOperation: false
         )
         let upsertedArticles = try articleRepository.upsert(
             pipelineResult.feed.entries,
             into: feed,
-            fetchedAt: fetchedAt
+            fetchedAt: fetchedAt,
+            saveAfterOperation: false
         )
         let processedEntryCount = pipelineResult.feed.entries.count + diagnostics.rejectedEntries.count
 
@@ -314,7 +331,12 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         }
 
         let finishedAt = Date()
-        try markRefreshSucceededWithPayload(for: metadata.id, finishedAt: finishedAt)
+        try markRefreshSucceededWithPayload(
+            for: metadata.id,
+            finishedAt: finishedAt,
+            saveAfterOperation: false
+        )
+        try feedRepository.save()
 
         return FeedRefreshResult.fetched(
             feedID: metadata.id,
@@ -350,12 +372,17 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     private func updateCacheValidators(
         from response: FeedResponse,
         feedID: UUID,
-        updatedAt: Date
+        updatedAt: Date,
+        saveAfterOperation: Bool = true
     ) throws {
         var update = FeedMetadataUpdate(updatedAt: updatedAt)
         update.lastETag = response.eTag
         update.lastModifiedHeader = response.lastModified
-        _ = try feedRepository.updateMetadata(for: feedID, with: update)
+        _ = try feedRepository.updateMetadata(
+            for: feedID,
+            with: update,
+            saveAfterOperation: saveAfterOperation
+        )
     }
 
     private func persistRefreshLog(
@@ -427,7 +454,8 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     private func updateFeedContentMetadata(
         for feedID: UUID,
         parsedFeed: ParsedFeedDTO,
-        updatedAt: Date
+        updatedAt: Date,
+        saveAfterOperation: Bool = true
     ) throws {
         let metadata = parsedFeed.metadata
         let update = FeedMetadataUpdate(
@@ -440,7 +468,11 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             updatedAt: updatedAt
         )
 
-        _ = try feedRepository.updateMetadata(for: feedID, with: update)
+        _ = try feedRepository.updateMetadata(
+            for: feedID,
+            with: update,
+            saveAfterOperation: saveAfterOperation
+        )
         logger.info("Feed \(feedID.uuidString) content metadata updated from parsed payload")
     }
 
@@ -482,7 +514,8 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     private func reconcileArticles(
         for feedID: UUID,
         entries: [ParsedFeedEntryDTO],
-        fetchedAt: Date
+        fetchedAt: Date,
+        saveAfterOperation: Bool = true
     ) throws -> Int {
         switch reconciliationPolicy {
         case .markMissingArticlesAsDeletedAtSource:
@@ -490,7 +523,8 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             let reconciledCount = try articleRepository.reconcileArticles(
                 feedID: feedID,
                 keepingExternalIDs: incomingExternalIDs,
-                fetchedAt: fetchedAt
+                fetchedAt: fetchedAt,
+                saveAfterOperation: saveAfterOperation
             )
 
             if reconciledCount > 0 {

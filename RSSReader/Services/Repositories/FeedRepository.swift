@@ -12,6 +12,10 @@ extension SwiftDataRepositoryContext {
         try modelContext.save()
     }
 
+    func rollbackChanges() {
+        modelContext.rollback()
+    }
+
     func fetchFirst<Model>(_ descriptor: FetchDescriptor<Model>) throws -> Model?
     where Model: PersistentModel {
         var descriptor = descriptor
@@ -138,13 +142,25 @@ protocol FeedRepository {
     func insert(_ feed: Feed) throws -> Feed
 
     @discardableResult
-    func updateMetadata(for feedID: UUID, with update: FeedMetadataUpdate) throws -> Feed?
+    func updateMetadata(
+        for feedID: UUID,
+        with update: FeedMetadataUpdate,
+        saveAfterOperation: Bool
+    ) throws -> Feed?
 
     @discardableResult
     func delete(feedID: UUID) throws -> Bool
 
     func save() throws
+    func rollback()
     func delete(_ feed: Feed) throws
+}
+
+extension FeedRepository {
+    @discardableResult
+    func updateMetadata(for feedID: UUID, with update: FeedMetadataUpdate) throws -> Feed? {
+        try updateMetadata(for: feedID, with: update, saveAfterOperation: true)
+    }
 }
 
 @MainActor
@@ -214,7 +230,11 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
     }
 
     @discardableResult
-    func updateMetadata(for feedID: UUID, with update: FeedMetadataUpdate) throws -> Feed? {
+    func updateMetadata(
+        for feedID: UUID,
+        with update: FeedMetadataUpdate,
+        saveAfterOperation: Bool = true
+    ) throws -> Feed? {
         guard let feed = try fetchFeed(id: feedID) else { return nil }
 
         if let siteURL = update.siteURL {
@@ -265,12 +285,18 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
 
         feed.updatedAt = update.updatedAt
 
-        try saveIfNeeded()
+        if saveAfterOperation {
+            try saveIfNeeded()
+        }
         return feed
     }
 
     func save() throws {
         try saveIfNeeded(force: true)
+    }
+
+    func rollback() {
+        rollbackChanges()
     }
 
     func delete(_ feed: Feed) throws {
