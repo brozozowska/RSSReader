@@ -126,10 +126,12 @@ enum FeedRefreshBatchErrorPolicy: String, Sendable {
 struct FeedRefreshBatchPolicy: Sendable, Equatable {
     let errorPolicy: FeedRefreshBatchErrorPolicy
     let deduplicatesFeedIDs: Bool
+    let maxConcurrentRefreshes: Int
 
     static let `default` = FeedRefreshBatchPolicy(
         errorPolicy: .continueOnError,
-        deduplicatesFeedIDs: true
+        deduplicatesFeedIDs: true,
+        maxConcurrentRefreshes: 3
     )
 }
 

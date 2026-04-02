@@ -482,24 +482,80 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     }
 
     private func executeBatchRefresh(feedIDs: [UUID]) async -> [FeedRefreshResult] {
-        var results: [FeedRefreshResult] = []
-        results.reserveCapacity(feedIDs.count)
+        guard feedIDs.isEmpty == false else { return [] }
 
-        for feedID in feedIDs {
-            let result = await refresh(feedID: feedID)
-            results.append(result)
+        let concurrencyLimit = max(1, batchPolicy.maxConcurrentRefreshes)
+        var resultsByIndex: [Int: FeedRefreshResult] = [:]
+        resultsByIndex.reserveCapacity(feedIDs.count)
+        var nextIndexToSchedule = 0
 
-            if result.status == .failed {
-                logger.error("Batch refresh failed for feed \(feedID.uuidString)")
+        await withTaskGroup(of: (Int, UUID, FeedRefreshResult).self) { group in
+            let initialTaskCount = min(concurrencyLimit, feedIDs.count)
+            for _ in 0..<initialTaskCount {
+                let index = nextIndexToSchedule
+                let feedID = feedIDs[index]
+                nextIndexToSchedule += 1
+                group.addTask { [weak self] in
+                    guard let self else {
+                        let failedResult = await MainActor.run {
+                            FeedRefreshResult.failed(
+                                feedID: feedID,
+                                startedAt: Date(),
+                                errorDescription: "FeedRefreshService deallocated"
+                            )
+                        }
+                        return (
+                            index,
+                            feedID,
+                            failedResult
+                        )
+                    }
+
+                    let result = await self.refresh(feedID: feedID)
+                    return (index, feedID, result)
+                }
             }
 
-            switch batchPolicy.errorPolicy {
-            case .continueOnError:
-                continue
+            while let (index, feedID, result) = await group.next() {
+                resultsByIndex[index] = result
+
+                if result.status == .failed {
+                    logger.error("Batch refresh failed for feed \(feedID.uuidString)")
+                }
+
+                switch batchPolicy.errorPolicy {
+                case .continueOnError:
+                    break
+                }
+
+                if nextIndexToSchedule < feedIDs.count {
+                    let nextIndex = nextIndexToSchedule
+                    let nextFeedID = feedIDs[nextIndex]
+                    nextIndexToSchedule += 1
+                    group.addTask { [weak self] in
+                        guard let self else {
+                            let failedResult = await MainActor.run {
+                                FeedRefreshResult.failed(
+                                    feedID: nextFeedID,
+                                    startedAt: Date(),
+                                    errorDescription: "FeedRefreshService deallocated"
+                                )
+                            }
+                            return (
+                                nextIndex,
+                                nextFeedID,
+                                failedResult
+                            )
+                        }
+
+                        let result = await self.refresh(feedID: nextFeedID)
+                        return (nextIndex, nextFeedID, result)
+                    }
+                }
             }
         }
 
-        return results
+        return feedIDs.indices.compactMap { resultsByIndex[$0] }
     }
 
     private func uniquePreservingOrder(_ feedIDs: [UUID]) -> [UUID] {
