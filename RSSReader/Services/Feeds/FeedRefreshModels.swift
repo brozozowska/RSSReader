@@ -254,6 +254,15 @@ struct FeedRefreshBatchSummary: Sendable, Equatable {
     let totalRejectedEntryCount: Int
 }
 
+struct FeedRefreshBatchError: Sendable, Equatable, Identifiable {
+    let feedID: UUID
+    let message: String
+
+    var id: UUID {
+        feedID
+    }
+}
+
 struct FeedRefreshBatchResult: Sendable {
     let startedAt: Date
     let finishedAt: Date
@@ -283,8 +292,21 @@ struct FeedRefreshBatchResult: Sendable {
         failedResults.map(\.feedID)
     }
 
+    var errors: [FeedRefreshBatchError] {
+        failedResults.compactMap { result in
+            guard let message = result.errorDescription, message.isEmpty == false else {
+                return nil
+            }
+
+            return FeedRefreshBatchError(
+                feedID: result.feedID,
+                message: message
+            )
+        }
+    }
+
     var failureDescriptions: [String] {
-        failedResults.compactMap(\.errorDescription)
+        errors.map(\.message)
     }
 
     private static func makeSummary(from results: [FeedRefreshResult]) -> FeedRefreshBatchSummary {
