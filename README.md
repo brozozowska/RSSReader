@@ -144,7 +144,7 @@
 - [x] реализовать refresh всех active feeds через `FeedRepository.fetchActiveFeeds()`;
 - [x] ограничить параллелизм при batch refresh конфигурируемым лимитом;
 - [x] реализовать агрегирование batch refresh результатов: количество `fetched`, `notModified`, `failed`, список ошибок и общее время выполнения;
-- [ ] реализовать cancellation semantics для refresh одного feed без повреждения persistence state;
+- [x] реализовать cancellation semantics для refresh одного feed без повреждения persistence state;
 - [ ] реализовать cancellation semantics для batch refresh с корректным завершением уже запущенных или отменённых подзадач;
 - [ ] подготовить orchestration API для ручного refresh из UI без привязки UI к низкоуровневым fetch/parse сервисам;
 - [ ] подготовить orchestration API и контракты результата для будущего background refresh без реализации background scheduling в этом эпике;

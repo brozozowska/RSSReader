@@ -107,6 +107,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             let context = try makeRefreshContext(for: feedID)
             try markRefreshAttemptStarted(for: context.metadata.id, startedAt: startedAt)
             let fetchResult = try await feedFetcher.fetch(context.request)
+            try Task.checkCancellation()
 
             switch fetchResult {
             case .notModified(let response):
@@ -141,6 +142,9 @@ final class FeedRefreshService: FeedRefreshCoordinating {
                 )
                 return result
             }
+        } catch is CancellationError {
+            logger.info("Cancelled refresh for feed \(feedID.uuidString)")
+            return makeCancelledResult(feedID: feedID, startedAt: startedAt)
         } catch {
             let finishedAt = Date()
             let errorDescription = String(describing: error)
@@ -212,11 +216,20 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         )
     }
 
+    private func makeCancelledResult(feedID: UUID, startedAt: Date) -> FeedRefreshResult {
+        FeedRefreshResult.failed(
+            feedID: feedID,
+            startedAt: startedAt,
+            errorDescription: "Refresh cancelled"
+        )
+    }
+
     private func handleNotModifiedResponse(
         _ response: FeedResponse,
         metadata: FeedFetchMetadata,
         startedAt: Date
     ) throws -> FeedRefreshResult {
+        try Task.checkCancellation()
         let finishedAt = Date()
 
         try updateNotModifiedFetchState(from: response, feedID: metadata.id, finishedAt: finishedAt)
@@ -258,6 +271,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         startedAt: Date
     ) throws -> FeedRefreshResult {
         let pipelineResult = try FeedParserService.parsePipelineResult(response)
+        try Task.checkCancellation()
         let diagnostics = pipelineResult.diagnostics
         let diagnosticsSummary = diagnosticsSummary(for: diagnostics)
         let fetchedAt = Date()
