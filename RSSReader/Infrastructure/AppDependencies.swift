@@ -115,6 +115,38 @@ public extension AppDependencies {
     }
 }
 
+extension AppDependencies {
+    @MainActor
+    func refreshFeed(id feedID: UUID) async -> FeedRefreshResult? {
+        guard let feedRefreshService else {
+            logger.error("Feed refresh service is unavailable")
+            return nil
+        }
+
+        return await feedRefreshService.refresh(feedID: feedID)
+    }
+
+    @MainActor
+    func refreshSelectedFeed(using appState: AppState) async -> FeedRefreshResult? {
+        guard let selectedFeedID = appState.selectedFeedID else {
+            logger.info("Skipped manual refresh because no feed is selected")
+            return nil
+        }
+
+        return await refreshFeed(id: selectedFeedID)
+    }
+
+    @MainActor
+    func refreshAllFeeds() async -> FeedRefreshBatchResult? {
+        guard let feedRefreshService else {
+            logger.error("Feed refresh service is unavailable")
+            return nil
+        }
+
+        return await feedRefreshService.refreshAllActiveFeeds()
+    }
+}
+
 private extension AppDependencies {
     static func makeFeedFetcher(
         httpClient: any HTTPClient
