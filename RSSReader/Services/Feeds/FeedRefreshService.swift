@@ -502,6 +502,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         var resultsByIndex: [Int: FeedRefreshResult] = [:]
         resultsByIndex.reserveCapacity(feedIDs.count)
         var nextIndexToSchedule = 0
+        var batchWasCancelled = false
 
         await withTaskGroup(of: (Int, UUID, FeedRefreshResult).self) { group in
             let initialTaskCount = min(concurrencyLimit, feedIDs.count)
@@ -542,6 +543,12 @@ final class FeedRefreshService: FeedRefreshCoordinating {
                     break
                 }
 
+                if Task.isCancelled {
+                    batchWasCancelled = true
+                    group.cancelAll()
+                    continue
+                }
+
                 if nextIndexToSchedule < feedIDs.count {
                     let nextIndex = nextIndexToSchedule
                     let nextFeedID = feedIDs[nextIndex]
@@ -569,7 +576,13 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             }
         }
 
-        return feedIDs.indices.compactMap { resultsByIndex[$0] }
+        let orderedResults = feedIDs.indices.compactMap { resultsByIndex[$0] }
+
+        if batchWasCancelled {
+            logger.info("Batch refresh cancelled after completing \(orderedResults.count) feed refresh tasks")
+        }
+
+        return orderedResults
     }
 
     private func uniquePreservingOrder(_ feedIDs: [UUID]) -> [UUID] {
