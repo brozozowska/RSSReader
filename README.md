@@ -149,7 +149,7 @@
 - [x] подготовить orchestration API для ручного refresh из UI без привязки UI к низкоуровневым fetch/parse сервисам;
 - [x] подготовить orchestration API и контракты результата для будущего background refresh без реализации background scheduling в этом эпике;
 - [x] ввести отдельный статус `cancelled` для refresh result и batch aggregation, чтобы отмена не маскировалась под `failed` в UI, telemetry и логах;
-- [ ] добавить integration tests для single feed refresh: `fetched`, `notModified`, `failed`;
+- [x] добавить integration tests для single feed refresh: `fetched`, `notModified`, `failed`, `cancelled`;
 - [ ] добавить integration tests для batch refresh: частичный успех, ошибки отдельных feeds, ограничение параллелизма и отмена;
 - [ ] добавить integration tests на защиту от concurrent refresh одного и того же feed;
 - [ ] добавить integration tests на обновление feed metadata и reconciliation статей после refresh.
@@ -282,7 +282,7 @@
 - **Swift Concurrency (async/await)**
 - **SwiftData**
 - **CloudKit**
-- **XCTest**
+- **Swift Testing**
 - **Git/GitHub**
 
 ## Статус проекта
