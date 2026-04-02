@@ -139,6 +139,11 @@ enum FeedRefreshInFlightPolicy: String, Sendable {
     case shareExistingTaskResult
 }
 
+enum FeedRefreshTrigger: String, Sendable {
+    case manual
+    case background
+}
+
 struct FeedRefreshResult: Sendable, Identifiable {
     let feedID: UUID
     let status: FeedRefreshStatus
@@ -319,5 +324,30 @@ struct FeedRefreshBatchResult: Sendable {
             totalUpsertedEntryCount: results.reduce(0) { $0 + $1.upsertedEntryCount },
             totalRejectedEntryCount: results.reduce(0) { $0 + $1.rejectedEntryCount }
         )
+    }
+}
+
+struct BackgroundFeedRefreshResult: Sendable {
+    let trigger: FeedRefreshTrigger
+    let batchResult: FeedRefreshBatchResult
+
+    init(
+        trigger: FeedRefreshTrigger = .background,
+        batchResult: FeedRefreshBatchResult
+    ) {
+        self.trigger = trigger
+        self.batchResult = batchResult
+    }
+
+    var summary: FeedRefreshBatchSummary {
+        batchResult.summary
+    }
+
+    var duration: TimeInterval {
+        batchResult.duration
+    }
+
+    var errors: [FeedRefreshBatchError] {
+        batchResult.errors
     }
 }

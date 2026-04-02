@@ -147,7 +147,7 @@
 - [x] реализовать cancellation semantics для refresh одного feed без повреждения persistence state;
 - [x] реализовать cancellation semantics для batch refresh с корректным завершением уже запущенных или отменённых подзадач;
 - [x] подготовить orchestration API для ручного refresh из UI без привязки UI к низкоуровневым fetch/parse сервисам;
-- [ ] подготовить orchestration API и контракты результата для будущего background refresh без реализации background scheduling в этом эпике;
+- [x] подготовить orchestration API и контракты результата для будущего background refresh без реализации background scheduling в этом эпике;
 - [ ] добавить integration tests для single feed refresh: `fetched`, `notModified`, `failed`;
 - [ ] добавить integration tests для batch refresh: частичный успех, ошибки отдельных feeds, ограничение параллелизма и отмена;
 - [ ] добавить integration tests на защиту от concurrent refresh одного и того же feed;

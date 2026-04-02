@@ -15,6 +15,7 @@ protocol FeedRefreshCoordinating {
     func refresh(feedID: UUID) async -> FeedRefreshResult
     func refreshFeeds(_ feedIDs: [UUID]) async -> FeedRefreshBatchResult
     func refreshAllActiveFeeds() async -> FeedRefreshBatchResult
+    func refreshAllActiveFeedsForBackground() async -> BackgroundFeedRefreshResult
     func refreshAfterAddingFeed(feedID: UUID) async -> FeedRefreshResult
     func makeRefreshContext(for feedID: UUID) throws -> FeedRefreshContext
 }
@@ -194,6 +195,11 @@ final class FeedRefreshService: FeedRefreshCoordinating {
                 results: []
             )
         }
+    }
+
+    func refreshAllActiveFeedsForBackground() async -> BackgroundFeedRefreshResult {
+        let batchResult = await refreshAllActiveFeeds()
+        return BackgroundFeedRefreshResult(batchResult: batchResult)
     }
 
     private func fetchActiveFeedIDs() throws -> [UUID] {

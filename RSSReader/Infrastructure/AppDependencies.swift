@@ -145,6 +145,16 @@ extension AppDependencies {
 
         return await feedRefreshService.refreshAllActiveFeeds()
     }
+
+    @MainActor
+    func refreshFeedsForBackground() async -> BackgroundFeedRefreshResult? {
+        guard let feedRefreshService else {
+            logger.error("Feed refresh service is unavailable")
+            return nil
+        }
+
+        return await feedRefreshService.refreshAllActiveFeedsForBackground()
+    }
 }
 
 private extension AppDependencies {
