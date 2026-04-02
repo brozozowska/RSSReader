@@ -141,7 +141,7 @@
 - [x] реализовать сохранение `FeedFetchLog` для каждого завершённого refresh с нормализованным статусом, HTTP code, сообщением ошибки и diagnostics summary;
 - [x] реализовать защиту от одновременного refresh одного и того же feed;
 - [x] реализовать in-flight deduplication повторного запроса на refresh одного и того же feed по выбранной policy;
-- [ ] реализовать refresh всех active feeds через `FeedRepository.fetchActiveFeeds()`;
+- [x] реализовать refresh всех active feeds через `FeedRepository.fetchActiveFeeds()`;
 - [ ] ограничить параллелизм при batch refresh конфигурируемым лимитом;
 - [ ] реализовать агрегирование batch refresh результатов: количество `fetched`, `notModified`, `failed`, список ошибок и общее время выполнения;
 - [ ] реализовать cancellation semantics для refresh одного feed без повреждения persistence state;

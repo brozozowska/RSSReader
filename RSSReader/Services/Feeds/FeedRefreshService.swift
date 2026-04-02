@@ -180,7 +180,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         let startedAt = Date()
 
         do {
-            let activeFeedIDs = try feedRepository.fetchActiveFeeds().map(\.id)
+            let activeFeedIDs = try fetchActiveFeedIDs()
             return await refreshFeeds(activeFeedIDs)
         } catch {
             logger.error("Failed to load active feeds for refresh: \(error)")
@@ -190,6 +190,10 @@ final class FeedRefreshService: FeedRefreshCoordinating {
                 results: []
             )
         }
+    }
+
+    private func fetchActiveFeedIDs() throws -> [UUID] {
+        try feedRepository.fetchActiveFeeds().map(\.id)
     }
 
     func refreshAfterAddingFeed(feedID: UUID) async -> FeedRefreshResult {
