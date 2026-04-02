@@ -139,7 +139,7 @@
 - [x] реализовать обновление `lastSyncError` по результату refresh и очистку ошибки после успешного завершения;
 - [x] реализовать обновление `lastETag` и `lastModifiedHeader` по результату HTTP fetch;
 - [x] реализовать сохранение `FeedFetchLog` для каждого завершённого refresh с нормализованным статусом, HTTP code, сообщением ошибки и diagnostics summary;
-- [ ] реализовать защиту от одновременного refresh одного и того же feed;
+- [x] реализовать защиту от одновременного refresh одного и того же feed;
 - [ ] реализовать in-flight deduplication повторного запроса на refresh одного и того же feed по выбранной policy;
 - [ ] реализовать refresh всех active feeds через `FeedRepository.fetchActiveFeeds()`;
 - [ ] ограничить параллелизм при batch refresh конфигурируемым лимитом;

@@ -2,6 +2,7 @@ import Foundation
 
 enum FeedRefreshServiceError: Error {
     case feedNotFound(UUID)
+    case refreshAlreadyInProgress(UUID)
 }
 
 struct FeedRefreshContext: Sendable {
@@ -31,6 +32,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     private let feedRepository: any FeedRepository
     private let articleRepository: any ArticleRepository
     private let feedFetchLogRepository: (any FeedFetchLogRepository)?
+    private var inFlightFeedIDs: Set<UUID> = []
 
     init(
         logger: Logging,
@@ -71,6 +73,20 @@ final class FeedRefreshService: FeedRefreshCoordinating {
 
     func refresh(feedID: UUID) async -> FeedRefreshResult {
         let startedAt = Date()
+
+        guard beginRefresh(for: feedID) else {
+            let errorDescription = String(describing: FeedRefreshServiceError.refreshAlreadyInProgress(feedID))
+            logger.info("Skipped refresh for feed \(feedID.uuidString) because another refresh is already in progress")
+            return makeFailureResult(
+                feedID: feedID,
+                startedAt: startedAt,
+                errorDescription: errorDescription
+            )
+        }
+
+        defer {
+            endRefresh(for: feedID)
+        }
 
         do {
             let context = try makeRefreshContext(for: feedID)
@@ -175,6 +191,14 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             startedAt: startedAt,
             errorDescription: errorDescription
         )
+    }
+
+    private func beginRefresh(for feedID: UUID) -> Bool {
+        inFlightFeedIDs.insert(feedID).inserted
+    }
+
+    private func endRefresh(for feedID: UUID) {
+        inFlightFeedIDs.remove(feedID)
     }
 
     private func handleNotModifiedResponse(
