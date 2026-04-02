@@ -1,0 +1,814 @@
+import Foundation
+import SwiftData
+import Testing
+@testable import RSSReader
+
+@MainActor
+struct RSSReaderTests {
+    @Test
+    func singleFeedRefreshFetchedPersistsArticlesMetadataAndFetchState() async throws {
+        let oldSuccessAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                steps: [
+                    .response(
+                        statusCode: 200,
+                        headers: [
+                            "Content-Type": "application/rss+xml; charset=utf-8",
+                            "ETag": "\"etag-new\"",
+                            "Last-Modified": "Tue, 02 Jan 2024 12:00:00 GMT"
+                        ],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Updated Feed Title",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Article One",
+                            itemLink: "https://example.com/articles/1",
+                            itemGUID: "article-1",
+                            itemDescription: "Readable summary",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+
+        let feed = Feed(
+            url: "https://example.com/feed.xml",
+            title: "Old Feed Title",
+            lastSuccessfulFetchAt: oldSuccessAt,
+            lastETag: "\"etag-old\"",
+            lastModifiedHeader: "Mon, 01 Jan 2024 12:00:00 GMT",
+            lastSyncError: "Previous error"
+        )
+        try harness.feedRepository.insert(feed)
+
+        let result = await harness.service.refresh(feedID: feed.id)
+
+        #expect(result.status == .fetched)
+        #expect(result.processedEntryCount == 1)
+        #expect(result.upsertedEntryCount == 1)
+        #expect(result.rejectedEntryCount == 0)
+        #expect(result.errorDescription == nil)
+
+        let fetchedFeed = try harness.fetchFeed(id: feed.id)
+        let refreshedFeed = try #require(fetchedFeed)
+        #expect(refreshedFeed.title == "Updated Feed Title")
+        #expect(refreshedFeed.siteURL == "https://example.com/")
+        #expect(refreshedFeed.language == "en")
+        #expect(refreshedFeed.kind == .rss)
+        #expect(refreshedFeed.lastFetchedAt != nil)
+        #expect(refreshedFeed.lastSuccessfulFetchAt != nil)
+        #expect(refreshedFeed.lastSuccessfulFetchAt != oldSuccessAt)
+        #expect(refreshedFeed.lastETag == "\"etag-new\"")
+        #expect(refreshedFeed.lastModifiedHeader == "Tue, 02 Jan 2024 12:00:00 GMT")
+        #expect(refreshedFeed.lastSyncError == nil)
+
+        let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        #expect(articles.count == 1)
+        #expect(articles.first?.title == "Article One")
+        #expect(articles.first?.isDeletedAtSource == false)
+
+        let fetchedLog = try harness.feedFetchLogRepository.fetchLatestLog(feedID: feed.id)
+        let latestLog = try #require(fetchedLog)
+        #expect(latestLog.status == "fetched")
+        #expect(latestLog.httpCode == 200)
+
+        let requests = await harness.httpClient.recordedRequests()
+        #expect(requests.count == 1)
+        #expect(requests.first?.headers["If-None-Match"] == "\"etag-old\"")
+        #expect(requests.first?.headers["If-Modified-Since"] == "Mon, 01 Jan 2024 12:00:00 GMT")
+    }
+
+    @Test
+    func singleFeedRefreshNotModifiedUpdatesFetchStateWithoutParsingPipeline() async throws {
+        let oldSuccessAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                steps: [
+                    .response(
+                        statusCode: 304,
+                        headers: [
+                            "ETag": "\"etag-304\"",
+                            "Last-Modified": "Wed, 03 Jan 2024 12:00:00 GMT"
+                        ],
+                        body: ""
+                    )
+                ]
+            )
+        )
+
+        let feed = Feed(
+            url: "https://example.com/feed.xml",
+            title: "Stable Feed Title",
+            lastSuccessfulFetchAt: oldSuccessAt,
+            lastETag: "\"etag-old\"",
+            lastModifiedHeader: "Mon, 01 Jan 2024 12:00:00 GMT",
+            lastSyncError: "Transient error"
+        )
+        try harness.feedRepository.insert(feed)
+
+        let result = await harness.service.refresh(feedID: feed.id)
+
+        #expect(result.status == .notModified)
+        #expect(result.processedEntryCount == 0)
+        #expect(result.upsertedEntryCount == 0)
+        #expect(result.rejectedEntryCount == 0)
+        #expect(result.errorDescription == nil)
+
+        let fetchedFeed = try harness.fetchFeed(id: feed.id)
+        let refreshedFeed = try #require(fetchedFeed)
+        #expect(refreshedFeed.title == "Stable Feed Title")
+        #expect(refreshedFeed.lastFetchedAt != nil)
+        #expect(refreshedFeed.lastSuccessfulFetchAt == oldSuccessAt)
+        #expect(refreshedFeed.lastETag == "\"etag-304\"")
+        #expect(refreshedFeed.lastModifiedHeader == "Wed, 03 Jan 2024 12:00:00 GMT")
+        #expect(refreshedFeed.lastSyncError == nil)
+
+        let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        #expect(articles.isEmpty)
+
+        let fetchedLog = try harness.feedFetchLogRepository.fetchLatestLog(feedID: feed.id)
+        let latestLog = try #require(fetchedLog)
+        #expect(latestLog.status == "not_modified")
+        #expect(latestLog.httpCode == 304)
+
+        let requests = await harness.httpClient.recordedRequests()
+        #expect(requests.count == 1)
+        #expect(requests.first?.headers["If-None-Match"] == "\"etag-old\"")
+        #expect(requests.first?.headers["If-Modified-Since"] == "Mon, 01 Jan 2024 12:00:00 GMT")
+    }
+
+    @Test
+    func singleFeedRefreshFailedPersistsErrorWithoutWritingArticles() async throws {
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                steps: [
+                    .response(
+                        statusCode: 500,
+                        headers: [
+                            "Content-Type": "application/rss+xml; charset=utf-8"
+                        ],
+                        body: ""
+                    )
+                ]
+            )
+        )
+
+        let oldSuccessAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let feed = Feed(
+            url: "https://example.com/feed.xml",
+            title: "Failing Feed",
+            lastSuccessfulFetchAt: oldSuccessAt,
+            lastETag: "\"etag-old\"",
+            lastModifiedHeader: "Mon, 01 Jan 2024 12:00:00 GMT"
+        )
+        try harness.feedRepository.insert(feed)
+
+        let result = await harness.service.refresh(feedID: feed.id)
+
+        #expect(result.status == .failed)
+        #expect(result.processedEntryCount == 0)
+        #expect(result.upsertedEntryCount == 0)
+        #expect(result.rejectedEntryCount == 0)
+        #expect(result.errorDescription?.contains("invalidStatusCode") == true)
+
+        let fetchedFeed = try harness.fetchFeed(id: feed.id)
+        let refreshedFeed = try #require(fetchedFeed)
+        #expect(refreshedFeed.title == "Failing Feed")
+        #expect(refreshedFeed.lastFetchedAt != nil)
+        #expect(refreshedFeed.lastSuccessfulFetchAt == oldSuccessAt)
+        #expect(refreshedFeed.lastSyncError?.contains("invalidStatusCode") == true)
+        #expect(refreshedFeed.lastETag == "\"etag-old\"")
+        #expect(refreshedFeed.lastModifiedHeader == "Mon, 01 Jan 2024 12:00:00 GMT")
+
+        let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        #expect(articles.isEmpty)
+
+        let fetchedLog = try harness.feedFetchLogRepository.fetchLatestLog(feedID: feed.id)
+        let latestLog = try #require(fetchedLog)
+        #expect(latestLog.status == "failed")
+        #expect(latestLog.httpCode == 500)
+        #expect(latestLog.message?.contains("invalidStatusCode") == true)
+    }
+
+    @Test
+    func singleFeedRefreshCancelledReturnsCancelledWithoutPersistingFailureState() async throws {
+        let oldSuccessAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                steps: [
+                    .cancelled
+                ]
+            )
+        )
+
+        let feed = Feed(
+            url: "https://example.com/feed.xml",
+            title: "Cancellable Feed",
+            lastSuccessfulFetchAt: oldSuccessAt,
+            lastETag: "\"etag-old\"",
+            lastModifiedHeader: "Mon, 01 Jan 2024 12:00:00 GMT",
+            lastSyncError: "Previous error"
+        )
+        try harness.feedRepository.insert(feed)
+
+        let result = await harness.service.refresh(feedID: feed.id)
+
+        #expect(result.status == .cancelled)
+        #expect(result.processedEntryCount == 0)
+        #expect(result.upsertedEntryCount == 0)
+        #expect(result.rejectedEntryCount == 0)
+        #expect(result.errorDescription == "Refresh cancelled")
+
+        let fetchedFeed = try harness.fetchFeed(id: feed.id)
+        let refreshedFeed = try #require(fetchedFeed)
+        #expect(refreshedFeed.title == "Cancellable Feed")
+        #expect(refreshedFeed.lastFetchedAt != nil)
+        #expect(refreshedFeed.lastSuccessfulFetchAt == oldSuccessAt)
+        #expect(refreshedFeed.lastSyncError == "Previous error")
+        #expect(refreshedFeed.lastETag == "\"etag-old\"")
+        #expect(refreshedFeed.lastModifiedHeader == "Mon, 01 Jan 2024 12:00:00 GMT")
+
+        let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        #expect(articles.isEmpty)
+
+        let fetchedLog = try harness.feedFetchLogRepository.fetchLatestLog(feedID: feed.id)
+        let latestLog = try #require(fetchedLog)
+        #expect(latestLog.status == "cancelled")
+        #expect(latestLog.httpCode == nil)
+        #expect(latestLog.message?.contains("Refresh cancelled") == true)
+    }
+
+    @Test
+    func batchRefreshAggregatesPartialSuccessAndIndividualFailures() async throws {
+        let feed1URL = "https://example.com/feed-1.xml"
+        let feed2URL = "https://example.com/feed-2.xml"
+        let feed3URL = "https://example.com/feed-3.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feed1URL: .response(
+                        statusCode: 200,
+                        headers: [
+                            "Content-Type": "application/rss+xml; charset=utf-8",
+                            "ETag": "\"etag-feed-1\""
+                        ],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Feed One",
+                            channelLink: "https://example.com/one/",
+                            language: "en",
+                            itemTitle: "Batch Article One",
+                            itemLink: "https://example.com/one/articles/1",
+                            itemGUID: "batch-article-1",
+                            itemDescription: "Readable summary one",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    ),
+                    feed2URL: .response(
+                        statusCode: 304,
+                        headers: [
+                            "ETag": "\"etag-feed-2\"",
+                            "Last-Modified": "Wed, 03 Jan 2024 12:00:00 GMT"
+                        ],
+                        body: ""
+                    ),
+                    feed3URL: .response(
+                        statusCode: 500,
+                        headers: [
+                            "Content-Type": "application/rss+xml; charset=utf-8"
+                        ],
+                        body: ""
+                    )
+                ]
+            )
+        )
+
+        let feeds = try harness.insertFeeds(urls: [feed1URL, feed2URL, feed3URL])
+
+        let result = await harness.service.refreshFeeds(feeds.map(\.id))
+
+        #expect(result.summary.totalFeedCount == 3)
+        #expect(result.summary.fetchedCount == 1)
+        #expect(result.summary.notModifiedCount == 1)
+        #expect(result.summary.failedCount == 1)
+        #expect(result.summary.cancelledCount == 0)
+        #expect(result.errors.count == 1)
+        #expect(result.failedResults.count == 1)
+        #expect(result.results.map(\.status) == [.fetched, .notModified, .failed])
+        #expect(result.errors.first?.feedID == feeds[2].id)
+        #expect(result.errors.first?.message.contains("invalidStatusCode") == true)
+
+        let feed1Articles = try harness.articleRepository.fetchArticles(feedID: feeds[0].id)
+        #expect(feed1Articles.count == 1)
+
+        let fetchedFeed2 = try harness.fetchFeed(id: feeds[1].id)
+        let feed2State = try #require(fetchedFeed2)
+        #expect(feed2State.lastETag == "\"etag-feed-2\"")
+
+        let fetchedFeed3 = try harness.fetchFeed(id: feeds[2].id)
+        let feed3State = try #require(fetchedFeed3)
+        #expect(feed3State.lastSyncError?.contains("invalidStatusCode") == true)
+    }
+
+    @Test
+    func batchRefreshRespectsDefaultConcurrencyLimit() async throws {
+        let urls = (1...4).map { "https://example.com/concurrency-\($0).xml" }
+        let responses = Dictionary(uniqueKeysWithValues: urls.enumerated().map { index, url in
+            (
+                url,
+                ScriptedHTTPClient.Step.delayedResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Type": "application/rss+xml; charset=utf-8"
+                    ],
+                    body: Self.validRSSFeedXML(
+                        channelTitle: "Concurrency Feed \(index + 1)",
+                        channelLink: "https://example.com/\(index + 1)/",
+                        language: "en",
+                        itemTitle: "Concurrency Article \(index + 1)",
+                        itemLink: "https://example.com/\(index + 1)/articles/1",
+                        itemGUID: "concurrency-\(index + 1)",
+                        itemDescription: "Readable summary \(index + 1)",
+                        pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                    ),
+                    delayNanoseconds: 200_000_000
+                )
+            )
+        })
+
+        let client = ScriptedHTTPClient(responsesByURL: responses)
+        let harness = try TestHarness.make(httpClient: client)
+        let feeds = try harness.insertFeeds(urls: urls)
+
+        let result = await harness.service.refreshFeeds(feeds.map(\.id))
+
+        #expect(result.summary.totalFeedCount == 4)
+        #expect(result.summary.fetchedCount == 4)
+        #expect(result.summary.failedCount == 0)
+        #expect(result.summary.cancelledCount == 0)
+
+        let maxConcurrentExecutions = await client.maxConcurrentExecutions()
+        #expect(maxConcurrentExecutions <= 3)
+
+        let requests = await client.recordedRequests()
+        #expect(requests.count == 4)
+    }
+
+    @Test
+    func batchRefreshCancellationReturnsPartialCancelledResults() async throws {
+        let urls = (1...4).map { "https://example.com/cancel-\($0).xml" }
+        let responses = Dictionary(uniqueKeysWithValues: urls.enumerated().map { index, url in
+            (
+                url,
+                ScriptedHTTPClient.Step.delayedResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Type": "application/rss+xml; charset=utf-8"
+                    ],
+                    body: Self.validRSSFeedXML(
+                        channelTitle: "Cancel Feed \(index + 1)",
+                        channelLink: "https://example.com/cancel/\(index + 1)/",
+                        language: "en",
+                        itemTitle: "Cancel Article \(index + 1)",
+                        itemLink: "https://example.com/cancel/\(index + 1)/articles/1",
+                        itemGUID: "cancel-\(index + 1)",
+                        itemDescription: "Readable summary \(index + 1)",
+                        pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                    ),
+                    delayNanoseconds: 500_000_000
+                )
+            )
+        })
+
+        let client = ScriptedHTTPClient(responsesByURL: responses)
+        let harness = try TestHarness.make(httpClient: client)
+        let feeds = try harness.insertFeeds(urls: urls)
+
+        let task = Task { @MainActor in
+            await harness.service.refreshFeeds(feeds.map(\.id))
+        }
+
+        try await Task.sleep(nanoseconds: 50_000_000)
+        task.cancel()
+
+        let result = await task.value
+
+        #expect(result.summary.totalFeedCount > 0)
+        #expect(result.summary.totalFeedCount < 4)
+        #expect(result.summary.fetchedCount + result.summary.cancelledCount == result.summary.totalFeedCount)
+        #expect(result.summary.failedCount == 0)
+        #expect(result.summary.notModifiedCount == 0)
+
+        let requests = await client.recordedRequests()
+        #expect(requests.count <= 3)
+    }
+
+    @Test
+    func concurrentRefreshOfSameFeedSharesInFlightTaskAndAvoidsDuplicateSideEffects() async throws {
+        let feedURL = "https://example.com/concurrent-feed.xml"
+        let client = ScriptedHTTPClient(
+            responsesByURL: [
+                feedURL: .delayedResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Type": "application/rss+xml; charset=utf-8",
+                        "ETag": "\"etag-concurrent\""
+                    ],
+                    body: Self.validRSSFeedXML(
+                        channelTitle: "Concurrent Feed",
+                        channelLink: "https://example.com/concurrent/",
+                        language: "en",
+                        itemTitle: "Concurrent Article",
+                        itemLink: "https://example.com/concurrent/articles/1",
+                        itemGUID: "concurrent-article-1",
+                        itemDescription: "Readable concurrent summary",
+                        pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                    ),
+                    delayNanoseconds: 200_000_000
+                )
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let feed = try harness.insertFeeds(urls: [feedURL]).first
+        let requiredFeed = try #require(feed)
+
+        let firstTask = Task { @MainActor in
+            await harness.service.refresh(feedID: requiredFeed.id)
+        }
+        let secondTask = Task { @MainActor in
+            await harness.service.refresh(feedID: requiredFeed.id)
+        }
+
+        let firstResult = await firstTask.value
+        let secondResult = await secondTask.value
+
+        #expect(firstResult.status == .fetched)
+        #expect(secondResult.status == .fetched)
+        #expect(firstResult.upsertedEntryCount == 1)
+        #expect(secondResult.upsertedEntryCount == 1)
+        #expect(firstResult.finishedAt == secondResult.finishedAt)
+
+        let requests = await client.recordedRequests()
+        #expect(requests.count == 1)
+
+        let articles = try harness.articleRepository.fetchArticles(feedID: requiredFeed.id)
+        #expect(articles.count == 1)
+
+        let logs = try harness.feedFetchLogRepository.fetchLogs(feedID: requiredFeed.id, limit: nil)
+        #expect(logs.count == 1)
+        #expect(logs.first?.status == "fetched")
+    }
+
+    @Test
+    func refreshUpdatesFeedMetadataAndMarksMissingArticlesAsDeletedAtSource() async throws {
+        let feedURL = "https://example.com/reconcile-feed.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: [
+                            "Content-Type": "application/rss+xml; charset=utf-8"
+                        ],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Reconciled Feed Title",
+                            channelLink: "https://example.com/reconciled/",
+                            language: "fr",
+                            itemTitle: "Current Article",
+                            itemLink: "https://example.com/reconciled/articles/current",
+                            itemGUID: "current-article",
+                            itemDescription: "Current article summary",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+
+        let feed = try #require(try harness.insertFeeds(urls: [feedURL]).first)
+        feed.title = "Stale Feed Title"
+        feed.siteURL = "https://example.com/old/"
+        feed.language = "en"
+        feed.kind = .unknown
+        try harness.saveModelContext()
+
+        try harness.insertArticle(
+            feed: feed,
+            externalID: "obsolete-article",
+            guid: "obsolete-article",
+            url: "https://example.com/reconciled/articles/obsolete",
+            title: "Obsolete Article"
+        )
+
+        let result = await harness.service.refresh(feedID: feed.id)
+
+        #expect(result.status == .fetched)
+        #expect(result.upsertedEntryCount == 1)
+
+        let refreshedFeed = try #require(try harness.fetchFeed(id: feed.id))
+        #expect(refreshedFeed.title == "Reconciled Feed Title")
+        #expect(refreshedFeed.siteURL == "https://example.com/reconciled/")
+        #expect(refreshedFeed.language == "fr")
+        #expect(refreshedFeed.kind == .rss)
+
+        let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        #expect(articles.count == 2)
+
+        let obsoleteArticle = try #require(articles.first { $0.externalID == "obsolete-article" })
+        #expect(obsoleteArticle.isDeletedAtSource == true)
+
+        let currentArticle = try #require(articles.first { $0.guid == "current-article" })
+        #expect(currentArticle.isDeletedAtSource == false)
+        #expect(currentArticle.title == "Current Article")
+    }
+
+    @Test
+    func refreshReactivatesArticleWhenItReappearsInFeedPayload() async throws {
+        let feedURL = "https://example.com/reappearing-feed.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: [
+                            "Content-Type": "application/rss+xml; charset=utf-8"
+                        ],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Reappearing Feed",
+                            channelLink: "https://example.com/reappearing/",
+                            language: "en",
+                            itemTitle: "Revived Article",
+                            itemLink: "https://example.com/reappearing/articles/revived",
+                            itemGUID: "revived-article",
+                            itemDescription: "Revived article summary",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+
+        let feed = try #require(try harness.insertFeeds(urls: [feedURL]).first)
+        let refreshedEntryExternalID = ArticleIdentityService.makeExternalID(
+            from: ArticleIdentityInput(
+                feedURL: feedURL,
+                guid: "revived-article",
+                articleURL: "https://example.com/reappearing/articles/revived",
+                title: "Revived Article",
+                publishedAt: FeedDateParsingService.parse("Tue, 02 Jan 2024 10:00:00 GMT")
+            )
+        )
+        try harness.insertArticle(
+            feed: feed,
+            externalID: refreshedEntryExternalID,
+            guid: "revived-article",
+            url: "https://example.com/reappearing/articles/revived",
+            title: "Stale Revived Article",
+            isDeletedAtSource: true
+        )
+
+        let result = await harness.service.refresh(feedID: feed.id)
+
+        #expect(result.status == .fetched)
+        #expect(result.upsertedEntryCount == 1)
+
+        let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        #expect(articles.count == 1)
+
+        let revivedArticle = try #require(articles.first)
+        #expect(revivedArticle.externalID == refreshedEntryExternalID)
+        #expect(revivedArticle.isDeletedAtSource == false)
+        #expect(revivedArticle.title == "Revived Article")
+    }
+}
+
+private extension RSSReaderTests {
+    static func validRSSFeedXML(
+        channelTitle: String,
+        channelLink: String,
+        language: String,
+        itemTitle: String,
+        itemLink: String,
+        itemGUID: String,
+        itemDescription: String,
+        pubDate: String
+    ) -> String {
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0">
+          <channel>
+            <title>\(channelTitle)</title>
+            <link>\(channelLink)</link>
+            <description>Integration test feed</description>
+            <language>\(language)</language>
+            <item>
+              <title>\(itemTitle)</title>
+              <link>\(itemLink)</link>
+              <guid isPermaLink="false">\(itemGUID)</guid>
+              <description>\(itemDescription)</description>
+              <pubDate>\(pubDate)</pubDate>
+            </item>
+          </channel>
+        </rss>
+        """
+    }
+}
+
+private struct TestHarness {
+    let modelContainer: ModelContainer
+    let feedRepository: SwiftDataFeedRepository
+    let articleRepository: SwiftDataArticleRepository
+    let feedFetchLogRepository: SwiftDataFeedFetchLogRepository
+    let service: FeedRefreshService
+    let httpClient: ScriptedHTTPClient
+
+    @MainActor
+    static func make(httpClient: ScriptedHTTPClient) throws -> TestHarness {
+        let schema = Schema([
+            AppSettings.self,
+            Article.self,
+            ArticleState.self,
+            Feed.self,
+            FeedFetchLog.self,
+            Folder.self
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let modelContainer = try ModelContainer(for: schema, configurations: [configuration])
+        let modelContext = modelContainer.mainContext
+
+        let feedRepository = SwiftDataFeedRepository(modelContext: modelContext)
+        let articleRepository = SwiftDataArticleRepository(modelContext: modelContext)
+        let feedFetchLogRepository = SwiftDataFeedFetchLogRepository(modelContext: modelContext)
+        let service = FeedRefreshService(
+            logger: TestLogger(),
+            feedFetcher: FeedFetcher(
+                httpClient: httpClient,
+                retryPolicy: FeedRetryPolicy(maxAttempts: 1, baseDelayNanoseconds: 0)
+            ),
+            feedRepository: feedRepository,
+            articleRepository: articleRepository,
+            feedFetchLogRepository: feedFetchLogRepository
+        )
+
+        return TestHarness(
+            modelContainer: modelContainer,
+            feedRepository: feedRepository,
+            articleRepository: articleRepository,
+            feedFetchLogRepository: feedFetchLogRepository,
+            service: service,
+            httpClient: httpClient
+        )
+    }
+
+    @MainActor
+    func fetchFeed(id: UUID) throws -> Feed? {
+        try feedRepository.fetchFeed(id: id)
+    }
+
+    @MainActor
+    func insertFeeds(urls: [String]) throws -> [Feed] {
+        try urls.map { url in
+            let title = URL(string: url)?.lastPathComponent ?? url
+            let feed = Feed(
+                url: url,
+                title: title,
+                lastETag: "\"etag-old\"",
+                lastModifiedHeader: "Mon, 01 Jan 2024 12:00:00 GMT"
+            )
+            return try feedRepository.insert(feed)
+        }
+    }
+
+    @MainActor
+    func insertArticle(
+        feed: Feed,
+        externalID: String,
+        guid: String? = nil,
+        url: String,
+        title: String,
+        isDeletedAtSource: Bool = false
+    ) throws {
+        let article = Article(
+            feed: feed,
+            externalID: externalID,
+            guid: guid,
+            url: url,
+            title: title,
+            isDeletedAtSource: isDeletedAtSource
+        )
+        modelContainer.mainContext.insert(article)
+        try modelContainer.mainContext.save()
+    }
+
+    @MainActor
+    func saveModelContext() throws {
+        try modelContainer.mainContext.save()
+    }
+}
+
+private struct TestLogger: Logging {
+    func debug(_ message: @autoclosure () -> String) {}
+    func info(_ message: @autoclosure () -> String) {}
+    func error(_ message: @autoclosure () -> String) {}
+}
+
+private actor ScriptedHTTPClient: HTTPClient {
+    enum Step: Sendable {
+        case response(statusCode: Int, headers: [String: String], body: String)
+        case delayedResponse(statusCode: Int, headers: [String: String], body: String, delayNanoseconds: UInt64)
+        case invalidResponse
+        case urlError(URLError.Code)
+        case cancelled
+    }
+
+    private var steps: [Step]
+    private var responsesByURL: [String: Step]
+    private var requests: [HTTPRequest] = []
+    private var inFlightExecutions = 0
+    private var maxConcurrentExecutionCount = 0
+
+    init(
+        steps: [Step] = [],
+        responsesByURL: [String: Step] = [:]
+    ) {
+        self.steps = steps
+        self.responsesByURL = responsesByURL
+    }
+
+    private func beginExecution() {
+        inFlightExecutions += 1
+        maxConcurrentExecutionCount = max(maxConcurrentExecutionCount, inFlightExecutions)
+    }
+
+    private func endExecution() {
+        inFlightExecutions = max(0, inFlightExecutions - 1)
+    }
+
+    private func makeResponse(
+        request: HTTPRequest,
+        statusCode: Int,
+        headers: [String: String],
+        body: String
+    ) async -> HTTPResponse {
+        await MainActor.run {
+            HTTPResponse(
+                url: request.url,
+                statusCode: statusCode,
+                headers: headers,
+                body: Data(body.utf8)
+            )
+        }
+    }
+
+    func execute(_ request: HTTPRequest) async throws -> HTTPResponse {
+        requests.append(request)
+        beginExecution()
+        defer { endExecution() }
+
+        let requestURLString = await MainActor.run {
+            request.url.absoluteString
+        }
+
+        let step: Step
+        if let routedStep = responsesByURL.removeValue(forKey: requestURLString) {
+            step = routedStep
+        } else if steps.isEmpty == false {
+            step = steps.removeFirst()
+        } else {
+            throw URLError(.badServerResponse)
+        }
+
+        switch step {
+        case .response(let statusCode, let headers, let body):
+            return await makeResponse(
+                request: request,
+                statusCode: statusCode,
+                headers: headers,
+                body: body
+            )
+        case .delayedResponse(let statusCode, let headers, let body, let delayNanoseconds):
+            try await Task.sleep(nanoseconds: delayNanoseconds)
+            return await makeResponse(
+                request: request,
+                statusCode: statusCode,
+                headers: headers,
+                body: body
+            )
+        case .invalidResponse:
+            throw HTTPClientError.invalidResponse
+        case .urlError(let code):
+            throw URLError(code)
+        case .cancelled:
+            throw CancellationError()
+        }
+    }
+
+    func recordedRequests() -> [HTTPRequest] {
+        requests
+    }
+
+    func maxConcurrentExecutions() -> Int {
+        maxConcurrentExecutionCount
+    }
+}

@@ -15,6 +15,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     public let logger: Logging
     public let httpClient: any HTTPClient
     public let feedFetcher: any FeedFetching
+    let feedRefreshService: FeedRefreshService?
     let feedRepository: (any FeedRepository)?
     let articleRepository: (any ArticleRepository)?
     let articleQueryService: (any ArticleQueryService)?
@@ -55,21 +56,34 @@ public final class AppDependencies: AppDependenciesProtocol {
         let feedFetchLogRepository = modelContainer.map { container in
             SwiftDataFeedFetchLogRepository(modelContext: container.mainContext)
         }
+        let resolvedFeedFetcher = feedFetcher ?? Self.makeFeedFetcher(
+            httpClient: httpClient
+        )
+        let feedRefreshService: FeedRefreshService? = {
+            guard let feedRepository, let articleRepository else {
+                return nil
+            }
+
+            return FeedRefreshService(
+                logger: logger,
+                feedFetcher: resolvedFeedFetcher,
+                feedRepository: feedRepository,
+                articleRepository: articleRepository,
+                feedFetchLogRepository: feedFetchLogRepository
+            )
+        }()
 
         self.logger = logger
         self.httpClient = httpClient
         self.modelContainer = modelContainer
+        self.feedRefreshService = feedRefreshService
         self.feedRepository = feedRepository
         self.articleRepository = articleRepository
         self.articleStateRepository = articleStateRepository
         self.articleQueryService = articleQueryService
         self.appSettingsRepository = appSettingsRepository
         self.feedFetchLogRepository = feedFetchLogRepository
-        self.feedFetcher = feedFetcher ?? Self.makeFeedFetcher(
-            httpClient: httpClient,
-            logger: logger,
-            feedFetchLogRepository: feedFetchLogRepository
-        )
+        self.feedFetcher = resolvedFeedFetcher
     }
 }
 
@@ -101,27 +115,52 @@ public extension AppDependencies {
     }
 }
 
-private extension AppDependencies {
-    static func makeFeedFetcher(
-        httpClient: any HTTPClient,
-        logger: Logging,
-        feedFetchLogRepository: (any FeedFetchLogRepository)?
-    ) -> any FeedFetching {
-        guard let feedFetchLogRepository else {
-            return FeedFetcher(httpClient: httpClient)
+extension AppDependencies {
+    @MainActor
+    func refreshFeed(id feedID: UUID) async -> FeedRefreshResult? {
+        guard let feedRefreshService else {
+            logger.error("Feed refresh service is unavailable")
+            return nil
         }
 
-        return FeedFetcher(
-            httpClient: httpClient,
-            logSink: { log in
-                do {
-                    try await MainActor.run(resultType: Void.self) {
-                        try feedFetchLogRepository.insert(log)
-                    }
-                } catch {
-                    logger.error("Failed to persist FeedFetchLog: \(error)")
-                }
-            }
-        )
+        return await feedRefreshService.refresh(feedID: feedID)
+    }
+
+    @MainActor
+    func refreshSelectedFeed(using appState: AppState) async -> FeedRefreshResult? {
+        guard let selectedFeedID = appState.selectedFeedID else {
+            logger.info("Skipped manual refresh because no feed is selected")
+            return nil
+        }
+
+        return await refreshFeed(id: selectedFeedID)
+    }
+
+    @MainActor
+    func refreshAllFeeds() async -> FeedRefreshBatchResult? {
+        guard let feedRefreshService else {
+            logger.error("Feed refresh service is unavailable")
+            return nil
+        }
+
+        return await feedRefreshService.refreshAllActiveFeeds()
+    }
+
+    @MainActor
+    func refreshFeedsForBackground() async -> BackgroundFeedRefreshResult? {
+        guard let feedRefreshService else {
+            logger.error("Feed refresh service is unavailable")
+            return nil
+        }
+
+        return await feedRefreshService.refreshAllActiveFeedsForBackground()
+    }
+}
+
+private extension AppDependencies {
+    static func makeFeedFetcher(
+        httpClient: any HTTPClient
+    ) -> any FeedFetching {
+        FeedFetcher(httpClient: httpClient)
     }
 }
