@@ -151,7 +151,7 @@
 - [x] ввести отдельный статус `cancelled` для refresh result и batch aggregation, чтобы отмена не маскировалась под `failed` в UI, telemetry и логах;
 - [x] добавить integration tests для single feed refresh: `fetched`, `notModified`, `failed`, `cancelled`;
 - [x] добавить integration tests для batch refresh: частичный успех, ошибки отдельных feeds, ограничение параллелизма и отмена;
-- [ ] добавить integration tests на защиту от concurrent refresh одного и того же feed;
+- [x] добавить integration tests на защиту от concurrent refresh одного и того же feed;
 - [ ] добавить integration tests на обновление feed metadata и reconciliation статей после refresh.
 
 ### Reading Experience
