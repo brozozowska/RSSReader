@@ -145,7 +145,17 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             }
         } catch is CancellationError {
             logger.info("Cancelled refresh for feed \(feedID.uuidString)")
-            return makeCancelledResult(feedID: feedID, startedAt: startedAt)
+            let result = makeCancelledResult(feedID: feedID, startedAt: startedAt)
+            try? persistRefreshLog(
+                feedID: feedID,
+                status: result.status,
+                httpCode: nil,
+                diagnosticsSummary: result.diagnosticsSummary,
+                errorDescription: result.errorDescription,
+                finishedAt: result.finishedAt,
+                baseMessage: "Refresh cancelled"
+            )
+            return result
         } catch {
             let finishedAt = Date()
             let errorDescription = String(describing: error)
@@ -224,7 +234,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     }
 
     private func makeCancelledResult(feedID: UUID, startedAt: Date) -> FeedRefreshResult {
-        FeedRefreshResult.failed(
+        FeedRefreshResult.cancelled(
             feedID: feedID,
             startedAt: startedAt,
             errorDescription: "Refresh cancelled"
@@ -419,6 +429,8 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             "not_modified"
         case .failed:
             "failed"
+        case .cancelled:
+            "cancelled"
         }
     }
 
@@ -578,6 +590,8 @@ final class FeedRefreshService: FeedRefreshCoordinating {
 
                 if result.status == .failed {
                     logger.error("Batch refresh failed for feed \(feedID.uuidString)")
+                } else if result.status == .cancelled {
+                    logger.info("Batch refresh cancelled for feed \(feedID.uuidString)")
                 }
 
                 switch batchPolicy.errorPolicy {

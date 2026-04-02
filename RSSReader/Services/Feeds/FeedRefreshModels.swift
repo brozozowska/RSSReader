@@ -4,6 +4,7 @@ enum FeedRefreshStatus: String, Sendable {
     case fetched
     case notModified
     case failed
+    case cancelled
 }
 
 struct FeedRefreshDiagnosticsSummary: Sendable, Equatable {
@@ -164,7 +165,12 @@ struct FeedRefreshResult: Sendable, Identifiable {
     }
 
     var isSuccess: Bool {
-        status != .failed
+        switch status {
+        case .fetched, .notModified:
+            true
+        case .failed, .cancelled:
+            false
+        }
     }
 
     init(
@@ -247,6 +253,29 @@ struct FeedRefreshResult: Sendable, Identifiable {
             errorDescription: errorDescription
         )
     }
+
+    static func cancelled(
+        feedID: UUID,
+        startedAt: Date,
+        finishedAt: Date = Date(),
+        processedEntryCount: Int = 0,
+        upsertedEntryCount: Int = 0,
+        rejectedEntryCount: Int = 0,
+        diagnosticsSummary: FeedRefreshDiagnosticsSummary = FeedRefreshDiagnosticsSummary(),
+        errorDescription: String = "Refresh cancelled"
+    ) -> FeedRefreshResult {
+        FeedRefreshResult(
+            feedID: feedID,
+            status: .cancelled,
+            startedAt: startedAt,
+            finishedAt: finishedAt,
+            processedEntryCount: processedEntryCount,
+            upsertedEntryCount: upsertedEntryCount,
+            rejectedEntryCount: rejectedEntryCount,
+            diagnosticsSummary: diagnosticsSummary,
+            errorDescription: errorDescription
+        )
+    }
 }
 
 struct FeedRefreshBatchSummary: Sendable, Equatable {
@@ -254,6 +283,7 @@ struct FeedRefreshBatchSummary: Sendable, Equatable {
     let fetchedCount: Int
     let notModifiedCount: Int
     let failedCount: Int
+    let cancelledCount: Int
     let totalProcessedEntryCount: Int
     let totalUpsertedEntryCount: Int
     let totalRejectedEntryCount: Int
@@ -293,6 +323,10 @@ struct FeedRefreshBatchResult: Sendable {
         results.filter { $0.status == .failed }
     }
 
+    var cancelledResults: [FeedRefreshResult] {
+        results.filter { $0.status == .cancelled }
+    }
+
     var failedFeedIDs: [UUID] {
         failedResults.map(\.feedID)
     }
@@ -320,6 +354,7 @@ struct FeedRefreshBatchResult: Sendable {
             fetchedCount: results.filter { $0.status == .fetched }.count,
             notModifiedCount: results.filter { $0.status == .notModified }.count,
             failedCount: results.filter { $0.status == .failed }.count,
+            cancelledCount: results.filter { $0.status == .cancelled }.count,
             totalProcessedEntryCount: results.reduce(0) { $0 + $1.processedEntryCount },
             totalUpsertedEntryCount: results.reduce(0) { $0 + $1.upsertedEntryCount },
             totalRejectedEntryCount: results.reduce(0) { $0 + $1.rejectedEntryCount }
