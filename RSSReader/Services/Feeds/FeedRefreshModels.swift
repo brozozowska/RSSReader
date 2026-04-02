@@ -133,6 +133,10 @@ struct FeedRefreshBatchPolicy: Sendable, Equatable {
     )
 }
 
+enum FeedRefreshInFlightPolicy: String, Sendable {
+    case shareExistingTaskResult
+}
+
 struct FeedRefreshResult: Sendable, Identifiable {
     let feedID: UUID
     let status: FeedRefreshStatus

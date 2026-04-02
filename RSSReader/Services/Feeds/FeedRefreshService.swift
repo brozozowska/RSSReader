@@ -2,7 +2,6 @@ import Foundation
 
 enum FeedRefreshServiceError: Error {
     case feedNotFound(UUID)
-    case refreshAlreadyInProgress(UUID)
 }
 
 struct FeedRefreshContext: Sendable {
@@ -27,12 +26,13 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     let diagnosticsPolicy: FeedRefreshDiagnosticsPolicy = .default
     let reconciliationPolicy: FeedRefreshReconciliationPolicy = .markMissingArticlesAsDeletedAtSource
     let batchPolicy: FeedRefreshBatchPolicy = .default
+    let inFlightPolicy: FeedRefreshInFlightPolicy = .shareExistingTaskResult
     private let logger: Logging
     private let feedFetcher: any FeedFetching
     private let feedRepository: any FeedRepository
     private let articleRepository: any ArticleRepository
     private let feedFetchLogRepository: (any FeedFetchLogRepository)?
-    private var inFlightFeedIDs: Set<UUID> = []
+    private var inFlightRefreshTasks: [UUID: Task<FeedRefreshResult, Never>] = [:]
 
     init(
         logger: Logging,
@@ -72,21 +72,36 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     }
 
     func refresh(feedID: UUID) async -> FeedRefreshResult {
+        switch inFlightPolicy {
+        case .shareExistingTaskResult:
+            if let inFlightTask = inFlightRefreshTasks[feedID] {
+                logger.info("Joining in-flight refresh for feed \(feedID.uuidString)")
+                return await inFlightTask.value
+            }
+
+            let task = Task<FeedRefreshResult, Never> { [weak self, feedID] in
+                guard let self else {
+                    return FeedRefreshResult.failed(
+                        feedID: feedID,
+                        startedAt: Date(),
+                        errorDescription: "FeedRefreshService deallocated"
+                    )
+                }
+
+                let result = await self.performRefresh(feedID: feedID)
+                _ = await MainActor.run {
+                    self.inFlightRefreshTasks.removeValue(forKey: feedID)
+                }
+                return result
+            }
+
+            inFlightRefreshTasks[feedID] = task
+            return await task.value
+        }
+    }
+
+    private func performRefresh(feedID: UUID) async -> FeedRefreshResult {
         let startedAt = Date()
-
-        guard beginRefresh(for: feedID) else {
-            let errorDescription = String(describing: FeedRefreshServiceError.refreshAlreadyInProgress(feedID))
-            logger.info("Skipped refresh for feed \(feedID.uuidString) because another refresh is already in progress")
-            return makeFailureResult(
-                feedID: feedID,
-                startedAt: startedAt,
-                errorDescription: errorDescription
-            )
-        }
-
-        defer {
-            endRefresh(for: feedID)
-        }
 
         do {
             let context = try makeRefreshContext(for: feedID)
@@ -191,14 +206,6 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             startedAt: startedAt,
             errorDescription: errorDescription
         )
-    }
-
-    private func beginRefresh(for feedID: UUID) -> Bool {
-        inFlightFeedIDs.insert(feedID).inserted
-    }
-
-    private func endRefresh(for feedID: UUID) {
-        inFlightFeedIDs.remove(feedID)
     }
 
     private func handleNotModifiedResponse(
