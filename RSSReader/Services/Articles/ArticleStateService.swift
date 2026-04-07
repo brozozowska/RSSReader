@@ -11,6 +11,9 @@ protocol ArticleStateServicing {
     func markAsUnread(article: Article, at: Date) throws -> ArticleUserStateSnapshot
     func toggleStarred(feedID: UUID, articleExternalID: String, at: Date) throws -> ArticleUserStateSnapshot
     func toggleStarred(article: Article, at: Date) throws -> ArticleUserStateSnapshot
+    func markAllVisibleAsRead(feedID: UUID, articleExternalIDs: [String], at: Date) throws -> [ArticleUserStateSnapshot]
+    func markAllVisibleAsRead(_ items: [ArticleListItemDTO], at: Date) throws -> [ArticleUserStateSnapshot]
+    func markAllVisibleAsRead(_ articles: [Article], at: Date) throws -> [ArticleUserStateSnapshot]
 }
 
 @MainActor
@@ -133,5 +136,62 @@ final class ArticleStateService: ArticleStateServicing {
             articleExternalID: article.externalID,
             at: at
         )
+    }
+
+    func markAllVisibleAsRead(
+        feedID: UUID,
+        articleExternalIDs: [String],
+        at: Date = .now
+    ) throws -> [ArticleUserStateSnapshot] {
+        guard articleExternalIDs.isEmpty == false else { return [] }
+
+        let articleStates = try articleStateRepository.bulkSetRead(
+            feedID: feedID,
+            articleExternalIDs: articleExternalIDs,
+            isRead: true,
+            at: at
+        )
+        logger.info("Marked \(articleStates.count) visible articles as read for feed \(feedID.uuidString)")
+        return articleStates.map(ArticleUserStateSnapshot.init(articleState:))
+    }
+
+    func markAllVisibleAsRead(
+        _ items: [ArticleListItemDTO],
+        at: Date = .now
+    ) throws -> [ArticleUserStateSnapshot] {
+        guard items.isEmpty == false else { return [] }
+
+        let itemsByFeedID = Dictionary(grouping: items, by: \.feedID)
+        return try itemsByFeedID
+            .keys
+            .sorted { $0.uuidString < $1.uuidString }
+            .flatMap { feedID in
+                let articleExternalIDs = itemsByFeedID[feedID, default: []].map(\.articleExternalID)
+                return try markAllVisibleAsRead(
+                    feedID: feedID,
+                    articleExternalIDs: articleExternalIDs,
+                    at: at
+                )
+            }
+    }
+
+    func markAllVisibleAsRead(
+        _ articles: [Article],
+        at: Date = .now
+    ) throws -> [ArticleUserStateSnapshot] {
+        guard articles.isEmpty == false else { return [] }
+
+        let articlesByFeedID = Dictionary(grouping: articles, by: \.feedID)
+        return try articlesByFeedID
+            .keys
+            .sorted { $0.uuidString < $1.uuidString }
+            .flatMap { feedID in
+                let articleExternalIDs = articlesByFeedID[feedID, default: []].map(\.externalID)
+                return try markAllVisibleAsRead(
+                    feedID: feedID,
+                    articleExternalIDs: articleExternalIDs,
+                    at: at
+                )
+            }
     }
 }
