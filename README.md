@@ -157,7 +157,7 @@
 ### Reading Experience
 #### Reading State Domain
 - [x] создать `ArticleStateService` как единый orchestration-слой поверх `ArticleStateRepository`;
-- [ ] реализовать `markAsRead`;
+- [x] реализовать `markAsRead`;
 - [ ] реализовать `markAsUnread`;
 - [ ] реализовать `toggleStarred`;
 - [ ] реализовать bulk action `markAllVisibleAsRead`;

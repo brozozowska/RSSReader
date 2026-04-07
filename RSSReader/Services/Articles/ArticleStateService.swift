@@ -5,6 +5,8 @@ protocol ArticleStateServicing {
     func fetchStateSnapshot(feedID: UUID, articleExternalID: String) throws -> ArticleUserStateSnapshot?
     func fetchStateSnapshots(for articles: [Article]) throws -> [String: ArticleUserStateSnapshot]
     func fetchUnreadCounts(feedIDs: [UUID]) throws -> [UUID: Int]
+    func markAsRead(feedID: UUID, articleExternalID: String, at: Date) throws -> ArticleUserStateSnapshot
+    func markAsRead(article: Article, at: Date) throws -> ArticleUserStateSnapshot
 }
 
 @MainActor
@@ -41,5 +43,32 @@ final class ArticleStateService: ArticleStateServicing {
         let unreadCounts = try articleStateRepository.fetchUnreadCounts(feedIDs: feedIDs)
         logger.debug("Fetched unread counts for \(feedIDs.count) feeds")
         return unreadCounts
+    }
+
+    func markAsRead(
+        feedID: UUID,
+        articleExternalID: String,
+        at: Date = .now
+    ) throws -> ArticleUserStateSnapshot {
+        let articleState = try articleStateRepository.upsert(
+            feedID: feedID,
+            articleExternalID: articleExternalID,
+            update: ArticleStateUpsert(
+                isRead: true,
+                readAt: at,
+                lastInteractionAt: at,
+                updatedAt: at
+            )
+        )
+        logger.info("Marked article as read for feed \(feedID.uuidString)")
+        return ArticleUserStateSnapshot(articleState: articleState)
+    }
+
+    func markAsRead(article: Article, at: Date = .now) throws -> ArticleUserStateSnapshot {
+        try markAsRead(
+            feedID: article.feedID,
+            articleExternalID: article.externalID,
+            at: at
+        )
     }
 }
