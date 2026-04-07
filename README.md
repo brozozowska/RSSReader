@@ -166,7 +166,7 @@
 - [x] добавить unit tests для article state transitions.
 
 #### Reading Shell / Navigation
-- [ ] определить финальную модель selection/navigation для `Sources -> Articles -> Article -> WebView`;
+- [x] определить финальную модель selection/navigation для `Sources -> Articles -> Article -> WebView`;
 - [ ] стабилизировать selection при refresh и смене фильтра;
 - [ ] добавить refresh/selection behavior для смены source без рассинхронизации списка и reader;
 - [ ] подготовить entry points для menu / source actions, которые нужны shell-уровню.
