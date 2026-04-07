@@ -161,7 +161,7 @@
 - [x] реализовать `markAsUnread`;
 - [x] реализовать `toggleStarred`;
 - [x] реализовать bulk action `markAllVisibleAsRead`;
-- [ ] обновлять `updatedAt` и `lastInteractionAt` при каждом пользовательском изменении;
+- [x] обновлять `updatedAt` и `lastInteractionAt` при каждом пользовательском изменении;
 - [ ] подготовить policy `last-write-wins` для будущих sync-конфликтов по `ArticleState.updatedAt`;
 - [ ] добавить unit tests для article state transitions.
 

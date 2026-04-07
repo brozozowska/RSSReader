@@ -60,12 +60,7 @@ final class ArticleStateService: ArticleStateServicing {
         let articleState = try articleStateRepository.upsert(
             feedID: feedID,
             articleExternalID: articleExternalID,
-            update: ArticleStateUpsert(
-                isRead: true,
-                readAt: at,
-                lastInteractionAt: at,
-                updatedAt: at
-            )
+            update: makeReadUpdate(isRead: true, at: at)
         )
         logger.info("Marked article as read for feed \(feedID.uuidString)")
         return ArticleUserStateSnapshot(articleState: articleState)
@@ -87,12 +82,7 @@ final class ArticleStateService: ArticleStateServicing {
         let articleState = try articleStateRepository.upsert(
             feedID: feedID,
             articleExternalID: articleExternalID,
-            update: ArticleStateUpsert(
-                isRead: false,
-                readAt: nil,
-                lastInteractionAt: at,
-                updatedAt: at
-            )
+            update: makeReadUpdate(isRead: false, at: at)
         )
         logger.info("Marked article as unread for feed \(feedID.uuidString)")
         return ArticleUserStateSnapshot(articleState: articleState)
@@ -119,12 +109,7 @@ final class ArticleStateService: ArticleStateServicing {
         let articleState = try articleStateRepository.upsert(
             feedID: feedID,
             articleExternalID: articleExternalID,
-            update: ArticleStateUpsert(
-                isStarred: newIsStarred,
-                starredAt: newIsStarred ? at : nil,
-                lastInteractionAt: at,
-                updatedAt: at
-            )
+            update: makeStarredUpdate(isStarred: newIsStarred, at: at)
         )
         logger.info("Toggled starred state for article in feed \(feedID.uuidString)")
         return ArticleUserStateSnapshot(articleState: articleState)
@@ -193,5 +178,23 @@ final class ArticleStateService: ArticleStateServicing {
                     at: at
                 )
             }
+    }
+
+    private func makeReadUpdate(isRead: Bool, at: Date) -> ArticleStateUpsert {
+        ArticleStateUpsert(
+            isRead: isRead,
+            readAt: isRead ? at : nil,
+            lastInteractionAt: at,
+            updatedAt: at
+        )
+    }
+
+    private func makeStarredUpdate(isStarred: Bool, at: Date) -> ArticleStateUpsert {
+        ArticleStateUpsert(
+            isStarred: isStarred,
+            starredAt: isStarred ? at : nil,
+            lastInteractionAt: at,
+            updatedAt: at
+        )
     }
 }
