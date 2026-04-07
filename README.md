@@ -171,7 +171,7 @@
 - [x] добавить refresh/selection behavior для смены source без рассинхронизации списка и reader;
 - [x] подготовить entry points для menu / source actions, которые нужны shell-уровню.
 - [x] добавить unit tests на source switch: сброс article/detail selection и reload trigger;
-- [ ] добавить unit tests на filter switch: обновление active filter без потери shell consistency;
+- [x] добавить unit tests на filter switch: обновление active filter без потери shell consistency;
 - [ ] добавить unit tests на web view route: open/close article web view через `AppState`;
 - [ ] добавить unit tests на shell action entry points в `AppDependencies`.
 

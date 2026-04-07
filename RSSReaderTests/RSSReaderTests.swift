@@ -773,6 +773,47 @@ struct RSSReaderTests {
         #expect(appState.selectedDetailRoute == .article(articleID))
         #expect(appState.articleListReloadID == reloadIDBeforeReselect)
     }
+
+    @Test
+    func readingShellFilterSwitchUpdatesActiveFilterWithoutBreakingSelectionConsistency() {
+        let appState = AppState()
+        let feedID = UUID()
+        let articleID = UUID()
+
+        appState.selectReadingSource(.feed(feedID))
+        appState.selectedArticleID = articleID
+        let reloadIDBeforeFilterSwitch = appState.articleListReloadID
+
+        appState.selectArticleListFilter(.starred)
+
+        #expect(appState.selectedArticleListFilter == .starred)
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .article(articleID))
+        #expect(appState.presentedWebViewRoute == nil)
+        #expect(appState.articleListReloadID == reloadIDBeforeFilterSwitch)
+    }
+
+    @Test
+    func readingShellApplyingSameFilterKeepsShellStateStable() {
+        let appState = AppState()
+        let articleID = UUID()
+        let webURL = URL(string: "https://example.com/filter-article")!
+
+        appState.selectArticleListFilter(.unread)
+        appState.selectedArticleID = articleID
+        appState.presentWebView(articleID: articleID, url: webURL)
+
+        let reloadIDBeforeReapplyingFilter = appState.articleListReloadID
+
+        appState.selectArticleListFilter(.unread)
+
+        #expect(appState.selectedArticleListFilter == .unread)
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .webView(ArticleWebViewRoute(articleID: articleID, url: webURL)))
+        #expect(appState.presentedWebViewRoute == ArticleWebViewRoute(articleID: articleID, url: webURL))
+        #expect(appState.articleListReloadID == reloadIDBeforeReapplyingFilter)
+    }
 }
 
 private extension RSSReaderTests {
