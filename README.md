@@ -155,51 +155,65 @@
 - [x] добавить integration tests на обновление feed metadata и reconciliation статей после refresh.
 
 ### Reading Experience
-#### User State / Reading Actions
-- [ ] создать ArticleStateService;
-- [ ] реализовать markAsRead;
-- [ ] реализовать markAsUnread;
-- [ ] реализовать toggleStarred;
-- [ ] добавить markAsReadOnOpen;
-- [ ] добавить bulk action markAllVisibleAsRead;
-- [ ] обновлять updatedAt при каждом пользовательском изменении;
-- [ ] подготовить логику last-write-wins для конфликтов состояния.
+#### Reading State Domain
+- [x] создать `ArticleStateService` как единый orchestration-слой поверх `ArticleStateRepository`;
+- [ ] реализовать `markAsRead`;
+- [ ] реализовать `markAsUnread`;
+- [ ] реализовать `toggleStarred`;
+- [ ] реализовать bulk action `markAllVisibleAsRead`;
+- [ ] обновлять `updatedAt` и `lastInteractionAt` при каждом пользовательском изменении;
+- [ ] подготовить policy `last-write-wins` для будущих sync-конфликтов по `ArticleState.updatedAt`;
+- [ ] добавить unit tests для article state transitions.
 
-#### Sidebar UI
-- [ ] создать SidebarViewModel;
-- [ ] экран sidebar со списком feeds;
-- [ ] показ unread counts;
+#### Reading Shell / Navigation
+- [ ] определить финальную модель selection/navigation для `Sources -> Articles -> Article -> WebView`;
+- [ ] стабилизировать selection при refresh и смене фильтра;
+- [ ] добавить refresh/selection behavior для смены source без рассинхронизации списка и reader;
+- [ ] подготовить entry points для menu / source actions, которые нужны shell-уровню.
+
+#### Sources Screen
+- [ ] привести текущий sidebar к дизайну экрана Sources;
 - [ ] добавить smart sections: All;
 - [ ] добавить smart sections: Unread;
 - [ ] добавить smart sections: Starred;
-- [ ] добавить выбор активного feed;
-- [ ] добавить empty state для отсутствия подписок.
+- [ ] показать loading/error state, а не только empty state.
 
-#### Article List UI
-- [ ] создать ArticleListViewModel;
-- [ ] список статей выбранного feed;
-- [ ] глобальный список всех статей;
-- [ ] сортировка по publishedAt desc;
-- [ ] фильтр unread only;
-- [ ] отображение состояния read/unread;
-- [ ] отображение starred state;
-- [ ] pull to refresh (c async/await обработкой обновления);
-- [ ] empty state для пустого списка;
-- [ ] error state для ошибки загрузки.
+#### Articles Screen
+- [ ] привести текущий список к дизайну экрана Articles;
+- [ ] добавить фильтры `All / Unread / Starred` поверх существующего query-layer;
+- [ ] применить `AppSettings.showUnreadOnly` как initial/default behavior;
+- [ ] визуально показать `read/unread` и `starred` state в ячейке;
+- [ ] показать metadata row: source / date / secondary text;
+- [ ] добавить `pull to refresh` для текущего selection через `FeedRefreshService`;
+- [ ] добавить полноценный loading/error UX для загрузки и refresh.
 
-#### Reader UI
-- [ ] создать ReaderViewModel;
-- [ ] экран чтения статьи;
-- [ ] показ title/source/date;
-- [ ] показ summary/content;
-- [ ] действие open in browser;
-- [ ] действие share;
-- [ ] действие mark unread;
-- [ ] действие star/unstar;
-- [ ] автоматическая отметка read on appear.
+#### Article Screen
+- [ ] привести текущий reader к дизайну экрана Article;
+- [ ] оформить header: title / source / date / author;
+- [ ] улучшить rendering summary/content/plain text;
+- [ ] добавить actions: `mark unread`, `star/unstar`, `share`, `open in browser`;
+- [ ] реализовать `markAsReadOnOpen` на основе `AppSettings`;
+- [ ] связать экран со state actions из `ArticleStateService`.
 
-#### Add Feed Flow
-- [ ] создать AddFeedViewModel;
+#### WebView Screen
+- [ ] создать отдельный экран WebView для `articleURL`;
+- [ ] поддержать `defaultReaderMode` из `AppSettings`;
+- [ ] добавить loading state для web content;
+- [ ] добавить error/fallback UX, если `articleURL` не открывается;
+- [ ] добавить action открытия во внешнем браузере.
+
+#### Settings Integration
+- [ ] создать `SettingsViewModel`;
+- [ ] экран настроек;
+- [ ] настройка `markAsReadOnOpen`;
+- [ ] настройка `showUnreadOnly`;
+- [ ] настройка `sortMode`;
+- [ ] настройка `defaultReaderMode`;
+- [ ] iCloud sync indicator;
+- [ ] ручной refresh.
+
+#### Source Management
+- [ ] создать `AddFeedViewModel`;
 - [ ] экран добавления feed по URL;
 - [ ] валидация URL;
 - [ ] превью найденного feed;
@@ -207,15 +221,6 @@
 - [ ] первый refresh после добавления;
 - [ ] обработка ошибки при невалидном или неподдерживаемом feed;
 - [ ] empty/error UX для add feed flow.
-
-#### Settings
-- [ ] создать SettingsViewModel;
-- [ ] экран настроек;
-- [ ] markAsReadOnOpen;
-- [ ] show unread only default;
-- [ ] sort mode;
-- [ ] iCloud sync indicator;
-- [ ] ручной refresh.
 
 ### Sync
 #### Sync / CloudKit

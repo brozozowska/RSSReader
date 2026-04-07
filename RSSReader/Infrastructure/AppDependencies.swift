@@ -18,6 +18,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let feedRefreshService: FeedRefreshService?
     let feedRepository: (any FeedRepository)?
     let articleRepository: (any ArticleRepository)?
+    let articleStateService: ArticleStateService?
     let articleQueryService: (any ArticleQueryService)?
     let articleStateRepository: (any ArticleStateRepository)?
     let appSettingsRepository: (any AppSettingsRepository)?
@@ -50,6 +51,12 @@ public final class AppDependencies: AppDependenciesProtocol {
                 articleStateRepository: articleStateRepository
             )
         }()
+        let articleStateService = articleStateRepository.map { repository in
+            ArticleStateService(
+                logger: logger,
+                articleStateRepository: repository
+            )
+        }
         let appSettingsRepository = modelContainer.map { container in
             SwiftDataAppSettingsRepository(modelContext: container.mainContext)
         }
@@ -79,6 +86,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.feedRefreshService = feedRefreshService
         self.feedRepository = feedRepository
         self.articleRepository = articleRepository
+        self.articleStateService = articleStateService
         self.articleStateRepository = articleStateRepository
         self.articleQueryService = articleQueryService
         self.appSettingsRepository = appSettingsRepository
