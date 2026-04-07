@@ -844,6 +844,114 @@ struct RSSReaderTests {
         #expect(appState.selectedDetailRoute == .article(articleID))
         #expect(appState.presentedWebViewRoute == nil)
     }
+
+    @Test
+    func shellActionEntryPointsUpdateSelectionAndFilterInAppState() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feedID = UUID()
+        let articleID = UUID()
+
+        harness.dependencies.showFeed(id: feedID, using: appState)
+        harness.dependencies.selectArticle(id: articleID, using: appState)
+        harness.dependencies.applyArticleListFilter(.starred, using: appState)
+
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .article(articleID))
+        #expect(appState.selectedArticleListFilter == .starred)
+
+        harness.dependencies.showInbox(using: appState)
+
+        #expect(appState.selectedSidebarSelection == .inbox)
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
+    }
+
+    @Test
+    func shellActionEntryPointsOpenAndCloseArticleWebViewViaDependencies() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feeds = try harness.insertFeeds(urls: ["https://example.com/shell-web.xml"])
+        let feed = try #require(feeds.first)
+        let articleModel = try harness.insertArticle(
+            feed: feed,
+            externalID: "shell-web-article",
+            url: "https://example.com/articles/1",
+            title: "Shell Web Article"
+        )
+        articleModel.canonicalURL = "https://example.com/articles/1/canonical"
+        try harness.saveModelContext()
+        let readerArticle = try harness.dependencies.articleQueryService?.fetchReaderArticle(id: articleModel.id)
+        let article = try #require(readerArticle)
+
+        harness.dependencies.selectArticle(id: article.id, using: appState)
+        harness.dependencies.openArticleInWebView(article, using: appState)
+
+        #expect(appState.selectedDetailRoute == .webView(ArticleWebViewRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!)))
+        #expect(appState.presentedWebViewRoute == ArticleWebViewRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!))
+
+        harness.dependencies.closePresentedArticleWebView(using: appState)
+
+        #expect(appState.selectedDetailRoute == .article(article.id))
+        #expect(appState.presentedWebViewRoute == nil)
+    }
+
+    @Test
+    func shellActionEntryPointsRefreshCurrentSourceTriggersReloadAfterFeedRefresh() async throws {
+        let client = ScriptedHTTPClient(
+            responsesByURL: [
+                "https://example.com/shell-refresh-current.xml": .response(
+                    statusCode: 304,
+                    headers: ["ETag": "\"etag-shell-current\""],
+                    body: ""
+                )
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let appState = AppState()
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/shell-refresh-current.xml"]).first)
+        let reloadIDBeforeRefresh = appState.articleListReloadID
+
+        harness.dependencies.showFeed(id: feed.id, using: appState)
+        let reloadIDAfterSourceSelection = appState.articleListReloadID
+
+        let result = await harness.dependencies.refreshCurrentSource(using: appState)
+
+        #expect(result?.status == .notModified)
+        #expect(appState.articleListReloadID != reloadIDAfterSourceSelection)
+        #expect(appState.articleListReloadID != reloadIDBeforeRefresh)
+    }
+
+    @Test
+    func shellActionEntryPointsRefreshVisibleSourcesTriggersReloadAfterBatchRefresh() async throws {
+        let urls = [
+            "https://example.com/shell-refresh-all-1.xml",
+            "https://example.com/shell-refresh-all-2.xml"
+        ]
+        let responses = [
+            urls[0]: ScriptedHTTPClient.Step.response(
+                statusCode: 304,
+                headers: ["ETag": "\"etag-shell-all-1\""],
+                body: ""
+            ),
+            urls[1]: ScriptedHTTPClient.Step.response(
+                statusCode: 304,
+                headers: ["ETag": "\"etag-shell-all-2\""],
+                body: ""
+            )
+        ]
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient(responsesByURL: responses))
+        let appState = AppState()
+        _ = try harness.insertFeeds(urls: urls)
+        let reloadIDBeforeRefresh = appState.articleListReloadID
+
+        let result = await harness.dependencies.refreshVisibleSources(using: appState)
+
+        #expect(result?.summary.totalFeedCount == 2)
+        #expect(result?.summary.notModifiedCount == 2)
+        #expect(appState.articleListReloadID != reloadIDBeforeRefresh)
+    }
 }
 
 private extension RSSReaderTests {
@@ -879,6 +987,7 @@ private extension RSSReaderTests {
 }
 
 private struct TestHarness {
+    let dependencies: AppDependencies
     let modelContainer: ModelContainer
     let feedRepository: SwiftDataFeedRepository
     let articleRepository: SwiftDataArticleRepository
@@ -901,6 +1010,16 @@ private struct TestHarness {
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let modelContainer = try ModelContainer(for: schema, configurations: [configuration])
         let modelContext = modelContainer.mainContext
+        let feedFetcher = FeedFetcher(
+            httpClient: httpClient,
+            retryPolicy: FeedRetryPolicy(maxAttempts: 1, baseDelayNanoseconds: 0)
+        )
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            httpClient: httpClient,
+            feedFetcher: feedFetcher,
+            modelContainer: modelContainer
+        )
 
         let feedRepository = SwiftDataFeedRepository(modelContext: modelContext)
         let articleRepository = SwiftDataArticleRepository(modelContext: modelContext)
@@ -922,6 +1041,7 @@ private struct TestHarness {
         )
 
         return TestHarness(
+            dependencies: dependencies,
             modelContainer: modelContainer,
             feedRepository: feedRepository,
             articleRepository: articleRepository,

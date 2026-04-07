@@ -173,7 +173,7 @@
 - [x] добавить unit tests на source switch: сброс article/detail selection и reload trigger;
 - [x] добавить unit tests на filter switch: обновление active filter без потери shell consistency;
 - [x] добавить unit tests на web view route: open/close article web view через `AppState`;
-- [ ] добавить unit tests на shell action entry points в `AppDependencies`.
+- [x] добавить unit tests на shell action entry points в `AppDependencies`.
 
 #### Sources Screen
 - [ ] привести текущий sidebar к дизайну экрана Sources;
