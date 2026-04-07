@@ -172,7 +172,7 @@
 - [x] подготовить entry points для menu / source actions, которые нужны shell-уровню.
 - [x] добавить unit tests на source switch: сброс article/detail selection и reload trigger;
 - [x] добавить unit tests на filter switch: обновление active filter без потери shell consistency;
-- [ ] добавить unit tests на web view route: open/close article web view через `AppState`;
+- [x] добавить unit tests на web view route: open/close article web view через `AppState`;
 - [ ] добавить unit tests на shell action entry points в `AppDependencies`.
 
 #### Sources Screen

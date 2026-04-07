@@ -814,6 +814,36 @@ struct RSSReaderTests {
         #expect(appState.presentedWebViewRoute == ArticleWebViewRoute(articleID: articleID, url: webURL))
         #expect(appState.articleListReloadID == reloadIDBeforeReapplyingFilter)
     }
+
+    @Test
+    func readingShellOpenArticleWebViewSetsPresentedRouteAndPreservesArticleContext() {
+        let appState = AppState()
+        let articleID = UUID()
+        let webURL = URL(string: "https://example.com/webview-article")!
+
+        appState.selectedArticleID = articleID
+        appState.presentWebView(articleID: articleID, url: webURL)
+
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .webView(ArticleWebViewRoute(articleID: articleID, url: webURL)))
+        #expect(appState.presentedWebViewRoute == ArticleWebViewRoute(articleID: articleID, url: webURL))
+    }
+
+    @Test
+    func readingShellClosingArticleWebViewRestoresArticleDetailRoute() {
+        let appState = AppState()
+        let articleID = UUID()
+        let webURL = URL(string: "https://example.com/webview-close")!
+
+        appState.selectedArticleID = articleID
+        appState.presentWebView(articleID: articleID, url: webURL)
+
+        appState.dismissPresentedWebView()
+
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .article(articleID))
+        #expect(appState.presentedWebViewRoute == nil)
+    }
 }
 
 private extension RSSReaderTests {
