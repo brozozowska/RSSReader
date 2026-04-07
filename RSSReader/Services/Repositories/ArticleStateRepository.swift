@@ -38,6 +38,10 @@ struct ArticleStateUpsert: Sendable {
     var updatedAt: Date = .now
 }
 
+enum ArticleStateConflictResolutionPolicy: Sendable {
+    case lastWriteWinsByUpdatedAt
+}
+
 @MainActor
 protocol ArticleStateRepository {
     func fetchState(feedID: UUID, articleExternalID: String) throws -> ArticleState?
@@ -65,9 +69,14 @@ protocol ArticleStateRepository {
 @MainActor
 final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRepositoryContext {
     let modelContext: ModelContext
+    private let conflictResolutionPolicy: ArticleStateConflictResolutionPolicy
 
-    init(modelContext: ModelContext) {
+    init(
+        modelContext: ModelContext,
+        conflictResolutionPolicy: ArticleStateConflictResolutionPolicy = .lastWriteWinsByUpdatedAt
+    ) {
         self.modelContext = modelContext
+        self.conflictResolutionPolicy = conflictResolutionPolicy
     }
 
     func fetchState(feedID: UUID, articleExternalID: String) throws -> ArticleState? {
@@ -255,6 +264,8 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
     }
 
     private func apply(_ update: ArticleStateUpsert, to articleState: ArticleState) {
+        guard shouldApply(update, to: articleState) else { return }
+
         var didChange = false
 
         if let isRead = update.isRead, articleState.isRead != isRead {
@@ -293,6 +304,13 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
 
         if didChange || update.lastInteractionAt != nil {
             articleState.updatedAt = update.updatedAt
+        }
+    }
+
+    private func shouldApply(_ update: ArticleStateUpsert, to articleState: ArticleState) -> Bool {
+        switch conflictResolutionPolicy {
+        case .lastWriteWinsByUpdatedAt:
+            return update.updatedAt >= articleState.updatedAt
         }
     }
 }

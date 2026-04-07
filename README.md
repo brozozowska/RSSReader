@@ -162,7 +162,7 @@
 - [x] реализовать `toggleStarred`;
 - [x] реализовать bulk action `markAllVisibleAsRead`;
 - [x] обновлять `updatedAt` и `lastInteractionAt` при каждом пользовательском изменении;
-- [ ] подготовить policy `last-write-wins` для будущих sync-конфликтов по `ArticleState.updatedAt`;
+- [x] подготовить policy `last-write-wins` для будущих sync-конфликтов по `ArticleState.updatedAt`;
 - [ ] добавить unit tests для article state transitions.
 
 #### Reading Shell / Navigation
