@@ -166,10 +166,14 @@
 - [x] добавить unit tests для article state transitions.
 
 #### Reading Shell / Navigation
-- [ ] определить финальную модель selection/navigation для `Sources -> Articles -> Article -> WebView`;
-- [ ] стабилизировать selection при refresh и смене фильтра;
-- [ ] добавить refresh/selection behavior для смены source без рассинхронизации списка и reader;
-- [ ] подготовить entry points для menu / source actions, которые нужны shell-уровню.
+- [x] определить финальную модель selection/navigation для `Sources -> Articles -> Article -> WebView`;
+- [x] стабилизировать selection при refresh и смене фильтра;
+- [x] добавить refresh/selection behavior для смены source без рассинхронизации списка и reader;
+- [x] подготовить entry points для menu / source actions, которые нужны shell-уровню.
+- [x] добавить unit tests на source switch: сброс article/detail selection и reload trigger;
+- [x] добавить unit tests на filter switch: обновление active filter без потери shell consistency;
+- [x] добавить unit tests на web view route: open/close article web view через `AppState`;
+- [x] добавить unit tests на shell action entry points в `AppDependencies`.
 
 #### Sources Screen
 - [ ] привести текущий sidebar к дизайну экрана Sources;

@@ -125,6 +125,41 @@ public extension AppDependencies {
 
 extension AppDependencies {
     @MainActor
+    func showInbox(using appState: AppState) {
+        appState.selectReadingSource(.inbox)
+    }
+
+    @MainActor
+    func showFeed(id feedID: UUID, using appState: AppState) {
+        appState.selectReadingSource(.feed(feedID))
+    }
+
+    @MainActor
+    func selectArticle(id articleID: UUID?, using appState: AppState) {
+        appState.selectedArticleID = articleID
+    }
+
+    @MainActor
+    func applyArticleListFilter(_ filter: ArticleListFilter, using appState: AppState) {
+        appState.selectArticleListFilter(filter)
+    }
+
+    @MainActor
+    func openArticleInWebView(_ article: ReaderArticleDTO, using appState: AppState) {
+        guard let url = URL(string: article.canonicalURL ?? article.articleURL) else {
+            logger.error("Skipped opening article in web view because URL is invalid for article \(article.id)")
+            return
+        }
+
+        appState.presentWebView(articleID: article.id, url: url)
+    }
+
+    @MainActor
+    func closePresentedArticleWebView(using appState: AppState) {
+        appState.dismissPresentedWebView()
+    }
+
+    @MainActor
     func refreshFeed(id feedID: UUID) async -> FeedRefreshResult? {
         guard let feedRefreshService else {
             logger.error("Feed refresh service is unavailable")
@@ -152,6 +187,30 @@ extension AppDependencies {
         }
 
         return await feedRefreshService.refreshAllActiveFeeds()
+    }
+
+    @MainActor
+    func refreshCurrentSource(using appState: AppState) async -> FeedRefreshResult? {
+        switch appState.selectedSidebarSelection {
+        case .feed(let feedID):
+            let result = await refreshFeed(id: feedID)
+            if result != nil {
+                appState.requestArticleListReload()
+            }
+            return result
+        case .inbox, .none:
+            logger.info("Skipped source refresh because the current source is not a single feed")
+            return nil
+        }
+    }
+
+    @MainActor
+    func refreshVisibleSources(using appState: AppState) async -> FeedRefreshBatchResult? {
+        let result = await refreshAllFeeds()
+        if result != nil {
+            appState.requestArticleListReload()
+        }
+        return result
     }
 
     @MainActor

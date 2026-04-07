@@ -1,32 +1,121 @@
 import Foundation
 import Observation
 
-enum SidebarSelection: Hashable, Sendable {
+enum SourceSelection: Hashable, Sendable {
     case inbox
     case feed(UUID)
 }
 
+typealias SidebarSelection = SourceSelection
+
+struct ArticleWebViewRoute: Hashable, Sendable {
+    let articleID: UUID
+    let url: URL
+}
+
+enum ReadingDetailRoute: Hashable, Sendable {
+    case none
+    case article(UUID)
+    case webView(ArticleWebViewRoute)
+}
+
+struct ReadingNavigationState: Hashable, Sendable {
+    var sourceSelection: SourceSelection? = .inbox
+    var articleSelection: UUID? = nil
+    var detailRoute: ReadingDetailRoute = .none
+
+    mutating func selectSource(_ sourceSelection: SourceSelection?) {
+        self.sourceSelection = sourceSelection
+        articleSelection = nil
+        detailRoute = .none
+    }
+
+    mutating func selectArticle(_ articleID: UUID?) {
+        articleSelection = articleID
+        detailRoute = articleID.map(ReadingDetailRoute.article) ?? .none
+    }
+
+    mutating func presentWebView(articleID: UUID, url: URL) {
+        articleSelection = articleID
+        detailRoute = .webView(
+            ArticleWebViewRoute(
+                articleID: articleID,
+                url: url
+            )
+        )
+    }
+
+    mutating func dismissWebView() {
+        detailRoute = articleSelection.map(ReadingDetailRoute.article) ?? .none
+    }
+}
+
 @Observable
 public final class AppState {
-    var selectedSidebarSelection: SidebarSelection? = .inbox
+    var readingNavigation = ReadingNavigationState()
+    var selectedArticleListFilter: ArticleListFilter = .all
+    var articleListReloadID = UUID()
+
+    var selectedSidebarSelection: SidebarSelection? {
+        get { readingNavigation.sourceSelection }
+        set { selectReadingSource(newValue) }
+    }
 
     public var selectedFeedID: UUID? {
         get {
-            guard case .feed(let feedID) = selectedSidebarSelection else {
+            guard case .feed(let feedID) = readingNavigation.sourceSelection else {
                 return nil
             }
             return feedID
         }
         set {
             if let newValue {
-                selectedSidebarSelection = .feed(newValue)
+                selectReadingSource(.feed(newValue))
             } else {
-                selectedSidebarSelection = nil
+                selectReadingSource(nil)
             }
         }
     }
 
-    public var selectedArticleID: UUID? = nil
+    public var selectedArticleID: UUID? {
+        get { readingNavigation.articleSelection }
+        set { readingNavigation.selectArticle(newValue) }
+    }
+
+    var selectedDetailRoute: ReadingDetailRoute {
+        readingNavigation.detailRoute
+    }
+
+    var presentedWebViewRoute: ArticleWebViewRoute? {
+        guard case .webView(let route) = readingNavigation.detailRoute else {
+            return nil
+        }
+        return route
+    }
+
+    func presentWebView(articleID: UUID, url: URL) {
+        readingNavigation.presentWebView(articleID: articleID, url: url)
+    }
+
+    func dismissPresentedWebView() {
+        readingNavigation.dismissWebView()
+    }
+
+    func selectArticleListFilter(_ filter: ArticleListFilter) {
+        selectedArticleListFilter = filter
+    }
+
+    func requestArticleListReload() {
+        articleListReloadID = UUID()
+    }
+
+    func selectReadingSource(_ sourceSelection: SourceSelection?) {
+        let previousSourceSelection = readingNavigation.sourceSelection
+        guard previousSourceSelection != sourceSelection else { return }
+
+        readingNavigation.selectSource(sourceSelection)
+        requestArticleListReload()
+    }
 
     public init() {}
 }

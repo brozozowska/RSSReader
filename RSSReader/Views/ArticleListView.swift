@@ -3,9 +3,12 @@ import SwiftUI
 struct ArticleListView: View {
     @Environment(\.appDependencies) private var dependencies
     let selectedSidebarSelection: SidebarSelection?
+    let selectedFilter: ArticleListFilter
+    let reloadID: UUID
     @Binding var selection: UUID?
     @State private var articles: [ArticleListItemDTO] = []
     @State private var hasLoadedArticles = false
+    @State private var lastLoadedSourceSelection: SidebarSelection? = nil
 
     var body: some View {
         List(articles, id: \.id, selection: $selection) { article in
@@ -39,14 +42,27 @@ struct ArticleListView: View {
                 }
             }
         }
-        .task(id: selectedSidebarSelection) {
+        .task(id: ArticleListLoadContext(
+            sourceSelection: selectedSidebarSelection,
+            filter: selectedFilter,
+            reloadID: reloadID
+        )) {
             await loadArticles()
         }
     }
 
     @MainActor
     private func loadArticles() async {
-        defer { hasLoadedArticles = true }
+        let sourceSelectionChanged = lastLoadedSourceSelection != selectedSidebarSelection
+        if sourceSelectionChanged {
+            articles = []
+            selection = nil
+            hasLoadedArticles = false
+        }
+        defer {
+            hasLoadedArticles = true
+            lastLoadedSourceSelection = selectedSidebarSelection
+        }
 
         guard let articleQueryService = dependencies.articleQueryService else {
             articles = []
@@ -59,9 +75,16 @@ struct ArticleListView: View {
         do {
             switch selectedSidebarSelection {
             case .inbox:
-                articles = try articleQueryService.fetchInboxListItems(sortMode: sortMode)
+                articles = try articleQueryService.fetchInboxListItems(
+                    sortMode: sortMode,
+                    filter: selectedFilter
+                )
             case .feed(let selectedFeedID):
-                articles = try articleQueryService.fetchArticleListItems(feedID: selectedFeedID, sortMode: sortMode)
+                articles = try articleQueryService.fetchArticleListItems(
+                    feedID: selectedFeedID,
+                    sortMode: sortMode,
+                    filter: selectedFilter
+                )
             case .none:
                 articles = []
             }
@@ -70,9 +93,7 @@ struct ArticleListView: View {
             articles = []
         }
 
-        if let selection, articles.contains(where: { $0.id == selection }) == false {
-            self.selection = articles.first?.id
-        }
+        self.selection = stabilizedSelection(availableArticleIDs: articles.map(\.id))
     }
 
     private var emptyStateDescription: String {
@@ -84,6 +105,13 @@ struct ArticleListView: View {
         case .none:
             "Select Inbox or a feed in the sidebar to load articles."
         }
+    }
+
+    private func stabilizedSelection(availableArticleIDs: [UUID]) -> UUID? {
+        if let selection, availableArticleIDs.contains(selection) {
+            return selection
+        }
+        return availableArticleIDs.first
     }
 
     @MainActor
@@ -101,13 +129,25 @@ struct ArticleListView: View {
     }
 }
 
+private struct ArticleListLoadContext: Hashable {
+    let sourceSelection: SidebarSelection?
+    let filter: ArticleListFilter
+    let reloadID: UUID
+}
+
 #Preview {
     struct PreviewContainer: View {
         @State var selection: UUID? = nil
         var body: some View {
-            ArticleListView(selectedSidebarSelection: .inbox, selection: $selection)
+            ArticleListView(
+                selectedSidebarSelection: .inbox,
+                selectedFilter: .all,
+                reloadID: UUID(),
+                selection: $selection
+            )
         }
     }
     return PreviewContainer()
+        .environment(AppState())
         .environment(\.appDependencies, AppDependencies.makeDefault())
 }
