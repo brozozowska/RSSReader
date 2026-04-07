@@ -163,7 +163,7 @@
 - [x] реализовать bulk action `markAllVisibleAsRead`;
 - [x] обновлять `updatedAt` и `lastInteractionAt` при каждом пользовательском изменении;
 - [x] подготовить policy `last-write-wins` для будущих sync-конфликтов по `ArticleState.updatedAt`;
-- [ ] добавить unit tests для article state transitions.
+- [x] добавить unit tests для article state transitions.
 
 #### Reading Shell / Navigation
 - [ ] определить финальную модель selection/navigation для `Sources -> Articles -> Article -> WebView`;
