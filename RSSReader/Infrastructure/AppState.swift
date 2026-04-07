@@ -111,11 +111,10 @@ public final class AppState {
 
     func selectReadingSource(_ sourceSelection: SourceSelection?) {
         let previousSourceSelection = readingNavigation.sourceSelection
-        readingNavigation.selectSource(sourceSelection)
+        guard previousSourceSelection != sourceSelection else { return }
 
-        if previousSourceSelection != sourceSelection {
-            requestArticleListReload()
-        }
+        readingNavigation.selectSource(sourceSelection)
+        requestArticleListReload()
     }
 
     public init() {}
