@@ -9,6 +9,8 @@ protocol ArticleStateServicing {
     func markAsRead(article: Article, at: Date) throws -> ArticleUserStateSnapshot
     func markAsUnread(feedID: UUID, articleExternalID: String, at: Date) throws -> ArticleUserStateSnapshot
     func markAsUnread(article: Article, at: Date) throws -> ArticleUserStateSnapshot
+    func toggleStarred(feedID: UUID, articleExternalID: String, at: Date) throws -> ArticleUserStateSnapshot
+    func toggleStarred(article: Article, at: Date) throws -> ArticleUserStateSnapshot
 }
 
 @MainActor
@@ -95,6 +97,38 @@ final class ArticleStateService: ArticleStateServicing {
 
     func markAsUnread(article: Article, at: Date = .now) throws -> ArticleUserStateSnapshot {
         try markAsUnread(
+            feedID: article.feedID,
+            articleExternalID: article.externalID,
+            at: at
+        )
+    }
+
+    func toggleStarred(
+        feedID: UUID,
+        articleExternalID: String,
+        at: Date = .now
+    ) throws -> ArticleUserStateSnapshot {
+        let currentState = try articleStateRepository.fetchStateSnapshot(
+            feedID: feedID,
+            articleExternalID: articleExternalID
+        )
+        let newIsStarred = (currentState?.isStarred ?? false) == false
+        let articleState = try articleStateRepository.upsert(
+            feedID: feedID,
+            articleExternalID: articleExternalID,
+            update: ArticleStateUpsert(
+                isStarred: newIsStarred,
+                starredAt: newIsStarred ? at : nil,
+                lastInteractionAt: at,
+                updatedAt: at
+            )
+        )
+        logger.info("Toggled starred state for article in feed \(feedID.uuidString)")
+        return ArticleUserStateSnapshot(articleState: articleState)
+    }
+
+    func toggleStarred(article: Article, at: Date = .now) throws -> ArticleUserStateSnapshot {
+        try toggleStarred(
             feedID: article.feedID,
             articleExternalID: article.externalID,
             at: at
