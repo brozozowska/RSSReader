@@ -8,6 +8,7 @@ struct ArticleListView: View {
     @Binding var selection: UUID?
     @State private var articles: [ArticleListItemDTO] = []
     @State private var hasLoadedArticles = false
+    @State private var lastLoadedSourceSelection: SidebarSelection? = nil
 
     var body: some View {
         List(articles, id: \.id, selection: $selection) { article in
@@ -52,7 +53,16 @@ struct ArticleListView: View {
 
     @MainActor
     private func loadArticles() async {
-        defer { hasLoadedArticles = true }
+        let sourceSelectionChanged = lastLoadedSourceSelection != selectedSidebarSelection
+        if sourceSelectionChanged {
+            articles = []
+            selection = nil
+            hasLoadedArticles = false
+        }
+        defer {
+            hasLoadedArticles = true
+            lastLoadedSourceSelection = selectedSidebarSelection
+        }
 
         guard let articleQueryService = dependencies.articleQueryService else {
             articles = []

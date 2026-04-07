@@ -58,7 +58,7 @@ public final class AppState {
 
     var selectedSidebarSelection: SidebarSelection? {
         get { readingNavigation.sourceSelection }
-        set { readingNavigation.selectSource(newValue) }
+        set { selectReadingSource(newValue) }
     }
 
     public var selectedFeedID: UUID? {
@@ -70,9 +70,9 @@ public final class AppState {
         }
         set {
             if let newValue {
-                readingNavigation.selectSource(.feed(newValue))
+                selectReadingSource(.feed(newValue))
             } else {
-                readingNavigation.selectSource(nil)
+                selectReadingSource(nil)
             }
         }
     }
@@ -107,6 +107,15 @@ public final class AppState {
 
     func requestArticleListReload() {
         articleListReloadID = UUID()
+    }
+
+    func selectReadingSource(_ sourceSelection: SourceSelection?) {
+        let previousSourceSelection = readingNavigation.sourceSelection
+        readingNavigation.selectSource(sourceSelection)
+
+        if previousSourceSelection != sourceSelection {
+            requestArticleListReload()
+        }
     }
 
     public init() {}
