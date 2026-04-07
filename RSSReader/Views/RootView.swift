@@ -16,7 +16,12 @@ struct RootView: View {
         NavigationSplitView {
             SidebarView(selection: sidebarSelection)
         } content: {
-            ArticleListView(selectedSidebarSelection: appState.selectedSidebarSelection, selection: articleSelection)
+            ArticleListView(
+                selectedSidebarSelection: appState.selectedSidebarSelection,
+                selectedFilter: appState.selectedArticleListFilter,
+                reloadID: appState.articleListReloadID,
+                selection: articleSelection
+            )
         } detail: {
             ReaderView(articleID: appState.selectedArticleID)
         }
