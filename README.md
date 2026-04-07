@@ -158,7 +158,7 @@
 #### Reading State Domain
 - [x] создать `ArticleStateService` как единый orchestration-слой поверх `ArticleStateRepository`;
 - [x] реализовать `markAsRead`;
-- [ ] реализовать `markAsUnread`;
+- [x] реализовать `markAsUnread`;
 - [ ] реализовать `toggleStarred`;
 - [ ] реализовать bulk action `markAllVisibleAsRead`;
 - [ ] обновлять `updatedAt` и `lastInteractionAt` при каждом пользовательском изменении;
