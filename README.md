@@ -169,7 +169,7 @@
 - [x] определить финальную модель selection/navigation для `Sources -> Articles -> Article -> WebView`;
 - [x] стабилизировать selection при refresh и смене фильтра;
 - [x] добавить refresh/selection behavior для смены source без рассинхронизации списка и reader;
-- [ ] подготовить entry points для menu / source actions, которые нужны shell-уровню.
+- [x] подготовить entry points для menu / source actions, которые нужны shell-уровню.
 
 #### Sources Screen
 - [ ] привести текущий sidebar к дизайну экрана Sources;
