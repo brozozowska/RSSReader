@@ -12,12 +12,14 @@ struct SidebarView: View {
 
     var body: some View {
         List(selection: $selection) {
-            Section {
-                ForEach(SmartSidebarItem.allCases) { item in
-                    smartRow(for: item)
+            if visibleSmartItems.isEmpty == false {
+                Section {
+                    ForEach(visibleSmartItems) { item in
+                        smartRow(for: item)
+                    }
+                } header: {
+                    sectionHeader("Smart Views")
                 }
-            } header: {
-                sectionHeader("Smart Views")
             }
 
             if folderGroups.isEmpty == false {
@@ -41,6 +43,7 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        .scrollDisabled(shouldDisableScrolling)
         .navigationTitle("Sources")
         .toolbarTitleDisplayMode(.inlineLarge)
         .toolbar {
@@ -167,6 +170,21 @@ struct SidebarView: View {
             .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
+    private var visibleSmartItems: [SmartSidebarItem] {
+        guard feeds.isEmpty == false else { return [] }
+
+        return SmartSidebarItem.allCases.filter { item in
+            switch item {
+            case .allItems:
+                true
+            case .unread:
+                unreadSmartCount > 0
+            case .starred:
+                starredSmartCount > 0
+            }
+        }
+    }
+
     private var visibleFolderRows: [FolderSectionRow] {
         folderGroups.flatMap { group in
             var rows: [FolderSectionRow] = [.folder(group)]
@@ -175,6 +193,10 @@ struct SidebarView: View {
             }
             return rows
         }
+    }
+
+    private var shouldDisableScrolling: Bool {
+        hasLoadedFeeds && feeds.isEmpty
     }
 
     @ViewBuilder
