@@ -178,7 +178,7 @@
 #### Sources Screen
 - [x] привести текущий sidebar к дизайну экрана Sources;
 - [x] добавить отдельную стратегию кэширования иконок источников;
-- [ ] добавить нормализацию иконок под favicon / маленький square asset;
+- [x] добавить нормализацию иконок под favicon / маленький square asset;
 - [ ] добавить fallback на site favicon, если feed не отдал `iconURL`;
 - [ ] показать loading/error state, а не только empty state.
 
