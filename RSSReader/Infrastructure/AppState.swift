@@ -3,6 +3,8 @@ import Observation
 
 enum SourceSelection: Hashable, Sendable {
     case inbox
+    case unread
+    case starred
     case feed(UUID)
 }
 

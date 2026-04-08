@@ -866,6 +866,12 @@ struct RSSReaderTests {
         #expect(appState.selectedSidebarSelection == .inbox)
         #expect(appState.selectedArticleID == nil)
         #expect(appState.selectedDetailRoute == .none)
+
+        harness.dependencies.showUnread(using: appState)
+        #expect(appState.selectedSidebarSelection == .unread)
+
+        harness.dependencies.showStarred(using: appState)
+        #expect(appState.selectedSidebarSelection == .starred)
     }
 
     @Test
