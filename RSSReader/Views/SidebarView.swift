@@ -43,6 +43,8 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(Color.white)
         .scrollDisabled(shouldDisableScrolling)
         .navigationTitle("Sources")
         .toolbarTitleDisplayMode(.inlineLarge)
@@ -225,6 +227,8 @@ struct SidebarView: View {
         }
         .font(.body)
         .padding(.leading, indented ? 24 : 0)
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
         .tag(Optional(SidebarSelection.feed(feed.id)))
     }
 
@@ -256,6 +260,8 @@ struct SidebarView: View {
             }
         }
         .font(.body)
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
     }
 
     @ViewBuilder
@@ -431,6 +437,8 @@ private struct SidebarRow: View {
         }
         .font(.body)
         .padding(.leading, leadingPadding)
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
     }
 }
 
