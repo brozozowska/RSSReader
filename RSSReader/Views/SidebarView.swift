@@ -42,6 +42,7 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .navigationTitle("Sources")
+        .toolbarTitleDisplayMode(.inlineLarge)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
@@ -200,11 +201,25 @@ struct SidebarView: View {
     @ViewBuilder
     private func folderRow(_ group: FolderSidebarGroup) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: expandedFolderNames.contains(group.name) ? "chevron.down" : "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 12)
-            Text(group.name)
+            Button {
+                toggleFolderExpansion(named: group.name)
+            } label: {
+                Image(systemName: expandedFolderNames.contains(group.name) ? "chevron.down" : "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 12)
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                handleFolderSelection(group)
+            } label: {
+                Text(group.name)
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+
             Spacer()
             if group.unreadCount > 0 {
                 countLabel(group.unreadCount)
@@ -218,10 +233,6 @@ struct SidebarView: View {
         switch row {
         case .folder(let group):
             folderRow(group)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    toggleFolderExpansion(named: group.name)
-                }
         case .feed(let feed):
             feedRow(feed, indented: true)
         }
@@ -259,6 +270,12 @@ struct SidebarView: View {
         } else {
             expandedFolderNames.insert(folderName)
         }
+    }
+
+    private func handleFolderSelection(_ group: FolderSidebarGroup) {
+        dependencies.logger.info(
+            "Folder selection tapped for \(group.name). Folder article list navigation is not implemented yet."
+        )
     }
 }
 
