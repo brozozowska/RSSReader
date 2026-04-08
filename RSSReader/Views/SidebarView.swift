@@ -203,7 +203,7 @@ struct SidebarView: View {
     private func smartRow(for item: SmartSidebarItem) -> some View {
         SidebarRow(
             title: item.title,
-            iconSystemName: "square.grid.2x2",
+            iconSystemName: item.iconSystemName,
             count: smartCount(for: item)
         )
         .tag(Optional(item.selection))
@@ -211,12 +211,20 @@ struct SidebarView: View {
 
     @ViewBuilder
     private func feedRow(_ feed: FeedSidebarItem, indented: Bool = false) -> some View {
-        SidebarRow(
-            title: feed.title,
-            iconSystemName: "square.grid.2x2.fill",
-            count: feed.unreadCount,
-            leadingPadding: indented ? 24 : 0
-        )
+        HStack(spacing: 12) {
+            SourceIconView(iconURL: feed.iconURL)
+
+            Text(feed.title)
+                .lineLimit(1)
+
+            Spacer()
+
+            if feed.unreadCount > 0 {
+                countLabel(feed.unreadCount)
+            }
+        }
+        .font(.body)
+        .padding(.leading, indented ? 24 : 0)
         .tag(Optional(SidebarSelection.feed(feed.id)))
     }
 
@@ -340,6 +348,17 @@ private enum SmartSidebarItem: CaseIterable, Identifiable {
         }
     }
 
+    var iconSystemName: String {
+        switch self {
+        case .allItems:
+            "tray.full"
+        case .unread:
+            "circle"
+        case .starred:
+            "star"
+        }
+    }
+
     var selection: SidebarSelection {
         switch self {
         case .allItems:
@@ -412,6 +431,49 @@ private struct SidebarRow: View {
         }
         .font(.body)
         .padding(.leading, leadingPadding)
+    }
+}
+
+private struct SourceIconView: View {
+    let iconURL: String?
+
+    var body: some View {
+        Group {
+            if let resolvedURL {
+                AsyncImage(url: resolvedURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .empty, .failure:
+                        placeholder
+                    @unknown default:
+                        placeholder
+                    }
+                }
+            } else {
+                placeholder
+            }
+        }
+        .frame(width: 20, height: 20)
+        .clipShape(RoundedRectangle(cornerRadius: 5))
+    }
+
+    private var resolvedURL: URL? {
+        guard let iconURL else { return nil }
+        return URL(string: iconURL)
+    }
+
+    private var placeholder: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 5)
+                .fill(Color.secondary.opacity(0.12))
+
+            Image(systemName: "newspaper")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
     }
 }
 
