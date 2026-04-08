@@ -1011,6 +1011,23 @@ struct RSSReaderTests {
     }
 
     @Test
+    func feedNormalizationUsesSiteFaviconWhenFeedDidNotProvideIconURL() {
+        let feed = ParsedFeedDTO(
+            kind: .rss,
+            metadata: ParsedFeedMetadataDTO(
+                title: "Example Feed",
+                siteURL: "HTTPS://Example.com/news"
+            ),
+            entries: []
+        )
+
+        let normalized = FeedNormalizationService.normalize(feed, feedURL: "https://example.com/feed.xml")
+
+        #expect(normalized.metadata.siteURL == "https://example.com/news")
+        #expect(normalized.metadata.iconURL == "https://example.com/favicon.ico")
+    }
+
+    @Test
     func sourceIconCacheReturnsCachedDataWithoutSecondNetworkRequest() async throws {
         let iconURL = try #require(URL(string: "https://example.com/favicon.ico"))
         let httpClient = ScriptedHTTPClient(

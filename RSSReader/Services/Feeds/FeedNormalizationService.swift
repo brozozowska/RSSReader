@@ -180,7 +180,9 @@ enum FeedNormalizationService {
     }
 
     private static func normalizeFeedIconURL(_ iconURL: String?, siteURL: String?) -> String? {
-        guard let normalizedIconURL = normalizeSourceURL(iconURL) else { return nil }
+        guard let normalizedIconURL = normalizeSourceURL(iconURL) else {
+            return makeSiteFaviconURL(from: siteURL)
+        }
         guard shouldKeepFeedIconURL(normalizedIconURL) else {
             return makeSiteFaviconURL(from: siteURL) ?? normalizedIconURL
         }
