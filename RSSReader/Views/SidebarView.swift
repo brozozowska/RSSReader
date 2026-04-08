@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct SidebarView: View {
     @Environment(\.appDependencies) private var dependencies
@@ -443,29 +444,30 @@ private struct SidebarRow: View {
 }
 
 private struct SourceIconView: View {
+    @Environment(\.appDependencies) private var dependencies
     let iconURL: String?
+    @State private var iconImage: Image?
+    @State private var loadTask: Task<Void, Never>?
 
     var body: some View {
         Group {
-            if let resolvedURL {
-                AsyncImage(url: resolvedURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    case .empty, .failure:
-                        placeholder
-                    @unknown default:
-                        placeholder
-                    }
-                }
+            if let iconImage {
+                iconImage
+                    .resizable()
+                    .scaledToFill()
             } else {
                 placeholder
             }
         }
         .frame(width: 20, height: 20)
         .clipShape(RoundedRectangle(cornerRadius: 5))
+        .task(id: iconURL) {
+            await loadIcon()
+        }
+        .onDisappear {
+            loadTask?.cancel()
+            loadTask = nil
+        }
     }
 
     private var resolvedURL: URL? {
@@ -482,6 +484,40 @@ private struct SourceIconView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
         }
+    }
+
+    @MainActor
+    private func loadIcon() async {
+        loadTask?.cancel()
+        iconImage = nil
+
+        guard let resolvedURL else {
+            return
+        }
+
+        let task = Task {
+            do {
+                let data = try await dependencies.sourceIconCache.imageData(for: resolvedURL)
+                try Task.checkCancellation()
+
+                guard let uiImage = UIImage(data: data) else {
+                    return
+                }
+
+                await MainActor.run {
+                    iconImage = Image(uiImage: uiImage)
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                dependencies.logger.debug(
+                    "Failed to load source icon for \(resolvedURL.absoluteString): \(String(describing: error))"
+                )
+            }
+        }
+
+        loadTask = task
+        await task.value
     }
 }
 
