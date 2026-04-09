@@ -5,11 +5,21 @@ import UIKit
 struct SidebarView: View {
     @Environment(\.appDependencies) private var dependencies
     @Binding var selection: SidebarSelection?
+    private let previewOverridePhase: SidebarContentPhase?
     @State private var feeds: [FeedSidebarItem] = []
     @State private var unreadSmartCount = 0
     @State private var starredSmartCount = 0
-    @State private var hasLoadedFeeds = false
+    @State private var phase: SidebarContentPhase = .loading
     @State private var expandedFolderNames = Set<String>()
+    @State private var loadRequestID = UUID()
+
+    init(
+        selection: Binding<SidebarSelection?>,
+        previewOverridePhase: SidebarContentPhase? = nil
+    ) {
+        _selection = selection
+        self.previewOverridePhase = previewOverridePhase
+    }
 
     var body: some View {
         List(selection: $selection) {
@@ -74,25 +84,23 @@ struct SidebarView: View {
             }
         }
         .overlay {
-            if feeds.isEmpty && hasLoadedFeeds {
-                ContentUnavailableView(
-                    "No Sources",
-                    systemImage: "dot.radiowaves.left.and.right",
-                    description: Text("Add a source to populate the Sources sidebar.")
-                )
-            }
+            overlayContent
         }
-        .task {
+        .task(id: loadRequestID) {
+            guard previewOverridePhase == nil else { return }
             await loadFeeds()
         }
     }
 
     @MainActor
     private func loadFeeds() async {
-        defer { hasLoadedFeeds = true }
+        phase = .loading
+        unreadSmartCount = 0
+        starredSmartCount = 0
 
         guard let feedRepository = dependencies.feedRepository else {
             feeds = []
+            phase = .failed("Sources are unavailable in the current app environment.")
             return
         }
 
@@ -101,6 +109,7 @@ struct SidebarView: View {
         } catch {
             dependencies.logger.error("Failed to load sidebar feeds: \(error)")
             feeds = []
+            phase = .failed("Unable to load sources right now. Try again.")
             return
         }
 
@@ -149,6 +158,8 @@ struct SidebarView: View {
                 }
             }
         }
+
+        phase = feeds.isEmpty ? .empty : .loaded
     }
 
     private var folderGroups: [FolderSidebarGroup] {
@@ -199,7 +210,61 @@ struct SidebarView: View {
     }
 
     private var shouldDisableScrolling: Bool {
-        hasLoadedFeeds && feeds.isEmpty
+        switch effectivePhase {
+        case .loaded:
+            false
+        case .loading, .empty, .failed:
+            true
+        }
+    }
+
+    @ViewBuilder
+    private var overlayContent: some View {
+        switch effectivePhase {
+        case .loaded:
+            EmptyView()
+        case .loading:
+            loadingOverlay
+        case .empty:
+            ContentUnavailableView(
+                "No Sources",
+                systemImage: "dot.radiowaves.left.and.right",
+                description: Text("Add a source to populate the Sources sidebar.")
+            )
+        case .failed(let message):
+            ContentUnavailableView {
+                Label("Unable to Load Sources", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(message)
+            } actions: {
+                Button("Retry") {
+                    retryLoad()
+                }
+            }
+        }
+    }
+
+    private var effectivePhase: SidebarContentPhase {
+        previewOverridePhase ?? phase
+    }
+
+    private var loadingOverlay: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .controlSize(.regular)
+
+            Text("Loading Sources")
+                .font(.headline)
+
+            Text("Fetching feeds and counts for the sidebar.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func retryLoad() {
+        loadRequestID = UUID()
     }
 
     @ViewBuilder
@@ -316,10 +381,33 @@ struct SidebarView: View {
     }
 }
 
+enum SidebarContentPhase: Equatable {
+    case loading
+    case loaded
+    case empty
+    case failed(String)
+}
+
 #Preview("Empty Sources") {
     SidebarPreviewHost(
         dependencies: SidebarPreviewFactory.makeDependencies(for: .empty),
         selection: .inbox
+    )
+}
+
+#Preview("Loading Sources") {
+    SidebarPreviewHost(
+        dependencies: SidebarPreviewFactory.makeDependencies(for: .empty),
+        selection: .inbox,
+        previewOverridePhase: .loading
+    )
+}
+
+#Preview("Error Sources") {
+    SidebarPreviewHost(
+        dependencies: SidebarPreviewFactory.makeDependencies(for: .empty),
+        selection: .inbox,
+        previewOverridePhase: .failed("Unable to load sources right now. Try again.")
     )
 }
 
@@ -523,11 +611,25 @@ private struct SourceIconView: View {
 
 private struct SidebarPreviewHost: View {
     let dependencies: AppDependencies
+    let previewOverridePhase: SidebarContentPhase?
     @State var selection: SidebarSelection?
+
+    init(
+        dependencies: AppDependencies,
+        selection: SidebarSelection?,
+        previewOverridePhase: SidebarContentPhase? = nil
+    ) {
+        self.dependencies = dependencies
+        self.previewOverridePhase = previewOverridePhase
+        _selection = State(initialValue: selection)
+    }
 
     var body: some View {
         NavigationStack {
-            SidebarView(selection: $selection)
+            SidebarView(
+                selection: $selection,
+                previewOverridePhase: previewOverridePhase
+            )
         }
         .environment(\.appDependencies, dependencies)
         .environment(AppState())

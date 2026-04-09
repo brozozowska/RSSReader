@@ -180,7 +180,7 @@
 - [x] добавить отдельную стратегию кэширования иконок источников;
 - [x] добавить нормализацию иконок под favicon / маленький square asset;
 - [x] добавить fallback на site favicon, если feed не отдал `iconURL`;
-- [ ] показать loading/error state, а не только empty state.
+- [x] показать loading/error state, а не только empty state.
 
 #### Articles Screen
 - [ ] привести текущий список к дизайну экрана Articles;
