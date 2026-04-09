@@ -79,6 +79,16 @@ struct ArticleListView: View {
                     sortMode: sortMode,
                     filter: selectedFilter
                 )
+            case .unread:
+                articles = try articleQueryService.fetchInboxListItems(
+                    sortMode: sortMode,
+                    filter: .unread
+                )
+            case .starred:
+                articles = try articleQueryService.fetchInboxListItems(
+                    sortMode: sortMode,
+                    filter: .starred
+                )
             case .feed(let selectedFeedID):
                 articles = try articleQueryService.fetchArticleListItems(
                     feedID: selectedFeedID,
@@ -100,6 +110,10 @@ struct ArticleListView: View {
         switch selectedSidebarSelection {
         case .inbox:
             "Your global inbox has no stored articles yet."
+        case .unread:
+            "There are no unread articles in your sources."
+        case .starred:
+            "You have not starred any articles yet."
         case .feed:
             "This feed has no stored articles yet."
         case .none:

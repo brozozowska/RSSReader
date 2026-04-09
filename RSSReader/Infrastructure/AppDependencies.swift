@@ -7,6 +7,7 @@ public protocol AppDependenciesProtocol {
     var logger: Logging { get }
     var httpClient: any HTTPClient { get }
     var feedFetcher: any FeedFetching { get }
+    var sourceIconCache: any SourceIconCaching { get }
     var modelContainer: ModelContainer? { get }
 }
 
@@ -15,6 +16,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     public let logger: Logging
     public let httpClient: any HTTPClient
     public let feedFetcher: any FeedFetching
+    public let sourceIconCache: any SourceIconCaching
     let feedRefreshService: FeedRefreshService?
     let feedRepository: (any FeedRepository)?
     let articleRepository: (any ArticleRepository)?
@@ -29,6 +31,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         logger: Logging,
         httpClient: any HTTPClient = URLSessionHTTPClient(),
         feedFetcher: (any FeedFetching)? = nil,
+        sourceIconCache: (any SourceIconCaching)? = nil,
         modelContainer: ModelContainer? = nil
     ) {
         let feedRepository = modelContainer.map { container in
@@ -66,6 +69,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         let resolvedFeedFetcher = feedFetcher ?? Self.makeFeedFetcher(
             httpClient: httpClient
         )
+        let resolvedSourceIconCache = sourceIconCache ?? SourceIconCacheService(httpClient: httpClient)
         let feedRefreshService: FeedRefreshService? = {
             guard let feedRepository, let articleRepository else {
                 return nil
@@ -82,6 +86,7 @@ public final class AppDependencies: AppDependenciesProtocol {
 
         self.logger = logger
         self.httpClient = httpClient
+        self.sourceIconCache = resolvedSourceIconCache
         self.modelContainer = modelContainer
         self.feedRefreshService = feedRefreshService
         self.feedRepository = feedRepository
@@ -127,6 +132,16 @@ extension AppDependencies {
     @MainActor
     func showInbox(using appState: AppState) {
         appState.selectReadingSource(.inbox)
+    }
+
+    @MainActor
+    func showUnread(using appState: AppState) {
+        appState.selectReadingSource(.unread)
+    }
+
+    @MainActor
+    func showStarred(using appState: AppState) {
+        appState.selectReadingSource(.starred)
     }
 
     @MainActor
@@ -198,7 +213,7 @@ extension AppDependencies {
                 appState.requestArticleListReload()
             }
             return result
-        case .inbox, .none:
+        case .inbox, .unread, .starred, .none:
             logger.info("Skipped source refresh because the current source is not a single feed")
             return nil
         }

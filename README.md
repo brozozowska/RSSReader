@@ -176,11 +176,12 @@
 - [x] добавить unit tests на shell action entry points в `AppDependencies`.
 
 #### Sources Screen
-- [ ] привести текущий sidebar к дизайну экрана Sources;
-- [ ] добавить smart sections: All;
-- [ ] добавить smart sections: Unread;
-- [ ] добавить smart sections: Starred;
-- [ ] показать loading/error state, а не только empty state.
+- [x] привести текущий sidebar к дизайну экрана Sources;
+- [x] добавить отдельную стратегию кэширования иконок источников;
+- [x] добавить нормализацию иконок под favicon / маленький square asset;
+- [x] добавить fallback на site favicon, если feed не отдал `iconURL`;
+- [x] показать loading/error state, а не только empty state;
+- [x] добавить ручной refresh и статус синхронизации для Sources sidebar.
 
 #### Articles Screen
 - [ ] привести текущий список к дизайну экрана Articles;

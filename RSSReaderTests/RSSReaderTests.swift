@@ -866,6 +866,12 @@ struct RSSReaderTests {
         #expect(appState.selectedSidebarSelection == .inbox)
         #expect(appState.selectedArticleID == nil)
         #expect(appState.selectedDetailRoute == .none)
+
+        harness.dependencies.showUnread(using: appState)
+        #expect(appState.selectedSidebarSelection == .unread)
+
+        harness.dependencies.showStarred(using: appState)
+        #expect(appState.selectedSidebarSelection == .starred)
     }
 
     @Test
@@ -951,6 +957,124 @@ struct RSSReaderTests {
         #expect(result?.summary.totalFeedCount == 2)
         #expect(result?.summary.notModifiedCount == 2)
         #expect(appState.articleListReloadID != reloadIDBeforeRefresh)
+    }
+
+    @Test
+    func feedNormalizationKeepsFaviconLikeIconURLAndNormalizesIt() {
+        let feed = ParsedFeedDTO(
+            kind: .rss,
+            metadata: ParsedFeedMetadataDTO(
+                title: "Example Feed",
+                siteURL: "HTTPS://Example.com",
+                iconURL: "HTTPS://CDN.EXAMPLE.COM/Favicon-32x32.png?cache=1#fragment"
+            ),
+            entries: []
+        )
+
+        let normalized = FeedNormalizationService.normalize(feed, feedURL: "https://example.com/feed.xml")
+
+        #expect(normalized.metadata.siteURL == "https://example.com/")
+        #expect(normalized.metadata.iconURL == "https://cdn.example.com/Favicon-32x32.png?cache=1")
+    }
+
+    @Test
+    func feedNormalizationRewritesLogoAssetToSiteFaviconWhenSiteURLIsKnown() {
+        let feed = ParsedFeedDTO(
+            kind: .rss,
+            metadata: ParsedFeedMetadataDTO(
+                title: "Example Feed",
+                siteURL: "https://example.com/news/",
+                iconURL: "https://cdn.example.com/assets/header-logo.png"
+            ),
+            entries: []
+        )
+
+        let normalized = FeedNormalizationService.normalize(feed, feedURL: "https://example.com/feed.xml")
+
+        #expect(normalized.metadata.iconURL == "https://example.com/favicon.ico")
+    }
+
+    @Test
+    func feedNormalizationKeepsOriginalIconURLWhenItCannotBuildSiteFaviconFallback() {
+        let feed = ParsedFeedDTO(
+            kind: .atom,
+            metadata: ParsedFeedMetadataDTO(
+                title: "Example Feed",
+                iconURL: "https://cdn.example.com/assets/banner-logo.png"
+            ),
+            entries: []
+        )
+
+        let normalized = FeedNormalizationService.normalize(feed, feedURL: "https://example.com/feed.xml")
+
+        #expect(normalized.metadata.iconURL == "https://cdn.example.com/assets/banner-logo.png")
+    }
+
+    @Test
+    func feedNormalizationUsesSiteFaviconWhenFeedDidNotProvideIconURL() {
+        let feed = ParsedFeedDTO(
+            kind: .rss,
+            metadata: ParsedFeedMetadataDTO(
+                title: "Example Feed",
+                siteURL: "HTTPS://Example.com/news"
+            ),
+            entries: []
+        )
+
+        let normalized = FeedNormalizationService.normalize(feed, feedURL: "https://example.com/feed.xml")
+
+        #expect(normalized.metadata.siteURL == "https://example.com/news")
+        #expect(normalized.metadata.iconURL == "https://example.com/favicon.ico")
+    }
+
+    @Test
+    func sourceIconCacheReturnsCachedDataWithoutSecondNetworkRequest() async throws {
+        let iconURL = try #require(URL(string: "https://example.com/favicon.ico"))
+        let httpClient = ScriptedHTTPClient(
+            responsesByURL: [
+                iconURL.absoluteString: .response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "image/x-icon"],
+                    body: "icon-binary"
+                )
+            ]
+        )
+        let service = SourceIconCacheService(httpClient: httpClient)
+
+        let firstLoad = try await service.imageData(for: iconURL)
+        let secondLoad = try await service.imageData(for: iconURL)
+
+        #expect(firstLoad == Data("icon-binary".utf8))
+        #expect(secondLoad == firstLoad)
+
+        let requests = await httpClient.recordedRequests()
+        #expect(requests.count == 1)
+    }
+
+    @Test
+    func sourceIconCacheSharesInFlightRequestBetweenConcurrentConsumers() async throws {
+        let iconURL = try #require(URL(string: "https://example.com/favicon.ico"))
+        let httpClient = ScriptedHTTPClient(
+            responsesByURL: [
+                iconURL.absoluteString: .delayedResponse(
+                    statusCode: 200,
+                    headers: ["Content-Type": "image/x-icon"],
+                    body: "icon-binary",
+                    delayNanoseconds: 50_000_000
+                )
+            ]
+        )
+        let service = SourceIconCacheService(httpClient: httpClient)
+
+        async let firstLoad = service.imageData(for: iconURL)
+        async let secondLoad = service.imageData(for: iconURL)
+        let (firstResult, secondResult) = try await (firstLoad, secondLoad)
+
+        #expect(firstResult == secondResult)
+
+        let requests = await httpClient.recordedRequests()
+        #expect(requests.count == 1)
+        #expect(await httpClient.maxConcurrentExecutions() == 1)
     }
 }
 
