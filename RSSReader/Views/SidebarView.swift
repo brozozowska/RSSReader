@@ -4,12 +4,14 @@ import UIKit
 
 struct SidebarView: View {
     @Environment(\.appDependencies) private var dependencies
+    @Environment(AppState.self) private var appState
     @Binding var selection: SidebarSelection?
     private let previewOverridePhase: SidebarContentPhase?
     @State private var feeds: [FeedSidebarItem] = []
     @State private var unreadSmartCount = 0
     @State private var starredSmartCount = 0
     @State private var phase: SidebarContentPhase = .loading
+    @State private var refreshStatus: SidebarRefreshStatus = .idle(lastUpdatedAt: nil)
     @State private var expandedFolderNames = Set<String>()
     @State private var loadRequestID = UUID()
 
@@ -57,6 +59,9 @@ struct SidebarView: View {
         .scrollContentBackground(.hidden)
         .background(Color.white)
         .scrollDisabled(shouldDisableScrolling)
+        .refreshable {
+            await refreshSources()
+        }
         .navigationTitle("Sources")
         .toolbarTitleDisplayMode(.inlineLarge)
         .toolbar {
@@ -68,6 +73,13 @@ struct SidebarView: View {
                 }
 
                 Menu {
+                    Button("Refresh Sources") {
+                        Task {
+                            await refreshSources()
+                        }
+                    }
+                    .disabled(isSyncing)
+
                     Button("Import") {
                         dependencies.logger.info("Import action is not implemented yet")
                     }
@@ -83,18 +95,25 @@ struct SidebarView: View {
                 .accessibilityLabel("Sidebar Menu")
             }
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if showsStatusRow {
+                statusHeader
+            }
+        }
         .overlay {
             overlayContent
         }
         .task(id: loadRequestID) {
             guard previewOverridePhase == nil else { return }
-            await loadFeeds()
+            await loadFeeds(showsFullScreenLoading: true, refreshedAt: .now)
         }
     }
 
     @MainActor
-    private func loadFeeds() async {
-        phase = .loading
+    private func loadFeeds(showsFullScreenLoading: Bool, refreshedAt: Date?) async {
+        if showsFullScreenLoading {
+            phase = .loading
+        }
         unreadSmartCount = 0
         starredSmartCount = 0
 
@@ -160,6 +179,9 @@ struct SidebarView: View {
         }
 
         phase = feeds.isEmpty ? .empty : .loaded
+        if let refreshedAt {
+            refreshStatus = .idle(lastUpdatedAt: refreshedAt)
+        }
     }
 
     private var folderGroups: [FolderSidebarGroup] {
@@ -218,6 +240,15 @@ struct SidebarView: View {
         }
     }
 
+    private var showsStatusRow: Bool {
+        switch effectivePhase {
+        case .loaded:
+            true
+        case .loading, .empty, .failed:
+            false
+        }
+    }
+
     @ViewBuilder
     private var overlayContent: some View {
         switch effectivePhase {
@@ -248,6 +279,13 @@ struct SidebarView: View {
         previewOverridePhase ?? phase
     }
 
+    private var isSyncing: Bool {
+        if case .syncing = refreshStatus {
+            return true
+        }
+        return false
+    }
+
     private var loadingOverlay: some View {
         VStack(spacing: 12) {
             ProgressView()
@@ -265,6 +303,60 @@ struct SidebarView: View {
 
     private func retryLoad() {
         loadRequestID = UUID()
+    }
+
+    @ViewBuilder
+    private var statusHeader: some View {
+        HStack(spacing: 10) {
+            switch refreshStatus {
+            case .syncing:
+                Text("Syncing...")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+            case .idle(let lastUpdatedAt):
+                Text(lastUpdatedText(for: lastUpdatedAt))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 4)
+        .padding(.bottom, 10)
+        .background(Color.white)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func lastUpdatedText(for date: Date?) -> String {
+        guard let date else {
+            return "Not updated yet"
+        }
+
+        if Calendar.current.isDateInToday(date) {
+            return "Today at \(date.formatted(date: .omitted, time: .shortened))"
+        }
+
+        if Calendar.current.isDateInYesterday(date) {
+            return "Yesterday at \(date.formatted(date: .omitted, time: .shortened))"
+        }
+
+        return date.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    @MainActor
+    private func refreshSources() async {
+        guard previewOverridePhase == nil, isSyncing == false else { return }
+
+        let previousStatus = refreshStatus
+        refreshStatus = .syncing
+        let result = await dependencies.refreshVisibleSources(using: appState)
+        let refreshedAt = result?.finishedAt
+        await loadFeeds(showsFullScreenLoading: false, refreshedAt: refreshedAt)
+
+        if refreshedAt == nil {
+            refreshStatus = previousStatus
+        }
     }
 
     @ViewBuilder
@@ -388,11 +480,9 @@ enum SidebarContentPhase: Equatable {
     case failed(String)
 }
 
-#Preview("Empty Sources") {
-    SidebarPreviewHost(
-        dependencies: SidebarPreviewFactory.makeDependencies(for: .empty),
-        selection: .inbox
-    )
+enum SidebarRefreshStatus: Equatable {
+    case idle(lastUpdatedAt: Date?)
+    case syncing
 }
 
 #Preview("Loading Sources") {
@@ -400,6 +490,13 @@ enum SidebarContentPhase: Equatable {
         dependencies: SidebarPreviewFactory.makeDependencies(for: .empty),
         selection: .inbox,
         previewOverridePhase: .loading
+    )
+}
+
+#Preview("Empty Sources") {
+    SidebarPreviewHost(
+        dependencies: SidebarPreviewFactory.makeDependencies(for: .empty),
+        selection: .inbox
     )
 }
 
