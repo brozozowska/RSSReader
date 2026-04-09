@@ -3,10 +3,18 @@ import SwiftData
 import UIKit
 
 struct SidebarView: View {
+    // MARK: Dependencies
+
     @Environment(\.appDependencies) private var dependencies
     @Environment(AppState.self) private var appState
+
+    // MARK: Configuration
+
     @Binding var selection: SidebarSelection?
     private let previewOverridePhase: SidebarContentPhase?
+
+    // MARK: View State
+
     @State private var feeds: [FeedSidebarItem] = []
     @State private var unreadSmartCount = 0
     @State private var starredSmartCount = 0
@@ -22,6 +30,8 @@ struct SidebarView: View {
         _selection = selection
         self.previewOverridePhase = previewOverridePhase
     }
+
+    // MARK: Body
 
     var body: some View {
         List(selection: $selection) {
@@ -67,6 +77,7 @@ struct SidebarView: View {
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
+                    // TODO: Wire Add Source action when Source Management flow is implemented.
                     dependencies.logger.info("Add source action is not implemented yet")
                 } label: {
                     Image(systemName: "plus")
@@ -81,12 +92,15 @@ struct SidebarView: View {
                     .disabled(isSyncing)
 
                     Button("Import") {
+                        // TODO: Replace with OPML import flow.
                         dependencies.logger.info("Import action is not implemented yet")
                     }
                     Button("Export") {
+                        // TODO: Replace with OPML export flow.
                         dependencies.logger.info("Export action is not implemented yet")
                     }
                     Button("Settings") {
+                        // TODO: Present settings screen when Settings Integration is implemented.
                         dependencies.logger.info("Settings action is not implemented yet")
                     }
                 } label: {
@@ -108,6 +122,8 @@ struct SidebarView: View {
             await loadFeeds(showsFullScreenLoading: true, refreshedAt: .now)
         }
     }
+
+    // MARK: Data Loading
 
     @MainActor
     private func loadFeeds(showsFullScreenLoading: Bool, refreshedAt: Date?) async {
@@ -183,6 +199,8 @@ struct SidebarView: View {
             refreshStatus = .idle(lastUpdatedAt: refreshedAt)
         }
     }
+
+    // MARK: Derived State
 
     private var folderGroups: [FolderSidebarGroup] {
         let groupedFeeds = Dictionary(
@@ -286,6 +304,8 @@ struct SidebarView: View {
         return false
     }
 
+    // MARK: Status And Overlay UI
+
     private var loadingOverlay: some View {
         VStack(spacing: 12) {
             ProgressView()
@@ -327,6 +347,8 @@ struct SidebarView: View {
         .background(Color.white)
         .accessibilityElement(children: .combine)
     }
+
+    // MARK: User Actions
 
     private func lastUpdatedText(for date: Date?) -> String {
         guard let date else {
@@ -467,6 +489,7 @@ struct SidebarView: View {
     }
 
     private func handleFolderSelection(_ group: FolderSidebarGroup) {
+        // TODO: Replace with folder navigation when folder-level article list is introduced.
         dependencies.logger.info(
             "Folder selection tapped for \(group.name). Folder article list navigation is not implemented yet."
         )
@@ -483,43 +506,6 @@ enum SidebarContentPhase: Equatable {
 enum SidebarRefreshStatus: Equatable {
     case idle(lastUpdatedAt: Date?)
     case syncing
-}
-
-#Preview("Loading Sources") {
-    SidebarPreviewHost(
-        dependencies: SidebarPreviewFactory.makeDependencies(for: .empty),
-        selection: .inbox,
-        previewOverridePhase: .loading
-    )
-}
-
-#Preview("Empty Sources") {
-    SidebarPreviewHost(
-        dependencies: SidebarPreviewFactory.makeDependencies(for: .empty),
-        selection: .inbox
-    )
-}
-
-#Preview("Error Sources") {
-    SidebarPreviewHost(
-        dependencies: SidebarPreviewFactory.makeDependencies(for: .empty),
-        selection: .inbox,
-        previewOverridePhase: .failed("Unable to load sources right now. Try again.")
-    )
-}
-
-#Preview("Two Sources") {
-    SidebarPreviewHost(
-        dependencies: SidebarPreviewFactory.makeDependencies(for: .twoSources),
-        selection: .unread
-    )
-}
-
-#Preview("Folders And Ungrouped") {
-    SidebarPreviewHost(
-        dependencies: SidebarPreviewFactory.makeDependencies(for: .foldersAndUngrouped),
-        selection: .feed(SidebarPreviewFactory.SampleIDs.vergeFeedID)
-    )
 }
 
 private enum SmartSidebarItem: CaseIterable, Identifiable {
@@ -932,3 +918,42 @@ private extension View {
         }
     }
 }
+// MARK: - Previews
+
+#Preview("Loading Sources") {
+    SidebarPreviewHost(
+        dependencies: SidebarPreviewFactory.makeDependencies(for: .empty),
+        selection: .inbox,
+        previewOverridePhase: .loading
+    )
+}
+
+#Preview("Empty Sources") {
+    SidebarPreviewHost(
+        dependencies: SidebarPreviewFactory.makeDependencies(for: .empty),
+        selection: .inbox
+    )
+}
+
+#Preview("Error Sources") {
+    SidebarPreviewHost(
+        dependencies: SidebarPreviewFactory.makeDependencies(for: .empty),
+        selection: .inbox,
+        previewOverridePhase: .failed("Unable to load sources right now. Try again.")
+    )
+}
+
+#Preview("Two Sources") {
+    SidebarPreviewHost(
+        dependencies: SidebarPreviewFactory.makeDependencies(for: .twoSources),
+        selection: .unread
+    )
+}
+
+#Preview("Folders And Ungrouped") {
+    SidebarPreviewHost(
+        dependencies: SidebarPreviewFactory.makeDependencies(for: .foldersAndUngrouped),
+        selection: .feed(SidebarPreviewFactory.SampleIDs.vergeFeedID)
+    )
+}
+
