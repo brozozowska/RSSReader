@@ -603,7 +603,9 @@ enum SidebarFeedVisibility {
         switch filter {
         case .starred:
             feeds.filter { starredFeedIDs.contains($0.id) }
-        case .allItems, .unread:
+        case .unread:
+            feeds.filter { $0.unreadCount > 0 }
+        case .allItems:
             feeds
         }
     }
