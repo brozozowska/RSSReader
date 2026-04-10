@@ -195,19 +195,7 @@ struct SidebarView: View {
     }
 
     private var folderGroups: [FolderSidebarGroup] {
-        let groupedFeeds = Dictionary(
-            grouping: visibleFeeds.filter { $0.folderName != nil },
-            by: { $0.folderName ?? "" }
-        )
-
-        let groups = groupedFeeds.map { name, feeds in
-            FolderSidebarGroup(
-                name: name,
-                feeds: feeds.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-            )
-        }
-
-        return groups.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        FolderSidebarGroup.groups(from: visibleFeeds)
     }
 
     private var ungroupedFeeds: [FeedSidebarItem] {
@@ -611,12 +599,28 @@ enum SidebarFeedVisibility {
     }
 }
 
-private struct FolderSidebarGroup: Identifiable {
+struct FolderSidebarGroup: Identifiable {
     let name: String
     let feeds: [FeedSidebarItem]
 
     var id: String { name }
     var unreadCount: Int { feeds.reduce(0) { $0 + $1.unreadCount } }
+
+    static func groups(from feeds: [FeedSidebarItem]) -> [FolderSidebarGroup] {
+        let groupedFeeds = Dictionary(
+            grouping: feeds.filter { $0.folderName != nil },
+            by: { $0.folderName ?? "" }
+        )
+
+        let groups = groupedFeeds.map { name, feeds in
+            FolderSidebarGroup(
+                name: name,
+                feeds: feeds.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            )
+        }
+
+        return groups.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
 }
 
 private enum FolderSectionRow: Identifiable {

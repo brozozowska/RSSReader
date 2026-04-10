@@ -947,6 +947,18 @@ struct RSSReaderTests {
     }
 
     @Test
+    func sourcesSidebarHidesFoldersSectionWhenFilteredFeedsDoNotContainFolders() {
+        let ungroupedFeed = FeedSidebarItem(
+            feed: Feed(id: UUID(), url: "https://example.com/feed.xml", title: "Ungrouped Feed"),
+            unreadCount: 1
+        )
+
+        let groups = FolderSidebarGroup.groups(from: [ungroupedFeed])
+
+        #expect(groups.isEmpty)
+    }
+
+    @Test
     func readingShellOpenArticleWebViewSetsPresentedRouteAndPreservesArticleContext() {
         let appState = AppState()
         let articleID = UUID()
