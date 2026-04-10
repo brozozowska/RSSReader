@@ -186,19 +186,13 @@
 #### Sources Filtering
 - [x] определить отдельный shell-level state для фильтра `Sources`, чтобы логика отбора источников не жила в `Articles Screen`;
 - [x] переделать toolbar `Sources` под три кнопки: одна слева и две справа, показать subtitle и вынести туда дату последнего обновления источников и `Syncing...` во время refresh;
-- [ ] слева вынести menu с actions `Import`, `Export`, `Settings`;
-- [ ] справа оставить actions `Add Source` и `Filter`;
-- [ ] вынести фильтр `Sources` в отдельную toolbar button вместо общего menu;
-- [ ] добавить в filter menu/actions режимы `All Items / Unread / Starred`;
-- [ ] переименовать `All Items` в `Archive` на уровне UI-копира и navigation labels;
-- [ ] показывать в `Smart Views` только активный фильтр и скрывать остальные smart rows;
+- [x] показывать в `Smart Views` только активный фильтр и скрывать остальные smart rows;
 - [ ] скрыть заголовок `Smart Views`, если в секции остаётся единственная активная ячейка;
 - [ ] при активном фильтре `Starred` показывать только те папки и источники, в которых есть starred статьи;
 - [ ] при активном фильтре `Unread` показывать только те папки и источники, в которых есть непрочитанные статьи;
 - [ ] при активном фильтре `All Items` (`Archive`) показывать все папки и все источники, сохраняя unread counters;
 - [ ] скрывать секцию `Folders`, если после применения фильтра в ней не осталось папок или источников;
 - [ ] скрывать секцию `Ungrouped`, если после применения фильтра в ней не осталось источников;
-- [ ] убрать action `Refresh Sources` из menu и оставить управление refresh через screen gestures;
 - [ ] подготовить query/read-model для расчёта наличия unread/starred статей на уровне папок и источников;
 - [ ] определить selection behavior при смене фильтра: текущий selection сохраняется, если остаётся видимым, иначе происходит fallback на активную smart row;
 - [ ] добавить unit tests на toolbar/filter behavior: layout actions, subtitle state, `Starred`, `Unread`, `Archive`, скрытие пустых секций и selection fallback.

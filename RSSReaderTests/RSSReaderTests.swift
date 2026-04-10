@@ -857,6 +857,20 @@ struct RSSReaderTests {
     }
 
     @Test
+    func sourcesSmartViewsShowOnlyActiveFilterRow() {
+        #expect(SmartSidebarItem.visibleItems(for: .allItems, hasFeeds: true) == [.allItems])
+        #expect(SmartSidebarItem.visibleItems(for: .unread, hasFeeds: true) == [.unread])
+        #expect(SmartSidebarItem.visibleItems(for: .starred, hasFeeds: true) == [.starred])
+    }
+
+    @Test
+    func sourcesSmartViewsAreHiddenWhenThereAreNoFeeds() {
+        #expect(SmartSidebarItem.visibleItems(for: .allItems, hasFeeds: false).isEmpty)
+        #expect(SmartSidebarItem.visibleItems(for: .unread, hasFeeds: false).isEmpty)
+        #expect(SmartSidebarItem.visibleItems(for: .starred, hasFeeds: false).isEmpty)
+    }
+
+    @Test
     func readingShellOpenArticleWebViewSetsPresentedRouteAndPreservesArticleContext() {
         let appState = AppState()
         let articleID = UUID()

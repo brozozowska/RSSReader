@@ -202,18 +202,10 @@ struct SidebarView: View {
     }
 
     private var visibleSmartItems: [SmartSidebarItem] {
-        guard feeds.isEmpty == false else { return [] }
-
-        return SmartSidebarItem.allCases.filter { item in
-            switch item {
-            case .allItems:
-                true
-            case .unread:
-                unreadSmartCount > 0
-            case .starred:
-                starredSmartCount > 0
-            }
-        }
+        SmartSidebarItem.visibleItems(
+            for: appState.selectedSourcesFilter,
+            hasFeeds: feeds.isEmpty == false
+        )
     }
 
     private var visibleFolderRows: [FolderSectionRow] {
@@ -533,7 +525,7 @@ enum SidebarRefreshStatus: Equatable {
     case syncing
 }
 
-private enum SmartSidebarItem: CaseIterable, Identifiable {
+enum SmartSidebarItem: CaseIterable, Identifiable {
     case allItems
     case unread
     case starred
@@ -570,6 +562,19 @@ private enum SmartSidebarItem: CaseIterable, Identifiable {
             .unread
         case .starred:
             .starred
+        }
+    }
+
+    static func visibleItems(for filter: SourcesFilter, hasFeeds: Bool) -> [SmartSidebarItem] {
+        guard hasFeeds else { return [] }
+
+        return switch filter {
+        case .allItems:
+            [SmartSidebarItem.allItems]
+        case .unread:
+            [SmartSidebarItem.unread]
+        case .starred:
+            [SmartSidebarItem.starred]
         }
     }
 }
