@@ -18,6 +18,7 @@ struct SidebarView: View {
     @State private var feeds: [FeedSidebarItem] = []
     @State private var unreadSmartCount = 0
     @State private var starredSmartCount = 0
+    @State private var starredFeedIDs = Set<UUID>()
     @State private var phase: SidebarContentPhase = .loading
     @State private var refreshStatus: SidebarRefreshStatus = .idle(lastUpdatedAt: nil)
     @State private var expandedFolderNames = Set<String>()
@@ -146,18 +147,22 @@ struct SidebarView: View {
                     sortMode: .publishedAtDescending,
                     filter: .unread
                 ).count
-                starredSmartCount = try articleQueryService.fetchInboxListItems(
+                let starredItems = try articleQueryService.fetchInboxListItems(
                     sortMode: .publishedAtDescending,
                     filter: .starred
-                ).count
+                )
+                starredSmartCount = starredItems.count
+                starredFeedIDs = Set(starredItems.map(\.feedID))
             } catch {
                 dependencies.logger.error("Failed to load smart section counts for sidebar: \(error)")
                 unreadSmartCount = 0
                 starredSmartCount = 0
+                starredFeedIDs = []
             }
         } else {
             unreadSmartCount = 0
             starredSmartCount = 0
+            starredFeedIDs = []
         }
 
         if let selection {
@@ -181,9 +186,17 @@ struct SidebarView: View {
 
     // MARK: Derived State
 
+    private var visibleFeeds: [FeedSidebarItem] {
+        SidebarFeedVisibility.filteredFeeds(
+            feeds: feeds,
+            filter: appState.selectedSourcesFilter,
+            starredFeedIDs: starredFeedIDs
+        )
+    }
+
     private var folderGroups: [FolderSidebarGroup] {
         let groupedFeeds = Dictionary(
-            grouping: feeds.filter { $0.folderName != nil },
+            grouping: visibleFeeds.filter { $0.folderName != nil },
             by: { $0.folderName ?? "" }
         )
 
@@ -198,7 +211,7 @@ struct SidebarView: View {
     }
 
     private var ungroupedFeeds: [FeedSidebarItem] {
-        feeds
+        visibleFeeds
             .filter { $0.folderName == nil }
             .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
@@ -577,6 +590,21 @@ enum SmartSidebarItem: CaseIterable, Identifiable {
             [SmartSidebarItem.unread]
         case .starred:
             [SmartSidebarItem.starred]
+        }
+    }
+}
+
+enum SidebarFeedVisibility {
+    static func filteredFeeds(
+        feeds: [FeedSidebarItem],
+        filter: SourcesFilter,
+        starredFeedIDs: Set<UUID>
+    ) -> [FeedSidebarItem] {
+        switch filter {
+        case .starred:
+            feeds.filter { starredFeedIDs.contains($0.id) }
+        case .allItems, .unread:
+            feeds
         }
     }
 }

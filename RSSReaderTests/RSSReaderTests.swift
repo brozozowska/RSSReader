@@ -871,6 +871,62 @@ struct RSSReaderTests {
     }
 
     @Test
+    func sourcesSidebarShowsOnlyFeedsWithStarredArticlesWhenStarredFilterIsActive() {
+        let feedOneID = UUID()
+        let feedTwoID = UUID()
+        let newsFolder = Folder(name: "News")
+        let feeds = [
+            FeedSidebarItem(
+                feed: Feed(id: feedOneID, url: "https://example.com/feed-one.xml", title: "Feed One", folder: newsFolder),
+                unreadCount: 2
+            ),
+            FeedSidebarItem(
+                feed: Feed(id: feedTwoID, url: "https://example.com/feed-two.xml", title: "Feed Two"),
+                unreadCount: 0
+            )
+        ]
+
+        let filteredFeeds = SidebarFeedVisibility.filteredFeeds(
+            feeds: feeds,
+            filter: .starred,
+            starredFeedIDs: [feedTwoID]
+        )
+
+        #expect(filteredFeeds.map(\.id) == [feedTwoID])
+    }
+
+    @Test
+    func sourcesSidebarKeepsAllFeedsVisibleForNonStarredFilters() {
+        let feedOneID = UUID()
+        let feedTwoID = UUID()
+        let newsFolder = Folder(name: "News")
+        let feeds = [
+            FeedSidebarItem(
+                feed: Feed(id: feedOneID, url: "https://example.com/feed-one.xml", title: "Feed One", folder: newsFolder),
+                unreadCount: 2
+            ),
+            FeedSidebarItem(
+                feed: Feed(id: feedTwoID, url: "https://example.com/feed-two.xml", title: "Feed Two"),
+                unreadCount: 0
+            )
+        ]
+
+        let unreadFeeds = SidebarFeedVisibility.filteredFeeds(
+            feeds: feeds,
+            filter: .unread,
+            starredFeedIDs: []
+        )
+        let allItemsFeeds = SidebarFeedVisibility.filteredFeeds(
+            feeds: feeds,
+            filter: .allItems,
+            starredFeedIDs: [feedTwoID]
+        )
+
+        #expect(unreadFeeds.map(\.id) == feeds.map(\.id))
+        #expect(allItemsFeeds.map(\.id) == feeds.map(\.id))
+    }
+
+    @Test
     func readingShellOpenArticleWebViewSetsPresentedRouteAndPreservesArticleContext() {
         let appState = AppState()
         let articleID = UUID()
