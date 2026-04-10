@@ -8,6 +8,12 @@ enum SourceSelection: Hashable, Sendable {
     case feed(UUID)
 }
 
+enum SourcesFilter: String, Hashable, Sendable, CaseIterable {
+    case allItems
+    case unread
+    case starred
+}
+
 typealias SidebarSelection = SourceSelection
 
 struct ArticleWebViewRoute: Hashable, Sendable {
@@ -55,6 +61,7 @@ struct ReadingNavigationState: Hashable, Sendable {
 @Observable
 public final class AppState {
     var readingNavigation = ReadingNavigationState()
+    var selectedSourcesFilter: SourcesFilter = .allItems
     var selectedArticleListFilter: ArticleListFilter = .all
     var articleListReloadID = UUID()
 
@@ -105,6 +112,10 @@ public final class AppState {
 
     func selectArticleListFilter(_ filter: ArticleListFilter) {
         selectedArticleListFilter = filter
+    }
+
+    func selectSourcesFilter(_ filter: SourcesFilter) {
+        selectedSourcesFilter = filter
     }
 
     func requestArticleListReload() {

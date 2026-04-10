@@ -183,14 +183,41 @@
 - [x] показать loading/error state, а не только empty state;
 - [x] добавить ручной refresh и статус синхронизации для Sources sidebar.
 
+#### Sources Filtering
+- [ ] определить отдельный shell-level state для фильтра `Sources`, чтобы логика отбора источников не жила в `Articles Screen`;
+- [ ] переделать toolbar `Sources` под три кнопки: одна слева и две справа;
+- [ ] слева вынести menu с actions `Import`, `Export`, `Settings`;
+- [ ] справа оставить actions `Add Source` и `Filter`;
+- [ ] вынести фильтр `Sources` в отдельную toolbar button вместо общего menu;
+- [ ] добавить в filter menu/actions режимы `All Items / Unread / Starred`;
+- [ ] переименовать `All Items` в `Archive` на уровне UI-копира и navigation labels;
+- [ ] показать subtitle в navigation bar и вынести туда дату последнего обновления источников;
+- [ ] показывать в subtitle строку `Syncing...` во время refresh вместо даты последнего обновления;
+- [ ] показывать в `Smart Views` только активный фильтр и скрывать остальные smart rows;
+- [ ] скрыть заголовок `Smart Views`, если в секции остаётся единственная активная ячейка;
+- [ ] при активном фильтре `Starred` показывать только те папки и источники, в которых есть starred статьи;
+- [ ] при активном фильтре `Unread` показывать только те папки и источники, в которых есть непрочитанные статьи;
+- [ ] при активном фильтре `All Items` (`Archive`) показывать все папки и все источники, сохраняя unread counters;
+- [ ] скрывать секцию `Folders`, если после применения фильтра в ней не осталось папок или источников;
+- [ ] скрывать секцию `Ungrouped`, если после применения фильтра в ней не осталось источников;
+- [ ] убрать action `Refresh Sources` из menu и оставить управление refresh через screen gestures;
+- [ ] подготовить query/read-model для расчёта наличия unread/starred статей на уровне папок и источников;
+- [ ] определить selection behavior при смене фильтра: текущий selection сохраняется, если остаётся видимым, иначе происходит fallback на активную smart row;
+- [ ] добавить unit tests на toolbar/filter behavior: layout actions, subtitle state, `Starred`, `Unread`, `Archive`, скрытие пустых секций и selection fallback.
+
 #### Articles Screen
+- [ ] определить screen-level state/model для `Articles Screen`, чтобы отделить загрузку, refresh, empty/error состояния и actions от `View`;
 - [ ] привести текущий список к дизайну экрана Articles;
-- [ ] добавить фильтры `All / Unread / Starred` поверх существующего query-layer;
-- [ ] применить `AppSettings.showUnreadOnly` как initial/default behavior;
-- [ ] визуально показать `read/unread` и `starred` state в ячейке;
+- [ ] сгруппировать статьи по дням и показать section headers `Today / Yesterday / date`;
 - [ ] показать metadata row: source / date / secondary text;
+- [ ] визуально показать `read/unread` и `starred` state в ячейке;
+- [ ] зафиксировать unread-only contract для списка статей: при выборе источника или папки показывать только непрочитанные статьи из этого selection;
+- [ ] показывать empty state, если у выбранного источника или папки нет непрочитанных статей;
+- [ ] добавить toolbar actions: `search` entry point и `menu -> Mark all as read`;
+- [ ] показать destructive confirmation dialog перед `Mark all as read`;
+- [ ] связать `Mark all as read` с bulk action `ArticleStateService.markAllVisibleAsRead`;
 - [ ] добавить `pull to refresh` для текущего selection через `FeedRefreshService`;
-- [ ] добавить полноценный loading/error UX для загрузки и refresh.
+- [ ] добавить полноценный loading/error UX для первичной загрузки и refresh.
 
 #### Article Screen
 - [ ] привести текущий reader к дизайну экрана Article;

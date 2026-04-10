@@ -816,6 +816,47 @@ struct RSSReaderTests {
     }
 
     @Test
+    func readingShellSourcesFilterSwitchUpdatesActiveFilterWithoutBreakingNavigationContext() {
+        let appState = AppState()
+        let feedID = UUID()
+        let articleID = UUID()
+
+        appState.selectReadingSource(.feed(feedID))
+        appState.selectedArticleID = articleID
+        let reloadIDBeforeFilterSwitch = appState.articleListReloadID
+
+        appState.selectSourcesFilter(.starred)
+
+        #expect(appState.selectedSourcesFilter == .starred)
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .article(articleID))
+        #expect(appState.presentedWebViewRoute == nil)
+        #expect(appState.articleListReloadID == reloadIDBeforeFilterSwitch)
+    }
+
+    @Test
+    func readingShellReapplyingSameSourcesFilterKeepsShellStateStable() {
+        let appState = AppState()
+        let articleID = UUID()
+        let webURL = URL(string: "https://example.com/sources-filter-article")!
+
+        appState.selectSourcesFilter(.unread)
+        appState.selectedArticleID = articleID
+        appState.presentWebView(articleID: articleID, url: webURL)
+
+        let reloadIDBeforeReapplyingFilter = appState.articleListReloadID
+
+        appState.selectSourcesFilter(.unread)
+
+        #expect(appState.selectedSourcesFilter == .unread)
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .webView(ArticleWebViewRoute(articleID: articleID, url: webURL)))
+        #expect(appState.presentedWebViewRoute == ArticleWebViewRoute(articleID: articleID, url: webURL))
+        #expect(appState.articleListReloadID == reloadIDBeforeReapplyingFilter)
+    }
+
+    @Test
     func readingShellOpenArticleWebViewSetsPresentedRouteAndPreservesArticleContext() {
         let appState = AppState()
         let articleID = UUID()
@@ -855,11 +896,13 @@ struct RSSReaderTests {
         harness.dependencies.showFeed(id: feedID, using: appState)
         harness.dependencies.selectArticle(id: articleID, using: appState)
         harness.dependencies.applyArticleListFilter(.starred, using: appState)
+        harness.dependencies.applySourcesFilter(.unread, using: appState)
 
         #expect(appState.selectedSidebarSelection == .feed(feedID))
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))
         #expect(appState.selectedArticleListFilter == .starred)
+        #expect(appState.selectedSourcesFilter == .unread)
 
         harness.dependencies.showInbox(using: appState)
 

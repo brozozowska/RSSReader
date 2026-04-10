@@ -160,6 +160,11 @@ extension AppDependencies {
     }
 
     @MainActor
+    func applySourcesFilter(_ filter: SourcesFilter, using appState: AppState) {
+        appState.selectSourcesFilter(filter)
+    }
+
+    @MainActor
     func openArticleInWebView(_ article: ReaderArticleDTO, using appState: AppState) {
         guard let url = URL(string: article.canonicalURL ?? article.articleURL) else {
             logger.error("Skipped opening article in web view because URL is invalid for article \(article.id)")
