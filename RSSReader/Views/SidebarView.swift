@@ -41,7 +41,9 @@ struct SidebarView: View {
                         smartRow(for: item)
                     }
                 } header: {
-                    sectionHeader("Smart Views")
+                    if visibleSmartItems.count > 1 {
+                        sectionHeader("Smart Views")
+                    }
                 }
             }
 
