@@ -199,9 +199,7 @@ struct SidebarView: View {
     }
 
     private var ungroupedFeeds: [FeedSidebarItem] {
-        visibleFeeds
-            .filter { $0.folderName == nil }
-            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        SidebarUngroupedFeeds.visibleFeeds(from: visibleFeeds)
     }
 
     private var visibleSmartItems: [SmartSidebarItem] {
@@ -596,6 +594,14 @@ enum SidebarFeedVisibility {
         case .allItems:
             feeds
         }
+    }
+}
+
+enum SidebarUngroupedFeeds {
+    static func visibleFeeds(from feeds: [FeedSidebarItem]) -> [FeedSidebarItem] {
+        feeds
+            .filter { $0.folderName == nil }
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 }
 
