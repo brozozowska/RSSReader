@@ -101,6 +101,9 @@ struct SidebarView: View {
             guard previewOverridePhase == nil else { return }
             await loadFeeds(showsFullScreenLoading: true, refreshedAt: .now)
         }
+        .onChange(of: appState.selectedSourcesFilter) { _, _ in
+            applySelectionBehaviorForCurrentFilter()
+        }
     }
 
     // MARK: Data Loading
@@ -165,18 +168,7 @@ struct SidebarView: View {
             starredFeedIDs = []
         }
 
-        if let selection {
-            switch selection {
-            case .inbox:
-                break
-            case .unread, .starred:
-                break
-            case .feed(let feedID):
-                if feeds.contains(where: { $0.id == feedID }) == false {
-                    self.selection = .inbox
-                }
-            }
-        }
+        applySelectionBehaviorForCurrentFilter()
 
         phase = feeds.isEmpty ? .empty : .loaded
         if let refreshedAt {
@@ -293,6 +285,14 @@ struct SidebarView: View {
 
     private func retryLoad() {
         loadRequestID = UUID()
+    }
+
+    private func applySelectionBehaviorForCurrentFilter() {
+        selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: selection,
+            filter: appState.selectedSourcesFilter,
+            visibleFeedIDs: Set(visibleFeeds.map(\.id))
+        )
     }
 
     private var titleView: some View {
@@ -578,6 +578,17 @@ enum SmartSidebarItem: CaseIterable, Identifiable {
             [SmartSidebarItem.starred]
         }
     }
+
+    static func selection(for filter: SourcesFilter) -> SidebarSelection {
+        switch filter {
+        case .allItems:
+            .inbox
+        case .unread:
+            .unread
+        case .starred:
+            .starred
+        }
+    }
 }
 
 enum SidebarFeedVisibility {
@@ -602,6 +613,27 @@ enum SidebarUngroupedFeeds {
         feeds
             .filter { $0.folderName == nil }
             .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+}
+
+enum SidebarSelectionBehavior {
+    static func resolvedSelection(
+        currentSelection: SidebarSelection?,
+        filter: SourcesFilter,
+        visibleFeedIDs: Set<UUID>
+    ) -> SidebarSelection {
+        let fallbackSelection = SmartSidebarItem.selection(for: filter)
+
+        guard let currentSelection else {
+            return fallbackSelection
+        }
+
+        switch currentSelection {
+        case .feed(let feedID):
+            return visibleFeedIDs.contains(feedID) ? currentSelection : fallbackSelection
+        case .inbox, .unread, .starred:
+            return currentSelection == fallbackSelection ? currentSelection : fallbackSelection
+        }
     }
 }
 

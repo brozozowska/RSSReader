@@ -871,6 +871,54 @@ struct RSSReaderTests {
     }
 
     @Test
+    func sourcesSelectionBehaviorKeepsCurrentFeedSelectionWhenItRemainsVisible() {
+        let visibleFeedID = UUID()
+
+        let selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: .feed(visibleFeedID),
+            filter: .starred,
+            visibleFeedIDs: [visibleFeedID]
+        )
+
+        #expect(selection == .feed(visibleFeedID))
+    }
+
+    @Test
+    func sourcesSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentFeedBecomesHidden() {
+        let hiddenFeedID = UUID()
+
+        let selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: .feed(hiddenFeedID),
+            filter: .unread,
+            visibleFeedIDs: []
+        )
+
+        #expect(selection == .unread)
+    }
+
+    @Test
+    func sourcesSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentSmartSelectionDoesNotMatchFilter() {
+        let selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: .inbox,
+            filter: .starred,
+            visibleFeedIDs: []
+        )
+
+        #expect(selection == .starred)
+    }
+
+    @Test
+    func sourcesSelectionBehaviorUsesActiveSmartRowWhenThereIsNoCurrentSelection() {
+        let selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: nil,
+            filter: .allItems,
+            visibleFeedIDs: []
+        )
+
+        #expect(selection == .inbox)
+    }
+
+    @Test
     func sourcesSidebarShowsOnlyFeedsWithStarredArticlesWhenStarredFilterIsActive() {
         let feedOneID = UUID()
         let feedTwoID = UUID()
