@@ -918,6 +918,7 @@ struct RSSReaderTests {
         )
 
         #expect(allItemsFeeds.map(\.id) == feeds.map(\.id))
+        #expect(allItemsFeeds.map(\.unreadCount) == feeds.map(\.unreadCount))
     }
 
     @Test
