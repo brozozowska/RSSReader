@@ -194,7 +194,7 @@
 - [x] скрывать секцию `Folders`, если после применения фильтра в ней не осталось папок или источников;
 - [x] скрывать секцию `Ungrouped`, если после применения фильтра в ней не осталось источников;
 - [x] определить selection behavior при смене фильтра: текущий selection сохраняется, если остаётся видимым, иначе происходит fallback на активную smart row;
-- [ ] подготовить query/read-model для расчёта наличия unread/starred статей на уровне папок и источников;
+- [x] подготовить query/read-model для расчёта наличия unread/starred статей на уровне папок и источников;
 - [ ] добавить unit tests на toolbar/filter behavior: layout actions, subtitle state, `Starred`, `Unread`, `Archive`, скрытие пустых секций и selection fallback.
 
 #### Articles Screen

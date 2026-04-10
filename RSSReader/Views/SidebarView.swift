@@ -115,15 +115,20 @@ struct SidebarView: View {
         }
         unreadSmartCount = 0
         starredSmartCount = 0
+        starredFeedIDs = []
 
-        guard let feedRepository = dependencies.feedRepository else {
+        guard let sourcesSidebarQueryService = dependencies.sourcesSidebarQueryService else {
             feeds = []
             phase = .failed("Sources are unavailable in the current app environment.")
             return
         }
 
         do {
-            feeds = try feedRepository.fetchSidebarItems()
+            let snapshot = try sourcesSidebarQueryService.fetchSnapshot()
+            feeds = snapshot.feeds
+            unreadSmartCount = snapshot.unreadSmartCount
+            starredSmartCount = snapshot.starredSmartCount
+            starredFeedIDs = snapshot.starredFeedIDs
         } catch {
             dependencies.logger.error("Failed to load sidebar feeds: \(error)")
             feeds = []
@@ -131,42 +136,7 @@ struct SidebarView: View {
             return
         }
 
-        if let articleStateRepository = dependencies.articleStateRepository {
-            do {
-                let unreadCounts = try articleStateRepository.fetchUnreadCounts(feedIDs: feeds.map(\.id))
-                feeds = feeds.map { feed in
-                    feed.withUnreadCount(unreadCounts[feed.id, default: 0])
-                }
-            } catch {
-                dependencies.logger.error("Failed to load unread counts for sidebar feeds: \(error)")
-            }
-        }
-
         expandedFolderNames = Set(folderGroups.map(\.name))
-
-        if let articleQueryService = dependencies.articleQueryService {
-            do {
-                unreadSmartCount = try articleQueryService.fetchInboxListItems(
-                    sortMode: .publishedAtDescending,
-                    filter: .unread
-                ).count
-                let starredItems = try articleQueryService.fetchInboxListItems(
-                    sortMode: .publishedAtDescending,
-                    filter: .starred
-                )
-                starredSmartCount = starredItems.count
-                starredFeedIDs = Set(starredItems.map(\.feedID))
-            } catch {
-                dependencies.logger.error("Failed to load smart section counts for sidebar: \(error)")
-                unreadSmartCount = 0
-                starredSmartCount = 0
-                starredFeedIDs = []
-            }
-        } else {
-            unreadSmartCount = 0
-            starredSmartCount = 0
-            starredFeedIDs = []
-        }
 
         applySelectionBehaviorForCurrentFilter()
 

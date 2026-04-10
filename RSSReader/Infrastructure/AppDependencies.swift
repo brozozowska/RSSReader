@@ -22,6 +22,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let articleRepository: (any ArticleRepository)?
     let articleStateService: ArticleStateService?
     let articleQueryService: (any ArticleQueryService)?
+    let sourcesSidebarQueryService: (any SourcesSidebarQueryService)?
     let articleStateRepository: (any ArticleStateRepository)?
     let appSettingsRepository: (any AppSettingsRepository)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
@@ -60,6 +61,19 @@ public final class AppDependencies: AppDependenciesProtocol {
                 articleStateRepository: repository
             )
         }
+        let sourcesSidebarQueryService: (any SourcesSidebarQueryService)? = {
+            guard let feedRepository,
+                  let articleStateRepository,
+                  let articleQueryService else {
+                return nil
+            }
+
+            return DefaultSourcesSidebarQueryService(
+                feedRepository: feedRepository,
+                articleStateRepository: articleStateRepository,
+                articleQueryService: articleQueryService
+            )
+        }()
         let appSettingsRepository = modelContainer.map { container in
             SwiftDataAppSettingsRepository(modelContext: container.mainContext)
         }
@@ -94,6 +108,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.articleStateService = articleStateService
         self.articleStateRepository = articleStateRepository
         self.articleQueryService = articleQueryService
+        self.sourcesSidebarQueryService = sourcesSidebarQueryService
         self.appSettingsRepository = appSettingsRepository
         self.feedFetchLogRepository = feedFetchLogRepository
         self.feedFetcher = resolvedFeedFetcher
