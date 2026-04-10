@@ -72,46 +72,23 @@ struct SidebarView: View {
         .refreshable {
             await refreshSources()
         }
-        .navigationTitle("Sources")
-        .toolbarTitleDisplayMode(.inlineLarge)
+        .toolbarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Button {
-                    // TODO: Wire Add Source action when Source Management flow is implemented.
-                    dependencies.logger.info("Add source action is not implemented yet")
-                } label: {
-                    Image(systemName: "plus")
-                }
-
-                Menu {
-                    Button("Refresh Sources") {
-                        Task {
-                            await refreshSources()
-                        }
-                    }
-                    .disabled(isSyncing)
-
-                    Button("Import") {
-                        // TODO: Replace with OPML import flow.
-                        dependencies.logger.info("Import action is not implemented yet")
-                    }
-                    Button("Export") {
-                        // TODO: Replace with OPML export flow.
-                        dependencies.logger.info("Export action is not implemented yet")
-                    }
-                    Button("Settings") {
-                        // TODO: Present settings screen when Settings Integration is implemented.
-                        dependencies.logger.info("Settings action is not implemented yet")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-                .accessibilityLabel("Sidebar Menu")
+            ToolbarItem(placement: .topBarLeading) {
+                sidebarActionsMenu
             }
-        }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if showsStatusRow {
-                statusHeader
+
+            ToolbarItem(placement: .title) {
+                titleView
+            }
+
+            ToolbarItem(placement: .subtitle) {
+                subtitleView
+            }
+
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                addSourceButton
+                sourcesFilterMenu
             }
         }
         .overlay {
@@ -258,15 +235,6 @@ struct SidebarView: View {
         }
     }
 
-    private var showsStatusRow: Bool {
-        switch effectivePhase {
-        case .loaded:
-            true
-        case .loading, .empty, .failed:
-            false
-        }
-    }
-
     @ViewBuilder
     private var overlayContent: some View {
         switch effectivePhase {
@@ -297,6 +265,15 @@ struct SidebarView: View {
         previewOverridePhase ?? phase
     }
 
+    private var navigationSubtitleText: String {
+        switch refreshStatus {
+        case .syncing:
+            "Syncing..."
+        case .idle(let lastUpdatedAt):
+            lastUpdatedText(for: lastUpdatedAt)
+        }
+    }
+
     private var isSyncing: Bool {
         if case .syncing = refreshStatus {
             return true
@@ -325,27 +302,17 @@ struct SidebarView: View {
         loadRequestID = UUID()
     }
 
-    @ViewBuilder
-    private var statusHeader: some View {
-        HStack(spacing: 10) {
-            switch refreshStatus {
-            case .syncing:
-                Text("Syncing...")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-            case .idle(let lastUpdatedAt):
-                Text(lastUpdatedText(for: lastUpdatedAt))
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-            }
+    private var titleView: some View {
+        Text("Sources")
+            .font(.title3.weight(.semibold))
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 4)
-        .padding(.bottom, 10)
-        .background(Color.white)
-        .accessibilityElement(children: .combine)
+    private var subtitleView: some View {
+        Text(navigationSubtitleText)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: User Actions
@@ -364,6 +331,64 @@ struct SidebarView: View {
         }
 
         return date.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    private var sidebarActionsMenu: some View {
+        Menu {
+            Button("Import") {
+                // TODO: Replace with OPML import flow.
+                dependencies.logger.info("Import action is not implemented yet")
+            }
+
+            Button("Export") {
+                // TODO: Replace with OPML export flow.
+                dependencies.logger.info("Export action is not implemented yet")
+            }
+
+            Divider()
+
+            Button("Settings") {
+                // TODO: Present settings screen when Settings Integration is implemented.
+                dependencies.logger.info("Settings action is not implemented yet")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .accessibilityLabel("Sidebar Actions")
+    }
+
+    private var addSourceButton: some View {
+        Button {
+            // TODO: Wire Add Source action when Source Management flow is implemented.
+            dependencies.logger.info("Add source action is not implemented yet")
+        } label: {
+            Image(systemName: "plus")
+        }
+        .accessibilityLabel("Add Source")
+    }
+
+    private var sourcesFilterMenu: some View {
+        Menu {
+            sourcesFilterButton("All Items", filter: .allItems)
+            sourcesFilterButton("Unread", filter: .unread)
+            sourcesFilterButton("Starred", filter: .starred)
+        } label: {
+            Image(systemName: "line.3.horizontal.decrease")
+        }
+        .accessibilityLabel("Filter Sources")
+    }
+
+    @ViewBuilder
+    private func sourcesFilterButton(_ title: String, filter: SourcesFilter) -> some View {
+        Button {
+            dependencies.applySourcesFilter(filter, using: appState)
+        } label: {
+            if appState.selectedSourcesFilter == filter {
+                Label(title, systemImage: "checkmark")
+            } else {
+                Text(title)
+            }
+        }
     }
 
     @MainActor
@@ -956,4 +981,3 @@ private extension View {
         selection: .feed(SidebarPreviewFactory.SampleIDs.vergeFeedID)
     )
 }
-

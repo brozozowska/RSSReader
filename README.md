@@ -184,15 +184,13 @@
 - [x] добавить ручной refresh и статус синхронизации для Sources sidebar.
 
 #### Sources Filtering
-- [ ] определить отдельный shell-level state для фильтра `Sources`, чтобы логика отбора источников не жила в `Articles Screen`;
-- [ ] переделать toolbar `Sources` под три кнопки: одна слева и две справа;
+- [x] определить отдельный shell-level state для фильтра `Sources`, чтобы логика отбора источников не жила в `Articles Screen`;
+- [x] переделать toolbar `Sources` под три кнопки: одна слева и две справа, показать subtitle и вынести туда дату последнего обновления источников и `Syncing...` во время refresh;
 - [ ] слева вынести menu с actions `Import`, `Export`, `Settings`;
 - [ ] справа оставить actions `Add Source` и `Filter`;
 - [ ] вынести фильтр `Sources` в отдельную toolbar button вместо общего menu;
 - [ ] добавить в filter menu/actions режимы `All Items / Unread / Starred`;
 - [ ] переименовать `All Items` в `Archive` на уровне UI-копира и navigation labels;
-- [ ] показать subtitle в navigation bar и вынести туда дату последнего обновления источников;
-- [ ] показывать в subtitle строку `Syncing...` во время refresh вместо даты последнего обновления;
 - [ ] показывать в `Smart Views` только активный фильтр и скрывать остальные smart rows;
 - [ ] скрыть заголовок `Smart Views`, если в секции остаётся единственная активная ячейка;
 - [ ] при активном фильтре `Starred` показывать только те папки и источники, в которых есть starred статьи;
