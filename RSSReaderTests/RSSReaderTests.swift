@@ -982,10 +982,72 @@ struct RSSReaderTests {
     }
 
     @Test
-    func folderArticleListFilterResolverMapsSourcesFilterToExpectedArticleFilter() {
-        #expect(FolderArticleListFilterResolver.resolve(for: .allItems) == .all)
-        #expect(FolderArticleListFilterResolver.resolve(for: .unread) == .unread)
-        #expect(FolderArticleListFilterResolver.resolve(for: .starred) == .starred)
+    func feedSelectionInheritsActiveSourcesFilterForSelectedSource() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/source-feed.xml"]).first)
+
+        let unreadArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "source-unread",
+            url: "https://example.com/source/unread",
+            title: "Unread Source"
+        )
+        let starredArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "source-starred",
+            url: "https://example.com/source/starred",
+            title: "Starred Source"
+        )
+        let readArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "source-read",
+            url: "https://example.com/source/read",
+            title: "Read Source"
+        )
+
+        let stateService = try #require(harness.dependencies.articleStateService)
+        _ = try stateService.toggleStarred(article: starredArticle, at: .now)
+        _ = try stateService.markAsRead(article: starredArticle, at: .now)
+        _ = try stateService.markAsRead(article: readArticle, at: .now)
+
+        let unreadItems = try harness.dependencies.articleQueryService?.fetchArticleListItems(
+            feedID: feed.id,
+            sortMode: .publishedAtDescending,
+            filter: .unread
+        )
+        let resolvedUnreadItems = try #require(unreadItems)
+
+        let starredItems = try harness.dependencies.articleQueryService?.fetchArticleListItems(
+            feedID: feed.id,
+            sortMode: .publishedAtDescending,
+            filter: .starred
+        )
+        let resolvedStarredItems = try #require(starredItems)
+
+        let allItems = try harness.dependencies.articleQueryService?.fetchArticleListItems(
+            feedID: feed.id,
+            sortMode: .publishedAtDescending,
+            filter: .all
+        )
+        let resolvedAllItems = try #require(allItems)
+
+        #expect(resolvedUnreadItems.map(\.id) == [unreadArticle.id])
+        #expect(resolvedUnreadItems.allSatisfy { $0.feedID == feed.id })
+        #expect(resolvedUnreadItems.allSatisfy { $0.isRead == false })
+
+        #expect(resolvedStarredItems.map(\.id) == [starredArticle.id])
+        #expect(resolvedStarredItems.allSatisfy { $0.feedID == feed.id })
+        #expect(resolvedStarredItems.allSatisfy { $0.isStarred })
+
+        #expect(resolvedAllItems.map(\.id) == [readArticle.id, starredArticle.id, unreadArticle.id])
+        #expect(resolvedAllItems.allSatisfy { $0.feedID == feed.id })
+    }
+
+    @Test
+    func sourcesFilterArticleListFilterResolverMapsSourcesFilterToExpectedArticleFilter() {
+        #expect(SourcesFilterArticleListFilterResolver.resolve(for: .allItems) == .all)
+        #expect(SourcesFilterArticleListFilterResolver.resolve(for: .unread) == .unread)
+        #expect(SourcesFilterArticleListFilterResolver.resolve(for: .starred) == .starred)
     }
 
     @Test

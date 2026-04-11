@@ -94,13 +94,13 @@ struct ArticleListView: View {
                 articles = try articleQueryService.fetchFolderListItems(
                     folderName: folderName,
                     sortMode: sortMode,
-                    filter: FolderArticleListFilterResolver.resolve(for: selectedSourcesFilter)
+                    filter: SourcesFilterArticleListFilterResolver.resolve(for: selectedSourcesFilter)
                 )
             case .feed(let selectedFeedID):
                 articles = try articleQueryService.fetchArticleListItems(
                     feedID: selectedFeedID,
                     sortMode: sortMode,
-                    filter: selectedFilter
+                    filter: SourcesFilterArticleListFilterResolver.resolve(for: selectedSourcesFilter)
                 )
             case .none:
                 articles = []
@@ -124,7 +124,7 @@ struct ArticleListView: View {
         case .folder(let folderName):
             "\(folderName) has no articles for the active sources filter."
         case .feed:
-            "This feed has no stored articles yet."
+            "This source has no articles for the active sources filter."
         case .none:
             "Select Inbox or a feed in the sidebar to load articles."
         }
@@ -158,7 +158,7 @@ private struct ArticleListLoadContext: Hashable {
     let reloadID: UUID
 }
 
-enum FolderArticleListFilterResolver {
+enum SourcesFilterArticleListFilterResolver {
     static func resolve(for sourcesFilter: SourcesFilter) -> ArticleListFilter {
         switch sourcesFilter {
         case .allItems:
