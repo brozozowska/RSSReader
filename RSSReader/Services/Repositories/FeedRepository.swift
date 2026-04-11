@@ -79,22 +79,25 @@ struct FeedSidebarItem: Sendable, Identifiable {
     let iconURL: String?
     let folderName: String?
     let unreadCount: Int
+    let starredCount: Int
 
-    init(feed: Feed, unreadCount: Int = 0) {
+    init(feed: Feed, unreadCount: Int = 0, starredCount: Int = 0) {
         self.id = feed.id
         self.title = feed.title
         self.iconURL = feed.iconURL
         self.folderName = feed.folder?.name
         self.unreadCount = unreadCount
+        self.starredCount = starredCount
     }
 
-    func withUnreadCount(_ unreadCount: Int) -> FeedSidebarItem {
+    func withCounts(unreadCount: Int, starredCount: Int) -> FeedSidebarItem {
         FeedSidebarItem(
             id: id,
             title: title,
             iconURL: iconURL,
             folderName: folderName,
-            unreadCount: unreadCount
+            unreadCount: unreadCount,
+            starredCount: starredCount
         )
     }
 
@@ -103,13 +106,15 @@ struct FeedSidebarItem: Sendable, Identifiable {
         title: String,
         iconURL: String?,
         folderName: String?,
-        unreadCount: Int
+        unreadCount: Int,
+        starredCount: Int
     ) {
         self.id = id
         self.title = title
         self.iconURL = iconURL
         self.folderName = folderName
         self.unreadCount = unreadCount
+        self.starredCount = starredCount
     }
 }
 

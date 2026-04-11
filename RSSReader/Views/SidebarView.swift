@@ -351,7 +351,7 @@ struct SidebarView: View {
         SidebarRow(
             title: item.title,
             iconSystemName: item.iconSystemName,
-            count: smartCount(for: item)
+            count: smartCount
         )
         .tag(Optional(item.selection))
     }
@@ -366,8 +366,12 @@ struct SidebarView: View {
 
             Spacer()
 
-            if feed.unreadCount > 0 {
-                countLabel(feed.unreadCount)
+            let count = SidebarCountPresentation.feedCount(
+                for: feed,
+                filter: appState.selectedSourcesFilter
+            )
+            if count > 0 {
+                countLabel(count)
             }
         }
         .font(.body)
@@ -400,8 +404,12 @@ struct SidebarView: View {
             .buttonStyle(.plain)
 
             Spacer()
-            if group.unreadCount > 0 {
-                countLabel(group.unreadCount)
+            let count = SidebarCountPresentation.folderCount(
+                for: group,
+                filter: appState.selectedSourcesFilter
+            )
+            if count > 0 {
+                countLabel(count)
             }
         }
         .font(.body)
@@ -435,15 +443,12 @@ struct SidebarView: View {
             .foregroundStyle(.secondary)
     }
 
-    private func smartCount(for item: SmartSidebarItem) -> Int? {
-        switch item {
-        case .allItems:
-            nil
-        case .unread:
-            unreadSmartCount
-        case .starred:
-            starredSmartCount
-        }
+    private var smartCount: Int? {
+        SidebarCountPresentation.smartCount(
+            for: appState.selectedSourcesFilter,
+            unreadSmartCount: unreadSmartCount,
+            starredSmartCount: starredSmartCount
+        )
     }
 
     private func toggleFolderExpansion(named folderName: String) {
@@ -591,6 +596,7 @@ struct FolderSidebarGroup: Identifiable {
 
     var id: String { name }
     var unreadCount: Int { feeds.reduce(0) { $0 + $1.unreadCount } }
+    var starredCount: Int { feeds.reduce(0) { $0 + $1.starredCount } }
 
     static func groups(from feeds: [FeedSidebarItem]) -> [FolderSidebarGroup] {
         let groupedFeeds = Dictionary(

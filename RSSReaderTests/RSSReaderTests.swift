@@ -773,9 +773,65 @@ struct RSSReaderTests {
 
         #expect(resolvedSnapshot.feeds.map(\.id) == feeds.map(\.id))
         #expect(resolvedSnapshot.feeds.map(\.unreadCount) == [1, 1])
+        #expect(resolvedSnapshot.feeds.map(\.starredCount) == [0, 1])
         #expect(resolvedSnapshot.unreadSmartCount == 2)
         #expect(resolvedSnapshot.starredSmartCount == 1)
         #expect(resolvedSnapshot.starredFeedIDs == [secondFeed.id])
+    }
+
+    @Test
+    func sidebarCountPresentationUsesUnreadCountersForAllItemsAndUnreadFilters() {
+        let feed = FeedSidebarItem(
+            feed: Feed(id: UUID(), url: "https://example.com/feed.xml", title: "Feed"),
+            unreadCount: 3,
+            starredCount: 2
+        )
+        let folder = FolderSidebarGroup(name: "Tech", feeds: [feed])
+
+        #expect(
+            SidebarCountPresentation.smartCount(
+                for: .allItems,
+                unreadSmartCount: 5,
+                starredSmartCount: 2
+            ) == 5
+        )
+        #expect(
+            SidebarCountPresentation.smartCount(
+                for: .unread,
+                unreadSmartCount: 5,
+                starredSmartCount: 2
+            ) == 5
+        )
+        #expect(SidebarCountPresentation.feedCount(for: feed, filter: .allItems) == 3)
+        #expect(SidebarCountPresentation.feedCount(for: feed, filter: .unread) == 3)
+        #expect(SidebarCountPresentation.folderCount(for: folder, filter: .allItems) == 3)
+        #expect(SidebarCountPresentation.folderCount(for: folder, filter: .unread) == 3)
+    }
+
+    @Test
+    func sidebarCountPresentationUsesStarredCountersForStarredFilter() {
+        let firstFeed = FeedSidebarItem(
+            feed: Feed(id: UUID(), url: "https://example.com/feed-one.xml", title: "Feed One"),
+            unreadCount: 4,
+            starredCount: 1
+        )
+        let secondFeed = FeedSidebarItem(
+            feed: Feed(id: UUID(), url: "https://example.com/feed-two.xml", title: "Feed Two"),
+            unreadCount: 2,
+            starredCount: 3
+        )
+        let folder = FolderSidebarGroup(name: "Tech", feeds: [firstFeed, secondFeed])
+
+        #expect(
+            SidebarCountPresentation.smartCount(
+                for: .starred,
+                unreadSmartCount: 6,
+                starredSmartCount: 4
+            ) == 4
+        )
+        #expect(SidebarCountPresentation.feedCount(for: firstFeed, filter: .starred) == 1)
+        #expect(SidebarCountPresentation.feedCount(for: secondFeed, filter: .starred) == 3)
+        #expect(SidebarCountPresentation.folderCount(for: folder, filter: .starred) == 4)
     }
 
     @Test
