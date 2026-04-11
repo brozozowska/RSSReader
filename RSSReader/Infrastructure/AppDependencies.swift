@@ -165,6 +165,11 @@ extension AppDependencies {
     }
 
     @MainActor
+    func showFolder(named folderName: String, using appState: AppState) {
+        appState.selectReadingSource(.folder(folderName))
+    }
+
+    @MainActor
     func selectArticle(id articleID: UUID?, using appState: AppState) {
         appState.selectedArticleID = articleID
     }
@@ -233,7 +238,7 @@ extension AppDependencies {
                 appState.requestArticleListReload()
             }
             return result
-        case .inbox, .unread, .starred, .none:
+        case .inbox, .unread, .starred, .folder, .none:
             logger.info("Skipped source refresh because the current source is not a single feed")
             return nil
         }

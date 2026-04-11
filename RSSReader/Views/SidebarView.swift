@@ -261,7 +261,8 @@ struct SidebarView: View {
         selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: selection,
             filter: appState.selectedSourcesFilter,
-            visibleFeedIDs: Set(visibleFeeds.map(\.id))
+            visibleFeedIDs: Set(visibleFeeds.map(\.id)),
+            visibleFolderNames: Set(folderGroups.map(\.name))
         )
     }
 
@@ -430,6 +431,7 @@ struct SidebarView: View {
         .font(.body)
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
+        .tag(Optional(SidebarSelection.folder(group.name)))
     }
 
     @ViewBuilder
@@ -477,10 +479,7 @@ struct SidebarView: View {
     }
 
     private func handleFolderSelection(_ group: FolderSidebarGroup) {
-        // TODO: Replace with folder navigation when folder-level article list is introduced.
-        dependencies.logger.info(
-            "Folder selection tapped for \(group.name). Folder article list navigation is not implemented yet."
-        )
+        dependencies.showFolder(named: group.name, using: appState)
     }
 }
 
@@ -590,7 +589,8 @@ enum SidebarSelectionBehavior {
     static func resolvedSelection(
         currentSelection: SidebarSelection?,
         filter: SourcesFilter,
-        visibleFeedIDs: Set<UUID>
+        visibleFeedIDs: Set<UUID>,
+        visibleFolderNames: Set<String>
     ) -> SidebarSelection {
         let fallbackSelection = SmartSidebarItem.selection(for: filter)
 
@@ -601,6 +601,8 @@ enum SidebarSelectionBehavior {
         switch currentSelection {
         case .feed(let feedID):
             return visibleFeedIDs.contains(feedID) ? currentSelection : fallbackSelection
+        case .folder(let folderName):
+            return visibleFolderNames.contains(folderName) ? currentSelection : fallbackSelection
         case .inbox, .unread, .starred:
             return currentSelection == fallbackSelection ? currentSelection : fallbackSelection
         }

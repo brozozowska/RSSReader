@@ -89,6 +89,12 @@ struct ArticleListView: View {
                     sortMode: sortMode,
                     filter: .starred
                 )
+            case .folder(let folderName):
+                articles = try articleQueryService.fetchFolderListItems(
+                    folderName: folderName,
+                    sortMode: sortMode,
+                    filter: .unread
+                )
             case .feed(let selectedFeedID):
                 articles = try articleQueryService.fetchArticleListItems(
                     feedID: selectedFeedID,
@@ -114,6 +120,8 @@ struct ArticleListView: View {
             "There are no unread articles in your sources."
         case .starred:
             "You have not starred any articles yet."
+        case .folder(let folderName):
+            "\(folderName) has no unread articles."
         case .feed:
             "This feed has no stored articles yet."
         case .none:

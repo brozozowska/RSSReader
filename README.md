@@ -195,7 +195,15 @@
 - [x] скрывать секцию `Ungrouped`, если после применения фильтра в ней не осталось источников;
 - [x] определить selection behavior при смене фильтра: текущий selection сохраняется, если остаётся видимым, иначе происходит fallback на активную smart row;
 - [x] подготовить query/read-model для расчёта наличия unread/starred статей на уровне папок и источников;
-- [ ] добавить unit tests на toolbar/filter behavior: layout actions, subtitle state, `Starred`, `Unread`, `Archive`, скрытие пустых секций и selection fallback.
+- [x] добавить folder-level navigation: ввести folder-level selection в `AppState` и связать tap по папке с открытием unread-only списка статей для этой папки;
+- [ ] определить persistence policy для `SourcesFilter` и восстанавливать последний выбранный фильтр при запуске приложения;
+- [ ] вынести subtitle-логику из `SidebarView` в отдельный helper (`SidebarToolbarState` / `SidebarSubtitleFormatter`), чтобы производное состояние toolbar не жило внутри `View`;
+- [ ] при необходимости вынести конфигурацию filter menu в отдельный helper / DTO;
+- [ ] добавить unit tests на shell helpers и производное состояние toolbar:
+- [ ] проверить active state для пунктов меню фильтра `All Items / Unread / Starred`;
+- [ ] проверить форматирование subtitle для состояния с датой последнего обновления;
+- [ ] проверить переключение subtitle между `idle` и `Syncing...`;
+- [ ] проверить `Starred`, `Unread`, `All Items`, скрытие пустых секций и selection fallback.
 
 #### Articles Screen
 - [ ] определить screen-level state/model для `Articles Screen`, чтобы отделить загрузку, refresh, empty/error состояния и actions от `View`;

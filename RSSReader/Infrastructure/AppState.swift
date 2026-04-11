@@ -5,6 +5,7 @@ enum SourceSelection: Hashable, Sendable {
     case inbox
     case unread
     case starred
+    case folder(String)
     case feed(UUID)
 }
 

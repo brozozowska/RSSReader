@@ -903,6 +903,55 @@ struct RSSReaderTests {
     }
 
     @Test
+    func folderSelectionUsesUnreadOnlyArticlesForSelectedFolder() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feeds = try harness.insertFeeds(
+            urls: [
+                "https://example.com/news-feed.xml",
+                "https://example.com/tech-feed.xml"
+            ]
+        )
+        let newsFeed = try #require(feeds.first)
+        let techFeed = try #require(feeds.last)
+        let newsFolder = Folder(name: "News")
+        newsFeed.folder = newsFolder
+        try harness.saveModelContext()
+
+        let unreadNewsArticle = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-unread",
+            url: "https://example.com/news/unread",
+            title: "Unread News"
+        )
+        _ = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-read",
+            url: "https://example.com/news/read",
+            title: "Read News"
+        )
+        _ = try harness.insertArticle(
+            feed: techFeed,
+            externalID: "tech-unread",
+            url: "https://example.com/tech/unread",
+            title: "Unread Tech"
+        )
+
+        let stateService = try #require(harness.dependencies.articleStateService)
+        _ = try stateService.markAsRead(feedID: newsFeed.id, articleExternalID: "news-read", at: .now)
+
+        let items = try harness.dependencies.articleQueryService?.fetchFolderListItems(
+            folderName: "News",
+            sortMode: .publishedAtDescending,
+            filter: .unread
+        )
+        let resolvedItems = try #require(items)
+
+        #expect(resolvedItems.map(\.id) == [unreadNewsArticle.id])
+        #expect(resolvedItems.allSatisfy { $0.feedID == newsFeed.id })
+        #expect(resolvedItems.allSatisfy { $0.isRead == false })
+    }
+
+    @Test
     func sourcesSmartViewsShowOnlyActiveFilterRow() {
         #expect(SmartSidebarItem.visibleItems(for: .allItems, hasFeeds: true) == [.allItems])
         #expect(SmartSidebarItem.visibleItems(for: .unread, hasFeeds: true) == [.unread])
@@ -923,7 +972,8 @@ struct RSSReaderTests {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: .feed(visibleFeedID),
             filter: .starred,
-            visibleFeedIDs: [visibleFeedID]
+            visibleFeedIDs: [visibleFeedID],
+            visibleFolderNames: []
         )
 
         #expect(selection == .feed(visibleFeedID))
@@ -936,7 +986,8 @@ struct RSSReaderTests {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: .feed(hiddenFeedID),
             filter: .unread,
-            visibleFeedIDs: []
+            visibleFeedIDs: [],
+            visibleFolderNames: []
         )
 
         #expect(selection == .unread)
@@ -947,7 +998,8 @@ struct RSSReaderTests {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: .inbox,
             filter: .starred,
-            visibleFeedIDs: []
+            visibleFeedIDs: [],
+            visibleFolderNames: []
         )
 
         #expect(selection == .starred)
@@ -958,10 +1010,35 @@ struct RSSReaderTests {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: nil,
             filter: .allItems,
-            visibleFeedIDs: []
+            visibleFeedIDs: [],
+            visibleFolderNames: []
         )
 
         #expect(selection == .inbox)
+    }
+
+    @Test
+    func sourcesSelectionBehaviorKeepsCurrentFolderSelectionWhenItRemainsVisible() {
+        let selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: .folder("News"),
+            filter: .unread,
+            visibleFeedIDs: [],
+            visibleFolderNames: ["News"]
+        )
+
+        #expect(selection == .folder("News"))
+    }
+
+    @Test
+    func sourcesSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentFolderBecomesHidden() {
+        let selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: .folder("News"),
+            filter: .starred,
+            visibleFeedIDs: [],
+            visibleFolderNames: []
+        )
+
+        #expect(selection == .starred)
     }
 
     @Test
@@ -1116,6 +1193,12 @@ struct RSSReaderTests {
         harness.dependencies.showInbox(using: appState)
 
         #expect(appState.selectedSidebarSelection == .inbox)
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
+
+        harness.dependencies.showFolder(named: "News", using: appState)
+
+        #expect(appState.selectedSidebarSelection == .folder("News"))
         #expect(appState.selectedArticleID == nil)
         #expect(appState.selectedDetailRoute == .none)
 

@@ -4,6 +4,7 @@ import Foundation
 protocol ArticleQueryService {
     func fetchArticleListItems(feedID: UUID, sortMode: ArticleSortMode) throws -> [ArticleListItemDTO]
     func fetchArticleListItems(feedID: UUID, sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO]
+    func fetchFolderListItems(folderName: String, sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO]
     func fetchInboxListItems(sortMode: ArticleSortMode) throws -> [ArticleListItemDTO]
     func fetchInboxListItems(sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO]
     func fetchReaderArticle(id: UUID) throws -> ReaderArticleDTO?
@@ -32,13 +33,18 @@ final class DefaultArticleQueryService: ArticleQueryService {
         filter: ArticleListFilter
     ) throws -> [ArticleListItemDTO] {
         let articles = try articleRepository.fetchArticles(feedID: feedID, sortMode: sortMode)
-        let stateByCompositeKey = try fetchStateByCompositeKey(for: articles)
+        return try makeListItems(from: articles, filter: filter)
+    }
 
-        return articles.compactMap { article in
-            let state = stateByCompositeKey[articleCompositeKey(feedID: article.feedID, articleExternalID: article.externalID)]
-            let item = ArticleListItemDTO(article: article, state: state)
-            return matches(filter: filter, item: item) ? item : nil
-        }
+    func fetchFolderListItems(
+        folderName: String,
+        sortMode: ArticleSortMode,
+        filter: ArticleListFilter
+    ) throws -> [ArticleListItemDTO] {
+        let articles = try articleRepository.fetchInbox(sortMode: sortMode)
+            .filter { $0.feed.folder?.name == folderName }
+
+        return try makeListItems(from: articles, filter: filter)
     }
 
     func fetchInboxListItems(sortMode: ArticleSortMode) throws -> [ArticleListItemDTO] {
@@ -47,6 +53,10 @@ final class DefaultArticleQueryService: ArticleQueryService {
 
     func fetchInboxListItems(sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO] {
         let articles = try articleRepository.fetchInbox(sortMode: sortMode)
+        return try makeListItems(from: articles, filter: filter)
+    }
+
+    private func makeListItems(from articles: [Article], filter: ArticleListFilter) throws -> [ArticleListItemDTO] {
         let stateByCompositeKey = try fetchStateByCompositeKey(for: articles)
 
         return articles.compactMap { article in
