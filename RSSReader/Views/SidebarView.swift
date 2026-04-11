@@ -220,20 +220,12 @@ struct SidebarView: View {
         previewOverridePhase ?? phase
     }
 
-    private var navigationSubtitleText: String {
-        switch refreshStatus {
-        case .syncing:
-            "Syncing..."
-        case .idle(let lastUpdatedAt):
-            lastUpdatedText(for: lastUpdatedAt)
-        }
+    private var toolbarState: SidebarToolbarState {
+        SidebarToolbarState(refreshStatus: refreshStatus)
     }
 
     private var isSyncing: Bool {
-        if case .syncing = refreshStatus {
-            return true
-        }
-        return false
+        toolbarState.isSyncing
     }
 
     // MARK: Status And Overlay UI
@@ -273,29 +265,13 @@ struct SidebarView: View {
     }
 
     private var subtitleView: some View {
-        Text(navigationSubtitleText)
+        Text(toolbarState.subtitle)
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: User Actions
-
-    private func lastUpdatedText(for date: Date?) -> String {
-        guard let date else {
-            return "Not updated yet"
-        }
-
-        if Calendar.current.isDateInToday(date) {
-            return "Today at \(date.formatted(date: .omitted, time: .shortened))"
-        }
-
-        if Calendar.current.isDateInYesterday(date) {
-            return "Yesterday at \(date.formatted(date: .omitted, time: .shortened))"
-        }
-
-        return date.formatted(date: .abbreviated, time: .shortened)
-    }
 
     private var sidebarActionsMenu: some View {
         Menu {

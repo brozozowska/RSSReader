@@ -199,7 +199,7 @@
 - [x] при folder-level navigation наследовать активный `SourcesFilter`: `Unread` показывает только непрочитанные статьи папки, `Starred` показывает только starred статьи папки, `All Items` показывает все статьи папки;
 - [x] при single feed selection наследовать активный `SourcesFilter`: `Unread` показывает только непрочитанные статьи источника, `Starred` показывает только starred статьи источника, `All Items` показывает все статьи источника;
 - [x] определить persistence policy для `SourcesFilter` и восстанавливать последний выбранный фильтр при запуске приложения;
-- [ ] вынести subtitle-логику из `SidebarView` в отдельный helper (`SidebarToolbarState` / `SidebarSubtitleFormatter`), чтобы производное состояние toolbar не жило внутри `View`;
+- [x] вынести subtitle-логику из `SidebarView` в отдельный helper (`SidebarToolbarState` / `SidebarSubtitleFormatter`), чтобы производное состояние toolbar не жило внутри `View`;
 - [ ] при необходимости вынести конфигурацию filter menu в отдельный helper / DTO;
 - [ ] добавить unit tests на shell helpers и производное состояние toolbar:
 - [ ] проверить active state для пунктов меню фильтра `All Items / Unread / Starred`;
