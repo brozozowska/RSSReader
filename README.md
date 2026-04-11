@@ -201,13 +201,7 @@
 - [x] определить persistence policy для `SourcesFilter` и восстанавливать последний выбранный фильтр при запуске приложения;
 - [x] вынести subtitle-логику из `SidebarView` в отдельный helper (`SidebarToolbarState` / `SidebarSubtitleFormatter`), чтобы производное состояние toolbar не жило внутри `View`;
 - [x] сделать counters в sidebar filter-aware: `All Items` показывает unread counters для `Smart Views`, папок и источников, `Unread` показывает unread counters, `Starred` показывает starred counters;
-- [ ] выровнять preview-сценарии `SidebarView` с новой логикой counters для `All Items / Unread / Starred`, чтобы превью не вводили в заблуждение.
-- [ ] при необходимости вынести конфигурацию filter menu в отдельный helper / DTO;
-- [ ] добавить unit tests на shell helpers и производное состояние toolbar:
-- [ ] проверить active state для пунктов меню фильтра `All Items / Unread / Starred`;
-- [ ] проверить форматирование subtitle для состояния с датой последнего обновления;
-- [ ] проверить переключение subtitle между `idle` и `Syncing...`;
-- [ ] проверить `Starred`, `Unread`, `All Items`, скрытие пустых секций и selection fallback.
+- [x] добавить недостающие unit tests на `SidebarToolbarState` и `SidebarSubtitleFormatter`.
 
 #### Articles Screen
 - [ ] определить screen-level state/model для `Articles Screen`, чтобы отделить загрузку, refresh, empty/error состояния и actions от `View`;

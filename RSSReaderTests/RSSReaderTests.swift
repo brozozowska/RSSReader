@@ -835,6 +835,84 @@ struct RSSReaderTests {
     }
 
     @Test
+    func sidebarSubtitleFormatterReturnsSyncingTitleForSyncingState() {
+        let formatter = SidebarSubtitleFormatter()
+
+        #expect(formatter.text(for: .syncing) == "Syncing...")
+    }
+
+    @Test
+    func sidebarSubtitleFormatterReturnsPlaceholderWhenNoRefreshDateIsAvailable() {
+        let formatter = SidebarSubtitleFormatter()
+
+        #expect(formatter.text(for: .idle(lastUpdatedAt: nil)) == "Not updated yet")
+    }
+
+    @Test
+    func sidebarSubtitleFormatterFormatsTodayRefreshDate() {
+        let formatter = SidebarSubtitleFormatter()
+        let calendar = Calendar.current
+        let now = Date()
+        let refreshDate = calendar.date(
+            bySettingHour: 9,
+            minute: 41,
+            second: 0,
+            of: now
+        ) ?? now
+
+        let expectedText = "Today at \(refreshDate.formatted(date: .omitted, time: .shortened))"
+
+        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == expectedText)
+    }
+
+    @Test
+    func sidebarSubtitleFormatterFormatsYesterdayRefreshDate() {
+        let formatter = SidebarSubtitleFormatter()
+        let calendar = Calendar.current
+        let now = Date()
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: now) ?? now
+        let refreshDate = calendar.date(
+            bySettingHour: 21,
+            minute: 15,
+            second: 0,
+            of: yesterday
+        ) ?? yesterday
+
+        let expectedText = "Yesterday at \(refreshDate.formatted(date: .omitted, time: .shortened))"
+
+        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == expectedText)
+    }
+
+    @Test
+    func sidebarSubtitleFormatterFormatsOlderRefreshDateWithAbbreviatedDate() {
+        let formatter = SidebarSubtitleFormatter()
+        let refreshDate = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? .distantPast
+
+        let expectedText = refreshDate.formatted(date: .abbreviated, time: .shortened)
+
+        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == expectedText)
+    }
+
+    @Test
+    func sidebarToolbarStateMarksSyncingStateAndUsesSyncingSubtitle() {
+        let state = SidebarToolbarState(refreshStatus: .syncing)
+
+        #expect(state.subtitle == "Syncing...")
+        #expect(state.isSyncing)
+    }
+
+    @Test
+    func sidebarToolbarStateMarksIdleStateAndUsesFormattedSubtitle() {
+        let refreshDate = Calendar.current.date(byAdding: .hour, value: -2, to: Date()) ?? Date()
+        let formatter = SidebarSubtitleFormatter()
+        let expectedSubtitle = formatter.text(for: .idle(lastUpdatedAt: refreshDate))
+        let state = SidebarToolbarState(refreshStatus: .idle(lastUpdatedAt: refreshDate))
+
+        #expect(state.subtitle == expectedSubtitle)
+        #expect(state.isSyncing == false)
+    }
+
+    @Test
     func sourcesFilterPersistencePolicyRestoresPersistedFilterFromSettingsRawValue() {
         let settings = AppSettings(selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue)
 
