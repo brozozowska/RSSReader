@@ -779,6 +779,58 @@ struct RSSReaderTests {
     }
 
     @Test
+    func sourcesFilterPersistencePolicyRestoresPersistedFilterFromSettingsRawValue() {
+        let settings = AppSettings(selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue)
+
+        let restoredFilter = SourcesFilterPersistencePolicy.restoredFilter(from: settings)
+
+        #expect(restoredFilter == .starred)
+    }
+
+    @Test
+    func sourcesFilterPersistencePolicyFallsBackToLegacyUnreadFlagWhenRawValueIsMissing() {
+        let unreadSettings = AppSettings(showUnreadOnly: true)
+        let defaultSettings = AppSettings(showUnreadOnly: false)
+
+        #expect(SourcesFilterPersistencePolicy.restoredFilter(from: unreadSettings) == .unread)
+        #expect(SourcesFilterPersistencePolicy.restoredFilter(from: defaultSettings) == .allItems)
+    }
+
+    @Test
+    func sourcesFilterPersistencePolicyBuildsSettingsUpdateForSelectedFilter() {
+        let starredUpdate = SourcesFilterPersistencePolicy.makeSettingsUpdate(
+            for: .starred,
+            updatedAt: .distantPast
+        )
+        let unreadUpdate = SourcesFilterPersistencePolicy.makeSettingsUpdate(
+            for: .unread,
+            updatedAt: .distantPast
+        )
+
+        #expect(starredUpdate.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
+        #expect(starredUpdate.showUnreadOnly == false)
+        #expect(unreadUpdate.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
+        #expect(unreadUpdate.showUnreadOnly == true)
+    }
+
+    @Test
+    func appSettingsRepositoryPersistsSelectedSourcesFilterRawValue() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+                updatedAt: .distantPast
+            )
+        )
+
+        let settings = try repository.fetchOrCreate()
+
+        #expect(settings.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
+    }
+
+    @Test
     func readingShellSourceSwitchResetsArticleDetailSelectionAndTriggersReload() {
         let appState = AppState()
         let initialReloadID = appState.articleListReloadID
