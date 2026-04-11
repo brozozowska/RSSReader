@@ -4,6 +4,7 @@ struct ArticleListView: View {
     @Environment(\.appDependencies) private var dependencies
     let selectedSidebarSelection: SidebarSelection?
     let selectedFilter: ArticleListFilter
+    let selectedSourcesFilter: SourcesFilter
     let reloadID: UUID
     @Binding var selection: UUID?
     @State private var articles: [ArticleListItemDTO] = []
@@ -93,7 +94,7 @@ struct ArticleListView: View {
                 articles = try articleQueryService.fetchFolderListItems(
                     folderName: folderName,
                     sortMode: sortMode,
-                    filter: .unread
+                    filter: FolderArticleListFilterResolver.resolve(for: selectedSourcesFilter)
                 )
             case .feed(let selectedFeedID):
                 articles = try articleQueryService.fetchArticleListItems(
@@ -121,7 +122,7 @@ struct ArticleListView: View {
         case .starred:
             "You have not starred any articles yet."
         case .folder(let folderName):
-            "\(folderName) has no unread articles."
+            "\(folderName) has no articles for the active sources filter."
         case .feed:
             "This feed has no stored articles yet."
         case .none:
@@ -157,6 +158,19 @@ private struct ArticleListLoadContext: Hashable {
     let reloadID: UUID
 }
 
+enum FolderArticleListFilterResolver {
+    static func resolve(for sourcesFilter: SourcesFilter) -> ArticleListFilter {
+        switch sourcesFilter {
+        case .allItems:
+            .all
+        case .unread:
+            .unread
+        case .starred:
+            .starred
+        }
+    }
+}
+
 #Preview {
     struct PreviewContainer: View {
         @State var selection: UUID? = nil
@@ -164,6 +178,7 @@ private struct ArticleListLoadContext: Hashable {
             ArticleListView(
                 selectedSidebarSelection: .inbox,
                 selectedFilter: .all,
+                selectedSourcesFilter: .allItems,
                 reloadID: UUID(),
                 selection: $selection
             )

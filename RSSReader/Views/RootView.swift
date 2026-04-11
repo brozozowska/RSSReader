@@ -19,6 +19,7 @@ struct RootView: View {
             ArticleListView(
                 selectedSidebarSelection: appState.selectedSidebarSelection,
                 selectedFilter: appState.selectedArticleListFilter,
+                selectedSourcesFilter: appState.selectedSourcesFilter,
                 reloadID: appState.articleListReloadID,
                 selection: articleSelection
             )

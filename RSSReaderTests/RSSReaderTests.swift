@@ -903,7 +903,7 @@ struct RSSReaderTests {
     }
 
     @Test
-    func folderSelectionUsesUnreadOnlyArticlesForSelectedFolder() throws {
+    func folderSelectionInheritsActiveSourcesFilterForSelectedFolder() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feeds = try harness.insertFeeds(
             urls: [
@@ -923,32 +923,69 @@ struct RSSReaderTests {
             url: "https://example.com/news/unread",
             title: "Unread News"
         )
-        _ = try harness.insertArticle(
+        let starredNewsArticle = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-starred",
+            url: "https://example.com/news/starred",
+            title: "Starred News"
+        )
+        let readNewsArticle = try harness.insertArticle(
             feed: newsFeed,
             externalID: "news-read",
             url: "https://example.com/news/read",
             title: "Read News"
         )
-        _ = try harness.insertArticle(
+        let starredTechArticle = try harness.insertArticle(
             feed: techFeed,
-            externalID: "tech-unread",
-            url: "https://example.com/tech/unread",
-            title: "Unread Tech"
+            externalID: "tech-starred",
+            url: "https://example.com/tech/starred",
+            title: "Starred Tech"
         )
 
         let stateService = try #require(harness.dependencies.articleStateService)
-        _ = try stateService.markAsRead(feedID: newsFeed.id, articleExternalID: "news-read", at: .now)
+        _ = try stateService.toggleStarred(article: starredNewsArticle, at: .now)
+        _ = try stateService.markAsRead(article: starredNewsArticle, at: .now)
+        _ = try stateService.markAsRead(article: readNewsArticle, at: .now)
+        _ = try stateService.toggleStarred(article: starredTechArticle, at: .now)
 
-        let items = try harness.dependencies.articleQueryService?.fetchFolderListItems(
+        let unreadItems = try harness.dependencies.articleQueryService?.fetchFolderListItems(
             folderName: "News",
             sortMode: .publishedAtDescending,
             filter: .unread
         )
-        let resolvedItems = try #require(items)
+        let resolvedUnreadItems = try #require(unreadItems)
 
-        #expect(resolvedItems.map(\.id) == [unreadNewsArticle.id])
-        #expect(resolvedItems.allSatisfy { $0.feedID == newsFeed.id })
-        #expect(resolvedItems.allSatisfy { $0.isRead == false })
+        let starredItems = try harness.dependencies.articleQueryService?.fetchFolderListItems(
+            folderName: "News",
+            sortMode: .publishedAtDescending,
+            filter: .starred
+        )
+        let resolvedStarredItems = try #require(starredItems)
+
+        let allItems = try harness.dependencies.articleQueryService?.fetchFolderListItems(
+            folderName: "News",
+            sortMode: .publishedAtDescending,
+            filter: .all
+        )
+        let resolvedAllItems = try #require(allItems)
+
+        #expect(resolvedUnreadItems.map(\.id) == [unreadNewsArticle.id])
+        #expect(resolvedUnreadItems.allSatisfy { $0.feedID == newsFeed.id })
+        #expect(resolvedUnreadItems.allSatisfy { $0.isRead == false })
+
+        #expect(resolvedStarredItems.map(\.id) == [starredNewsArticle.id])
+        #expect(resolvedStarredItems.allSatisfy { $0.feedID == newsFeed.id })
+        #expect(resolvedStarredItems.allSatisfy { $0.isStarred })
+
+        #expect(resolvedAllItems.map(\.id) == [readNewsArticle.id, starredNewsArticle.id, unreadNewsArticle.id])
+        #expect(resolvedAllItems.allSatisfy { $0.feedID == newsFeed.id })
+    }
+
+    @Test
+    func folderArticleListFilterResolverMapsSourcesFilterToExpectedArticleFilter() {
+        #expect(FolderArticleListFilterResolver.resolve(for: .allItems) == .all)
+        #expect(FolderArticleListFilterResolver.resolve(for: .unread) == .unread)
+        #expect(FolderArticleListFilterResolver.resolve(for: .starred) == .starred)
     }
 
     @Test

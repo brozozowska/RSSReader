@@ -195,7 +195,8 @@
 - [x] скрывать секцию `Ungrouped`, если после применения фильтра в ней не осталось источников;
 - [x] определить selection behavior при смене фильтра: текущий selection сохраняется, если остаётся видимым, иначе происходит fallback на активную smart row;
 - [x] подготовить query/read-model для расчёта наличия unread/starred статей на уровне папок и источников;
-- [x] добавить folder-level navigation: ввести folder-level selection в `AppState` и связать tap по папке с открытием unread-only списка статей для этой папки;
+- [x] добавить folder-level navigation: ввести folder-level selection в `AppState` и связать tap по папке с открытием списка статей для этой папки;
+- [x] при folder-level navigation наследовать активный `SourcesFilter`: `Unread` показывает только непрочитанные статьи папки, `Starred` показывает только starred статьи папки, `All Items` показывает все статьи папки;
 - [ ] определить persistence policy для `SourcesFilter` и восстанавливать последний выбранный фильтр при запуске приложения;
 - [ ] вынести subtitle-логику из `SidebarView` в отдельный helper (`SidebarToolbarState` / `SidebarSubtitleFormatter`), чтобы производное состояние toolbar не жило внутри `View`;
 - [ ] при необходимости вынести конфигурацию filter menu в отдельный helper / DTO;
@@ -211,8 +212,8 @@
 - [ ] сгруппировать статьи по дням и показать section headers `Today / Yesterday / date`;
 - [ ] показать metadata row: source / date / secondary text;
 - [ ] визуально показать `read/unread` и `starred` state в ячейке;
-- [ ] зафиксировать unread-only contract для списка статей: при выборе источника или папки показывать только непрочитанные статьи из этого selection;
-- [ ] показывать empty state, если у выбранного источника или папки нет непрочитанных статей;
+- [ ] зафиксировать contract для списка статей: при выборе источника или папки список наследует активный `SourcesFilter` (`All Items / Unread / Starred`) из `Sources`;
+- [ ] показывать empty state, если в выбранном источнике или папке нет статей для активного `SourcesFilter`;
 - [ ] добавить toolbar actions: `search` entry point и `menu -> Mark all as read`;
 - [ ] показать destructive confirmation dialog перед `Mark all as read`;
 - [ ] связать `Mark all as read` с bulk action `ArticleStateService.markAllVisibleAsRead`;
