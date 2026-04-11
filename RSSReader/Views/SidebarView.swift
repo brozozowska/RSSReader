@@ -18,6 +18,7 @@ struct SidebarView: View {
     @State private var feeds: [FeedSidebarItem] = []
     @State private var unreadSmartCount = 0
     @State private var starredSmartCount = 0
+    @State private var starredFeedIDs = Set<UUID>()
     @State private var phase: SidebarContentPhase = .loading
     @State private var refreshStatus: SidebarRefreshStatus = .idle(lastUpdatedAt: nil)
     @State private var expandedFolderNames = Set<String>()
@@ -41,7 +42,9 @@ struct SidebarView: View {
                         smartRow(for: item)
                     }
                 } header: {
-                    sectionHeader("Smart Views")
+                    if visibleSmartItems.count > 1 {
+                        sectionHeader("Smart Views")
+                    }
                 }
             }
 
@@ -72,46 +75,23 @@ struct SidebarView: View {
         .refreshable {
             await refreshSources()
         }
-        .navigationTitle("Sources")
-        .toolbarTitleDisplayMode(.inlineLarge)
+        .toolbarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Button {
-                    // TODO: Wire Add Source action when Source Management flow is implemented.
-                    dependencies.logger.info("Add source action is not implemented yet")
-                } label: {
-                    Image(systemName: "plus")
-                }
-
-                Menu {
-                    Button("Refresh Sources") {
-                        Task {
-                            await refreshSources()
-                        }
-                    }
-                    .disabled(isSyncing)
-
-                    Button("Import") {
-                        // TODO: Replace with OPML import flow.
-                        dependencies.logger.info("Import action is not implemented yet")
-                    }
-                    Button("Export") {
-                        // TODO: Replace with OPML export flow.
-                        dependencies.logger.info("Export action is not implemented yet")
-                    }
-                    Button("Settings") {
-                        // TODO: Present settings screen when Settings Integration is implemented.
-                        dependencies.logger.info("Settings action is not implemented yet")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-                .accessibilityLabel("Sidebar Menu")
+            ToolbarItem(placement: .topBarLeading) {
+                sidebarActionsMenu
             }
-        }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if showsStatusRow {
-                statusHeader
+
+            ToolbarItem(placement: .title) {
+                titleView
+            }
+
+            ToolbarItem(placement: .subtitle) {
+                subtitleView
+            }
+
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                addSourceButton
+                sourcesFilterMenu
             }
         }
         .overlay {
@@ -120,6 +100,9 @@ struct SidebarView: View {
         .task(id: loadRequestID) {
             guard previewOverridePhase == nil else { return }
             await loadFeeds(showsFullScreenLoading: true, refreshedAt: .now)
+        }
+        .onChange(of: appState.selectedSourcesFilter) { _, _ in
+            applySelectionBehaviorForCurrentFilter()
         }
     }
 
@@ -132,15 +115,20 @@ struct SidebarView: View {
         }
         unreadSmartCount = 0
         starredSmartCount = 0
+        starredFeedIDs = []
 
-        guard let feedRepository = dependencies.feedRepository else {
+        guard let sourcesSidebarQueryService = dependencies.sourcesSidebarQueryService else {
             feeds = []
             phase = .failed("Sources are unavailable in the current app environment.")
             return
         }
 
         do {
-            feeds = try feedRepository.fetchSidebarItems()
+            let snapshot = try sourcesSidebarQueryService.fetchSnapshot()
+            feeds = snapshot.feeds
+            unreadSmartCount = snapshot.unreadSmartCount
+            starredSmartCount = snapshot.starredSmartCount
+            starredFeedIDs = snapshot.starredFeedIDs
         } catch {
             dependencies.logger.error("Failed to load sidebar feeds: \(error)")
             feeds = []
@@ -148,51 +136,9 @@ struct SidebarView: View {
             return
         }
 
-        if let articleStateRepository = dependencies.articleStateRepository {
-            do {
-                let unreadCounts = try articleStateRepository.fetchUnreadCounts(feedIDs: feeds.map(\.id))
-                feeds = feeds.map { feed in
-                    feed.withUnreadCount(unreadCounts[feed.id, default: 0])
-                }
-            } catch {
-                dependencies.logger.error("Failed to load unread counts for sidebar feeds: \(error)")
-            }
-        }
-
         expandedFolderNames = Set(folderGroups.map(\.name))
 
-        if let articleQueryService = dependencies.articleQueryService {
-            do {
-                unreadSmartCount = try articleQueryService.fetchInboxListItems(
-                    sortMode: .publishedAtDescending,
-                    filter: .unread
-                ).count
-                starredSmartCount = try articleQueryService.fetchInboxListItems(
-                    sortMode: .publishedAtDescending,
-                    filter: .starred
-                ).count
-            } catch {
-                dependencies.logger.error("Failed to load smart section counts for sidebar: \(error)")
-                unreadSmartCount = 0
-                starredSmartCount = 0
-            }
-        } else {
-            unreadSmartCount = 0
-            starredSmartCount = 0
-        }
-
-        if let selection {
-            switch selection {
-            case .inbox:
-                break
-            case .unread, .starred:
-                break
-            case .feed(let feedID):
-                if feeds.contains(where: { $0.id == feedID }) == false {
-                    self.selection = .inbox
-                }
-            }
-        }
+        applySelectionBehaviorForCurrentFilter()
 
         phase = feeds.isEmpty ? .empty : .loaded
         if let refreshedAt {
@@ -202,41 +148,27 @@ struct SidebarView: View {
 
     // MARK: Derived State
 
-    private var folderGroups: [FolderSidebarGroup] {
-        let groupedFeeds = Dictionary(
-            grouping: feeds.filter { $0.folderName != nil },
-            by: { $0.folderName ?? "" }
+    private var visibleFeeds: [FeedSidebarItem] {
+        SidebarFeedVisibility.filteredFeeds(
+            feeds: feeds,
+            filter: appState.selectedSourcesFilter,
+            starredFeedIDs: starredFeedIDs
         )
+    }
 
-        let groups = groupedFeeds.map { name, feeds in
-            FolderSidebarGroup(
-                name: name,
-                feeds: feeds.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-            )
-        }
-
-        return groups.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    private var folderGroups: [FolderSidebarGroup] {
+        FolderSidebarGroup.groups(from: visibleFeeds)
     }
 
     private var ungroupedFeeds: [FeedSidebarItem] {
-        feeds
-            .filter { $0.folderName == nil }
-            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        SidebarUngroupedFeeds.visibleFeeds(from: visibleFeeds)
     }
 
     private var visibleSmartItems: [SmartSidebarItem] {
-        guard feeds.isEmpty == false else { return [] }
-
-        return SmartSidebarItem.allCases.filter { item in
-            switch item {
-            case .allItems:
-                true
-            case .unread:
-                unreadSmartCount > 0
-            case .starred:
-                starredSmartCount > 0
-            }
-        }
+        SmartSidebarItem.visibleItems(
+            for: appState.selectedSourcesFilter,
+            hasFeeds: feeds.isEmpty == false
+        )
     }
 
     private var visibleFolderRows: [FolderSectionRow] {
@@ -255,15 +187,6 @@ struct SidebarView: View {
             false
         case .loading, .empty, .failed:
             true
-        }
-    }
-
-    private var showsStatusRow: Bool {
-        switch effectivePhase {
-        case .loaded:
-            true
-        case .loading, .empty, .failed:
-            false
         }
     }
 
@@ -297,11 +220,12 @@ struct SidebarView: View {
         previewOverridePhase ?? phase
     }
 
+    private var toolbarState: SidebarToolbarState {
+        SidebarToolbarState(refreshStatus: refreshStatus)
+    }
+
     private var isSyncing: Bool {
-        if case .syncing = refreshStatus {
-            return true
-        }
-        return false
+        toolbarState.isSyncing
     }
 
     // MARK: Status And Overlay UI
@@ -325,45 +249,86 @@ struct SidebarView: View {
         loadRequestID = UUID()
     }
 
-    @ViewBuilder
-    private var statusHeader: some View {
-        HStack(spacing: 10) {
-            switch refreshStatus {
-            case .syncing:
-                Text("Syncing...")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-            case .idle(let lastUpdatedAt):
-                Text(lastUpdatedText(for: lastUpdatedAt))
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-            }
+    private func applySelectionBehaviorForCurrentFilter() {
+        selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: selection,
+            filter: appState.selectedSourcesFilter,
+            visibleFeedIDs: Set(visibleFeeds.map(\.id)),
+            visibleFolderNames: Set(folderGroups.map(\.name))
+        )
+    }
 
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 4)
-        .padding(.bottom, 10)
-        .background(Color.white)
-        .accessibilityElement(children: .combine)
+    private var titleView: some View {
+        Text("Sources")
+            .font(.title3.weight(.semibold))
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var subtitleView: some View {
+        Text(toolbarState.subtitle)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: User Actions
 
-    private func lastUpdatedText(for date: Date?) -> String {
-        guard let date else {
-            return "Not updated yet"
-        }
+    private var sidebarActionsMenu: some View {
+        Menu {
+            Button("Import") {
+                // TODO: Replace with OPML import flow.
+                dependencies.logger.info("Import action is not implemented yet")
+            }
 
-        if Calendar.current.isDateInToday(date) {
-            return "Today at \(date.formatted(date: .omitted, time: .shortened))"
-        }
+            Button("Export") {
+                // TODO: Replace with OPML export flow.
+                dependencies.logger.info("Export action is not implemented yet")
+            }
 
-        if Calendar.current.isDateInYesterday(date) {
-            return "Yesterday at \(date.formatted(date: .omitted, time: .shortened))"
-        }
+            Divider()
 
-        return date.formatted(date: .abbreviated, time: .shortened)
+            Button("Settings") {
+                // TODO: Present settings screen when Settings Integration is implemented.
+                dependencies.logger.info("Settings action is not implemented yet")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .accessibilityLabel("Sidebar Actions")
+    }
+
+    private var addSourceButton: some View {
+        Button {
+            // TODO: Wire Add Source action when Source Management flow is implemented.
+            dependencies.logger.info("Add source action is not implemented yet")
+        } label: {
+            Image(systemName: "plus")
+        }
+        .accessibilityLabel("Add Source")
+    }
+
+    private var sourcesFilterMenu: some View {
+        Menu {
+            sourcesFilterButton("All Items", filter: .allItems)
+            sourcesFilterButton("Unread", filter: .unread)
+            sourcesFilterButton("Starred", filter: .starred)
+        } label: {
+            Image(systemName: "line.3.horizontal.decrease")
+        }
+        .accessibilityLabel("Filter Sources")
+    }
+
+    @ViewBuilder
+    private func sourcesFilterButton(_ title: String, filter: SourcesFilter) -> some View {
+        Button {
+            dependencies.applySourcesFilter(filter, using: appState)
+        } label: {
+            if appState.selectedSourcesFilter == filter {
+                Label(title, systemImage: "checkmark")
+            } else {
+                Text(title)
+            }
+        }
     }
 
     @MainActor
@@ -386,7 +351,7 @@ struct SidebarView: View {
         SidebarRow(
             title: item.title,
             iconSystemName: item.iconSystemName,
-            count: smartCount(for: item)
+            count: smartCount
         )
         .tag(Optional(item.selection))
     }
@@ -401,8 +366,12 @@ struct SidebarView: View {
 
             Spacer()
 
-            if feed.unreadCount > 0 {
-                countLabel(feed.unreadCount)
+            let count = SidebarCountPresentation.feedCount(
+                for: feed,
+                filter: appState.selectedSourcesFilter
+            )
+            if count > 0 {
+                countLabel(count)
             }
         }
         .font(.body)
@@ -435,13 +404,18 @@ struct SidebarView: View {
             .buttonStyle(.plain)
 
             Spacer()
-            if group.unreadCount > 0 {
-                countLabel(group.unreadCount)
+            let count = SidebarCountPresentation.folderCount(
+                for: group,
+                filter: appState.selectedSourcesFilter
+            )
+            if count > 0 {
+                countLabel(count)
             }
         }
         .font(.body)
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
+        .tag(Optional(SidebarSelection.folder(group.name)))
     }
 
     @ViewBuilder
@@ -469,15 +443,12 @@ struct SidebarView: View {
             .foregroundStyle(.secondary)
     }
 
-    private func smartCount(for item: SmartSidebarItem) -> Int? {
-        switch item {
-        case .allItems:
-            nil
-        case .unread:
-            unreadSmartCount
-        case .starred:
-            starredSmartCount
-        }
+    private var smartCount: Int? {
+        SidebarCountPresentation.smartCount(
+            for: appState.selectedSourcesFilter,
+            unreadSmartCount: unreadSmartCount,
+            starredSmartCount: starredSmartCount
+        )
     }
 
     private func toggleFolderExpansion(named folderName: String) {
@@ -489,10 +460,7 @@ struct SidebarView: View {
     }
 
     private func handleFolderSelection(_ group: FolderSidebarGroup) {
-        // TODO: Replace with folder navigation when folder-level article list is introduced.
-        dependencies.logger.info(
-            "Folder selection tapped for \(group.name). Folder article list navigation is not implemented yet."
-        )
+        dependencies.showFolder(named: group.name, using: appState)
     }
 }
 
@@ -508,7 +476,7 @@ enum SidebarRefreshStatus: Equatable {
     case syncing
 }
 
-private enum SmartSidebarItem: CaseIterable, Identifiable {
+enum SmartSidebarItem: CaseIterable, Identifiable {
     case allItems
     case unread
     case starred
@@ -547,14 +515,104 @@ private enum SmartSidebarItem: CaseIterable, Identifiable {
             .starred
         }
     }
+
+    static func visibleItems(for filter: SourcesFilter, hasFeeds: Bool) -> [SmartSidebarItem] {
+        guard hasFeeds else { return [] }
+
+        return switch filter {
+        case .allItems:
+            [SmartSidebarItem.allItems]
+        case .unread:
+            [SmartSidebarItem.unread]
+        case .starred:
+            [SmartSidebarItem.starred]
+        }
+    }
+
+    static func selection(for filter: SourcesFilter) -> SidebarSelection {
+        switch filter {
+        case .allItems:
+            .inbox
+        case .unread:
+            .unread
+        case .starred:
+            .starred
+        }
+    }
 }
 
-private struct FolderSidebarGroup: Identifiable {
+enum SidebarFeedVisibility {
+    static func filteredFeeds(
+        feeds: [FeedSidebarItem],
+        filter: SourcesFilter,
+        starredFeedIDs: Set<UUID>
+    ) -> [FeedSidebarItem] {
+        switch filter {
+        case .starred:
+            feeds.filter { starredFeedIDs.contains($0.id) }
+        case .unread:
+            feeds.filter { $0.unreadCount > 0 }
+        case .allItems:
+            feeds
+        }
+    }
+}
+
+enum SidebarUngroupedFeeds {
+    static func visibleFeeds(from feeds: [FeedSidebarItem]) -> [FeedSidebarItem] {
+        feeds
+            .filter { $0.folderName == nil }
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+}
+
+enum SidebarSelectionBehavior {
+    static func resolvedSelection(
+        currentSelection: SidebarSelection?,
+        filter: SourcesFilter,
+        visibleFeedIDs: Set<UUID>,
+        visibleFolderNames: Set<String>
+    ) -> SidebarSelection {
+        let fallbackSelection = SmartSidebarItem.selection(for: filter)
+
+        guard let currentSelection else {
+            return fallbackSelection
+        }
+
+        switch currentSelection {
+        case .feed(let feedID):
+            return visibleFeedIDs.contains(feedID) ? currentSelection : fallbackSelection
+        case .folder(let folderName):
+            return visibleFolderNames.contains(folderName) ? currentSelection : fallbackSelection
+        case .inbox, .unread, .starred:
+            return currentSelection == fallbackSelection ? currentSelection : fallbackSelection
+        }
+    }
+}
+
+struct FolderSidebarGroup: Identifiable {
     let name: String
     let feeds: [FeedSidebarItem]
 
     var id: String { name }
     var unreadCount: Int { feeds.reduce(0) { $0 + $1.unreadCount } }
+    var starredCount: Int { feeds.reduce(0) { $0 + $1.starredCount } }
+
+    static func groups(from feeds: [FeedSidebarItem]) -> [FolderSidebarGroup] {
+        let groupedFeeds = Dictionary(
+            grouping: feeds.filter { $0.folderName != nil },
+            by: { $0.folderName ?? "" }
+        )
+
+        let groups = groupedFeeds.map { name, feeds in
+            FolderSidebarGroup(
+                name: name,
+                feeds: feeds.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            )
+        }
+
+        return groups.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
 }
 
 private enum FolderSectionRow: Identifiable {
@@ -956,4 +1014,3 @@ private extension View {
         selection: .feed(SidebarPreviewFactory.SampleIDs.vergeFeedID)
     )
 }
-

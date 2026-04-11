@@ -9,6 +9,7 @@ final class AppSettings {
     @Attribute(.unique) var singletonKey: String
     var defaultReaderMode: ReaderMode
     var showUnreadOnly: Bool
+    var selectedSourcesFilterRawValue: String?
     var refreshIntervalPreference: RefreshPreference
     var useiCloudSync: Bool
     var markAsReadOnOpen: Bool
@@ -21,6 +22,7 @@ final class AppSettings {
         singletonKey: String = AppSettings.singletonKeyValue,
         defaultReaderMode: ReaderMode = .embedded,
         showUnreadOnly: Bool = false,
+        selectedSourcesFilterRawValue: String? = nil,
         refreshIntervalPreference: RefreshPreference = .manual,
         useiCloudSync: Bool = false,
         markAsReadOnOpen: Bool = true,
@@ -32,6 +34,7 @@ final class AppSettings {
         self.singletonKey = singletonKey
         self.defaultReaderMode = defaultReaderMode
         self.showUnreadOnly = showUnreadOnly
+        self.selectedSourcesFilterRawValue = selectedSourcesFilterRawValue
         self.refreshIntervalPreference = refreshIntervalPreference
         self.useiCloudSync = useiCloudSync
         self.markAsReadOnOpen = markAsReadOnOpen

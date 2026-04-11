@@ -21,16 +21,95 @@ enum AppComposition {
         ? AppDependencies.makeDefault()
         : AppDependencies.makeWithSwiftData(models: models)
 
-        let appState = AppState()
+        AppRootContainer(dependencies: deps)
+    }
+}
 
-        if let container = deps.modelContainer {
+private struct AppRootContainer: View {
+    let dependencies: AppDependencies
+    @State private var appState = AppState()
+    @State private var hasLoadedPersistedSourcesFilter = false
+
+    var body: some View {
+        content
+        .task {
+            await restorePersistedSourcesFilterIfNeeded()
+        }
+        .onChange(of: appState.selectedSourcesFilter) { _, newFilter in
+            guard hasLoadedPersistedSourcesFilter else { return }
+            persistSourcesFilter(newFilter)
+        }
+    }
+
+    @MainActor
+    private func restorePersistedSourcesFilterIfNeeded() async {
+        guard hasLoadedPersistedSourcesFilter == false else { return }
+        defer { hasLoadedPersistedSourcesFilter = true }
+
+        guard let appSettingsRepository = dependencies.appSettingsRepository else { return }
+
+        do {
+            let settings = try appSettingsRepository.fetchOrCreate()
+            let restoredFilter = SourcesFilterPersistencePolicy.restoredFilter(from: settings)
+
+            if appState.selectedSourcesFilter != restoredFilter {
+                appState.selectSourcesFilter(restoredFilter)
+            }
+
+            if settings.selectedSourcesFilterRawValue != restoredFilter.rawValue {
+                _ = try appSettingsRepository.update(
+                    SourcesFilterPersistencePolicy.makeSettingsUpdate(for: restoredFilter)
+                )
+            }
+        } catch {
+            dependencies.logger.error("Failed to restore persisted sources filter: \(error)")
+        }
+    }
+
+    @MainActor
+    private func persistSourcesFilter(_ filter: SourcesFilter) {
+        guard let appSettingsRepository = dependencies.appSettingsRepository else { return }
+
+        do {
+            _ = try appSettingsRepository.update(
+                SourcesFilterPersistencePolicy.makeSettingsUpdate(for: filter)
+            )
+        } catch {
+            dependencies.logger.error("Failed to persist sources filter \(filter.rawValue): \(error)")
+        }
+    }
+}
+
+enum SourcesFilterPersistencePolicy {
+    static func restoredFilter(from settings: AppSettings) -> SourcesFilter {
+        if let rawValue = settings.selectedSourcesFilterRawValue,
+           let persistedFilter = SourcesFilter(rawValue: rawValue) {
+            return persistedFilter
+        }
+
+        return settings.showUnreadOnly ? .unread : .allItems
+    }
+
+    static func makeSettingsUpdate(for filter: SourcesFilter, updatedAt: Date = .now) -> AppSettingsUpdate {
+        AppSettingsUpdate(
+            showUnreadOnly: filter == .unread,
+            selectedSourcesFilterRawValue: filter.rawValue,
+            updatedAt: updatedAt
+        )
+    }
+}
+
+private extension AppRootContainer {
+    @ViewBuilder
+    var content: some View {
+        if let container = dependencies.modelContainer {
             RootView()
-                .environment(\.appDependencies, deps)
+                .environment(\.appDependencies, dependencies)
                 .environment(appState)
                 .modelContainer(container)
         } else {
             RootView()
-                .environment(\.appDependencies, deps)
+                .environment(\.appDependencies, dependencies)
                 .environment(appState)
         }
     }

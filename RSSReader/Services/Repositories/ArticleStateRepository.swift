@@ -232,7 +232,8 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
 
         let articleState = ArticleState(
             articleExternalID: articleExternalID,
-            feedID: feedID
+            feedID: feedID,
+            updatedAt: .distantPast
         )
         modelContext.insert(articleState)
         if saveAfterCreation {

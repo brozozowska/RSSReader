@@ -22,6 +22,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let articleRepository: (any ArticleRepository)?
     let articleStateService: ArticleStateService?
     let articleQueryService: (any ArticleQueryService)?
+    let sourcesSidebarQueryService: (any SourcesSidebarQueryService)?
     let articleStateRepository: (any ArticleStateRepository)?
     let appSettingsRepository: (any AppSettingsRepository)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
@@ -60,6 +61,19 @@ public final class AppDependencies: AppDependenciesProtocol {
                 articleStateRepository: repository
             )
         }
+        let sourcesSidebarQueryService: (any SourcesSidebarQueryService)? = {
+            guard let feedRepository,
+                  let articleStateRepository,
+                  let articleQueryService else {
+                return nil
+            }
+
+            return DefaultSourcesSidebarQueryService(
+                feedRepository: feedRepository,
+                articleStateRepository: articleStateRepository,
+                articleQueryService: articleQueryService
+            )
+        }()
         let appSettingsRepository = modelContainer.map { container in
             SwiftDataAppSettingsRepository(modelContext: container.mainContext)
         }
@@ -94,6 +108,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.articleStateService = articleStateService
         self.articleStateRepository = articleStateRepository
         self.articleQueryService = articleQueryService
+        self.sourcesSidebarQueryService = sourcesSidebarQueryService
         self.appSettingsRepository = appSettingsRepository
         self.feedFetchLogRepository = feedFetchLogRepository
         self.feedFetcher = resolvedFeedFetcher
@@ -150,6 +165,11 @@ extension AppDependencies {
     }
 
     @MainActor
+    func showFolder(named folderName: String, using appState: AppState) {
+        appState.selectReadingSource(.folder(folderName))
+    }
+
+    @MainActor
     func selectArticle(id articleID: UUID?, using appState: AppState) {
         appState.selectedArticleID = articleID
     }
@@ -157,6 +177,11 @@ extension AppDependencies {
     @MainActor
     func applyArticleListFilter(_ filter: ArticleListFilter, using appState: AppState) {
         appState.selectArticleListFilter(filter)
+    }
+
+    @MainActor
+    func applySourcesFilter(_ filter: SourcesFilter, using appState: AppState) {
+        appState.selectSourcesFilter(filter)
     }
 
     @MainActor
@@ -213,7 +238,7 @@ extension AppDependencies {
                 appState.requestArticleListReload()
             }
             return result
-        case .inbox, .unread, .starred, .none:
+        case .inbox, .unread, .starred, .folder, .none:
             logger.info("Skipped source refresh because the current source is not a single feed")
             return nil
         }

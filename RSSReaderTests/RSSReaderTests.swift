@@ -733,6 +733,238 @@ struct RSSReaderTests {
     }
 
     @Test
+    func sourcesSidebarQuerySnapshotAggregatesUnreadAndStarredStateForFeeds() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feeds = try harness.insertFeeds(
+            urls: [
+                "https://example.com/sidebar-feed-one.xml",
+                "https://example.com/sidebar-feed-two.xml"
+            ]
+        )
+        let firstFeed = try #require(feeds.first)
+        let secondFeed = try #require(feeds.last)
+
+        let unreadArticle = try harness.insertArticle(
+            feed: firstFeed,
+            externalID: "sidebar-unread",
+            url: "https://example.com/articles/unread",
+            title: "Unread Article"
+        )
+        let starredArticle = try harness.insertArticle(
+            feed: secondFeed,
+            externalID: "sidebar-starred",
+            url: "https://example.com/articles/starred",
+            title: "Starred Article"
+        )
+        _ = try harness.insertArticle(
+            feed: secondFeed,
+            externalID: "sidebar-read",
+            url: "https://example.com/articles/read",
+            title: "Read Article"
+        )
+
+        let stateService = try #require(harness.dependencies.articleStateService)
+        _ = try stateService.toggleStarred(article: starredArticle, at: .now)
+        _ = try stateService.markAsRead(feedID: secondFeed.id, articleExternalID: "sidebar-read", at: .now)
+        _ = unreadArticle
+
+        let snapshot = try harness.dependencies.sourcesSidebarQueryService?.fetchSnapshot()
+        let resolvedSnapshot = try #require(snapshot)
+
+        #expect(resolvedSnapshot.feeds.map(\.id) == feeds.map(\.id))
+        #expect(resolvedSnapshot.feeds.map(\.unreadCount) == [1, 1])
+        #expect(resolvedSnapshot.feeds.map(\.starredCount) == [0, 1])
+        #expect(resolvedSnapshot.unreadSmartCount == 2)
+        #expect(resolvedSnapshot.starredSmartCount == 1)
+        #expect(resolvedSnapshot.starredFeedIDs == [secondFeed.id])
+    }
+
+    @Test
+    func sidebarCountPresentationUsesUnreadCountersForAllItemsAndUnreadFilters() {
+        let feed = FeedSidebarItem(
+            feed: Feed(id: UUID(), url: "https://example.com/feed.xml", title: "Feed"),
+            unreadCount: 3,
+            starredCount: 2
+        )
+        let folder = FolderSidebarGroup(name: "Tech", feeds: [feed])
+
+        #expect(
+            SidebarCountPresentation.smartCount(
+                for: .allItems,
+                unreadSmartCount: 5,
+                starredSmartCount: 2
+            ) == 5
+        )
+        #expect(
+            SidebarCountPresentation.smartCount(
+                for: .unread,
+                unreadSmartCount: 5,
+                starredSmartCount: 2
+            ) == 5
+        )
+        #expect(SidebarCountPresentation.feedCount(for: feed, filter: .allItems) == 3)
+        #expect(SidebarCountPresentation.feedCount(for: feed, filter: .unread) == 3)
+        #expect(SidebarCountPresentation.folderCount(for: folder, filter: .allItems) == 3)
+        #expect(SidebarCountPresentation.folderCount(for: folder, filter: .unread) == 3)
+    }
+
+    @Test
+    func sidebarCountPresentationUsesStarredCountersForStarredFilter() {
+        let firstFeed = FeedSidebarItem(
+            feed: Feed(id: UUID(), url: "https://example.com/feed-one.xml", title: "Feed One"),
+            unreadCount: 4,
+            starredCount: 1
+        )
+        let secondFeed = FeedSidebarItem(
+            feed: Feed(id: UUID(), url: "https://example.com/feed-two.xml", title: "Feed Two"),
+            unreadCount: 2,
+            starredCount: 3
+        )
+        let folder = FolderSidebarGroup(name: "Tech", feeds: [firstFeed, secondFeed])
+
+        #expect(
+            SidebarCountPresentation.smartCount(
+                for: .starred,
+                unreadSmartCount: 6,
+                starredSmartCount: 4
+            ) == 4
+        )
+        #expect(SidebarCountPresentation.feedCount(for: firstFeed, filter: .starred) == 1)
+        #expect(SidebarCountPresentation.feedCount(for: secondFeed, filter: .starred) == 3)
+        #expect(SidebarCountPresentation.folderCount(for: folder, filter: .starred) == 4)
+    }
+
+    @Test
+    func sidebarSubtitleFormatterReturnsSyncingTitleForSyncingState() {
+        let formatter = SidebarSubtitleFormatter()
+
+        #expect(formatter.text(for: .syncing) == "Syncing...")
+    }
+
+    @Test
+    func sidebarSubtitleFormatterReturnsPlaceholderWhenNoRefreshDateIsAvailable() {
+        let formatter = SidebarSubtitleFormatter()
+
+        #expect(formatter.text(for: .idle(lastUpdatedAt: nil)) == "Not updated yet")
+    }
+
+    @Test
+    func sidebarSubtitleFormatterFormatsTodayRefreshDate() {
+        let formatter = SidebarSubtitleFormatter()
+        let calendar = Calendar.current
+        let now = Date()
+        let refreshDate = calendar.date(
+            bySettingHour: 9,
+            minute: 41,
+            second: 0,
+            of: now
+        ) ?? now
+
+        let expectedText = "Today at \(refreshDate.formatted(date: .omitted, time: .shortened))"
+
+        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == expectedText)
+    }
+
+    @Test
+    func sidebarSubtitleFormatterFormatsYesterdayRefreshDate() {
+        let formatter = SidebarSubtitleFormatter()
+        let calendar = Calendar.current
+        let now = Date()
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: now) ?? now
+        let refreshDate = calendar.date(
+            bySettingHour: 21,
+            minute: 15,
+            second: 0,
+            of: yesterday
+        ) ?? yesterday
+
+        let expectedText = "Yesterday at \(refreshDate.formatted(date: .omitted, time: .shortened))"
+
+        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == expectedText)
+    }
+
+    @Test
+    func sidebarSubtitleFormatterFormatsOlderRefreshDateWithAbbreviatedDate() {
+        let formatter = SidebarSubtitleFormatter()
+        let refreshDate = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? .distantPast
+
+        let expectedText = refreshDate.formatted(date: .abbreviated, time: .shortened)
+
+        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == expectedText)
+    }
+
+    @Test
+    func sidebarToolbarStateMarksSyncingStateAndUsesSyncingSubtitle() {
+        let state = SidebarToolbarState(refreshStatus: .syncing)
+
+        #expect(state.subtitle == "Syncing...")
+        #expect(state.isSyncing)
+    }
+
+    @Test
+    func sidebarToolbarStateMarksIdleStateAndUsesFormattedSubtitle() {
+        let refreshDate = Calendar.current.date(byAdding: .hour, value: -2, to: Date()) ?? Date()
+        let formatter = SidebarSubtitleFormatter()
+        let expectedSubtitle = formatter.text(for: .idle(lastUpdatedAt: refreshDate))
+        let state = SidebarToolbarState(refreshStatus: .idle(lastUpdatedAt: refreshDate))
+
+        #expect(state.subtitle == expectedSubtitle)
+        #expect(state.isSyncing == false)
+    }
+
+    @Test
+    func sourcesFilterPersistencePolicyRestoresPersistedFilterFromSettingsRawValue() {
+        let settings = AppSettings(selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue)
+
+        let restoredFilter = SourcesFilterPersistencePolicy.restoredFilter(from: settings)
+
+        #expect(restoredFilter == .starred)
+    }
+
+    @Test
+    func sourcesFilterPersistencePolicyFallsBackToLegacyUnreadFlagWhenRawValueIsMissing() {
+        let unreadSettings = AppSettings(showUnreadOnly: true)
+        let defaultSettings = AppSettings(showUnreadOnly: false)
+
+        #expect(SourcesFilterPersistencePolicy.restoredFilter(from: unreadSettings) == .unread)
+        #expect(SourcesFilterPersistencePolicy.restoredFilter(from: defaultSettings) == .allItems)
+    }
+
+    @Test
+    func sourcesFilterPersistencePolicyBuildsSettingsUpdateForSelectedFilter() {
+        let starredUpdate = SourcesFilterPersistencePolicy.makeSettingsUpdate(
+            for: .starred,
+            updatedAt: .distantPast
+        )
+        let unreadUpdate = SourcesFilterPersistencePolicy.makeSettingsUpdate(
+            for: .unread,
+            updatedAt: .distantPast
+        )
+
+        #expect(starredUpdate.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
+        #expect(starredUpdate.showUnreadOnly == false)
+        #expect(unreadUpdate.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
+        #expect(unreadUpdate.showUnreadOnly == true)
+    }
+
+    @Test
+    func appSettingsRepositoryPersistsSelectedSourcesFilterRawValue() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+                updatedAt: .distantPast
+            )
+        )
+
+        let settings = try repository.fetchOrCreate()
+
+        #expect(settings.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
+    }
+
+    @Test
     func readingShellSourceSwitchResetsArticleDetailSelectionAndTriggersReload() {
         let appState = AppState()
         let initialReloadID = appState.articleListReloadID
@@ -816,6 +1048,386 @@ struct RSSReaderTests {
     }
 
     @Test
+    func readingShellSourcesFilterSwitchUpdatesActiveFilterWithoutBreakingNavigationContext() {
+        let appState = AppState()
+        let feedID = UUID()
+        let articleID = UUID()
+
+        appState.selectReadingSource(.feed(feedID))
+        appState.selectedArticleID = articleID
+        let reloadIDBeforeFilterSwitch = appState.articleListReloadID
+
+        appState.selectSourcesFilter(.starred)
+
+        #expect(appState.selectedSourcesFilter == .starred)
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .article(articleID))
+        #expect(appState.presentedWebViewRoute == nil)
+        #expect(appState.articleListReloadID == reloadIDBeforeFilterSwitch)
+    }
+
+    @Test
+    func readingShellReapplyingSameSourcesFilterKeepsShellStateStable() {
+        let appState = AppState()
+        let articleID = UUID()
+        let webURL = URL(string: "https://example.com/sources-filter-article")!
+
+        appState.selectSourcesFilter(.unread)
+        appState.selectedArticleID = articleID
+        appState.presentWebView(articleID: articleID, url: webURL)
+
+        let reloadIDBeforeReapplyingFilter = appState.articleListReloadID
+
+        appState.selectSourcesFilter(.unread)
+
+        #expect(appState.selectedSourcesFilter == .unread)
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .webView(ArticleWebViewRoute(articleID: articleID, url: webURL)))
+        #expect(appState.presentedWebViewRoute == ArticleWebViewRoute(articleID: articleID, url: webURL))
+        #expect(appState.articleListReloadID == reloadIDBeforeReapplyingFilter)
+    }
+
+    @Test
+    func folderSelectionInheritsActiveSourcesFilterForSelectedFolder() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feeds = try harness.insertFeeds(
+            urls: [
+                "https://example.com/news-feed.xml",
+                "https://example.com/tech-feed.xml"
+            ]
+        )
+        let newsFeed = try #require(feeds.first)
+        let techFeed = try #require(feeds.last)
+        let newsFolder = Folder(name: "News")
+        newsFeed.folder = newsFolder
+        try harness.saveModelContext()
+
+        let unreadNewsArticle = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-unread",
+            url: "https://example.com/news/unread",
+            title: "Unread News"
+        )
+        let starredNewsArticle = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-starred",
+            url: "https://example.com/news/starred",
+            title: "Starred News"
+        )
+        let readNewsArticle = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-read",
+            url: "https://example.com/news/read",
+            title: "Read News"
+        )
+        let starredTechArticle = try harness.insertArticle(
+            feed: techFeed,
+            externalID: "tech-starred",
+            url: "https://example.com/tech/starred",
+            title: "Starred Tech"
+        )
+
+        let stateService = try #require(harness.dependencies.articleStateService)
+        _ = try stateService.toggleStarred(article: starredNewsArticle, at: .now)
+        _ = try stateService.markAsRead(article: starredNewsArticle, at: .now)
+        _ = try stateService.markAsRead(article: readNewsArticle, at: .now)
+        _ = try stateService.toggleStarred(article: starredTechArticle, at: .now)
+
+        let unreadItems = try harness.dependencies.articleQueryService?.fetchFolderListItems(
+            folderName: "News",
+            sortMode: .publishedAtDescending,
+            filter: .unread
+        )
+        let resolvedUnreadItems = try #require(unreadItems)
+
+        let starredItems = try harness.dependencies.articleQueryService?.fetchFolderListItems(
+            folderName: "News",
+            sortMode: .publishedAtDescending,
+            filter: .starred
+        )
+        let resolvedStarredItems = try #require(starredItems)
+
+        let allItems = try harness.dependencies.articleQueryService?.fetchFolderListItems(
+            folderName: "News",
+            sortMode: .publishedAtDescending,
+            filter: .all
+        )
+        let resolvedAllItems = try #require(allItems)
+
+        #expect(resolvedUnreadItems.map(\.id) == [unreadNewsArticle.id])
+        #expect(resolvedUnreadItems.allSatisfy { $0.feedID == newsFeed.id })
+        #expect(resolvedUnreadItems.allSatisfy { $0.isRead == false })
+
+        #expect(resolvedStarredItems.map(\.id) == [starredNewsArticle.id])
+        #expect(resolvedStarredItems.allSatisfy { $0.feedID == newsFeed.id })
+        #expect(resolvedStarredItems.allSatisfy { $0.isStarred })
+
+        #expect(resolvedAllItems.map(\.id) == [readNewsArticle.id, starredNewsArticle.id, unreadNewsArticle.id])
+        #expect(resolvedAllItems.allSatisfy { $0.feedID == newsFeed.id })
+    }
+
+    @Test
+    func feedSelectionInheritsActiveSourcesFilterForSelectedSource() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/source-feed.xml"]).first)
+
+        let unreadArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "source-unread",
+            url: "https://example.com/source/unread",
+            title: "Unread Source"
+        )
+        let starredArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "source-starred",
+            url: "https://example.com/source/starred",
+            title: "Starred Source"
+        )
+        let readArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "source-read",
+            url: "https://example.com/source/read",
+            title: "Read Source"
+        )
+
+        let stateService = try #require(harness.dependencies.articleStateService)
+        _ = try stateService.toggleStarred(article: starredArticle, at: .now)
+        _ = try stateService.markAsRead(article: starredArticle, at: .now)
+        _ = try stateService.markAsRead(article: readArticle, at: .now)
+
+        let unreadItems = try harness.dependencies.articleQueryService?.fetchArticleListItems(
+            feedID: feed.id,
+            sortMode: .publishedAtDescending,
+            filter: .unread
+        )
+        let resolvedUnreadItems = try #require(unreadItems)
+
+        let starredItems = try harness.dependencies.articleQueryService?.fetchArticleListItems(
+            feedID: feed.id,
+            sortMode: .publishedAtDescending,
+            filter: .starred
+        )
+        let resolvedStarredItems = try #require(starredItems)
+
+        let allItems = try harness.dependencies.articleQueryService?.fetchArticleListItems(
+            feedID: feed.id,
+            sortMode: .publishedAtDescending,
+            filter: .all
+        )
+        let resolvedAllItems = try #require(allItems)
+
+        #expect(resolvedUnreadItems.map(\.id) == [unreadArticle.id])
+        #expect(resolvedUnreadItems.allSatisfy { $0.feedID == feed.id })
+        #expect(resolvedUnreadItems.allSatisfy { $0.isRead == false })
+
+        #expect(resolvedStarredItems.map(\.id) == [starredArticle.id])
+        #expect(resolvedStarredItems.allSatisfy { $0.feedID == feed.id })
+        #expect(resolvedStarredItems.allSatisfy { $0.isStarred })
+
+        #expect(resolvedAllItems.map(\.id) == [readArticle.id, starredArticle.id, unreadArticle.id])
+        #expect(resolvedAllItems.allSatisfy { $0.feedID == feed.id })
+    }
+
+    @Test
+    func sourcesFilterArticleListFilterResolverMapsSourcesFilterToExpectedArticleFilter() {
+        #expect(SourcesFilterArticleListFilterResolver.resolve(for: .allItems) == .all)
+        #expect(SourcesFilterArticleListFilterResolver.resolve(for: .unread) == .unread)
+        #expect(SourcesFilterArticleListFilterResolver.resolve(for: .starred) == .starred)
+    }
+
+    @Test
+    func sourcesSmartViewsShowOnlyActiveFilterRow() {
+        #expect(SmartSidebarItem.visibleItems(for: .allItems, hasFeeds: true) == [.allItems])
+        #expect(SmartSidebarItem.visibleItems(for: .unread, hasFeeds: true) == [.unread])
+        #expect(SmartSidebarItem.visibleItems(for: .starred, hasFeeds: true) == [.starred])
+    }
+
+    @Test
+    func sourcesSmartViewsAreHiddenWhenThereAreNoFeeds() {
+        #expect(SmartSidebarItem.visibleItems(for: .allItems, hasFeeds: false).isEmpty)
+        #expect(SmartSidebarItem.visibleItems(for: .unread, hasFeeds: false).isEmpty)
+        #expect(SmartSidebarItem.visibleItems(for: .starred, hasFeeds: false).isEmpty)
+    }
+
+    @Test
+    func sourcesSelectionBehaviorKeepsCurrentFeedSelectionWhenItRemainsVisible() {
+        let visibleFeedID = UUID()
+
+        let selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: .feed(visibleFeedID),
+            filter: .starred,
+            visibleFeedIDs: [visibleFeedID],
+            visibleFolderNames: []
+        )
+
+        #expect(selection == .feed(visibleFeedID))
+    }
+
+    @Test
+    func sourcesSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentFeedBecomesHidden() {
+        let hiddenFeedID = UUID()
+
+        let selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: .feed(hiddenFeedID),
+            filter: .unread,
+            visibleFeedIDs: [],
+            visibleFolderNames: []
+        )
+
+        #expect(selection == .unread)
+    }
+
+    @Test
+    func sourcesSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentSmartSelectionDoesNotMatchFilter() {
+        let selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: .inbox,
+            filter: .starred,
+            visibleFeedIDs: [],
+            visibleFolderNames: []
+        )
+
+        #expect(selection == .starred)
+    }
+
+    @Test
+    func sourcesSelectionBehaviorUsesActiveSmartRowWhenThereIsNoCurrentSelection() {
+        let selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: nil,
+            filter: .allItems,
+            visibleFeedIDs: [],
+            visibleFolderNames: []
+        )
+
+        #expect(selection == .inbox)
+    }
+
+    @Test
+    func sourcesSelectionBehaviorKeepsCurrentFolderSelectionWhenItRemainsVisible() {
+        let selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: .folder("News"),
+            filter: .unread,
+            visibleFeedIDs: [],
+            visibleFolderNames: ["News"]
+        )
+
+        #expect(selection == .folder("News"))
+    }
+
+    @Test
+    func sourcesSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentFolderBecomesHidden() {
+        let selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: .folder("News"),
+            filter: .starred,
+            visibleFeedIDs: [],
+            visibleFolderNames: []
+        )
+
+        #expect(selection == .starred)
+    }
+
+    @Test
+    func sourcesSidebarShowsOnlyFeedsWithStarredArticlesWhenStarredFilterIsActive() {
+        let feedOneID = UUID()
+        let feedTwoID = UUID()
+        let newsFolder = Folder(name: "News")
+        let feeds = [
+            FeedSidebarItem(
+                feed: Feed(id: feedOneID, url: "https://example.com/feed-one.xml", title: "Feed One", folder: newsFolder),
+                unreadCount: 2
+            ),
+            FeedSidebarItem(
+                feed: Feed(id: feedTwoID, url: "https://example.com/feed-two.xml", title: "Feed Two"),
+                unreadCount: 0
+            )
+        ]
+
+        let filteredFeeds = SidebarFeedVisibility.filteredFeeds(
+            feeds: feeds,
+            filter: .starred,
+            starredFeedIDs: [feedTwoID]
+        )
+
+        #expect(filteredFeeds.map(\.id) == [feedTwoID])
+    }
+
+    @Test
+    func sourcesSidebarKeepsAllFeedsVisibleForAllItemsFilter() {
+        let feedOneID = UUID()
+        let feedTwoID = UUID()
+        let newsFolder = Folder(name: "News")
+        let feeds = [
+            FeedSidebarItem(
+                feed: Feed(id: feedOneID, url: "https://example.com/feed-one.xml", title: "Feed One", folder: newsFolder),
+                unreadCount: 2
+            ),
+            FeedSidebarItem(
+                feed: Feed(id: feedTwoID, url: "https://example.com/feed-two.xml", title: "Feed Two"),
+                unreadCount: 0
+            )
+        ]
+
+        let allItemsFeeds = SidebarFeedVisibility.filteredFeeds(
+            feeds: feeds,
+            filter: .allItems,
+            starredFeedIDs: [feedTwoID]
+        )
+
+        #expect(allItemsFeeds.map(\.id) == feeds.map(\.id))
+        #expect(allItemsFeeds.map(\.unreadCount) == feeds.map(\.unreadCount))
+    }
+
+    @Test
+    func sourcesSidebarShowsOnlyFeedsWithUnreadArticlesWhenUnreadFilterIsActive() {
+        let feedOneID = UUID()
+        let feedTwoID = UUID()
+        let newsFolder = Folder(name: "News")
+        let feeds = [
+            FeedSidebarItem(
+                feed: Feed(id: feedOneID, url: "https://example.com/feed-one.xml", title: "Feed One", folder: newsFolder),
+                unreadCount: 2
+            ),
+            FeedSidebarItem(
+                feed: Feed(id: feedTwoID, url: "https://example.com/feed-two.xml", title: "Feed Two"),
+                unreadCount: 0
+            )
+        ]
+
+        let filteredFeeds = SidebarFeedVisibility.filteredFeeds(
+            feeds: feeds,
+            filter: .unread,
+            starredFeedIDs: []
+        )
+
+        #expect(filteredFeeds.map(\.id) == [feedOneID])
+    }
+
+    @Test
+    func sourcesSidebarHidesFoldersSectionWhenFilteredFeedsDoNotContainFolders() {
+        let ungroupedFeed = FeedSidebarItem(
+            feed: Feed(id: UUID(), url: "https://example.com/feed.xml", title: "Ungrouped Feed"),
+            unreadCount: 1
+        )
+
+        let groups = FolderSidebarGroup.groups(from: [ungroupedFeed])
+
+        #expect(groups.isEmpty)
+    }
+
+    @Test
+    func sourcesSidebarHidesUngroupedSectionWhenFilteredFeedsDoNotContainUngroupedSources() {
+        let folder = Folder(name: "News")
+        let groupedFeed = FeedSidebarItem(
+            feed: Feed(id: UUID(), url: "https://example.com/feed.xml", title: "Grouped Feed", folder: folder),
+            unreadCount: 1
+        )
+
+        let ungroupedFeeds = SidebarUngroupedFeeds.visibleFeeds(from: [groupedFeed])
+
+        #expect(ungroupedFeeds.isEmpty)
+    }
+
+    @Test
     func readingShellOpenArticleWebViewSetsPresentedRouteAndPreservesArticleContext() {
         let appState = AppState()
         let articleID = UUID()
@@ -855,15 +1467,23 @@ struct RSSReaderTests {
         harness.dependencies.showFeed(id: feedID, using: appState)
         harness.dependencies.selectArticle(id: articleID, using: appState)
         harness.dependencies.applyArticleListFilter(.starred, using: appState)
+        harness.dependencies.applySourcesFilter(.unread, using: appState)
 
         #expect(appState.selectedSidebarSelection == .feed(feedID))
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))
         #expect(appState.selectedArticleListFilter == .starred)
+        #expect(appState.selectedSourcesFilter == .unread)
 
         harness.dependencies.showInbox(using: appState)
 
         #expect(appState.selectedSidebarSelection == .inbox)
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
+
+        harness.dependencies.showFolder(named: "News", using: appState)
+
+        #expect(appState.selectedSidebarSelection == .folder("News"))
         #expect(appState.selectedArticleID == nil)
         #expect(appState.selectedDetailRoute == .none)
 
