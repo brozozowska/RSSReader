@@ -918,6 +918,7 @@ struct RSSReaderTests {
         let state = ArticlesScreenState()
 
         #expect(state.phase == .noSelection)
+        #expect(state.navigationTitle == "Articles")
         #expect(state.placeholder?.title == "No Source Selected")
         #expect(state.toolbarActions.showsSearchAction == false)
         #expect(state.toolbarActions.showsMenuAction == false)
@@ -927,9 +928,14 @@ struct RSSReaderTests {
     func articlesScreenStateBeginsPrimaryLoadingWhenSelectionChanges() {
         var state = ArticlesScreenState()
 
-        state.beginLoading(for: .unread, resetsContent: true)
+        state.beginLoading(
+            for: .unread,
+            navigationTitle: "Unread",
+            resetsContent: true
+        )
 
         #expect(state.phase == .loading)
+        #expect(state.navigationTitle == "Unread")
         #expect(state.showsPrimaryLoadingIndicator)
         #expect(state.toolbarActions.showsSearchAction)
         #expect(state.toolbarActions.showsMenuAction)
@@ -939,9 +945,14 @@ struct RSSReaderTests {
     func articlesScreenStateBuildsEmptyPlaceholderForCurrentSelection() {
         var state = ArticlesScreenState()
 
-        state.applyLoadedArticles([], selection: .starred)
+        state.applyLoadedArticles(
+            [],
+            selection: .starred,
+            navigationTitle: "Starred"
+        )
 
         #expect(state.phase == .empty)
+        #expect(state.navigationTitle == "Starred")
         #expect(state.placeholder?.title == "No Articles")
         #expect(state.placeholder?.description == "You have not starred any articles yet.")
     }
@@ -951,15 +962,25 @@ struct RSSReaderTests {
         var state = ArticlesScreenState()
         let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
 
-        state.applyLoadedArticles([unreadItem], selection: .feed(unreadItem.feedID))
-        state.beginLoading(for: .feed(unreadItem.feedID), resetsContent: false)
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed"
+        )
+        state.beginLoading(
+            for: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            resetsContent: false
+        )
         state.applyLoadingFailure(
             "Refresh failed",
             selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
             retainsContent: true
         )
 
         #expect(state.phase == .loaded)
+        #expect(state.navigationTitle == "Feed")
         #expect(state.articles.map(\.id) == [unreadItem.id])
         #expect(state.refreshState == .idle)
         #expect(state.toolbarActions.isMarkAllAsReadEnabled)
@@ -971,11 +992,19 @@ struct RSSReaderTests {
         let readItem = makeArticleListItemDTO(isRead: true, isStarred: false)
         let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
 
-        state.applyLoadedArticles([readItem], selection: .feed(readItem.feedID))
+        state.applyLoadedArticles(
+            [readItem],
+            selection: .feed(readItem.feedID),
+            navigationTitle: "Feed"
+        )
         state.presentMarkAllAsReadConfirmation()
         #expect(state.pendingConfirmation == nil)
 
-        state.applyLoadedArticles([unreadItem], selection: .feed(unreadItem.feedID))
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed"
+        )
         state.presentMarkAllAsReadConfirmation()
         #expect(state.pendingConfirmation == .markAllAsRead)
     }
@@ -996,6 +1025,22 @@ struct RSSReaderTests {
         #expect(readStarred.canMarkAsRead == false)
         #expect(readStarred.starActionTitle == "Unstar")
         #expect(readStarred.starActionSystemImage == "star.slash")
+    }
+
+    @Test
+    func articlesScreenNavigationTitleResolverBuildsTitlesFromSidebarSelection() {
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: nil) == "Articles")
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .inbox) == "All Items")
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .unread) == "Unread")
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .starred) == "Starred")
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .folder("Tech")) == "Tech")
+        #expect(
+            ArticlesScreenNavigationTitleResolver.resolve(
+                selection: .feed(UUID()),
+                selectedFeedTitle: "The Verge"
+            ) == "The Verge"
+        )
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .feed(UUID())) == "Source")
     }
 
     @Test

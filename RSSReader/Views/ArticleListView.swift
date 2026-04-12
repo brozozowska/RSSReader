@@ -26,7 +26,7 @@ struct ArticleListView: View {
                 }
             }
         }
-        .navigationTitle("Articles")
+        .navigationTitle(screenState.navigationTitle)
         .toolbar {
             if showsBackButton {
                 ToolbarItem(placement: .topBarLeading) {
@@ -62,8 +62,10 @@ struct ArticleListView: View {
     @MainActor
     private func loadArticles() async {
         let sourceSelectionChanged = lastLoadedSourceSelection != selectedSidebarSelection
+        let navigationTitle = resolveNavigationTitle()
         screenState.beginLoading(
             for: selectedSidebarSelection,
+            navigationTitle: navigationTitle,
             resetsContent: sourceSelectionChanged
         )
 
@@ -78,6 +80,7 @@ struct ArticleListView: View {
             screenState.applyLoadingFailure(
                 "Article query service is unavailable.",
                 selection: selectedSidebarSelection,
+                navigationTitle: navigationTitle,
                 retainsContent: false
             )
             selection = nil
@@ -122,13 +125,15 @@ struct ArticleListView: View {
 
             screenState.applyLoadedArticles(
                 loadedArticles,
-                selection: selectedSidebarSelection
+                selection: selectedSidebarSelection,
+                navigationTitle: navigationTitle
             )
         } catch {
             dependencies.logger.error("Failed to load article list for selection \(String(describing: selectedSidebarSelection)): \(error)")
             screenState.applyLoadingFailure(
                 error.localizedDescription,
                 selection: selectedSidebarSelection,
+                navigationTitle: navigationTitle,
                 retainsContent: sourceSelectionChanged == false
             )
         }
@@ -141,6 +146,21 @@ struct ArticleListView: View {
             return selection
         }
         return availableArticleIDs.first
+    }
+
+    @MainActor
+    private func resolveNavigationTitle() -> String {
+        let selectedFeedTitle: String?
+        if case .feed(let feedID) = selectedSidebarSelection {
+            selectedFeedTitle = try? dependencies.feedRepository?.fetchFeed(id: feedID)?.title
+        } else {
+            selectedFeedTitle = nil
+        }
+
+        return ArticlesScreenNavigationTitleResolver.resolve(
+            selection: selectedSidebarSelection,
+            selectedFeedTitle: selectedFeedTitle
+        )
     }
 
     private var backNavigationGesture: some Gesture {

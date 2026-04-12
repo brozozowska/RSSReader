@@ -23,6 +23,28 @@ struct ArticlesScreenPlaceholderState: Equatable {
     let description: String?
 }
 
+struct ArticlesScreenNavigationTitleResolver {
+    static func resolve(
+        selection: SidebarSelection?,
+        selectedFeedTitle: String? = nil
+    ) -> String {
+        switch selection {
+        case .none:
+            "Articles"
+        case .inbox:
+            "All Items"
+        case .unread:
+            "Unread"
+        case .starred:
+            "Starred"
+        case .folder(let folderName):
+            folderName
+        case .feed:
+            selectedFeedTitle ?? "Source"
+        }
+    }
+}
+
 struct ArticlesScreenToolbarActionsState: Equatable {
     let showsSearchAction: Bool
     let showsMenuAction: Bool
@@ -51,6 +73,7 @@ struct ArticleRowSwipeActionsState: Equatable {
 struct ArticlesScreenState {
     private(set) var articles: [ArticleListItemDTO] = []
     private(set) var selection: SidebarSelection?
+    private(set) var navigationTitle = "Articles"
     private(set) var phase: ArticlesScreenPhase = .noSelection
     private(set) var refreshState: ArticlesScreenRefreshState = .idle
     private(set) var toolbarActions = ArticlesScreenToolbarActionsState(
@@ -90,10 +113,12 @@ struct ArticlesScreenState {
 
     mutating func beginLoading(
         for selection: SidebarSelection?,
+        navigationTitle: String,
         resetsContent: Bool
     ) {
         pendingConfirmation = nil
         self.selection = selection
+        self.navigationTitle = navigationTitle
 
         guard selection != nil else {
             articles = []
@@ -118,9 +143,11 @@ struct ArticlesScreenState {
 
     mutating func applyLoadedArticles(
         _ loadedArticles: [ArticleListItemDTO],
-        selection: SidebarSelection?
+        selection: SidebarSelection?,
+        navigationTitle: String
     ) {
         self.selection = selection
+        self.navigationTitle = navigationTitle
         articles = loadedArticles
         refreshState = .idle
 
@@ -138,9 +165,11 @@ struct ArticlesScreenState {
     mutating func applyLoadingFailure(
         _ message: String,
         selection: SidebarSelection?,
+        navigationTitle: String,
         retainsContent: Bool
     ) {
         self.selection = selection
+        self.navigationTitle = navigationTitle
         refreshState = .idle
 
         if retainsContent && articles.isEmpty == false {

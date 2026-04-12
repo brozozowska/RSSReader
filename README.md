@@ -206,7 +206,7 @@
 #### Articles Screen
 - [x] определить screen-level state/model для `Articles Screen`, чтобы отделить загрузку, refresh, empty/error состояния, toolbar actions и swipe actions от `View`;
 - [x] определить navigation flow экрана: показать toolbar c back button, поддержать swipe слева-направо для возврата на экран `Sources`;
-- [ ] формировать title `Articles Screen` из текущего `SidebarSelection` (`Unread`, имя папки, имя источника и т.д.);
+- [x] формировать title `Articles Screen` из текущего `SidebarSelection` (`Unread`, имя папки, имя источника и т.д.);
 - [ ] формировать subtitle `Articles Screen` из активного `SourcesFilter`: для `All Items` и `Unread` показывать количество непрочитанных статей, для `Starred` показывать количество starred статей;
 - [ ] демонтировать legacy `selectedArticleListFilter` из app-level flow, если поиск остаётся отдельным action и экран больше не использует второй уровень фильтрации поверх `SourcesFilter`;
 - [ ] привести текущий список к дизайну экрана Articles;
