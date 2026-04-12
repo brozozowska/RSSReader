@@ -175,11 +175,6 @@ extension AppDependencies {
     }
 
     @MainActor
-    func applyArticleListFilter(_ filter: ArticleListFilter, using appState: AppState) {
-        appState.selectArticleListFilter(filter)
-    }
-
-    @MainActor
     func applySourcesFilter(_ filter: SourcesFilter, using appState: AppState) {
         appState.selectSourcesFilter(filter)
     }

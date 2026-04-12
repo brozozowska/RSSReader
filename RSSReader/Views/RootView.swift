@@ -53,7 +53,6 @@ struct RootView: View {
         } content: {
             ArticleListView(
                 selectedSidebarSelection: appState.selectedSidebarSelection,
-                selectedFilter: appState.selectedArticleListFilter,
                 selectedSourcesFilter: appState.selectedSourcesFilter,
                 reloadID: appState.articleListReloadID,
                 showsBackButton: ArticlesScreenNavigationState.showsBackButton(

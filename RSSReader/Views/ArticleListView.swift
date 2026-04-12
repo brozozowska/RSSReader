@@ -3,7 +3,6 @@ import SwiftUI
 struct ArticleListView: View {
     @Environment(\.appDependencies) private var dependencies
     let selectedSidebarSelection: SidebarSelection?
-    let selectedFilter: ArticleListFilter
     let selectedSourcesFilter: SourcesFilter
     let reloadID: UUID
     let showsBackButton: Bool
@@ -51,7 +50,6 @@ struct ArticleListView: View {
         }
         .task(id: ArticleListLoadContext(
             sourceSelection: selectedSidebarSelection,
-            filter: selectedFilter,
             sourcesFilter: selectedSourcesFilter,
             reloadID: reloadID
         )) {
@@ -99,7 +97,7 @@ struct ArticleListView: View {
             case .inbox:
                 loadedArticles = try articleQueryService.fetchInboxListItems(
                     sortMode: sortMode,
-                    filter: selectedFilter
+                    filter: SourcesFilterArticleListFilterResolver.resolve(for: selectedSourcesFilter)
                 )
             case .unread:
                 loadedArticles = try articleQueryService.fetchInboxListItems(
@@ -207,7 +205,6 @@ struct ArticleListView: View {
 
 private struct ArticleListLoadContext: Hashable {
     let sourceSelection: SidebarSelection?
-    let filter: ArticleListFilter
     let sourcesFilter: SourcesFilter
     let reloadID: UUID
 }
@@ -231,7 +228,6 @@ enum SourcesFilterArticleListFilterResolver {
         var body: some View {
             ArticleListView(
                 selectedSidebarSelection: .inbox,
-                selectedFilter: .all,
                 selectedSourcesFilter: .allItems,
                 reloadID: UUID(),
                 showsBackButton: true,

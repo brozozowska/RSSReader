@@ -208,7 +208,7 @@
 - [x] определить navigation flow экрана: показать toolbar c back button, поддержать swipe слева-направо для возврата на экран `Sources`;
 - [x] формировать title `Articles Screen` из текущего `SidebarSelection` (`Unread`, имя папки, имя источника и т.д.);
 - [x] формировать subtitle `Articles Screen` из активного `SourcesFilter`: для `All Items` и `Unread` показывать количество непрочитанных статей, для `Starred` показывать количество starred статей;
-- [ ] демонтировать legacy `selectedArticleListFilter` из app-level flow, если поиск остаётся отдельным action и экран больше не использует второй уровень фильтрации поверх `SourcesFilter`;
+- [x] демонтировать legacy `selectedArticleListFilter` из app-level flow;
 - [ ] привести текущий список к дизайну экрана Articles;
 - [ ] сгруппировать статьи по дням и показать section headers `Today / Yesterday / date`;
 - [ ] оформить ячейку списка: metadata row `source / time`, затем текст краткого содержимого статьи;
