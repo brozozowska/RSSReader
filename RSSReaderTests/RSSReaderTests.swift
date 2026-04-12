@@ -913,6 +913,91 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articlesScreenStateStartsWithoutSelectionPlaceholder() {
+        let state = ArticlesScreenState()
+
+        #expect(state.phase == .noSelection)
+        #expect(state.placeholder?.title == "No Source Selected")
+        #expect(state.toolbarActions.showsSearchAction == false)
+        #expect(state.toolbarActions.showsMenuAction == false)
+    }
+
+    @Test
+    func articlesScreenStateBeginsPrimaryLoadingWhenSelectionChanges() {
+        var state = ArticlesScreenState()
+
+        state.beginLoading(for: .unread, resetsContent: true)
+
+        #expect(state.phase == .loading)
+        #expect(state.showsPrimaryLoadingIndicator)
+        #expect(state.toolbarActions.showsSearchAction)
+        #expect(state.toolbarActions.showsMenuAction)
+    }
+
+    @Test
+    func articlesScreenStateBuildsEmptyPlaceholderForCurrentSelection() {
+        var state = ArticlesScreenState()
+
+        state.applyLoadedArticles([], selection: .starred)
+
+        #expect(state.phase == .empty)
+        #expect(state.placeholder?.title == "No Articles")
+        #expect(state.placeholder?.description == "You have not starred any articles yet.")
+    }
+
+    @Test
+    func articlesScreenStateKeepsVisibleArticlesWhenRefreshFails() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles([unreadItem], selection: .feed(unreadItem.feedID))
+        state.beginLoading(for: .feed(unreadItem.feedID), resetsContent: false)
+        state.applyLoadingFailure(
+            "Refresh failed",
+            selection: .feed(unreadItem.feedID),
+            retainsContent: true
+        )
+
+        #expect(state.phase == .loaded)
+        #expect(state.articles.map(\.id) == [unreadItem.id])
+        #expect(state.refreshState == .idle)
+        #expect(state.toolbarActions.isMarkAllAsReadEnabled)
+    }
+
+    @Test
+    func articlesScreenStatePresentsConfirmationOnlyWhenUnreadArticlesAreVisible() {
+        var state = ArticlesScreenState()
+        let readItem = makeArticleListItemDTO(isRead: true, isStarred: false)
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles([readItem], selection: .feed(readItem.feedID))
+        state.presentMarkAllAsReadConfirmation()
+        #expect(state.pendingConfirmation == nil)
+
+        state.applyLoadedArticles([unreadItem], selection: .feed(unreadItem.feedID))
+        state.presentMarkAllAsReadConfirmation()
+        #expect(state.pendingConfirmation == .markAllAsRead)
+    }
+
+    @Test
+    func articleRowSwipeActionsStateReflectsReadAndStarredStatus() {
+        let unreadUnstarred = ArticleRowSwipeActionsState(
+            article: makeArticleListItemDTO(isRead: false, isStarred: false)
+        )
+        let readStarred = ArticleRowSwipeActionsState(
+            article: makeArticleListItemDTO(isRead: true, isStarred: true)
+        )
+
+        #expect(unreadUnstarred.canMarkAsRead)
+        #expect(unreadUnstarred.starActionTitle == "Star")
+        #expect(unreadUnstarred.starActionSystemImage == "star")
+
+        #expect(readStarred.canMarkAsRead == false)
+        #expect(readStarred.starActionTitle == "Unstar")
+        #expect(readStarred.starActionSystemImage == "star.slash")
+    }
+
+    @Test
     func sourcesFilterPersistencePolicyRestoresPersistedFilterFromSettingsRawValue() {
         let settings = AppSettings(selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue)
 
@@ -1696,6 +1781,32 @@ struct RSSReaderTests {
         #expect(requests.count == 1)
         #expect(await httpClient.maxConcurrentExecutions() == 1)
     }
+}
+
+private func makeArticleListItemDTO(
+    id: UUID = UUID(),
+    feedID: UUID = UUID(),
+    feedTitle: String = "Feed",
+    articleExternalID: String = "article",
+    title: String = "Article",
+    summary: String? = "Summary",
+    isRead: Bool,
+    isStarred: Bool
+) -> ArticleListItemDTO {
+    ArticleListItemDTO(
+        id: id,
+        feedID: feedID,
+        feedTitle: feedTitle,
+        articleExternalID: articleExternalID,
+        title: title,
+        summary: summary,
+        author: nil,
+        publishedAt: nil,
+        fetchedAt: .now,
+        isRead: isRead,
+        isStarred: isStarred,
+        isHidden: false
+    )
 }
 
 private extension RSSReaderTests {

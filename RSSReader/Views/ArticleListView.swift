@@ -7,12 +7,11 @@ struct ArticleListView: View {
     let selectedSourcesFilter: SourcesFilter
     let reloadID: UUID
     @Binding var selection: UUID?
-    @State private var articles: [ArticleListItemDTO] = []
-    @State private var hasLoadedArticles = false
+    @State private var screenState = ArticlesScreenState()
     @State private var lastLoadedSourceSelection: SidebarSelection? = nil
 
     var body: some View {
-        List(articles, id: \.id, selection: $selection) { article in
+        List(screenState.articles, id: \.id, selection: $selection) { article in
             VStack(alignment: .leading, spacing: 4) {
                 Text(article.title)
                     .font(.body.weight(article.isRead ? .regular : .semibold))
@@ -27,25 +26,20 @@ struct ArticleListView: View {
         }
         .navigationTitle("Articles")
         .overlay {
-            if hasLoadedArticles {
-                if selectedSidebarSelection == nil {
-                    ContentUnavailableView(
-                        "No Source Selected",
-                        systemImage: "sidebar.left",
-                        description: Text("Select Inbox or a feed in the sidebar to load articles.")
-                    )
-                } else if articles.isEmpty {
-                    ContentUnavailableView(
-                        "No Articles",
-                        systemImage: "newspaper",
-                        description: Text(emptyStateDescription)
-                    )
-                }
+            if screenState.showsPrimaryLoadingIndicator {
+                ProgressView()
+            } else if let placeholder = screenState.placeholder {
+                ContentUnavailableView(
+                    placeholder.title,
+                    systemImage: placeholder.systemImage,
+                    description: placeholder.description.map(Text.init)
+                )
             }
         }
         .task(id: ArticleListLoadContext(
             sourceSelection: selectedSidebarSelection,
             filter: selectedFilter,
+            sourcesFilter: selectedSourcesFilter,
             reloadID: reloadID
         )) {
             await loadArticles()
@@ -55,18 +49,24 @@ struct ArticleListView: View {
     @MainActor
     private func loadArticles() async {
         let sourceSelectionChanged = lastLoadedSourceSelection != selectedSidebarSelection
+        screenState.beginLoading(
+            for: selectedSidebarSelection,
+            resetsContent: sourceSelectionChanged
+        )
+
         if sourceSelectionChanged {
-            articles = []
             selection = nil
-            hasLoadedArticles = false
         }
         defer {
-            hasLoadedArticles = true
             lastLoadedSourceSelection = selectedSidebarSelection
         }
 
         guard let articleQueryService = dependencies.articleQueryService else {
-            articles = []
+            screenState.applyLoadingFailure(
+                "Article query service is unavailable.",
+                selection: selectedSidebarSelection,
+                retainsContent: false
+            )
             selection = nil
             return
         }
@@ -74,60 +74,53 @@ struct ArticleListView: View {
         let sortMode = await loadSortMode()
 
         do {
+            let loadedArticles: [ArticleListItemDTO]
             switch selectedSidebarSelection {
             case .inbox:
-                articles = try articleQueryService.fetchInboxListItems(
+                loadedArticles = try articleQueryService.fetchInboxListItems(
                     sortMode: sortMode,
                     filter: selectedFilter
                 )
             case .unread:
-                articles = try articleQueryService.fetchInboxListItems(
+                loadedArticles = try articleQueryService.fetchInboxListItems(
                     sortMode: sortMode,
                     filter: .unread
                 )
             case .starred:
-                articles = try articleQueryService.fetchInboxListItems(
+                loadedArticles = try articleQueryService.fetchInboxListItems(
                     sortMode: sortMode,
                     filter: .starred
                 )
             case .folder(let folderName):
-                articles = try articleQueryService.fetchFolderListItems(
+                loadedArticles = try articleQueryService.fetchFolderListItems(
                     folderName: folderName,
                     sortMode: sortMode,
                     filter: SourcesFilterArticleListFilterResolver.resolve(for: selectedSourcesFilter)
                 )
             case .feed(let selectedFeedID):
-                articles = try articleQueryService.fetchArticleListItems(
+                loadedArticles = try articleQueryService.fetchArticleListItems(
                     feedID: selectedFeedID,
                     sortMode: sortMode,
                     filter: SourcesFilterArticleListFilterResolver.resolve(for: selectedSourcesFilter)
                 )
             case .none:
-                articles = []
+                loadedArticles = []
             }
+
+            screenState.applyLoadedArticles(
+                loadedArticles,
+                selection: selectedSidebarSelection
+            )
         } catch {
             dependencies.logger.error("Failed to load article list for selection \(String(describing: selectedSidebarSelection)): \(error)")
-            articles = []
+            screenState.applyLoadingFailure(
+                error.localizedDescription,
+                selection: selectedSidebarSelection,
+                retainsContent: sourceSelectionChanged == false
+            )
         }
 
-        self.selection = stabilizedSelection(availableArticleIDs: articles.map(\.id))
-    }
-
-    private var emptyStateDescription: String {
-        switch selectedSidebarSelection {
-        case .inbox:
-            "Your global inbox has no stored articles yet."
-        case .unread:
-            "There are no unread articles in your sources."
-        case .starred:
-            "You have not starred any articles yet."
-        case .folder(let folderName):
-            "\(folderName) has no articles for the active sources filter."
-        case .feed:
-            "This source has no articles for the active sources filter."
-        case .none:
-            "Select Inbox or a feed in the sidebar to load articles."
-        }
+        self.selection = stabilizedSelection(availableArticleIDs: screenState.articles.map(\.id))
     }
 
     private func stabilizedSelection(availableArticleIDs: [UUID]) -> UUID? {
@@ -155,6 +148,7 @@ struct ArticleListView: View {
 private struct ArticleListLoadContext: Hashable {
     let sourceSelection: SidebarSelection?
     let filter: ArticleListFilter
+    let sourcesFilter: SourcesFilter
     let reloadID: UUID
 }
 

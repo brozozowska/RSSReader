@@ -204,14 +204,19 @@
 - [x] добавить недостающие unit tests на `SidebarToolbarState` и `SidebarSubtitleFormatter`.
 
 #### Articles Screen
-- [ ] определить screen-level state/model для `Articles Screen`, чтобы отделить загрузку, refresh, empty/error состояния и actions от `View`;
+- [x] определить screen-level state/model для `Articles Screen`, чтобы отделить загрузку, refresh, empty/error состояния, toolbar actions и swipe actions от `View`;
+- [ ] определить navigation flow экрана: показать toolbar c back button, поддержать swipe слева-направо для возврата на экран `Sources`;
+- [ ] формировать title `Articles Screen` из текущего `SidebarSelection` (`Unread`, имя папки, имя источника и т.д.);
+- [ ] формировать subtitle `Articles Screen` из активного `SourcesFilter`: для `All Items` и `Unread` показывать количество непрочитанных статей, для `Starred` показывать количество starred статей;
+- [ ] демонтировать legacy `selectedArticleListFilter` из app-level flow, если поиск остаётся отдельным action и экран больше не использует второй уровень фильтрации поверх `SourcesFilter`;
 - [ ] привести текущий список к дизайну экрана Articles;
 - [ ] сгруппировать статьи по дням и показать section headers `Today / Yesterday / date`;
-- [ ] показать metadata row: source / date / secondary text;
-- [ ] визуально показать `read/unread` и `starred` state в ячейке;
+- [ ] оформить ячейку списка: metadata row `source / time`, затем текст краткого содержимого статьи;
+- [ ] визуально показать `read/unread` и `starred` state в ячейке, сохранив чистый список без separators;
 - [ ] добавить toolbar actions: `search` entry point и `menu -> Mark all as read`;
 - [ ] показать destructive confirmation dialog перед `Mark all as read`;
 - [ ] связать `Mark all as read` с bulk action `ArticleStateService.markAllVisibleAsRead`;
+- [ ] подготовить swipe actions для ячеек: swipe слева-направо помечает статью прочитанной, swipe справа-налево помечает статью starred;
 - [ ] добавить `pull to refresh` для текущего selection через `FeedRefreshService`;
 - [ ] добавить полноценный loading/error UX для первичной загрузки и refresh.
 
