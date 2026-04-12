@@ -1,6 +1,6 @@
 import Foundation
 
-struct ArticleListItemDTO: Sendable, Identifiable {
+struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
     let id: UUID
     let feedID: UUID
     let feedTitle: String

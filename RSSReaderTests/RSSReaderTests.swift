@@ -1082,6 +1082,51 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articlesDaySectionsBuilderGroupsArticlesByDayAndPreservesVisibleOrder() {
+        let calendar = Calendar.current
+        let now = Date()
+        let todayMorning = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: now) ?? now
+        let todayEarlier = calendar.date(bySettingHour: 8, minute: 0, second: 0, of: now) ?? now
+        let yesterdayBase = calendar.date(byAdding: .day, value: -1, to: now) ?? now
+        let yesterdayArticleDate = calendar.date(bySettingHour: 23, minute: 0, second: 0, of: yesterdayBase) ?? yesterdayBase
+
+        let firstToday = makeArticleListItemDTO(title: "Today One", publishedAt: todayMorning)
+        let secondToday = makeArticleListItemDTO(title: "Today Two", publishedAt: todayEarlier)
+        let yesterdayArticle = makeArticleListItemDTO(title: "Yesterday", publishedAt: yesterdayArticleDate)
+
+        let sections = ArticlesDaySectionsBuilder.build(
+            from: [firstToday, secondToday, yesterdayArticle],
+            calendar: calendar
+        )
+
+        #expect(sections.count == 2)
+        #expect(sections[0].articles.map(\.title) == ["Today One", "Today Two"])
+        #expect(sections[1].articles.map(\.title) == ["Yesterday"])
+    }
+
+    @Test
+    func articlesDaySectionsBuilderBuildsTodayYesterdayAndDateHeaders() {
+        let calendar = Calendar.current
+        let now = Date()
+        let today = calendar.startOfDay(for: now)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+        let older = calendar.date(byAdding: .day, value: -2, to: today) ?? today
+
+        #expect(ArticlesDaySectionsBuilder.title(for: today, calendar: calendar) == "Today")
+        #expect(ArticlesDaySectionsBuilder.title(for: yesterday, calendar: calendar) == "Yesterday")
+        #expect(
+            ArticlesDaySectionsBuilder.title(for: older, calendar: calendar)
+            == older.formatted(
+                .dateTime
+                    .weekday(.wide)
+                    .day()
+                    .month(.wide)
+                    .year()
+            )
+        )
+    }
+
+    @Test
     func articlesScreenNavigationStateSelectsPreferredCompactColumnForCurrentContext() {
         #expect(
             ArticlesScreenNavigationState.preferredCompactColumn(
@@ -1903,8 +1948,9 @@ private func makeArticleListItemDTO(
     articleExternalID: String = "article",
     title: String = "Article",
     summary: String? = "Summary",
-    isRead: Bool,
-    isStarred: Bool
+    publishedAt: Date? = nil,
+    isRead: Bool = false,
+    isStarred: Bool = false
 ) -> ArticleListItemDTO {
     ArticleListItemDTO(
         id: id,
@@ -1914,7 +1960,7 @@ private func makeArticleListItemDTO(
         title: title,
         summary: summary,
         author: nil,
-        publishedAt: nil,
+        publishedAt: publishedAt,
         fetchedAt: .now,
         isRead: isRead,
         isStarred: isStarred,

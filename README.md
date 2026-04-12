@@ -210,7 +210,7 @@
 - [x] формировать subtitle `Articles Screen` из активного `SourcesFilter`: для `All Items` и `Unread` показывать количество непрочитанных статей, для `Starred` показывать количество starred статей;
 - [x] демонтировать legacy `selectedArticleListFilter` из app-level flow;
 - [x] привести текущий список к дизайну экрана Articles;
-- [ ] сгруппировать статьи по дням и показать section headers `Today / Yesterday / date`;
+- [x] сгруппировать статьи по дням и показать section headers `Today / Yesterday / date`;
 - [ ] оформить ячейку списка: metadata row `source / time`, затем текст краткого содержимого статьи;
 - [ ] визуально показать `read/unread` и `starred` state в ячейке, сохранив чистый список без separators;
 - [ ] добавить toolbar actions: `search` entry point и `menu -> Mark all as read`;

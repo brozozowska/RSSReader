@@ -19,12 +19,21 @@ struct ArticleListView: View {
             Color(uiColor: .systemBackground)
                 .ignoresSafeArea()
 
-            List(displayedScreenState.articles, id: \.id, selection: $selection) { article in
-                ArticleListRowView(article: article)
-                    .tag(article.id)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+            List(selection: $selection) {
+                ForEach(displayedScreenState.sections) { section in
+                    Section {
+                        ForEach(section.articles, id: \.id) { article in
+                            ArticleListRowView(article: article)
+                                .tag(article.id)
+                                .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                        }
+                    } header: {
+                        ArticleListSectionHeaderView(title: section.title)
+                    }
+                    .textCase(nil)
+                }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -250,6 +259,19 @@ private struct ArticleListRowView: View {
             }
         }
         .padding(.vertical, 10)
+    }
+}
+
+private struct ArticleListSectionHeaderView: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .textCase(nil)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 8)
     }
 }
 
