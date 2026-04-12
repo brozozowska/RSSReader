@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import SwiftData
 import Testing
 @testable import RSSReader
@@ -995,6 +996,78 @@ struct RSSReaderTests {
         #expect(readStarred.canMarkAsRead == false)
         #expect(readStarred.starActionTitle == "Unstar")
         #expect(readStarred.starActionSystemImage == "star.slash")
+    }
+
+    @Test
+    func articlesScreenNavigationStateSelectsPreferredCompactColumnForCurrentContext() {
+        #expect(
+            ArticlesScreenNavigationState.preferredCompactColumn(
+                sourceSelection: nil,
+                articleSelection: nil
+            ) == .sidebar
+        )
+        #expect(
+            ArticlesScreenNavigationState.preferredCompactColumn(
+                sourceSelection: .unread,
+                articleSelection: nil
+            ) == .content
+        )
+        #expect(
+            ArticlesScreenNavigationState.preferredCompactColumn(
+                sourceSelection: .feed(UUID()),
+                articleSelection: UUID()
+            ) == .detail
+        )
+    }
+
+    @Test
+    func articlesScreenNavigationStateShowsBackButtonOnlyInCompactSourceContext() {
+        #expect(
+            ArticlesScreenNavigationState.showsBackButton(
+                horizontalSizeClass: .compact,
+                sourceSelection: .starred
+            )
+        )
+        #expect(
+            ArticlesScreenNavigationState.showsBackButton(
+                horizontalSizeClass: .regular,
+                sourceSelection: .starred
+            ) == false
+        )
+        #expect(
+            ArticlesScreenNavigationState.showsBackButton(
+                horizontalSizeClass: .compact,
+                sourceSelection: nil
+            ) == false
+        )
+    }
+
+    @Test
+    func articlesScreenNavigationStateRecognizesLeadingEdgeBackSwipe() {
+        #expect(
+            ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+                startLocationX: 12,
+                translation: CGSize(width: 96, height: 8)
+            )
+        )
+        #expect(
+            ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+                startLocationX: 64,
+                translation: CGSize(width: 96, height: 8)
+            ) == false
+        )
+        #expect(
+            ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+                startLocationX: 12,
+                translation: CGSize(width: 40, height: 8)
+            ) == false
+        )
+        #expect(
+            ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+                startLocationX: 12,
+                translation: CGSize(width: 96, height: 72)
+            ) == false
+        )
     }
 
     @Test

@@ -6,6 +6,8 @@ struct ArticleListView: View {
     let selectedFilter: ArticleListFilter
     let selectedSourcesFilter: SourcesFilter
     let reloadID: UUID
+    let showsBackButton: Bool
+    let navigateBackToSources: () -> Void
     @Binding var selection: UUID?
     @State private var screenState = ArticlesScreenState()
     @State private var lastLoadedSourceSelection: SidebarSelection? = nil
@@ -25,6 +27,16 @@ struct ArticleListView: View {
             }
         }
         .navigationTitle("Articles")
+        .toolbar {
+            if showsBackButton {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: navigateBackToSources) {
+                        Image(systemName: "chevron.left")
+                    }
+                    .accessibilityLabel("Back to Sources")
+                }
+            }
+        }
         .overlay {
             if screenState.showsPrimaryLoadingIndicator {
                 ProgressView()
@@ -44,6 +56,7 @@ struct ArticleListView: View {
         )) {
             await loadArticles()
         }
+        .simultaneousGesture(backNavigationGesture)
     }
 
     @MainActor
@@ -130,6 +143,20 @@ struct ArticleListView: View {
         return availableArticleIDs.first
     }
 
+    private var backNavigationGesture: some Gesture {
+        DragGesture(minimumDistance: 20)
+            .onEnded { value in
+                guard showsBackButton else { return }
+                guard ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+                    startLocationX: value.startLocation.x,
+                    translation: value.translation
+                ) else {
+                    return
+                }
+                navigateBackToSources()
+            }
+    }
+
     @MainActor
     private func loadSortMode() async -> ArticleSortMode {
         guard let appSettingsRepository = dependencies.appSettingsRepository else {
@@ -174,6 +201,8 @@ enum SourcesFilterArticleListFilterResolver {
                 selectedFilter: .all,
                 selectedSourcesFilter: .allItems,
                 reloadID: UUID(),
+                showsBackButton: true,
+                navigateBackToSources: {},
                 selection: $selection
             )
         }
