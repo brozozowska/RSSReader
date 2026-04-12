@@ -27,6 +27,7 @@ struct ArticleListView: View {
             }
         }
         .navigationTitle(screenState.navigationTitle)
+        .navigationSubtitle(screenState.navigationSubtitle)
         .toolbar {
             if showsBackButton {
                 ToolbarItem(placement: .topBarLeading) {
@@ -63,9 +64,11 @@ struct ArticleListView: View {
     private func loadArticles() async {
         let sourceSelectionChanged = lastLoadedSourceSelection != selectedSidebarSelection
         let navigationTitle = resolveNavigationTitle()
+        let loadingSubtitle = resolveNavigationSubtitle(for: screenState.articles)
         screenState.beginLoading(
             for: selectedSidebarSelection,
             navigationTitle: navigationTitle,
+            navigationSubtitle: loadingSubtitle,
             resetsContent: sourceSelectionChanged
         )
 
@@ -81,6 +84,7 @@ struct ArticleListView: View {
                 "Article query service is unavailable.",
                 selection: selectedSidebarSelection,
                 navigationTitle: navigationTitle,
+                navigationSubtitle: loadingSubtitle,
                 retainsContent: false
             )
             selection = nil
@@ -126,7 +130,8 @@ struct ArticleListView: View {
             screenState.applyLoadedArticles(
                 loadedArticles,
                 selection: selectedSidebarSelection,
-                navigationTitle: navigationTitle
+                navigationTitle: navigationTitle,
+                navigationSubtitle: resolveNavigationSubtitle(for: loadedArticles)
             )
         } catch {
             dependencies.logger.error("Failed to load article list for selection \(String(describing: selectedSidebarSelection)): \(error)")
@@ -134,6 +139,7 @@ struct ArticleListView: View {
                 error.localizedDescription,
                 selection: selectedSidebarSelection,
                 navigationTitle: navigationTitle,
+                navigationSubtitle: loadingSubtitle,
                 retainsContent: sourceSelectionChanged == false
             )
         }
@@ -160,6 +166,13 @@ struct ArticleListView: View {
         return ArticlesScreenNavigationTitleResolver.resolve(
             selection: selectedSidebarSelection,
             selectedFeedTitle: selectedFeedTitle
+        )
+    }
+
+    private func resolveNavigationSubtitle(for articles: [ArticleListItemDTO]) -> String {
+        ArticlesScreenSubtitleResolver.resolve(
+            articles: articles,
+            sourcesFilter: selectedSourcesFilter
         )
     }
 

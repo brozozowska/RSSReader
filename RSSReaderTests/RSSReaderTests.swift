@@ -919,6 +919,7 @@ struct RSSReaderTests {
 
         #expect(state.phase == .noSelection)
         #expect(state.navigationTitle == "Articles")
+        #expect(state.navigationSubtitle == "0 Unread Items")
         #expect(state.placeholder?.title == "No Source Selected")
         #expect(state.toolbarActions.showsSearchAction == false)
         #expect(state.toolbarActions.showsMenuAction == false)
@@ -931,11 +932,13 @@ struct RSSReaderTests {
         state.beginLoading(
             for: .unread,
             navigationTitle: "Unread",
+            navigationSubtitle: "3 Unread Items",
             resetsContent: true
         )
 
         #expect(state.phase == .loading)
         #expect(state.navigationTitle == "Unread")
+        #expect(state.navigationSubtitle == "3 Unread Items")
         #expect(state.showsPrimaryLoadingIndicator)
         #expect(state.toolbarActions.showsSearchAction)
         #expect(state.toolbarActions.showsMenuAction)
@@ -948,11 +951,13 @@ struct RSSReaderTests {
         state.applyLoadedArticles(
             [],
             selection: .starred,
-            navigationTitle: "Starred"
+            navigationTitle: "Starred",
+            navigationSubtitle: "0 Starred Items"
         )
 
         #expect(state.phase == .empty)
         #expect(state.navigationTitle == "Starred")
+        #expect(state.navigationSubtitle == "0 Starred Items")
         #expect(state.placeholder?.title == "No Articles")
         #expect(state.placeholder?.description == "You have not starred any articles yet.")
     }
@@ -965,22 +970,26 @@ struct RSSReaderTests {
         state.applyLoadedArticles(
             [unreadItem],
             selection: .feed(unreadItem.feedID),
-            navigationTitle: "Feed"
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
         )
         state.beginLoading(
             for: .feed(unreadItem.feedID),
             navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item",
             resetsContent: false
         )
         state.applyLoadingFailure(
             "Refresh failed",
             selection: .feed(unreadItem.feedID),
             navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item",
             retainsContent: true
         )
 
         #expect(state.phase == .loaded)
         #expect(state.navigationTitle == "Feed")
+        #expect(state.navigationSubtitle == "1 Unread Item")
         #expect(state.articles.map(\.id) == [unreadItem.id])
         #expect(state.refreshState == .idle)
         #expect(state.toolbarActions.isMarkAllAsReadEnabled)
@@ -995,7 +1004,8 @@ struct RSSReaderTests {
         state.applyLoadedArticles(
             [readItem],
             selection: .feed(readItem.feedID),
-            navigationTitle: "Feed"
+            navigationTitle: "Feed",
+            navigationSubtitle: "0 Unread Items"
         )
         state.presentMarkAllAsReadConfirmation()
         #expect(state.pendingConfirmation == nil)
@@ -1003,7 +1013,8 @@ struct RSSReaderTests {
         state.applyLoadedArticles(
             [unreadItem],
             selection: .feed(unreadItem.feedID),
-            navigationTitle: "Feed"
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
         )
         state.presentMarkAllAsReadConfirmation()
         #expect(state.pendingConfirmation == .markAllAsRead)
@@ -1041,6 +1052,33 @@ struct RSSReaderTests {
             ) == "The Verge"
         )
         #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .feed(UUID())) == "Source")
+    }
+
+    @Test
+    func articlesScreenSubtitleResolverBuildsSubtitleFromSourcesFilter() {
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+        let starredItem = makeArticleListItemDTO(isRead: true, isStarred: true)
+        let unreadStarredItem = makeArticleListItemDTO(isRead: false, isStarred: true)
+        let articles = [unreadItem, starredItem, unreadStarredItem]
+
+        #expect(
+            ArticlesScreenSubtitleResolver.resolve(
+                articles: articles,
+                sourcesFilter: .allItems
+            ) == "2 Unread Items"
+        )
+        #expect(
+            ArticlesScreenSubtitleResolver.resolve(
+                articles: articles,
+                sourcesFilter: .unread
+            ) == "2 Unread Items"
+        )
+        #expect(
+            ArticlesScreenSubtitleResolver.resolve(
+                articles: articles,
+                sourcesFilter: .starred
+            ) == "2 Starred Items"
+        )
     }
 
     @Test

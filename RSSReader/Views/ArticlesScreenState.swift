@@ -45,6 +45,27 @@ struct ArticlesScreenNavigationTitleResolver {
     }
 }
 
+struct ArticlesScreenSubtitleResolver {
+    static func resolve(
+        articles: [ArticleListItemDTO],
+        sourcesFilter: SourcesFilter
+    ) -> String {
+        let count: Int
+        let itemLabel: String
+
+        switch sourcesFilter {
+        case .allItems, .unread:
+            count = articles.filter { $0.isRead == false }.count
+            itemLabel = count == 1 ? "Unread Item" : "Unread Items"
+        case .starred:
+            count = articles.filter(\.isStarred).count
+            itemLabel = count == 1 ? "Starred Item" : "Starred Items"
+        }
+
+        return "\(count) \(itemLabel)"
+    }
+}
+
 struct ArticlesScreenToolbarActionsState: Equatable {
     let showsSearchAction: Bool
     let showsMenuAction: Bool
@@ -74,6 +95,7 @@ struct ArticlesScreenState {
     private(set) var articles: [ArticleListItemDTO] = []
     private(set) var selection: SidebarSelection?
     private(set) var navigationTitle = "Articles"
+    private(set) var navigationSubtitle = "0 Unread Items"
     private(set) var phase: ArticlesScreenPhase = .noSelection
     private(set) var refreshState: ArticlesScreenRefreshState = .idle
     private(set) var toolbarActions = ArticlesScreenToolbarActionsState(
@@ -114,11 +136,13 @@ struct ArticlesScreenState {
     mutating func beginLoading(
         for selection: SidebarSelection?,
         navigationTitle: String,
+        navigationSubtitle: String,
         resetsContent: Bool
     ) {
         pendingConfirmation = nil
         self.selection = selection
         self.navigationTitle = navigationTitle
+        self.navigationSubtitle = navigationSubtitle
 
         guard selection != nil else {
             articles = []
@@ -144,10 +168,12 @@ struct ArticlesScreenState {
     mutating func applyLoadedArticles(
         _ loadedArticles: [ArticleListItemDTO],
         selection: SidebarSelection?,
-        navigationTitle: String
+        navigationTitle: String,
+        navigationSubtitle: String
     ) {
         self.selection = selection
         self.navigationTitle = navigationTitle
+        self.navigationSubtitle = navigationSubtitle
         articles = loadedArticles
         refreshState = .idle
 
@@ -166,10 +192,12 @@ struct ArticlesScreenState {
         _ message: String,
         selection: SidebarSelection?,
         navigationTitle: String,
+        navigationSubtitle: String,
         retainsContent: Bool
     ) {
         self.selection = selection
         self.navigationTitle = navigationTitle
+        self.navigationSubtitle = navigationSubtitle
         refreshState = .idle
 
         if retainsContent && articles.isEmpty == false {
