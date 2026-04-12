@@ -246,3 +246,53 @@ struct ArticlesScreenState {
         }
     }
 }
+
+extension ArticlesScreenState {
+    static func previewLoading(
+        selection: SidebarSelection,
+        navigationTitle: String,
+        navigationSubtitle: String
+    ) -> ArticlesScreenState {
+        var state = ArticlesScreenState()
+        state.beginLoading(
+            for: selection,
+            navigationTitle: navigationTitle,
+            navigationSubtitle: navigationSubtitle,
+            resetsContent: true
+        )
+        return state
+    }
+
+    static func previewLoaded(
+        selection: SidebarSelection,
+        navigationTitle: String,
+        navigationSubtitle: String,
+        articles: [ArticleListItemDTO]
+    ) -> ArticlesScreenState {
+        var state = ArticlesScreenState()
+        state.applyLoadedArticles(
+            articles,
+            selection: selection,
+            navigationTitle: navigationTitle,
+            navigationSubtitle: navigationSubtitle
+        )
+        return state
+    }
+
+    static func previewFailed(
+        selection: SidebarSelection,
+        navigationTitle: String,
+        navigationSubtitle: String,
+        message: String
+    ) -> ArticlesScreenState {
+        var state = ArticlesScreenState()
+        state.applyLoadingFailure(
+            message,
+            selection: selection,
+            navigationTitle: navigationTitle,
+            navigationSubtitle: navigationSubtitle,
+            retainsContent: false
+        )
+        return state
+    }
+}

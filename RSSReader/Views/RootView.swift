@@ -60,6 +60,7 @@ struct RootView: View {
                     sourceSelection: appState.selectedSidebarSelection
                 ),
                 navigateBackToSources: { preferredCompactColumn = .sidebar },
+                previewScreenState: nil,
                 selection: articleSelection
             )
         } detail: {
