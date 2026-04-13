@@ -36,11 +36,11 @@ struct ArticleListView: View {
                 }
             }
             .listStyle(.plain)
+            .listSectionSpacing(12)
             .scrollContentBackground(.hidden)
             .contentMargins(.top, 8, for: .scrollContent)
         }
-        .navigationTitle(displayedScreenState.navigationTitle)
-        .navigationSubtitle(displayedScreenState.navigationSubtitle)
+        .toolbarTitleDisplayMode(.inline)
         .toolbar {
             if showsBackButton {
                 ToolbarItem(placement: .topBarLeading) {
@@ -49,6 +49,14 @@ struct ArticleListView: View {
                     }
                     .accessibilityLabel("Back to Sources")
                 }
+            }
+
+            ToolbarItem(placement: .title) {
+                titleView(for: displayedScreenState)
+            }
+
+            ToolbarItem(placement: .subtitle) {
+                subtitleView(for: displayedScreenState)
             }
         }
         .overlay {
@@ -203,6 +211,21 @@ struct ArticleListView: View {
             }
     }
 
+    @ViewBuilder
+    private func titleView(for screenState: ArticlesScreenState) -> some View {
+        Text(screenState.navigationTitle)
+            .font(.title3.weight(.semibold))
+    }
+
+    @ViewBuilder
+    private func subtitleView(for screenState: ArticlesScreenState) -> some View {
+        if screenState.navigationSubtitle.isEmpty == false {
+            Text(screenState.navigationSubtitle)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     @MainActor
     private func loadSortMode() async -> ArticleSortMode {
         guard let appSettingsRepository = dependencies.appSettingsRepository else {
@@ -321,7 +344,6 @@ private struct ArticleListSectionHeaderView: View {
             .foregroundStyle(.secondary)
             .textCase(nil)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 8)
     }
 }
 
