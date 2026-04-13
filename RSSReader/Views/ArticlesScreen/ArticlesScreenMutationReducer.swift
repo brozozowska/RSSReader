@@ -1,5 +1,10 @@
 import Foundation
 
+enum ArticleRowMutation: Equatable {
+    case update(ArticleListItemDTO)
+    case remove
+}
+
 enum ArticlesScreenMutationReducer {
     static func articleListFilter(
         selection: SidebarSelection?,
@@ -85,5 +90,37 @@ enum ArticlesScreenMutationReducer {
         case .remove:
             allArticles.filter { $0.id != articleID }
         }
+    }
+}
+
+enum SourcesFilterArticleListFilterResolver {
+    static func resolve(for sourcesFilter: SourcesFilter) -> ArticleListFilter {
+        switch sourcesFilter {
+        case .allItems:
+            .all
+        case .unread:
+            .unread
+        case .starred:
+            .starred
+        }
+    }
+}
+
+extension ArticleListItemDTO {
+    func updating(isRead: Bool, isStarred: Bool) -> ArticleListItemDTO {
+        ArticleListItemDTO(
+            id: id,
+            feedID: feedID,
+            feedTitle: feedTitle,
+            articleExternalID: articleExternalID,
+            title: title,
+            summary: summary,
+            author: author,
+            publishedAt: publishedAt,
+            fetchedAt: fetchedAt,
+            isRead: isRead,
+            isStarred: isStarred,
+            isHidden: isHidden
+        )
     }
 }

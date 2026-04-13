@@ -121,10 +121,7 @@ struct ArticleListView: View {
         }
         .onChange(of: searchText) { _, _ in
             selection = stabilizedSelection(
-                availableArticleIDs: controller.screenState
-                    .derivedViewState(searchText: searchText)
-                    .visibleArticles
-                    .map(\.id)
+                availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
             )
         }
         .simultaneousGesture(backNavigationGesture)
@@ -145,10 +142,7 @@ struct ArticleListView: View {
         )
 
         selection = stabilizedSelection(
-            availableArticleIDs: controller.screenState
-                .derivedViewState(searchText: searchText)
-                .visibleArticles
-                .map(\.id)
+            availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
         )
     }
 
@@ -159,13 +153,6 @@ struct ArticleListView: View {
             return selection
         }
         return availableArticleIDs.first
-    }
-
-    private func currentArticleListFilter() -> ArticleListFilter {
-        ArticlesScreenMutationReducer.articleListFilter(
-            selection: selectedSidebarSelection,
-            sourcesFilter: selectedSourcesFilter
-        )
     }
 
     // MARK: Confirmation
@@ -190,43 +177,15 @@ struct ArticleListView: View {
 
     @MainActor
     private func confirmMarkAllAsRead() {
-        let visibleArticles = controller.screenState
-            .derivedViewState(searchText: searchText)
-            .visibleArticles
-
-        if isPreviewMode == false {
-            guard let articleStateService = dependencies.articleStateService else {
-                dependencies.logger.error("Article state service is unavailable for mark all as read action")
-                controller.screenState.dismissConfirmation()
-                return
-            }
-
-            do {
-                _ = try articleStateService.markAllVisibleAsRead(visibleArticles, at: .now)
-            } catch {
-                dependencies.logger.error("Failed to mark all visible articles as read: \(error)")
-                controller.screenState.dismissConfirmation()
-                return
-            }
-        }
-
-        let updatedArticles = ArticlesScreenMutationReducer.reduceAfterMarkAllAsRead(
-            visibleArticles: visibleArticles,
-            allArticles: controller.screenState.articles,
-            filter: currentArticleListFilter()
-        )
-        controller.screenState.applyMarkAllAsRead(
-            updatedArticles,
-            navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
-                articles: updatedArticles,
-                sourcesFilter: selectedSourcesFilter
-            )
+        controller.confirmMarkAllAsRead(
+            searchText: searchText,
+            selection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter,
+            dependencies: dependencies,
+            isPreviewMode: isPreviewMode
         )
         selection = stabilizedSelection(
-            availableArticleIDs: controller.screenState
-                .derivedViewState(searchText: searchText)
-                .visibleArticles
-                .map(\.id)
+            availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
         )
     }
 
@@ -234,80 +193,29 @@ struct ArticleListView: View {
 
     @MainActor
     private func markArticleAsRead(_ article: ArticleListItemDTO) {
-        guard article.isRead == false else { return }
-
-        if isPreviewMode == false {
-            guard let articleStateService = dependencies.articleStateService else {
-                dependencies.logger.error("Article state service is unavailable for mark as read action")
-                return
-            }
-
-            do {
-                _ = try articleStateService.markAsRead(
-                    feedID: article.feedID,
-                    articleExternalID: article.articleExternalID,
-                    at: .now
-                )
-            } catch {
-                dependencies.logger.error("Failed to mark article as read: \(error)")
-                return
-            }
-        }
-
-        let mutation = ArticlesScreenMutationReducer.mutationAfterMarkAsRead(
-            article: article,
-            filter: currentArticleListFilter()
+        controller.markArticleAsRead(
+            article,
+            selection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter,
+            dependencies: dependencies,
+            isPreviewMode: isPreviewMode
         )
-        applyArticleRowMutation(mutation, for: article.id)
+        selection = stabilizedSelection(
+            availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
+        )
     }
 
     @MainActor
     private func toggleStarredState(for article: ArticleListItemDTO) {
-        if isPreviewMode == false {
-            guard let articleStateService = dependencies.articleStateService else {
-                dependencies.logger.error("Article state service is unavailable for star action")
-                return
-            }
-
-            do {
-                _ = try articleStateService.toggleStarred(
-                    feedID: article.feedID,
-                    articleExternalID: article.articleExternalID,
-                    at: .now
-                )
-            } catch {
-                dependencies.logger.error("Failed to toggle starred state for article: \(error)")
-                return
-            }
-        }
-
-        let mutation = ArticlesScreenMutationReducer.mutationAfterToggleStarred(
-            article: article,
-            filter: currentArticleListFilter()
-        )
-        applyArticleRowMutation(mutation, for: article.id)
-    }
-
-    @MainActor
-    private func applyArticleRowMutation(_ mutation: ArticleRowMutation, for articleID: UUID) {
-        let updatedArticles = ArticlesScreenMutationReducer.apply(
-            mutation,
-            articleID: articleID,
-            allArticles: controller.screenState.articles
-        )
-        controller.screenState.applyArticleRowMutation(
-            articleID: articleID,
-            mutation: mutation,
-            navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
-                articles: updatedArticles,
-                sourcesFilter: selectedSourcesFilter
-            )
+        controller.toggleStarredState(
+            for: article,
+            selection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter,
+            dependencies: dependencies,
+            isPreviewMode: isPreviewMode
         )
         selection = stabilizedSelection(
-            availableArticleIDs: controller.screenState
-                .derivedViewState(searchText: searchText)
-                .visibleArticles
-                .map(\.id)
+            availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
         )
     }
 
@@ -424,36 +332,4 @@ private struct ArticleListLoadContext: Hashable {
     let sourceSelection: SidebarSelection?
     let sourcesFilter: SourcesFilter
     let reloadID: UUID
-}
-
-enum SourcesFilterArticleListFilterResolver {
-    static func resolve(for sourcesFilter: SourcesFilter) -> ArticleListFilter {
-        switch sourcesFilter {
-        case .allItems:
-            .all
-        case .unread:
-            .unread
-        case .starred:
-            .starred
-        }
-    }
-}
-
-extension ArticleListItemDTO {
-    func updating(isRead: Bool, isStarred: Bool) -> ArticleListItemDTO {
-        ArticleListItemDTO(
-            id: id,
-            feedID: feedID,
-            feedTitle: feedTitle,
-            articleExternalID: articleExternalID,
-            title: title,
-            summary: summary,
-            author: author,
-            publishedAt: publishedAt,
-            fetchedAt: fetchedAt,
-            isRead: isRead,
-            isStarred: isStarred,
-            isHidden: isHidden
-        )
-    }
 }
