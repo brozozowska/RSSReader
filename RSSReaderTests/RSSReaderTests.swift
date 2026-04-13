@@ -963,6 +963,23 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articlesScreenStateBuildsPrimaryFailureForInitialLoad() {
+        var state = ArticlesScreenState()
+
+        state.applyLoadingFailure(
+            "Article query service is unavailable.",
+            selection: .inbox,
+            navigationTitle: "All Items",
+            navigationSubtitle: "0 Unread Items",
+            retainsContent: false
+        )
+
+        #expect(state.phase == .failed("Article query service is unavailable."))
+        #expect(state.primaryFailureMessage == "Article query service is unavailable.")
+        #expect(state.refreshFeedback == nil)
+    }
+
+    @Test
     func articlesScreenStateKeepsVisibleArticlesWhenRefreshFails() {
         var state = ArticlesScreenState()
         let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
@@ -992,7 +1009,32 @@ struct RSSReaderTests {
         #expect(state.navigationSubtitle == "1 Unread Item")
         #expect(state.articles.map(\.id) == [unreadItem.id])
         #expect(state.refreshState == .idle)
+        #expect(state.refreshFeedback == ArticlesScreenRefreshFeedback(message: "Refresh failed"))
         #expect(state.toolbarActions.isMarkAllAsReadEnabled)
+    }
+
+    @Test
+    func articlesScreenStateClearsRefreshFeedbackWhenPrimaryReloadStarts() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.presentRefreshFailure("Refresh failed")
+
+        state.beginLoading(
+            for: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "1 Unread Item",
+            resetsContent: true
+        )
+
+        #expect(state.phase == .loading)
+        #expect(state.refreshFeedback == nil)
     }
 
     @Test

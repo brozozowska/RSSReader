@@ -130,21 +130,10 @@ struct ArticleListView: View {
             Text("This action will mark all visible articles as read.")
         }
         .overlay {
-            if screenState.showsPrimaryLoadingIndicator {
-                ProgressView()
-            } else if let placeholder = searchPlaceholder(for: visibleArticles) {
-                ContentUnavailableView(
-                    placeholder.title,
-                    systemImage: placeholder.systemImage,
-                    description: placeholder.description.map(Text.init)
-                )
-            } else if let placeholder = screenState.placeholder {
-                ContentUnavailableView(
-                    placeholder.title,
-                    systemImage: placeholder.systemImage,
-                    description: placeholder.description.map(Text.init)
-                )
-            }
+            overlayContent(for: visibleArticles)
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            refreshStatusBanner
         }
         .task(id: ArticleListLoadContext(
             sourceSelection: selectedSidebarSelection,
@@ -591,10 +580,179 @@ struct ArticleListView: View {
         )
     }
 
+    @ViewBuilder
+    private func overlayContent(for visibleArticles: [ArticleListItemDTO]) -> some View {
+        if screenState.showsPrimaryLoadingIndicator {
+            primaryLoadingOverlay
+        } else if let placeholder = searchPlaceholder(for: visibleArticles) {
+            ContentUnavailableView(
+                placeholder.title,
+                systemImage: placeholder.systemImage,
+                description: placeholder.description.map(Text.init)
+            )
+        } else if let primaryFailureMessage = screenState.primaryFailureMessage {
+            ContentUnavailableView {
+                Label("Unable to Load Articles", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(primaryFailureMessage)
+            } actions: {
+                Button("Retry") {
+                    retryPrimaryLoad()
+                }
+            }
+        } else if let placeholder = screenState.placeholder {
+            ContentUnavailableView(
+                placeholder.title,
+                systemImage: placeholder.systemImage,
+                description: placeholder.description.map(Text.init)
+            )
+        }
+    }
+
+    private var primaryLoadingOverlay: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .controlSize(.regular)
+
+            Text("Loading Articles")
+                .font(.headline)
+
+            Text(primaryLoadingDescription)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var primaryLoadingDescription: String {
+        switch selectedSidebarSelection {
+        case .none:
+            "Select Inbox or a source to start reading."
+        case .inbox:
+            "Fetching the latest articles for your current inbox selection."
+        case .unread:
+            "Fetching unread articles across your current sources."
+        case .starred:
+            "Fetching the articles you marked as starred."
+        case .folder(let folderName):
+            "Fetching articles for \(folderName)."
+        case .feed:
+            "Fetching articles for the current source."
+        }
+    }
+
+    @ViewBuilder
+    private var refreshStatusBanner: some View {
+        if screenState.showsRefreshActivityIndicator {
+            refreshBanner(
+                title: "Refreshing Articles",
+                message: "Updating the current selection."
+            )
+        } else if let refreshFeedback = screenState.refreshFeedback {
+            refreshBanner(
+                title: "Refresh Failed",
+                message: refreshFeedback.message,
+                showsRetryAction: true
+            )
+        }
+    }
+
+    private func refreshBanner(
+        title: String,
+        message: String,
+        showsRetryAction: Bool = false
+    ) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            if screenState.showsRefreshActivityIndicator {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 12)
+
+            if showsRetryAction {
+                Button("Retry") {
+                    Task {
+                        await refreshCurrentSelection()
+                    }
+                }
+                .font(.footnote.weight(.semibold))
+
+                Button {
+                    dismissRefreshFeedback()
+                } label: {
+                    Image(systemName: "xmark")
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Dismiss refresh error")
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+    }
+
+    private func retryPrimaryLoad() {
+        Task {
+            await loadArticles()
+        }
+    }
+
     @MainActor
     private func refreshCurrentSelection() async {
         guard isPreviewMode == false else { return }
-        _ = await dependencies.refreshCurrentSelection(using: appState)
+        screenState.dismissRefreshFeedback()
+        let result = await dependencies.refreshCurrentSelection(using: appState)
+
+        if let result {
+            if let refreshFailureMessage = refreshFailureMessage(for: result) {
+                screenState.presentRefreshFailure(refreshFailureMessage)
+            }
+        } else if selectedSidebarSelection != nil {
+            screenState.presentRefreshFailure("Unable to refresh the current selection right now.")
+        }
+    }
+
+    @MainActor
+    private func dismissRefreshFeedback() {
+        screenState.dismissRefreshFeedback()
+    }
+
+    private func refreshFailureMessage(for result: FeedRefreshBatchResult) -> String? {
+        guard result.summary.failedCount > 0 else {
+            return nil
+        }
+
+        if let firstError = result.failureDescriptions.first {
+            if result.summary.failedCount == 1 {
+                return firstError
+            }
+            return "\(result.summary.failedCount) sources failed to refresh. First error: \(firstError)"
+        }
+
+        if result.summary.failedCount == 1 {
+            return "The current source failed to refresh."
+        }
+
+        return "\(result.summary.failedCount) sources failed to refresh."
     }
 }
 

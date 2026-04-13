@@ -23,6 +23,10 @@ struct ArticlesScreenPlaceholderState: Equatable {
     let description: String?
 }
 
+struct ArticlesScreenRefreshFeedback: Equatable {
+    let message: String
+}
+
 struct ArticlesScreenNavigationTitleResolver {
     static func resolve(
         selection: SidebarSelection?,
@@ -161,6 +165,7 @@ struct ArticlesScreenState {
     private(set) var navigationSubtitle = "0 Unread Items"
     private(set) var phase: ArticlesScreenPhase = .noSelection
     private(set) var refreshState: ArticlesScreenRefreshState = .idle
+    private(set) var refreshFeedback: ArticlesScreenRefreshFeedback?
     private(set) var toolbarActions = ArticlesScreenToolbarActionsState(
         selection: nil,
         visibleArticles: []
@@ -196,6 +201,17 @@ struct ArticlesScreenState {
         phase == .loading && articles.isEmpty
     }
 
+    var primaryFailureMessage: String? {
+        guard case .failed(let message) = phase else {
+            return nil
+        }
+        return message
+    }
+
+    var showsRefreshActivityIndicator: Bool {
+        refreshState == .refreshing && articles.isEmpty == false
+    }
+
     var sections: [ArticlesDaySection] {
         ArticlesDaySectionsBuilder.build(from: articles)
     }
@@ -215,11 +231,13 @@ struct ArticlesScreenState {
             articles = []
             phase = .noSelection
             refreshState = .idle
+            refreshFeedback = nil
             updateToolbarActions(for: selection)
             return
         }
 
         if resetsContent || articles.isEmpty {
+            refreshFeedback = nil
             if resetsContent {
                 articles = []
             }
@@ -269,15 +287,27 @@ struct ArticlesScreenState {
 
         if retainsContent && articles.isEmpty == false {
             phase = .loaded
+            refreshFeedback = ArticlesScreenRefreshFeedback(message: message)
         } else if selection == nil {
             articles = []
             phase = .noSelection
+            refreshFeedback = nil
         } else {
             articles = []
             phase = .failed(message)
+            refreshFeedback = nil
         }
 
         updateToolbarActions(for: selection)
+    }
+
+    mutating func presentRefreshFailure(_ message: String) {
+        guard message.isEmpty == false else { return }
+        refreshFeedback = ArticlesScreenRefreshFeedback(message: message)
+    }
+
+    mutating func dismissRefreshFeedback() {
+        refreshFeedback = nil
     }
 
     mutating func presentMarkAllAsReadConfirmation() {
