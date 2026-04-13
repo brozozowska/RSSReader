@@ -14,8 +14,7 @@ struct ArticleListView: View {
     let previewScreenState: ArticlesScreenState?
 
     @Binding var selection: UUID?
-    @State private var screenState = ArticlesScreenState()
-    @State private var lastLoadedSourceSelection: SidebarSelection? = nil
+    @State private var controller: ArticlesScreenController
     @State private var searchText = ""
 
     init(
@@ -34,17 +33,16 @@ struct ArticleListView: View {
         self.navigateBackToSources = navigateBackToSources
         self.previewScreenState = previewScreenState
         self._selection = selection
-        self._screenState = State(initialValue: previewScreenState ?? ArticlesScreenState())
-        self._lastLoadedSourceSelection = State(initialValue: previewScreenState?.selection)
+        self._controller = State(initialValue: ArticlesScreenController(previewScreenState: previewScreenState))
     }
 
     // MARK: Body
 
     var body: some View {
-        let visibleArticles = filteredArticles(from: screenState.articles)
+        let visibleArticles = filteredArticles(from: controller.screenState.articles)
         let visibleSections = ArticlesDaySectionsBuilder.build(from: visibleArticles)
         let toolbarActions = ArticlesScreenToolbarActionsState(
-            selection: screenState.selection,
+            selection: controller.screenState.selection,
             visibleArticles: visibleArticles
         )
 
@@ -73,11 +71,11 @@ struct ArticleListView: View {
             }
 
             ToolbarItem(placement: .title) {
-                titleView(for: screenState)
+                titleView(for: controller.screenState)
             }
 
             ToolbarItem(placement: .subtitle) {
-                subtitleView(for: screenState)
+                subtitleView(for: controller.screenState)
             }
 
             if toolbarActions.showsMarkAllAsReadAction {
@@ -113,8 +111,8 @@ struct ArticleListView: View {
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             ArticleListRefreshBanner(
-                isRefreshing: screenState.showsRefreshActivityIndicator,
-                feedbackMessage: screenState.refreshFeedback?.message,
+                isRefreshing: controller.screenState.showsRefreshActivityIndicator,
+                feedbackMessage: controller.screenState.refreshFeedback?.message,
                 retryAction: refreshCurrentSelection,
                 dismissAction: dismissRefreshFeedback
             )
@@ -129,7 +127,7 @@ struct ArticleListView: View {
         }
         .onChange(of: searchText) { _, _ in
             selection = stabilizedSelection(
-                availableArticleIDs: filteredArticles(from: screenState.articles).map(\.id)
+                availableArticleIDs: filteredArticles(from: controller.screenState.articles).map(\.id)
             )
         }
         .simultaneousGesture(backNavigationGesture)
@@ -139,105 +137,19 @@ struct ArticleListView: View {
 
     @MainActor
     private func loadArticles() async {
-        let sourceSelectionChanged = lastLoadedSourceSelection != selectedSidebarSelection
-        let navigationTitle = resolveNavigationTitle()
-        let loadingSubtitle = resolveNavigationSubtitle(for: screenState.articles)
-        screenState.beginLoading(
-            for: selectedSidebarSelection,
-            navigationTitle: navigationTitle,
-            navigationSubtitle: loadingSubtitle,
-            resetsContent: sourceSelectionChanged
+        if controller.shouldResetArticleSelection(for: selectedSidebarSelection) {
+            selection = nil
+        }
+
+        await controller.load(
+            selection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter,
+            dependencies: dependencies
         )
-
-        if sourceSelectionChanged {
-            selection = nil
-        }
-        defer {
-            lastLoadedSourceSelection = selectedSidebarSelection
-        }
-
-        guard let articleQueryService = dependencies.articleQueryService else {
-            screenState.applyLoadingFailure(
-                "Article query service is unavailable.",
-                selection: selectedSidebarSelection,
-                navigationTitle: navigationTitle,
-                navigationSubtitle: loadingSubtitle,
-                retainsContent: false
-            )
-            selection = nil
-            return
-        }
-
-        let sortMode = await loadSortMode()
-
-        do {
-            let loadedArticles: [ArticleListItemDTO]
-            switch selectedSidebarSelection {
-            case .inbox:
-                loadedArticles = try articleQueryService.fetchInboxListItems(
-                    sortMode: sortMode,
-                    filter: SourcesFilterArticleListFilterResolver.resolve(for: selectedSourcesFilter)
-                )
-            case .unread:
-                loadedArticles = try articleQueryService.fetchInboxListItems(
-                    sortMode: sortMode,
-                    filter: .unread
-                )
-            case .starred:
-                loadedArticles = try articleQueryService.fetchInboxListItems(
-                    sortMode: sortMode,
-                    filter: .starred
-                )
-            case .folder(let folderName):
-                loadedArticles = try articleQueryService.fetchFolderListItems(
-                    folderName: folderName,
-                    sortMode: sortMode,
-                    filter: SourcesFilterArticleListFilterResolver.resolve(for: selectedSourcesFilter)
-                )
-            case .feed(let selectedFeedID):
-                loadedArticles = try articleQueryService.fetchArticleListItems(
-                    feedID: selectedFeedID,
-                    sortMode: sortMode,
-                    filter: SourcesFilterArticleListFilterResolver.resolve(for: selectedSourcesFilter)
-                )
-            case .none:
-                loadedArticles = []
-            }
-
-            screenState.applyLoadedArticles(
-                loadedArticles,
-                selection: selectedSidebarSelection,
-                navigationTitle: navigationTitle,
-                navigationSubtitle: resolveNavigationSubtitle(for: loadedArticles)
-            )
-        } catch {
-            dependencies.logger.error("Failed to load article list for selection \(String(describing: selectedSidebarSelection)): \(error)")
-            screenState.applyLoadingFailure(
-                error.localizedDescription,
-                selection: selectedSidebarSelection,
-                navigationTitle: navigationTitle,
-                navigationSubtitle: loadingSubtitle,
-                retainsContent: sourceSelectionChanged == false
-            )
-        }
 
         selection = stabilizedSelection(
-            availableArticleIDs: filteredArticles(from: screenState.articles).map(\.id)
+            availableArticleIDs: filteredArticles(from: controller.screenState.articles).map(\.id)
         )
-    }
-
-    @MainActor
-    private func loadSortMode() async -> ArticleSortMode {
-        guard let appSettingsRepository = dependencies.appSettingsRepository else {
-            return .publishedAtDescending
-        }
-
-        do {
-            return try appSettingsRepository.fetchOrCreate().sortMode
-        } catch {
-            dependencies.logger.error("Failed to load app settings for article sort mode: \(error)")
-            return .publishedAtDescending
-        }
     }
 
     // MARK: Selection
@@ -247,28 +159,6 @@ struct ArticleListView: View {
             return selection
         }
         return availableArticleIDs.first
-    }
-
-    @MainActor
-    private func resolveNavigationTitle() -> String {
-        let selectedFeedTitle: String?
-        if case .feed(let feedID) = selectedSidebarSelection {
-            selectedFeedTitle = try? dependencies.feedRepository?.fetchFeed(id: feedID)?.title
-        } else {
-            selectedFeedTitle = nil
-        }
-
-        return ArticlesScreenNavigationTitleResolver.resolve(
-            selection: selectedSidebarSelection,
-            selectedFeedTitle: selectedFeedTitle
-        )
-    }
-
-    private func resolveNavigationSubtitle(for articles: [ArticleListItemDTO]) -> String {
-        ArticlesScreenSubtitleResolver.resolve(
-            articles: articles,
-            sourcesFilter: selectedSourcesFilter
-        )
     }
 
     private func currentArticleListFilter() -> ArticleListFilter {
@@ -286,10 +176,10 @@ struct ArticleListView: View {
 
     private var markAllAsReadConfirmationIsPresented: Binding<Bool> {
         Binding(
-            get: { screenState.pendingConfirmation == .markAllAsRead },
+            get: { controller.screenState.pendingConfirmation == .markAllAsRead },
             set: { isPresented in
                 if isPresented == false {
-                    screenState.dismissConfirmation()
+                    controller.screenState.dismissConfirmation()
                 }
             }
         )
@@ -297,19 +187,19 @@ struct ArticleListView: View {
 
     @MainActor
     private func presentMarkAllAsReadConfirmation() {
-        screenState.presentMarkAllAsReadConfirmation()
+        controller.screenState.presentMarkAllAsReadConfirmation()
     }
 
     // MARK: Bulk Actions
 
     @MainActor
     private func confirmMarkAllAsRead() {
-        let visibleArticles = filteredArticles(from: screenState.articles)
+        let visibleArticles = filteredArticles(from: controller.screenState.articles)
 
         if isPreviewMode == false {
             guard let articleStateService = dependencies.articleStateService else {
                 dependencies.logger.error("Article state service is unavailable for mark all as read action")
-                screenState.dismissConfirmation()
+                controller.screenState.dismissConfirmation()
                 return
             }
 
@@ -317,18 +207,21 @@ struct ArticleListView: View {
                 _ = try articleStateService.markAllVisibleAsRead(visibleArticles, at: .now)
             } catch {
                 dependencies.logger.error("Failed to mark all visible articles as read: \(error)")
-                screenState.dismissConfirmation()
+                controller.screenState.dismissConfirmation()
                 return
             }
         }
 
         let updatedArticles = makeArticlesAfterMarkAllAsRead(
             visibleArticles: visibleArticles,
-            allArticles: screenState.articles
+            allArticles: controller.screenState.articles
         )
-        screenState.applyMarkAllAsRead(
+        controller.screenState.applyMarkAllAsRead(
             updatedArticles,
-            navigationSubtitle: resolveNavigationSubtitle(for: updatedArticles)
+            navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
+                articles: updatedArticles,
+                sourcesFilter: selectedSourcesFilter
+            )
         )
         selection = stabilizedSelection(
             availableArticleIDs: filteredArticles(from: updatedArticles).map(\.id)
@@ -414,12 +307,15 @@ struct ArticleListView: View {
         let updatedArticles = makeArticlesAfterApplyingArticleRowMutation(
             mutation,
             articleID: articleID,
-            allArticles: screenState.articles
+            allArticles: controller.screenState.articles
         )
-        screenState.applyArticleRowMutation(
+        controller.screenState.applyArticleRowMutation(
             articleID: articleID,
             mutation: mutation,
-            navigationSubtitle: resolveNavigationSubtitle(for: updatedArticles)
+            navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
+                articles: updatedArticles,
+                sourcesFilter: selectedSourcesFilter
+            )
         )
         selection = stabilizedSelection(
             availableArticleIDs: filteredArticles(from: updatedArticles).map(\.id)
@@ -527,7 +423,7 @@ struct ArticleListView: View {
             return nil
         }
 
-        guard screenState.phase == .loaded || screenState.phase == .empty else {
+        guard controller.screenState.phase == .loaded || controller.screenState.phase == .empty else {
             return nil
         }
 
@@ -544,7 +440,7 @@ struct ArticleListView: View {
 
     @ViewBuilder
     private func overlayContent(for visibleArticles: [ArticleListItemDTO]) -> some View {
-        if screenState.showsPrimaryLoadingIndicator {
+        if controller.screenState.showsPrimaryLoadingIndicator {
             primaryLoadingOverlay
         } else if let placeholder = searchPlaceholder(for: visibleArticles) {
             ContentUnavailableView(
@@ -552,7 +448,7 @@ struct ArticleListView: View {
                 systemImage: placeholder.systemImage,
                 description: placeholder.description.map(Text.init)
             )
-        } else if let primaryFailureMessage = screenState.primaryFailureMessage {
+        } else if let primaryFailureMessage = controller.screenState.primaryFailureMessage {
             ContentUnavailableView {
                 Label("Unable to Load Articles", systemImage: "exclamationmark.triangle")
             } description: {
@@ -562,7 +458,7 @@ struct ArticleListView: View {
                     retryPrimaryLoad()
                 }
             }
-        } else if let placeholder = screenState.placeholder {
+        } else if let placeholder = controller.screenState.placeholder {
             ContentUnavailableView(
                 placeholder.title,
                 systemImage: placeholder.systemImage,
@@ -616,40 +512,16 @@ struct ArticleListView: View {
     @MainActor
     private func refreshCurrentSelection() async {
         guard isPreviewMode == false else { return }
-        screenState.dismissRefreshFeedback()
-        let result = await dependencies.refreshCurrentSelection(using: appState)
-
-        if let result {
-            if let refreshFailureMessage = refreshFailureMessage(for: result) {
-                screenState.presentRefreshFailure(refreshFailureMessage)
-            }
-        } else if selectedSidebarSelection != nil {
-            screenState.presentRefreshFailure("Unable to refresh the current selection right now.")
-        }
+        await controller.refreshCurrentSelection(
+            selection: selectedSidebarSelection,
+            dependencies: dependencies,
+            appState: appState
+        )
     }
 
     @MainActor
     private func dismissRefreshFeedback() {
-        screenState.dismissRefreshFeedback()
-    }
-
-    private func refreshFailureMessage(for result: FeedRefreshBatchResult) -> String? {
-        guard result.summary.failedCount > 0 else {
-            return nil
-        }
-
-        if let firstError = result.failureDescriptions.first {
-            if result.summary.failedCount == 1 {
-                return firstError
-            }
-            return "\(result.summary.failedCount) sources failed to refresh. First error: \(firstError)"
-        }
-
-        if result.summary.failedCount == 1 {
-            return "The current source failed to refresh."
-        }
-
-        return "\(result.summary.failedCount) sources failed to refresh."
+        controller.screenState.dismissRefreshFeedback()
     }
 }
 

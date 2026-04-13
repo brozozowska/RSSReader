@@ -1038,6 +1038,69 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articlesScreenControllerLoadsFeedArticlesForCurrentSelection() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-load.xml"]).first)
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "controller-load-article",
+            url: "https://example.com/articles/controller-load",
+            title: "Controller Load"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.navigationTitle == "controller-load.xml")
+        #expect(controller.screenState.articles.count == 1)
+        #expect(controller.screenState.articles.first?.title == "Controller Load")
+    }
+
+    @Test
+    func articlesScreenControllerPresentsRefreshFailureFromBatchRefreshResult() async throws {
+        let client = ScriptedHTTPClient(
+            responsesByURL: [
+                "https://example.com/controller-refresh.xml": .response(
+                    statusCode: 500,
+                    headers: [:],
+                    body: ""
+                )
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let appState = AppState()
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-refresh.xml"]).first)
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "controller-refresh-article",
+            url: "https://example.com/articles/controller-refresh",
+            title: "Controller Refresh"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        harness.dependencies.showFeed(id: feed.id, using: appState)
+
+        await controller.refreshCurrentSelection(
+            selection: .feed(feed.id),
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.refreshFeedback?.message.contains("invalidStatusCode") == true)
+    }
+
+    @Test
     func articlesScreenStatePresentsConfirmationOnlyWhenUnreadArticlesAreVisible() {
         var state = ArticlesScreenState()
         let readItem = makeArticleListItemDTO(isRead: true, isStarred: false)
