@@ -1981,6 +1981,80 @@ struct RSSReaderTests {
     }
 
     @Test
+    func shellActionEntryPointsRefreshCurrentSelectionRefreshesOnlyFolderFeeds() async throws {
+        let urls = [
+            "https://example.com/folder-refresh-1.xml",
+            "https://example.com/folder-refresh-2.xml",
+            "https://example.com/folder-refresh-3.xml"
+        ]
+        let responses = [
+            urls[0]: ScriptedHTTPClient.Step.response(
+                statusCode: 304,
+                headers: ["ETag": "\"etag-folder-1\""],
+                body: ""
+            ),
+            urls[1]: ScriptedHTTPClient.Step.response(
+                statusCode: 304,
+                headers: ["ETag": "\"etag-folder-2\""],
+                body: ""
+            ),
+            urls[2]: ScriptedHTTPClient.Step.response(
+                statusCode: 304,
+                headers: ["ETag": "\"etag-folder-3\""],
+                body: ""
+            )
+        ]
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient(responsesByURL: responses))
+        let appState = AppState()
+        let feeds = try harness.insertFeeds(urls: urls)
+        let techFolder = Folder(name: "Tech")
+        feeds[0].folder = techFolder
+        feeds[1].folder = techFolder
+        try harness.saveModelContext()
+        let articleReloadIDBeforeRefresh = appState.articleListReloadID
+        let sidebarReloadIDBeforeRefresh = appState.sourcesSidebarReloadID
+
+        harness.dependencies.showFolder(named: "Tech", using: appState)
+
+        let result = await harness.dependencies.refreshCurrentSelection(using: appState)
+
+        #expect(result?.summary.totalFeedCount == 2)
+        #expect(result?.summary.notModifiedCount == 2)
+        #expect(appState.articleListReloadID != articleReloadIDBeforeRefresh)
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeRefresh)
+    }
+
+    @Test
+    func shellActionEntryPointsRefreshCurrentSelectionRefreshesAllFeedsForInbox() async throws {
+        let urls = [
+            "https://example.com/inbox-refresh-1.xml",
+            "https://example.com/inbox-refresh-2.xml"
+        ]
+        let responses = [
+            urls[0]: ScriptedHTTPClient.Step.response(
+                statusCode: 304,
+                headers: ["ETag": "\"etag-inbox-1\""],
+                body: ""
+            ),
+            urls[1]: ScriptedHTTPClient.Step.response(
+                statusCode: 304,
+                headers: ["ETag": "\"etag-inbox-2\""],
+                body: ""
+            )
+        ]
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient(responsesByURL: responses))
+        let appState = AppState()
+        _ = try harness.insertFeeds(urls: urls)
+
+        harness.dependencies.showInbox(using: appState)
+
+        let result = await harness.dependencies.refreshCurrentSelection(using: appState)
+
+        #expect(result?.summary.totalFeedCount == 2)
+        #expect(result?.summary.notModifiedCount == 2)
+    }
+
+    @Test
     func feedNormalizationKeepsFaviconLikeIconURLAndNormalizesIt() {
         let feed = ParsedFeedDTO(
             kind: .rss,

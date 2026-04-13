@@ -240,6 +240,39 @@ extension AppDependencies {
     }
 
     @MainActor
+    func refreshCurrentSelection(using appState: AppState) async -> FeedRefreshBatchResult? {
+        guard let selection = appState.selectedSidebarSelection else {
+            logger.info("Skipped selection refresh because no source is selected")
+            return nil
+        }
+
+        let result: FeedRefreshBatchResult?
+        switch selection {
+        case .feed(let feedID):
+            if let refreshResult = await refreshFeed(id: feedID) {
+                result = FeedRefreshBatchResult(
+                    startedAt: refreshResult.startedAt,
+                    finishedAt: refreshResult.finishedAt,
+                    results: [refreshResult]
+                )
+            } else {
+                result = nil
+            }
+        case .folder(let folderName):
+            result = await refreshFeeds(in: folderName)
+        case .inbox, .unread, .starred:
+            result = await refreshAllFeeds()
+        }
+
+        if result != nil {
+            appState.requestSourcesSidebarReload()
+            appState.requestArticleListReload()
+        }
+
+        return result
+    }
+
+    @MainActor
     func refreshVisibleSources(using appState: AppState) async -> FeedRefreshBatchResult? {
         let result = await refreshAllFeeds()
         if result != nil {
@@ -264,5 +297,27 @@ private extension AppDependencies {
         httpClient: any HTTPClient
     ) -> any FeedFetching {
         FeedFetcher(httpClient: httpClient)
+    }
+
+    @MainActor
+    func refreshFeeds(in folderName: String) async -> FeedRefreshBatchResult? {
+        guard let feedRefreshService else {
+            logger.error("Feed refresh service is unavailable")
+            return nil
+        }
+        guard let feedRepository else {
+            logger.error("Feed repository is unavailable")
+            return nil
+        }
+
+        do {
+            let folderFeedIDs = try feedRepository.fetchActiveFeeds()
+                .filter { $0.folder?.name == folderName }
+                .map(\.id)
+            return await feedRefreshService.refreshFeeds(folderFeedIDs)
+        } catch {
+            logger.error("Failed to load folder feeds for refresh: \(error)")
+            return nil
+        }
     }
 }

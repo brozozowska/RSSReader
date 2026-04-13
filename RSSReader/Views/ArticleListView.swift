@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ArticleListView: View {
     @Environment(\.appDependencies) private var dependencies
+    @Environment(AppState.self) private var appState
     let selectedSidebarSelection: SidebarSelection?
     let selectedSourcesFilter: SourcesFilter
     let reloadID: UUID
@@ -71,6 +72,9 @@ struct ArticleListView: View {
             .listSectionSpacing(12)
             .scrollContentBackground(.hidden)
             .contentMargins(.top, 8, for: .scrollContent)
+            .refreshable {
+                await refreshCurrentSelection()
+            }
         }
         .toolbarTitleDisplayMode(.inline)
         .searchable(
@@ -586,6 +590,12 @@ struct ArticleListView: View {
             description: "No visible articles match \"\(normalizedSearchText)\"."
         )
     }
+
+    @MainActor
+    private func refreshCurrentSelection() async {
+        guard isPreviewMode == false else { return }
+        _ = await dependencies.refreshCurrentSelection(using: appState)
+    }
 }
 
 private struct ArticleListLoadContext: Hashable {
@@ -761,6 +771,7 @@ private struct ArticleListPreviewContainer: View {
                 selection: $selection
             )
         }
+        .environment(AppState())
     }
 }
 

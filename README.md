@@ -215,7 +215,7 @@
 - [x] визуально показать `read/unread` и `starred` state в ячейке, сохранив чистый список без separators;
 - [x] добавить нижние actions экрана статей для `search` и `Mark all as read`, показать destructive confirmation dialog и связать bulk action с `ArticleStateService.markAllVisibleAsRead`;
 - [x] подготовить swipe actions для ячеек: swipe слева-направо помечает статью прочитанной, swipe справа-налево помечает статью starred;
-- [ ] добавить `pull to refresh` для текущего selection через `FeedRefreshService`;
+- [x] добавить `pull to refresh` для текущего selection через `FeedRefreshService`;
 - [ ] добавить полноценный loading/error UX для первичной загрузки и refresh.
 
 #### Article Screen

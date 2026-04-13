@@ -64,6 +64,7 @@ public final class AppState {
     var readingNavigation = ReadingNavigationState()
     var selectedSourcesFilter: SourcesFilter = .allItems
     var articleListReloadID = UUID()
+    var sourcesSidebarReloadID = UUID()
 
     var selectedSidebarSelection: SidebarSelection? {
         get { readingNavigation.sourceSelection }
@@ -116,6 +117,10 @@ public final class AppState {
 
     func requestArticleListReload() {
         articleListReloadID = UUID()
+    }
+
+    func requestSourcesSidebarReload() {
+        sourcesSidebarReloadID = UUID()
     }
 
     func selectReadingSource(_ sourceSelection: SourceSelection?) {
