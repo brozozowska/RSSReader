@@ -1,14 +1,18 @@
 import SwiftUI
 
+// MARK: - ArticleListView
+
 struct ArticleListView: View {
     @Environment(\.appDependencies) private var dependencies
     @Environment(AppState.self) private var appState
+
     let selectedSidebarSelection: SidebarSelection?
     let selectedSourcesFilter: SourcesFilter
     let reloadID: UUID
     let showsBackButton: Bool
     let navigateBackToSources: () -> Void
     let previewScreenState: ArticlesScreenState?
+
     @Binding var selection: UUID?
     @State private var screenState = ArticlesScreenState()
     @State private var lastLoadedSourceSelection: SidebarSelection? = nil
@@ -34,6 +38,8 @@ struct ArticleListView: View {
         self._lastLoadedSourceSelection = State(initialValue: previewScreenState?.selection)
     }
 
+    // MARK: Body
+
     var body: some View {
         let visibleArticles = filteredArticles(from: screenState.articles)
         let visibleSections = ArticlesDaySectionsBuilder.build(from: visibleArticles)
@@ -42,40 +48,13 @@ struct ArticleListView: View {
             visibleArticles: visibleArticles
         )
 
-        ZStack {
-            Color(uiColor: .systemBackground)
-                .ignoresSafeArea()
-
-            List(selection: $selection) {
-                ForEach(visibleSections) { section in
-                    Section {
-                        ForEach(section.articles, id: \.id) { article in
-                            ArticleListRowView(article: article)
-                                .tag(article.id)
-                                .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                                    leadingSwipeActions(for: article)
-                                }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    trailingSwipeActions(for: article)
-                                }
-                                .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
-                                .listRowSeparator(.hidden)
-                                .listRowBackground(Color.clear)
-                        }
-                    } header: {
-                        ArticleListSectionHeaderView(title: section.title)
-                    }
-                    .textCase(nil)
-                }
-            }
-            .listStyle(.plain)
-            .listSectionSpacing(12)
-            .scrollContentBackground(.hidden)
-            .contentMargins(.top, 8, for: .scrollContent)
-            .refreshable {
-                await refreshCurrentSelection()
-            }
-        }
+        ArticleListContentView(
+            sections: visibleSections,
+            selection: $selection,
+            refreshAction: refreshCurrentSelection,
+            markAsReadAction: markArticleAsRead,
+            toggleStarredAction: toggleStarredState
+        )
         .toolbarTitleDisplayMode(.inline)
         .searchable(
             text: $searchText,
@@ -122,7 +101,7 @@ struct ArticleListView: View {
         }
         .alert(
             "Mark all as read?",
-            isPresented: markAllAsReadConfirmationIsPresented,
+            isPresented: markAllAsReadConfirmationIsPresented
         ) {
             Button("Mark all as read", role: .destructive, action: confirmMarkAllAsRead)
             Button("Cancel", role: .cancel) {}
@@ -133,7 +112,12 @@ struct ArticleListView: View {
             overlayContent(for: visibleArticles)
         }
         .safeAreaInset(edge: .top, spacing: 0) {
-            refreshStatusBanner
+            ArticleListRefreshBanner(
+                isRefreshing: screenState.showsRefreshActivityIndicator,
+                feedbackMessage: screenState.refreshFeedback?.message,
+                retryAction: refreshCurrentSelection,
+                dismissAction: dismissRefreshFeedback
+            )
         }
         .task(id: ArticleListLoadContext(
             sourceSelection: selectedSidebarSelection,
@@ -150,6 +134,8 @@ struct ArticleListView: View {
         }
         .simultaneousGesture(backNavigationGesture)
     }
+
+    // MARK: Loading
 
     @MainActor
     private func loadArticles() async {
@@ -235,10 +221,26 @@ struct ArticleListView: View {
             )
         }
 
-        self.selection = stabilizedSelection(
+        selection = stabilizedSelection(
             availableArticleIDs: filteredArticles(from: screenState.articles).map(\.id)
         )
     }
+
+    @MainActor
+    private func loadSortMode() async -> ArticleSortMode {
+        guard let appSettingsRepository = dependencies.appSettingsRepository else {
+            return .publishedAtDescending
+        }
+
+        do {
+            return try appSettingsRepository.fetchOrCreate().sortMode
+        } catch {
+            dependencies.logger.error("Failed to load app settings for article sort mode: \(error)")
+            return .publishedAtDescending
+        }
+    }
+
+    // MARK: Selection
 
     private func stabilizedSelection(availableArticleIDs: [UUID]) -> UUID? {
         if let selection, availableArticleIDs.contains(selection) {
@@ -269,6 +271,19 @@ struct ArticleListView: View {
         )
     }
 
+    private func currentArticleListFilter() -> ArticleListFilter {
+        switch selectedSidebarSelection {
+        case .unread:
+            .unread
+        case .starred:
+            .starred
+        case .inbox, .folder, .feed, .none:
+            SourcesFilterArticleListFilterResolver.resolve(for: selectedSourcesFilter)
+        }
+    }
+
+    // MARK: Confirmation
+
     private var markAllAsReadConfirmationIsPresented: Binding<Bool> {
         Binding(
             get: { screenState.pendingConfirmation == .markAllAsRead },
@@ -284,6 +299,8 @@ struct ArticleListView: View {
     private func presentMarkAllAsReadConfirmation() {
         screenState.presentMarkAllAsReadConfirmation()
     }
+
+    // MARK: Bulk Actions
 
     @MainActor
     private func confirmMarkAllAsRead() {
@@ -333,59 +350,14 @@ struct ArticleListView: View {
                 return article
             }
 
-            return ArticleListItemDTO(
-                id: article.id,
-                feedID: article.feedID,
-                feedTitle: article.feedTitle,
-                articleExternalID: article.articleExternalID,
-                title: article.title,
-                summary: article.summary,
-                author: article.author,
-                publishedAt: article.publishedAt,
-                fetchedAt: article.fetchedAt,
+            return article.updating(
                 isRead: true,
-                isStarred: article.isStarred,
-                isHidden: article.isHidden
+                isStarred: article.isStarred
             )
         }
     }
 
-    private func currentArticleListFilter() -> ArticleListFilter {
-        switch selectedSidebarSelection {
-        case .unread:
-            .unread
-        case .starred:
-            .starred
-        case .inbox, .folder, .feed, .none:
-            SourcesFilterArticleListFilterResolver.resolve(for: selectedSourcesFilter)
-        }
-    }
-
-    @ViewBuilder
-    private func leadingSwipeActions(for article: ArticleListItemDTO) -> some View {
-        let swipeActionsState = ArticleRowSwipeActionsState(article: article)
-
-        if swipeActionsState.canMarkAsRead {
-            Button {
-                markArticleAsRead(article)
-            } label: {
-                Label("Read", systemImage: "checkmark.circle.fill")
-            }
-            .tint(.green)
-        }
-    }
-
-    @ViewBuilder
-    private func trailingSwipeActions(for article: ArticleListItemDTO) -> some View {
-        let swipeActionsState = ArticleRowSwipeActionsState(article: article)
-
-        Button {
-            toggleStarredState(for: article)
-        } label: {
-            Label(swipeActionsState.starActionTitle, systemImage: swipeActionsState.starActionSystemImage)
-        }
-        .tint(.yellow)
-    }
+    // MARK: Row Actions
 
     @MainActor
     private func markArticleAsRead(_ article: ArticleListItemDTO) {
@@ -497,6 +469,8 @@ struct ArticleListView: View {
         }
     }
 
+    // MARK: Toolbar
+
     private var backNavigationGesture: some Gesture {
         DragGesture(minimumDistance: 20)
             .onEnded { value in
@@ -526,19 +500,7 @@ struct ArticleListView: View {
         }
     }
 
-    @MainActor
-    private func loadSortMode() async -> ArticleSortMode {
-        guard let appSettingsRepository = dependencies.appSettingsRepository else {
-            return .publishedAtDescending
-        }
-
-        do {
-            return try appSettingsRepository.fetchOrCreate().sortMode
-        } catch {
-            dependencies.logger.error("Failed to load app settings for article sort mode: \(error)")
-            return .publishedAtDescending
-        }
-    }
+    // MARK: Search And Overlay
 
     private var isPreviewMode: Bool {
         previewScreenState != nil
@@ -643,78 +605,13 @@ struct ArticleListView: View {
         }
     }
 
-    @ViewBuilder
-    private var refreshStatusBanner: some View {
-        if screenState.showsRefreshActivityIndicator {
-            refreshBanner(
-                title: "Refreshing Articles",
-                message: "Updating the current selection."
-            )
-        } else if let refreshFeedback = screenState.refreshFeedback {
-            refreshBanner(
-                title: "Refresh Failed",
-                message: refreshFeedback.message,
-                showsRetryAction: true
-            )
-        }
-    }
-
-    private func refreshBanner(
-        title: String,
-        message: String,
-        showsRetryAction: Bool = false
-    ) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            if screenState.showsRefreshActivityIndicator {
-                ProgressView()
-                    .controlSize(.small)
-            } else {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                Text(message)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-
-            Spacer(minLength: 12)
-
-            if showsRetryAction {
-                Button("Retry") {
-                    Task {
-                        await refreshCurrentSelection()
-                    }
-                }
-                .font(.footnote.weight(.semibold))
-
-                Button {
-                    dismissRefreshFeedback()
-                } label: {
-                    Image(systemName: "xmark")
-                }
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("Dismiss refresh error")
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 4)
-    }
-
     private func retryPrimaryLoad() {
         Task {
             await loadArticles()
         }
     }
+
+    // MARK: Refresh
 
     @MainActor
     private func refreshCurrentSelection() async {
@@ -756,6 +653,8 @@ struct ArticleListView: View {
     }
 }
 
+// MARK: - Helpers
+
 private struct ArticleListLoadContext: Hashable {
     let sourceSelection: SidebarSelection?
     let sourcesFilter: SourcesFilter
@@ -775,81 +674,6 @@ enum SourcesFilterArticleListFilterResolver {
     }
 }
 
-private struct ArticleListRowView: View {
-    let article: ArticleListItemDTO
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(article.feedTitle)
-                    .font(.caption)
-                    .foregroundStyle(metadataForegroundStyle)
-                    .lineLimit(1)
-
-                Spacer(minLength: 0)
-
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    if article.isStarred {
-                        Image(systemName: "star.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.yellow)
-                    }
-
-                    Text(ArticleListRowTimeFormatter.string(for: article))
-                        .font(.caption)
-                        .foregroundStyle(metadataForegroundStyle)
-                        .lineLimit(1)
-                }
-            }
-
-            Text(ArticleListRowContent.primaryText(for: article))
-                .font(.body)
-                .foregroundStyle(titleForegroundStyle)
-                .multilineTextAlignment(.leading)
-                .lineLimit(4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.vertical, 10)
-    }
-
-    private var titleForegroundStyle: AnyShapeStyle {
-        article.isRead
-            ? AnyShapeStyle(.tertiary)
-            : AnyShapeStyle(.primary)
-    }
-
-    private var metadataForegroundStyle: AnyShapeStyle {
-        article.isRead
-            ? AnyShapeStyle(.tertiary)
-            : AnyShapeStyle(.secondary)
-    }
-}
-
-private enum ArticleListRowContent {
-    static func primaryText(for article: ArticleListItemDTO) -> String {
-        guard let summary = article.summary?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-            summary.isEmpty == false,
-            summary != article.title
-        else {
-            return article.title
-        }
-
-        return summary
-    }
-}
-
-private enum ArticleListRowTimeFormatter {
-    static func string(for article: ArticleListItemDTO) -> String {
-        let referenceDate = article.publishedAt ?? article.fetchedAt
-        return referenceDate.formatted(
-            .dateTime
-                .hour(.twoDigits(amPM: .omitted))
-                .minute(.twoDigits)
-        )
-    }
-}
-
 private extension ArticleListItemDTO {
     func updating(isRead: Bool, isStarred: Bool) -> ArticleListItemDTO {
         ArticleListItemDTO(
@@ -865,147 +689,6 @@ private extension ArticleListItemDTO {
             isRead: isRead,
             isStarred: isStarred,
             isHidden: isHidden
-        )
-    }
-}
-
-private struct ArticleListSectionHeaderView: View {
-    let title: String
-
-    var body: some View {
-        Text(title)
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .textCase(nil)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-#Preview("Loading") {
-    ArticleListPreviewContainer(
-        screenState: .previewLoading(
-            selection: .unread,
-            navigationTitle: "Unread",
-            navigationSubtitle: "46 Unread Items"
-        )
-    )
-}
-
-#Preview("Articles Multi-Day") {
-    ArticleListPreviewContainer(
-        screenState: .previewLoaded(
-            selection: .unread,
-            navigationTitle: "Unread",
-            navigationSubtitle: "7 Unread Items",
-            articles: ArticleListPreviewData.multiDayArticles
-        )
-    )
-}
-
-#Preview("Loading Error") {
-    ArticleListPreviewContainer(
-        screenState: .previewFailed(
-            selection: .unread,
-            navigationTitle: "Unread",
-            navigationSubtitle: "0 Unread Items",
-            message: "The selected source could not be loaded from persistence."
-        )
-    )
-}
-
-private struct ArticleListPreviewContainer: View {
-    let screenState: ArticlesScreenState
-    @State private var selection: UUID? = nil
-
-    var body: some View {
-        NavigationStack {
-            ArticleListView(
-                selectedSidebarSelection: .unread,
-                selectedSourcesFilter: .unread,
-                reloadID: UUID(),
-                showsBackButton: true,
-                navigateBackToSources: {},
-                previewScreenState: screenState,
-                selection: $selection
-            )
-        }
-        .environment(AppState())
-    }
-}
-
-private enum ArticleListPreviewData {
-    static var multiDayArticles: [ArticleListItemDTO] {
-        let calendar = Calendar.current
-        let now = Date()
-
-        let todayMorning = calendar.date(bySettingHour: 7, minute: 12, second: 0, of: now) ?? now
-        let todayEarlier = calendar.date(bySettingHour: 6, minute: 25, second: 0, of: now) ?? now
-        let yesterdayBase = calendar.date(byAdding: .day, value: -1, to: now) ?? now
-        let yesterdayLate = calendar.date(bySettingHour: 23, minute: 54, second: 0, of: yesterdayBase) ?? yesterdayBase
-        let yesterdayEvening = calendar.date(bySettingHour: 21, minute: 31, second: 0, of: yesterdayBase) ?? yesterdayBase
-        let olderBase = calendar.date(byAdding: .day, value: -2, to: now) ?? now
-        let olderEvening = calendar.date(bySettingHour: 17, minute: 32, second: 0, of: olderBase) ?? olderBase
-        let olderAfternoon = calendar.date(bySettingHour: 15, minute: 21, second: 0, of: olderBase) ?? olderBase
-
-        return [
-            makeArticle(
-                feedTitle: "T-Ж",
-                title: "Занимайтесь с отягощением минимум дважды в неделю: совет тренера",
-                summary: "Краткий пересказ ключевой новости за сегодня, чтобы на экране было видно вторую строку.",
-                publishedAt: todayMorning
-            ),
-            makeArticle(
-                feedTitle: "T-Ж",
-                title: "Чешме: что нужно знать перед поездкой",
-                summary: "Ещё один короткий анонс статьи, который останется в пределах двух строк.",
-                publishedAt: todayEarlier
-            ),
-            makeArticle(
-                feedTitle: "N+1",
-                title: "Экипаж Ориона сфотографировал ночную Землю на пути к Луне",
-                summary: "Материал за вчера, чтобы следующая секция была заметна в превью.",
-                publishedAt: yesterdayLate
-            ),
-            makeArticle(
-                feedTitle: "N+1",
-                title: "Древнейшие лошади из Китая оказались ослами",
-                summary: "Вторая статья в секции вчерашних публикаций.",
-                publishedAt: yesterdayEvening
-            ),
-            makeArticle(
-                feedTitle: "Журнал «Код»",
-                title: "У Сбера, Т-Банка и ВТБ массовый сбой",
-                summary: "Статья для более старой даты, где позже появится форматированный header с датой.",
-                publishedAt: olderEvening
-            ),
-            makeArticle(
-                feedTitle: "N+1",
-                title: "FDA одобрило первый низкомолекулярный оральный агонист ГПП-1 для снижения массы тела",
-                summary: "Ещё один пример из более старой секции списка.",
-                publishedAt: olderAfternoon
-            )
-        ]
-    }
-
-    private static func makeArticle(
-        feedTitle: String,
-        title: String,
-        summary: String,
-        publishedAt: Date
-    ) -> ArticleListItemDTO {
-        ArticleListItemDTO(
-            id: UUID(),
-            feedID: UUID(),
-            feedTitle: feedTitle,
-            articleExternalID: UUID().uuidString,
-            title: title,
-            summary: summary,
-            author: nil,
-            publishedAt: publishedAt,
-            fetchedAt: publishedAt,
-            isRead: false,
-            isStarred: false,
-            isHidden: false
         )
     }
 }
