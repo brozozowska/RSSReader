@@ -149,6 +149,11 @@ struct ArticleRowSwipeActionsState: Equatable {
     }
 }
 
+enum ArticleRowMutation {
+    case update(ArticleListItemDTO)
+    case remove
+}
+
 struct ArticlesScreenState {
     private(set) var articles: [ArticleListItemDTO] = []
     private(set) var selection: SidebarSelection?
@@ -296,6 +301,34 @@ struct ArticlesScreenState {
         if selection == nil {
             phase = .noSelection
         } else if updatedArticles.isEmpty {
+            phase = .empty
+        } else {
+            phase = .loaded
+        }
+
+        updateToolbarActions(for: selection)
+    }
+
+    mutating func applyArticleRowMutation(
+        articleID: UUID,
+        mutation: ArticleRowMutation,
+        navigationSubtitle: String
+    ) {
+        switch mutation {
+        case .update(let updatedArticle):
+            articles = articles.map { article in
+                article.id == articleID ? updatedArticle : article
+            }
+        case .remove:
+            articles.removeAll { $0.id == articleID }
+        }
+
+        self.navigationSubtitle = navigationSubtitle
+        refreshState = .idle
+
+        if selection == nil {
+            phase = .noSelection
+        } else if articles.isEmpty {
             phase = .empty
         } else {
             phase = .loaded

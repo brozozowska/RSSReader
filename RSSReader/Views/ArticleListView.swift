@@ -51,6 +51,12 @@ struct ArticleListView: View {
                         ForEach(section.articles, id: \.id) { article in
                             ArticleListRowView(article: article)
                                 .tag(article.id)
+                                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                                    leadingSwipeActions(for: article)
+                                }
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    trailingSwipeActions(for: article)
+                                }
                                 .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
                                 .listRowSeparator(.hidden)
                                 .listRowBackground(Color.clear)
@@ -362,6 +368,142 @@ struct ArticleListView: View {
         }
     }
 
+    @ViewBuilder
+    private func leadingSwipeActions(for article: ArticleListItemDTO) -> some View {
+        let swipeActionsState = ArticleRowSwipeActionsState(article: article)
+
+        if swipeActionsState.canMarkAsRead {
+            Button {
+                markArticleAsRead(article)
+            } label: {
+                Label("Read", systemImage: "checkmark.circle.fill")
+            }
+            .tint(.green)
+        }
+    }
+
+    @ViewBuilder
+    private func trailingSwipeActions(for article: ArticleListItemDTO) -> some View {
+        let swipeActionsState = ArticleRowSwipeActionsState(article: article)
+
+        Button {
+            toggleStarredState(for: article)
+        } label: {
+            Label(swipeActionsState.starActionTitle, systemImage: swipeActionsState.starActionSystemImage)
+        }
+        .tint(.yellow)
+    }
+
+    @MainActor
+    private func markArticleAsRead(_ article: ArticleListItemDTO) {
+        guard article.isRead == false else { return }
+
+        if isPreviewMode == false {
+            guard let articleStateService = dependencies.articleStateService else {
+                dependencies.logger.error("Article state service is unavailable for mark as read action")
+                return
+            }
+
+            do {
+                _ = try articleStateService.markAsRead(
+                    feedID: article.feedID,
+                    articleExternalID: article.articleExternalID,
+                    at: .now
+                )
+            } catch {
+                dependencies.logger.error("Failed to mark article as read: \(error)")
+                return
+            }
+        }
+
+        let mutation = articleRowMutationAfterMarkAsRead(article)
+        applyArticleRowMutation(mutation, for: article.id)
+    }
+
+    @MainActor
+    private func toggleStarredState(for article: ArticleListItemDTO) {
+        if isPreviewMode == false {
+            guard let articleStateService = dependencies.articleStateService else {
+                dependencies.logger.error("Article state service is unavailable for star action")
+                return
+            }
+
+            do {
+                _ = try articleStateService.toggleStarred(
+                    feedID: article.feedID,
+                    articleExternalID: article.articleExternalID,
+                    at: .now
+                )
+            } catch {
+                dependencies.logger.error("Failed to toggle starred state for article: \(error)")
+                return
+            }
+        }
+
+        let mutation = articleRowMutationAfterToggleStarred(article)
+        applyArticleRowMutation(mutation, for: article.id)
+    }
+
+    @MainActor
+    private func applyArticleRowMutation(_ mutation: ArticleRowMutation, for articleID: UUID) {
+        let updatedArticles = makeArticlesAfterApplyingArticleRowMutation(
+            mutation,
+            articleID: articleID,
+            allArticles: screenState.articles
+        )
+        screenState.applyArticleRowMutation(
+            articleID: articleID,
+            mutation: mutation,
+            navigationSubtitle: resolveNavigationSubtitle(for: updatedArticles)
+        )
+        selection = stabilizedSelection(
+            availableArticleIDs: filteredArticles(from: updatedArticles).map(\.id)
+        )
+    }
+
+    private func articleRowMutationAfterMarkAsRead(_ article: ArticleListItemDTO) -> ArticleRowMutation {
+        if currentArticleListFilter() == .unread {
+            return .remove
+        }
+
+        return .update(
+            article.updating(
+                isRead: true,
+                isStarred: article.isStarred
+            )
+        )
+    }
+
+    private func articleRowMutationAfterToggleStarred(_ article: ArticleListItemDTO) -> ArticleRowMutation {
+        let updatedIsStarred = article.isStarred == false
+
+        if currentArticleListFilter() == .starred && updatedIsStarred == false {
+            return .remove
+        }
+
+        return .update(
+            article.updating(
+                isRead: article.isRead,
+                isStarred: updatedIsStarred
+            )
+        )
+    }
+
+    private func makeArticlesAfterApplyingArticleRowMutation(
+        _ mutation: ArticleRowMutation,
+        articleID: UUID,
+        allArticles: [ArticleListItemDTO]
+    ) -> [ArticleListItemDTO] {
+        switch mutation {
+        case .update(let updatedArticle):
+            allArticles.map { article in
+                article.id == articleID ? updatedArticle : article
+            }
+        case .remove:
+            allArticles.filter { $0.id != articleID }
+        }
+    }
+
     private var backNavigationGesture: some Gesture {
         DragGesture(minimumDistance: 20)
             .onEnded { value in
@@ -536,6 +678,25 @@ private enum ArticleListRowTimeFormatter {
             .dateTime
                 .hour(.twoDigits(amPM: .omitted))
                 .minute(.twoDigits)
+        )
+    }
+}
+
+private extension ArticleListItemDTO {
+    func updating(isRead: Bool, isStarred: Bool) -> ArticleListItemDTO {
+        ArticleListItemDTO(
+            id: id,
+            feedID: feedID,
+            feedTitle: feedTitle,
+            articleExternalID: articleExternalID,
+            title: title,
+            summary: summary,
+            author: author,
+            publishedAt: publishedAt,
+            fetchedAt: fetchedAt,
+            isRead: isRead,
+            isStarred: isStarred,
+            isHidden: isHidden
         )
     }
 }
