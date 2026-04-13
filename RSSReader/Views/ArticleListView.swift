@@ -39,15 +39,10 @@ struct ArticleListView: View {
     // MARK: Body
 
     var body: some View {
-        let visibleArticles = filteredArticles(from: controller.screenState.articles)
-        let visibleSections = ArticlesDaySectionsBuilder.build(from: visibleArticles)
-        let toolbarActions = ArticlesScreenToolbarActionsState(
-            selection: controller.screenState.selection,
-            visibleArticles: visibleArticles
-        )
+        let derivedViewState = controller.screenState.derivedViewState(searchText: searchText)
 
         ArticleListContentView(
-            sections: visibleSections,
+            sections: derivedViewState.sections,
             selection: $selection,
             refreshAction: refreshCurrentSelection,
             markAsReadAction: markArticleAsRead,
@@ -78,22 +73,22 @@ struct ArticleListView: View {
                 subtitleView(for: controller.screenState)
             }
 
-            if toolbarActions.showsMarkAllAsReadAction {
+            if derivedViewState.toolbarActions.showsMarkAllAsReadAction {
                 ToolbarItem(placement: .bottomBar) {
                     Button(action: presentMarkAllAsReadConfirmation) {
                         Image(systemName: "checkmark.circle.fill")
                     }
-                    .disabled(toolbarActions.isMarkAllAsReadEnabled == false)
+                    .disabled(derivedViewState.toolbarActions.isMarkAllAsReadEnabled == false)
                     .accessibilityLabel("Mark all as read")
                 }
             }
 
-            if toolbarActions.showsMarkAllAsReadAction
-                && toolbarActions.showsSearchAction {
+            if derivedViewState.toolbarActions.showsMarkAllAsReadAction
+                && derivedViewState.toolbarActions.showsSearchAction {
                 ToolbarSpacer(placement: .bottomBar)
             }
 
-            if toolbarActions.showsSearchAction {
+            if derivedViewState.toolbarActions.showsSearchAction {
                 DefaultToolbarItem(kind: .search, placement: .bottomBar)
             }
         }
@@ -107,12 +102,11 @@ struct ArticleListView: View {
             Text("This action will mark all visible articles as read.")
         }
         .overlay {
-            overlayContent(for: visibleArticles)
+            overlayContent(using: derivedViewState)
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             ArticleListRefreshBanner(
-                isRefreshing: controller.screenState.showsRefreshActivityIndicator,
-                feedbackMessage: controller.screenState.refreshFeedback?.message,
+                state: derivedViewState.refreshBanner,
                 retryAction: refreshCurrentSelection,
                 dismissAction: dismissRefreshFeedback
             )
@@ -127,7 +121,10 @@ struct ArticleListView: View {
         }
         .onChange(of: searchText) { _, _ in
             selection = stabilizedSelection(
-                availableArticleIDs: filteredArticles(from: controller.screenState.articles).map(\.id)
+                availableArticleIDs: controller.screenState
+                    .derivedViewState(searchText: searchText)
+                    .visibleArticles
+                    .map(\.id)
             )
         }
         .simultaneousGesture(backNavigationGesture)
@@ -148,7 +145,10 @@ struct ArticleListView: View {
         )
 
         selection = stabilizedSelection(
-            availableArticleIDs: filteredArticles(from: controller.screenState.articles).map(\.id)
+            availableArticleIDs: controller.screenState
+                .derivedViewState(searchText: searchText)
+                .visibleArticles
+                .map(\.id)
         )
     }
 
@@ -190,7 +190,9 @@ struct ArticleListView: View {
 
     @MainActor
     private func confirmMarkAllAsRead() {
-        let visibleArticles = filteredArticles(from: controller.screenState.articles)
+        let visibleArticles = controller.screenState
+            .derivedViewState(searchText: searchText)
+            .visibleArticles
 
         if isPreviewMode == false {
             guard let articleStateService = dependencies.articleStateService else {
@@ -210,8 +212,7 @@ struct ArticleListView: View {
 
         let updatedArticles = ArticlesScreenMutationReducer.reduceAfterMarkAllAsRead(
             visibleArticles: visibleArticles,
-            allArticles: controller.screenState.articles
-            ,
+            allArticles: controller.screenState.articles,
             filter: currentArticleListFilter()
         )
         controller.screenState.applyMarkAllAsRead(
@@ -222,7 +223,10 @@ struct ArticleListView: View {
             )
         )
         selection = stabilizedSelection(
-            availableArticleIDs: filteredArticles(from: updatedArticles).map(\.id)
+            availableArticleIDs: controller.screenState
+                .derivedViewState(searchText: searchText)
+                .visibleArticles
+                .map(\.id)
         )
     }
 
@@ -300,7 +304,10 @@ struct ArticleListView: View {
             )
         )
         selection = stabilizedSelection(
-            availableArticleIDs: filteredArticles(from: updatedArticles).map(\.id)
+            availableArticleIDs: controller.screenState
+                .derivedViewState(searchText: searchText)
+                .visibleArticles
+                .map(\.id)
         )
     }
 
@@ -341,47 +348,11 @@ struct ArticleListView: View {
         previewScreenState != nil
     }
 
-    private var normalizedSearchText: String {
-        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private func filteredArticles(from articles: [ArticleListItemDTO]) -> [ArticleListItemDTO] {
-        guard normalizedSearchText.isEmpty == false else {
-            return articles
-        }
-
-        return articles.filter { article in
-            [article.feedTitle, article.title, article.summary, article.author]
-                .compactMap { $0 }
-                .contains { $0.localizedCaseInsensitiveContains(normalizedSearchText) }
-        }
-    }
-
-    private func searchPlaceholder(for visibleArticles: [ArticleListItemDTO]) -> ArticlesScreenPlaceholderState? {
-        guard normalizedSearchText.isEmpty == false else {
-            return nil
-        }
-
-        guard controller.screenState.phase == .loaded || controller.screenState.phase == .empty else {
-            return nil
-        }
-
-        guard visibleArticles.isEmpty else {
-            return nil
-        }
-
-        return ArticlesScreenPlaceholderState(
-            title: "No Search Results",
-            systemImage: "magnifyingglass",
-            description: "No visible articles match \"\(normalizedSearchText)\"."
-        )
-    }
-
     @ViewBuilder
-    private func overlayContent(for visibleArticles: [ArticleListItemDTO]) -> some View {
-        if controller.screenState.showsPrimaryLoadingIndicator {
-            primaryLoadingOverlay
-        } else if let placeholder = searchPlaceholder(for: visibleArticles) {
+    private func overlayContent(using derivedViewState: ArticlesScreenDerivedViewState) -> some View {
+        if let loadingState = derivedViewState.primaryLoadingState {
+            primaryLoadingOverlay(loadingState)
+        } else if let placeholder = derivedViewState.searchPlaceholder {
             ContentUnavailableView(
                 placeholder.title,
                 systemImage: placeholder.systemImage,
@@ -406,38 +377,21 @@ struct ArticleListView: View {
         }
     }
 
-    private var primaryLoadingOverlay: some View {
+    private func primaryLoadingOverlay(_ loadingState: ArticlesScreenPrimaryLoadingState) -> some View {
         VStack(spacing: 12) {
             ProgressView()
                 .controlSize(.regular)
 
-            Text("Loading Articles")
+            Text(loadingState.title)
                 .font(.headline)
 
-            Text(primaryLoadingDescription)
+            Text(loadingState.description)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var primaryLoadingDescription: String {
-        switch selectedSidebarSelection {
-        case .none:
-            "Select Inbox or a source to start reading."
-        case .inbox:
-            "Fetching the latest articles for your current inbox selection."
-        case .unread:
-            "Fetching unread articles across your current sources."
-        case .starred:
-            "Fetching the articles you marked as starred."
-        case .folder(let folderName):
-            "Fetching articles for \(folderName)."
-        case .feed:
-            "Fetching articles for the current source."
-        }
     }
 
     private func retryPrimaryLoad() {

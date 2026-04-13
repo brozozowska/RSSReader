@@ -1,34 +1,21 @@
 import SwiftUI
 
 struct ArticleListRefreshBanner: View {
-    let isRefreshing: Bool
-    let feedbackMessage: String?
+    let state: ArticlesScreenRefreshBannerState?
     let retryAction: @MainActor () async -> Void
     let dismissAction: @MainActor () -> Void
 
     var body: some View {
-        if isRefreshing {
+        if let state {
             banner(
-                title: "Refreshing Articles",
-                message: "Updating the current selection.",
-                showsRetryAction: false
-            )
-        } else if let feedbackMessage {
-            banner(
-                title: "Refresh Failed",
-                message: feedbackMessage,
-                showsRetryAction: true
+                state: state
             )
         }
     }
 
-    private func banner(
-        title: String,
-        message: String,
-        showsRetryAction: Bool
-    ) -> some View {
+    private func banner(state: ArticlesScreenRefreshBannerState) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            if isRefreshing {
+            if state.showsActivityIndicator {
                 ProgressView()
                     .controlSize(.small)
             } else {
@@ -37,9 +24,9 @@ struct ArticleListRefreshBanner: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(state.title)
                     .font(.subheadline.weight(.semibold))
-                Text(message)
+                Text(state.message)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -47,7 +34,7 @@ struct ArticleListRefreshBanner: View {
 
             Spacer(minLength: 12)
 
-            if showsRetryAction {
+            if state.showsRetryAction {
                 Button("Retry") {
                     Task {
                         await retryAction()
@@ -55,16 +42,18 @@ struct ArticleListRefreshBanner: View {
                 }
                 .font(.footnote.weight(.semibold))
 
-                Button {
-                    Task { @MainActor in
-                        dismissAction()
+                if state.showsDismissAction {
+                    Button {
+                        Task { @MainActor in
+                            dismissAction()
+                        }
+                    } label: {
+                        Image(systemName: "xmark")
                     }
-                } label: {
-                    Image(systemName: "xmark")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Dismiss refresh error")
                 }
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("Dismiss refresh error")
             }
         }
         .padding(.horizontal, 14)

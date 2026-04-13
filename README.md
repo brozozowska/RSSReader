@@ -220,7 +220,7 @@
 - [x] декомпозировать Article​List​View на несколько файлов: Article​List​View, Article​List​Content​View, Article​List​Refresh​Banner, Article​List​Row​View, Article​List​Section​Header​View, Article​List​Preview​Data;
 - [x] вынести load/refresh orchestration из View в отдельный screen-level coordinator или Articles​Screen​Actions/Articles​Screen​Controller, чтобы View не решал, какой query вызывать и как интерпретировать результаты;
 - [x] вынести post-action mutation rules из View в Articles​Screen​State или отдельный reducer/helper. Сейчас правила mark read, toggle star, mark all as read размазаны по View, хотя это screen behavior;
-- [ ] вынести производный UI state экрана из View. Минимум: toolbar​Actions, search empty placeholder, refresh banner model, loading copy;
+- [x] вынести производный UI state экрана из View. Минимум: toolbar​Actions, search empty placeholder, refresh banner model, loading copy;
 - [ ] добавить недостающие тесты именно на refresh UX. Сейчас покрыт state-level failure path, но полезно отдельно зафиксировать сценарии successful refresh clears previous refresh error и selection change resets stale refresh feedback.
 
 #### Article Screen

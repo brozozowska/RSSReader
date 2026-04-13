@@ -1038,6 +1038,76 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articlesScreenStateBuildsDerivedToolbarActionsAndSearchPlaceholderForFilteredResults() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(
+            title: "SwiftUI Weekly",
+            isRead: false,
+            isStarred: false
+        )
+        let readItem = makeArticleListItemDTO(
+            title: "Architecture Digest",
+            isRead: true,
+            isStarred: false
+        )
+
+        state.applyLoadedArticles(
+            [unreadItem, readItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
+        )
+
+        let loadedViewState = state.derivedViewState(searchText: "swift")
+        let emptySearchViewState = state.derivedViewState(searchText: "kotlin")
+
+        #expect(loadedViewState.visibleArticles.map(\.id) == [unreadItem.id])
+        #expect(loadedViewState.toolbarActions.isMarkAllAsReadEnabled)
+        #expect(emptySearchViewState.visibleArticles.isEmpty)
+        #expect(emptySearchViewState.toolbarActions.isMarkAllAsReadEnabled == false)
+        #expect(emptySearchViewState.searchPlaceholder?.title == "No Search Results")
+        #expect(emptySearchViewState.searchPlaceholder?.description == "No visible articles match \"kotlin\".")
+    }
+
+    @Test
+    func articlesScreenStateBuildsRefreshBannerForVisibleRefreshFailure() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.presentRefreshFailure("Refresh failed")
+
+        let derivedViewState = state.derivedViewState(searchText: "")
+
+        #expect(derivedViewState.refreshBanner?.style == .failed)
+        #expect(derivedViewState.refreshBanner?.title == "Refresh Failed")
+        #expect(derivedViewState.refreshBanner?.message == "Refresh failed")
+        #expect(derivedViewState.refreshBanner?.showsRetryAction == true)
+    }
+
+    @Test
+    func articlesScreenStateBuildsPrimaryLoadingCopyFromSelection() {
+        var state = ArticlesScreenState()
+
+        state.beginLoading(
+            for: .folder("Apple"),
+            navigationTitle: "Apple",
+            navigationSubtitle: "0 Unread Items",
+            resetsContent: true
+        )
+
+        let derivedViewState = state.derivedViewState(searchText: "")
+
+        #expect(derivedViewState.primaryLoadingState?.title == "Loading Articles")
+        #expect(derivedViewState.primaryLoadingState?.description == "Fetching articles for Apple.")
+    }
+
+    @Test
     func articlesScreenControllerLoadsFeedArticlesForCurrentSelection() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-load.xml"]).first)
