@@ -204,16 +204,24 @@
 - [x] добавить недостающие unit tests на `SidebarToolbarState` и `SidebarSubtitleFormatter`.
 
 #### Articles Screen
-- [ ] определить screen-level state/model для `Articles Screen`, чтобы отделить загрузку, refresh, empty/error состояния и actions от `View`;
-- [ ] привести текущий список к дизайну экрана Articles;
-- [ ] сгруппировать статьи по дням и показать section headers `Today / Yesterday / date`;
-- [ ] показать metadata row: source / date / secondary text;
-- [ ] визуально показать `read/unread` и `starred` state в ячейке;
-- [ ] добавить toolbar actions: `search` entry point и `menu -> Mark all as read`;
-- [ ] показать destructive confirmation dialog перед `Mark all as read`;
-- [ ] связать `Mark all as read` с bulk action `ArticleStateService.markAllVisibleAsRead`;
-- [ ] добавить `pull to refresh` для текущего selection через `FeedRefreshService`;
-- [ ] добавить полноценный loading/error UX для первичной загрузки и refresh.
+- [x] определить screen-level state/model для `Articles Screen`, чтобы отделить загрузку, refresh, empty/error состояния, toolbar actions и swipe actions от `View`;
+- [x] определить navigation flow экрана: показать toolbar c back button, поддержать swipe слева-направо для возврата на экран `Sources`;
+- [x] формировать title `Articles Screen` из текущего `SidebarSelection` (`Unread`, имя папки, имя источника и т.д.);
+- [x] формировать subtitle `Articles Screen` из активного `SourcesFilter`: для `All Items` и `Unread` показывать количество непрочитанных статей, для `Starred` показывать количество starred статей;
+- [x] демонтировать legacy `selectedArticleListFilter` из app-level flow;
+- [x] привести текущий список к дизайну экрана Articles;
+- [x] сгруппировать статьи по дням и показать section headers `Today / Yesterday / date`;
+- [x] оформить ячейку списка: metadata row `source / time`, затем текст краткого содержимого статьи;
+- [x] визуально показать `read/unread` и `starred` state в ячейке, сохранив чистый список без separators;
+- [x] добавить нижние actions экрана статей для `search` и `Mark all as read`, показать destructive confirmation dialog и связать bulk action с `ArticleStateService.markAllVisibleAsRead`;
+- [x] подготовить swipe actions для ячеек: swipe слева-направо помечает статью прочитанной, swipe справа-налево помечает статью starred;
+- [x] добавить `pull to refresh` для текущего selection через `FeedRefreshService`;
+- [x] добавить полноценный loading/error UX для первичной загрузки и refresh;
+- [x] декомпозировать Article​List​View на несколько файлов: Article​List​View, Article​List​Content​View, Article​List​Refresh​Banner, Article​List​Row​View, Article​List​Section​Header​View, Article​List​Preview​Data;
+- [x] вынести load/refresh orchestration из View в отдельный screen-level coordinator или Articles​Screen​Actions/Articles​Screen​Controller, чтобы View не решал, какой query вызывать и как интерпретировать результаты;
+- [x] вынести post-action mutation rules из View в Articles​Screen​State или отдельный reducer/helper. Сейчас правила mark read, toggle star, mark all as read размазаны по View, хотя это screen behavior;
+- [x] вынести производный UI state экрана из View. Минимум: toolbar​Actions, search empty placeholder, refresh banner model, loading copy;
+- [x] добавить недостающие тесты именно на refresh UX. Сейчас покрыт state-level failure path, но полезно отдельно зафиксировать сценарии successful refresh clears previous refresh error и selection change resets stale refresh feedback.
 
 #### Article Screen
 - [ ] привести текущий reader к дизайну экрана Article;

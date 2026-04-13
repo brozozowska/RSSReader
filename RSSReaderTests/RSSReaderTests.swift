@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import SwiftData
 import Testing
 @testable import RSSReader
@@ -913,6 +914,754 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articlesScreenStateStartsWithoutSelectionPlaceholder() {
+        let state = ArticlesScreenState()
+
+        #expect(state.phase == .noSelection)
+        #expect(state.navigationTitle == "Articles")
+        #expect(state.navigationSubtitle == "0 Unread Items")
+        #expect(state.placeholder?.title == "No Source Selected")
+        #expect(state.toolbarActions.showsSearchAction == false)
+        #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
+    }
+
+    @Test
+    func articlesScreenStateBeginsPrimaryLoadingWhenSelectionChanges() {
+        var state = ArticlesScreenState()
+
+        state.beginLoading(
+            for: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "3 Unread Items",
+            resetsContent: true
+        )
+
+        #expect(state.phase == .loading)
+        #expect(state.navigationTitle == "Unread")
+        #expect(state.navigationSubtitle == "3 Unread Items")
+        #expect(state.showsPrimaryLoadingIndicator)
+        #expect(state.toolbarActions.showsSearchAction)
+        #expect(state.toolbarActions.showsMarkAllAsReadAction)
+    }
+
+    @Test
+    func articlesScreenStateBuildsEmptyPlaceholderForCurrentSelection() {
+        var state = ArticlesScreenState()
+
+        state.applyLoadedArticles(
+            [],
+            selection: .starred,
+            navigationTitle: "Starred",
+            navigationSubtitle: "0 Starred Items"
+        )
+
+        #expect(state.phase == .empty)
+        #expect(state.navigationTitle == "Starred")
+        #expect(state.navigationSubtitle == "0 Starred Items")
+        #expect(state.placeholder?.title == "No Articles")
+        #expect(state.placeholder?.description == "You have not starred any articles yet.")
+    }
+
+    @Test
+    func articlesScreenStateBuildsPrimaryFailureForInitialLoad() {
+        var state = ArticlesScreenState()
+
+        state.applyLoadingFailure(
+            "Article query service is unavailable.",
+            selection: .inbox,
+            navigationTitle: "All Items",
+            navigationSubtitle: "0 Unread Items",
+            retainsContent: false
+        )
+
+        #expect(state.phase == .failed("Article query service is unavailable."))
+        #expect(state.primaryFailureMessage == "Article query service is unavailable.")
+        #expect(state.refreshFeedback == nil)
+    }
+
+    @Test
+    func articlesScreenStateKeepsVisibleArticlesWhenRefreshFails() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.beginLoading(
+            for: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item",
+            resetsContent: false
+        )
+        state.applyLoadingFailure(
+            "Refresh failed",
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item",
+            retainsContent: true
+        )
+
+        #expect(state.phase == .loaded)
+        #expect(state.navigationTitle == "Feed")
+        #expect(state.navigationSubtitle == "1 Unread Item")
+        #expect(state.articles.map(\.id) == [unreadItem.id])
+        #expect(state.refreshState == .idle)
+        #expect(state.refreshFeedback == ArticlesScreenRefreshFeedback(message: "Refresh failed"))
+        #expect(state.toolbarActions.isMarkAllAsReadEnabled)
+    }
+
+    @Test
+    func articlesScreenStateClearsRefreshFeedbackWhenPrimaryReloadStarts() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.presentRefreshFailure("Refresh failed")
+
+        state.beginLoading(
+            for: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "1 Unread Item",
+            resetsContent: true
+        )
+
+        #expect(state.phase == .loading)
+        #expect(state.refreshFeedback == nil)
+    }
+
+    @Test
+    func articlesScreenStateBuildsDerivedToolbarActionsAndSearchPlaceholderForFilteredResults() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(
+            title: "SwiftUI Weekly",
+            isRead: false,
+            isStarred: false
+        )
+        let readItem = makeArticleListItemDTO(
+            title: "Architecture Digest",
+            isRead: true,
+            isStarred: false
+        )
+
+        state.applyLoadedArticles(
+            [unreadItem, readItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
+        )
+
+        let loadedViewState = state.derivedViewState(searchText: "swift")
+        let emptySearchViewState = state.derivedViewState(searchText: "kotlin")
+
+        #expect(loadedViewState.visibleArticles.map(\.id) == [unreadItem.id])
+        #expect(loadedViewState.toolbarActions.isMarkAllAsReadEnabled)
+        #expect(emptySearchViewState.visibleArticles.isEmpty)
+        #expect(emptySearchViewState.toolbarActions.isMarkAllAsReadEnabled == false)
+        #expect(emptySearchViewState.searchPlaceholder?.title == "No Search Results")
+        #expect(emptySearchViewState.searchPlaceholder?.description == "No visible articles match \"kotlin\".")
+    }
+
+    @Test
+    func articlesScreenStateBuildsRefreshBannerForVisibleRefreshFailure() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.presentRefreshFailure("Refresh failed")
+
+        let derivedViewState = state.derivedViewState(searchText: "")
+
+        #expect(derivedViewState.refreshBanner?.style == .failed)
+        #expect(derivedViewState.refreshBanner?.title == "Refresh Failed")
+        #expect(derivedViewState.refreshBanner?.message == "Refresh failed")
+        #expect(derivedViewState.refreshBanner?.showsRetryAction == true)
+    }
+
+    @Test
+    func articlesScreenStateBuildsPrimaryLoadingCopyFromSelection() {
+        var state = ArticlesScreenState()
+
+        state.beginLoading(
+            for: .folder("Apple"),
+            navigationTitle: "Apple",
+            navigationSubtitle: "0 Unread Items",
+            resetsContent: true
+        )
+
+        let derivedViewState = state.derivedViewState(searchText: "")
+
+        #expect(derivedViewState.primaryLoadingState?.title == "Loading Articles")
+        #expect(derivedViewState.primaryLoadingState?.description == "Fetching articles for Apple.")
+    }
+
+    @Test
+    func articlesScreenControllerLoadsFeedArticlesForCurrentSelection() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-load.xml"]).first)
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "controller-load-article",
+            url: "https://example.com/articles/controller-load",
+            title: "Controller Load"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.navigationTitle == "controller-load.xml")
+        #expect(controller.screenState.articles.count == 1)
+        #expect(controller.screenState.articles.first?.title == "Controller Load")
+    }
+
+    @Test
+    func articlesScreenControllerPresentsRefreshFailureFromBatchRefreshResult() async throws {
+        let client = ScriptedHTTPClient(
+            responsesByURL: [
+                "https://example.com/controller-refresh.xml": .response(
+                    statusCode: 500,
+                    headers: [:],
+                    body: ""
+                )
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let appState = AppState()
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-refresh.xml"]).first)
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "controller-refresh-article",
+            url: "https://example.com/articles/controller-refresh",
+            title: "Controller Refresh"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        harness.dependencies.showFeed(id: feed.id, using: appState)
+
+        await controller.refreshCurrentSelection(
+            selection: .feed(feed.id),
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.refreshFeedback?.message.contains("invalidStatusCode") == true)
+    }
+
+    @Test
+    func articlesScreenControllerClearsPreviousRefreshErrorAfterSuccessfulRefresh() async throws {
+        let client = ScriptedHTTPClient(
+            responsesByURL: [
+                "https://example.com/controller-refresh-success.xml": .response(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Type": "application/rss+xml; charset=utf-8"
+                    ],
+                    body: Self.validRSSFeedXML(
+                        channelTitle: "Refresh Success Feed",
+                        channelLink: "https://example.com/refresh-success/",
+                        language: "en",
+                        itemTitle: "Refreshed Article",
+                        itemLink: "https://example.com/articles/refreshed",
+                        itemGUID: "refreshed-article",
+                        itemDescription: "Readable summary",
+                        pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                    )
+                )
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let appState = AppState()
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-refresh-success.xml"]).first)
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "controller-refresh-success-article",
+            url: "https://example.com/articles/controller-refresh-success",
+            title: "Controller Refresh Success"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        controller.screenState.presentRefreshFailure("Previous refresh failed")
+        harness.dependencies.showFeed(id: feed.id, using: appState)
+
+        await controller.refreshCurrentSelection(
+            selection: .feed(feed.id),
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.refreshFeedback == nil)
+    }
+
+    @Test
+    func articlesScreenControllerClearsStaleRefreshErrorWhenSelectionChanges() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let firstFeed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-selection-a.xml"]).first)
+        let secondFeed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-selection-b.xml"]).first)
+
+        _ = try harness.insertArticle(
+            feed: firstFeed,
+            externalID: "controller-selection-a-article",
+            url: "https://example.com/articles/controller-selection-a",
+            title: "First Selection"
+        )
+        _ = try harness.insertArticle(
+            feed: secondFeed,
+            externalID: "controller-selection-b-article",
+            url: "https://example.com/articles/controller-selection-b",
+            title: "Second Selection"
+        )
+
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(firstFeed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        controller.screenState.presentRefreshFailure("Refresh failed for first feed")
+
+        await controller.load(
+            selection: .feed(secondFeed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.selection == .feed(secondFeed.id))
+        #expect(controller.screenState.articles.first?.title == "Second Selection")
+        #expect(controller.screenState.refreshFeedback == nil)
+    }
+
+    @Test
+    func articlesScreenMutationReducerRemovesVisibleArticlesAfterMarkAllAsReadInUnreadFilter() {
+        let firstUnread = makeArticleListItemDTO(isRead: false, isStarred: false)
+        let secondUnread = makeArticleListItemDTO(isRead: false, isStarred: false)
+        let remainingRead = makeArticleListItemDTO(isRead: true, isStarred: false)
+
+        let updatedArticles = ArticlesScreenMutationReducer.reduceAfterMarkAllAsRead(
+            visibleArticles: [firstUnread, secondUnread],
+            allArticles: [firstUnread, secondUnread, remainingRead],
+            filter: ArticleListFilter.unread
+        )
+
+        #expect(updatedArticles.map { $0.id } == [remainingRead.id])
+    }
+
+    @Test
+    func articlesScreenMutationReducerProducesRemoveMutationWhenReadActionHappensInUnreadFilter() {
+        let unreadArticle = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        let mutation = ArticlesScreenMutationReducer.mutationAfterMarkAsRead(
+            article: unreadArticle,
+            filter: ArticleListFilter.unread
+        )
+
+        #expect(mutation == .remove)
+    }
+
+    @Test
+    func articlesScreenMutationReducerProducesRemoveMutationWhenUnstarringInsideStarredFilter() {
+        let starredArticle = makeArticleListItemDTO(isRead: true, isStarred: true)
+
+        let mutation = ArticlesScreenMutationReducer.mutationAfterToggleStarred(
+            article: starredArticle,
+            filter: ArticleListFilter.starred
+        )
+
+        #expect(mutation == .remove)
+    }
+
+    @Test
+    func articlesScreenStatePresentsConfirmationOnlyWhenUnreadArticlesAreVisible() {
+        var state = ArticlesScreenState()
+        let readItem = makeArticleListItemDTO(isRead: true, isStarred: false)
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [readItem],
+            selection: .feed(readItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "0 Unread Items"
+        )
+        state.presentMarkAllAsReadConfirmation()
+        #expect(state.pendingConfirmation == nil)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.presentMarkAllAsReadConfirmation()
+        #expect(state.pendingConfirmation == .markAllAsRead)
+    }
+
+    @Test
+    func articlesScreenStateAppliesMarkAllAsReadAndRefreshesToolbarState() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: true)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.presentMarkAllAsReadConfirmation()
+        state.applyMarkAllAsRead(
+            [
+                makeArticleListItemDTO(
+                    id: unreadItem.id,
+                    feedID: unreadItem.feedID,
+                    articleExternalID: unreadItem.articleExternalID,
+                    isRead: true,
+                    isStarred: true
+                )
+            ],
+            navigationSubtitle: "0 Unread Items"
+        )
+
+        #expect(state.pendingConfirmation == nil)
+        #expect(state.phase == .loaded)
+        #expect(state.navigationSubtitle == "0 Unread Items")
+        #expect(state.articles.count == 1)
+        #expect(state.articles.first?.isRead == true)
+        #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
+    }
+
+    @Test
+    func articlesScreenStateAppliesMarkAllAsReadToUnreadFilterAndTransitionsToEmpty() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.presentMarkAllAsReadConfirmation()
+        state.applyMarkAllAsRead([], navigationSubtitle: "0 Unread Items")
+
+        #expect(state.pendingConfirmation == nil)
+        #expect(state.phase == .empty)
+        #expect(state.navigationSubtitle == "0 Unread Items")
+        #expect(state.articles.isEmpty)
+        #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
+    }
+
+    @Test
+    func articlesScreenStateAppliesArticleRowUpdateForReadAction() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+        let updatedItem = makeArticleListItemDTO(
+            id: unreadItem.id,
+            feedID: unreadItem.feedID,
+            articleExternalID: unreadItem.articleExternalID,
+            isRead: true,
+            isStarred: false
+        )
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.applyArticleRowMutation(
+            articleID: unreadItem.id,
+            mutation: .update(updatedItem),
+            navigationSubtitle: "0 Unread Items"
+        )
+
+        #expect(state.phase == .loaded)
+        #expect(state.navigationSubtitle == "0 Unread Items")
+        #expect(state.articles.count == 1)
+        #expect(state.articles.first?.isRead == true)
+        #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
+    }
+
+    @Test
+    func articlesScreenStateRemovesArticleRowForReadActionInUnreadSelection() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.applyArticleRowMutation(
+            articleID: unreadItem.id,
+            mutation: .remove,
+            navigationSubtitle: "0 Unread Items"
+        )
+
+        #expect(state.phase == .empty)
+        #expect(state.navigationSubtitle == "0 Unread Items")
+        #expect(state.articles.isEmpty)
+    }
+
+    @Test
+    func articlesScreenStateAppliesArticleRowUpdateForStarActionOutsideStarredSelection() {
+        var state = ArticlesScreenState()
+        let item = makeArticleListItemDTO(isRead: false, isStarred: false)
+        let updatedItem = makeArticleListItemDTO(
+            id: item.id,
+            feedID: item.feedID,
+            articleExternalID: item.articleExternalID,
+            isRead: false,
+            isStarred: true
+        )
+
+        state.applyLoadedArticles(
+            [item],
+            selection: .feed(item.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.applyArticleRowMutation(
+            articleID: item.id,
+            mutation: .update(updatedItem),
+            navigationSubtitle: "1 Unread Item"
+        )
+
+        #expect(state.phase == .loaded)
+        #expect(state.articles.first?.isStarred == true)
+        #expect(state.navigationSubtitle == "1 Unread Item")
+    }
+
+    @Test
+    func articlesScreenStateRemovesArticleRowWhenUnstarredInsideStarredSelection() {
+        var state = ArticlesScreenState()
+        let starredItem = makeArticleListItemDTO(isRead: true, isStarred: true)
+
+        state.applyLoadedArticles(
+            [starredItem],
+            selection: .starred,
+            navigationTitle: "Starred",
+            navigationSubtitle: "1 Starred Item"
+        )
+        state.applyArticleRowMutation(
+            articleID: starredItem.id,
+            mutation: .remove,
+            navigationSubtitle: "0 Starred Items"
+        )
+
+        #expect(state.phase == .empty)
+        #expect(state.navigationSubtitle == "0 Starred Items")
+        #expect(state.articles.isEmpty)
+    }
+
+    @Test
+    func articleRowSwipeActionsStateReflectsReadAndStarredStatus() {
+        let unreadUnstarred = ArticleRowSwipeActionsState(
+            article: makeArticleListItemDTO(isRead: false, isStarred: false)
+        )
+        let readStarred = ArticleRowSwipeActionsState(
+            article: makeArticleListItemDTO(isRead: true, isStarred: true)
+        )
+
+        #expect(unreadUnstarred.canMarkAsRead)
+        #expect(unreadUnstarred.starActionTitle == "Star")
+        #expect(unreadUnstarred.starActionSystemImage == "star")
+
+        #expect(readStarred.canMarkAsRead == false)
+        #expect(readStarred.starActionTitle == "Unstar")
+        #expect(readStarred.starActionSystemImage == "star.slash")
+    }
+
+    @Test
+    func articlesScreenNavigationTitleResolverBuildsTitlesFromSidebarSelection() {
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: nil) == "Articles")
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .inbox) == "All Items")
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .unread) == "Unread")
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .starred) == "Starred")
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .folder("Tech")) == "Tech")
+        #expect(
+            ArticlesScreenNavigationTitleResolver.resolve(
+                selection: .feed(UUID()),
+                selectedFeedTitle: "The Verge"
+            ) == "The Verge"
+        )
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .feed(UUID())) == "Source")
+    }
+
+    @Test
+    func articlesScreenSubtitleResolverBuildsSubtitleFromSourcesFilter() {
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+        let starredItem = makeArticleListItemDTO(isRead: true, isStarred: true)
+        let unreadStarredItem = makeArticleListItemDTO(isRead: false, isStarred: true)
+        let articles = [unreadItem, starredItem, unreadStarredItem]
+
+        #expect(
+            ArticlesScreenSubtitleResolver.resolve(
+                articles: articles,
+                sourcesFilter: .allItems
+            ) == "2 Unread Items"
+        )
+        #expect(
+            ArticlesScreenSubtitleResolver.resolve(
+                articles: articles,
+                sourcesFilter: .unread
+            ) == "2 Unread Items"
+        )
+        #expect(
+            ArticlesScreenSubtitleResolver.resolve(
+                articles: articles,
+                sourcesFilter: .starred
+            ) == "2 Starred Items"
+        )
+    }
+
+    @Test
+    func articlesDaySectionsBuilderGroupsArticlesByDayAndPreservesVisibleOrder() {
+        let calendar = Calendar.current
+        let now = Date()
+        let todayMorning = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: now) ?? now
+        let todayEarlier = calendar.date(bySettingHour: 8, minute: 0, second: 0, of: now) ?? now
+        let yesterdayBase = calendar.date(byAdding: .day, value: -1, to: now) ?? now
+        let yesterdayArticleDate = calendar.date(bySettingHour: 23, minute: 0, second: 0, of: yesterdayBase) ?? yesterdayBase
+
+        let firstToday = makeArticleListItemDTO(title: "Today One", publishedAt: todayMorning)
+        let secondToday = makeArticleListItemDTO(title: "Today Two", publishedAt: todayEarlier)
+        let yesterdayArticle = makeArticleListItemDTO(title: "Yesterday", publishedAt: yesterdayArticleDate)
+
+        let sections = ArticlesDaySectionsBuilder.build(
+            from: [firstToday, secondToday, yesterdayArticle],
+            calendar: calendar
+        )
+
+        #expect(sections.count == 2)
+        #expect(sections[0].articles.map(\.title) == ["Today One", "Today Two"])
+        #expect(sections[1].articles.map(\.title) == ["Yesterday"])
+    }
+
+    @Test
+    func articlesDaySectionsBuilderBuildsTodayYesterdayAndDateHeaders() {
+        let calendar = Calendar.current
+        let now = Date()
+        let today = calendar.startOfDay(for: now)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+        let older = calendar.date(byAdding: .day, value: -2, to: today) ?? today
+
+        #expect(ArticlesDaySectionsBuilder.title(for: today, calendar: calendar) == "Today")
+        #expect(ArticlesDaySectionsBuilder.title(for: yesterday, calendar: calendar) == "Yesterday")
+        #expect(
+            ArticlesDaySectionsBuilder.title(for: older, calendar: calendar)
+            == older.formatted(
+                .dateTime
+                    .weekday(.wide)
+                    .day()
+                    .month(.wide)
+                    .year()
+            )
+        )
+    }
+
+    @Test
+    func articlesScreenNavigationStateSelectsPreferredCompactColumnForCurrentContext() {
+        #expect(
+            ArticlesScreenNavigationState.preferredCompactColumn(
+                sourceSelection: nil,
+                articleSelection: nil
+            ) == .sidebar
+        )
+        #expect(
+            ArticlesScreenNavigationState.preferredCompactColumn(
+                sourceSelection: .unread,
+                articleSelection: nil
+            ) == .content
+        )
+        #expect(
+            ArticlesScreenNavigationState.preferredCompactColumn(
+                sourceSelection: .feed(UUID()),
+                articleSelection: UUID()
+            ) == .detail
+        )
+    }
+
+    @Test
+    func articlesScreenNavigationStateShowsBackButtonOnlyInCompactSourceContext() {
+        #expect(
+            ArticlesScreenNavigationState.showsBackButton(
+                horizontalSizeClass: .compact,
+                sourceSelection: .starred
+            )
+        )
+        #expect(
+            ArticlesScreenNavigationState.showsBackButton(
+                horizontalSizeClass: .regular,
+                sourceSelection: .starred
+            ) == false
+        )
+        #expect(
+            ArticlesScreenNavigationState.showsBackButton(
+                horizontalSizeClass: .compact,
+                sourceSelection: nil
+            ) == false
+        )
+    }
+
+    @Test
+    func articlesScreenNavigationStateRecognizesLeadingEdgeBackSwipe() {
+        #expect(
+            ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+                startLocationX: 12,
+                translation: CGSize(width: 96, height: 8)
+            )
+        )
+        #expect(
+            ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+                startLocationX: 64,
+                translation: CGSize(width: 96, height: 8)
+            ) == false
+        )
+        #expect(
+            ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+                startLocationX: 12,
+                translation: CGSize(width: 40, height: 8)
+            ) == false
+        )
+        #expect(
+            ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+                startLocationX: 12,
+                translation: CGSize(width: 96, height: 72)
+            ) == false
+        )
+    }
+
+    @Test
     func sourcesFilterPersistencePolicyRestoresPersistedFilterFromSettingsRawValue() {
         let settings = AppSettings(selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue)
 
@@ -1004,47 +1753,6 @@ struct RSSReaderTests {
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))
         #expect(appState.articleListReloadID == reloadIDBeforeReselect)
-    }
-
-    @Test
-    func readingShellFilterSwitchUpdatesActiveFilterWithoutBreakingSelectionConsistency() {
-        let appState = AppState()
-        let feedID = UUID()
-        let articleID = UUID()
-
-        appState.selectReadingSource(.feed(feedID))
-        appState.selectedArticleID = articleID
-        let reloadIDBeforeFilterSwitch = appState.articleListReloadID
-
-        appState.selectArticleListFilter(.starred)
-
-        #expect(appState.selectedArticleListFilter == .starred)
-        #expect(appState.selectedSidebarSelection == .feed(feedID))
-        #expect(appState.selectedArticleID == articleID)
-        #expect(appState.selectedDetailRoute == .article(articleID))
-        #expect(appState.presentedWebViewRoute == nil)
-        #expect(appState.articleListReloadID == reloadIDBeforeFilterSwitch)
-    }
-
-    @Test
-    func readingShellApplyingSameFilterKeepsShellStateStable() {
-        let appState = AppState()
-        let articleID = UUID()
-        let webURL = URL(string: "https://example.com/filter-article")!
-
-        appState.selectArticleListFilter(.unread)
-        appState.selectedArticleID = articleID
-        appState.presentWebView(articleID: articleID, url: webURL)
-
-        let reloadIDBeforeReapplyingFilter = appState.articleListReloadID
-
-        appState.selectArticleListFilter(.unread)
-
-        #expect(appState.selectedArticleListFilter == .unread)
-        #expect(appState.selectedArticleID == articleID)
-        #expect(appState.selectedDetailRoute == .webView(ArticleWebViewRoute(articleID: articleID, url: webURL)))
-        #expect(appState.presentedWebViewRoute == ArticleWebViewRoute(articleID: articleID, url: webURL))
-        #expect(appState.articleListReloadID == reloadIDBeforeReapplyingFilter)
     }
 
     @Test
@@ -1466,13 +2174,11 @@ struct RSSReaderTests {
 
         harness.dependencies.showFeed(id: feedID, using: appState)
         harness.dependencies.selectArticle(id: articleID, using: appState)
-        harness.dependencies.applyArticleListFilter(.starred, using: appState)
         harness.dependencies.applySourcesFilter(.unread, using: appState)
 
         #expect(appState.selectedSidebarSelection == .feed(feedID))
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))
-        #expect(appState.selectedArticleListFilter == .starred)
         #expect(appState.selectedSourcesFilter == .unread)
 
         harness.dependencies.showInbox(using: appState)
@@ -1577,6 +2283,80 @@ struct RSSReaderTests {
         #expect(result?.summary.totalFeedCount == 2)
         #expect(result?.summary.notModifiedCount == 2)
         #expect(appState.articleListReloadID != reloadIDBeforeRefresh)
+    }
+
+    @Test
+    func shellActionEntryPointsRefreshCurrentSelectionRefreshesOnlyFolderFeeds() async throws {
+        let urls = [
+            "https://example.com/folder-refresh-1.xml",
+            "https://example.com/folder-refresh-2.xml",
+            "https://example.com/folder-refresh-3.xml"
+        ]
+        let responses = [
+            urls[0]: ScriptedHTTPClient.Step.response(
+                statusCode: 304,
+                headers: ["ETag": "\"etag-folder-1\""],
+                body: ""
+            ),
+            urls[1]: ScriptedHTTPClient.Step.response(
+                statusCode: 304,
+                headers: ["ETag": "\"etag-folder-2\""],
+                body: ""
+            ),
+            urls[2]: ScriptedHTTPClient.Step.response(
+                statusCode: 304,
+                headers: ["ETag": "\"etag-folder-3\""],
+                body: ""
+            )
+        ]
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient(responsesByURL: responses))
+        let appState = AppState()
+        let feeds = try harness.insertFeeds(urls: urls)
+        let techFolder = Folder(name: "Tech")
+        feeds[0].folder = techFolder
+        feeds[1].folder = techFolder
+        try harness.saveModelContext()
+        let articleReloadIDBeforeRefresh = appState.articleListReloadID
+        let sidebarReloadIDBeforeRefresh = appState.sourcesSidebarReloadID
+
+        harness.dependencies.showFolder(named: "Tech", using: appState)
+
+        let result = await harness.dependencies.refreshCurrentSelection(using: appState)
+
+        #expect(result?.summary.totalFeedCount == 2)
+        #expect(result?.summary.notModifiedCount == 2)
+        #expect(appState.articleListReloadID != articleReloadIDBeforeRefresh)
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeRefresh)
+    }
+
+    @Test
+    func shellActionEntryPointsRefreshCurrentSelectionRefreshesAllFeedsForInbox() async throws {
+        let urls = [
+            "https://example.com/inbox-refresh-1.xml",
+            "https://example.com/inbox-refresh-2.xml"
+        ]
+        let responses = [
+            urls[0]: ScriptedHTTPClient.Step.response(
+                statusCode: 304,
+                headers: ["ETag": "\"etag-inbox-1\""],
+                body: ""
+            ),
+            urls[1]: ScriptedHTTPClient.Step.response(
+                statusCode: 304,
+                headers: ["ETag": "\"etag-inbox-2\""],
+                body: ""
+            )
+        ]
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient(responsesByURL: responses))
+        let appState = AppState()
+        _ = try harness.insertFeeds(urls: urls)
+
+        harness.dependencies.showInbox(using: appState)
+
+        let result = await harness.dependencies.refreshCurrentSelection(using: appState)
+
+        #expect(result?.summary.totalFeedCount == 2)
+        #expect(result?.summary.notModifiedCount == 2)
     }
 
     @Test
@@ -1696,6 +2476,33 @@ struct RSSReaderTests {
         #expect(requests.count == 1)
         #expect(await httpClient.maxConcurrentExecutions() == 1)
     }
+}
+
+private func makeArticleListItemDTO(
+    id: UUID = UUID(),
+    feedID: UUID = UUID(),
+    feedTitle: String = "Feed",
+    articleExternalID: String = "article",
+    title: String = "Article",
+    summary: String? = "Summary",
+    publishedAt: Date? = nil,
+    isRead: Bool = false,
+    isStarred: Bool = false
+) -> ArticleListItemDTO {
+    ArticleListItemDTO(
+        id: id,
+        feedID: feedID,
+        feedTitle: feedTitle,
+        articleExternalID: articleExternalID,
+        title: title,
+        summary: summary,
+        author: nil,
+        publishedAt: publishedAt,
+        fetchedAt: .now,
+        isRead: isRead,
+        isStarred: isStarred,
+        isHidden: false
+    )
 }
 
 private extension RSSReaderTests {

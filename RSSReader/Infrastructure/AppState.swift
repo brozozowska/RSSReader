@@ -63,8 +63,8 @@ struct ReadingNavigationState: Hashable, Sendable {
 public final class AppState {
     var readingNavigation = ReadingNavigationState()
     var selectedSourcesFilter: SourcesFilter = .allItems
-    var selectedArticleListFilter: ArticleListFilter = .all
     var articleListReloadID = UUID()
+    var sourcesSidebarReloadID = UUID()
 
     var selectedSidebarSelection: SidebarSelection? {
         get { readingNavigation.sourceSelection }
@@ -111,16 +111,16 @@ public final class AppState {
         readingNavigation.dismissWebView()
     }
 
-    func selectArticleListFilter(_ filter: ArticleListFilter) {
-        selectedArticleListFilter = filter
-    }
-
     func selectSourcesFilter(_ filter: SourcesFilter) {
         selectedSourcesFilter = filter
     }
 
     func requestArticleListReload() {
         articleListReloadID = UUID()
+    }
+
+    func requestSourcesSidebarReload() {
+        sourcesSidebarReloadID = UUID()
     }
 
     func selectReadingSource(_ sourceSelection: SourceSelection?) {

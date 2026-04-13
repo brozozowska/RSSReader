@@ -1,6 +1,6 @@
 import Foundation
 
-struct ArticleListItemDTO: Sendable, Identifiable {
+struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
     let id: UUID
     let feedID: UUID
     let feedTitle: String
@@ -13,6 +13,34 @@ struct ArticleListItemDTO: Sendable, Identifiable {
     let isRead: Bool
     let isStarred: Bool
     let isHidden: Bool
+
+    init(
+        id: UUID,
+        feedID: UUID,
+        feedTitle: String,
+        articleExternalID: String,
+        title: String,
+        summary: String?,
+        author: String?,
+        publishedAt: Date?,
+        fetchedAt: Date,
+        isRead: Bool,
+        isStarred: Bool,
+        isHidden: Bool
+    ) {
+        self.id = id
+        self.feedID = feedID
+        self.feedTitle = feedTitle
+        self.articleExternalID = articleExternalID
+        self.title = title
+        self.summary = summary
+        self.author = author
+        self.publishedAt = publishedAt
+        self.fetchedAt = fetchedAt
+        self.isRead = isRead
+        self.isStarred = isStarred
+        self.isHidden = isHidden
+    }
 
     init(article: Article, state: ArticleState?) {
         self.id = article.id

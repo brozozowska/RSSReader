@@ -101,6 +101,12 @@ struct SidebarView: View {
             guard previewOverridePhase == nil else { return }
             await loadFeeds(showsFullScreenLoading: true, refreshedAt: .now)
         }
+        .onChange(of: appState.sourcesSidebarReloadID) { _, _ in
+            guard previewOverridePhase == nil else { return }
+            Task {
+                await loadFeeds(showsFullScreenLoading: false, refreshedAt: nil)
+            }
+        }
         .onChange(of: appState.selectedSourcesFilter) { _, _ in
             applySelectionBehaviorForCurrentFilter()
         }
