@@ -162,14 +162,10 @@ struct ArticleListView: View {
     }
 
     private func currentArticleListFilter() -> ArticleListFilter {
-        switch selectedSidebarSelection {
-        case .unread:
-            .unread
-        case .starred:
-            .starred
-        case .inbox, .folder, .feed, .none:
-            SourcesFilterArticleListFilterResolver.resolve(for: selectedSourcesFilter)
-        }
+        ArticlesScreenMutationReducer.articleListFilter(
+            selection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter
+        )
     }
 
     // MARK: Confirmation
@@ -212,9 +208,11 @@ struct ArticleListView: View {
             }
         }
 
-        let updatedArticles = makeArticlesAfterMarkAllAsRead(
+        let updatedArticles = ArticlesScreenMutationReducer.reduceAfterMarkAllAsRead(
             visibleArticles: visibleArticles,
             allArticles: controller.screenState.articles
+            ,
+            filter: currentArticleListFilter()
         )
         controller.screenState.applyMarkAllAsRead(
             updatedArticles,
@@ -226,28 +224,6 @@ struct ArticleListView: View {
         selection = stabilizedSelection(
             availableArticleIDs: filteredArticles(from: updatedArticles).map(\.id)
         )
-    }
-
-    private func makeArticlesAfterMarkAllAsRead(
-        visibleArticles: [ArticleListItemDTO],
-        allArticles: [ArticleListItemDTO]
-    ) -> [ArticleListItemDTO] {
-        let visibleArticleIDs = Set(visibleArticles.map(\.id))
-
-        guard currentArticleListFilter() != .unread else {
-            return allArticles.filter { visibleArticleIDs.contains($0.id) == false }
-        }
-
-        return allArticles.map { article in
-            guard visibleArticleIDs.contains(article.id) else {
-                return article
-            }
-
-            return article.updating(
-                isRead: true,
-                isStarred: article.isStarred
-            )
-        }
     }
 
     // MARK: Row Actions
@@ -274,7 +250,10 @@ struct ArticleListView: View {
             }
         }
 
-        let mutation = articleRowMutationAfterMarkAsRead(article)
+        let mutation = ArticlesScreenMutationReducer.mutationAfterMarkAsRead(
+            article: article,
+            filter: currentArticleListFilter()
+        )
         applyArticleRowMutation(mutation, for: article.id)
     }
 
@@ -298,13 +277,16 @@ struct ArticleListView: View {
             }
         }
 
-        let mutation = articleRowMutationAfterToggleStarred(article)
+        let mutation = ArticlesScreenMutationReducer.mutationAfterToggleStarred(
+            article: article,
+            filter: currentArticleListFilter()
+        )
         applyArticleRowMutation(mutation, for: article.id)
     }
 
     @MainActor
     private func applyArticleRowMutation(_ mutation: ArticleRowMutation, for articleID: UUID) {
-        let updatedArticles = makeArticlesAfterApplyingArticleRowMutation(
+        let updatedArticles = ArticlesScreenMutationReducer.apply(
             mutation,
             articleID: articleID,
             allArticles: controller.screenState.articles
@@ -320,49 +302,6 @@ struct ArticleListView: View {
         selection = stabilizedSelection(
             availableArticleIDs: filteredArticles(from: updatedArticles).map(\.id)
         )
-    }
-
-    private func articleRowMutationAfterMarkAsRead(_ article: ArticleListItemDTO) -> ArticleRowMutation {
-        if currentArticleListFilter() == .unread {
-            return .remove
-        }
-
-        return .update(
-            article.updating(
-                isRead: true,
-                isStarred: article.isStarred
-            )
-        )
-    }
-
-    private func articleRowMutationAfterToggleStarred(_ article: ArticleListItemDTO) -> ArticleRowMutation {
-        let updatedIsStarred = article.isStarred == false
-
-        if currentArticleListFilter() == .starred && updatedIsStarred == false {
-            return .remove
-        }
-
-        return .update(
-            article.updating(
-                isRead: article.isRead,
-                isStarred: updatedIsStarred
-            )
-        )
-    }
-
-    private func makeArticlesAfterApplyingArticleRowMutation(
-        _ mutation: ArticleRowMutation,
-        articleID: UUID,
-        allArticles: [ArticleListItemDTO]
-    ) -> [ArticleListItemDTO] {
-        switch mutation {
-        case .update(let updatedArticle):
-            allArticles.map { article in
-                article.id == articleID ? updatedArticle : article
-            }
-        case .remove:
-            allArticles.filter { $0.id != articleID }
-        }
     }
 
     // MARK: Toolbar
@@ -546,7 +485,7 @@ enum SourcesFilterArticleListFilterResolver {
     }
 }
 
-private extension ArticleListItemDTO {
+extension ArticleListItemDTO {
     func updating(isRead: Bool, isStarred: Bool) -> ArticleListItemDTO {
         ArticleListItemDTO(
             id: id,

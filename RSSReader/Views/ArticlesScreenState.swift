@@ -153,7 +153,7 @@ struct ArticleRowSwipeActionsState: Equatable {
     }
 }
 
-enum ArticleRowMutation {
+enum ArticleRowMutation: Equatable {
     case update(ArticleListItemDTO)
     case remove
 }

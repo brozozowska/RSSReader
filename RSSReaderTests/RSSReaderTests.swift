@@ -1101,6 +1101,45 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articlesScreenMutationReducerRemovesVisibleArticlesAfterMarkAllAsReadInUnreadFilter() {
+        let firstUnread = makeArticleListItemDTO(isRead: false, isStarred: false)
+        let secondUnread = makeArticleListItemDTO(isRead: false, isStarred: false)
+        let remainingRead = makeArticleListItemDTO(isRead: true, isStarred: false)
+
+        let updatedArticles = ArticlesScreenMutationReducer.reduceAfterMarkAllAsRead(
+            visibleArticles: [firstUnread, secondUnread],
+            allArticles: [firstUnread, secondUnread, remainingRead],
+            filter: ArticleListFilter.unread
+        )
+
+        #expect(updatedArticles.map { $0.id } == [remainingRead.id])
+    }
+
+    @Test
+    func articlesScreenMutationReducerProducesRemoveMutationWhenReadActionHappensInUnreadFilter() {
+        let unreadArticle = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        let mutation = ArticlesScreenMutationReducer.mutationAfterMarkAsRead(
+            article: unreadArticle,
+            filter: ArticleListFilter.unread
+        )
+
+        #expect(mutation == .remove)
+    }
+
+    @Test
+    func articlesScreenMutationReducerProducesRemoveMutationWhenUnstarringInsideStarredFilter() {
+        let starredArticle = makeArticleListItemDTO(isRead: true, isStarred: true)
+
+        let mutation = ArticlesScreenMutationReducer.mutationAfterToggleStarred(
+            article: starredArticle,
+            filter: ArticleListFilter.starred
+        )
+
+        #expect(mutation == .remove)
+    }
+
+    @Test
     func articlesScreenStatePresentsConfirmationOnlyWhenUnreadArticlesAreVisible() {
         var state = ArticlesScreenState()
         let readItem = makeArticleListItemDTO(isRead: true, isStarred: false)
