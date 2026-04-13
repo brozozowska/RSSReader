@@ -241,24 +241,54 @@ private struct ArticleListRowView: View {
     let article: ArticleListItemDTO
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(article.title)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(article.feedTitle)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                Text(ArticleListRowTimeFormatter.string(for: article))
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Text(ArticleListRowContent.primaryText(for: article))
                 .font(.body.weight(article.isRead ? .regular : .semibold))
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.leading)
-                .lineLimit(3)
+                .lineLimit(4)
                 .frame(maxWidth: .infinity, alignment: .leading)
-
-            if let summary = article.summary, summary != article.title {
-                Text(summary)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
         }
         .padding(.vertical, 10)
+    }
+}
+
+private enum ArticleListRowContent {
+    static func primaryText(for article: ArticleListItemDTO) -> String {
+        guard let summary = article.summary?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+            summary.isEmpty == false,
+            summary != article.title
+        else {
+            return article.title
+        }
+
+        return summary
+    }
+}
+
+private enum ArticleListRowTimeFormatter {
+    static func string(for article: ArticleListItemDTO) -> String {
+        let referenceDate = article.publishedAt ?? article.fetchedAt
+        return referenceDate.formatted(
+            .dateTime
+                .hour(.twoDigits(amPM: .omitted))
+                .minute(.twoDigits)
+        )
     }
 }
 
