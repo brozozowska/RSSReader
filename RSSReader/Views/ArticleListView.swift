@@ -244,26 +244,46 @@ private struct ArticleListRowView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(article.feedTitle)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                    .foregroundStyle(metadataForegroundStyle)
                     .lineLimit(1)
 
                 Spacer(minLength: 0)
 
-                Text(ArticleListRowTimeFormatter.string(for: article))
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    if article.isStarred {
+                        Image(systemName: "star.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.yellow)
+                    }
+
+                    Text(ArticleListRowTimeFormatter.string(for: article))
+                        .font(.caption)
+                        .foregroundStyle(metadataForegroundStyle)
+                        .lineLimit(1)
+                }
             }
 
             Text(ArticleListRowContent.primaryText(for: article))
-                .font(.body.weight(article.isRead ? .regular : .semibold))
-                .foregroundStyle(.primary)
+                .font(.body)
+                .foregroundStyle(titleForegroundStyle)
                 .multilineTextAlignment(.leading)
                 .lineLimit(4)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 10)
+    }
+
+    private var titleForegroundStyle: AnyShapeStyle {
+        article.isRead
+            ? AnyShapeStyle(.tertiary)
+            : AnyShapeStyle(.primary)
+    }
+
+    private var metadataForegroundStyle: AnyShapeStyle {
+        article.isRead
+            ? AnyShapeStyle(.tertiary)
+            : AnyShapeStyle(.secondary)
     }
 }
 
