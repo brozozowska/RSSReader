@@ -922,7 +922,7 @@ struct RSSReaderTests {
         #expect(state.navigationSubtitle == "0 Unread Items")
         #expect(state.placeholder?.title == "No Source Selected")
         #expect(state.toolbarActions.showsSearchAction == false)
-        #expect(state.toolbarActions.showsMenuAction == false)
+        #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
     }
 
     @Test
@@ -941,7 +941,7 @@ struct RSSReaderTests {
         #expect(state.navigationSubtitle == "3 Unread Items")
         #expect(state.showsPrimaryLoadingIndicator)
         #expect(state.toolbarActions.showsSearchAction)
-        #expect(state.toolbarActions.showsMenuAction)
+        #expect(state.toolbarActions.showsMarkAllAsReadAction)
     }
 
     @Test
@@ -1018,6 +1018,60 @@ struct RSSReaderTests {
         )
         state.presentMarkAllAsReadConfirmation()
         #expect(state.pendingConfirmation == .markAllAsRead)
+    }
+
+    @Test
+    func articlesScreenStateAppliesMarkAllAsReadAndRefreshesToolbarState() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: true)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.presentMarkAllAsReadConfirmation()
+        state.applyMarkAllAsRead(
+            [
+                makeArticleListItemDTO(
+                    id: unreadItem.id,
+                    feedID: unreadItem.feedID,
+                    articleExternalID: unreadItem.articleExternalID,
+                    isRead: true,
+                    isStarred: true
+                )
+            ],
+            navigationSubtitle: "0 Unread Items"
+        )
+
+        #expect(state.pendingConfirmation == nil)
+        #expect(state.phase == .loaded)
+        #expect(state.navigationSubtitle == "0 Unread Items")
+        #expect(state.articles.count == 1)
+        #expect(state.articles.first?.isRead == true)
+        #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
+    }
+
+    @Test
+    func articlesScreenStateAppliesMarkAllAsReadToUnreadFilterAndTransitionsToEmpty() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.presentMarkAllAsReadConfirmation()
+        state.applyMarkAllAsRead([], navigationSubtitle: "0 Unread Items")
+
+        #expect(state.pendingConfirmation == nil)
+        #expect(state.phase == .empty)
+        #expect(state.navigationSubtitle == "0 Unread Items")
+        #expect(state.articles.isEmpty)
+        #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
     }
 
     @Test

@@ -68,13 +68,13 @@ struct ArticlesScreenSubtitleResolver {
 
 struct ArticlesScreenToolbarActionsState: Equatable {
     let showsSearchAction: Bool
-    let showsMenuAction: Bool
+    let showsMarkAllAsReadAction: Bool
     let isMarkAllAsReadEnabled: Bool
 
     init(selection: SidebarSelection?, visibleArticles: [ArticleListItemDTO]) {
         let hasSelection = selection != nil
         self.showsSearchAction = hasSelection
-        self.showsMenuAction = hasSelection
+        self.showsMarkAllAsReadAction = hasSelection
         self.isMarkAllAsReadEnabled = visibleArticles.contains(where: { $0.isRead == false })
     }
 }
@@ -282,6 +282,26 @@ struct ArticlesScreenState {
 
     mutating func dismissConfirmation() {
         pendingConfirmation = nil
+    }
+
+    mutating func applyMarkAllAsRead(
+        _ updatedArticles: [ArticleListItemDTO],
+        navigationSubtitle: String
+    ) {
+        articles = updatedArticles
+        self.navigationSubtitle = navigationSubtitle
+        pendingConfirmation = nil
+        refreshState = .idle
+
+        if selection == nil {
+            phase = .noSelection
+        } else if updatedArticles.isEmpty {
+            phase = .empty
+        } else {
+            phase = .loaded
+        }
+
+        updateToolbarActions(for: selection)
     }
 
     private mutating func updateToolbarActions(for selection: SidebarSelection?) {

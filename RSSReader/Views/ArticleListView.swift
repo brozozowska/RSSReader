@@ -11,16 +11,42 @@ struct ArticleListView: View {
     @Binding var selection: UUID?
     @State private var screenState = ArticlesScreenState()
     @State private var lastLoadedSourceSelection: SidebarSelection? = nil
+    @State private var searchText = ""
+
+    init(
+        selectedSidebarSelection: SidebarSelection?,
+        selectedSourcesFilter: SourcesFilter,
+        reloadID: UUID,
+        showsBackButton: Bool,
+        navigateBackToSources: @escaping () -> Void,
+        previewScreenState: ArticlesScreenState?,
+        selection: Binding<UUID?>
+    ) {
+        self.selectedSidebarSelection = selectedSidebarSelection
+        self.selectedSourcesFilter = selectedSourcesFilter
+        self.reloadID = reloadID
+        self.showsBackButton = showsBackButton
+        self.navigateBackToSources = navigateBackToSources
+        self.previewScreenState = previewScreenState
+        self._selection = selection
+        self._screenState = State(initialValue: previewScreenState ?? ArticlesScreenState())
+        self._lastLoadedSourceSelection = State(initialValue: previewScreenState?.selection)
+    }
 
     var body: some View {
-        let displayedScreenState = previewScreenState ?? screenState
+        let visibleArticles = filteredArticles(from: screenState.articles)
+        let visibleSections = ArticlesDaySectionsBuilder.build(from: visibleArticles)
+        let toolbarActions = ArticlesScreenToolbarActionsState(
+            selection: screenState.selection,
+            visibleArticles: visibleArticles
+        )
 
         ZStack {
             Color(uiColor: .systemBackground)
                 .ignoresSafeArea()
 
             List(selection: $selection) {
-                ForEach(displayedScreenState.sections) { section in
+                ForEach(visibleSections) { section in
                     Section {
                         ForEach(section.articles, id: \.id) { article in
                             ArticleListRowView(article: article)
@@ -41,6 +67,12 @@ struct ArticleListView: View {
             .contentMargins(.top, 8, for: .scrollContent)
         }
         .toolbarTitleDisplayMode(.inline)
+        .searchable(
+            text: $searchText,
+            placement: .toolbar,
+            prompt: "Search Articles"
+        )
+        .searchToolbarBehavior(.automatic)
         .toolbar {
             if showsBackButton {
                 ToolbarItem(placement: .topBarLeading) {
@@ -52,17 +84,51 @@ struct ArticleListView: View {
             }
 
             ToolbarItem(placement: .title) {
-                titleView(for: displayedScreenState)
+                titleView(for: screenState)
             }
 
             ToolbarItem(placement: .subtitle) {
-                subtitleView(for: displayedScreenState)
+                subtitleView(for: screenState)
+            }
+
+            if toolbarActions.showsMarkAllAsReadAction {
+                ToolbarItem(placement: .bottomBar) {
+                    Button(action: presentMarkAllAsReadConfirmation) {
+                        Image(systemName: "checkmark.circle.fill")
+                    }
+                    .disabled(toolbarActions.isMarkAllAsReadEnabled == false)
+                    .accessibilityLabel("Mark all as read")
+                }
+            }
+
+            if toolbarActions.showsMarkAllAsReadAction
+                && toolbarActions.showsSearchAction {
+                ToolbarSpacer(placement: .bottomBar)
+            }
+
+            if toolbarActions.showsSearchAction {
+                DefaultToolbarItem(kind: .search, placement: .bottomBar)
             }
         }
+        .alert(
+            "Mark all as read?",
+            isPresented: markAllAsReadConfirmationIsPresented,
+        ) {
+            Button("Mark all as read", role: .destructive, action: confirmMarkAllAsRead)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This action will mark all visible articles as read.")
+        }
         .overlay {
-            if displayedScreenState.showsPrimaryLoadingIndicator {
+            if screenState.showsPrimaryLoadingIndicator {
                 ProgressView()
-            } else if let placeholder = displayedScreenState.placeholder {
+            } else if let placeholder = searchPlaceholder(for: visibleArticles) {
+                ContentUnavailableView(
+                    placeholder.title,
+                    systemImage: placeholder.systemImage,
+                    description: placeholder.description.map(Text.init)
+                )
+            } else if let placeholder = screenState.placeholder {
                 ContentUnavailableView(
                     placeholder.title,
                     systemImage: placeholder.systemImage,
@@ -75,8 +141,13 @@ struct ArticleListView: View {
             sourcesFilter: selectedSourcesFilter,
             reloadID: reloadID
         )) {
-            guard previewScreenState == nil else { return }
+            guard isPreviewMode == false else { return }
             await loadArticles()
+        }
+        .onChange(of: searchText) { _, _ in
+            selection = stabilizedSelection(
+                availableArticleIDs: filteredArticles(from: screenState.articles).map(\.id)
+            )
         }
         .simultaneousGesture(backNavigationGesture)
     }
@@ -165,7 +236,9 @@ struct ArticleListView: View {
             )
         }
 
-        self.selection = stabilizedSelection(availableArticleIDs: screenState.articles.map(\.id))
+        self.selection = stabilizedSelection(
+            availableArticleIDs: filteredArticles(from: screenState.articles).map(\.id)
+        )
     }
 
     private func stabilizedSelection(availableArticleIDs: [UUID]) -> UUID? {
@@ -195,6 +268,98 @@ struct ArticleListView: View {
             articles: articles,
             sourcesFilter: selectedSourcesFilter
         )
+    }
+
+    private var markAllAsReadConfirmationIsPresented: Binding<Bool> {
+        Binding(
+            get: { screenState.pendingConfirmation == .markAllAsRead },
+            set: { isPresented in
+                if isPresented == false {
+                    screenState.dismissConfirmation()
+                }
+            }
+        )
+    }
+
+    @MainActor
+    private func presentMarkAllAsReadConfirmation() {
+        screenState.presentMarkAllAsReadConfirmation()
+    }
+
+    @MainActor
+    private func confirmMarkAllAsRead() {
+        let visibleArticles = filteredArticles(from: screenState.articles)
+
+        if isPreviewMode == false {
+            guard let articleStateService = dependencies.articleStateService else {
+                dependencies.logger.error("Article state service is unavailable for mark all as read action")
+                screenState.dismissConfirmation()
+                return
+            }
+
+            do {
+                _ = try articleStateService.markAllVisibleAsRead(visibleArticles, at: .now)
+            } catch {
+                dependencies.logger.error("Failed to mark all visible articles as read: \(error)")
+                screenState.dismissConfirmation()
+                return
+            }
+        }
+
+        let updatedArticles = makeArticlesAfterMarkAllAsRead(
+            visibleArticles: visibleArticles,
+            allArticles: screenState.articles
+        )
+        screenState.applyMarkAllAsRead(
+            updatedArticles,
+            navigationSubtitle: resolveNavigationSubtitle(for: updatedArticles)
+        )
+        selection = stabilizedSelection(
+            availableArticleIDs: filteredArticles(from: updatedArticles).map(\.id)
+        )
+    }
+
+    private func makeArticlesAfterMarkAllAsRead(
+        visibleArticles: [ArticleListItemDTO],
+        allArticles: [ArticleListItemDTO]
+    ) -> [ArticleListItemDTO] {
+        let visibleArticleIDs = Set(visibleArticles.map(\.id))
+
+        guard currentArticleListFilter() != .unread else {
+            return allArticles.filter { visibleArticleIDs.contains($0.id) == false }
+        }
+
+        return allArticles.map { article in
+            guard visibleArticleIDs.contains(article.id) else {
+                return article
+            }
+
+            return ArticleListItemDTO(
+                id: article.id,
+                feedID: article.feedID,
+                feedTitle: article.feedTitle,
+                articleExternalID: article.articleExternalID,
+                title: article.title,
+                summary: article.summary,
+                author: article.author,
+                publishedAt: article.publishedAt,
+                fetchedAt: article.fetchedAt,
+                isRead: true,
+                isStarred: article.isStarred,
+                isHidden: article.isHidden
+            )
+        }
+    }
+
+    private func currentArticleListFilter() -> ArticleListFilter {
+        switch selectedSidebarSelection {
+        case .unread:
+            .unread
+        case .starred:
+            .starred
+        case .inbox, .folder, .feed, .none:
+            SourcesFilterArticleListFilterResolver.resolve(for: selectedSourcesFilter)
+        }
     }
 
     private var backNavigationGesture: some Gesture {
@@ -238,6 +403,46 @@ struct ArticleListView: View {
             dependencies.logger.error("Failed to load app settings for article sort mode: \(error)")
             return .publishedAtDescending
         }
+    }
+
+    private var isPreviewMode: Bool {
+        previewScreenState != nil
+    }
+
+    private var normalizedSearchText: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func filteredArticles(from articles: [ArticleListItemDTO]) -> [ArticleListItemDTO] {
+        guard normalizedSearchText.isEmpty == false else {
+            return articles
+        }
+
+        return articles.filter { article in
+            [article.feedTitle, article.title, article.summary, article.author]
+                .compactMap { $0 }
+                .contains { $0.localizedCaseInsensitiveContains(normalizedSearchText) }
+        }
+    }
+
+    private func searchPlaceholder(for visibleArticles: [ArticleListItemDTO]) -> ArticlesScreenPlaceholderState? {
+        guard normalizedSearchText.isEmpty == false else {
+            return nil
+        }
+
+        guard screenState.phase == .loaded || screenState.phase == .empty else {
+            return nil
+        }
+
+        guard visibleArticles.isEmpty else {
+            return nil
+        }
+
+        return ArticlesScreenPlaceholderState(
+            title: "No Search Results",
+            systemImage: "magnifyingglass",
+            description: "No visible articles match \"\(normalizedSearchText)\"."
+        )
     }
 }
 

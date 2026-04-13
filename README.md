@@ -213,9 +213,7 @@
 - [x] сгруппировать статьи по дням и показать section headers `Today / Yesterday / date`;
 - [x] оформить ячейку списка: metadata row `source / time`, затем текст краткого содержимого статьи;
 - [x] визуально показать `read/unread` и `starred` state в ячейке, сохранив чистый список без separators;
-- [ ] добавить toolbar actions: `search` entry point и `menu -> Mark all as read`;
-- [ ] показать destructive confirmation dialog перед `Mark all as read`;
-- [ ] связать `Mark all as read` с bulk action `ArticleStateService.markAllVisibleAsRead`;
+- [x] добавить нижние actions экрана статей для `search` и `Mark all as read`, показать destructive confirmation dialog и связать bulk action с `ArticleStateService.markAllVisibleAsRead`;
 - [ ] подготовить swipe actions для ячеек: swipe слева-направо помечает статью прочитанной, swipe справа-налево помечает статью starred;
 - [ ] добавить `pull to refresh` для текущего selection через `FeedRefreshService`;
 - [ ] добавить полноценный loading/error UX для первичной загрузки и refresh.
