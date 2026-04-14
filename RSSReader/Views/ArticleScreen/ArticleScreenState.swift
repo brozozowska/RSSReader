@@ -107,6 +107,27 @@ struct ArticleScreenState {
 }
 
 extension ArticleScreenState {
+    static func previewLoading(articleID: UUID = UUID()) -> ArticleScreenState {
+        var state = ArticleScreenState()
+        state.beginLoading(articleID: articleID)
+        return state
+    }
+
+    static func previewFailed(
+        articleID: UUID = UUID(),
+        message: String
+    ) -> ArticleScreenState {
+        var state = ArticleScreenState()
+        state.applyLoadingFailure(message, articleID: articleID)
+        return state
+    }
+
+    static func previewNotFound(articleID: UUID = UUID()) -> ArticleScreenState {
+        var state = ArticleScreenState()
+        state.applyArticleNotFound(articleID: articleID)
+        return state
+    }
+
     static func previewLoaded(article: ReaderArticleDTO) -> ArticleScreenState {
         var state = ArticleScreenState()
         state.applyLoadedArticle(article)

@@ -937,15 +937,49 @@ struct RSSReaderTests {
         let viewState = state.derivedViewState()
 
         #expect(state.phase == .loaded)
-        #expect(viewState.content?.title == article.title)
-        #expect(viewState.content?.feedTitle == article.feedTitle)
-        #expect(viewState.content?.author == article.author)
+        #expect(viewState.content?.header.title == article.title)
+        #expect(viewState.content?.header.feedTitle == article.feedTitle)
+        #expect(viewState.content?.header.author == article.author)
         #expect(viewState.content?.body.text == "Rendered body text")
         #expect(viewState.content?.body.source == .contentText)
         #expect(viewState.toolbarActions.showsShareAction)
         #expect(viewState.toolbarActions.isShareEnabled)
         #expect(viewState.toolbarActions.menuActions?.starActionTitle == "Unstar")
         #expect(viewState.toolbarActions.menuActions?.readActionTitle == "Mark Unread")
+    }
+
+    @Test
+    func articleScreenContentHeaderFormatsFieldsInPublishedTitleAuthorFeedOrder() {
+        let publishedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                feedTitle: "THECODE.MEDIA",
+                author: "Юлия Зубарева",
+                publishedAt: publishedAt
+            )
+        )
+
+        #expect(content.header.publishedAtText == ArticleScreenDateFormatter.string(from: publishedAt))
+        #expect(content.header.title == "Article")
+        #expect(content.header.author == "Юлия Зубарева")
+        #expect(content.header.feedTitle == "THECODE.MEDIA")
+    }
+
+    @Test
+    func articleScreenContentHeaderHidesBlankMetadataAndFallsBackForBlankTitle() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                feedTitle: "   ",
+                title: "   ",
+                author: " \n ",
+                publishedAt: nil
+            )
+        )
+
+        #expect(content.header.publishedAtText == nil)
+        #expect(content.header.title == "Untitled Article")
+        #expect(content.header.author == nil)
+        #expect(content.header.feedTitle == nil)
     }
 
     @Test
@@ -1004,7 +1038,7 @@ struct RSSReaderTests {
         await controller.load(articleID: article.id, dependencies: harness.dependencies)
 
         #expect(controller.screenState.phase == .loaded)
-        #expect(controller.screenState.derivedViewState().content?.title == "Article Screen Load")
+        #expect(controller.screenState.derivedViewState().content?.header.title == "Article Screen Load")
         #expect(controller.screenState.toolbarActions.showsMenuAction)
     }
 

@@ -5,7 +5,21 @@ struct ReaderView: View {
     let articleID: UUID?
     let showsBackButton: Bool
     let navigateBackToArticles: () -> Void
+    let previewScreenState: ArticleScreenState?
     @State private var controller = ArticleScreenController()
+
+    init(
+        articleID: UUID?,
+        showsBackButton: Bool,
+        navigateBackToArticles: @escaping () -> Void,
+        previewScreenState: ArticleScreenState? = nil
+    ) {
+        self.articleID = articleID
+        self.showsBackButton = showsBackButton
+        self.navigateBackToArticles = navigateBackToArticles
+        self.previewScreenState = previewScreenState
+        self._controller = State(initialValue: ArticleScreenController(previewScreenState: previewScreenState))
+    }
 
     var body: some View {
         let viewState = controller.screenState.derivedViewState()
@@ -14,16 +28,24 @@ struct ReaderView: View {
             if let content = viewState.content {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text(content.title)
+                        if let publishedAtText = content.header.publishedAtText {
+                            Text(publishedAtText)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Text(content.header.title)
                             .font(.title2.weight(.semibold))
 
-                        Text(content.feedTitle)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        if let author = content.author {
+                        if let author = content.header.author {
                             Text(author)
                                 .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        if let feedTitle = content.header.feedTitle {
+                            Text(feedTitle)
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
 
@@ -58,6 +80,7 @@ struct ReaderView: View {
             }
         }
         .task(id: articleID) {
+            guard previewScreenState == nil else { return }
             await controller.load(articleID: articleID, dependencies: dependencies)
         }
         .simultaneousGesture(backNavigationGesture)
@@ -82,7 +105,8 @@ struct ReaderView: View {
     ReaderView(
         articleID: nil,
         showsBackButton: false,
-        navigateBackToArticles: {}
+        navigateBackToArticles: {},
+        previewScreenState: nil
     )
         .environment(\.appDependencies, AppDependencies.makeDefault())
 }

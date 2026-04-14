@@ -48,18 +48,27 @@ struct ArticleScreenBodyContentState: Equatable {
 
 @MainActor
 struct ArticleScreenContentState: Equatable {
-    let title: String
-    let feedTitle: String
-    let author: String?
-    let publishedAtText: String?
+    let header: ArticleScreenHeaderState
     let body: ArticleScreenBodyContentState
 
     init(article: ReaderArticleDTO) {
-        self.title = article.title
-        self.feedTitle = article.feedTitle
-        self.author = article.author?.nilIfBlank
-        self.publishedAtText = article.publishedAt.map(ArticleScreenDateFormatter.string(from:))
+        self.header = ArticleScreenHeaderState(article: article)
         self.body = ArticleScreenBodyContentState(article: article)
+    }
+}
+
+@MainActor
+struct ArticleScreenHeaderState: Equatable {
+    let publishedAtText: String?
+    let title: String
+    let author: String?
+    let feedTitle: String?
+
+    init(article: ReaderArticleDTO) {
+        self.publishedAtText = article.publishedAt.map(ArticleScreenDateFormatter.string(from:))
+        self.title = article.title.nilIfBlank ?? "Untitled Article"
+        self.author = article.author?.nilIfBlank
+        self.feedTitle = article.feedTitle.nilIfBlank
     }
 }
 
