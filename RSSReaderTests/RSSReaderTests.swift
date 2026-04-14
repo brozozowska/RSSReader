@@ -942,6 +942,7 @@ struct RSSReaderTests {
         #expect(viewState.content?.header.author == article.author)
         #expect(viewState.content?.body.blocks == [.paragraph("Rendered body text")])
         #expect(viewState.content?.body.source == .contentText)
+        #expect(viewState.content?.body.readerMode == .embedded)
         #expect(viewState.toolbarActions.showsShareAction)
         #expect(viewState.toolbarActions.isShareEnabled)
         #expect(viewState.toolbarActions.showsBottomActions)
@@ -1064,6 +1065,20 @@ struct RSSReaderTests {
             ]
         )
         #expect(content.body.source == .empty)
+        #expect(content.body.readerMode == .embedded)
+    }
+
+    @Test
+    func articleScreenBodyContentStateDefinesFutureFullTextExtensionPoint() {
+        let extractedContent = ArticleScreenBodyContentState.extractedFullText(
+            blocks: [
+                .paragraph("Extracted full text paragraph.")
+            ]
+        )
+
+        #expect(extractedContent.source == .fullTextExtracted)
+        #expect(extractedContent.readerMode == .fullText)
+        #expect(extractedContent.blocks == [.paragraph("Extracted full text paragraph.")])
     }
 
     @Test

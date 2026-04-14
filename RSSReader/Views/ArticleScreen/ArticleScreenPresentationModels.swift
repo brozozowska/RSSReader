@@ -21,13 +21,33 @@ enum ArticleScreenBodySource: Equatable {
     case summary
     case contentText
     case contentHTML
+    case fullTextExtracted
     case empty
+
+    var readerMode: ArticleScreenReaderMode {
+        switch self {
+        case .fullTextExtracted:
+            .fullText
+        case .summary, .contentText, .contentHTML, .empty:
+            .embedded
+        }
+    }
+}
+
+@MainActor
+enum ArticleScreenReaderMode: Equatable {
+    case embedded
+    case fullText
 }
 
 @MainActor
 struct ArticleScreenBodyContentState: Equatable {
     let blocks: [ArticleScreenBodyBlock]
     let source: ArticleScreenBodySource
+    
+    var readerMode: ArticleScreenReaderMode {
+        source.readerMode
+    }
 
     init(
         blocks: [ArticleScreenBodyBlock],
@@ -35,6 +55,13 @@ struct ArticleScreenBodyContentState: Equatable {
     ) {
         self.blocks = blocks
         self.source = source
+    }
+
+    static func extractedFullText(blocks: [ArticleScreenBodyBlock]) -> ArticleScreenBodyContentState {
+        ArticleScreenBodyContentState(
+            blocks: blocks,
+            source: .fullTextExtracted
+        )
     }
 }
 

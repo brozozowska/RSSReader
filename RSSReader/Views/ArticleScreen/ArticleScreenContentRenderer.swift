@@ -10,6 +10,9 @@ enum ArticleScreenBodyBlock: Equatable {
 @MainActor
 enum ArticleScreenContentRenderer {
     static func renderBody(for article: ReaderArticleDTO) -> ArticleScreenBodyContentState {
+        // TODO: When full-text extraction is implemented, resolve extracted content upstream
+        // and construct ArticleScreenBodyContentState.extractedFullText(...) here without
+        // teaching ReaderView a separate full-text rendering path.
         if let contentHTML = article.contentHTML?.nilIfBlank {
             let htmlBlocks = renderHTML(contentHTML, article: article)
             if htmlBlocks.isEmpty == false {
