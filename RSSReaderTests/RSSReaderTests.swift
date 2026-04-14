@@ -914,6 +914,112 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articleScreenStateStartsWithNoSelectionPlaceholder() {
+        let state = ArticleScreenState()
+
+        #expect(state.phase == .noSelection)
+        #expect(state.placeholder?.title == "No Article Selected")
+        #expect(state.toolbarActions.showsShareAction == false)
+        #expect(state.toolbarActions.showsMenuAction == false)
+    }
+
+    @Test
+    func articleScreenStateBuildsLoadedContentAndToolbarActions() {
+        var state = ArticleScreenState()
+        let article = makeReaderArticleDTO(
+            summary: nil,
+            contentText: "Rendered body text",
+            isRead: true,
+            isStarred: true
+        )
+
+        state.applyLoadedArticle(article)
+        let viewState = state.derivedViewState()
+
+        #expect(state.phase == .loaded)
+        #expect(viewState.content?.title == article.title)
+        #expect(viewState.content?.feedTitle == article.feedTitle)
+        #expect(viewState.content?.author == article.author)
+        #expect(viewState.content?.body.text == "Rendered body text")
+        #expect(viewState.content?.body.source == .contentText)
+        #expect(viewState.toolbarActions.showsShareAction)
+        #expect(viewState.toolbarActions.isShareEnabled)
+        #expect(viewState.toolbarActions.menuActions?.starActionTitle == "Unstar")
+        #expect(viewState.toolbarActions.menuActions?.readActionTitle == "Mark Unread")
+    }
+
+    @Test
+    func articleScreenStateUsesExistingRenderingPriorityForBodyContent() {
+        var state = ArticleScreenState()
+        let article = makeReaderArticleDTO(
+            summary: "Summary copy",
+            contentHTML: "<p>HTML body</p>",
+            contentText: "Longer content text"
+        )
+
+        state.applyLoadedArticle(article)
+
+        #expect(state.derivedViewState().content?.body.text == "Summary copy")
+        #expect(state.derivedViewState().content?.body.source == .summary)
+    }
+
+    @Test
+    func articleScreenStatePresentsShareSheetOnlyWhenArticleHasValidURL() {
+        var loadedState = ArticleScreenState()
+        loadedState.applyLoadedArticle(
+            makeReaderArticleDTO(
+                canonicalURL: "https://example.com/articles/shared"
+            )
+        )
+
+        loadedState.presentShareSheet()
+
+        #expect(loadedState.pendingShareSheet?.url.absoluteString == "https://example.com/articles/shared")
+
+        var invalidURLState = ArticleScreenState()
+        invalidURLState.applyLoadedArticle(
+            makeReaderArticleDTO(
+                articleURL: "not a valid url",
+                canonicalURL: nil
+            )
+        )
+
+        invalidURLState.presentShareSheet()
+
+        #expect(invalidURLState.pendingShareSheet == nil)
+    }
+
+    @Test
+    func articleScreenControllerLoadsReaderArticleForCurrentSelection() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-load.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-load",
+            url: "https://example.com/articles/article-screen-load",
+            title: "Article Screen Load"
+        )
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: article.id, dependencies: harness.dependencies)
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.derivedViewState().content?.title == "Article Screen Load")
+        #expect(controller.screenState.toolbarActions.showsMenuAction)
+    }
+
+    @Test
+    func articleScreenControllerBuildsNotFoundPlaceholderWhenArticleDoesNotExist() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: UUID(), dependencies: harness.dependencies)
+
+        #expect(controller.screenState.phase == .notFound)
+        #expect(controller.screenState.placeholder?.title == "Article Not Found")
+    }
+
+    @Test
     func articlesScreenStateStartsWithoutSelectionPlaceholder() {
         let state = ArticlesScreenState()
 
@@ -2502,6 +2608,48 @@ private func makeArticleListItemDTO(
         isRead: isRead,
         isStarred: isStarred,
         isHidden: false
+    )
+}
+
+@MainActor
+private func makeReaderArticleDTO(
+    id: UUID = UUID(),
+    feedID: UUID = UUID(),
+    feedTitle: String = "Feed",
+    feedSiteURL: String? = "https://example.com",
+    articleExternalID: String = "article",
+    title: String = "Article",
+    summary: String? = "Summary",
+    contentHTML: String? = nil,
+    contentText: String? = nil,
+    author: String? = "Author",
+    publishedAt: Date? = nil,
+    articleURL: String = "https://example.com/articles/1",
+    canonicalURL: String? = "https://example.com/articles/1/canonical",
+    imageURL: String? = nil,
+    isRead: Bool = false,
+    isStarred: Bool = false,
+    isHidden: Bool = false
+) -> ReaderArticleDTO {
+    ReaderArticleDTO(
+        id: id,
+        feedID: feedID,
+        feedTitle: feedTitle,
+        feedSiteURL: feedSiteURL,
+        articleExternalID: articleExternalID,
+        title: title,
+        summary: summary,
+        contentHTML: contentHTML,
+        contentText: contentText,
+        author: author,
+        publishedAt: publishedAt,
+        updatedAtSource: nil,
+        articleURL: articleURL,
+        canonicalURL: canonicalURL,
+        imageURL: imageURL,
+        isRead: isRead,
+        isStarred: isStarred,
+        isHidden: isHidden
     )
 }
 

@@ -3,71 +3,49 @@ import SwiftUI
 struct ReaderView: View {
     @Environment(\.appDependencies) private var dependencies
     let articleID: UUID?
-    @State private var article: ReaderArticleDTO?
-    @State private var hasLoadedArticle = false
+    @State private var controller = ArticleScreenController()
 
     var body: some View {
+        let viewState = controller.screenState.derivedViewState()
+
         Group {
-            if let article {
+            if let content = viewState.content {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text(article.title)
+                        Text(content.title)
                             .font(.title2.weight(.semibold))
 
-                        Text(article.feedTitle)
+                        Text(content.feedTitle)
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
-                        if let author = article.author {
+                        if let author = content.author {
                             Text(author)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
 
-                        if let summary = article.summary {
-                            Text(summary)
-                                .font(.body)
-                        } else if let contentText = article.contentText {
-                            Text(contentText)
-                                .font(.body)
-                        } else if let contentHTML = article.contentHTML {
-                            Text(contentHTML)
+                        if let bodyText = content.body.text {
+                            Text(bodyText)
                                 .font(.body)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
                 }
-            } else if hasLoadedArticle, articleID != nil {
+            } else if controller.screenState.showsPrimaryLoadingIndicator {
+                ProgressView("Loading Article")
+            } else if let placeholder = viewState.placeholder {
                 ContentUnavailableView(
-                    "Article Not Found",
-                    systemImage: "doc.text.magnifyingglass",
-                    description: Text("The selected article could not be loaded from persistence.")
+                    placeholder.title,
+                    systemImage: placeholder.systemImage,
+                    description: placeholder.description.map(Text.init)
                 )
-            } else {
-                ContentUnavailableView("No Article Selected", systemImage: "doc.text")
             }
         }
         .navigationTitle("Reader")
         .task(id: articleID) {
-            await loadArticle()
-        }
-    }
-
-    @MainActor
-    private func loadArticle() async {
-        defer { hasLoadedArticle = true }
-
-        guard let articleID, let articleQueryService = dependencies.articleQueryService else {
-            article = nil
-            return
-        }
-
-        do {
-            article = try articleQueryService.fetchReaderArticle(id: articleID)
-        } catch {
-            dependencies.logger.error("Failed to load article by ID \(articleID): \(error)")
-            article = nil
+            await controller.load(articleID: articleID, dependencies: dependencies)
         }
     }
 }
