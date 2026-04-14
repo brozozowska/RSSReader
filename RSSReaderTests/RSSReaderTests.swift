@@ -1187,6 +1187,21 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articleScreenControllerBuildsFailedPlaceholderWhenArticleQueryServiceIsUnavailable() async {
+        let dependencies = AppDependencies(logger: TestLogger())
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: UUID(), dependencies: dependencies)
+
+        #expect(controller.screenState.phase == .failed("Article query service is unavailable."))
+        #expect(controller.screenState.placeholder?.title == "Failed to Load Article")
+        #expect(
+            controller.screenState.placeholder?.description
+                == "Article query service is unavailable."
+        )
+    }
+
+    @Test
     func articleScreenControllerTogglesArticleReadStatusWithoutReloadingScreen() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-mark-unread.xml"]).first)
