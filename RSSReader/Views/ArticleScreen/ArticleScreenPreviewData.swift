@@ -61,7 +61,8 @@ private enum ArticleScreenPreviewData {
             summary: """
             Утром 3 апреля был зафиксирован массовый сбой сразу в нескольких российских банках. Пользователи жаловались на переводы, оплату картой и вход в мобильные приложения.
             """,
-            contentText: nil
+            contentText: nil,
+            isRead: true
         )
     }
 
@@ -94,7 +95,8 @@ private enum ArticleScreenPreviewData {
     private static func makeArticle(
         title: String,
         summary: String?,
-        contentText: String?
+        contentText: String?,
+        isRead: Bool = false
     ) -> ReaderArticleDTO {
         ReaderArticleDTO(
             id: UUID(),
@@ -112,7 +114,7 @@ private enum ArticleScreenPreviewData {
             articleURL: "https://thecode.media/sber-vtb-tbank-failure",
             canonicalURL: "https://thecode.media/sber-vtb-tbank-failure",
             imageURL: nil,
-            isRead: false,
+            isRead: isRead,
             isStarred: false,
             isHidden: false
         )

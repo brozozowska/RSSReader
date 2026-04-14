@@ -47,4 +47,40 @@ final class ArticleScreenController {
     func dismissShareSheet() {
         screenState.dismissShareSheet()
     }
+
+    func toggleArticleReadStatus(
+        dependencies: AppDependencies,
+        isPreviewMode: Bool
+    ) {
+        guard let article = screenState.article else { return }
+        let newIsRead = article.isRead == false
+
+        if isPreviewMode == false {
+            guard let articleStateService = dependencies.articleStateService else {
+                dependencies.logger.error("Article state service is unavailable for read toggle action")
+                return
+            }
+
+            do {
+                if newIsRead {
+                    _ = try articleStateService.markAsRead(
+                        feedID: article.feedID,
+                        articleExternalID: article.articleExternalID,
+                        at: .now
+                    )
+                } else {
+                    _ = try articleStateService.markAsUnread(
+                        feedID: article.feedID,
+                        articleExternalID: article.articleExternalID,
+                        at: .now
+                    )
+                }
+            } catch {
+                dependencies.logger.error("Failed to toggle article read status: \(error)")
+                return
+            }
+        }
+
+        screenState.applyArticleMutation(article.updating(isRead: newIsRead))
+    }
 }

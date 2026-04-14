@@ -101,4 +101,31 @@ struct ReaderArticleDTO: Sendable, Identifiable {
         self.isStarred = state?.isStarred ?? false
         self.isHidden = state?.isHidden ?? false
     }
+
+    func updating(
+        isRead: Bool? = nil,
+        isStarred: Bool? = nil,
+        isHidden: Bool? = nil
+    ) -> ReaderArticleDTO {
+        ReaderArticleDTO(
+            id: id,
+            feedID: feedID,
+            feedTitle: feedTitle,
+            feedSiteURL: feedSiteURL,
+            articleExternalID: articleExternalID,
+            title: title,
+            summary: summary,
+            contentHTML: contentHTML,
+            contentText: contentText,
+            author: author,
+            publishedAt: publishedAt,
+            updatedAtSource: updatedAtSource,
+            articleURL: articleURL,
+            canonicalURL: canonicalURL,
+            imageURL: imageURL,
+            isRead: isRead ?? self.isRead,
+            isStarred: isStarred ?? self.isStarred,
+            isHidden: isHidden ?? self.isHidden
+        )
+    }
 }

@@ -66,8 +66,8 @@ struct ArticleScreenHeaderState: Equatable {
 
 @MainActor
 struct ArticleScreenBottomActionsState: Equatable {
-    let markUnreadTitle: String
-    let markUnreadSystemImage: String
+    let readToggleTitle: String
+    let readToggleSystemImage: String
     let starTitle: String
     let starSystemImage: String
     let openInAppBrowserTitle: String
@@ -75,8 +75,8 @@ struct ArticleScreenBottomActionsState: Equatable {
     let canOpenInAppBrowser: Bool
 
     init(article: ReaderArticleDTO) {
-        self.markUnreadTitle = "Mark Unread"
-        self.markUnreadSystemImage = article.isRead ? "circle" : "circle.fill"
+        self.readToggleTitle = article.isRead ? "Mark Unread" : "Mark Read"
+        self.readToggleSystemImage = article.isRead ? "circle" : "circle.fill"
         self.starTitle = "Star"
         self.starSystemImage = article.isStarred ? "star.fill" : "star"
         self.openInAppBrowserTitle = "Open in App-Browser"

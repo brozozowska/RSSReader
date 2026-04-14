@@ -69,6 +69,15 @@ struct ArticleScreenState {
         updateToolbarActions()
     }
 
+    mutating func applyArticleMutation(_ article: ReaderArticleDTO) {
+        articleID = article.id
+        self.article = article
+        if phase != .loading && phase != .noSelection {
+            phase = .loaded
+        }
+        updateToolbarActions()
+    }
+
     mutating func applyArticleNotFound(articleID: UUID?) {
         self.articleID = articleID
         article = nil

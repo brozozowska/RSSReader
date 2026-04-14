@@ -945,8 +945,8 @@ struct RSSReaderTests {
         #expect(viewState.toolbarActions.showsShareAction)
         #expect(viewState.toolbarActions.isShareEnabled)
         #expect(viewState.toolbarActions.showsBottomActions)
-        #expect(viewState.toolbarActions.bottomActions?.markUnreadTitle == "Mark Unread")
-        #expect(viewState.toolbarActions.bottomActions?.markUnreadSystemImage == "circle")
+        #expect(viewState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
+        #expect(viewState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
         #expect(viewState.toolbarActions.bottomActions?.starTitle == "Star")
         #expect(viewState.toolbarActions.bottomActions?.starSystemImage == "star.fill")
     }
@@ -1120,6 +1120,58 @@ struct RSSReaderTests {
 
         #expect(controller.screenState.phase == .notFound)
         #expect(controller.screenState.placeholder?.title == "Article Not Found")
+    }
+
+    @Test
+    func articleScreenControllerTogglesArticleReadStatusWithoutReloadingScreen() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-mark-unread.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-mark-unread",
+            url: "https://example.com/articles/article-screen-mark-unread",
+            title: "Article Screen Mark Unread"
+        )
+        _ = try harness.articleStateService.markAsRead(
+            feedID: feed.id,
+            articleExternalID: article.externalID,
+            at: .now
+        )
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: article.id, dependencies: harness.dependencies)
+        controller.toggleArticleReadStatus(
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        var updatedArticle = try #require(controller.screenState.article)
+        #expect(updatedArticle.isRead == false)
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Read")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.fill")
+
+        var persistedState = try harness.articleStateRepository.fetchStateSnapshot(
+            feedID: feed.id,
+            articleExternalID: article.externalID
+        )
+        #expect(persistedState?.isRead == false)
+
+        controller.toggleArticleReadStatus(
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        updatedArticle = try #require(controller.screenState.article)
+        #expect(updatedArticle.isRead == true)
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
+
+        persistedState = try harness.articleStateRepository.fetchStateSnapshot(
+            feedID: feed.id,
+            articleExternalID: article.externalID
+        )
+        #expect(persistedState?.isRead == true)
     }
 
     @Test

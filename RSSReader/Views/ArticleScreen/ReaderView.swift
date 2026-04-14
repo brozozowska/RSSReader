@@ -92,9 +92,9 @@ struct ReaderView: View {
                let bottomActions = viewState.toolbarActions.bottomActions {
                 ToolbarItem(placement: .bottomBar) {
                     Button(action: handleMarkUnreadActionTap) {
-                        Image(systemName: bottomActions.markUnreadSystemImage)
+                        Image(systemName: bottomActions.readToggleSystemImage)
                     }
-                    .accessibilityLabel(bottomActions.markUnreadTitle)
+                    .accessibilityLabel(bottomActions.readToggleTitle)
                 }
 
                 ToolbarSpacer(placement: .bottomBar)
@@ -145,7 +145,10 @@ struct ReaderView: View {
 
     @MainActor
     private func handleMarkUnreadActionTap() {
-        dependencies.logger.info("Article screen mark unread button tapped before action wiring")
+        controller.toggleArticleReadStatus(
+            dependencies: dependencies,
+            isPreviewMode: previewScreenState != nil
+        )
     }
 
     @MainActor
