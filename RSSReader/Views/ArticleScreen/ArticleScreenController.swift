@@ -40,14 +40,6 @@ final class ArticleScreenController {
         }
     }
 
-    func presentShareSheet() {
-        screenState.presentShareSheet()
-    }
-
-    func dismissShareSheet() {
-        screenState.dismissShareSheet()
-    }
-
     func toggleArticleReadStatus(
         dependencies: AppDependencies,
         isPreviewMode: Bool

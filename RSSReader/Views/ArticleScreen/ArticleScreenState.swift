@@ -6,7 +6,6 @@ struct ArticleScreenState {
     private(set) var article: ReaderArticleDTO?
     private(set) var phase: ArticleScreenPhase = .noSelection
     private(set) var toolbarActions = ArticleScreenToolbarActionsState(article: nil)
-    var pendingShareSheet: ArticleScreenShareSheetState?
 
     var placeholder: ArticleScreenPlaceholderState? {
         switch phase {
@@ -47,7 +46,6 @@ struct ArticleScreenState {
 
     mutating func beginLoading(articleID: UUID?) {
         self.articleID = articleID
-        pendingShareSheet = nil
 
         guard articleID != nil else {
             article = nil
@@ -65,7 +63,6 @@ struct ArticleScreenState {
         articleID = article.id
         self.article = article
         phase = .loaded
-        pendingShareSheet = nil
         updateToolbarActions()
     }
 
@@ -82,7 +79,6 @@ struct ArticleScreenState {
         self.articleID = articleID
         article = nil
         phase = articleID == nil ? .noSelection : .notFound
-        pendingShareSheet = nil
         updateToolbarActions()
     }
 
@@ -90,16 +86,7 @@ struct ArticleScreenState {
         self.articleID = articleID
         article = nil
         phase = articleID == nil ? .noSelection : .failed(message)
-        pendingShareSheet = nil
         updateToolbarActions()
-    }
-
-    mutating func presentShareSheet() {
-        pendingShareSheet = article.flatMap(ArticleScreenShareSheetState.init(article:))
-    }
-
-    mutating func dismissShareSheet() {
-        pendingShareSheet = nil
     }
 
     func derivedViewState() -> ArticleScreenDerivedViewState {

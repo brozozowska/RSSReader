@@ -81,11 +81,18 @@ struct ReaderView: View {
 
             if viewState.toolbarActions.showsShareAction {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: handleShareActionTap) {
-                        Image(systemName: "square.and.arrow.up")
+                    if let shareURL = viewState.toolbarActions.shareURL {
+                        ShareLink(item: shareURL) {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                        .accessibilityLabel("Share")
+                    } else {
+                        Button(action: {}) {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                        .disabled(true)
+                        .accessibilityLabel("Share")
                     }
-                    .disabled(viewState.toolbarActions.isShareEnabled == false)
-                    .accessibilityLabel("Share")
                 }
             }
 
@@ -137,11 +144,6 @@ struct ReaderView: View {
                 }
                 navigateBackToArticles()
             }
-    }
-
-    @MainActor
-    private func handleShareActionTap() {
-        dependencies.logger.info("Article screen share button tapped before share flow wiring")
     }
 
     @MainActor

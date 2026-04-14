@@ -1067,17 +1067,16 @@ struct RSSReaderTests {
     }
 
     @Test
-    func articleScreenStatePresentsShareSheetOnlyWhenArticleHasValidURL() {
+    func articleScreenToolbarActionsExposeShareURLOnlyWhenArticleHasValidURL() {
         var loadedState = ArticleScreenState()
         loadedState.applyLoadedArticle(
             makeReaderArticleDTO(
                 canonicalURL: "https://example.com/articles/shared"
             )
         )
-
-        loadedState.presentShareSheet()
-
-        #expect(loadedState.pendingShareSheet?.url.absoluteString == "https://example.com/articles/shared")
+        let loadedToolbarActions = loadedState.derivedViewState().toolbarActions
+        #expect(loadedToolbarActions.isShareEnabled)
+        #expect(loadedToolbarActions.shareURL?.absoluteString == "https://example.com/articles/shared")
 
         var invalidURLState = ArticleScreenState()
         invalidURLState.applyLoadedArticle(
@@ -1086,10 +1085,9 @@ struct RSSReaderTests {
                 canonicalURL: nil
             )
         )
-
-        invalidURLState.presentShareSheet()
-
-        #expect(invalidURLState.pendingShareSheet == nil)
+        let invalidToolbarActions = invalidURLState.derivedViewState().toolbarActions
+        #expect(invalidToolbarActions.isShareEnabled == false)
+        #expect(invalidToolbarActions.shareURL == nil)
     }
 
     @Test

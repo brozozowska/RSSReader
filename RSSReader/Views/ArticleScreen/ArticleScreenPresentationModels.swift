@@ -93,32 +93,17 @@ struct ArticleScreenToolbarActionsState: Equatable {
     let showsShareAction: Bool
     let showsBottomActions: Bool
     let isShareEnabled: Bool
+    let shareURL: URL?
     let bottomActions: ArticleScreenBottomActionsState?
 
     init(article: ReaderArticleDTO?) {
         let hasArticle = article != nil
+        let shareURL = article.flatMap(ArticleScreenShareURLResolver.resolveShareURL(article:))
         self.showsShareAction = hasArticle
         self.showsBottomActions = hasArticle
-        self.isShareEnabled = article.flatMap(ArticleScreenShareSheetState.init(article:)) != nil
+        self.isShareEnabled = shareURL != nil
+        self.shareURL = shareURL
         self.bottomActions = article.map(ArticleScreenBottomActionsState.init(article:))
-    }
-}
-
-@MainActor
-struct ArticleScreenShareSheetState: Equatable {
-    let articleID: UUID
-    let url: URL
-
-    init?(article: ReaderArticleDTO) {
-        guard let url = ArticleScreenURLResolver.resolveExternalURL(
-            canonicalURL: article.canonicalURL,
-            articleURL: article.articleURL
-        ) else {
-            return nil
-        }
-
-        self.articleID = article.id
-        self.url = url
     }
 }
 
@@ -141,6 +126,15 @@ enum ArticleScreenDateFormatter {
 
     static func string(from date: Date) -> String {
         date.formatted(formatter)
+    }
+}
+
+enum ArticleScreenShareURLResolver {
+    static func resolveShareURL(article: ReaderArticleDTO) -> URL? {
+        ArticleScreenURLResolver.resolveExternalURL(
+            canonicalURL: article.canonicalURL,
+            articleURL: article.articleURL
+        )
     }
 }
 
