@@ -1220,6 +1220,43 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articleScreenControllerOpensCurrentArticleInAppLevelWebViewRoute() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-open-web.xml"]).first)
+        let articleModel = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-open-web",
+            url: "https://example.com/articles/article-screen-open-web",
+            title: "Article Screen Open Web"
+        )
+        articleModel.canonicalURL = "https://example.com/articles/article-screen-open-web/canonical"
+        try harness.saveModelContext()
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: articleModel.id, dependencies: harness.dependencies)
+        controller.openArticleInAppBrowser(
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+
+        #expect(
+            appState.selectedDetailRoute == .webView(
+                ArticleWebViewRoute(
+                    articleID: articleModel.id,
+                    url: URL(string: "https://example.com/articles/article-screen-open-web/canonical")!
+                )
+            )
+        )
+        #expect(
+            appState.presentedWebViewRoute == ArticleWebViewRoute(
+                articleID: articleModel.id,
+                url: URL(string: "https://example.com/articles/article-screen-open-web/canonical")!
+            )
+        )
+    }
+
+    @Test
     func articleScreenNavigationStateShowsBackButtonOnlyForCompactArticleContext() {
         #expect(
             ArticleScreenNavigationState.showsBackButton(

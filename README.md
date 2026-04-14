@@ -231,7 +231,7 @@
 - [x] добавить `share` в правую часть top bar и нижние actions `mark unread`, `star`, `open in app-browser` как три раздельные bottom bar кнопки;
 - [x] связать нажатие на read toggle кнопку с `ArticleStateService`, обновлять screen state без повторной загрузки экрана и переключать `read` status статьи в обе стороны с иконкой `circle` / `circle.fill`;
 - [x] связать нажатие на кнопку `star` с `ArticleStateService`, обновлять screen state без повторной загрузки экрана и переключать иконку `star` / `star.fill` по текущему `starred` status статьи;
-- [ ] связать нажатие на кнопку `open in app-browser` с app-level navigation entry point, чтобы `Article Screen` открывал уже существующий `WebView Screen` без прямого знания о shell-роутинге;
+- [x] связать нажатие на кнопку `open in app-browser` с app-level navigation entry point, чтобы `Article Screen` открывал `WebView Screen` через app-level routing без прямого знания о shell-роутинге;
 - [ ] связать нажатие на кнопку `share` с системным share sheet, использовать canonical article URL с корректным fallback на `articleURL`;
 - [ ] реализовать `markAsReadOnOpen` на основе `AppSettings` с явной policy: статья помечается read при открытии detail screen, но это не должно ломать ручное действие `mark unread`;
 - [ ] определить и реализовать loading / not found / rendering failure UX для `Article Screen`, а не только happy path с уже загруженной статьёй;

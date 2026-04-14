@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ReaderView: View {
+    @Environment(AppState.self) private var appState
     @Environment(\.appDependencies) private var dependencies
     let articleID: UUID?
     let showsBackButton: Bool
@@ -161,7 +162,10 @@ struct ReaderView: View {
 
     @MainActor
     private func handleOpenInAppBrowserTap() {
-        dependencies.logger.info("Article screen open in app-browser button tapped before navigation wiring")
+        controller.openArticleInAppBrowser(
+            dependencies: dependencies,
+            appState: appState
+        )
     }
 
     @ViewBuilder

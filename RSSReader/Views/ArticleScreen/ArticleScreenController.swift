@@ -111,4 +111,12 @@ final class ArticleScreenController {
 
         screenState.applyArticleMutation(article.updating(isStarred: newIsStarred))
     }
+
+    func openArticleInAppBrowser(
+        dependencies: AppDependencies,
+        appState: AppState
+    ) {
+        guard let article = screenState.article else { return }
+        dependencies.openArticleInWebView(article, using: appState)
+    }
 }
