@@ -1106,6 +1106,32 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articleScreenBottomActionsEnableAppBrowserOnlyWhenArticleHasValidExternalURL() {
+        var loadedState = ArticleScreenState()
+        loadedState.applyLoadedArticle(
+            makeReaderArticleDTO(
+                canonicalURL: "https://example.com/articles/openable"
+            )
+        )
+
+        let loadedBottomActions = loadedState.derivedViewState().toolbarActions.bottomActions
+        #expect(loadedBottomActions?.openInAppBrowserTitle == "Open in App-Browser")
+        #expect(loadedBottomActions?.openInAppBrowserSystemImage == "safari")
+        #expect(loadedBottomActions?.canOpenInAppBrowser == true)
+
+        var invalidURLState = ArticleScreenState()
+        invalidURLState.applyLoadedArticle(
+            makeReaderArticleDTO(
+                articleURL: "invalid-url",
+                canonicalURL: nil
+            )
+        )
+
+        let invalidBottomActions = invalidURLState.derivedViewState().toolbarActions.bottomActions
+        #expect(invalidBottomActions?.canOpenInAppBrowser == false)
+    }
+
+    @Test
     func articleScreenControllerLoadsReaderArticleForCurrentSelection() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-load.xml"]).first)
