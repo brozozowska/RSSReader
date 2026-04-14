@@ -20,6 +20,46 @@ struct ReaderArticleDTO: Sendable, Identifiable {
     let isStarred: Bool
     let isHidden: Bool
 
+    init(
+        id: UUID,
+        feedID: UUID,
+        feedTitle: String,
+        feedSiteURL: String?,
+        articleExternalID: String,
+        title: String,
+        summary: String?,
+        contentHTML: String?,
+        contentText: String?,
+        author: String?,
+        publishedAt: Date?,
+        updatedAtSource: Date?,
+        articleURL: String,
+        canonicalURL: String?,
+        imageURL: String?,
+        isRead: Bool,
+        isStarred: Bool,
+        isHidden: Bool
+    ) {
+        self.id = id
+        self.feedID = feedID
+        self.feedTitle = feedTitle
+        self.feedSiteURL = feedSiteURL
+        self.articleExternalID = articleExternalID
+        self.title = title
+        self.summary = summary
+        self.contentHTML = contentHTML
+        self.contentText = contentText
+        self.author = author
+        self.publishedAt = publishedAt
+        self.updatedAtSource = updatedAtSource
+        self.articleURL = articleURL
+        self.canonicalURL = canonicalURL
+        self.imageURL = imageURL
+        self.isRead = isRead
+        self.isStarred = isStarred
+        self.isHidden = isHidden
+    }
+
     init(article: Article, state: ArticleState?) {
         self.id = article.id
         self.feedID = article.feedID
@@ -60,5 +100,32 @@ struct ReaderArticleDTO: Sendable, Identifiable {
         self.isRead = state?.isRead ?? false
         self.isStarred = state?.isStarred ?? false
         self.isHidden = state?.isHidden ?? false
+    }
+
+    func updating(
+        isRead: Bool? = nil,
+        isStarred: Bool? = nil,
+        isHidden: Bool? = nil
+    ) -> ReaderArticleDTO {
+        ReaderArticleDTO(
+            id: id,
+            feedID: feedID,
+            feedTitle: feedTitle,
+            feedSiteURL: feedSiteURL,
+            articleExternalID: articleExternalID,
+            title: title,
+            summary: summary,
+            contentHTML: contentHTML,
+            contentText: contentText,
+            author: author,
+            publishedAt: publishedAt,
+            updatedAtSource: updatedAtSource,
+            articleURL: articleURL,
+            canonicalURL: canonicalURL,
+            imageURL: imageURL,
+            isRead: isRead ?? self.isRead,
+            isStarred: isStarred ?? self.isStarred,
+            isHidden: isHidden ?? self.isHidden
+        )
     }
 }

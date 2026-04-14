@@ -224,12 +224,19 @@
 - [x] добавить недостающие тесты именно на refresh UX. Сейчас покрыт state-level failure path, но полезно отдельно зафиксировать сценарии successful refresh clears previous refresh error и selection change resets stale refresh feedback.
 
 #### Article Screen
-- [ ] привести текущий reader к дизайну экрана Article;
-- [ ] оформить header: title / source / date / author;
-- [ ] улучшить rendering summary/content/plain text;
-- [ ] добавить actions: `mark unread`, `star/unstar`, `share`, `open in browser`;
-- [ ] реализовать `markAsReadOnOpen` на основе `AppSettings`;
-- [ ] связать экран со state actions из `ArticleStateService`.
+- [x] определить screen-level state/model для `Article Screen`, чтобы отделить загрузку статьи, toolbar actions, menu state, `share`, error/empty состояния и rendering policy от `ReaderView`;
+- [x] определить compact navigation flow экрана: toolbar с back button слева, без отдельного title в navigation bar, возврат на `Articles Screen` по кнопке и системному back behavior;
+- [x] оформить header контента в порядке `publishedAt` / `title` / `author` / `feedTitle`, включая правила скрытия пустых полей и единый formatter для даты и времени публикации;
+- [x] улучшить content rendering pipeline: выбрать лучший доступный источник между `contentHTML`, `contentText`, `summary`, поддержать многоабзацный текст, inline images и аккуратный fallback для статей без полного тела;
+- [x] добавить `share` в правую часть top bar и нижние actions `mark unread`, `star`, `open in app-browser` как три раздельные bottom bar кнопки;
+- [x] связать нажатие на read toggle кнопку с `ArticleStateService`, обновлять screen state без повторной загрузки экрана и переключать `read` status статьи в обе стороны с иконкой `circle` / `circle.fill`;
+- [x] связать нажатие на кнопку `star` с `ArticleStateService`, обновлять screen state без повторной загрузки экрана и переключать иконку `star` / `star.fill` по текущему `starred` status статьи;
+- [x] связать нажатие на кнопку `open in app-browser` с app-level navigation entry point, чтобы `Article Screen` открывал `WebView Screen` через app-level routing без прямого знания о shell-роутинге;
+- [x] связать нажатие на кнопку `share` с системным share sheet, использовать canonical article URL с корректным fallback на `articleURL`;
+- [x] реализовать `markAsReadOnOpen` на основе `AppSettings` с явной policy: статья помечается read при открытии detail screen, но это не должно ломать ручное действие `mark unread`;
+- [x] определить и реализовать loading / not found / rendering failure UX для `Article Screen`, а не только happy path с уже загруженной статьёй;
+- [x] подготовить extension point под future full text flow: зафиксировать, где будет жить логика `full text` extraction, как она влияет на `ReaderArticleDTO`/presentation model и чем базовый embedded reader отличается от отдельного reader mode;
+- [x] добавить unit tests на screen-level state и action reducer для `Article Screen`, включая `markAsReadOnOpen`, bottom actions и переход в `WebView Screen`.
 
 #### WebView Screen
 - [ ] создать отдельный экран WebView для `articleURL`;

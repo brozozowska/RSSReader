@@ -64,7 +64,14 @@ struct RootView: View {
                 selection: articleSelection
             )
         } detail: {
-            ReaderView(articleID: appState.selectedArticleID)
+            ReaderView(
+                articleID: appState.selectedArticleID,
+                showsBackButton: ArticleScreenNavigationState.showsBackButton(
+                    horizontalSizeClass: horizontalSizeClass,
+                    articleSelection: appState.selectedArticleID
+                ),
+                navigateBackToArticles: { appState.selectedArticleID = nil }
+            )
         }
         .onAppear(perform: syncPreferredCompactColumn)
         .onChange(of: appState.selectedSidebarSelection) { _, _ in

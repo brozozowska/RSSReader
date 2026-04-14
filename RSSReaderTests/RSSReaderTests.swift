@@ -914,6 +914,513 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articleScreenStateStartsWithNoSelectionPlaceholder() {
+        let state = ArticleScreenState()
+
+        #expect(state.phase == .noSelection)
+        #expect(state.placeholder?.title == "No Article Selected")
+        #expect(state.toolbarActions.showsShareAction == false)
+        #expect(state.toolbarActions.showsBottomActions == false)
+    }
+
+    @Test
+    func articleScreenStateBuildsLoadedContentAndToolbarActions() {
+        var state = ArticleScreenState()
+        let article = makeReaderArticleDTO(
+            summary: nil,
+            contentText: "Rendered body text",
+            isRead: true,
+            isStarred: true
+        )
+
+        state.applyLoadedArticle(article)
+        let viewState = state.derivedViewState()
+
+        #expect(state.phase == .loaded)
+        #expect(viewState.content?.header.title == article.title)
+        #expect(viewState.content?.header.feedTitle == article.feedTitle)
+        #expect(viewState.content?.header.author == article.author)
+        #expect(viewState.content?.body.blocks == [.paragraph("Rendered body text")])
+        #expect(viewState.content?.body.source == .contentText)
+        #expect(viewState.content?.body.readerMode == .embedded)
+        #expect(viewState.toolbarActions.showsShareAction)
+        #expect(viewState.toolbarActions.isShareEnabled)
+        #expect(viewState.toolbarActions.showsBottomActions)
+        #expect(viewState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
+        #expect(viewState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
+        #expect(viewState.toolbarActions.bottomActions?.starTitle == "Star")
+        #expect(viewState.toolbarActions.bottomActions?.starSystemImage == "star.fill")
+    }
+
+    @Test
+    func articleScreenContentHeaderFormatsFieldsInPublishedTitleAuthorFeedOrder() {
+        let publishedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                feedTitle: "THECODE.MEDIA",
+                author: "Юлия Зубарева",
+                publishedAt: publishedAt
+            )
+        )
+
+        #expect(content.header.publishedAtText == ArticleScreenDateFormatter.string(from: publishedAt))
+        #expect(content.header.title == "Article")
+        #expect(content.header.author == "Юлия Зубарева")
+        #expect(content.header.feedTitle == "THECODE.MEDIA")
+    }
+
+    @Test
+    func articleScreenContentHeaderHidesBlankMetadataAndFallsBackForBlankTitle() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                feedTitle: "   ",
+                title: "   ",
+                author: " \n ",
+                publishedAt: nil
+            )
+        )
+
+        #expect(content.header.publishedAtText == nil)
+        #expect(content.header.title == "Untitled Article")
+        #expect(content.header.author == nil)
+        #expect(content.header.feedTitle == nil)
+    }
+
+    @Test
+    func articleScreenStateUsesExistingRenderingPriorityForBodyContent() {
+        var state = ArticleScreenState()
+        let article = makeReaderArticleDTO(
+            summary: "Summary copy",
+            contentHTML: "<p>HTML body</p>",
+            contentText: "Longer content text"
+        )
+
+        state.applyLoadedArticle(article)
+
+        #expect(state.derivedViewState().content?.body.blocks == [.paragraph("HTML body")])
+        #expect(state.derivedViewState().content?.body.source == .contentHTML)
+    }
+
+    @Test
+    func articleScreenContentRendererParsesHTMLParagraphsAndInlineImagesInOrder() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                summary: "Short summary",
+                contentHTML: """
+                <p>First paragraph.</p>
+                <img src="https://example.com/images/inline.png">
+                <p>Second <strong>paragraph</strong>.</p>
+                """,
+                contentText: "Plain text fallback"
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .paragraph("First paragraph."),
+                .image(URL(string: "https://example.com/images/inline.png")!),
+                .paragraph("Second paragraph.")
+            ]
+        )
+        #expect(content.body.source == .contentHTML)
+    }
+
+    @Test
+    func articleScreenContentRendererUsesSummaryWithFallbackNoticeWhenFullBodyIsUnavailable() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                summary: """
+                Short summary paragraph.
+
+                Another summary paragraph.
+                """,
+                contentHTML: nil,
+                contentText: nil
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .paragraph("Short summary paragraph."),
+                .paragraph("Another summary paragraph."),
+                .fallbackNotice("This source only provides a summary, not the full article body.")
+            ]
+        )
+        #expect(content.body.source == .summary)
+    }
+
+    @Test
+    func articleScreenContentRendererBuildsGracefulFallbackWhenFeedHasNoBodyContent() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                summary: nil,
+                contentHTML: nil,
+                contentText: nil
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .fallbackNotice("Full article content is unavailable in this feed.")
+            ]
+        )
+        #expect(content.body.source == .empty)
+        #expect(content.body.readerMode == .embedded)
+    }
+
+    @Test
+    func articleScreenBodyContentStateDefinesFutureFullTextExtensionPoint() {
+        let extractedContent = ArticleScreenBodyContentState.extractedFullText(
+            blocks: [
+                .paragraph("Extracted full text paragraph.")
+            ]
+        )
+
+        #expect(extractedContent.source == .fullTextExtracted)
+        #expect(extractedContent.readerMode == .fullText)
+        #expect(extractedContent.blocks == [.paragraph("Extracted full text paragraph.")])
+    }
+
+    @Test
+    func articleScreenToolbarActionsExposeShareURLOnlyWhenArticleHasValidURL() {
+        var loadedState = ArticleScreenState()
+        loadedState.applyLoadedArticle(
+            makeReaderArticleDTO(
+                canonicalURL: "https://example.com/articles/shared"
+            )
+        )
+        let loadedToolbarActions = loadedState.derivedViewState().toolbarActions
+        #expect(loadedToolbarActions.isShareEnabled)
+        #expect(loadedToolbarActions.shareURL?.absoluteString == "https://example.com/articles/shared")
+
+        var invalidURLState = ArticleScreenState()
+        invalidURLState.applyLoadedArticle(
+            makeReaderArticleDTO(
+                articleURL: "not a valid url",
+                canonicalURL: nil
+            )
+        )
+        let invalidToolbarActions = invalidURLState.derivedViewState().toolbarActions
+        #expect(invalidToolbarActions.isShareEnabled == false)
+        #expect(invalidToolbarActions.shareURL == nil)
+    }
+
+    @Test
+    func articleScreenBottomActionsEnableAppBrowserOnlyWhenArticleHasValidExternalURL() {
+        var loadedState = ArticleScreenState()
+        loadedState.applyLoadedArticle(
+            makeReaderArticleDTO(
+                canonicalURL: "https://example.com/articles/openable"
+            )
+        )
+
+        let loadedBottomActions = loadedState.derivedViewState().toolbarActions.bottomActions
+        #expect(loadedBottomActions?.openInAppBrowserTitle == "Open in App-Browser")
+        #expect(loadedBottomActions?.openInAppBrowserSystemImage == "safari")
+        #expect(loadedBottomActions?.canOpenInAppBrowser == true)
+
+        var invalidURLState = ArticleScreenState()
+        invalidURLState.applyLoadedArticle(
+            makeReaderArticleDTO(
+                articleURL: "invalid-url",
+                canonicalURL: nil
+            )
+        )
+
+        let invalidBottomActions = invalidURLState.derivedViewState().toolbarActions.bottomActions
+        #expect(invalidBottomActions?.canOpenInAppBrowser == false)
+    }
+
+    @Test
+    func articleScreenControllerLoadsReaderArticleForCurrentSelection() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-load.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-load",
+            url: "https://example.com/articles/article-screen-load",
+            title: "Article Screen Load"
+        )
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: article.id, dependencies: harness.dependencies)
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.derivedViewState().content?.header.title == "Article Screen Load")
+        #expect(controller.screenState.toolbarActions.showsBottomActions)
+    }
+
+    @Test
+    func articleScreenControllerMarksArticleAsReadOnOpenWhenSettingIsEnabled() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(
+                markAsReadOnOpen: true,
+                updatedAt: .distantPast
+            )
+        )
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-mark-on-open.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-mark-on-open",
+            url: "https://example.com/articles/article-screen-mark-on-open",
+            title: "Article Screen Mark On Open"
+        )
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: article.id, dependencies: harness.dependencies)
+
+        let loadedArticle = try #require(controller.screenState.article)
+        #expect(loadedArticle.isRead == true)
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
+
+        let persistedState = try harness.articleStateRepository.fetchStateSnapshot(
+            feedID: feed.id,
+            articleExternalID: article.externalID
+        )
+        #expect(persistedState?.isRead == true)
+    }
+
+    @Test
+    func articleScreenControllerKeepsArticleUnreadOnOpenWhenSettingIsDisabled() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(
+                markAsReadOnOpen: false,
+                updatedAt: .distantPast
+            )
+        )
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-keep-unread-on-open.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-keep-unread-on-open",
+            url: "https://example.com/articles/article-screen-keep-unread-on-open",
+            title: "Article Screen Keep Unread On Open"
+        )
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: article.id, dependencies: harness.dependencies)
+
+        let loadedArticle = try #require(controller.screenState.article)
+        #expect(loadedArticle.isRead == false)
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Read")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.fill")
+
+        let persistedState = try harness.articleStateRepository.fetchStateSnapshot(
+            feedID: feed.id,
+            articleExternalID: article.externalID
+        )
+        #expect(persistedState == nil)
+    }
+
+    @Test
+    func articleScreenControllerBuildsNotFoundPlaceholderWhenArticleDoesNotExist() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: UUID(), dependencies: harness.dependencies)
+
+        #expect(controller.screenState.phase == .notFound)
+        #expect(controller.screenState.placeholder?.title == "Article Not Found")
+    }
+
+    @Test
+    func articleScreenControllerBuildsFailedPlaceholderWhenArticleQueryServiceIsUnavailable() async {
+        let dependencies = AppDependencies(logger: TestLogger())
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: UUID(), dependencies: dependencies)
+
+        #expect(controller.screenState.phase == .failed("Article query service is unavailable."))
+        #expect(controller.screenState.placeholder?.title == "Failed to Load Article")
+        #expect(
+            controller.screenState.placeholder?.description
+                == "Article query service is unavailable."
+        )
+    }
+
+    @Test
+    func articleScreenControllerTogglesArticleReadStatusWithoutReloadingScreen() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-mark-unread.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-mark-unread",
+            url: "https://example.com/articles/article-screen-mark-unread",
+            title: "Article Screen Mark Unread"
+        )
+        _ = try harness.articleStateService.markAsRead(
+            feedID: feed.id,
+            articleExternalID: article.externalID,
+            at: .now
+        )
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: article.id, dependencies: harness.dependencies)
+        controller.toggleArticleReadStatus(
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        var updatedArticle = try #require(controller.screenState.article)
+        #expect(updatedArticle.isRead == false)
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Read")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.fill")
+
+        var persistedState = try harness.articleStateRepository.fetchStateSnapshot(
+            feedID: feed.id,
+            articleExternalID: article.externalID
+        )
+        #expect(persistedState?.isRead == false)
+
+        controller.toggleArticleReadStatus(
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        updatedArticle = try #require(controller.screenState.article)
+        #expect(updatedArticle.isRead == true)
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
+
+        persistedState = try harness.articleStateRepository.fetchStateSnapshot(
+            feedID: feed.id,
+            articleExternalID: article.externalID
+        )
+        #expect(persistedState?.isRead == true)
+    }
+
+    @Test
+    func articleScreenControllerTogglesArticleStarredStatusWithoutReloadingScreen() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-toggle-star.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-toggle-star",
+            url: "https://example.com/articles/article-screen-toggle-star",
+            title: "Article Screen Toggle Star"
+        )
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: article.id, dependencies: harness.dependencies)
+        controller.toggleArticleStarredStatus(
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        var updatedArticle = try #require(controller.screenState.article)
+        #expect(updatedArticle.isStarred == true)
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.toolbarActions.bottomActions?.starSystemImage == "star.fill")
+
+        var persistedState = try harness.articleStateRepository.fetchStateSnapshot(
+            feedID: feed.id,
+            articleExternalID: article.externalID
+        )
+        #expect(persistedState?.isStarred == true)
+
+        controller.toggleArticleStarredStatus(
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        updatedArticle = try #require(controller.screenState.article)
+        #expect(updatedArticle.isStarred == false)
+        #expect(controller.screenState.toolbarActions.bottomActions?.starSystemImage == "star")
+
+        persistedState = try harness.articleStateRepository.fetchStateSnapshot(
+            feedID: feed.id,
+            articleExternalID: article.externalID
+        )
+        #expect(persistedState?.isStarred == false)
+    }
+
+    @Test
+    func articleScreenControllerOpensCurrentArticleInAppLevelWebViewRoute() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-open-web.xml"]).first)
+        let articleModel = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-open-web",
+            url: "https://example.com/articles/article-screen-open-web",
+            title: "Article Screen Open Web"
+        )
+        articleModel.canonicalURL = "https://example.com/articles/article-screen-open-web/canonical"
+        try harness.saveModelContext()
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: articleModel.id, dependencies: harness.dependencies)
+        controller.openArticleInAppBrowser(
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+
+        #expect(
+            appState.selectedDetailRoute == .webView(
+                ArticleWebViewRoute(
+                    articleID: articleModel.id,
+                    url: URL(string: "https://example.com/articles/article-screen-open-web/canonical")!
+                )
+            )
+        )
+        #expect(
+            appState.presentedWebViewRoute == ArticleWebViewRoute(
+                articleID: articleModel.id,
+                url: URL(string: "https://example.com/articles/article-screen-open-web/canonical")!
+            )
+        )
+    }
+
+    @Test
+    func articleScreenNavigationStateShowsBackButtonOnlyForCompactArticleContext() {
+        #expect(
+            ArticleScreenNavigationState.showsBackButton(
+                horizontalSizeClass: .compact,
+                articleSelection: UUID()
+            )
+        )
+        #expect(
+            ArticleScreenNavigationState.showsBackButton(
+                horizontalSizeClass: .regular,
+                articleSelection: UUID()
+            ) == false
+        )
+        #expect(
+            ArticleScreenNavigationState.showsBackButton(
+                horizontalSizeClass: .compact,
+                articleSelection: nil
+            ) == false
+        )
+    }
+
+    @Test
+    func articleScreenNavigationStateRecognizesLeadingEdgeBackSwipe() {
+        #expect(
+            ArticleScreenNavigationState.shouldNavigateBackOnDrag(
+                startLocationX: 12,
+                translation: CGSize(width: 96, height: 8)
+            )
+        )
+        #expect(
+            ArticleScreenNavigationState.shouldNavigateBackOnDrag(
+                startLocationX: 80,
+                translation: CGSize(width: 96, height: 8)
+            ) == false
+        )
+        #expect(
+            ArticleScreenNavigationState.shouldNavigateBackOnDrag(
+                startLocationX: 12,
+                translation: CGSize(width: 40, height: 8)
+            ) == false
+        )
+    }
+
+    @Test
     func articlesScreenStateStartsWithoutSelectionPlaceholder() {
         let state = ArticlesScreenState()
 
@@ -2502,6 +3009,48 @@ private func makeArticleListItemDTO(
         isRead: isRead,
         isStarred: isStarred,
         isHidden: false
+    )
+}
+
+@MainActor
+private func makeReaderArticleDTO(
+    id: UUID = UUID(),
+    feedID: UUID = UUID(),
+    feedTitle: String = "Feed",
+    feedSiteURL: String? = "https://example.com",
+    articleExternalID: String = "article",
+    title: String = "Article",
+    summary: String? = "Summary",
+    contentHTML: String? = nil,
+    contentText: String? = nil,
+    author: String? = "Author",
+    publishedAt: Date? = nil,
+    articleURL: String = "https://example.com/articles/1",
+    canonicalURL: String? = "https://example.com/articles/1/canonical",
+    imageURL: String? = nil,
+    isRead: Bool = false,
+    isStarred: Bool = false,
+    isHidden: Bool = false
+) -> ReaderArticleDTO {
+    ReaderArticleDTO(
+        id: id,
+        feedID: feedID,
+        feedTitle: feedTitle,
+        feedSiteURL: feedSiteURL,
+        articleExternalID: articleExternalID,
+        title: title,
+        summary: summary,
+        contentHTML: contentHTML,
+        contentText: contentText,
+        author: author,
+        publishedAt: publishedAt,
+        updatedAtSource: nil,
+        articleURL: articleURL,
+        canonicalURL: canonicalURL,
+        imageURL: imageURL,
+        isRead: isRead,
+        isStarred: isStarred,
+        isHidden: isHidden
     )
 }
 
