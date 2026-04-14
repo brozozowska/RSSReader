@@ -49,9 +49,8 @@ struct ReaderView: View {
                                 .foregroundStyle(.secondary)
                         }
 
-                        if let bodyText = content.body.text {
-                            Text(bodyText)
-                                .font(.body)
+                        ForEach(Array(content.body.blocks.enumerated()), id: \.offset) { _, block in
+                            bodyBlockView(block)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -98,6 +97,48 @@ struct ReaderView: View {
                 }
                 navigateBackToArticles()
             }
+    }
+
+    @ViewBuilder
+    private func bodyBlockView(_ block: ArticleScreenBodyBlock) -> some View {
+        switch block {
+        case .paragraph(let text):
+            Text(text)
+                .font(.body)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        case .image(let url):
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .empty:
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(.quaternary.opacity(0.4))
+                        ProgressView()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 220)
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                case .failure:
+                    ContentUnavailableView(
+                        "Image Unavailable",
+                        systemImage: "photo",
+                        description: Text("The article image could not be loaded.")
+                    )
+                @unknown default:
+                    EmptyView()
+                }
+            }
+        case .fallbackNotice(let message):
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+        }
     }
 }
 

@@ -26,23 +26,15 @@ enum ArticleScreenBodySource: Equatable {
 
 @MainActor
 struct ArticleScreenBodyContentState: Equatable {
-    let text: String?
+    let blocks: [ArticleScreenBodyBlock]
     let source: ArticleScreenBodySource
 
-    init(article: ReaderArticleDTO) {
-        if let summary = article.summary?.nilIfBlank {
-            self.text = summary
-            self.source = .summary
-        } else if let contentText = article.contentText?.nilIfBlank {
-            self.text = contentText
-            self.source = .contentText
-        } else if let contentHTML = article.contentHTML?.nilIfBlank {
-            self.text = contentHTML
-            self.source = .contentHTML
-        } else {
-            self.text = nil
-            self.source = .empty
-        }
+    init(
+        blocks: [ArticleScreenBodyBlock],
+        source: ArticleScreenBodySource
+    ) {
+        self.blocks = blocks
+        self.source = source
     }
 }
 
@@ -53,7 +45,7 @@ struct ArticleScreenContentState: Equatable {
 
     init(article: ReaderArticleDTO) {
         self.header = ArticleScreenHeaderState(article: article)
-        self.body = ArticleScreenBodyContentState(article: article)
+        self.body = ArticleScreenContentRenderer.renderBody(for: article)
     }
 }
 
@@ -157,6 +149,28 @@ enum ArticleScreenURLResolver {
         }
 
         return validatedExternalURL(from: articleURL)
+    }
+
+    static func resolveMediaURL(rawValue: String, baseURLString: String?) -> URL? {
+        if let validatedURL = validatedExternalURL(from: rawValue) {
+            return validatedURL
+        }
+
+        guard
+            let normalizedValue = rawValue.nilIfBlank,
+            let baseURLString,
+            let baseURL = validatedExternalURL(from: baseURLString),
+            let relativeURL = URL(string: normalizedValue, relativeTo: baseURL)?.absoluteURL,
+            let components = URLComponents(url: relativeURL, resolvingAgainstBaseURL: true),
+            let scheme = components.scheme?.lowercased(),
+            let host = components.host,
+            host.isEmpty == false,
+            ["http", "https"].contains(scheme)
+        else {
+            return nil
+        }
+
+        return relativeURL
     }
 
     private static func validatedExternalURL(from rawValue: String) -> URL? {

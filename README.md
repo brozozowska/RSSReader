@@ -227,7 +227,7 @@
 - [x] определить screen-level state/model для `Article Screen`, чтобы отделить загрузку статьи, toolbar actions, menu state, `share`, error/empty состояния и rendering policy от `ReaderView`;
 - [x] определить compact navigation flow экрана: toolbar с back button слева, без отдельного title в navigation bar, возврат на `Articles Screen` по кнопке и системному back behavior;
 - [x] оформить header контента в порядке `publishedAt` / `title` / `author` / `feedTitle`, включая правила скрытия пустых полей и единый formatter для даты и времени публикации;
-- [ ] улучшить content rendering pipeline: выбрать лучший доступный источник между `contentHTML`, `contentText`, `summary`, поддержать многоабзацный текст, inline images и аккуратный fallback для статей без полного тела;
+- [x] улучшить content rendering pipeline: выбрать лучший доступный источник между `contentHTML`, `contentText`, `summary`, поддержать многоабзацный текст, inline images и аккуратный fallback для статей без полного тела;
 - [ ] определить presentation model для body content, чтобы преобразование `ReaderArticleDTO` в блоки интерфейса не жило внутри `View` и позже могло быть расширено под richer rendering;
 - [ ] добавить toolbar/menu actions: `share`, `star/unstar`, `mark unread` / `mark read`, `open in app-browser`;
 - [ ] связать actions экрана с `ArticleStateService` и app-level navigation entry points, чтобы `ReaderView` не вызывал repository/query/state слой напрямую;
