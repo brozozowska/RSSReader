@@ -920,7 +920,7 @@ struct RSSReaderTests {
         #expect(state.phase == .noSelection)
         #expect(state.placeholder?.title == "No Article Selected")
         #expect(state.toolbarActions.showsShareAction == false)
-        #expect(state.toolbarActions.showsMenuAction == false)
+        #expect(state.toolbarActions.showsBottomActions == false)
     }
 
     @Test
@@ -944,8 +944,11 @@ struct RSSReaderTests {
         #expect(viewState.content?.body.source == .contentText)
         #expect(viewState.toolbarActions.showsShareAction)
         #expect(viewState.toolbarActions.isShareEnabled)
-        #expect(viewState.toolbarActions.menuActions?.starActionTitle == "Unstar")
-        #expect(viewState.toolbarActions.menuActions?.readActionTitle == "Mark Unread")
+        #expect(viewState.toolbarActions.showsBottomActions)
+        #expect(viewState.toolbarActions.bottomActions?.markUnreadTitle == "Mark Unread")
+        #expect(viewState.toolbarActions.bottomActions?.markUnreadSystemImage == "circle")
+        #expect(viewState.toolbarActions.bottomActions?.starTitle == "Star")
+        #expect(viewState.toolbarActions.bottomActions?.starSystemImage == "star.fill")
     }
 
     @Test
@@ -1105,7 +1108,7 @@ struct RSSReaderTests {
 
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.derivedViewState().content?.header.title == "Article Screen Load")
-        #expect(controller.screenState.toolbarActions.showsMenuAction)
+        #expect(controller.screenState.toolbarActions.showsBottomActions)
     }
 
     @Test

@@ -77,6 +77,45 @@ struct ReaderView: View {
                     .accessibilityLabel("Back to Articles")
                 }
             }
+
+            if viewState.toolbarActions.showsShareAction {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: handleShareActionTap) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .disabled(viewState.toolbarActions.isShareEnabled == false)
+                    .accessibilityLabel("Share")
+                }
+            }
+
+            if viewState.toolbarActions.showsBottomActions,
+               let bottomActions = viewState.toolbarActions.bottomActions {
+                ToolbarItem(placement: .bottomBar) {
+                    Button(action: handleMarkUnreadActionTap) {
+                        Image(systemName: bottomActions.markUnreadSystemImage)
+                    }
+                    .accessibilityLabel(bottomActions.markUnreadTitle)
+                }
+
+                ToolbarSpacer(placement: .bottomBar)
+
+                ToolbarItem(placement: .bottomBar) {
+                    Button(action: handleStarActionTap) {
+                        Image(systemName: bottomActions.starSystemImage)
+                    }
+                    .accessibilityLabel(bottomActions.starTitle)
+                }
+
+                ToolbarSpacer(placement: .bottomBar)
+
+                ToolbarItem(placement: .bottomBar) {
+                    Button(action: handleOpenInAppBrowserTap) {
+                        Image(systemName: bottomActions.openInAppBrowserSystemImage)
+                    }
+                    .disabled(bottomActions.canOpenInAppBrowser == false)
+                    .accessibilityLabel(bottomActions.openInAppBrowserTitle)
+                }                
+            }
         }
         .task(id: articleID) {
             guard previewScreenState == nil else { return }
@@ -97,6 +136,26 @@ struct ReaderView: View {
                 }
                 navigateBackToArticles()
             }
+    }
+
+    @MainActor
+    private func handleShareActionTap() {
+        dependencies.logger.info("Article screen share button tapped before share flow wiring")
+    }
+
+    @MainActor
+    private func handleMarkUnreadActionTap() {
+        dependencies.logger.info("Article screen mark unread button tapped before action wiring")
+    }
+
+    @MainActor
+    private func handleStarActionTap() {
+        dependencies.logger.info("Article screen star button tapped before action wiring")
+    }
+
+    @MainActor
+    private func handleOpenInAppBrowserTap() {
+        dependencies.logger.info("Article screen open in app-browser button tapped before navigation wiring")
     }
 
     @ViewBuilder
@@ -140,14 +199,4 @@ struct ReaderView: View {
                 .padding(.top, 4)
         }
     }
-}
-
-#Preview {
-    ReaderView(
-        articleID: nil,
-        showsBackButton: false,
-        navigateBackToArticles: {},
-        previewScreenState: nil
-    )
-        .environment(\.appDependencies, AppDependencies.makeDefault())
 }

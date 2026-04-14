@@ -65,18 +65,22 @@ struct ArticleScreenHeaderState: Equatable {
 }
 
 @MainActor
-struct ArticleScreenMenuActionsState: Equatable {
-    let starActionTitle: String
-    let starActionSystemImage: String
-    let readActionTitle: String
-    let readActionSystemImage: String
+struct ArticleScreenBottomActionsState: Equatable {
+    let markUnreadTitle: String
+    let markUnreadSystemImage: String
+    let starTitle: String
+    let starSystemImage: String
+    let openInAppBrowserTitle: String
+    let openInAppBrowserSystemImage: String
     let canOpenInAppBrowser: Bool
 
     init(article: ReaderArticleDTO) {
-        self.starActionTitle = article.isStarred ? "Unstar" : "Star"
-        self.starActionSystemImage = article.isStarred ? "star.slash" : "star"
-        self.readActionTitle = article.isRead ? "Mark Unread" : "Mark Read"
-        self.readActionSystemImage = article.isRead ? "envelope.badge" : "envelope.open"
+        self.markUnreadTitle = "Mark Unread"
+        self.markUnreadSystemImage = article.isRead ? "circle" : "circle.fill"
+        self.starTitle = "Star"
+        self.starSystemImage = article.isStarred ? "star.fill" : "star"
+        self.openInAppBrowserTitle = "Open in App-Browser"
+        self.openInAppBrowserSystemImage = "safari"
         self.canOpenInAppBrowser = ArticleScreenURLResolver.resolveExternalURL(
             canonicalURL: article.canonicalURL,
             articleURL: article.articleURL
@@ -87,18 +91,16 @@ struct ArticleScreenMenuActionsState: Equatable {
 @MainActor
 struct ArticleScreenToolbarActionsState: Equatable {
     let showsShareAction: Bool
-    let showsMenuAction: Bool
+    let showsBottomActions: Bool
     let isShareEnabled: Bool
-    let isMenuEnabled: Bool
-    let menuActions: ArticleScreenMenuActionsState?
+    let bottomActions: ArticleScreenBottomActionsState?
 
     init(article: ReaderArticleDTO?) {
         let hasArticle = article != nil
         self.showsShareAction = hasArticle
-        self.showsMenuAction = hasArticle
+        self.showsBottomActions = hasArticle
         self.isShareEnabled = article.flatMap(ArticleScreenShareSheetState.init(article:)) != nil
-        self.isMenuEnabled = hasArticle
-        self.menuActions = article.map(ArticleScreenMenuActionsState.init(article:))
+        self.bottomActions = article.map(ArticleScreenBottomActionsState.init(article:))
     }
 }
 
