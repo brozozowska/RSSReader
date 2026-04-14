@@ -50,6 +50,7 @@ private struct ArticleScreenPreviewContainer: View {
                 previewScreenState: screenState
             )
             .environment(\.appDependencies, AppDependencies.makeDefault())
+            .environment(AppState())
         }
     }
 }
