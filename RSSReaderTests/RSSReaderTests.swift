@@ -1175,6 +1175,51 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articleScreenControllerTogglesArticleStarredStatusWithoutReloadingScreen() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-toggle-star.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-toggle-star",
+            url: "https://example.com/articles/article-screen-toggle-star",
+            title: "Article Screen Toggle Star"
+        )
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: article.id, dependencies: harness.dependencies)
+        controller.toggleArticleStarredStatus(
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        var updatedArticle = try #require(controller.screenState.article)
+        #expect(updatedArticle.isStarred == true)
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.toolbarActions.bottomActions?.starSystemImage == "star.fill")
+
+        var persistedState = try harness.articleStateRepository.fetchStateSnapshot(
+            feedID: feed.id,
+            articleExternalID: article.externalID
+        )
+        #expect(persistedState?.isStarred == true)
+
+        controller.toggleArticleStarredStatus(
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        updatedArticle = try #require(controller.screenState.article)
+        #expect(updatedArticle.isStarred == false)
+        #expect(controller.screenState.toolbarActions.bottomActions?.starSystemImage == "star")
+
+        persistedState = try harness.articleStateRepository.fetchStateSnapshot(
+            feedID: feed.id,
+            articleExternalID: article.externalID
+        )
+        #expect(persistedState?.isStarred == false)
+    }
+
+    @Test
     func articleScreenNavigationStateShowsBackButtonOnlyForCompactArticleContext() {
         #expect(
             ArticleScreenNavigationState.showsBackButton(

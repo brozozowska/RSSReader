@@ -83,4 +83,32 @@ final class ArticleScreenController {
 
         screenState.applyArticleMutation(article.updating(isRead: newIsRead))
     }
+
+    func toggleArticleStarredStatus(
+        dependencies: AppDependencies,
+        isPreviewMode: Bool
+    ) {
+        guard let article = screenState.article else { return }
+        let newIsStarred = article.isStarred == false
+
+        if isPreviewMode == false {
+            guard let articleStateService = dependencies.articleStateService else {
+                dependencies.logger.error("Article state service is unavailable for starred toggle action")
+                return
+            }
+
+            do {
+                _ = try articleStateService.toggleStarred(
+                    feedID: article.feedID,
+                    articleExternalID: article.articleExternalID,
+                    at: .now
+                )
+            } catch {
+                dependencies.logger.error("Failed to toggle article starred status: \(error)")
+                return
+            }
+        }
+
+        screenState.applyArticleMutation(article.updating(isStarred: newIsStarred))
+    }
 }

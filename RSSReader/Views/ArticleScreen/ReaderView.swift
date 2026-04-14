@@ -153,7 +153,10 @@ struct ReaderView: View {
 
     @MainActor
     private func handleStarActionTap() {
-        dependencies.logger.info("Article screen star button tapped before action wiring")
+        controller.toggleArticleStarredStatus(
+            dependencies: dependencies,
+            isPreviewMode: previewScreenState != nil
+        )
     }
 
     @MainActor
