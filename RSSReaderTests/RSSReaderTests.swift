@@ -1110,6 +1110,72 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articleScreenControllerMarksArticleAsReadOnOpenWhenSettingIsEnabled() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(
+                markAsReadOnOpen: true,
+                updatedAt: .distantPast
+            )
+        )
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-mark-on-open.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-mark-on-open",
+            url: "https://example.com/articles/article-screen-mark-on-open",
+            title: "Article Screen Mark On Open"
+        )
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: article.id, dependencies: harness.dependencies)
+
+        let loadedArticle = try #require(controller.screenState.article)
+        #expect(loadedArticle.isRead == true)
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
+
+        let persistedState = try harness.articleStateRepository.fetchStateSnapshot(
+            feedID: feed.id,
+            articleExternalID: article.externalID
+        )
+        #expect(persistedState?.isRead == true)
+    }
+
+    @Test
+    func articleScreenControllerKeepsArticleUnreadOnOpenWhenSettingIsDisabled() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(
+                markAsReadOnOpen: false,
+                updatedAt: .distantPast
+            )
+        )
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-keep-unread-on-open.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-keep-unread-on-open",
+            url: "https://example.com/articles/article-screen-keep-unread-on-open",
+            title: "Article Screen Keep Unread On Open"
+        )
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: article.id, dependencies: harness.dependencies)
+
+        let loadedArticle = try #require(controller.screenState.article)
+        #expect(loadedArticle.isRead == false)
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Read")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.fill")
+
+        let persistedState = try harness.articleStateRepository.fetchStateSnapshot(
+            feedID: feed.id,
+            articleExternalID: article.externalID
+        )
+        #expect(persistedState == nil)
+    }
+
+    @Test
     func articleScreenControllerBuildsNotFoundPlaceholderWhenArticleDoesNotExist() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let controller = ArticleScreenController()
