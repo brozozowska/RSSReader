@@ -1502,9 +1502,11 @@ struct RSSReaderTests {
         #expect(viewState.navigationTitle == "example.com")
         #expect(viewState.phase == .initialLoading)
         #expect(viewState.loadingProgress == 0)
+        #expect(viewState.reloadRevision == 0)
         #expect(viewState.showsWebViewContent)
         #expect(viewState.toolbar.shareURL == route.url)
         #expect(viewState.toolbar.isShareEnabled)
+        #expect(viewState.bottomActions.isRefreshEnabled)
         #expect(viewState.bottomActions.openExternalBrowserURL == route.url)
         #expect(viewState.bottomActions.isOpenExternalBrowserEnabled)
     }
@@ -1538,6 +1540,29 @@ struct RSSReaderTests {
     }
 
     @Test
+    func webViewScreenStateIncrementsReloadRevisionOnlyForSupportedURLs() {
+        let supportedRoute = ArticleWebViewRoute(
+            articleID: UUID(),
+            url: URL(string: "https://example.com/articles/webview-reload")!
+        )
+        var supportedState = WebViewScreenState(route: supportedRoute)
+
+        supportedState.requestReload()
+
+        #expect(supportedState.derivedViewState().reloadRevision == 1)
+
+        let unsupportedRoute = ArticleWebViewRoute(
+            articleID: UUID(),
+            url: URL(string: "mailto:hello@example.com")!
+        )
+        var unsupportedState = WebViewScreenState(route: unsupportedRoute)
+
+        unsupportedState.requestReload()
+
+        #expect(unsupportedState.derivedViewState().reloadRevision == 0)
+    }
+
+    @Test
     func webViewScreenStateStartsInFailurePhaseForUnsupportedInitialURL() {
         let route = ArticleWebViewRoute(
             articleID: UUID(),
@@ -1553,6 +1578,7 @@ struct RSSReaderTests {
         #expect(viewState.showsWebViewContent == false)
         #expect(viewState.toolbar.shareURL == nil)
         #expect(viewState.toolbar.isShareEnabled == false)
+        #expect(viewState.bottomActions.isRefreshEnabled == false)
         #expect(viewState.bottomActions.openExternalBrowserURL == nil)
         #expect(viewState.bottomActions.isOpenExternalBrowserEnabled == false)
     }

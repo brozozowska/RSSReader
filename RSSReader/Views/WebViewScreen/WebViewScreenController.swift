@@ -32,4 +32,8 @@ final class WebViewScreenController {
     func handleNavigationFailed(_ error: Error) {
         screenState.applyNavigationFailure(error.localizedDescription)
     }
+
+    func handleReloadRequested() {
+        screenState.requestReload()
+    }
 }

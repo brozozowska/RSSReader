@@ -248,6 +248,7 @@
 - [x] поддержать `defaultReaderMode` из `AppSettings` как policy initial presentation для `WebView Screen`;
 - [x] добавить нижний action `open in external browser` в `bottomBar`;
 - [x] реализовать единственный кастомный gesture `left-edge swipe to close`: edge swipe от левого края закрывает `WebView Screen` и возвращает пользователя в `Article Screen`, а встроенный history navigation внутри `WKWebView` отключён, чтобы жест не конфликтовал с поведением страницы;
+- [x] добавить нижний action `refresh` в левой части `bottomBar` и связать его с перезагрузкой текущей страницы в `WKWebView` без возврата к общему `command bridge`;
 
 #### Settings Integration
 - [ ] создать `SettingsViewModel`;

@@ -6,6 +6,7 @@ struct WebViewScreenState {
     private(set) var phase: WebViewScreenPhase = .initialLoading
     private(set) var pageTitle: String?
     private(set) var loadingProgress: Double = 0
+    private(set) var reloadRevision: Int = 0
     private(set) var toolbar: WebViewScreenToolbarState
     private(set) var bottomActions: WebViewScreenBottomActionsState
 
@@ -18,6 +19,7 @@ struct WebViewScreenState {
         )
         self.bottomActions = WebViewScreenBottomActionsState(
             route: route,
+            canRefreshPage: canLoadInitialURL,
             canOpenExternalBrowserURL: canLoadInitialURL
         )
         if !canLoadInitialURL {
@@ -46,12 +48,20 @@ struct WebViewScreenState {
         phase = .failed(message)
     }
 
+    mutating func requestReload() {
+        guard route.url.isSupportedArticleWebViewURL else {
+            return
+        }
+        reloadRevision += 1
+    }
+
     func derivedViewState() -> WebViewScreenDerivedViewState {
         WebViewScreenDerivedViewState(
             initialURL: route.url,
             navigationTitle: pageTitle ?? route.url.host ?? "Article",
             phase: phase,
             loadingProgress: loadingProgress,
+            reloadRevision: reloadRevision,
             showsWebViewContent: route.url.isSupportedArticleWebViewURL && !phase.isFailed,
             toolbar: toolbar,
             bottomActions: bottomActions

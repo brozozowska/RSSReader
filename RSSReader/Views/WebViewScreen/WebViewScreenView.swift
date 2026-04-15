@@ -43,6 +43,7 @@ struct WebViewScreenView: View {
             if previewScreenState == nil, viewState.showsWebViewContent {
                 ArticleWebView(
                     url: viewState.initialURL,
+                    reloadRevision: viewState.reloadRevision,
                     onNavigationStarted: controller.handleNavigationStarted,
                     onLoadingProgressChanged: controller.handleLoadingProgressChanged,
                     onPageTitleChanged: controller.handlePageTitleChanged,
@@ -74,6 +75,13 @@ struct WebViewScreenView: View {
 
             ToolbarItem(placement: .topBarTrailing) {
                 WebViewScreenShareToolbarButton(toolbar: viewState.toolbar)
+            }
+
+            ToolbarItem(placement: .bottomBar) {
+                WebViewScreenRefreshButton(
+                    bottomActions: viewState.bottomActions,
+                    refreshPage: controller.handleReloadRequested
+                )
             }
 
             ToolbarSpacer(placement: .bottomBar)
@@ -118,6 +126,19 @@ private struct WebViewScreenShareToolbarButton: View {
         }
         .accessibilityLabel("Share Page")
         .disabled(toolbar.isShareEnabled == false)
+    }
+}
+
+private struct WebViewScreenRefreshButton: View {
+    let bottomActions: WebViewScreenBottomActionsState
+    let refreshPage: () -> Void
+
+    var body: some View {
+        Button(action: refreshPage) {
+            Image(systemName: "arrow.clockwise")
+        }
+        .disabled(bottomActions.isRefreshEnabled == false)
+        .accessibilityLabel("Reload Page")
     }
 }
 
@@ -233,6 +254,7 @@ private struct WebViewScreenFailureOverlay: View {
 
 private struct ArticleWebView: UIViewRepresentable {
     let url: URL
+    let reloadRevision: Int
     let onNavigationStarted: () -> Void
     let onLoadingProgressChanged: (Double) -> Void
     let onPageTitleChanged: (String?) -> Void
@@ -255,6 +277,7 @@ private struct ArticleWebView: UIViewRepresentable {
         webView.allowsBackForwardNavigationGestures = false
         webView.navigationDelegate = context.coordinator
         context.coordinator.attachObservers(to: webView)
+        context.coordinator.lastReloadRevision = reloadRevision
         webView.load(URLRequest(url: url))
         return webView
     }
@@ -262,6 +285,17 @@ private struct ArticleWebView: UIViewRepresentable {
     func updateUIView(_ webView: WKWebView, context: Context) {
         if webView.url != url {
             webView.load(URLRequest(url: url))
+            context.coordinator.lastReloadRevision = reloadRevision
+            return
+        }
+
+        if context.coordinator.lastReloadRevision != reloadRevision {
+            context.coordinator.lastReloadRevision = reloadRevision
+            if webView.url == nil {
+                webView.load(URLRequest(url: url))
+            } else {
+                webView.reload()
+            }
         }
     }
 
@@ -273,6 +307,7 @@ private struct ArticleWebView: UIViewRepresentable {
         private let onNavigationFailed: (Error) -> Void
         private var estimatedProgressObservation: NSKeyValueObservation?
         private var titleObservation: NSKeyValueObservation?
+        var lastReloadRevision: Int = 0
 
         init(
             onNavigationStarted: @escaping () -> Void,
