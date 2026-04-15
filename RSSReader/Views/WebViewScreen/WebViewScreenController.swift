@@ -6,8 +6,11 @@ import Observation
 final class WebViewScreenController {
     var screenState: WebViewScreenState
 
-    init(route: ArticleWebViewRoute) {
-        self.screenState = WebViewScreenState(route: route)
+    init(
+        route: ArticleWebViewRoute,
+        previewScreenState: WebViewScreenState? = nil
+    ) {
+        self.screenState = previewScreenState ?? WebViewScreenState(route: route)
     }
 
     func handleNavigationStarted() {

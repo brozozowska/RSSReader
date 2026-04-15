@@ -242,7 +242,7 @@
 - [x] определить app-level navigation flow для `WebView Screen`: `RootView` должен уметь переключать detail между `Article Screen` и `WebView Screen` по `ReadingDetailRoute.webView`, а закрытие web view должно возвращать пользователя к текущей статье;
 - [x] создать отдельный `WebView Screen` на базе `WKWebView` для `articleURL`, чтобы экран получал уже подготовленный `ArticleWebViewRoute` и не знал о shell-роутинге напрямую;
 - [x] определить screen-level state/model для `WebView Screen`, чтобы отделить `initialURL`, loading progress, navigation title, share action availability и error state от SwiftUI `View`;
-- [ ] реализовать загрузку `articleURL` в `WKWebView` с базовым loading state для первого открытия страницы;
+- [x] реализовать загрузку `articleURL` в `WKWebView` с базовым loading state для первого открытия страницы;
 - [ ] реализовать error / fallback UX, если `articleURL` невалиден или страница не открывается, с явным сценарием возврата назад к статье;
 - [ ] добавить toolbar-кнопку закрытия экрана в левой части top bar и связать её с app-level dismiss flow обратно в `Article Screen`;
 - [ ] добавить toolbar-кнопку `share` в правой части top bar и связать её с canonical `articleURL` / текущим `ArticleWebViewRoute.url`;

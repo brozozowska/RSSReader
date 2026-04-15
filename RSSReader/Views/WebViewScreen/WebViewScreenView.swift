@@ -4,38 +4,151 @@ import WebKit
 struct WebViewScreenView: View {
     let route: ArticleWebViewRoute
     let closeWebView: () -> Void
+    let previewScreenState: WebViewScreenState?
     @State private var controller: WebViewScreenController
 
     init(
         route: ArticleWebViewRoute,
-        closeWebView: @escaping () -> Void
+        closeWebView: @escaping () -> Void,
+        previewScreenState: WebViewScreenState? = nil
     ) {
         self.route = route
         self.closeWebView = closeWebView
-        self._controller = State(initialValue: WebViewScreenController(route: route))
+        self.previewScreenState = previewScreenState
+        self._controller = State(
+            initialValue: WebViewScreenController(
+                route: route,
+                previewScreenState: previewScreenState
+            )
+        )
     }
 
     var body: some View {
         let viewState = controller.screenState.derivedViewState()
 
-        ArticleWebView(
-            url: viewState.initialURL,
-            onNavigationStarted: controller.handleNavigationStarted,
-            onLoadingProgressChanged: controller.handleLoadingProgressChanged,
-            onPageTitleChanged: controller.handlePageTitleChanged,
-            onNavigationFinished: controller.handleNavigationFinished,
-            onNavigationFailed: controller.handleNavigationFailed
-        )
-            .toolbarTitleDisplayMode(.inline)
-            .navigationTitle(viewState.navigationTitle)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: closeWebView) {
-                        Image(systemName: "xmark")
-                    }
-                    .accessibilityLabel("Close Web View")
+        ZStack {
+            if previewScreenState == nil {
+                ArticleWebView(
+                    url: viewState.initialURL,
+                    onNavigationStarted: controller.handleNavigationStarted,
+                    onLoadingProgressChanged: controller.handleLoadingProgressChanged,
+                    onPageTitleChanged: controller.handlePageTitleChanged,
+                    onNavigationFinished: controller.handleNavigationFinished,
+                    onNavigationFailed: controller.handleNavigationFailed
+                )
+            } else {
+                WebViewScreenPreviewSurface(url: viewState.initialURL)
+            }
+
+            if viewState.phase == .initialLoading {
+                WebViewScreenLoadingOverlay(progress: viewState.loadingProgress)
+            } else if case .failed(let message) = viewState.phase {
+                WebViewScreenFailureOverlay(message: message)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemBackground))
+        .ignoresSafeArea(edges: [.top, .bottom])
+        .toolbarTitleDisplayMode(.inline)
+        .navigationTitle(viewState.navigationTitle)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(action: closeWebView) {
+                    Image(systemName: "xmark")
+                }
+                .accessibilityLabel("Close Web View")
+            }
+        }
+    }
+}
+
+private struct WebViewScreenPreviewSurface: View {
+    let url: URL
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [.white, Color(.systemGray6)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 14) {
+                Text(url.absoluteString)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color(.systemGray5))
+                    .frame(height: 18)
+
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color(.systemGray5))
+                    .frame(height: 18)
+                    .frame(maxWidth: 240)
+
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color(.systemGray6))
+                    .frame(height: 220)
+
+                ForEach(0..<4, id: \.self) { index in
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(.systemGray5))
+                        .frame(height: 14)
+                        .frame(maxWidth: index == 3 ? 220 : .infinity)
                 }
             }
+            .padding(20)
+        }
+    }
+}
+
+private struct WebViewScreenLoadingOverlay: View {
+    let progress: Double
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(.background.opacity(0.92))
+                .ignoresSafeArea()
+
+            VStack(spacing: 12) {
+                if progress > 0 {
+                    ProgressView(value: progress)
+                        .progressViewStyle(.linear)
+                        .frame(maxWidth: 220)
+                } else {
+                    ProgressView()
+                }
+
+                Text("Loading Page")
+                    .font(.headline)
+            }
+            .padding(24)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+        .transition(.opacity)
+    }
+}
+
+private struct WebViewScreenFailureOverlay: View {
+    let message: String
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(.background.opacity(0.94))
+                .ignoresSafeArea()
+
+            ContentUnavailableView(
+                "Failed to Load Page",
+                systemImage: "exclamationmark.triangle",
+                description: Text(message)
+            )
+        }
+        .transition(.opacity)
     }
 }
 
@@ -132,17 +245,5 @@ private struct ArticleWebView: UIViewRepresentable {
         ) {
             onNavigationFailed(error)
         }
-    }
-}
-
-#Preview {
-    NavigationStack {
-        WebViewScreenView(
-            route: ArticleWebViewRoute(
-                articleID: UUID(),
-                url: URL(string: "https://example.com/articles/webview-preview")!
-            ),
-            closeWebView: {}
-        )
     }
 }

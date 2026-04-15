@@ -45,6 +45,39 @@ struct WebViewScreenState {
     }
 }
 
+extension WebViewScreenState {
+    static func previewLoading(
+        route: ArticleWebViewRoute,
+        progress: Double = 0.35
+    ) -> WebViewScreenState {
+        var state = WebViewScreenState(route: route)
+        state.applyNavigationStart()
+        state.applyLoadingProgress(progress)
+        return state
+    }
+
+    static func previewLoaded(
+        route: ArticleWebViewRoute,
+        title: String? = nil
+    ) -> WebViewScreenState {
+        var state = WebViewScreenState(route: route)
+        state.applyPageTitle(title)
+        state.applyNavigationFinished()
+        return state
+    }
+
+    static func previewFailed(
+        route: ArticleWebViewRoute,
+        message: String,
+        title: String? = nil
+    ) -> WebViewScreenState {
+        var state = WebViewScreenState(route: route)
+        state.applyPageTitle(title)
+        state.applyNavigationFailure(message)
+        return state
+    }
+}
+
 private extension String {
     var nilIfBlank: String? {
         let trimmedValue = trimmingCharacters(in: .whitespacesAndNewlines)
