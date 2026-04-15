@@ -247,9 +247,10 @@
 - [x] добавить toolbar-кнопку `share` в правой части top bar и связать её с canonical `articleURL` / текущим `ArticleWebViewRoute.url`;
 - [x] поддержать `defaultReaderMode` из `AppSettings` как policy initial presentation для `WebView Screen`;
 - [x] добавить нижний action `open in external browser` в `bottomBar`;
-- [ ] исследовать и определить policy для дополнительных browser actions: `open in external browser`, `reload`, page settings / reader controls / translation menu;
-- [ ] добавить нижний action `reload`, если он не конфликтует с системным UX и компоновкой экрана;
-- [ ] определить, можно ли и нужно ли добавлять отдельную кнопку page settings / reader controls поверх `WKWebView`, или такие возможности должны оставаться системной ответственностью Safari / Reader mode.
+- [x] реализовать left​-edge swipe to close и зарезервировать левый edge gesture за закрытием экрана, отключив конфликтующий history navigation внутри ​WKWeb​View;
+- [ ] добавить command bridge между `WebViewScreenController` и `WKWebView`, чтобы screen-level actions (`reload`, gesture refresh) не требовали хранить imperative web view state внутри SwiftUI `View`;
+- [ ] реализовать pull​-to​-refresh и определить, как он работает только в верхней точке scroll без конфликта с обычной прокруткой страницы;
+- [ ] синхронизировать `WebView Screen` с текущим page URL после navigation/redirects, чтобы `pull-to-refresh` и gesture-driven actions работали с актуальной открытой страницей, а не только с исходным `ArticleWebViewRoute.url`;
 
 #### Settings Integration
 - [ ] создать `SettingsViewModel`;

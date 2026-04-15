@@ -1,6 +1,17 @@
 import SwiftUI
 import WebKit
 
+enum WebViewScreenNavigationState {
+    static func shouldCloseOnDrag(
+        startLocationX: CGFloat,
+        translation: CGSize
+    ) -> Bool {
+        startLocationX <= 32
+            && translation.width >= 80
+            && abs(translation.height) <= 48
+    }
+}
+
 struct WebViewScreenView: View {
     @Environment(\.openURL) private var openURL
 
@@ -74,6 +85,21 @@ struct WebViewScreenView: View {
                 )
             }
         }
+        .simultaneousGesture(closeGesture)
+    }
+
+    private var closeGesture: some Gesture {
+        DragGesture(minimumDistance: 20)
+            .onEnded { value in
+                guard WebViewScreenNavigationState.shouldCloseOnDrag(
+                    startLocationX: value.startLocation.x,
+                    translation: value.translation
+                ) else {
+                    return
+                }
+
+                closeWebView()
+            }
     }
 }
 
@@ -225,7 +251,8 @@ private struct ArticleWebView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let webView = WKWebView(frame: .zero)
-        webView.allowsBackForwardNavigationGestures = true
+        // Reserve left-edge drags for dismissing the web detail back to the article screen.
+        webView.allowsBackForwardNavigationGestures = false
         webView.navigationDelegate = context.coordinator
         context.coordinator.attachObservers(to: webView)
         webView.load(URLRequest(url: url))
