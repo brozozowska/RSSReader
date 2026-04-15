@@ -6,6 +6,7 @@ struct WebViewScreenState {
     private(set) var phase: WebViewScreenPhase = .initialLoading
     private(set) var pageTitle: String?
     private(set) var loadingProgress: Double = 0
+    private(set) var pendingCommand: WebViewScreenCommand?
     private(set) var toolbar: WebViewScreenToolbarState
     private(set) var bottomActions: WebViewScreenBottomActionsState
 
@@ -46,6 +47,20 @@ struct WebViewScreenState {
         phase = .failed(message)
     }
 
+    mutating func enqueueReloadCommand() {
+        guard route.url.isSupportedArticleWebViewURL else {
+            return
+        }
+        pendingCommand = .reload()
+    }
+
+    mutating func acknowledgeCommand(_ command: WebViewScreenCommand) {
+        guard pendingCommand == command else {
+            return
+        }
+        pendingCommand = nil
+    }
+
     func derivedViewState() -> WebViewScreenDerivedViewState {
         WebViewScreenDerivedViewState(
             initialURL: route.url,
@@ -53,6 +68,7 @@ struct WebViewScreenState {
             phase: phase,
             loadingProgress: loadingProgress,
             showsWebViewContent: route.url.isSupportedArticleWebViewURL && !phase.isFailed,
+            pendingCommand: pendingCommand,
             toolbar: toolbar,
             bottomActions: bottomActions
         )
