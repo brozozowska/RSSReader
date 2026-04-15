@@ -74,24 +74,28 @@ struct WebViewScreenView: View {
                 .accessibilityLabel("Close Web View")
             }
 
-            ToolbarItem(placement: .topBarTrailing) {
-                WebViewScreenShareToolbarButton(toolbar: viewState.toolbar)
+            if viewState.showsShareAction {
+                ToolbarItem(placement: .topBarTrailing) {
+                    WebViewScreenShareToolbarButton(toolbar: viewState.toolbar)
+                }
             }
 
-            ToolbarItem(placement: .bottomBar) {
-                WebViewScreenRefreshButton(
-                    bottomActions: viewState.bottomActions,
-                    refreshPage: controller.handleReloadRequested
-                )
-            }
+            if viewState.showsBottomActions {
+                ToolbarItem(placement: .bottomBar) {
+                    WebViewScreenRefreshButton(
+                        bottomActions: viewState.bottomActions,
+                        refreshPage: controller.handleReloadRequested
+                    )
+                }
 
-            ToolbarSpacer(placement: .bottomBar)
+                ToolbarSpacer(placement: .bottomBar)
 
-            ToolbarItem(placement: .bottomBar) {
-                WebViewScreenOpenExternalBrowserButton(
-                    bottomActions: viewState.bottomActions,
-                    openURL: openURL
-                )
+                ToolbarItem(placement: .bottomBar) {
+                    WebViewScreenOpenExternalBrowserButton(
+                        bottomActions: viewState.bottomActions,
+                        openURL: openURL
+                    )
+                }
             }
         }
         .simultaneousGesture(closeGesture)

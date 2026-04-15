@@ -43,6 +43,8 @@ struct WebViewScreenDerivedViewState: Equatable {
     let loadingProgress: Double
     let reloadRevision: Int
     let showsWebViewContent: Bool
+    let showsShareAction: Bool
+    let showsBottomActions: Bool
     let toolbar: WebViewScreenToolbarState
     let bottomActions: WebViewScreenBottomActionsState
 }

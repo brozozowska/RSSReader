@@ -1504,6 +1504,8 @@ struct RSSReaderTests {
         #expect(viewState.loadingProgress == 0)
         #expect(viewState.reloadRevision == 0)
         #expect(viewState.showsWebViewContent)
+        #expect(viewState.showsShareAction == false)
+        #expect(viewState.showsBottomActions == false)
         #expect(viewState.toolbar.shareURL == route.url)
         #expect(viewState.toolbar.isShareEnabled)
         #expect(viewState.bottomActions.isRefreshEnabled)
@@ -1527,16 +1529,22 @@ struct RSSReaderTests {
         #expect(viewState.phase == .initialLoading)
         #expect(viewState.loadingProgress == 0.42)
         #expect(viewState.navigationTitle == "Loaded Article")
+        #expect(viewState.showsShareAction == false)
+        #expect(viewState.showsBottomActions == false)
 
         state.applyNavigationFinished()
         viewState = state.derivedViewState()
         #expect(viewState.phase == .loaded)
         #expect(viewState.loadingProgress == 1)
+        #expect(viewState.showsShareAction)
+        #expect(viewState.showsBottomActions)
 
         state.applyNavigationFailure("The page could not be loaded.")
         viewState = state.derivedViewState()
         #expect(viewState.phase == .failed("The page could not be loaded."))
         #expect(viewState.showsWebViewContent == false)
+        #expect(viewState.showsShareAction == false)
+        #expect(viewState.showsBottomActions == false)
     }
 
     @Test
@@ -1602,6 +1610,8 @@ struct RSSReaderTests {
         )
         #expect(viewState.navigationTitle == "Article")
         #expect(viewState.showsWebViewContent == false)
+        #expect(viewState.showsShareAction == false)
+        #expect(viewState.showsBottomActions == false)
         #expect(viewState.toolbar.shareURL == nil)
         #expect(viewState.toolbar.isShareEnabled == false)
         #expect(viewState.bottomActions.isRefreshEnabled == false)

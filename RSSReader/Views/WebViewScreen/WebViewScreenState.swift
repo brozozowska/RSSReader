@@ -63,13 +63,17 @@ struct WebViewScreenState {
     }
 
     func derivedViewState() -> WebViewScreenDerivedViewState {
-        WebViewScreenDerivedViewState(
+        let showsBrowserActions = phase == .loaded && currentPageURL != nil
+
+        return WebViewScreenDerivedViewState(
             initialURL: route.url,
             navigationTitle: pageTitle ?? currentPageURL?.host ?? route.url.host ?? "Article",
             phase: phase,
             loadingProgress: loadingProgress,
             reloadRevision: reloadRevision,
             showsWebViewContent: route.url.isSupportedArticleWebViewURL && !phase.isFailed,
+            showsShareAction: showsBrowserActions,
+            showsBottomActions: showsBrowserActions,
             toolbar: toolbar,
             bottomActions: bottomActions
         )
