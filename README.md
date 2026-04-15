@@ -239,11 +239,20 @@
 - [x] добавить unit tests на screen-level state и action reducer для `Article Screen`, включая `markAsReadOnOpen`, bottom actions и переход в `WebView Screen`.
 
 #### WebView Screen
-- [ ] создать отдельный экран WebView для `articleURL`;
-- [ ] поддержать `defaultReaderMode` из `AppSettings`;
-- [ ] добавить loading state для web content;
-- [ ] добавить error/fallback UX, если `articleURL` не открывается;
-- [ ] добавить action открытия во внешнем браузере.
+- [x] определить app-level navigation flow для `WebView Screen`: `RootView` должен уметь переключать detail между `Article Screen` и `WebView Screen` по `ReadingDetailRoute.webView`, а закрытие web view должно возвращать пользователя к текущей статье;
+- [x] создать отдельный `WebView Screen` на базе `WKWebView` для `articleURL`, чтобы экран получал уже подготовленный `ArticleWebViewRoute` и не знал о shell-роутинге напрямую;
+- [x] определить screen-level state/model для `WebView Screen`, чтобы отделить `initialURL`, loading progress, navigation title, share action availability и error state от SwiftUI `View`;
+- [x] реализовать загрузку `articleURL` в `WKWebView` с базовым loading state для первого открытия страницы;
+- [x] реализовать error / fallback UX, если `articleURL` невалиден или страница не открывается, с явным сценарием возврата назад к статье;
+- [x] добавить toolbar-кнопку `share` в правой части top bar и связать её с canonical `articleURL` / текущим `ArticleWebViewRoute.url`;
+- [x] поддержать `defaultReaderMode` из `AppSettings` как policy initial presentation для `WebView Screen`;
+- [x] добавить нижний action `open in external browser` в `bottomBar`;
+- [x] реализовать единственный кастомный gesture `left-edge swipe to close`: edge swipe от левого края закрывает `WebView Screen` и возвращает пользователя в `Article Screen`, а встроенный history navigation внутри `WKWebView` отключён, чтобы жест не конфликтовал с поведением страницы;
+- [x] добавить нижний action `refresh` в левой части `bottomBar` и связать его с перезагрузкой текущей страницы в `WKWebView` без возврата к общему `command bridge`;
+- [x] синхронизировать `current page URL` с `WebView Screen` state, чтобы `share` и `open in external browser` использовали фактический адрес текущей открытой страницы, а не только исходный `ArticleWebViewRoute.url`;
+- [x] привести loading presentation `WebView Screen` к тому же UI pattern, что и у `Article Screen`, чтобы первичная загрузка выглядела консистентно на уровне приложения;
+- [x] скрывать browser actions (`share`, `refresh`, `open in external browser`) в loading/error состояниях `WebView Screen`, чтобы toolbar и `bottomBar` не предлагали действия над ещё не открытой или недоступной страницей;
+- [x] провести `cleanup` `WebViewScreenView`: выделить секции/подвью, добавить `MARK` и упростить чтение `WKWebView` bridge-слоя без изменения поведения экрана.
 
 #### Settings Integration
 - [ ] создать `SettingsViewModel`;
