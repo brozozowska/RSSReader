@@ -58,7 +58,29 @@ struct WebViewScreenView: View {
                 }
                 .accessibilityLabel("Close Web View")
             }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                WebViewScreenShareToolbarButton(toolbar: viewState.toolbar)
+            }
         }
+    }
+}
+
+private struct WebViewScreenShareToolbarButton: View {
+    let toolbar: WebViewScreenToolbarState
+
+    var body: some View {
+        Group {
+            if let shareURL = toolbar.shareURL {
+                ShareLink(item: shareURL) {
+                    Image(systemName: "square.and.arrow.up")
+                }
+            } else {
+                Image(systemName: "square.and.arrow.up")
+            }
+        }
+        .accessibilityLabel("Share Page")
+        .disabled(toolbar.isShareEnabled == false)
     }
 }
 
