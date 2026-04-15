@@ -56,7 +56,7 @@ struct WebViewScreenView: View {
             }
 
             if viewState.phase == .initialLoading {
-                WebViewScreenLoadingOverlay(progress: viewState.loadingProgress)
+                WebViewScreenPrimaryLoadingView()
             } else if case .failed(let message) = viewState.phase {
                 WebViewScreenFailureOverlay(message: message)
             }
@@ -206,31 +206,9 @@ private struct WebViewScreenPreviewSurface: View {
     }
 }
 
-private struct WebViewScreenLoadingOverlay: View {
-    let progress: Double
-
+private struct WebViewScreenPrimaryLoadingView: View {
     var body: some View {
-        ZStack {
-            Rectangle()
-                .fill(.background.opacity(0.92))
-                .ignoresSafeArea()
-
-            VStack(spacing: 12) {
-                if progress > 0 {
-                    ProgressView(value: progress)
-                        .progressViewStyle(.linear)
-                        .frame(maxWidth: 220)
-                } else {
-                    ProgressView()
-                }
-
-                Text("Loading Page")
-                    .font(.headline)
-            }
-            .padding(24)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        }
-        .transition(.opacity)
+        ProgressView("Loading Page")
     }
 }
 
