@@ -1540,6 +1540,32 @@ struct RSSReaderTests {
     }
 
     @Test
+    func webViewScreenStateSwitchesShareAndBrowserActionsToCurrentPageURL() {
+        let route = ArticleWebViewRoute(
+            articleID: UUID(),
+            url: URL(string: "https://example.com/articles/original")!
+        )
+        var state = WebViewScreenState(route: route)
+
+        state.applyCurrentPageURL(URL(string: "https://example.com/articles/redirected")!)
+
+        var viewState = state.derivedViewState()
+        #expect(viewState.toolbar.shareURL?.absoluteString == "https://example.com/articles/redirected")
+        #expect(
+            viewState.bottomActions.openExternalBrowserURL?.absoluteString
+                == "https://example.com/articles/redirected"
+        )
+
+        state.applyCurrentPageURL(URL(string: "mailto:hello@example.com")!)
+
+        viewState = state.derivedViewState()
+        #expect(viewState.toolbar.shareURL == nil)
+        #expect(viewState.toolbar.isShareEnabled == false)
+        #expect(viewState.bottomActions.openExternalBrowserURL == nil)
+        #expect(viewState.bottomActions.isOpenExternalBrowserEnabled == false)
+    }
+
+    @Test
     func webViewScreenStateIncrementsReloadRevisionOnlyForSupportedURLs() {
         let supportedRoute = ArticleWebViewRoute(
             articleID: UUID(),

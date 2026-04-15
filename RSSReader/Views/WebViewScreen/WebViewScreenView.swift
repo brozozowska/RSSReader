@@ -47,6 +47,7 @@ struct WebViewScreenView: View {
                     onNavigationStarted: controller.handleNavigationStarted,
                     onLoadingProgressChanged: controller.handleLoadingProgressChanged,
                     onPageTitleChanged: controller.handlePageTitleChanged,
+                    onCurrentPageURLChanged: controller.handleCurrentPageURLChanged,
                     onNavigationFinished: controller.handleNavigationFinished,
                     onNavigationFailed: controller.handleNavigationFailed
                 )
@@ -258,6 +259,7 @@ private struct ArticleWebView: UIViewRepresentable {
     let onNavigationStarted: () -> Void
     let onLoadingProgressChanged: (Double) -> Void
     let onPageTitleChanged: (String?) -> Void
+    let onCurrentPageURLChanged: (URL?) -> Void
     let onNavigationFinished: () -> Void
     let onNavigationFailed: (Error) -> Void
 
@@ -266,6 +268,7 @@ private struct ArticleWebView: UIViewRepresentable {
             onNavigationStarted: onNavigationStarted,
             onLoadingProgressChanged: onLoadingProgressChanged,
             onPageTitleChanged: onPageTitleChanged,
+            onCurrentPageURLChanged: onCurrentPageURLChanged,
             onNavigationFinished: onNavigationFinished,
             onNavigationFailed: onNavigationFailed
         )
@@ -303,22 +306,26 @@ private struct ArticleWebView: UIViewRepresentable {
         private let onNavigationStarted: () -> Void
         private let onLoadingProgressChanged: (Double) -> Void
         private let onPageTitleChanged: (String?) -> Void
+        private let onCurrentPageURLChanged: (URL?) -> Void
         private let onNavigationFinished: () -> Void
         private let onNavigationFailed: (Error) -> Void
         private var estimatedProgressObservation: NSKeyValueObservation?
         private var titleObservation: NSKeyValueObservation?
+        private var urlObservation: NSKeyValueObservation?
         var lastReloadRevision: Int = 0
 
         init(
             onNavigationStarted: @escaping () -> Void,
             onLoadingProgressChanged: @escaping (Double) -> Void,
             onPageTitleChanged: @escaping (String?) -> Void,
+            onCurrentPageURLChanged: @escaping (URL?) -> Void,
             onNavigationFinished: @escaping () -> Void,
             onNavigationFailed: @escaping (Error) -> Void
         ) {
             self.onNavigationStarted = onNavigationStarted
             self.onLoadingProgressChanged = onLoadingProgressChanged
             self.onPageTitleChanged = onPageTitleChanged
+            self.onCurrentPageURLChanged = onCurrentPageURLChanged
             self.onNavigationFinished = onNavigationFinished
             self.onNavigationFailed = onNavigationFailed
         }
@@ -329,6 +336,9 @@ private struct ArticleWebView: UIViewRepresentable {
             }
             titleObservation = webView.observe(\.title, options: [.initial, .new]) { [weak self] webView, _ in
                 self?.onPageTitleChanged(webView.title)
+            }
+            urlObservation = webView.observe(\.url, options: [.new]) { [weak self] webView, _ in
+                self?.onCurrentPageURLChanged(webView.url)
             }
         }
 

@@ -12,9 +12,9 @@ struct WebViewScreenToolbarState: Equatable {
     let shareURL: URL?
     let isShareEnabled: Bool
 
-    init(route: ArticleWebViewRoute, canSharePageURL: Bool) {
-        self.shareURL = canSharePageURL ? route.url : nil
-        self.isShareEnabled = canSharePageURL
+    init(pageURL: URL?) {
+        self.shareURL = pageURL
+        self.isShareEnabled = pageURL != nil
     }
 }
 
@@ -25,12 +25,12 @@ struct WebViewScreenBottomActionsState: Equatable {
     let isOpenExternalBrowserEnabled: Bool
 
     init(
-        route: ArticleWebViewRoute,
+        pageURL: URL?,
         canRefreshPage: Bool,
         canOpenExternalBrowserURL: Bool
     ) {
         self.isRefreshEnabled = canRefreshPage
-        self.openExternalBrowserURL = canOpenExternalBrowserURL ? route.url : nil
+        self.openExternalBrowserURL = canOpenExternalBrowserURL ? pageURL : nil
         self.isOpenExternalBrowserEnabled = canOpenExternalBrowserURL
     }
 }

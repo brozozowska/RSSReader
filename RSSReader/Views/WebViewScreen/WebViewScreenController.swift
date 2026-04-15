@@ -25,6 +25,10 @@ final class WebViewScreenController {
         screenState.applyPageTitle(title)
     }
 
+    func handleCurrentPageURLChanged(_ url: URL?) {
+        screenState.applyCurrentPageURL(url)
+    }
+
     func handleNavigationFinished() {
         screenState.applyNavigationFinished()
     }

@@ -4,6 +4,7 @@ import Foundation
 struct WebViewScreenState {
     let route: ArticleWebViewRoute
     private(set) var phase: WebViewScreenPhase = .initialLoading
+    private(set) var currentPageURL: URL?
     private(set) var pageTitle: String?
     private(set) var loadingProgress: Double = 0
     private(set) var reloadRevision: Int = 0
@@ -13,14 +14,12 @@ struct WebViewScreenState {
     init(route: ArticleWebViewRoute) {
         self.route = route
         let canLoadInitialURL = route.url.isSupportedArticleWebViewURL
-        self.toolbar = WebViewScreenToolbarState(
-            route: route,
-            canSharePageURL: canLoadInitialURL
-        )
+        self.currentPageURL = canLoadInitialURL ? route.url : nil
+        self.toolbar = WebViewScreenToolbarState(pageURL: currentPageURL)
         self.bottomActions = WebViewScreenBottomActionsState(
-            route: route,
+            pageURL: currentPageURL,
             canRefreshPage: canLoadInitialURL,
-            canOpenExternalBrowserURL: canLoadInitialURL
+            canOpenExternalBrowserURL: currentPageURL != nil
         )
         if !canLoadInitialURL {
             self.phase = .failed("This article link can't be opened in the in-app browser.")
@@ -37,6 +36,14 @@ struct WebViewScreenState {
 
     mutating func applyPageTitle(_ title: String?) {
         pageTitle = title?.nilIfBlank
+    }
+
+    mutating func applyCurrentPageURL(_ url: URL?) {
+        guard let url else {
+            return
+        }
+        currentPageURL = url.isSupportedArticleWebViewURL ? url : nil
+        updateActionAvailability()
     }
 
     mutating func applyNavigationFinished() {
@@ -58,13 +65,24 @@ struct WebViewScreenState {
     func derivedViewState() -> WebViewScreenDerivedViewState {
         WebViewScreenDerivedViewState(
             initialURL: route.url,
-            navigationTitle: pageTitle ?? route.url.host ?? "Article",
+            navigationTitle: pageTitle ?? currentPageURL?.host ?? route.url.host ?? "Article",
             phase: phase,
             loadingProgress: loadingProgress,
             reloadRevision: reloadRevision,
             showsWebViewContent: route.url.isSupportedArticleWebViewURL && !phase.isFailed,
             toolbar: toolbar,
             bottomActions: bottomActions
+        )
+    }
+}
+
+private extension WebViewScreenState {
+    mutating func updateActionAvailability() {
+        toolbar = WebViewScreenToolbarState(pageURL: currentPageURL)
+        bottomActions = WebViewScreenBottomActionsState(
+            pageURL: currentPageURL,
+            canRefreshPage: route.url.isSupportedArticleWebViewURL,
+            canOpenExternalBrowserURL: currentPageURL != nil
         )
     }
 }
