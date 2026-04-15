@@ -1460,6 +1460,50 @@ struct RSSReaderTests {
     }
 
     @Test
+    func webViewScreenStateBuildsInitialDerivedStateFromRoute() {
+        let route = ArticleWebViewRoute(
+            articleID: UUID(),
+            url: URL(string: "https://example.com/articles/webview-state")!
+        )
+        let state = WebViewScreenState(route: route)
+        let viewState = state.derivedViewState()
+
+        #expect(viewState.initialURL == route.url)
+        #expect(viewState.navigationTitle == "example.com")
+        #expect(viewState.phase == .initialLoading)
+        #expect(viewState.loadingProgress == 0)
+        #expect(viewState.toolbar.shareURL == route.url)
+        #expect(viewState.toolbar.isShareEnabled)
+    }
+
+    @Test
+    func webViewScreenStateTracksTitleLoadingProgressAndFailureIndependentlyFromView() {
+        let route = ArticleWebViewRoute(
+            articleID: UUID(),
+            url: URL(string: "https://example.com/articles/webview-state-progress")!
+        )
+        var state = WebViewScreenState(route: route)
+
+        state.applyNavigationStart()
+        state.applyLoadingProgress(0.42)
+        state.applyPageTitle("Loaded Article")
+
+        var viewState = state.derivedViewState()
+        #expect(viewState.phase == .initialLoading)
+        #expect(viewState.loadingProgress == 0.42)
+        #expect(viewState.navigationTitle == "Loaded Article")
+
+        state.applyNavigationFinished()
+        viewState = state.derivedViewState()
+        #expect(viewState.phase == .loaded)
+        #expect(viewState.loadingProgress == 1)
+
+        state.applyNavigationFailure("The page could not be loaded.")
+        viewState = state.derivedViewState()
+        #expect(viewState.phase == .failed("The page could not be loaded."))
+    }
+
+    @Test
     func articlesScreenStateStartsWithoutSelectionPlaceholder() {
         let state = ArticlesScreenState()
 
