@@ -1421,6 +1421,45 @@ struct RSSReaderTests {
     }
 
     @Test
+    func readingShellNavigationStateBuildsArticleDestinationForNoneAndArticleRoutes() {
+        let articleID = UUID()
+
+        #expect(
+            ReadingShellNavigationState.detailDestination(
+                route: .none,
+                selectedArticleID: nil
+            ) == .article(nil)
+        )
+        #expect(
+            ReadingShellNavigationState.detailDestination(
+                route: .none,
+                selectedArticleID: articleID
+            ) == .article(articleID)
+        )
+        #expect(
+            ReadingShellNavigationState.detailDestination(
+                route: .article(articleID),
+                selectedArticleID: nil
+            ) == .article(articleID)
+        )
+    }
+
+    @Test
+    func readingShellNavigationStateBuildsWebViewDestinationForWebViewRoute() {
+        let route = ArticleWebViewRoute(
+            articleID: UUID(),
+            url: URL(string: "https://example.com/web-shell-destination")!
+        )
+
+        #expect(
+            ReadingShellNavigationState.detailDestination(
+                route: .webView(route),
+                selectedArticleID: route.articleID
+            ) == .webView(route)
+        )
+    }
+
+    @Test
     func articlesScreenStateStartsWithoutSelectionPlaceholder() {
         let state = ArticlesScreenState()
 
