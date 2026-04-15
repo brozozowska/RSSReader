@@ -8,20 +8,6 @@ enum WebViewScreenPhase: Equatable {
 }
 
 @MainActor
-struct WebViewScreenCommand: Equatable {
-    enum Kind: Equatable {
-        case reload
-    }
-
-    let id: UUID
-    let kind: Kind
-
-    static func reload() -> WebViewScreenCommand {
-        WebViewScreenCommand(id: UUID(), kind: .reload)
-    }
-}
-
-@MainActor
 struct WebViewScreenToolbarState: Equatable {
     let shareURL: URL?
     let isShareEnabled: Bool
@@ -50,7 +36,6 @@ struct WebViewScreenDerivedViewState: Equatable {
     let phase: WebViewScreenPhase
     let loadingProgress: Double
     let showsWebViewContent: Bool
-    let pendingCommand: WebViewScreenCommand?
     let toolbar: WebViewScreenToolbarState
     let bottomActions: WebViewScreenBottomActionsState
 }

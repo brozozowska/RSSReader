@@ -43,13 +43,11 @@ struct WebViewScreenView: View {
             if previewScreenState == nil, viewState.showsWebViewContent {
                 ArticleWebView(
                     url: viewState.initialURL,
-                    pendingCommand: viewState.pendingCommand,
                     onNavigationStarted: controller.handleNavigationStarted,
                     onLoadingProgressChanged: controller.handleLoadingProgressChanged,
                     onPageTitleChanged: controller.handlePageTitleChanged,
                     onNavigationFinished: controller.handleNavigationFinished,
-                    onNavigationFailed: controller.handleNavigationFailed,
-                    onCommandExecuted: controller.handleCommandExecution
+                    onNavigationFailed: controller.handleNavigationFailed
                 )
             } else if previewScreenState != nil {
                 WebViewScreenPreviewSurface(url: viewState.initialURL)
@@ -235,13 +233,11 @@ private struct WebViewScreenFailureOverlay: View {
 
 private struct ArticleWebView: UIViewRepresentable {
     let url: URL
-    let pendingCommand: WebViewScreenCommand?
     let onNavigationStarted: () -> Void
     let onLoadingProgressChanged: (Double) -> Void
     let onPageTitleChanged: (String?) -> Void
     let onNavigationFinished: () -> Void
     let onNavigationFailed: (Error) -> Void
-    let onCommandExecuted: (WebViewScreenCommand) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -249,8 +245,7 @@ private struct ArticleWebView: UIViewRepresentable {
             onLoadingProgressChanged: onLoadingProgressChanged,
             onPageTitleChanged: onPageTitleChanged,
             onNavigationFinished: onNavigationFinished,
-            onNavigationFailed: onNavigationFailed,
-            onCommandExecuted: onCommandExecuted
+            onNavigationFailed: onNavigationFailed
         )
     }
 
@@ -268,10 +263,6 @@ private struct ArticleWebView: UIViewRepresentable {
         if webView.url != url {
             webView.load(URLRequest(url: url))
         }
-
-        if let pendingCommand {
-            context.coordinator.execute(command: pendingCommand, in: webView)
-        }
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate {
@@ -280,39 +271,21 @@ private struct ArticleWebView: UIViewRepresentable {
         private let onPageTitleChanged: (String?) -> Void
         private let onNavigationFinished: () -> Void
         private let onNavigationFailed: (Error) -> Void
-        private let onCommandExecuted: (WebViewScreenCommand) -> Void
         private var estimatedProgressObservation: NSKeyValueObservation?
         private var titleObservation: NSKeyValueObservation?
-        private var lastExecutedCommandID: UUID?
 
         init(
             onNavigationStarted: @escaping () -> Void,
             onLoadingProgressChanged: @escaping (Double) -> Void,
             onPageTitleChanged: @escaping (String?) -> Void,
             onNavigationFinished: @escaping () -> Void,
-            onNavigationFailed: @escaping (Error) -> Void,
-            onCommandExecuted: @escaping (WebViewScreenCommand) -> Void
+            onNavigationFailed: @escaping (Error) -> Void
         ) {
             self.onNavigationStarted = onNavigationStarted
             self.onLoadingProgressChanged = onLoadingProgressChanged
             self.onPageTitleChanged = onPageTitleChanged
             self.onNavigationFinished = onNavigationFinished
             self.onNavigationFailed = onNavigationFailed
-            self.onCommandExecuted = onCommandExecuted
-        }
-
-        func execute(command: WebViewScreenCommand, in webView: WKWebView) {
-            guard lastExecutedCommandID != command.id else {
-                return
-            }
-
-            switch command.kind {
-            case .reload:
-                webView.reload()
-            }
-
-            lastExecutedCommandID = command.id
-            onCommandExecuted(command)
         }
 
         func attachObservers(to webView: WKWebView) {

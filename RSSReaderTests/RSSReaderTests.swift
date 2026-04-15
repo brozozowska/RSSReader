@@ -1538,23 +1538,6 @@ struct RSSReaderTests {
     }
 
     @Test
-    func webViewScreenStateEnqueuesAndAcknowledgesReloadCommand() {
-        let route = ArticleWebViewRoute(
-            articleID: UUID(),
-            url: URL(string: "https://example.com/articles/webview-state-reload")!
-        )
-        var state = WebViewScreenState(route: route)
-
-        state.enqueueReloadCommand()
-        let pendingCommand = try! #require(state.derivedViewState().pendingCommand)
-        #expect(pendingCommand.kind == .reload)
-
-        state.acknowledgeCommand(pendingCommand)
-
-        #expect(state.derivedViewState().pendingCommand == nil)
-    }
-
-    @Test
     func webViewScreenStateStartsInFailurePhaseForUnsupportedInitialURL() {
         let route = ArticleWebViewRoute(
             articleID: UUID(),
@@ -1572,24 +1555,6 @@ struct RSSReaderTests {
         #expect(viewState.toolbar.isShareEnabled == false)
         #expect(viewState.bottomActions.openExternalBrowserURL == nil)
         #expect(viewState.bottomActions.isOpenExternalBrowserEnabled == false)
-        #expect(viewState.pendingCommand == nil)
-    }
-
-    @Test
-    func webViewScreenControllerBridgesReloadCommandWithoutKeepingItInViewStateForever() {
-        let route = ArticleWebViewRoute(
-            articleID: UUID(),
-            url: URL(string: "https://example.com/articles/webview-controller-reload")!
-        )
-        let controller = WebViewScreenController(route: route)
-
-        controller.reloadPage()
-        let pendingCommand = try! #require(controller.screenState.derivedViewState().pendingCommand)
-        #expect(pendingCommand.kind == .reload)
-
-        controller.handleCommandExecution(pendingCommand)
-
-        #expect(controller.screenState.derivedViewState().pendingCommand == nil)
     }
 
     @Test
