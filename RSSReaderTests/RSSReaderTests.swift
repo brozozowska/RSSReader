@@ -2840,6 +2840,43 @@ struct RSSReaderTests {
     }
 
     @Test
+    func shellActionEntryPointsSelectArticleOpensWebViewWhenDefaultReaderModeIsBrowser() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feeds = try harness.insertFeeds(urls: ["https://example.com/default-reader-mode.xml"])
+        let feed = try #require(feeds.first)
+        let articleModel = try harness.insertArticle(
+            feed: feed,
+            externalID: "default-browser-article",
+            url: "https://example.com/articles/browser-mode",
+            title: "Default Browser Mode Article"
+        )
+        articleModel.canonicalURL = "https://example.com/articles/browser-mode/canonical"
+        try harness.dependencies.appSettingsRepository?.update(
+            AppSettingsUpdate(defaultReaderMode: .browser)
+        )
+        try harness.saveModelContext()
+
+        harness.dependencies.selectArticle(id: articleModel.id, using: appState)
+
+        #expect(appState.selectedArticleID == articleModel.id)
+        #expect(
+            appState.selectedDetailRoute == .webView(
+                ArticleWebViewRoute(
+                    articleID: articleModel.id,
+                    url: URL(string: "https://example.com/articles/browser-mode/canonical")!
+                )
+            )
+        )
+        #expect(
+            appState.presentedWebViewRoute == ArticleWebViewRoute(
+                articleID: articleModel.id,
+                url: URL(string: "https://example.com/articles/browser-mode/canonical")!
+            )
+        )
+    }
+
+    @Test
     func shellActionEntryPointsRefreshCurrentSourceTriggersReloadAfterFeedRefresh() async throws {
         let client = ScriptedHTTPClient(
             responsesByURL: [

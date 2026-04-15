@@ -171,7 +171,34 @@ extension AppDependencies {
 
     @MainActor
     func selectArticle(id articleID: UUID?, using appState: AppState) {
-        appState.selectedArticleID = articleID
+        guard let articleID else {
+            appState.selectedArticleID = nil
+            return
+        }
+
+        guard shouldPresentSelectedArticleInWebViewByDefault() else {
+            appState.selectedArticleID = articleID
+            return
+        }
+
+        guard let articleQueryService else {
+            logger.error("Article query service is unavailable for default reader mode policy")
+            appState.selectedArticleID = articleID
+            return
+        }
+
+        do {
+            guard let article = try articleQueryService.fetchReaderArticle(id: articleID) else {
+                logger.error("Skipped default web view presentation because article \(articleID) was not found")
+                appState.selectedArticleID = articleID
+                return
+            }
+
+            openArticleInWebView(article, using: appState)
+        } catch {
+            logger.error("Failed to apply default reader mode policy for article \(articleID): \(error)")
+            appState.selectedArticleID = articleID
+        }
     }
 
     @MainActor
@@ -293,6 +320,20 @@ extension AppDependencies {
 }
 
 private extension AppDependencies {
+    @MainActor
+    func shouldPresentSelectedArticleInWebViewByDefault() -> Bool {
+        guard let appSettingsRepository else {
+            return false
+        }
+
+        do {
+            return try appSettingsRepository.fetchOrCreate().defaultReaderMode == .browser
+        } catch {
+            logger.error("Failed to load app settings for default reader mode policy: \(error)")
+            return false
+        }
+    }
+
     static func makeFeedFetcher(
         httpClient: any HTTPClient
     ) -> any FeedFetching {

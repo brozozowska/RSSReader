@@ -56,6 +56,7 @@ enum ReadingShellNavigationState {
 
 struct RootView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.appDependencies) private var dependencies
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var preferredCompactColumn: NavigationSplitViewColumn = .content
 
@@ -70,7 +71,7 @@ struct RootView: View {
         )
         let articleSelection = Binding<UUID?>(
             get: { appState.selectedArticleID },
-            set: { appState.selectedArticleID = $0 }
+            set: { dependencies.selectArticle(id: $0, using: appState) }
         )
 
         NavigationSplitView(preferredCompactColumn: $preferredCompactColumn) {
