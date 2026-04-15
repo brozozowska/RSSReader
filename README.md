@@ -252,7 +252,7 @@
 - [x] синхронизировать `current page URL` с `WebView Screen` state, чтобы `share` и `open in external browser` использовали фактический адрес текущей открытой страницы, а не только исходный `ArticleWebViewRoute.url`;
 - [x] привести loading presentation `WebView Screen` к тому же UI pattern, что и у `Article Screen`, чтобы первичная загрузка выглядела консистентно на уровне приложения;
 - [x] скрывать browser actions (`share`, `refresh`, `open in external browser`) в loading/error состояниях `WebView Screen`, чтобы toolbar и `bottomBar` не предлагали действия над ещё не открытой или недоступной страницей;
-- [ ] провести `cleanup` `WebViewScreenView`: выделить секции/подвью, добавить `MARK` и упростить чтение `WKWebView` bridge-слоя без изменения поведения экрана.
+- [x] провести `cleanup` `WebViewScreenView`: выделить секции/подвью, добавить `MARK` и упростить чтение `WKWebView` bridge-слоя без изменения поведения экрана.
 
 #### Settings Integration
 - [ ] создать `SettingsViewModel`;

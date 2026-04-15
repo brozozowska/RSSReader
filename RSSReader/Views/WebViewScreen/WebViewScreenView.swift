@@ -1,6 +1,8 @@
 import SwiftUI
 import WebKit
 
+// MARK: - Navigation State
+
 enum WebViewScreenNavigationState {
     static func shouldCloseOnDrag(
         startLocationX: CGFloat,
@@ -11,6 +13,8 @@ enum WebViewScreenNavigationState {
             && abs(translation.height) <= 48
     }
 }
+
+// MARK: - Screen View
 
 struct WebViewScreenView: View {
     @Environment(\.openURL) private var openURL
@@ -40,26 +44,8 @@ struct WebViewScreenView: View {
         let viewState = controller.screenState.derivedViewState()
 
         ZStack {
-            if previewScreenState == nil, viewState.showsWebViewContent {
-                ArticleWebView(
-                    url: viewState.initialURL,
-                    reloadRevision: viewState.reloadRevision,
-                    onNavigationStarted: controller.handleNavigationStarted,
-                    onLoadingProgressChanged: controller.handleLoadingProgressChanged,
-                    onPageTitleChanged: controller.handlePageTitleChanged,
-                    onCurrentPageURLChanged: controller.handleCurrentPageURLChanged,
-                    onNavigationFinished: controller.handleNavigationFinished,
-                    onNavigationFailed: controller.handleNavigationFailed
-                )
-            } else if previewScreenState != nil {
-                WebViewScreenPreviewSurface(url: viewState.initialURL)
-            }
-
-            if viewState.phase == .initialLoading {
-                WebViewScreenPrimaryLoadingView()
-            } else if case .failed(let message) = viewState.phase {
-                WebViewScreenFailureOverlay(message: message)
-            }
+            contentSurface(viewState)
+            overlaySurface(viewState)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemBackground))
@@ -67,39 +53,85 @@ struct WebViewScreenView: View {
         .toolbarTitleDisplayMode(.inline)
         .navigationTitle(viewState.navigationTitle)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button(action: closeWebView) {
-                    Image(systemName: "xmark")
-                }
-                .accessibilityLabel("Close Web View")
-            }
-
-            if viewState.showsShareAction {
-                ToolbarItem(placement: .topBarTrailing) {
-                    WebViewScreenShareToolbarButton(toolbar: viewState.toolbar)
-                }
-            }
-
-            if viewState.showsBottomActions {
-                ToolbarItem(placement: .bottomBar) {
-                    WebViewScreenRefreshButton(
-                        bottomActions: viewState.bottomActions,
-                        refreshPage: controller.handleReloadRequested
-                    )
-                }
-
-                ToolbarSpacer(placement: .bottomBar)
-
-                ToolbarItem(placement: .bottomBar) {
-                    WebViewScreenOpenExternalBrowserButton(
-                        bottomActions: viewState.bottomActions,
-                        openURL: openURL
-                    )
-                }
-            }
+            topBarLeadingItem
+            topBarTrailingItem(viewState)
+            bottomBarItems(viewState)
         }
         .simultaneousGesture(closeGesture)
     }
+
+    // MARK: Content
+
+    @ViewBuilder
+    private func contentSurface(_ viewState: WebViewScreenDerivedViewState) -> some View {
+        if previewScreenState == nil, viewState.showsWebViewContent {
+            ArticleWebView(
+                url: viewState.initialURL,
+                reloadRevision: viewState.reloadRevision,
+                onNavigationStarted: controller.handleNavigationStarted,
+                onLoadingProgressChanged: controller.handleLoadingProgressChanged,
+                onPageTitleChanged: controller.handlePageTitleChanged,
+                onCurrentPageURLChanged: controller.handleCurrentPageURLChanged,
+                onNavigationFinished: controller.handleNavigationFinished,
+                onNavigationFailed: controller.handleNavigationFailed
+            )
+        } else if viewState.phase == .loaded {
+            WebViewScreenPreviewSurface(url: viewState.initialURL)
+        }
+    }
+
+    @ViewBuilder
+    private func overlaySurface(_ viewState: WebViewScreenDerivedViewState) -> some View {
+        if viewState.phase == .initialLoading {
+            WebViewScreenPrimaryLoadingView()
+        } else if case .failed(let message) = viewState.phase {
+            WebViewScreenFailureOverlay(message: message)
+        }
+    }
+
+    // MARK: Toolbar
+
+    @ToolbarContentBuilder
+    private var topBarLeadingItem: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            Button(action: closeWebView) {
+                Image(systemName: "xmark")
+            }
+            .accessibilityLabel("Close Web View")
+        }
+    }
+
+    @ToolbarContentBuilder
+    private func topBarTrailingItem(_ viewState: WebViewScreenDerivedViewState) -> some ToolbarContent {
+        if viewState.showsShareAction {
+            ToolbarItem(placement: .topBarTrailing) {
+                WebViewScreenShareToolbarButton(toolbar: viewState.toolbar)
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private func bottomBarItems(_ viewState: WebViewScreenDerivedViewState) -> some ToolbarContent {
+        if viewState.showsBottomActions {
+            ToolbarItem(placement: .bottomBar) {
+                WebViewScreenRefreshButton(
+                    bottomActions: viewState.bottomActions,
+                    refreshPage: controller.handleReloadRequested
+                )
+            }
+
+            ToolbarSpacer(placement: .bottomBar)
+
+            ToolbarItem(placement: .bottomBar) {
+                WebViewScreenOpenExternalBrowserButton(
+                    bottomActions: viewState.bottomActions,
+                    openURL: openURL
+                )
+            }
+        }
+    }
+
+    // MARK: Gesture
 
     private var closeGesture: some Gesture {
         DragGesture(minimumDistance: 20)
@@ -115,6 +147,8 @@ struct WebViewScreenView: View {
             }
     }
 }
+
+// MARK: - Toolbar Items
 
 private struct WebViewScreenShareToolbarButton: View {
     let toolbar: WebViewScreenToolbarState
@@ -167,6 +201,8 @@ private struct WebViewScreenOpenExternalBrowserButton: View {
     }
 }
 
+// MARK: - Preview Surface
+
 private struct WebViewScreenPreviewSurface: View {
     let url: URL
 
@@ -210,9 +246,12 @@ private struct WebViewScreenPreviewSurface: View {
     }
 }
 
+// MARK: - Screen State Overlays
+
 private struct WebViewScreenPrimaryLoadingView: View {
     var body: some View {
         ProgressView("Loading Page")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -234,6 +273,8 @@ private struct WebViewScreenFailureOverlay: View {
         .transition(.opacity)
     }
 }
+
+// MARK: - WKWebView Bridge
 
 private struct ArticleWebView: UIViewRepresentable {
     let url: URL
@@ -312,6 +353,7 @@ private struct ArticleWebView: UIViewRepresentable {
             self.onNavigationFailed = onNavigationFailed
         }
 
+        // Keep screen-level state in sync with `WKWebView` without leaking UIKit concerns into SwiftUI view code.
         func attachObservers(to webView: WKWebView) {
             estimatedProgressObservation = webView.observe(\.estimatedProgress, options: [.initial, .new]) { [weak self] webView, _ in
                 self?.onLoadingProgressChanged(webView.estimatedProgress)
