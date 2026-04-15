@@ -2,6 +2,8 @@ import SwiftUI
 import WebKit
 
 struct WebViewScreenView: View {
+    @Environment(\.openURL) private var openURL
+
     let route: ArticleWebViewRoute
     let closeWebView: () -> Void
     let previewScreenState: WebViewScreenState?
@@ -62,6 +64,15 @@ struct WebViewScreenView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 WebViewScreenShareToolbarButton(toolbar: viewState.toolbar)
             }
+
+            ToolbarSpacer(placement: .bottomBar)
+
+            ToolbarItem(placement: .bottomBar) {
+                WebViewScreenOpenExternalBrowserButton(
+                    bottomActions: viewState.bottomActions,
+                    openURL: openURL
+                )
+            }
         }
     }
 }
@@ -81,6 +92,26 @@ private struct WebViewScreenShareToolbarButton: View {
         }
         .accessibilityLabel("Share Page")
         .disabled(toolbar.isShareEnabled == false)
+    }
+}
+
+private struct WebViewScreenOpenExternalBrowserButton: View {
+    let bottomActions: WebViewScreenBottomActionsState
+    let openURL: OpenURLAction
+
+    var body: some View {
+        Button(action: openExternalBrowser) {
+            Image(systemName: "safari")
+        }
+        .disabled(bottomActions.isOpenExternalBrowserEnabled == false)
+        .accessibilityLabel("Open in External Browser")
+    }
+
+    private func openExternalBrowser() {
+        guard let url = bottomActions.openExternalBrowserURL else {
+            return
+        }
+        openURL(url)
     }
 }
 

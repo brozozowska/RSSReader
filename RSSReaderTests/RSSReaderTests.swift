@@ -1475,6 +1475,8 @@ struct RSSReaderTests {
         #expect(viewState.showsWebViewContent)
         #expect(viewState.toolbar.shareURL == route.url)
         #expect(viewState.toolbar.isShareEnabled)
+        #expect(viewState.bottomActions.openExternalBrowserURL == route.url)
+        #expect(viewState.bottomActions.isOpenExternalBrowserEnabled)
     }
 
     @Test
@@ -1521,6 +1523,8 @@ struct RSSReaderTests {
         #expect(viewState.showsWebViewContent == false)
         #expect(viewState.toolbar.shareURL == nil)
         #expect(viewState.toolbar.isShareEnabled == false)
+        #expect(viewState.bottomActions.openExternalBrowserURL == nil)
+        #expect(viewState.bottomActions.isOpenExternalBrowserEnabled == false)
     }
 
     @Test

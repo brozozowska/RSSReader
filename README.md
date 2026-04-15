@@ -246,9 +246,9 @@
 - [x] реализовать error / fallback UX, если `articleURL` невалиден или страница не открывается, с явным сценарием возврата назад к статье;
 - [x] добавить toolbar-кнопку `share` в правой части top bar и связать её с canonical `articleURL` / текущим `ArticleWebViewRoute.url`;
 - [x] поддержать `defaultReaderMode` из `AppSettings` как policy initial presentation для `WebView Screen`;
-- [ ] добавить unit tests на app-level routing и screen-level state `WebView Screen`: открытие по `ArticleWebViewRoute`, закрытие обратно в `Article Screen`, loading/error transitions и availability `share`.
+- [x] добавить нижний action `open in external browser` в `bottomBar`;
 - [ ] исследовать и определить policy для дополнительных browser actions: `open in external browser`, `reload`, page settings / reader controls / translation menu;
-- [ ] добавить нижние actions `open in external browser` и `reload`, если они не конфликтуют с системным UX и компоновкой экрана;
+- [ ] добавить нижний action `reload`, если он не конфликтует с системным UX и компоновкой экрана;
 - [ ] определить, можно ли и нужно ли добавлять отдельную кнопку page settings / reader controls поверх `WKWebView`, или такие возможности должны оставаться системной ответственностью Safari / Reader mode.
 
 #### Settings Integration

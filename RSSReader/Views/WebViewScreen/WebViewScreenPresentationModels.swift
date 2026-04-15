@@ -19,6 +19,17 @@ struct WebViewScreenToolbarState: Equatable {
 }
 
 @MainActor
+struct WebViewScreenBottomActionsState: Equatable {
+    let openExternalBrowserURL: URL?
+    let isOpenExternalBrowserEnabled: Bool
+
+    init(route: ArticleWebViewRoute, canOpenExternalBrowserURL: Bool) {
+        self.openExternalBrowserURL = canOpenExternalBrowserURL ? route.url : nil
+        self.isOpenExternalBrowserEnabled = canOpenExternalBrowserURL
+    }
+}
+
+@MainActor
 struct WebViewScreenDerivedViewState: Equatable {
     let initialURL: URL
     let navigationTitle: String
@@ -26,4 +37,5 @@ struct WebViewScreenDerivedViewState: Equatable {
     let loadingProgress: Double
     let showsWebViewContent: Bool
     let toolbar: WebViewScreenToolbarState
+    let bottomActions: WebViewScreenBottomActionsState
 }

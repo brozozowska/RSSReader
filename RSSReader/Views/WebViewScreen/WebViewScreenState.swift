@@ -7,6 +7,7 @@ struct WebViewScreenState {
     private(set) var pageTitle: String?
     private(set) var loadingProgress: Double = 0
     private(set) var toolbar: WebViewScreenToolbarState
+    private(set) var bottomActions: WebViewScreenBottomActionsState
 
     init(route: ArticleWebViewRoute) {
         self.route = route
@@ -14,6 +15,10 @@ struct WebViewScreenState {
         self.toolbar = WebViewScreenToolbarState(
             route: route,
             canSharePageURL: canLoadInitialURL
+        )
+        self.bottomActions = WebViewScreenBottomActionsState(
+            route: route,
+            canOpenExternalBrowserURL: canLoadInitialURL
         )
         if !canLoadInitialURL {
             self.phase = .failed("This article link can't be opened in the in-app browser.")
@@ -48,7 +53,8 @@ struct WebViewScreenState {
             phase: phase,
             loadingProgress: loadingProgress,
             showsWebViewContent: route.url.isSupportedArticleWebViewURL && !phase.isFailed,
-            toolbar: toolbar
+            toolbar: toolbar,
+            bottomActions: bottomActions
         )
     }
 }
