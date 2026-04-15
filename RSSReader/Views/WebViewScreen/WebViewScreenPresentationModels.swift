@@ -12,9 +12,9 @@ struct WebViewScreenToolbarState: Equatable {
     let shareURL: URL?
     let isShareEnabled: Bool
 
-    init(route: ArticleWebViewRoute) {
-        self.shareURL = route.url
-        self.isShareEnabled = true
+    init(route: ArticleWebViewRoute, canSharePageURL: Bool) {
+        self.shareURL = canSharePageURL ? route.url : nil
+        self.isShareEnabled = canSharePageURL
     }
 }
 
@@ -24,5 +24,6 @@ struct WebViewScreenDerivedViewState: Equatable {
     let navigationTitle: String
     let phase: WebViewScreenPhase
     let loadingProgress: Double
+    let showsWebViewContent: Bool
     let toolbar: WebViewScreenToolbarState
 }

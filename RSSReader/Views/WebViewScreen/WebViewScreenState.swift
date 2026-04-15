@@ -10,7 +10,14 @@ struct WebViewScreenState {
 
     init(route: ArticleWebViewRoute) {
         self.route = route
-        self.toolbar = WebViewScreenToolbarState(route: route)
+        let canLoadInitialURL = route.url.isSupportedArticleWebViewURL
+        self.toolbar = WebViewScreenToolbarState(
+            route: route,
+            canSharePageURL: canLoadInitialURL
+        )
+        if !canLoadInitialURL {
+            self.phase = .failed("This article link can't be opened in the in-app browser.")
+        }
     }
 
     mutating func applyNavigationStart() {
@@ -40,6 +47,7 @@ struct WebViewScreenState {
             navigationTitle: pageTitle ?? route.url.host ?? "Article",
             phase: phase,
             loadingProgress: loadingProgress,
+            showsWebViewContent: route.url.isSupportedArticleWebViewURL && !phase.isFailed,
             toolbar: toolbar
         )
     }
@@ -82,5 +90,27 @@ private extension String {
     var nilIfBlank: String? {
         let trimmedValue = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmedValue.isEmpty ? nil : trimmedValue
+    }
+}
+
+private extension URL {
+    var isSupportedArticleWebViewURL: Bool {
+        guard let scheme else {
+            return false
+        }
+        let normalizedScheme = scheme.lowercased()
+        guard normalizedScheme == "http" || normalizedScheme == "https" else {
+            return false
+        }
+        return host?.isEmpty == false
+    }
+}
+
+private extension WebViewScreenPhase {
+    var isFailed: Bool {
+        if case .failed = self {
+            return true
+        }
+        return false
     }
 }

@@ -1472,6 +1472,7 @@ struct RSSReaderTests {
         #expect(viewState.navigationTitle == "example.com")
         #expect(viewState.phase == .initialLoading)
         #expect(viewState.loadingProgress == 0)
+        #expect(viewState.showsWebViewContent)
         #expect(viewState.toolbar.shareURL == route.url)
         #expect(viewState.toolbar.isShareEnabled)
     }
@@ -1501,6 +1502,25 @@ struct RSSReaderTests {
         state.applyNavigationFailure("The page could not be loaded.")
         viewState = state.derivedViewState()
         #expect(viewState.phase == .failed("The page could not be loaded."))
+        #expect(viewState.showsWebViewContent == false)
+    }
+
+    @Test
+    func webViewScreenStateStartsInFailurePhaseForUnsupportedInitialURL() {
+        let route = ArticleWebViewRoute(
+            articleID: UUID(),
+            url: URL(string: "mailto:hello@example.com")!
+        )
+        let state = WebViewScreenState(route: route)
+        let viewState = state.derivedViewState()
+
+        #expect(
+            viewState.phase == .failed("This article link can't be opened in the in-app browser.")
+        )
+        #expect(viewState.navigationTitle == "Article")
+        #expect(viewState.showsWebViewContent == false)
+        #expect(viewState.toolbar.shareURL == nil)
+        #expect(viewState.toolbar.isShareEnabled == false)
     }
 
     @Test

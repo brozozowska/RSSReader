@@ -27,7 +27,7 @@ struct WebViewScreenView: View {
         let viewState = controller.screenState.derivedViewState()
 
         ZStack {
-            if previewScreenState == nil {
+            if previewScreenState == nil, viewState.showsWebViewContent {
                 ArticleWebView(
                     url: viewState.initialURL,
                     onNavigationStarted: controller.handleNavigationStarted,
@@ -36,7 +36,7 @@ struct WebViewScreenView: View {
                     onNavigationFinished: controller.handleNavigationFinished,
                     onNavigationFailed: controller.handleNavigationFailed
                 )
-            } else {
+            } else if previewScreenState != nil {
                 WebViewScreenPreviewSurface(url: viewState.initialURL)
             }
 
@@ -142,11 +142,11 @@ private struct WebViewScreenFailureOverlay: View {
                 .fill(.background.opacity(0.94))
                 .ignoresSafeArea()
 
-            ContentUnavailableView(
-                "Failed to Load Page",
-                systemImage: "exclamationmark.triangle",
-                description: Text(message)
-            )
+            ContentUnavailableView {
+                Label("Failed to Load Page", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(message)
+            }
         }
         .transition(.opacity)
     }
