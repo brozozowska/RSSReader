@@ -1,59 +1,5 @@
 import SwiftUI
 
-enum ArticlesScreenNavigationState {
-    static func preferredCompactColumn(
-        sourceSelection: SidebarSelection?,
-        articleSelection: UUID?
-    ) -> NavigationSplitViewColumn {
-        if articleSelection != nil {
-            return .detail
-        }
-
-        if sourceSelection != nil {
-            return .content
-        }
-
-        return .sidebar
-    }
-
-    static func showsBackButton(
-        horizontalSizeClass: UserInterfaceSizeClass?,
-        sourceSelection: SidebarSelection?
-    ) -> Bool {
-        horizontalSizeClass == .compact && sourceSelection != nil
-    }
-
-    static func shouldNavigateBackOnDrag(
-        startLocationX: CGFloat,
-        translation: CGSize
-    ) -> Bool {
-        startLocationX <= 32
-            && translation.width >= 80
-            && abs(translation.height) <= 48
-    }
-}
-
-enum ReadingShellDetailDestination: Equatable {
-    case article(UUID?)
-    case webView(ArticleWebViewRoute)
-}
-
-enum ReadingShellNavigationState {
-    static func detailDestination(
-        route: ReadingDetailRoute,
-        selectedArticleID: UUID?
-    ) -> ReadingShellDetailDestination {
-        switch route {
-        case .none:
-            .article(selectedArticleID)
-        case .article(let articleID):
-            .article(articleID)
-        case .webView(let route):
-            .webView(route)
-        }
-    }
-}
-
 struct RootView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appDependencies) private var dependencies
@@ -61,7 +7,7 @@ struct RootView: View {
     @State private var preferredCompactColumn: NavigationSplitViewColumn = .content
 
     var body: some View {
-        let detailDestination = ReadingShellNavigationState.detailDestination(
+        let detailDestination = ReadingShellDetailNavigationState.detailDestination(
             route: appState.selectedDetailRoute,
             selectedArticleID: appState.selectedArticleID
         )
@@ -81,7 +27,7 @@ struct RootView: View {
                 selectedSidebarSelection: appState.selectedSidebarSelection,
                 selectedSourcesFilter: appState.selectedSourcesFilter,
                 reloadID: appState.articleListReloadID,
-                showsBackButton: ArticlesScreenNavigationState.showsBackButton(
+                showsBackButton: ReadingShellCompactNavigationState.showsArticlesBackButton(
                     horizontalSizeClass: horizontalSizeClass,
                     sourceSelection: appState.selectedSidebarSelection
                 ),
@@ -117,7 +63,7 @@ struct RootView: View {
     }
 
     private func syncPreferredCompactColumn() {
-        preferredCompactColumn = ArticlesScreenNavigationState.preferredCompactColumn(
+        preferredCompactColumn = ReadingShellCompactNavigationState.preferredCompactColumn(
             sourceSelection: appState.selectedSidebarSelection,
             articleSelection: appState.selectedArticleID
         )

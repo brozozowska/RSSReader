@@ -225,7 +225,7 @@ struct ArticleListView: View {
         DragGesture(minimumDistance: 20)
             .onEnded { value in
                 guard showsBackButton else { return }
-                guard ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+                guard ReadingShellCompactNavigationState.shouldNavigateBackToSourcesOnDrag(
                     startLocationX: value.startLocation.x,
                     translation: value.translation
                 ) else {

@@ -254,6 +254,14 @@
 - [x] скрывать browser actions (`share`, `refresh`, `open in external browser`) в loading/error состояниях `WebView Screen`, чтобы toolbar и `bottomBar` не предлагали действия над ещё не открытой или недоступной страницей;
 - [x] провести `cleanup` `WebViewScreenView`: выделить секции/подвью, добавить `MARK` и упростить чтение `WKWebView` bridge-слоя без изменения поведения экрана.
 
+#### Screen Shell Cleanup
+- [x] вынести shell-level navigation policy из `RootView` в отдельные screen-shell сущности: compact column routing, detail destination resolution и back-navigation rules не должны жить вперемешку с самой `View`-разметкой;
+- [ ] унифицировать compact back navigation / edge-swipe policy для `Articles Screen`, `Article Screen` и `WebView Screen`, чтобы пороги жестов, правила показа back button и contract возврата назад описывались единообразно, а не дублировались в нескольких `*NavigationState`;
+- [ ] определить единый screen composition pattern для основных экранов приложения: как соотносятся `ScreenState`, `DerivedViewState`, `Controller`, primary loading, placeholder/error presentation и toolbar visibility policy, чтобы `Articles`, `Article` и `WebView` были собраны по одной архитектурной схеме;
+- [ ] выровнять preview infrastructure основных экранов: единые `PreviewContainer` / `PreviewData` conventions, явное разделение preview-only state и runtime wiring, без расхождения между `Articles`, `Article` и `WebView` screen previews;
+- [ ] добавить shell-level previews / demo flows для сквозного просмотра основных экранов и navigation transitions, чтобы можно было проверять связность `Sidebar` → `Articles` → `Article` → `WebView` без ручного прогона приложения;
+- [ ] после унификации shell и preview conventions провести короткий consistency pass по основным экранам: проверить toolbar composition, navigation titles/subtitles, loading/empty/error copy и убрать мелкие UI-расхождения, которые останутся после архитектурного выравнивания.
+
 #### Settings Integration
 - [ ] создать `SettingsViewModel`;
 - [ ] экран настроек;

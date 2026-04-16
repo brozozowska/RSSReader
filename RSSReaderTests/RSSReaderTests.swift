@@ -1425,19 +1425,19 @@ struct RSSReaderTests {
         let articleID = UUID()
 
         #expect(
-            ReadingShellNavigationState.detailDestination(
+            ReadingShellDetailNavigationState.detailDestination(
                 route: .none,
                 selectedArticleID: nil
             ) == .article(nil)
         )
         #expect(
-            ReadingShellNavigationState.detailDestination(
+            ReadingShellDetailNavigationState.detailDestination(
                 route: .none,
                 selectedArticleID: articleID
             ) == .article(articleID)
         )
         #expect(
-            ReadingShellNavigationState.detailDestination(
+            ReadingShellDetailNavigationState.detailDestination(
                 route: .article(articleID),
                 selectedArticleID: nil
             ) == .article(articleID)
@@ -1452,7 +1452,7 @@ struct RSSReaderTests {
         )
 
         #expect(
-            ReadingShellNavigationState.detailDestination(
+            ReadingShellDetailNavigationState.detailDestination(
                 route: .webView(route),
                 selectedArticleID: route.articleID
             ) == .webView(route)
@@ -2296,21 +2296,21 @@ struct RSSReaderTests {
     }
 
     @Test
-    func articlesScreenNavigationStateSelectsPreferredCompactColumnForCurrentContext() {
+    func readingShellCompactNavigationStateSelectsPreferredCompactColumnForCurrentContext() {
         #expect(
-            ArticlesScreenNavigationState.preferredCompactColumn(
+            ReadingShellCompactNavigationState.preferredCompactColumn(
                 sourceSelection: nil,
                 articleSelection: nil
             ) == .sidebar
         )
         #expect(
-            ArticlesScreenNavigationState.preferredCompactColumn(
+            ReadingShellCompactNavigationState.preferredCompactColumn(
                 sourceSelection: .unread,
                 articleSelection: nil
             ) == .content
         )
         #expect(
-            ArticlesScreenNavigationState.preferredCompactColumn(
+            ReadingShellCompactNavigationState.preferredCompactColumn(
                 sourceSelection: .feed(UUID()),
                 articleSelection: UUID()
             ) == .detail
@@ -2318,21 +2318,21 @@ struct RSSReaderTests {
     }
 
     @Test
-    func articlesScreenNavigationStateShowsBackButtonOnlyInCompactSourceContext() {
+    func readingShellCompactNavigationStateShowsArticlesBackButtonOnlyInCompactSourceContext() {
         #expect(
-            ArticlesScreenNavigationState.showsBackButton(
+            ReadingShellCompactNavigationState.showsArticlesBackButton(
                 horizontalSizeClass: .compact,
                 sourceSelection: .starred
             )
         )
         #expect(
-            ArticlesScreenNavigationState.showsBackButton(
+            ReadingShellCompactNavigationState.showsArticlesBackButton(
                 horizontalSizeClass: .regular,
                 sourceSelection: .starred
             ) == false
         )
         #expect(
-            ArticlesScreenNavigationState.showsBackButton(
+            ReadingShellCompactNavigationState.showsArticlesBackButton(
                 horizontalSizeClass: .compact,
                 sourceSelection: nil
             ) == false
@@ -2340,27 +2340,27 @@ struct RSSReaderTests {
     }
 
     @Test
-    func articlesScreenNavigationStateRecognizesLeadingEdgeBackSwipe() {
+    func readingShellCompactNavigationStateRecognizesLeadingEdgeBackSwipeToSources() {
         #expect(
-            ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+            ReadingShellCompactNavigationState.shouldNavigateBackToSourcesOnDrag(
                 startLocationX: 12,
                 translation: CGSize(width: 96, height: 8)
             )
         )
         #expect(
-            ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+            ReadingShellCompactNavigationState.shouldNavigateBackToSourcesOnDrag(
                 startLocationX: 64,
                 translation: CGSize(width: 96, height: 8)
             ) == false
         )
         #expect(
-            ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+            ReadingShellCompactNavigationState.shouldNavigateBackToSourcesOnDrag(
                 startLocationX: 12,
                 translation: CGSize(width: 40, height: 8)
             ) == false
         )
         #expect(
-            ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+            ReadingShellCompactNavigationState.shouldNavigateBackToSourcesOnDrag(
                 startLocationX: 12,
                 translation: CGSize(width: 96, height: 72)
             ) == false
