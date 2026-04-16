@@ -8,9 +8,10 @@ enum WebViewScreenNavigationState {
         startLocationX: CGFloat,
         translation: CGSize
     ) -> Bool {
-        startLocationX <= 32
-            && translation.width >= 80
-            && abs(translation.height) <= 48
+        CompactBackNavigationPolicy.shouldNavigateBackOnDrag(
+            startLocationX: startLocationX,
+            translation: translation
+        )
     }
 }
 

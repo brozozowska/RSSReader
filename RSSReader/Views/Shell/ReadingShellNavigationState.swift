@@ -20,16 +20,20 @@ enum ReadingShellCompactNavigationState {
         horizontalSizeClass: UserInterfaceSizeClass?,
         sourceSelection: SidebarSelection?
     ) -> Bool {
-        horizontalSizeClass == .compact && sourceSelection != nil
+        CompactBackNavigationPolicy.showsBackButton(
+            horizontalSizeClass: horizontalSizeClass,
+            hasSelection: sourceSelection != nil
+        )
     }
 
     static func shouldNavigateBackToSourcesOnDrag(
         startLocationX: CGFloat,
         translation: CGSize
     ) -> Bool {
-        startLocationX <= 32
-            && translation.width >= 80
-            && abs(translation.height) <= 48
+        CompactBackNavigationPolicy.shouldNavigateBackOnDrag(
+            startLocationX: startLocationX,
+            translation: translation
+        )
     }
 }
 
