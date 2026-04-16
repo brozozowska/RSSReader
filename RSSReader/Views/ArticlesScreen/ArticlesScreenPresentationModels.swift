@@ -112,12 +112,14 @@ struct ArticlesScreenRefreshBannerState: Equatable {
 }
 
 struct ArticleRowSwipeActionsState: Equatable {
-    let canMarkAsRead: Bool
+    let readActionTitle: String
+    let readActionSystemImage: String
     let starActionTitle: String
     let starActionSystemImage: String
 
     init(article: ArticleListItemDTO) {
-        self.canMarkAsRead = article.isRead == false
+        self.readActionTitle = article.isRead ? "Unread" : "Read"
+        self.readActionSystemImage = article.isRead ? "circlebadge" : "checkmark.circle.fill"
         self.starActionTitle = article.isStarred ? "Unstar" : "Star"
         self.starActionSystemImage = article.isStarred ? "star.slash" : "star"
     }

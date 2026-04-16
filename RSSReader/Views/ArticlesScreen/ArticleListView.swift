@@ -46,7 +46,7 @@ struct ArticleListView: View {
             sections: derivedViewState.sections,
             selection: $selection,
             refreshAction: refreshCurrentSelection,
-            markAsReadAction: markArticleAsRead,
+            toggleReadStatusAction: toggleArticleReadStatus,
             toggleStarredAction: toggleStarredState
         )
         .toolbarTitleDisplayMode(.inline)
@@ -187,8 +187,8 @@ struct ArticleListView: View {
     // MARK: Row Actions
 
     @MainActor
-    private func markArticleAsRead(_ article: ArticleListItemDTO) {
-        controller.markArticleAsRead(
+    private func toggleArticleReadStatus(_ article: ArticleListItemDTO) {
+        controller.toggleArticleReadStatus(
             article,
             selection: selectedSidebarSelection,
             sourcesFilter: selectedSourcesFilter,

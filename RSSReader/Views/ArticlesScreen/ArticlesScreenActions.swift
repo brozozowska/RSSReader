@@ -53,34 +53,42 @@ extension ArticlesScreenController {
         )
     }
 
-    func markArticleAsRead(
+    func toggleArticleReadStatus(
         _ article: ArticleListItemDTO,
         selection: SidebarSelection?,
         sourcesFilter: SourcesFilter,
         dependencies: AppDependencies,
         isPreviewMode: Bool
     ) {
-        guard article.isRead == false else { return }
+        let newIsRead = article.isRead == false
 
         if isPreviewMode == false {
             guard let articleStateService = dependencies.articleStateService else {
-                dependencies.logger.error("Article state service is unavailable for mark as read action")
+                dependencies.logger.error("Article state service is unavailable for read toggle action")
                 return
             }
 
             do {
-                _ = try articleStateService.markAsRead(
-                    feedID: article.feedID,
-                    articleExternalID: article.articleExternalID,
-                    at: .now
-                )
+                if newIsRead {
+                    _ = try articleStateService.markAsRead(
+                        feedID: article.feedID,
+                        articleExternalID: article.articleExternalID,
+                        at: .now
+                    )
+                } else {
+                    _ = try articleStateService.markAsUnread(
+                        feedID: article.feedID,
+                        articleExternalID: article.articleExternalID,
+                        at: .now
+                    )
+                }
             } catch {
-                dependencies.logger.error("Failed to mark article as read: \(error)")
+                dependencies.logger.error("Failed to toggle article read status: \(error)")
                 return
             }
         }
 
-        let mutation = ArticlesScreenMutationReducer.mutationAfterMarkAsRead(
+        let mutation = ArticlesScreenMutationReducer.mutationAfterToggleReadStatus(
             article: article,
             filter: currentArticleListFilter(
                 selection: selection,

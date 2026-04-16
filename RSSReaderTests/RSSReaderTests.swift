@@ -2008,15 +2008,35 @@ struct RSSReaderTests {
     }
 
     @Test
-    func articlesScreenMutationReducerProducesRemoveMutationWhenReadActionHappensInUnreadFilter() {
+    func articlesScreenMutationReducerProducesRemoveMutationWhenReadToggleHappensInUnreadFilter() {
         let unreadArticle = makeArticleListItemDTO(isRead: false, isStarred: false)
 
-        let mutation = ArticlesScreenMutationReducer.mutationAfterMarkAsRead(
+        let mutation = ArticlesScreenMutationReducer.mutationAfterToggleReadStatus(
             article: unreadArticle,
             filter: ArticleListFilter.unread
         )
 
         #expect(mutation == .remove)
+    }
+
+    @Test
+    func articlesScreenMutationReducerProducesUnreadUpdateWhenReadArticleIsToggledBack() {
+        let readArticle = makeArticleListItemDTO(isRead: true, isStarred: false)
+
+        let mutation = ArticlesScreenMutationReducer.mutationAfterToggleReadStatus(
+            article: readArticle,
+            filter: ArticleListFilter.all
+        )
+
+        let updatedArticle: ArticleListItemDTO?
+        if case .update(let article) = mutation {
+            updatedArticle = article
+        } else {
+            updatedArticle = nil
+        }
+
+        #expect(updatedArticle?.isRead == false)
+        #expect(updatedArticle?.isStarred == false)
     }
 
     @Test
@@ -2223,11 +2243,13 @@ struct RSSReaderTests {
             article: makeArticleListItemDTO(isRead: true, isStarred: true)
         )
 
-        #expect(unreadUnstarred.canMarkAsRead)
+        #expect(unreadUnstarred.readActionTitle == "Read")
+        #expect(unreadUnstarred.readActionSystemImage == "checkmark.circle.fill")
         #expect(unreadUnstarred.starActionTitle == "Star")
         #expect(unreadUnstarred.starActionSystemImage == "star")
 
-        #expect(readStarred.canMarkAsRead == false)
+        #expect(readStarred.readActionTitle == "Unread")
+        #expect(readStarred.readActionSystemImage == "circlebadge")
         #expect(readStarred.starActionTitle == "Unstar")
         #expect(readStarred.starActionSystemImage == "star.slash")
     }

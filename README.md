@@ -261,6 +261,7 @@
 - [x] выровнять preview infrastructure основных экранов: единые `PreviewContainer` / `PreviewData` conventions, явное разделение preview-only state и runtime wiring, без расхождения между `Articles`, `Article` и `WebView` screen previews;
 - [x] перевести `Articles`, `Article` и `WebView` на системный compact back button вместо собственных toolbar-leading кнопок, чтобы navigation chrome соответствовал нативному поведению `NavigationSplitView` на iPhone и не дублировался в toolbar;
 - [x] добавить shell-level previews / demo flows для сквозного просмотра основных экранов и navigation transitions, чтобы можно было проверять связность `Sidebar` → `Articles` → `Article` → `WebView` без ручного прогона приложения;
+- [x] перевести leading swipe action строки статьи на двусторонний `read/unread` toggle в `Articles Screen`, чтобы после пометки статьи прочитанной пользователь мог сразу вернуть её в unread без перехода на другой экран;
 - [ ] после унификации shell и preview conventions провести короткий consistency pass по основным экранам: проверить toolbar composition, navigation titles/subtitles, loading/empty/error copy и убрать мелкие UI-расхождения, которые останутся после архитектурного выравнивания.
 
 #### Settings Integration

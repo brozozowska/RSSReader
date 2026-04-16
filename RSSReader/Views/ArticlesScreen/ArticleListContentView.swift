@@ -4,7 +4,7 @@ struct ArticleListContentView: View {
     let sections: [ArticlesDaySection]
     @Binding var selection: UUID?
     let refreshAction: @MainActor () async -> Void
-    let markAsReadAction: @MainActor (ArticleListItemDTO) -> Void
+    let toggleReadStatusAction: @MainActor (ArticleListItemDTO) -> Void
     let toggleStarredAction: @MainActor (ArticleListItemDTO) -> Void
 
     var body: some View {
@@ -48,16 +48,17 @@ struct ArticleListContentView: View {
     private func leadingSwipeActions(for article: ArticleListItemDTO) -> some View {
         let swipeActionsState = ArticleRowSwipeActionsState(article: article)
 
-        if swipeActionsState.canMarkAsRead {
-            Button {
-                Task {
-                    markAsReadAction(article)
-                }
-            } label: {
-                Label("Read", systemImage: "checkmark.circle.fill")
+        Button {
+            Task {
+                toggleReadStatusAction(article)
             }
-            .tint(.green)
+        } label: {
+            Label(
+                swipeActionsState.readActionTitle,
+                systemImage: swipeActionsState.readActionSystemImage
+            )
         }
+        .tint(article.isRead ? .blue : .green)
     }
 
     @ViewBuilder
