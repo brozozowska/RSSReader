@@ -30,14 +30,64 @@ struct SidebarScreenPlaceholderState: Equatable {
 }
 
 struct SidebarScreenDerivedViewState {
-    let visibleSmartItems: [SmartSidebarItem]
-    let visibleFolderRows: [FolderSectionRow]
-    let ungroupedFeeds: [FeedSidebarItem]
-    let smartCount: Int?
+    let smartRows: [SidebarSmartRowState]
+    let folderRows: [SidebarFolderSectionRowState]
+    let ungroupedFeedRows: [SidebarFeedRowState]
     let shouldDisableScrolling: Bool
     let primaryLoadingState: SidebarScreenPrimaryLoadingState?
     let placeholder: SidebarScreenPlaceholderState?
     let toolbarState: SidebarToolbarState
+}
+
+struct SidebarSmartRowState: Identifiable, Equatable {
+    let item: SmartSidebarItem
+    let count: Int?
+
+    var id: String { item.id }
+    var title: String { item.title }
+    var iconSystemName: String { item.iconSystemName }
+    var selection: SidebarSelection { item.selection }
+}
+
+struct SidebarFeedRowState: Identifiable, Equatable {
+    let id: UUID
+    let title: String
+    let iconURL: String?
+    let count: Int
+    let selection: SidebarSelection
+    let isIndented: Bool
+
+    init(feed: FeedSidebarItem, count: Int, isIndented: Bool) {
+        self.id = feed.id
+        self.title = feed.title
+        self.iconURL = feed.iconURL
+        self.count = count
+        self.selection = .feed(feed.id)
+        self.isIndented = isIndented
+    }
+}
+
+struct SidebarFolderRowState: Identifiable, Equatable {
+    let name: String
+    let count: Int
+    let isExpanded: Bool
+    let selection: SidebarSelection
+
+    var id: String { name }
+}
+
+enum SidebarFolderSectionRowState: Identifiable, Equatable {
+    case folder(SidebarFolderRowState)
+    case feed(SidebarFeedRowState)
+
+    var id: String {
+        switch self {
+        case .folder(let row):
+            "folder-\(row.id)"
+        case .feed(let row):
+            "feed-\(row.id.uuidString)"
+        }
+    }
 }
 
 enum SmartSidebarItem: CaseIterable, Identifiable, Equatable {

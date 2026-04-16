@@ -5,9 +5,20 @@ import Observation
 @Observable
 final class SidebarScreenController {
     var screenState: SidebarScreenState
+    private(set) var expandedFolderNames: Set<String>
+    let isPreviewMode: Bool
 
     init(previewScreenState: SidebarScreenState? = nil) {
         self.screenState = previewScreenState ?? SidebarScreenState()
+        self.expandedFolderNames = []
+        self.isPreviewMode = previewScreenState != nil
+    }
+
+    func viewState(filter: SourcesFilter) -> SidebarScreenDerivedViewState {
+        screenState.derivedViewState(
+            filter: filter,
+            expandedFolderNames: expandedFolderNames
+        )
     }
 
     func loadFeeds(
@@ -27,6 +38,7 @@ final class SidebarScreenController {
         do {
             let snapshot = try sourcesSidebarQueryService.fetchSnapshot()
             screenState.applyLoadedSnapshot(snapshot, refreshedAt: refreshedAt)
+            syncExpandedFolderNames(filter: filter)
             return resolvedSelection(currentSelection: currentSelection, filter: filter)
         } catch {
             dependencies.logger.error("Failed to load sidebar feeds: \(error)")
@@ -91,5 +103,17 @@ final class SidebarScreenController {
         )
 
         return Set(FolderSidebarGroup.groups(from: visibleFeeds).map(\.name))
+    }
+
+    func toggleFolderExpansion(named folderName: String) {
+        if expandedFolderNames.contains(folderName) {
+            expandedFolderNames.remove(folderName)
+        } else {
+            expandedFolderNames.insert(folderName)
+        }
+    }
+
+    func syncExpandedFolderNames(filter: SourcesFilter) {
+        expandedFolderNames = visibleFolderNames(filter: filter)
     }
 }

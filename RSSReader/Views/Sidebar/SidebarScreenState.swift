@@ -63,26 +63,52 @@ struct SidebarScreenState {
             starredFeedIDs: starredFeedIDs
         )
         let folderGroups = FolderSidebarGroup.groups(from: visibleFeeds)
-        let visibleFolderRows = folderGroups.flatMap { group in
-            var rows: [FolderSectionRow] = [.folder(group)]
+        let smartCount = SidebarCountPresentation.smartCount(
+            for: filter,
+            unreadSmartCount: unreadSmartCount,
+            starredSmartCount: starredSmartCount
+        )
+        let folderRows = folderGroups.flatMap { group in
+            var rows: [SidebarFolderSectionRowState] = [
+                .folder(
+                    SidebarFolderRowState(
+                        name: group.name,
+                        count: SidebarCountPresentation.folderCount(for: group, filter: filter),
+                        isExpanded: expandedFolderNames.contains(group.name),
+                        selection: .folder(group.name)
+                    )
+                )
+            ]
             if expandedFolderNames.contains(group.name) {
-                rows.append(contentsOf: group.feeds.map(FolderSectionRow.feed))
+                rows.append(
+                    contentsOf: group.feeds.map {
+                        .feed(
+                            SidebarFeedRowState(
+                                feed: $0,
+                                count: SidebarCountPresentation.feedCount(for: $0, filter: filter),
+                                isIndented: true
+                            )
+                        )
+                    }
+                )
             }
             return rows
         }
+        let ungroupedFeedRows = SidebarUngroupedFeeds.visibleFeeds(from: visibleFeeds).map {
+            SidebarFeedRowState(
+                feed: $0,
+                count: SidebarCountPresentation.feedCount(for: $0, filter: filter),
+                isIndented: false
+            )
+        }
 
         return SidebarScreenDerivedViewState(
-            visibleSmartItems: SmartSidebarItem.visibleItems(
+            smartRows: SmartSidebarItem.visibleItems(
                 for: filter,
                 hasFeeds: feeds.isEmpty == false
-            ),
-            visibleFolderRows: visibleFolderRows,
-            ungroupedFeeds: SidebarUngroupedFeeds.visibleFeeds(from: visibleFeeds),
-            smartCount: SidebarCountPresentation.smartCount(
-                for: filter,
-                unreadSmartCount: unreadSmartCount,
-                starredSmartCount: starredSmartCount
-            ),
+            ).map { SidebarSmartRowState(item: $0, count: smartCount) },
+            folderRows: folderRows,
+            ungroupedFeedRows: ungroupedFeedRows,
             shouldDisableScrolling: phase != .loaded,
             primaryLoadingState: primaryLoadingState,
             placeholder: placeholder,

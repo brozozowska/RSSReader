@@ -265,7 +265,7 @@
 - [x] провести короткий consistency pass по основным экранам после shell cleanup: выровнять loading copy, empty/error/no-selection presentation и названия user actions между `Sidebar` → `Articles` → `Article` → `WebView`, не меняя screen architecture и не трогая toolbar composition или navigation title/subtitle rules;
 - [x] привести `SidebarView` к тому же screen composition pattern, что и основные экраны: выделить `SidebarScreenState` / `SidebarScreenDerivedViewState` / `SidebarScreenController`, вынести loading/error/empty policy из `View` и убрать смешение runtime state c query orchestration;
 - [x] вынести preview infrastructure `SidebarView` в отдельный `SidebarPreviewData`-файл: `PreviewHost`, scenario factory, seed data и preview-only helpers не должны жить в runtime `SidebarView.swift`;
-- [ ] после декомпозиции `SidebarView` выровнять его границы с остальными экранами: `View` должна в основном рендерить готовый presentation contract, а не одновременно хранить local screen state, selection behavior, preview wiring и toolbar policy.
+- [x] после декомпозиции `SidebarView` выровнять его границы с остальными экранами: `View` должна в основном рендерить готовый presentation contract, а не одновременно хранить local screen state, selection behavior, preview wiring и toolbar policy.
 
 #### Settings Integration
 - [ ] создать `SettingsViewModel`;

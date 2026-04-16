@@ -11,46 +11,40 @@ struct SidebarView: View {
     // MARK: Configuration
 
     @Binding var selection: SidebarSelection?
-    let previewScreenState: SidebarScreenState?
 
     // MARK: View State
 
     @State private var controller: SidebarScreenController
-    @State private var expandedFolderNames = Set<String>()
 
     init(
         selection: Binding<SidebarSelection?>,
         previewScreenState: SidebarScreenState? = nil
     ) {
         _selection = selection
-        self.previewScreenState = previewScreenState
         self._controller = State(initialValue: SidebarScreenController(previewScreenState: previewScreenState))
     }
 
     // MARK: Body
 
     var body: some View {
-        let viewState = controller.screenState.derivedViewState(
-            filter: appState.selectedSourcesFilter,
-            expandedFolderNames: expandedFolderNames
-        )
+        let viewState = controller.viewState(filter: appState.selectedSourcesFilter)
 
         List(selection: $selection) {
-            if viewState.visibleSmartItems.isEmpty == false {
+            if viewState.smartRows.isEmpty == false {
                 Section {
-                    ForEach(viewState.visibleSmartItems) { item in
-                        smartRow(for: item, smartCount: viewState.smartCount)
+                    ForEach(viewState.smartRows) { row in
+                        smartRow(row)
                     }
                 } header: {
-                    if viewState.visibleSmartItems.count > 1 {
+                    if viewState.smartRows.count > 1 {
                         sectionHeader("Smart Views")
                     }
                 }
             }
 
-            if viewState.visibleFolderRows.isEmpty == false {
+            if viewState.folderRows.isEmpty == false {
                 Section {
-                    ForEach(viewState.visibleFolderRows) { row in
+                    ForEach(viewState.folderRows) { row in
                         folderSectionRow(row)
                     }
                 } header: {
@@ -58,9 +52,9 @@ struct SidebarView: View {
                 }
             }
 
-            if viewState.ungroupedFeeds.isEmpty == false {
+            if viewState.ungroupedFeedRows.isEmpty == false {
                 Section {
-                    ForEach(viewState.ungroupedFeeds) { feed in
+                    ForEach(viewState.ungroupedFeedRows) { feed in
                         feedRow(feed)
                     }
                 } header: {
@@ -86,7 +80,7 @@ struct SidebarView: View {
             }
 
             ToolbarItem(placement: .subtitle) {
-                subtitleView
+                subtitleView(toolbarState: viewState.toolbarState)
             }
 
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -98,11 +92,11 @@ struct SidebarView: View {
             overlayContent(using: viewState)
         }
         .task {
-            guard previewScreenState == nil else { return }
+            guard controller.isPreviewMode == false else { return }
             await loadFeeds(showsFullScreenLoading: true, refreshedAt: .now)
         }
         .onChange(of: appState.sourcesSidebarReloadID) { _, _ in
-            guard previewScreenState == nil else { return }
+            guard controller.isPreviewMode == false else { return }
             Task {
                 await loadFeeds(showsFullScreenLoading: false, refreshedAt: nil)
             }
@@ -128,17 +122,6 @@ struct SidebarView: View {
         }
     }
 
-    private var toolbarState: SidebarToolbarState {
-        controller.screenState.derivedViewState(
-            filter: appState.selectedSourcesFilter,
-            expandedFolderNames: expandedFolderNames
-        ).toolbarState
-    }
-
-    private var isSyncing: Bool {
-        controller.screenState.isSyncing
-    }
-
     // MARK: Status And Overlay UI
 
     private var titleView: some View {
@@ -147,7 +130,7 @@ struct SidebarView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var subtitleView: some View {
+    private func subtitleView(toolbarState: SidebarToolbarState) -> some View {
         Text(toolbarState.subtitle)
             .font(.subheadline)
             .foregroundStyle(.secondary)
@@ -225,12 +208,11 @@ struct SidebarView: View {
         )
 
         selection = adjustedSelection
-        expandedFolderNames = controller.visibleFolderNames(filter: appState.selectedSourcesFilter)
     }
 
     @MainActor
     private func refreshSources() async {
-        guard previewScreenState == nil, isSyncing == false else { return }
+        guard controller.isPreviewMode == false, controller.screenState.isSyncing == false else { return }
 
         let adjustedSelection = await controller.refreshSources(
             dependencies: dependencies,
@@ -240,59 +222,51 @@ struct SidebarView: View {
         )
 
         selection = adjustedSelection
-        expandedFolderNames = controller.visibleFolderNames(filter: appState.selectedSourcesFilter)
     }
 
-    @ViewBuilder
-    private func smartRow(for item: SmartSidebarItem, smartCount: Int?) -> some View {
+    private func smartRow(_ row: SidebarSmartRowState) -> some View {
         SidebarRow(
-            title: item.title,
-            iconSystemName: item.iconSystemName,
-            count: smartCount
+            title: row.title,
+            iconSystemName: row.iconSystemName,
+            count: row.count
         )
         .contentShape(Rectangle())
         .onTapGesture {
-            selection = item.selection
+            selection = row.selection
         }
-        .tag(Optional(item.selection))
+        .tag(Optional(row.selection))
     }
 
-    @ViewBuilder
-    private func feedRow(_ feed: FeedSidebarItem, indented: Bool = false) -> some View {
+    private func feedRow(_ row: SidebarFeedRowState) -> some View {
         HStack(spacing: 12) {
-            SourceIconView(iconURL: feed.iconURL)
+            SourceIconView(iconURL: row.iconURL)
 
-            Text(feed.title)
+            Text(row.title)
                 .lineLimit(1)
 
             Spacer()
 
-            let count = SidebarCountPresentation.feedCount(
-                for: feed,
-                filter: appState.selectedSourcesFilter
-            )
-            if count > 0 {
-                countLabel(count)
+            if row.count > 0 {
+                countLabel(row.count)
             }
         }
         .font(.body)
-        .padding(.leading, indented ? 24 : 0)
+        .padding(.leading, row.isIndented ? 24 : 0)
         .contentShape(Rectangle())
         .onTapGesture {
-            selection = .feed(feed.id)
+            selection = row.selection
         }
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
-        .tag(Optional(SidebarSelection.feed(feed.id)))
+        .tag(Optional(row.selection))
     }
 
-    @ViewBuilder
-    private func folderRow(_ group: FolderSidebarGroup) -> some View {
+    private func folderRow(_ row: SidebarFolderRowState) -> some View {
         HStack(spacing: 12) {
             Button {
-                toggleFolderExpansion(named: group.name)
+                controller.toggleFolderExpansion(named: row.name)
             } label: {
-                Image(systemName: expandedFolderNames.contains(group.name) ? "chevron.down" : "chevron.right")
+                Image(systemName: row.isExpanded ? "chevron.down" : "chevron.right")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .frame(width: 12)
@@ -300,36 +274,33 @@ struct SidebarView: View {
             .buttonStyle(.plain)
 
             Button {
-                handleFolderSelection(group)
+                dependencies.showFolder(named: row.name, using: appState)
+                selection = row.selection
             } label: {
-                Text(group.name)
+                Text(row.name)
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)
 
             Spacer()
-            let count = SidebarCountPresentation.folderCount(
-                for: group,
-                filter: appState.selectedSourcesFilter
-            )
-            if count > 0 {
-                countLabel(count)
+            if row.count > 0 {
+                countLabel(row.count)
             }
         }
         .font(.body)
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
-        .tag(Optional(SidebarSelection.folder(group.name)))
+        .tag(Optional(row.selection))
     }
 
     @ViewBuilder
-    private func folderSectionRow(_ row: FolderSectionRow) -> some View {
+    private func folderSectionRow(_ row: SidebarFolderSectionRowState) -> some View {
         switch row {
-        case .folder(let group):
-            folderRow(group)
+        case .folder(let row):
+            folderRow(row)
         case .feed(let feed):
-            feedRow(feed, indented: true)
+            feedRow(feed)
         }
     }
 
@@ -348,17 +319,6 @@ struct SidebarView: View {
             .foregroundStyle(.secondary)
     }
 
-    private func toggleFolderExpansion(named folderName: String) {
-        if expandedFolderNames.contains(folderName) {
-            expandedFolderNames.remove(folderName)
-        } else {
-            expandedFolderNames.insert(folderName)
-        }
-    }
-
-    private func handleFolderSelection(_ group: FolderSidebarGroup) {
-        dependencies.showFolder(named: group.name, using: appState)
-    }
 }
 
 private struct SidebarRow: View {
