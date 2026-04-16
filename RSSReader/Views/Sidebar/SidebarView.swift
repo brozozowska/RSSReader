@@ -11,46 +11,46 @@ struct SidebarView: View {
     // MARK: Configuration
 
     @Binding var selection: SidebarSelection?
-    private let previewOverridePhase: SidebarContentPhase?
+    let previewScreenState: SidebarScreenState?
 
     // MARK: View State
 
-    @State private var feeds: [FeedSidebarItem] = []
-    @State private var unreadSmartCount = 0
-    @State private var starredSmartCount = 0
-    @State private var starredFeedIDs = Set<UUID>()
-    @State private var phase: SidebarContentPhase = .loading
-    @State private var refreshStatus: SidebarRefreshStatus = .idle(lastUpdatedAt: nil)
+    @State private var controller: SidebarScreenController
     @State private var expandedFolderNames = Set<String>()
-    @State private var loadRequestID = UUID()
 
     init(
         selection: Binding<SidebarSelection?>,
-        previewOverridePhase: SidebarContentPhase? = nil
+        previewScreenState: SidebarScreenState? = nil
     ) {
         _selection = selection
-        self.previewOverridePhase = previewOverridePhase
+        self.previewScreenState = previewScreenState
+        self._controller = State(initialValue: SidebarScreenController(previewScreenState: previewScreenState))
     }
 
     // MARK: Body
 
     var body: some View {
+        let viewState = controller.screenState.derivedViewState(
+            filter: appState.selectedSourcesFilter,
+            expandedFolderNames: expandedFolderNames
+        )
+
         List(selection: $selection) {
-            if visibleSmartItems.isEmpty == false {
+            if viewState.visibleSmartItems.isEmpty == false {
                 Section {
-                    ForEach(visibleSmartItems) { item in
-                        smartRow(for: item)
+                    ForEach(viewState.visibleSmartItems) { item in
+                        smartRow(for: item, smartCount: viewState.smartCount)
                     }
                 } header: {
-                    if visibleSmartItems.count > 1 {
+                    if viewState.visibleSmartItems.count > 1 {
                         sectionHeader("Smart Views")
                     }
                 }
             }
 
-            if folderGroups.isEmpty == false {
+            if viewState.visibleFolderRows.isEmpty == false {
                 Section {
-                    ForEach(visibleFolderRows) { row in
+                    ForEach(viewState.visibleFolderRows) { row in
                         folderSectionRow(row)
                     }
                 } header: {
@@ -58,9 +58,9 @@ struct SidebarView: View {
                 }
             }
 
-            if ungroupedFeeds.isEmpty == false {
+            if viewState.ungroupedFeeds.isEmpty == false {
                 Section {
-                    ForEach(ungroupedFeeds) { feed in
+                    ForEach(viewState.ungroupedFeeds) { feed in
                         feedRow(feed)
                     }
                 } header: {
@@ -71,7 +71,7 @@ struct SidebarView: View {
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
         .background(Color.white)
-        .scrollDisabled(shouldDisableScrolling)
+        .scrollDisabled(viewState.shouldDisableScrolling)
         .refreshable {
             await refreshSources()
         }
@@ -95,151 +95,51 @@ struct SidebarView: View {
             }
         }
         .overlay {
-            overlayContent
+            overlayContent(using: viewState)
         }
-        .task(id: loadRequestID) {
-            guard previewOverridePhase == nil else { return }
+        .task {
+            guard previewScreenState == nil else { return }
             await loadFeeds(showsFullScreenLoading: true, refreshedAt: .now)
         }
         .onChange(of: appState.sourcesSidebarReloadID) { _, _ in
-            guard previewOverridePhase == nil else { return }
+            guard previewScreenState == nil else { return }
             Task {
                 await loadFeeds(showsFullScreenLoading: false, refreshedAt: nil)
             }
         }
         .onChange(of: appState.selectedSourcesFilter) { _, _ in
-            applySelectionBehaviorForCurrentFilter()
-        }
-    }
-
-    // MARK: Data Loading
-
-    @MainActor
-    private func loadFeeds(showsFullScreenLoading: Bool, refreshedAt: Date?) async {
-        if showsFullScreenLoading {
-            phase = .loading
-        }
-        unreadSmartCount = 0
-        starredSmartCount = 0
-        starredFeedIDs = []
-
-        guard let sourcesSidebarQueryService = dependencies.sourcesSidebarQueryService else {
-            feeds = []
-            phase = .failed("Sources are unavailable in the current app environment.")
-            return
-        }
-
-        do {
-            let snapshot = try sourcesSidebarQueryService.fetchSnapshot()
-            feeds = snapshot.feeds
-            unreadSmartCount = snapshot.unreadSmartCount
-            starredSmartCount = snapshot.starredSmartCount
-            starredFeedIDs = snapshot.starredFeedIDs
-        } catch {
-            dependencies.logger.error("Failed to load sidebar feeds: \(error)")
-            feeds = []
-            phase = .failed("Unable to load sources right now. Try again.")
-            return
-        }
-
-        expandedFolderNames = Set(folderGroups.map(\.name))
-
-        applySelectionBehaviorForCurrentFilter()
-
-        phase = feeds.isEmpty ? .empty : .loaded
-        if let refreshedAt {
-            refreshStatus = .idle(lastUpdatedAt: refreshedAt)
-        }
-    }
-
-    // MARK: Derived State
-
-    private var visibleFeeds: [FeedSidebarItem] {
-        SidebarFeedVisibility.filteredFeeds(
-            feeds: feeds,
-            filter: appState.selectedSourcesFilter,
-            starredFeedIDs: starredFeedIDs
-        )
-    }
-
-    private var folderGroups: [FolderSidebarGroup] {
-        FolderSidebarGroup.groups(from: visibleFeeds)
-    }
-
-    private var ungroupedFeeds: [FeedSidebarItem] {
-        SidebarUngroupedFeeds.visibleFeeds(from: visibleFeeds)
-    }
-
-    private var visibleSmartItems: [SmartSidebarItem] {
-        SmartSidebarItem.visibleItems(
-            for: appState.selectedSourcesFilter,
-            hasFeeds: feeds.isEmpty == false
-        )
-    }
-
-    private var visibleFolderRows: [FolderSectionRow] {
-        folderGroups.flatMap { group in
-            var rows: [FolderSectionRow] = [.folder(group)]
-            if expandedFolderNames.contains(group.name) {
-                rows.append(contentsOf: group.feeds.map(FolderSectionRow.feed))
-            }
-            return rows
-        }
-    }
-
-    private var shouldDisableScrolling: Bool {
-        switch effectivePhase {
-        case .loaded:
-            false
-        case .loading, .empty, .failed:
-            true
+            selection = controller.resolvedSelection(
+                currentSelection: selection,
+                filter: appState.selectedSourcesFilter
+            )
         }
     }
 
     @ViewBuilder
-    private var overlayContent: some View {
-        switch effectivePhase {
-        case .loaded:
-            EmptyView()
-        case .loading:
-            ScreenLoadingView(title: "Loading Sources")
-        case .empty:
+    private func overlayContent(using viewState: SidebarScreenDerivedViewState) -> some View {
+        if let primaryLoadingState = viewState.primaryLoadingState {
+            ScreenLoadingView(title: primaryLoadingState.title)
+        } else if let placeholder = viewState.placeholder {
             ScreenPlaceholderView(
-                title: "No Sources",
-                systemImage: "dot.radiowaves.left.and.right",
-                description: "Add a source to populate the Sources sidebar."
-            )
-        case .failed(let message):
-            ScreenPlaceholderView(
-                title: "Unable to Load Sources",
-                systemImage: "exclamationmark.triangle",
-                description: message
+                title: placeholder.title,
+                systemImage: placeholder.systemImage,
+                description: placeholder.description
             )
         }
     }
 
-    private var effectivePhase: SidebarContentPhase {
-        previewOverridePhase ?? phase
-    }
-
     private var toolbarState: SidebarToolbarState {
-        SidebarToolbarState(refreshStatus: refreshStatus)
+        controller.screenState.derivedViewState(
+            filter: appState.selectedSourcesFilter,
+            expandedFolderNames: expandedFolderNames
+        ).toolbarState
     }
 
     private var isSyncing: Bool {
-        toolbarState.isSyncing
+        controller.screenState.isSyncing
     }
 
     // MARK: Status And Overlay UI
-
-    private func applySelectionBehaviorForCurrentFilter() {
-        selection = SidebarSelectionBehavior.resolvedSelection(
-            currentSelection: selection,
-            filter: appState.selectedSourcesFilter,
-            visibleFeedIDs: Set(visibleFeeds.map(\.id)),
-            visibleFolderNames: Set(folderGroups.map(\.name))
-        )
-    }
 
     private var titleView: some View {
         Text("Sources")
@@ -315,22 +215,36 @@ struct SidebarView: View {
     }
 
     @MainActor
+    private func loadFeeds(showsFullScreenLoading: Bool, refreshedAt: Date?) async {
+        let adjustedSelection = await controller.loadFeeds(
+            showsFullScreenLoading: showsFullScreenLoading,
+            dependencies: dependencies,
+            currentSelection: selection,
+            filter: appState.selectedSourcesFilter,
+            refreshedAt: refreshedAt
+        )
+
+        selection = adjustedSelection
+        expandedFolderNames = controller.visibleFolderNames(filter: appState.selectedSourcesFilter)
+    }
+
+    @MainActor
     private func refreshSources() async {
-        guard previewOverridePhase == nil, isSyncing == false else { return }
+        guard previewScreenState == nil, isSyncing == false else { return }
 
-        let previousStatus = refreshStatus
-        refreshStatus = .syncing
-        let result = await dependencies.refreshVisibleSources(using: appState)
-        let refreshedAt = result?.finishedAt
-        await loadFeeds(showsFullScreenLoading: false, refreshedAt: refreshedAt)
+        let adjustedSelection = await controller.refreshSources(
+            dependencies: dependencies,
+            appState: appState,
+            currentSelection: selection,
+            filter: appState.selectedSourcesFilter
+        )
 
-        if refreshedAt == nil {
-            refreshStatus = previousStatus
-        }
+        selection = adjustedSelection
+        expandedFolderNames = controller.visibleFolderNames(filter: appState.selectedSourcesFilter)
     }
 
     @ViewBuilder
-    private func smartRow(for item: SmartSidebarItem) -> some View {
+    private func smartRow(for item: SmartSidebarItem, smartCount: Int?) -> some View {
         SidebarRow(
             title: item.title,
             iconSystemName: item.iconSystemName,
@@ -434,14 +348,6 @@ struct SidebarView: View {
             .foregroundStyle(.secondary)
     }
 
-    private var smartCount: Int? {
-        SidebarCountPresentation.smartCount(
-            for: appState.selectedSourcesFilter,
-            unreadSmartCount: unreadSmartCount,
-            starredSmartCount: starredSmartCount
-        )
-    }
-
     private func toggleFolderExpansion(named folderName: String) {
         if expandedFolderNames.contains(folderName) {
             expandedFolderNames.remove(folderName)
@@ -452,171 +358,6 @@ struct SidebarView: View {
 
     private func handleFolderSelection(_ group: FolderSidebarGroup) {
         dependencies.showFolder(named: group.name, using: appState)
-    }
-}
-
-enum SidebarContentPhase: Equatable {
-    case loading
-    case loaded
-    case empty
-    case failed(String)
-}
-
-enum SidebarRefreshStatus: Equatable {
-    case idle(lastUpdatedAt: Date?)
-    case syncing
-}
-
-enum SmartSidebarItem: CaseIterable, Identifiable {
-    case allItems
-    case unread
-    case starred
-
-    var id: String { title }
-
-    var title: String {
-        switch self {
-        case .allItems:
-            "All Items"
-        case .unread:
-            "Unread"
-        case .starred:
-            "Starred"
-        }
-    }
-
-    var iconSystemName: String {
-        switch self {
-        case .allItems:
-            "tray.full"
-        case .unread:
-            "circle"
-        case .starred:
-            "star"
-        }
-    }
-
-    var selection: SidebarSelection {
-        switch self {
-        case .allItems:
-            .inbox
-        case .unread:
-            .unread
-        case .starred:
-            .starred
-        }
-    }
-
-    static func visibleItems(for filter: SourcesFilter, hasFeeds: Bool) -> [SmartSidebarItem] {
-        guard hasFeeds else { return [] }
-
-        return switch filter {
-        case .allItems:
-            [SmartSidebarItem.allItems]
-        case .unread:
-            [SmartSidebarItem.unread]
-        case .starred:
-            [SmartSidebarItem.starred]
-        }
-    }
-
-    static func selection(for filter: SourcesFilter) -> SidebarSelection {
-        switch filter {
-        case .allItems:
-            .inbox
-        case .unread:
-            .unread
-        case .starred:
-            .starred
-        }
-    }
-}
-
-enum SidebarFeedVisibility {
-    static func filteredFeeds(
-        feeds: [FeedSidebarItem],
-        filter: SourcesFilter,
-        starredFeedIDs: Set<UUID>
-    ) -> [FeedSidebarItem] {
-        switch filter {
-        case .starred:
-            feeds.filter { starredFeedIDs.contains($0.id) }
-        case .unread:
-            feeds.filter { $0.unreadCount > 0 }
-        case .allItems:
-            feeds
-        }
-    }
-}
-
-enum SidebarUngroupedFeeds {
-    static func visibleFeeds(from feeds: [FeedSidebarItem]) -> [FeedSidebarItem] {
-        feeds
-            .filter { $0.folderName == nil }
-            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-    }
-}
-
-enum SidebarSelectionBehavior {
-    static func resolvedSelection(
-        currentSelection: SidebarSelection?,
-        filter: SourcesFilter,
-        visibleFeedIDs: Set<UUID>,
-        visibleFolderNames: Set<String>
-    ) -> SidebarSelection? {
-        let fallbackSelection = SmartSidebarItem.selection(for: filter)
-
-        guard let currentSelection else {
-            return nil
-        }
-
-        switch currentSelection {
-        case .feed(let feedID):
-            return visibleFeedIDs.contains(feedID) ? currentSelection : fallbackSelection
-        case .folder(let folderName):
-            return visibleFolderNames.contains(folderName) ? currentSelection : fallbackSelection
-        case .inbox, .unread, .starred:
-            return currentSelection == fallbackSelection ? currentSelection : fallbackSelection
-        }
-    }
-}
-
-struct FolderSidebarGroup: Identifiable {
-    let name: String
-    let feeds: [FeedSidebarItem]
-
-    var id: String { name }
-    var unreadCount: Int { feeds.reduce(0) { $0 + $1.unreadCount } }
-    var starredCount: Int { feeds.reduce(0) { $0 + $1.starredCount } }
-
-    static func groups(from feeds: [FeedSidebarItem]) -> [FolderSidebarGroup] {
-        let groupedFeeds = Dictionary(
-            grouping: feeds.filter { $0.folderName != nil },
-            by: { $0.folderName ?? "" }
-        )
-
-        let groups = groupedFeeds.map { name, feeds in
-            FolderSidebarGroup(
-                name: name,
-                feeds: feeds.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-            )
-        }
-
-        return groups.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-    }
-}
-
-private enum FolderSectionRow: Identifiable {
-    case folder(FolderSidebarGroup)
-    case feed(FeedSidebarItem)
-
-    var id: String {
-        switch self {
-        case .folder(let group):
-            "folder-\(group.id)"
-        case .feed(let feed):
-            "feed-\(feed.id.uuidString)"
-        }
     }
 }
 
@@ -743,16 +484,20 @@ private struct SourceIconView: View {
 
 private struct SidebarPreviewHost: View {
     let dependencies: AppDependencies
-    let previewOverridePhase: SidebarContentPhase?
+    let previewScreenState: SidebarScreenState
     @State var selection: SidebarSelection?
 
     init(
-        dependencies: AppDependencies,
+        scenario: SidebarPreviewScenario,
         selection: SidebarSelection?,
-        previewOverridePhase: SidebarContentPhase? = nil
+        previewPhase: SidebarContentPhase? = nil
     ) {
+        let dependencies = SidebarPreviewFactory.makeDependencies(for: scenario)
         self.dependencies = dependencies
-        self.previewOverridePhase = previewOverridePhase
+        self.previewScreenState = SidebarPreviewFactory.makeScreenState(
+            dependencies: dependencies,
+            previewPhase: previewPhase
+        )
         _selection = State(initialValue: selection)
     }
 
@@ -760,7 +505,7 @@ private struct SidebarPreviewHost: View {
         NavigationStack {
             SidebarView(
                 selection: $selection,
-                previewOverridePhase: previewOverridePhase
+                previewScreenState: previewScreenState
             )
         }
         .environment(\.appDependencies, dependencies)
@@ -793,6 +538,36 @@ private enum SidebarPreviewFactory {
             logger: ConsoleLogger(),
             modelContainer: container
         )
+    }
+
+    @MainActor
+    static func makeScreenState(
+        dependencies: AppDependencies,
+        previewPhase: SidebarContentPhase?
+    ) -> SidebarScreenState {
+        if let previewPhase {
+            switch previewPhase {
+            case .loading:
+                return .previewLoading()
+            case .failed(let message):
+                return .previewFailed(message: message)
+            case .loaded, .empty:
+                break
+            }
+        }
+
+        guard let sourcesSidebarQueryService = dependencies.sourcesSidebarQueryService else {
+            return .previewFailed(message: "Sources are unavailable in the current app environment.")
+        }
+
+        let snapshot = (try? sourcesSidebarQueryService.fetchSnapshot()) ?? SourcesSidebarSnapshotDTO(
+            feeds: [],
+            unreadSmartCount: 0,
+            starredSmartCount: 0,
+            starredFeedIDs: []
+        )
+
+        return .previewLoaded(snapshot: snapshot)
     }
 
     @MainActor
@@ -971,37 +746,37 @@ private extension View {
 
 #Preview("Loading Sources") {
     SidebarPreviewHost(
-        dependencies: SidebarPreviewFactory.makeDependencies(for: .empty),
+        scenario: .empty,
         selection: .inbox,
-        previewOverridePhase: .loading
+        previewPhase: .loading
     )
 }
 
 #Preview("Empty Sources") {
     SidebarPreviewHost(
-        dependencies: SidebarPreviewFactory.makeDependencies(for: .empty),
+        scenario: .empty,
         selection: .inbox
     )
 }
 
 #Preview("Error Sources") {
     SidebarPreviewHost(
-        dependencies: SidebarPreviewFactory.makeDependencies(for: .empty),
+        scenario: .empty,
         selection: .inbox,
-        previewOverridePhase: .failed("Unable to load sources right now. Try again.")
+        previewPhase: .failed("Unable to load sources right now. Try again.")
     )
 }
 
 #Preview("Two Sources") {
     SidebarPreviewHost(
-        dependencies: SidebarPreviewFactory.makeDependencies(for: .twoSources),
+        scenario: .twoSources,
         selection: .unread
     )
 }
 
 #Preview("Folders And Ungrouped") {
     SidebarPreviewHost(
-        dependencies: SidebarPreviewFactory.makeDependencies(for: .foldersAndUngrouped),
+        scenario: .foldersAndUngrouped,
         selection: .feed(SidebarPreviewFactory.SampleIDs.vergeFeedID)
     )
 }

@@ -914,6 +914,57 @@ struct RSSReaderTests {
     }
 
     @Test
+    func sidebarScreenStateExposesPrimaryLoadingStateThroughDerivedViewState() {
+        let state = SidebarScreenState()
+
+        let viewState = state.derivedViewState(
+            filter: .allItems,
+            expandedFolderNames: []
+        )
+
+        #expect(state.phase == .loading)
+        #expect(viewState.primaryLoadingState?.title == "Loading Sources")
+        #expect(viewState.placeholder == nil)
+        #expect(viewState.shouldDisableScrolling)
+    }
+
+    @Test
+    func sidebarScreenStateBuildsLoadedDerivedViewStateFromSnapshot() {
+        let feed = Feed(
+            id: UUID(),
+            url: "https://www.theverge.com/rss/index.xml",
+            title: "The Verge",
+            folder: Folder(name: "Tech")
+        )
+        let feedSidebarItem = FeedSidebarItem(
+            feed: feed,
+            unreadCount: 2,
+            starredCount: 1
+        )
+        let snapshot = SourcesSidebarSnapshotDTO(
+            feeds: [feedSidebarItem],
+            unreadSmartCount: 2,
+            starredSmartCount: 1,
+            starredFeedIDs: [feed.id]
+        )
+        let state = SidebarScreenState.previewLoaded(snapshot: snapshot)
+
+        let viewState = state.derivedViewState(
+            filter: .allItems,
+            expandedFolderNames: ["Tech"]
+        )
+
+        #expect(state.phase == .loaded)
+        #expect(viewState.primaryLoadingState == nil)
+        #expect(viewState.placeholder == nil)
+        #expect(viewState.visibleSmartItems == [.allItems])
+        #expect(viewState.visibleFolderRows.count == 2)
+        #expect(viewState.ungroupedFeeds.isEmpty)
+        #expect(viewState.smartCount == 2)
+        #expect(viewState.shouldDisableScrolling == false)
+    }
+
+    @Test
     func articleScreenStateStartsWithNoSelectionPlaceholder() {
         let state = ArticleScreenState()
         let viewState = state.derivedViewState()
