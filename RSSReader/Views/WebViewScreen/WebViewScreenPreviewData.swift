@@ -1,5 +1,7 @@
 import SwiftUI
 
+// MARK: - State Previews
+
 #Preview("Loading") {
     WebViewScreenPreviewContainer(
         screenState: .previewLoading(
@@ -10,21 +12,21 @@ import SwiftUI
 }
 
 #Preview("Loaded") {
-    NavigationStack {
-        WebViewScreenView(
-            route: WebViewScreenPreviewData.route,
-            closeWebView: {}
-        )
-    }
-}
-
-#Preview("Loaded State") {
     WebViewScreenPreviewContainer(
         screenState: .previewLoaded(
             route: WebViewScreenPreviewData.route,
             title: "Example Article"
         )
     )
+}
+
+#Preview("Live Page") {
+    NavigationStack {
+        WebViewScreenView(
+            route: WebViewScreenPreviewData.route,
+            closeWebView: {}
+        )
+    }
 }
 
 #Preview("Failed") {
@@ -36,6 +38,8 @@ import SwiftUI
         )
     )
 }
+
+// MARK: - Preview Container
 
 private struct WebViewScreenPreviewContainer: View {
     let screenState: WebViewScreenState
@@ -50,6 +54,8 @@ private struct WebViewScreenPreviewContainer: View {
         }
     }
 }
+
+// MARK: - Preview Data
 
 private enum WebViewScreenPreviewData {
     static let route = ArticleWebViewRoute(

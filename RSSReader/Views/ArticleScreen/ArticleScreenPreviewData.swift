@@ -1,5 +1,7 @@
 import SwiftUI
 
+// MARK: - State Previews
+
 #Preview("No Selection") {
     ArticleScreenPreviewContainer(screenState: ArticleScreenState())
 }
@@ -38,6 +40,8 @@ import SwiftUI
     )
 }
 
+// MARK: - Preview Container
+
 private struct ArticleScreenPreviewContainer: View {
     let screenState: ArticleScreenState
 
@@ -54,6 +58,8 @@ private struct ArticleScreenPreviewContainer: View {
         }
     }
 }
+
+// MARK: - Preview Data
 
 private enum ArticleScreenPreviewData {
     static var longTitleArticle: ReaderArticleDTO {
