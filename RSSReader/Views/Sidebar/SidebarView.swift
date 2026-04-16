@@ -359,6 +359,10 @@ struct SidebarView: View {
             iconSystemName: item.iconSystemName,
             count: smartCount
         )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            selection = item.selection
+        }
         .tag(Optional(item.selection))
     }
 
@@ -382,6 +386,10 @@ struct SidebarView: View {
         }
         .font(.body)
         .padding(.leading, indented ? 24 : 0)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            selection = .feed(feed.id)
+        }
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
         .tag(Optional(SidebarSelection.feed(feed.id)))
@@ -578,11 +586,11 @@ enum SidebarSelectionBehavior {
         filter: SourcesFilter,
         visibleFeedIDs: Set<UUID>,
         visibleFolderNames: Set<String>
-    ) -> SidebarSelection {
+    ) -> SidebarSelection? {
         let fallbackSelection = SmartSidebarItem.selection(for: filter)
 
         guard let currentSelection else {
-            return fallbackSelection
+            return nil
         }
 
         switch currentSelection {

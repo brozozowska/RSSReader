@@ -4,7 +4,7 @@ struct RootView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appDependencies) private var dependencies
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var preferredCompactColumn: NavigationSplitViewColumn = .content
+    @State private var preferredCompactColumn: NavigationSplitViewColumn = .sidebar
 
     var body: some View {
         let detailDestination = ReadingShellDetailNavigationState.detailDestination(
@@ -37,6 +37,16 @@ struct RootView: View {
             )
         } detail: {
             switch detailDestination {
+            case .none:
+                if horizontalSizeClass == .compact {
+                    EmptyView()
+                } else {
+                    ReaderView(
+                        articleID: nil,
+                        showsBackButton: false,
+                        navigateBackToArticles: {}
+                    )
+                }
             case .article(let articleID):
                 ReaderView(
                     articleID: articleID,
@@ -68,9 +78,4 @@ struct RootView: View {
             articleSelection: appState.selectedArticleID
         )
     }
-}
-
-#Preview {
-    RootView()
-        .environment(AppState())
 }

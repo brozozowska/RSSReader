@@ -5,6 +5,7 @@ import SwiftUI
 struct ArticleListView: View {
     @Environment(\.appDependencies) private var dependencies
     @Environment(AppState.self) private var appState
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     let selectedSidebarSelection: SidebarSelection?
     let selectedSourcesFilter: SourcesFilter
@@ -142,6 +143,9 @@ struct ArticleListView: View {
     private func stabilizedSelection(availableArticleIDs: [UUID]) -> UUID? {
         if let selection, availableArticleIDs.contains(selection) {
             return selection
+        }
+        guard horizontalSizeClass != .compact else {
+            return nil
         }
         return availableArticleIDs.first
     }

@@ -1438,14 +1438,14 @@ struct RSSReaderTests {
     }
 
     @Test
-    func readingShellNavigationStateBuildsArticleDestinationForNoneAndArticleRoutes() {
+    func readingShellNavigationStateBuildsDetailDestinationsForNoneAndArticleRoutes() {
         let articleID = UUID()
 
         #expect(
             ReadingShellDetailNavigationState.detailDestination(
                 route: .none,
                 selectedArticleID: nil
-            ) == .article(nil)
+            ) == .none
         )
         #expect(
             ReadingShellDetailNavigationState.detailDestination(
@@ -2730,7 +2730,7 @@ struct RSSReaderTests {
     }
 
     @Test
-    func sourcesSelectionBehaviorUsesActiveSmartRowWhenThereIsNoCurrentSelection() {
+    func sourcesSelectionBehaviorKeepsNoSelectionWhenThereIsNoCurrentSelection() {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: nil,
             filter: .allItems,
@@ -2738,7 +2738,7 @@ struct RSSReaderTests {
             visibleFolderNames: []
         )
 
-        #expect(selection == .inbox)
+        #expect(selection == nil)
     }
 
     @Test
