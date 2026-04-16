@@ -56,15 +56,6 @@ struct ArticleListView: View {
         )
         .searchToolbarBehavior(.automatic)
         .toolbar {
-            if showsBackButton {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: navigateBackToSources) {
-                        Image(systemName: "chevron.left")
-                    }
-                    .accessibilityLabel("Back to Sources")
-                }
-            }
-
             ToolbarItem(placement: .title) {
                 titleView(for: controller.screenState)
             }

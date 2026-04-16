@@ -54,7 +54,6 @@ struct WebViewScreenView: View {
         .toolbarTitleDisplayMode(.inline)
         .navigationTitle(viewState.navigationTitle)
         .toolbar {
-            topBarLeadingItem
             topBarTrailingItem(viewState)
             bottomBarItems(viewState)
         }
@@ -91,16 +90,6 @@ struct WebViewScreenView: View {
     }
 
     // MARK: Toolbar
-
-    @ToolbarContentBuilder
-    private var topBarLeadingItem: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
-            Button(action: closeWebView) {
-                Image(systemName: "xmark")
-            }
-            .accessibilityLabel("Close Web View")
-        }
-    }
 
     @ToolbarContentBuilder
     private func topBarTrailingItem(_ viewState: WebViewScreenDerivedViewState) -> some ToolbarContent {

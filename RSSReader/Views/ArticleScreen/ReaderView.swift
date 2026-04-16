@@ -70,15 +70,6 @@ struct ReaderView: View {
         .toolbarTitleDisplayMode(.inline)
         .navigationTitle("")
         .toolbar {
-            if showsBackButton {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: navigateBackToArticles) {
-                        Image(systemName: "chevron.left")
-                    }
-                    .accessibilityLabel("Back to Articles")
-                }
-            }
-
             if viewState.toolbarActions.showsShareAction {
                 ToolbarItem(placement: .topBarTrailing) {
                     if let shareURL = viewState.toolbarActions.shareURL {
