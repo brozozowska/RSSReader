@@ -76,17 +76,17 @@ struct WebViewScreenView: View {
                 onNavigationFinished: controller.handleNavigationFinished,
                 onNavigationFailed: controller.handleNavigationFailed
             )
-        } else if viewState.phase == .loaded {
+        } else if viewState.primaryLoadingState == nil, viewState.placeholder == nil {
             WebViewScreenPreviewSurface(url: viewState.initialURL)
         }
     }
 
     @ViewBuilder
     private func overlaySurface(_ viewState: WebViewScreenDerivedViewState) -> some View {
-        if viewState.phase == .initialLoading {
-            WebViewScreenPrimaryLoadingView()
-        } else if case .failed(let message) = viewState.phase {
-            WebViewScreenFailureOverlay(message: message)
+        if let primaryLoadingState = viewState.primaryLoadingState {
+            WebViewScreenPrimaryLoadingView(state: primaryLoadingState)
+        } else if let placeholder = viewState.placeholder {
+            WebViewScreenFailureOverlay(placeholder: placeholder)
         }
     }
 
@@ -250,14 +250,16 @@ private struct WebViewScreenPreviewSurface: View {
 // MARK: - Screen State Overlays
 
 private struct WebViewScreenPrimaryLoadingView: View {
+    let state: WebViewScreenPrimaryLoadingState
+
     var body: some View {
-        ProgressView("Loading Page")
+        ProgressView(state.title)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
 private struct WebViewScreenFailureOverlay: View {
-    let message: String
+    let placeholder: WebViewScreenPlaceholderState
 
     var body: some View {
         ZStack {
@@ -266,9 +268,11 @@ private struct WebViewScreenFailureOverlay: View {
                 .ignoresSafeArea()
 
             ContentUnavailableView {
-                Label("Failed to Load Page", systemImage: "exclamationmark.triangle")
+                Label(placeholder.title, systemImage: placeholder.systemImage)
             } description: {
-                Text(message)
+                if let description = placeholder.description {
+                    Text(description)
+                }
             }
         }
         .transition(.opacity)

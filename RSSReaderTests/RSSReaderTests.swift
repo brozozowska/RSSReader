@@ -916,11 +916,27 @@ struct RSSReaderTests {
     @Test
     func articleScreenStateStartsWithNoSelectionPlaceholder() {
         let state = ArticleScreenState()
+        let viewState = state.derivedViewState()
 
         #expect(state.phase == .noSelection)
-        #expect(state.placeholder?.title == "No Article Selected")
-        #expect(state.toolbarActions.showsShareAction == false)
-        #expect(state.toolbarActions.showsBottomActions == false)
+        #expect(viewState.primaryLoadingState == nil)
+        #expect(viewState.placeholder?.title == "No Article Selected")
+        #expect(viewState.toolbarActions.showsShareAction == false)
+        #expect(viewState.toolbarActions.showsBottomActions == false)
+    }
+
+    @Test
+    func articleScreenStateExposesPrimaryLoadingStateThroughDerivedViewState() {
+        var state = ArticleScreenState()
+
+        state.beginLoading(articleID: UUID())
+
+        let viewState = state.derivedViewState()
+
+        #expect(state.phase == .loading)
+        #expect(viewState.primaryLoadingState?.title == "Loading Article")
+        #expect(viewState.content == nil)
+        #expect(viewState.placeholder == nil)
     }
 
     @Test
@@ -937,6 +953,7 @@ struct RSSReaderTests {
         let viewState = state.derivedViewState()
 
         #expect(state.phase == .loaded)
+        #expect(viewState.primaryLoadingState == nil)
         #expect(viewState.content?.header.title == article.title)
         #expect(viewState.content?.header.feedTitle == article.feedTitle)
         #expect(viewState.content?.header.author == article.author)
@@ -1500,7 +1517,8 @@ struct RSSReaderTests {
 
         #expect(viewState.initialURL == route.url)
         #expect(viewState.navigationTitle == "example.com")
-        #expect(viewState.phase == .initialLoading)
+        #expect(viewState.primaryLoadingState?.title == "Loading Page")
+        #expect(viewState.placeholder == nil)
         #expect(viewState.loadingProgress == 0)
         #expect(viewState.reloadRevision == 0)
         #expect(viewState.showsWebViewContent)
@@ -1526,7 +1544,8 @@ struct RSSReaderTests {
         state.applyPageTitle("Loaded Article")
 
         var viewState = state.derivedViewState()
-        #expect(viewState.phase == .initialLoading)
+        #expect(viewState.primaryLoadingState?.title == "Loading Page")
+        #expect(viewState.placeholder == nil)
         #expect(viewState.loadingProgress == 0.42)
         #expect(viewState.navigationTitle == "Loaded Article")
         #expect(viewState.showsShareAction == false)
@@ -1534,14 +1553,17 @@ struct RSSReaderTests {
 
         state.applyNavigationFinished()
         viewState = state.derivedViewState()
-        #expect(viewState.phase == .loaded)
+        #expect(viewState.primaryLoadingState == nil)
+        #expect(viewState.placeholder == nil)
         #expect(viewState.loadingProgress == 1)
         #expect(viewState.showsShareAction)
         #expect(viewState.showsBottomActions)
 
         state.applyNavigationFailure("The page could not be loaded.")
         viewState = state.derivedViewState()
-        #expect(viewState.phase == .failed("The page could not be loaded."))
+        #expect(viewState.primaryLoadingState == nil)
+        #expect(viewState.placeholder?.title == "Failed to Load Page")
+        #expect(viewState.placeholder?.description == "The page could not be loaded.")
         #expect(viewState.showsWebViewContent == false)
         #expect(viewState.showsShareAction == false)
         #expect(viewState.showsBottomActions == false)
@@ -1605,8 +1627,11 @@ struct RSSReaderTests {
         let state = WebViewScreenState(route: route)
         let viewState = state.derivedViewState()
 
+        #expect(viewState.primaryLoadingState == nil)
+        #expect(viewState.placeholder?.title == "Failed to Load Page")
         #expect(
-            viewState.phase == .failed("This article link can't be opened in the in-app browser.")
+            viewState.placeholder?.description
+                == "This article link can't be opened in the in-app browser."
         )
         #expect(viewState.navigationTitle == "Article")
         #expect(viewState.showsWebViewContent == false)

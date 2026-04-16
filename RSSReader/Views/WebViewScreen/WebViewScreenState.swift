@@ -68,12 +68,13 @@ struct WebViewScreenState {
         return WebViewScreenDerivedViewState(
             initialURL: route.url,
             navigationTitle: pageTitle ?? currentPageURL?.host ?? route.url.host ?? "Article",
-            phase: phase,
             loadingProgress: loadingProgress,
             reloadRevision: reloadRevision,
             showsWebViewContent: route.url.isSupportedArticleWebViewURL && !phase.isFailed,
             showsShareAction: showsBrowserActions,
             showsBottomActions: showsBrowserActions,
+            primaryLoadingState: primaryLoadingState,
+            placeholder: placeholder,
             toolbar: toolbar,
             bottomActions: bottomActions
         )
@@ -87,6 +88,26 @@ private extension WebViewScreenState {
             pageURL: currentPageURL,
             canRefreshPage: route.url.isSupportedArticleWebViewURL,
             canOpenExternalBrowserURL: currentPageURL != nil
+        )
+    }
+
+    var primaryLoadingState: WebViewScreenPrimaryLoadingState? {
+        guard phase == .initialLoading else {
+            return nil
+        }
+
+        return WebViewScreenPrimaryLoadingState(title: "Loading Page")
+    }
+
+    var placeholder: WebViewScreenPlaceholderState? {
+        guard case .failed(let message) = phase else {
+            return nil
+        }
+
+        return WebViewScreenPlaceholderState(
+            title: "Failed to Load Page",
+            systemImage: "exclamationmark.triangle",
+            description: message
         )
     }
 }

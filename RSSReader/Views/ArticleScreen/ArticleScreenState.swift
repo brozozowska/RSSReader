@@ -91,6 +91,7 @@ struct ArticleScreenState {
 
     func derivedViewState() -> ArticleScreenDerivedViewState {
         ArticleScreenDerivedViewState(
+            primaryLoadingState: primaryLoadingState,
             placeholder: placeholder,
             content: article.map(ArticleScreenContentState.init(article:)),
             toolbarActions: toolbarActions
@@ -99,6 +100,14 @@ struct ArticleScreenState {
 
     private mutating func updateToolbarActions() {
         toolbarActions = ArticleScreenToolbarActionsState(article: article)
+    }
+
+    private var primaryLoadingState: ArticleScreenPrimaryLoadingState? {
+        guard showsPrimaryLoadingIndicator else {
+            return nil
+        }
+
+        return ArticleScreenPrimaryLoadingState(title: "Loading Article")
     }
 }
 

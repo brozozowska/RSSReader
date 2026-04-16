@@ -135,7 +135,13 @@ struct ArticleScreenToolbarActionsState: Equatable {
 }
 
 @MainActor
+struct ArticleScreenPrimaryLoadingState: Equatable {
+    let title: String
+}
+
+@MainActor
 struct ArticleScreenDerivedViewState: Equatable {
+    let primaryLoadingState: ArticleScreenPrimaryLoadingState?
     let placeholder: ArticleScreenPlaceholderState?
     let content: ArticleScreenContentState?
     let toolbarActions: ArticleScreenToolbarActionsState

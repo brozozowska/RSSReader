@@ -57,8 +57,8 @@ struct ReaderView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
                 }
-            } else if controller.screenState.showsPrimaryLoadingIndicator {
-                ProgressView("Loading Article")
+            } else if let primaryLoadingState = viewState.primaryLoadingState {
+                ProgressView(primaryLoadingState.title)
             } else if let placeholder = viewState.placeholder {
                 ContentUnavailableView(
                     placeholder.title,

@@ -36,15 +36,28 @@ struct WebViewScreenBottomActionsState: Equatable {
 }
 
 @MainActor
+struct WebViewScreenPrimaryLoadingState: Equatable {
+    let title: String
+}
+
+@MainActor
+struct WebViewScreenPlaceholderState: Equatable {
+    let title: String
+    let systemImage: String
+    let description: String?
+}
+
+@MainActor
 struct WebViewScreenDerivedViewState: Equatable {
     let initialURL: URL
     let navigationTitle: String
-    let phase: WebViewScreenPhase
     let loadingProgress: Double
     let reloadRevision: Int
     let showsWebViewContent: Bool
     let showsShareAction: Bool
     let showsBottomActions: Bool
+    let primaryLoadingState: WebViewScreenPrimaryLoadingState?
+    let placeholder: WebViewScreenPlaceholderState?
     let toolbar: WebViewScreenToolbarState
     let bottomActions: WebViewScreenBottomActionsState
 }
