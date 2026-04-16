@@ -50,12 +50,10 @@ struct ArticleListView: View {
             toggleStarredAction: toggleStarredState
         )
         .toolbarTitleDisplayMode(.inline)
-        .searchable(
-            text: $searchText,
-            placement: .toolbar,
-            prompt: "Search Articles"
+        .applySearchableToolbar(
+            isEnabled: derivedViewState.toolbarActions.showsSearchAction,
+            text: $searchText
         )
-        .searchToolbarBehavior(.automatic)
         .toolbar {
             ToolbarItem(placement: .title) {
                 titleView(for: controller.screenState)
@@ -254,47 +252,26 @@ struct ArticleListView: View {
     @ViewBuilder
     private func overlayContent(using derivedViewState: ArticlesScreenDerivedViewState) -> some View {
         if let loadingState = derivedViewState.primaryLoadingState {
-            primaryLoadingOverlay(loadingState)
+            ScreenLoadingView(title: loadingState.title)
         } else if let placeholder = derivedViewState.searchPlaceholder {
-            ContentUnavailableView(
-                placeholder.title,
+            ScreenPlaceholderView(
+                title: placeholder.title,
                 systemImage: placeholder.systemImage,
-                description: placeholder.description.map(Text.init)
+                description: placeholder.description
             )
         } else if let primaryFailureMessage = controller.screenState.primaryFailureMessage {
-            ContentUnavailableView {
-                Label("Unable to Load Articles", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(primaryFailureMessage)
-            } actions: {
-                Button("Retry") {
-                    retryPrimaryLoad()
-                }
-            }
+            ScreenPlaceholderView(
+                title: "Unable to Load Articles",
+                systemImage: "exclamationmark.triangle",
+                description: primaryFailureMessage
+            )
         } else if let placeholder = controller.screenState.placeholder {
-            ContentUnavailableView(
-                placeholder.title,
+            ScreenPlaceholderView(
+                title: placeholder.title,
                 systemImage: placeholder.systemImage,
-                description: placeholder.description.map(Text.init)
+                description: placeholder.description
             )
         }
-    }
-
-    private func primaryLoadingOverlay(_ loadingState: ArticlesScreenPrimaryLoadingState) -> some View {
-        VStack(spacing: 12) {
-            ProgressView()
-                .controlSize(.regular)
-
-            Text(loadingState.title)
-                .font(.headline)
-
-            Text(loadingState.description)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func retryPrimaryLoad() {
@@ -318,6 +295,31 @@ struct ArticleListView: View {
     @MainActor
     private func dismissRefreshFeedback() {
         controller.screenState.dismissRefreshFeedback()
+    }
+}
+
+private struct ArticleListSearchToolbarModifier: ViewModifier {
+    let isEnabled: Bool
+    @Binding var text: String
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content
+                .searchable(
+                    text: $text,
+                    placement: .toolbar,
+                    prompt: "Search Articles"
+                )
+                .searchToolbarBehavior(.automatic)
+        } else {
+            content
+        }
+    }
+}
+
+private extension View {
+    func applySearchableToolbar(isEnabled: Bool, text: Binding<String>) -> some View {
+        modifier(ArticleListSearchToolbarModifier(isEnabled: isEnabled, text: text))
     }
 }
 

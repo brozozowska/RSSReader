@@ -103,9 +103,9 @@ struct ArticleScreenBottomActionsState: Equatable {
 
     init(article: ReaderArticleDTO) {
         self.readToggleTitle = article.isRead ? "Mark Unread" : "Mark Read"
-        self.readToggleSystemImage = article.isRead ? "circle" : "circle.fill"
-        self.starTitle = "Star"
-        self.starSystemImage = article.isStarred ? "star.fill" : "star"
+        self.readToggleSystemImage = article.isRead ? "circle.slash" : "circle"
+        self.starTitle = article.isStarred ? "Unstar" : "Star"
+        self.starSystemImage = article.isStarred ? "star.slash" : "star"
         self.openInAppBrowserTitle = "Open in App-Browser"
         self.openInAppBrowserSystemImage = "safari"
         self.canOpenInAppBrowser = ArticleScreenURLResolver.resolveExternalURL(

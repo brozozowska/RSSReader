@@ -58,12 +58,12 @@ struct ReaderView: View {
                     .padding()
                 }
             } else if let primaryLoadingState = viewState.primaryLoadingState {
-                ProgressView(primaryLoadingState.title)
+                ScreenLoadingView(title: primaryLoadingState.title)
             } else if let placeholder = viewState.placeholder {
-                ContentUnavailableView(
-                    placeholder.title,
+                ScreenPlaceholderView(
+                    title: placeholder.title,
                     systemImage: placeholder.systemImage,
-                    description: placeholder.description.map(Text.init)
+                    description: placeholder.description
                 )
             }
         }

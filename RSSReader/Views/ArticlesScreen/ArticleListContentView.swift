@@ -58,7 +58,7 @@ struct ArticleListContentView: View {
                 systemImage: swipeActionsState.readActionSystemImage
             )
         }
-        .tint(article.isRead ? .blue : .green)
+        .tint(.primary)
     }
 
     @ViewBuilder
@@ -72,6 +72,6 @@ struct ArticleListContentView: View {
         } label: {
             Label(swipeActionsState.starActionTitle, systemImage: swipeActionsState.starActionSystemImage)
         }
-        .tint(.yellow)
+        .tint(.primary)
     }
 }

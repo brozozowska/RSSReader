@@ -202,23 +202,19 @@ struct SidebarView: View {
         case .loaded:
             EmptyView()
         case .loading:
-            loadingOverlay
+            ScreenLoadingView(title: "Loading Sources")
         case .empty:
-            ContentUnavailableView(
-                "No Sources",
+            ScreenPlaceholderView(
+                title: "No Sources",
                 systemImage: "dot.radiowaves.left.and.right",
-                description: Text("Add a source to populate the Sources sidebar.")
+                description: "Add a source to populate the Sources sidebar."
             )
         case .failed(let message):
-            ContentUnavailableView {
-                Label("Unable to Load Sources", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(message)
-            } actions: {
-                Button("Retry") {
-                    retryLoad()
-                }
-            }
+            ScreenPlaceholderView(
+                title: "Unable to Load Sources",
+                systemImage: "exclamationmark.triangle",
+                description: message
+            )
         }
     }
 
@@ -235,25 +231,6 @@ struct SidebarView: View {
     }
 
     // MARK: Status And Overlay UI
-
-    private var loadingOverlay: some View {
-        VStack(spacing: 12) {
-            ProgressView()
-                .controlSize(.regular)
-
-            Text("Loading Sources")
-                .font(.headline)
-
-            Text("Fetching feeds and counts for the sidebar.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func retryLoad() {
-        loadRequestID = UUID()
-    }
 
     private func applySelectionBehaviorForCurrentFilter() {
         selection = SidebarSelectionBehavior.resolvedSelection(

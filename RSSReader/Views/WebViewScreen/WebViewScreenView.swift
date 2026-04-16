@@ -242,8 +242,7 @@ private struct WebViewScreenPrimaryLoadingView: View {
     let state: WebViewScreenPrimaryLoadingState
 
     var body: some View {
-        ProgressView(state.title)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ScreenLoadingView(title: state.title)
     }
 }
 
@@ -256,13 +255,11 @@ private struct WebViewScreenFailureOverlay: View {
                 .fill(.background.opacity(0.94))
                 .ignoresSafeArea()
 
-            ContentUnavailableView {
-                Label(placeholder.title, systemImage: placeholder.systemImage)
-            } description: {
-                if let description = placeholder.description {
-                    Text(description)
-                }
-            }
+            ScreenPlaceholderView(
+                title: placeholder.title,
+                systemImage: placeholder.systemImage,
+                description: placeholder.description
+            )
         }
         .transition(.opacity)
     }

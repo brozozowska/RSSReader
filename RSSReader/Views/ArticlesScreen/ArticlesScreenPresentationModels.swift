@@ -75,17 +75,21 @@ struct ArticlesScreenToolbarActionsState: Equatable {
     let showsMarkAllAsReadAction: Bool
     let isMarkAllAsReadEnabled: Bool
 
-    init(selection: SidebarSelection?, visibleArticles: [ArticleListItemDTO]) {
+    init(
+        selection: SidebarSelection?,
+        visibleArticles: [ArticleListItemDTO],
+        phase: ArticlesScreenPhase
+    ) {
         let hasSelection = selection != nil
-        self.showsSearchAction = hasSelection
-        self.showsMarkAllAsReadAction = hasSelection
+        let showsInteractiveActions = hasSelection && phase != .loading && phase.isFailed == false
+        self.showsSearchAction = showsInteractiveActions
+        self.showsMarkAllAsReadAction = showsInteractiveActions
         self.isMarkAllAsReadEnabled = visibleArticles.contains(where: { $0.isRead == false })
     }
 }
 
 struct ArticlesScreenPrimaryLoadingState: Equatable {
     let title: String
-    let description: String
 }
 
 struct ArticlesScreenRefreshBannerState: Equatable {
@@ -119,8 +123,17 @@ struct ArticleRowSwipeActionsState: Equatable {
 
     init(article: ArticleListItemDTO) {
         self.readActionTitle = article.isRead ? "Unread" : "Read"
-        self.readActionSystemImage = article.isRead ? "circlebadge" : "checkmark.circle.fill"
+        self.readActionSystemImage = article.isRead ? "circle.slash" : "circle"
         self.starActionTitle = article.isStarred ? "Unstar" : "Star"
         self.starActionSystemImage = article.isStarred ? "star.slash" : "star"
+    }
+}
+
+private extension ArticlesScreenPhase {
+    var isFailed: Bool {
+        if case .failed = self {
+            return true
+        }
+        return false
     }
 }

@@ -964,9 +964,9 @@ struct RSSReaderTests {
         #expect(viewState.toolbarActions.isShareEnabled)
         #expect(viewState.toolbarActions.showsBottomActions)
         #expect(viewState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
-        #expect(viewState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
-        #expect(viewState.toolbarActions.bottomActions?.starTitle == "Star")
-        #expect(viewState.toolbarActions.bottomActions?.starSystemImage == "star.fill")
+        #expect(viewState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
+        #expect(viewState.toolbarActions.bottomActions?.starTitle == "Unstar")
+        #expect(viewState.toolbarActions.bottomActions?.starSystemImage == "star.slash")
     }
 
     @Test
@@ -1191,7 +1191,7 @@ struct RSSReaderTests {
         let loadedArticle = try #require(controller.screenState.article)
         #expect(loadedArticle.isRead == true)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
 
         let persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -1224,7 +1224,7 @@ struct RSSReaderTests {
         let loadedArticle = try #require(controller.screenState.article)
         #expect(loadedArticle.isRead == false)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Read")
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.fill")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
 
         let persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -1302,7 +1302,7 @@ struct RSSReaderTests {
         updatedArticle = try #require(controller.screenState.article)
         #expect(updatedArticle.isRead == true)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
 
         persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -1332,7 +1332,8 @@ struct RSSReaderTests {
         var updatedArticle = try #require(controller.screenState.article)
         #expect(updatedArticle.isStarred == true)
         #expect(controller.screenState.phase == .loaded)
-        #expect(controller.screenState.toolbarActions.bottomActions?.starSystemImage == "star.fill")
+        #expect(controller.screenState.toolbarActions.bottomActions?.starTitle == "Unstar")
+        #expect(controller.screenState.toolbarActions.bottomActions?.starSystemImage == "star.slash")
 
         var persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -1347,6 +1348,7 @@ struct RSSReaderTests {
 
         updatedArticle = try #require(controller.screenState.article)
         #expect(updatedArticle.isStarred == false)
+        #expect(controller.screenState.toolbarActions.bottomActions?.starTitle == "Star")
         #expect(controller.screenState.toolbarActions.bottomActions?.starSystemImage == "star")
 
         persistedState = try harness.articleStateRepository.fetchStateSnapshot(
@@ -1835,7 +1837,6 @@ struct RSSReaderTests {
         let derivedViewState = state.derivedViewState(searchText: "")
 
         #expect(derivedViewState.primaryLoadingState?.title == "Loading Articles")
-        #expect(derivedViewState.primaryLoadingState?.description == "Fetching articles for Apple.")
     }
 
     @Test
@@ -2077,6 +2078,37 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articlesScreenToolbarActionsAreHiddenDuringPrimaryLoading() {
+        var state = ArticlesScreenState()
+
+        state.beginLoading(
+            for: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "0 Unread Items",
+            resetsContent: true
+        )
+
+        #expect(state.toolbarActions.showsSearchAction == false)
+        #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
+    }
+
+    @Test
+    func articlesScreenToolbarActionsAreHiddenAfterPrimaryFailure() {
+        var state = ArticlesScreenState()
+
+        state.applyLoadingFailure(
+            "Unable to load the current selection.",
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "0 Unread Items",
+            retainsContent: false
+        )
+
+        #expect(state.toolbarActions.showsSearchAction == false)
+        #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
+    }
+
+    @Test
     func articlesScreenStateAppliesMarkAllAsReadAndRefreshesToolbarState() {
         var state = ArticlesScreenState()
         let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: true)
@@ -2244,12 +2276,12 @@ struct RSSReaderTests {
         )
 
         #expect(unreadUnstarred.readActionTitle == "Read")
-        #expect(unreadUnstarred.readActionSystemImage == "checkmark.circle.fill")
+        #expect(unreadUnstarred.readActionSystemImage == "circle")
         #expect(unreadUnstarred.starActionTitle == "Star")
         #expect(unreadUnstarred.starActionSystemImage == "star")
 
         #expect(readStarred.readActionTitle == "Unread")
-        #expect(readStarred.readActionSystemImage == "circlebadge")
+        #expect(readStarred.readActionSystemImage == "circle.slash")
         #expect(readStarred.starActionTitle == "Unstar")
         #expect(readStarred.starActionSystemImage == "star.slash")
     }

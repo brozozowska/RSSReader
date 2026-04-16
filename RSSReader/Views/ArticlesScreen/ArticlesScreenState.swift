@@ -10,7 +10,8 @@ struct ArticlesScreenState {
     private(set) var refreshFeedback: ArticlesScreenRefreshFeedback?
     private(set) var toolbarActions = ArticlesScreenToolbarActionsState(
         selection: nil,
-        visibleArticles: []
+        visibleArticles: [],
+        phase: .noSelection
     )
     var pendingConfirmation: ArticlesScreenConfirmationDialog?
 
@@ -205,7 +206,8 @@ struct ArticlesScreenState {
     private mutating func updateToolbarActions(for selection: SidebarSelection?) {
         toolbarActions = ArticlesScreenToolbarActionsState(
             selection: selection,
-            visibleArticles: articles
+            visibleArticles: articles,
+            phase: phase
         )
     }
 
