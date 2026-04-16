@@ -57,28 +57,19 @@ struct ReaderView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
                 }
-            } else if controller.screenState.showsPrimaryLoadingIndicator {
-                ProgressView("Loading Article")
+            } else if let primaryLoadingState = viewState.primaryLoadingState {
+                ScreenLoadingView(title: primaryLoadingState.title)
             } else if let placeholder = viewState.placeholder {
-                ContentUnavailableView(
-                    placeholder.title,
+                ScreenPlaceholderView(
+                    title: placeholder.title,
                     systemImage: placeholder.systemImage,
-                    description: placeholder.description.map(Text.init)
+                    description: placeholder.description
                 )
             }
         }
         .toolbarTitleDisplayMode(.inline)
         .navigationTitle("")
         .toolbar {
-            if showsBackButton {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: navigateBackToArticles) {
-                        Image(systemName: "chevron.left")
-                    }
-                    .accessibilityLabel("Back to Articles")
-                }
-            }
-
             if viewState.toolbarActions.showsShareAction {
                 ToolbarItem(placement: .topBarTrailing) {
                     if let shareURL = viewState.toolbarActions.shareURL {

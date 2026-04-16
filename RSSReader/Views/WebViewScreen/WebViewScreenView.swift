@@ -8,9 +8,10 @@ enum WebViewScreenNavigationState {
         startLocationX: CGFloat,
         translation: CGSize
     ) -> Bool {
-        startLocationX <= 32
-            && translation.width >= 80
-            && abs(translation.height) <= 48
+        CompactBackNavigationPolicy.shouldNavigateBackOnDrag(
+            startLocationX: startLocationX,
+            translation: translation
+        )
     }
 }
 
@@ -53,7 +54,6 @@ struct WebViewScreenView: View {
         .toolbarTitleDisplayMode(.inline)
         .navigationTitle(viewState.navigationTitle)
         .toolbar {
-            topBarLeadingItem
             topBarTrailingItem(viewState)
             bottomBarItems(viewState)
         }
@@ -75,31 +75,21 @@ struct WebViewScreenView: View {
                 onNavigationFinished: controller.handleNavigationFinished,
                 onNavigationFailed: controller.handleNavigationFailed
             )
-        } else if viewState.phase == .loaded {
+        } else if viewState.primaryLoadingState == nil, viewState.placeholder == nil {
             WebViewScreenPreviewSurface(url: viewState.initialURL)
         }
     }
 
     @ViewBuilder
     private func overlaySurface(_ viewState: WebViewScreenDerivedViewState) -> some View {
-        if viewState.phase == .initialLoading {
-            WebViewScreenPrimaryLoadingView()
-        } else if case .failed(let message) = viewState.phase {
-            WebViewScreenFailureOverlay(message: message)
+        if let primaryLoadingState = viewState.primaryLoadingState {
+            WebViewScreenPrimaryLoadingView(state: primaryLoadingState)
+        } else if let placeholder = viewState.placeholder {
+            WebViewScreenFailureOverlay(placeholder: placeholder)
         }
     }
 
     // MARK: Toolbar
-
-    @ToolbarContentBuilder
-    private var topBarLeadingItem: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
-            Button(action: closeWebView) {
-                Image(systemName: "xmark")
-            }
-            .accessibilityLabel("Close Web View")
-        }
-    }
 
     @ToolbarContentBuilder
     private func topBarTrailingItem(_ viewState: WebViewScreenDerivedViewState) -> some ToolbarContent {
@@ -249,14 +239,15 @@ private struct WebViewScreenPreviewSurface: View {
 // MARK: - Screen State Overlays
 
 private struct WebViewScreenPrimaryLoadingView: View {
+    let state: WebViewScreenPrimaryLoadingState
+
     var body: some View {
-        ProgressView("Loading Page")
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ScreenLoadingView(title: state.title)
     }
 }
 
 private struct WebViewScreenFailureOverlay: View {
-    let message: String
+    let placeholder: WebViewScreenPlaceholderState
 
     var body: some View {
         ZStack {
@@ -264,11 +255,11 @@ private struct WebViewScreenFailureOverlay: View {
                 .fill(.background.opacity(0.94))
                 .ignoresSafeArea()
 
-            ContentUnavailableView {
-                Label("Failed to Load Page", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(message)
-            }
+            ScreenPlaceholderView(
+                title: placeholder.title,
+                systemImage: placeholder.systemImage,
+                description: placeholder.description
+            )
         }
         .transition(.opacity)
     }

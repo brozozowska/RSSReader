@@ -39,12 +39,3 @@ struct SidebarSubtitleFormatter {
         return date.formatted(date: .abbreviated, time: .shortened)
     }
 }
-
-private extension SidebarRefreshStatus {
-    var isSyncing: Bool {
-        if case .syncing = self {
-            return true
-        }
-        return false
-    }
-}

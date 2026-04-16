@@ -17,7 +17,7 @@ struct ArticleListRowView: View {
                     if article.isStarred {
                         Image(systemName: "star.fill")
                             .font(.caption2)
-                            .foregroundStyle(.yellow)
+                            .foregroundStyle(metadataForegroundStyle)
                     }
 
                     Text(ArticleListRowTimeFormatter.string(for: article))

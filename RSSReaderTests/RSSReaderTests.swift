@@ -914,13 +914,95 @@ struct RSSReaderTests {
     }
 
     @Test
+    func sidebarScreenStateExposesPrimaryLoadingStateThroughDerivedViewState() {
+        let state = SidebarScreenState()
+
+        let viewState = state.derivedViewState(
+            filter: .allItems,
+            expandedFolderNames: []
+        )
+
+        #expect(state.phase == .loading)
+        #expect(viewState.primaryLoadingState?.title == "Loading Sources")
+        #expect(viewState.placeholder == nil)
+        #expect(viewState.shouldDisableScrolling)
+        #expect(viewState.smartRows.isEmpty)
+    }
+
+    @Test
+    func sidebarScreenStateBuildsLoadedDerivedViewStateFromSnapshot() {
+        let feed = Feed(
+            id: UUID(),
+            url: "https://www.theverge.com/rss/index.xml",
+            title: "The Verge",
+            folder: Folder(name: "Tech")
+        )
+        let feedSidebarItem = FeedSidebarItem(
+            feed: feed,
+            unreadCount: 2,
+            starredCount: 1
+        )
+        let snapshot = SourcesSidebarSnapshotDTO(
+            feeds: [feedSidebarItem],
+            unreadSmartCount: 2,
+            starredSmartCount: 1,
+            starredFeedIDs: [feed.id]
+        )
+        let state = SidebarScreenState.previewLoaded(snapshot: snapshot)
+
+        let viewState = state.derivedViewState(
+            filter: .allItems,
+            expandedFolderNames: ["Tech"]
+        )
+
+        #expect(state.phase == .loaded)
+        #expect(viewState.primaryLoadingState == nil)
+        #expect(viewState.placeholder == nil)
+        #expect(viewState.smartRows.map(\.item) == [.allItems])
+        #expect(viewState.smartRows.first?.count == 2)
+        #expect(viewState.folderRows.count == 2)
+        #expect(viewState.ungroupedFeedRows.isEmpty)
+        #expect(viewState.shouldDisableScrolling == false)
+
+        guard case .folder(let folderRow)? = viewState.folderRows.first else {
+            Issue.record("Expected first folder row in SidebarScreenDerivedViewState")
+            return
+        }
+        #expect(folderRow.name == "Tech")
+        #expect(folderRow.isExpanded)
+
+        guard case .feed(let feedRow)? = viewState.folderRows.last else {
+            Issue.record("Expected nested feed row in SidebarScreenDerivedViewState")
+            return
+        }
+        #expect(feedRow.title == "The Verge")
+        #expect(feedRow.isIndented)
+    }
+
+    @Test
     func articleScreenStateStartsWithNoSelectionPlaceholder() {
         let state = ArticleScreenState()
+        let viewState = state.derivedViewState()
 
         #expect(state.phase == .noSelection)
-        #expect(state.placeholder?.title == "No Article Selected")
-        #expect(state.toolbarActions.showsShareAction == false)
-        #expect(state.toolbarActions.showsBottomActions == false)
+        #expect(viewState.primaryLoadingState == nil)
+        #expect(viewState.placeholder?.title == "No Article Selected")
+        #expect(viewState.toolbarActions.showsShareAction == false)
+        #expect(viewState.toolbarActions.showsBottomActions == false)
+    }
+
+    @Test
+    func articleScreenStateExposesPrimaryLoadingStateThroughDerivedViewState() {
+        var state = ArticleScreenState()
+
+        state.beginLoading(articleID: UUID())
+
+        let viewState = state.derivedViewState()
+
+        #expect(state.phase == .loading)
+        #expect(viewState.primaryLoadingState?.title == "Loading Article")
+        #expect(viewState.content == nil)
+        #expect(viewState.placeholder == nil)
     }
 
     @Test
@@ -937,6 +1019,7 @@ struct RSSReaderTests {
         let viewState = state.derivedViewState()
 
         #expect(state.phase == .loaded)
+        #expect(viewState.primaryLoadingState == nil)
         #expect(viewState.content?.header.title == article.title)
         #expect(viewState.content?.header.feedTitle == article.feedTitle)
         #expect(viewState.content?.header.author == article.author)
@@ -947,9 +1030,9 @@ struct RSSReaderTests {
         #expect(viewState.toolbarActions.isShareEnabled)
         #expect(viewState.toolbarActions.showsBottomActions)
         #expect(viewState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
-        #expect(viewState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
-        #expect(viewState.toolbarActions.bottomActions?.starTitle == "Star")
-        #expect(viewState.toolbarActions.bottomActions?.starSystemImage == "star.fill")
+        #expect(viewState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
+        #expect(viewState.toolbarActions.bottomActions?.starTitle == "Unstar")
+        #expect(viewState.toolbarActions.bottomActions?.starSystemImage == "star.slash")
     }
 
     @Test
@@ -1174,7 +1257,7 @@ struct RSSReaderTests {
         let loadedArticle = try #require(controller.screenState.article)
         #expect(loadedArticle.isRead == true)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
 
         let persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -1207,7 +1290,7 @@ struct RSSReaderTests {
         let loadedArticle = try #require(controller.screenState.article)
         #expect(loadedArticle.isRead == false)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Read")
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.fill")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
 
         let persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -1285,7 +1368,7 @@ struct RSSReaderTests {
         updatedArticle = try #require(controller.screenState.article)
         #expect(updatedArticle.isRead == true)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
 
         persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -1315,7 +1398,8 @@ struct RSSReaderTests {
         var updatedArticle = try #require(controller.screenState.article)
         #expect(updatedArticle.isStarred == true)
         #expect(controller.screenState.phase == .loaded)
-        #expect(controller.screenState.toolbarActions.bottomActions?.starSystemImage == "star.fill")
+        #expect(controller.screenState.toolbarActions.bottomActions?.starTitle == "Unstar")
+        #expect(controller.screenState.toolbarActions.bottomActions?.starSystemImage == "star.slash")
 
         var persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -1330,6 +1414,7 @@ struct RSSReaderTests {
 
         updatedArticle = try #require(controller.screenState.article)
         #expect(updatedArticle.isStarred == false)
+        #expect(controller.screenState.toolbarActions.bottomActions?.starTitle == "Star")
         #expect(controller.screenState.toolbarActions.bottomActions?.starSystemImage == "star")
 
         persistedState = try harness.articleStateRepository.fetchStateSnapshot(
@@ -1421,23 +1506,23 @@ struct RSSReaderTests {
     }
 
     @Test
-    func readingShellNavigationStateBuildsArticleDestinationForNoneAndArticleRoutes() {
+    func readingShellNavigationStateBuildsDetailDestinationsForNoneAndArticleRoutes() {
         let articleID = UUID()
 
         #expect(
-            ReadingShellNavigationState.detailDestination(
+            ReadingShellDetailNavigationState.detailDestination(
                 route: .none,
                 selectedArticleID: nil
-            ) == .article(nil)
+            ) == .none
         )
         #expect(
-            ReadingShellNavigationState.detailDestination(
+            ReadingShellDetailNavigationState.detailDestination(
                 route: .none,
                 selectedArticleID: articleID
             ) == .article(articleID)
         )
         #expect(
-            ReadingShellNavigationState.detailDestination(
+            ReadingShellDetailNavigationState.detailDestination(
                 route: .article(articleID),
                 selectedArticleID: nil
             ) == .article(articleID)
@@ -1452,7 +1537,7 @@ struct RSSReaderTests {
         )
 
         #expect(
-            ReadingShellNavigationState.detailDestination(
+            ReadingShellDetailNavigationState.detailDestination(
                 route: .webView(route),
                 selectedArticleID: route.articleID
             ) == .webView(route)
@@ -1500,7 +1585,8 @@ struct RSSReaderTests {
 
         #expect(viewState.initialURL == route.url)
         #expect(viewState.navigationTitle == "example.com")
-        #expect(viewState.phase == .initialLoading)
+        #expect(viewState.primaryLoadingState?.title == "Loading Page")
+        #expect(viewState.placeholder == nil)
         #expect(viewState.loadingProgress == 0)
         #expect(viewState.reloadRevision == 0)
         #expect(viewState.showsWebViewContent)
@@ -1526,7 +1612,8 @@ struct RSSReaderTests {
         state.applyPageTitle("Loaded Article")
 
         var viewState = state.derivedViewState()
-        #expect(viewState.phase == .initialLoading)
+        #expect(viewState.primaryLoadingState?.title == "Loading Page")
+        #expect(viewState.placeholder == nil)
         #expect(viewState.loadingProgress == 0.42)
         #expect(viewState.navigationTitle == "Loaded Article")
         #expect(viewState.showsShareAction == false)
@@ -1534,14 +1621,17 @@ struct RSSReaderTests {
 
         state.applyNavigationFinished()
         viewState = state.derivedViewState()
-        #expect(viewState.phase == .loaded)
+        #expect(viewState.primaryLoadingState == nil)
+        #expect(viewState.placeholder == nil)
         #expect(viewState.loadingProgress == 1)
         #expect(viewState.showsShareAction)
         #expect(viewState.showsBottomActions)
 
         state.applyNavigationFailure("The page could not be loaded.")
         viewState = state.derivedViewState()
-        #expect(viewState.phase == .failed("The page could not be loaded."))
+        #expect(viewState.primaryLoadingState == nil)
+        #expect(viewState.placeholder?.title == "Failed to Load Page")
+        #expect(viewState.placeholder?.description == "The page could not be loaded.")
         #expect(viewState.showsWebViewContent == false)
         #expect(viewState.showsShareAction == false)
         #expect(viewState.showsBottomActions == false)
@@ -1605,8 +1695,11 @@ struct RSSReaderTests {
         let state = WebViewScreenState(route: route)
         let viewState = state.derivedViewState()
 
+        #expect(viewState.primaryLoadingState == nil)
+        #expect(viewState.placeholder?.title == "Failed to Load Page")
         #expect(
-            viewState.phase == .failed("This article link can't be opened in the in-app browser.")
+            viewState.placeholder?.description
+                == "This article link can't be opened in the in-app browser."
         )
         #expect(viewState.navigationTitle == "Article")
         #expect(viewState.showsWebViewContent == false)
@@ -1810,7 +1903,6 @@ struct RSSReaderTests {
         let derivedViewState = state.derivedViewState(searchText: "")
 
         #expect(derivedViewState.primaryLoadingState?.title == "Loading Articles")
-        #expect(derivedViewState.primaryLoadingState?.description == "Fetching articles for Apple.")
     }
 
     @Test
@@ -1983,15 +2075,35 @@ struct RSSReaderTests {
     }
 
     @Test
-    func articlesScreenMutationReducerProducesRemoveMutationWhenReadActionHappensInUnreadFilter() {
+    func articlesScreenMutationReducerProducesRemoveMutationWhenReadToggleHappensInUnreadFilter() {
         let unreadArticle = makeArticleListItemDTO(isRead: false, isStarred: false)
 
-        let mutation = ArticlesScreenMutationReducer.mutationAfterMarkAsRead(
+        let mutation = ArticlesScreenMutationReducer.mutationAfterToggleReadStatus(
             article: unreadArticle,
             filter: ArticleListFilter.unread
         )
 
         #expect(mutation == .remove)
+    }
+
+    @Test
+    func articlesScreenMutationReducerProducesUnreadUpdateWhenReadArticleIsToggledBack() {
+        let readArticle = makeArticleListItemDTO(isRead: true, isStarred: false)
+
+        let mutation = ArticlesScreenMutationReducer.mutationAfterToggleReadStatus(
+            article: readArticle,
+            filter: ArticleListFilter.all
+        )
+
+        let updatedArticle: ArticleListItemDTO?
+        if case .update(let article) = mutation {
+            updatedArticle = article
+        } else {
+            updatedArticle = nil
+        }
+
+        #expect(updatedArticle?.isRead == false)
+        #expect(updatedArticle?.isStarred == false)
     }
 
     @Test
@@ -2029,6 +2141,37 @@ struct RSSReaderTests {
         )
         state.presentMarkAllAsReadConfirmation()
         #expect(state.pendingConfirmation == .markAllAsRead)
+    }
+
+    @Test
+    func articlesScreenToolbarActionsAreHiddenDuringPrimaryLoading() {
+        var state = ArticlesScreenState()
+
+        state.beginLoading(
+            for: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "0 Unread Items",
+            resetsContent: true
+        )
+
+        #expect(state.toolbarActions.showsSearchAction == false)
+        #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
+    }
+
+    @Test
+    func articlesScreenToolbarActionsAreHiddenAfterPrimaryFailure() {
+        var state = ArticlesScreenState()
+
+        state.applyLoadingFailure(
+            "Unable to load the current selection.",
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "0 Unread Items",
+            retainsContent: false
+        )
+
+        #expect(state.toolbarActions.showsSearchAction == false)
+        #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
     }
 
     @Test
@@ -2198,11 +2341,13 @@ struct RSSReaderTests {
             article: makeArticleListItemDTO(isRead: true, isStarred: true)
         )
 
-        #expect(unreadUnstarred.canMarkAsRead)
+        #expect(unreadUnstarred.readActionTitle == "Read")
+        #expect(unreadUnstarred.readActionSystemImage == "circle")
         #expect(unreadUnstarred.starActionTitle == "Star")
         #expect(unreadUnstarred.starActionSystemImage == "star")
 
-        #expect(readStarred.canMarkAsRead == false)
+        #expect(readStarred.readActionTitle == "Unread")
+        #expect(readStarred.readActionSystemImage == "circle.slash")
         #expect(readStarred.starActionTitle == "Unstar")
         #expect(readStarred.starActionSystemImage == "star.slash")
     }
@@ -2296,21 +2441,21 @@ struct RSSReaderTests {
     }
 
     @Test
-    func articlesScreenNavigationStateSelectsPreferredCompactColumnForCurrentContext() {
+    func readingShellCompactNavigationStateSelectsPreferredCompactColumnForCurrentContext() {
         #expect(
-            ArticlesScreenNavigationState.preferredCompactColumn(
+            ReadingShellCompactNavigationState.preferredCompactColumn(
                 sourceSelection: nil,
                 articleSelection: nil
             ) == .sidebar
         )
         #expect(
-            ArticlesScreenNavigationState.preferredCompactColumn(
+            ReadingShellCompactNavigationState.preferredCompactColumn(
                 sourceSelection: .unread,
                 articleSelection: nil
             ) == .content
         )
         #expect(
-            ArticlesScreenNavigationState.preferredCompactColumn(
+            ReadingShellCompactNavigationState.preferredCompactColumn(
                 sourceSelection: .feed(UUID()),
                 articleSelection: UUID()
             ) == .detail
@@ -2318,21 +2463,21 @@ struct RSSReaderTests {
     }
 
     @Test
-    func articlesScreenNavigationStateShowsBackButtonOnlyInCompactSourceContext() {
+    func readingShellCompactNavigationStateShowsArticlesBackButtonOnlyInCompactSourceContext() {
         #expect(
-            ArticlesScreenNavigationState.showsBackButton(
+            ReadingShellCompactNavigationState.showsArticlesBackButton(
                 horizontalSizeClass: .compact,
                 sourceSelection: .starred
             )
         )
         #expect(
-            ArticlesScreenNavigationState.showsBackButton(
+            ReadingShellCompactNavigationState.showsArticlesBackButton(
                 horizontalSizeClass: .regular,
                 sourceSelection: .starred
             ) == false
         )
         #expect(
-            ArticlesScreenNavigationState.showsBackButton(
+            ReadingShellCompactNavigationState.showsArticlesBackButton(
                 horizontalSizeClass: .compact,
                 sourceSelection: nil
             ) == false
@@ -2340,27 +2485,27 @@ struct RSSReaderTests {
     }
 
     @Test
-    func articlesScreenNavigationStateRecognizesLeadingEdgeBackSwipe() {
+    func readingShellCompactNavigationStateRecognizesLeadingEdgeBackSwipeToSources() {
         #expect(
-            ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+            ReadingShellCompactNavigationState.shouldNavigateBackToSourcesOnDrag(
                 startLocationX: 12,
                 translation: CGSize(width: 96, height: 8)
             )
         )
         #expect(
-            ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+            ReadingShellCompactNavigationState.shouldNavigateBackToSourcesOnDrag(
                 startLocationX: 64,
                 translation: CGSize(width: 96, height: 8)
             ) == false
         )
         #expect(
-            ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+            ReadingShellCompactNavigationState.shouldNavigateBackToSourcesOnDrag(
                 startLocationX: 12,
                 translation: CGSize(width: 40, height: 8)
             ) == false
         )
         #expect(
-            ArticlesScreenNavigationState.shouldNavigateBackOnDrag(
+            ReadingShellCompactNavigationState.shouldNavigateBackToSourcesOnDrag(
                 startLocationX: 12,
                 translation: CGSize(width: 96, height: 72)
             ) == false
@@ -2705,7 +2850,7 @@ struct RSSReaderTests {
     }
 
     @Test
-    func sourcesSelectionBehaviorUsesActiveSmartRowWhenThereIsNoCurrentSelection() {
+    func sourcesSelectionBehaviorKeepsNoSelectionWhenThereIsNoCurrentSelection() {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: nil,
             filter: .allItems,
@@ -2713,7 +2858,7 @@ struct RSSReaderTests {
             visibleFolderNames: []
         )
 
-        #expect(selection == .inbox)
+        #expect(selection == nil)
     }
 
     @Test

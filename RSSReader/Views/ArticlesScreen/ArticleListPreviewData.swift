@@ -1,7 +1,9 @@
 import SwiftUI
 
+// MARK: - State Previews
+
 #Preview("Loading") {
-    ArticleListPreviewContainer(
+    ArticlesScreenPreviewContainer(
         screenState: .previewLoading(
             selection: .unread,
             navigationTitle: "Unread",
@@ -11,18 +13,18 @@ import SwiftUI
 }
 
 #Preview("Articles Multi-Day") {
-    ArticleListPreviewContainer(
+    ArticlesScreenPreviewContainer(
         screenState: .previewLoaded(
             selection: .unread,
             navigationTitle: "Unread",
             navigationSubtitle: "7 Unread Items",
-            articles: ArticleListPreviewData.multiDayArticles
+            articles: ArticlesScreenPreviewData.multiDayArticles
         )
     )
 }
 
 #Preview("Loading Error") {
-    ArticleListPreviewContainer(
+    ArticlesScreenPreviewContainer(
         screenState: .previewFailed(
             selection: .unread,
             navigationTitle: "Unread",
@@ -32,7 +34,7 @@ import SwiftUI
     )
 }
 
-private struct ArticleListPreviewContainer: View {
+private struct ArticlesScreenPreviewContainer: View {
     let screenState: ArticlesScreenState
     @State private var selection: UUID? = nil
 
@@ -48,11 +50,12 @@ private struct ArticleListPreviewContainer: View {
                 selection: $selection
             )
         }
+        .environment(\.appDependencies, AppDependencies.makeDefault())
         .environment(AppState())
     }
 }
 
-private enum ArticleListPreviewData {
+private enum ArticlesScreenPreviewData {
     static var multiDayArticles: [ArticleListItemDTO] {
         let calendar = Calendar.current
         let now = Date()

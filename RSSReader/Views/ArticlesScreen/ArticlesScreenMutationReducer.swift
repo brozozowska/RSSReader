@@ -43,17 +43,19 @@ enum ArticlesScreenMutationReducer {
         }
     }
 
-    static func mutationAfterMarkAsRead(
+    static func mutationAfterToggleReadStatus(
         article: ArticleListItemDTO,
         filter: ArticleListFilter
     ) -> ArticleRowMutation {
-        if filter == .unread {
+        let updatedIsRead = article.isRead == false
+
+        if filter == .unread && updatedIsRead {
             return .remove
         }
 
         return .update(
             article.updating(
-                isRead: true,
+                isRead: updatedIsRead,
                 isStarred: article.isStarred
             )
         )

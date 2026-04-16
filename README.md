@@ -254,6 +254,19 @@
 - [x] скрывать browser actions (`share`, `refresh`, `open in external browser`) в loading/error состояниях `WebView Screen`, чтобы toolbar и `bottomBar` не предлагали действия над ещё не открытой или недоступной страницей;
 - [x] провести `cleanup` `WebViewScreenView`: выделить секции/подвью, добавить `MARK` и упростить чтение `WKWebView` bridge-слоя без изменения поведения экрана.
 
+#### Screen Shell Cleanup
+- [x] вынести shell-level navigation policy из `RootView` в отдельные screen-shell сущности: compact column routing, detail destination resolution и back-navigation rules не должны жить вперемешку с самой `View`-разметкой;
+- [x] унифицировать compact back navigation / edge-swipe policy для `Articles Screen`, `Article Screen` и `WebView Screen`, чтобы пороги жестов, правила показа back button и contract возврата назад описывались единообразно, а не дублировались в нескольких `*NavigationState`;
+- [x] определить единый screen composition pattern для основных экранов приложения: как соотносятся `ScreenState`, `DerivedViewState`, `Controller`, primary loading, placeholder/error presentation и toolbar visibility policy, чтобы `Articles`, `Article` и `WebView` были собраны по одной архитектурной схеме;
+- [x] выровнять preview infrastructure основных экранов: единые `PreviewContainer` / `PreviewData` conventions, явное разделение preview-only state и runtime wiring, без расхождения между `Articles`, `Article` и `WebView` screen previews;
+- [x] перевести `Articles`, `Article` и `WebView` на системный compact back button вместо собственных toolbar-leading кнопок, чтобы navigation chrome соответствовал нативному поведению `NavigationSplitView` на iPhone и не дублировался в toolbar;
+- [x] добавить shell-level previews / demo flows для сквозного просмотра основных экранов и navigation transitions, чтобы можно было проверять связность `Sidebar` → `Articles` → `Article` → `WebView` без ручного прогона приложения;
+- [x] перевести leading swipe action строки статьи на двусторонний `read/unread` toggle в `Articles Screen`, чтобы после пометки статьи прочитанной пользователь мог сразу вернуть её в unread без перехода на другой экран;
+- [x] провести короткий consistency pass по основным экранам после shell cleanup: выровнять loading copy, empty/error/no-selection presentation и названия user actions между `Sidebar` → `Articles` → `Article` → `WebView`, не меняя screen architecture и не трогая toolbar composition или navigation title/subtitle rules;
+- [x] привести `SidebarView` к тому же screen composition pattern, что и основные экраны: выделить `SidebarScreenState` / `SidebarScreenDerivedViewState` / `SidebarScreenController`, вынести loading/error/empty policy из `View` и убрать смешение runtime state c query orchestration;
+- [x] вынести preview infrastructure `SidebarView` в отдельный `SidebarPreviewData`-файл: `PreviewHost`, scenario factory, seed data и preview-only helpers не должны жить в runtime `SidebarView.swift`;
+- [x] после декомпозиции `SidebarView` выровнять его границы с остальными экранами: `View` должна в основном рендерить готовый presentation contract, а не одновременно хранить local screen state, selection behavior, preview wiring и toolbar policy.
+
 #### Settings Integration
 - [ ] создать `SettingsViewModel`;
 - [ ] экран настроек;

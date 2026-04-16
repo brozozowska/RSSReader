@@ -19,7 +19,8 @@ extension ArticlesScreenState {
             sections: ArticlesDaySectionsBuilder.build(from: visibleArticles),
             toolbarActions: ArticlesScreenToolbarActionsState(
                 selection: selection,
-                visibleArticles: visibleArticles
+                visibleArticles: visibleArticles,
+                phase: phase
             ),
             searchPlaceholder: searchPlaceholder(
                 normalizedSearchText: normalizedSearchText,
@@ -90,26 +91,6 @@ extension ArticlesScreenState {
             return nil
         }
 
-        return ArticlesScreenPrimaryLoadingState(
-            title: "Loading Articles",
-            description: primaryLoadingDescription
-        )
-    }
-
-    private var primaryLoadingDescription: String {
-        switch selection {
-        case .none:
-            "Select Inbox or a source to start reading."
-        case .inbox:
-            "Fetching the latest articles for your current inbox selection."
-        case .unread:
-            "Fetching unread articles across your current sources."
-        case .starred:
-            "Fetching the articles you marked as starred."
-        case .folder(let folderName):
-            "Fetching articles for \(folderName)."
-        case .feed:
-            "Fetching articles for the current source."
-        }
+        return ArticlesScreenPrimaryLoadingState(title: "Loading Articles")
     }
 }
