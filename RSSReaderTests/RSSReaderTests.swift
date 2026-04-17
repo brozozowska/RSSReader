@@ -1352,7 +1352,7 @@ struct RSSReaderTests {
         #expect(updatedArticle.isRead == false)
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Read")
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.fill")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
 
         var persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -1739,8 +1739,8 @@ struct RSSReaderTests {
         #expect(state.navigationTitle == "Unread")
         #expect(state.navigationSubtitle == "3 Unread Items")
         #expect(state.showsPrimaryLoadingIndicator)
-        #expect(state.toolbarActions.showsSearchAction)
-        #expect(state.toolbarActions.showsMarkAllAsReadAction)
+        #expect(state.toolbarActions.showsSearchAction == false)
+        #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
     }
 
     @Test
