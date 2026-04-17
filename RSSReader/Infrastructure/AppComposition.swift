@@ -87,7 +87,7 @@ enum SourcesFilterPersistencePolicy {
             return persistedFilter
         }
 
-        return settings.showUnreadOnly ? .unread : .allItems
+        return .allItems
     }
 
     static func makeSettingsUpdate(for filter: SourcesFilter, updatedAt: Date = .now) -> AppSettingsUpdate {

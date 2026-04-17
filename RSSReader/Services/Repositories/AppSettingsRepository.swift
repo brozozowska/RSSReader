@@ -3,7 +3,6 @@ import SwiftData
 
 struct AppSettingsUpdate: Sendable {
     var defaultReaderMode: ReaderMode? = nil
-    var showUnreadOnly: Bool? = nil
     var selectedSourcesFilterRawValue: String? = nil
     var refreshIntervalPreference: RefreshPreference? = nil
     var useiCloudSync: Bool? = nil
@@ -57,10 +56,6 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
 
         if let defaultReaderMode = update.defaultReaderMode {
             settings.defaultReaderMode = defaultReaderMode
-        }
-
-        if let showUnreadOnly = update.showUnreadOnly {
-            settings.showUnreadOnly = showUnreadOnly
         }
 
         if let selectedSourcesFilterRawValue = update.selectedSourcesFilterRawValue {

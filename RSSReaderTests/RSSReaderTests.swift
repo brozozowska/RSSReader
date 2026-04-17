@@ -2522,18 +2522,10 @@ struct RSSReaderTests {
     }
 
     @Test
-    func sourcesFilterPersistencePolicyFallsBackToLegacyUnreadFlagWhenRawValueIsMissing() {
-        let unreadSettings = AppSettings(
-            showUnreadOnly: true,
-            selectedSourcesFilterRawValue: nil
-        )
-        let defaultSettings = AppSettings(
-            showUnreadOnly: false,
-            selectedSourcesFilterRawValue: nil
-        )
+    func sourcesFilterPersistencePolicyFallsBackToAllItemsWhenRawValueIsMissing() {
+        let settings = AppSettings(selectedSourcesFilterRawValue: nil)
 
-        #expect(SourcesFilterPersistencePolicy.restoredFilter(from: unreadSettings) == .unread)
-        #expect(SourcesFilterPersistencePolicy.restoredFilter(from: defaultSettings) == .allItems)
+        #expect(SourcesFilterPersistencePolicy.restoredFilter(from: settings) == .allItems)
     }
 
     @Test
@@ -2548,9 +2540,7 @@ struct RSSReaderTests {
         )
 
         #expect(starredUpdate.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
-        #expect(starredUpdate.showUnreadOnly == nil)
         #expect(unreadUpdate.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
-        #expect(unreadUpdate.showUnreadOnly == nil)
     }
 
     @Test
@@ -2558,7 +2548,6 @@ struct RSSReaderTests {
         let settings = AppSettings()
 
         #expect(settings.selectedSourcesFilterRawValue == SourcesFilter.allItems.rawValue)
-        #expect(settings.showUnreadOnly == false)
     }
 
     @Test
