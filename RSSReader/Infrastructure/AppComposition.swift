@@ -92,7 +92,6 @@ enum SourcesFilterPersistencePolicy {
 
     static func makeSettingsUpdate(for filter: SourcesFilter, updatedAt: Date = .now) -> AppSettingsUpdate {
         AppSettingsUpdate(
-            showUnreadOnly: filter == .unread,
             selectedSourcesFilterRawValue: filter.rawValue,
             updatedAt: updatedAt
         )

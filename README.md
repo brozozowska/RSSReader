@@ -268,14 +268,22 @@
 - [x] после декомпозиции `SidebarView` выровнять его границы с остальными экранами: `View` должна в основном рендерить готовый presentation contract, а не одновременно хранить local screen state, selection behavior, preview wiring и toolbar policy.
 
 #### Settings Integration
-- [ ] создать `SettingsViewModel`;
-- [ ] экран настроек;
-- [ ] настройка `markAsReadOnOpen`;
-- [ ] настройка `showUnreadOnly`;
-- [ ] настройка `sortMode`;
-- [ ] настройка `defaultReaderMode`;
-- [ ] iCloud sync indicator;
-- [ ] ручной refresh.
+- [x] привести модель `AppSettings` к целевому виду для `Settings Integration`: зафиксировать `selectedSourcesFilterRawValue` как единственный persisted источник для source filter state и оставить `showUnreadOnly` только как legacy-поле на время миграции;
+- [ ] удалить `showUnreadOnly` из `AppSettings` и связанных persistence paths после завершения миграции на один `selectedSourcesFilterRawValue`;
+- [ ] добавить в `AppState` или соседний app-level navigation state отдельное состояние показа `Settings Screen`, чтобы открытие/закрытие настроек на iPhone/iPad не жило локально внутри `SidebarView`;
+- [ ] определить app-level presentation для `Settings Screen` на iPhone/iPad: экран должен открываться по действию `Settings` из toolbar/menu как отдельный modal flow (`sheet`) поверх текущего `NavigationSplitView` и не входить в его detail-routing;
+- [ ] организовать единый settings flow загрузки/редактирования/сохранения `AppSettings`, чтобы экран не читал и не записывал `SwiftData` напрямую, а работал через явный repository/service boundary;
+- [ ] выделить presentation model для секций настроек и их item types (`toggle`, `picker`, `navigation link`, `status row`), чтобы `Settings Screen` рендерил готовый UI contract, а не собирал форму ad hoc;
+- [ ] собрать `Settings Screen` в той же screen-архитектуре, что и остальные экраны: выделить `SettingsScreenState`, `SettingsScreenController`, presentation models, preview data и contract user actions вместо прямой работы `View` с `AppSettingsRepository`;
+- [ ] организовать настройку `defaultReaderMode`: значение должно редактироваться через `Settings Screen`, сохраняться в `AppSettings` и определять initial presentation policy при открытии статьи;
+- [ ] организовать настройку `markAsReadOnOpen`: значение уже применяется в `ArticleScreenController`, но должно стать редактируемым через `Settings Screen` и сохраняться в `AppSettings`;
+- [ ] организовать настройку сортировки unread/article list order через `sortMode`, сведя пользовательский выбор к понятным вариантам `Oldest first` / `Newest first` и не exposing технические raw values enum напрямую;
+- [ ] определить и реализовать настройку группировки списка статей (`by date` / `by feed`): сейчас `ArticlesScreenDerivedViewState` и `ArticlesDaySectionsBuilder` жёстко собирают список по дням, поэтому сначала нужно расширить `AppSettings` и presentation pipeline новым grouping policy;
+- [ ] организовать настройку `askBeforeMarkingAllAsRead`: сейчас `ArticlesScreenState` уже умеет хранить `pendingConfirmation`, но policy подтверждения не вынесена в `AppSettings` и не управляется пользователем;
+- [ ] организовать настройку открытия ссылок из статьи (`in-app browser` или внешний браузер): сейчас `ReaderView` даёт только действие открытия во встроенном `WebView`, поэтому потребуется вынести link opening policy в настройки и применить её в `Article Screen`;
+- [ ] организовать настройку интерфейсного режима (`automatic light/dark`, `automatic light/black`, `light`, `dark`, `black`): для этого потребуется добавить новое persisted setting и определить app-level theme application policy, которой пока нет в `RootView` / `AppState`;
+- [ ] организовать настройку background refresh policy через `refreshIntervalPreference`, связав `Settings Screen` с будущим `BackgroundRefreshService`, чтобы выбор между manual/background refresh не остался изолированным enum без runtime orchestration;
+- [ ] определить UX и статус-строку для `iCloud sync indicator`: в `AppSettings` уже есть `useiCloudSync`, но в проекте пока нет ни `CloudKit` wiring, ни app-level sync status source, поэтому индикатор нужно проектировать как consumer будущего sync state, а не как локальный UI toggle.
 
 #### Source Management
 - [ ] создать `AddFeedViewModel`;

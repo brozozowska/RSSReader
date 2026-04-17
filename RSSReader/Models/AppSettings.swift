@@ -8,6 +8,7 @@ final class AppSettings {
     @Attribute(.unique) var id: UUID
     @Attribute(.unique) var singletonKey: String
     var defaultReaderMode: ReaderMode
+    // Legacy migration field for pre-Settings Integration source filter state.
     var showUnreadOnly: Bool
     var selectedSourcesFilterRawValue: String?
     var refreshIntervalPreference: RefreshPreference
@@ -22,7 +23,7 @@ final class AppSettings {
         singletonKey: String = AppSettings.singletonKeyValue,
         defaultReaderMode: ReaderMode = .embedded,
         showUnreadOnly: Bool = false,
-        selectedSourcesFilterRawValue: String? = nil,
+        selectedSourcesFilterRawValue: String? = SourcesFilter.allItems.rawValue,
         refreshIntervalPreference: RefreshPreference = .manual,
         useiCloudSync: Bool = false,
         markAsReadOnOpen: Bool = true,
