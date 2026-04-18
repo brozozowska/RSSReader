@@ -7,6 +7,7 @@ struct AppSettingsUpdate: Sendable {
     var refreshIntervalPreference: RefreshPreference? = nil
     var useiCloudSync: Bool? = nil
     var markAsReadOnOpen: Bool? = nil
+    var askBeforeMarkingAllAsRead: Bool? = nil
     var sortMode: ArticleSortMode? = nil
     var updatedAt: Date = .now
 }
@@ -72,6 +73,10 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
 
         if let markAsReadOnOpen = update.markAsReadOnOpen {
             settings.markAsReadOnOpen = markAsReadOnOpen
+        }
+
+        if let askBeforeMarkingAllAsRead = update.askBeforeMarkingAllAsRead {
+            settings.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         }
 
         if let sortMode = update.sortMode {

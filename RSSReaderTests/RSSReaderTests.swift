@@ -2143,6 +2143,80 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articlesScreenControllerPresentsConfirmationWhenAskBeforeMarkingAllAsReadIsEnabled() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+        let controller = ArticlesScreenController(
+            previewScreenState: .previewLoaded(
+                selection: .feed(unreadItem.feedID),
+                navigationTitle: "Feed",
+                navigationSubtitle: "1 Unread Item",
+                articles: [unreadItem]
+            )
+        )
+
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(
+                askBeforeMarkingAllAsRead: true,
+                updatedAt: .distantPast
+            )
+        )
+
+        controller.handleMarkAllAsReadAction(
+            searchText: "",
+            selection: .feed(unreadItem.feedID),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        #expect(controller.screenState.pendingConfirmation == .markAllAsRead)
+        #expect(controller.screenState.articles.first?.isRead == false)
+    }
+
+    @Test
+    func articlesScreenControllerMarksAllAsReadImmediatelyWhenAskBeforeMarkingAllAsReadIsDisabled() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
+        let articleStateRepository = try #require(harness.dependencies.articleStateRepository)
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+        let controller = ArticlesScreenController(
+            previewScreenState: .previewLoaded(
+                selection: .feed(unreadItem.feedID),
+                navigationTitle: "Feed",
+                navigationSubtitle: "1 Unread Item",
+                articles: [unreadItem]
+            )
+        )
+
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(
+                askBeforeMarkingAllAsRead: false,
+                updatedAt: .distantPast
+            )
+        )
+
+        controller.handleMarkAllAsReadAction(
+            searchText: "",
+            selection: .feed(unreadItem.feedID),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        let persistedState = try articleStateRepository.fetchStateSnapshot(
+            feedID: unreadItem.feedID,
+            articleExternalID: unreadItem.articleExternalID
+        )
+
+        #expect(controller.screenState.pendingConfirmation == nil)
+        #expect(controller.screenState.articles.first?.isRead == true)
+        #expect(controller.screenState.navigationSubtitle == "0 Unread Items")
+        #expect(persistedState?.isRead == true)
+    }
+
+    @Test
     func articlesScreenToolbarActionsAreHiddenDuringPrimaryLoading() {
         var state = ArticlesScreenState()
 
@@ -2553,6 +2627,7 @@ struct RSSReaderTests {
         let settings = AppSettings()
 
         #expect(settings.selectedSourcesFilterRawValue == SourcesFilter.allItems.rawValue)
+        #expect(settings.askBeforeMarkingAllAsRead)
     }
 
     @Test
@@ -2573,6 +2648,23 @@ struct RSSReaderTests {
     }
 
     @Test
+    func appSettingsRepositoryPersistsAskBeforeMarkingAllAsRead() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                askBeforeMarkingAllAsRead: false,
+                updatedAt: .distantPast
+            )
+        )
+
+        let settings = try repository.fetchOrCreate()
+
+        #expect(settings.askBeforeMarkingAllAsRead == false)
+    }
+
+    @Test
     func appSettingsServiceFetchesSnapshotFromRepository() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
@@ -2585,6 +2677,7 @@ struct RSSReaderTests {
                 refreshIntervalPreference: .hourly,
                 useiCloudSync: true,
                 markAsReadOnOpen: false,
+                askBeforeMarkingAllAsRead: false,
                 sortMode: .publishedAtAscending,
                 updatedAt: .distantPast
             )
@@ -2599,6 +2692,7 @@ struct RSSReaderTests {
                 refreshIntervalPreference: .hourly,
                 useiCloudSync: true,
                 markAsReadOnOpen: false,
+                askBeforeMarkingAllAsRead: false,
                 sortMode: .publishedAtAscending
             )
         )
@@ -2615,6 +2709,7 @@ struct RSSReaderTests {
             refreshIntervalPreference: .every6Hours,
             useiCloudSync: true,
             markAsReadOnOpen: false,
+            askBeforeMarkingAllAsRead: false,
             sortMode: .publishedAtDescending
         )
 
@@ -2630,6 +2725,7 @@ struct RSSReaderTests {
         #expect(persistedSettings.refreshIntervalPreference == .every6Hours)
         #expect(persistedSettings.useiCloudSync)
         #expect(persistedSettings.markAsReadOnOpen == false)
+        #expect(persistedSettings.askBeforeMarkingAllAsRead == false)
         #expect(persistedSettings.sortMode == .publishedAtDescending)
     }
 
@@ -2659,6 +2755,7 @@ struct RSSReaderTests {
             refreshIntervalPreference: .daily,
             useiCloudSync: true,
             markAsReadOnOpen: false,
+            askBeforeMarkingAllAsRead: false,
             sortMode: .publishedAtDescending
         )
 
@@ -2711,12 +2808,12 @@ struct RSSReaderTests {
                         ]
                     )
                 ),
-                .statusRow(
-                    SettingsStatusRowItemPresentation(
+                .toggle(
+                    SettingsToggleItemPresentation(
                         id: .askBeforeMarkingAllAsRead,
-                        title: "Mark All Read Confirmation",
-                        subtitle: "Bulk mark-as-read currently always asks for confirmation.",
-                        valueTitle: "Required"
+                        title: "Ask Before Marking All Read",
+                        subtitle: "Show a confirmation before marking all visible articles as read.",
+                        isOn: false
                     )
                 )
             ]
@@ -2823,6 +2920,7 @@ struct RSSReaderTests {
                 refreshIntervalPreference: .every15Minutes,
                 useiCloudSync: false,
                 markAsReadOnOpen: true,
+                askBeforeMarkingAllAsRead: false,
                 sortMode: .publishedAtDescending
             ),
             updatedAt: .distantPast
@@ -2837,6 +2935,7 @@ struct RSSReaderTests {
         #expect(viewState.sections.isEmpty == false)
         #expect(controller.screenState.settingsSnapshot.defaultReaderMode == .reader)
         #expect(controller.screenState.settingsSnapshot.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
+        #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead == false)
     }
 
     @Test
@@ -2903,6 +3002,26 @@ struct RSSReaderTests {
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.markAsReadOnOpen == false)
         #expect(persistedSettings.markAsReadOnOpen == false)
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedAskBeforeMarkingAllAsReadThroughSettingsService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+        #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead)
+
+        controller.handleToggleValueChange(
+            itemID: .askBeforeMarkingAllAsRead,
+            isOn: false,
+            dependencies: harness.dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead == false)
+        #expect(persistedSettings.askBeforeMarkingAllAsRead == false)
     }
 
     @Test

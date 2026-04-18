@@ -83,9 +83,10 @@ final class SettingsScreenController {
         switch itemID {
         case .markAsReadOnOpen:
             updateMarkAsReadOnOpen(isOn: isOn, dependencies: dependencies)
+        case .askBeforeMarkingAllAsRead:
+            updateAskBeforeMarkingAllAsRead(isOn: isOn, dependencies: dependencies)
         case .defaultReaderMode,
                 .articleSortMode,
-                .askBeforeMarkingAllAsRead,
                 .refreshInterval,
                 .iCloudSyncStatus,
                 .linkOpening,
@@ -151,6 +152,32 @@ private extension SettingsScreenController {
             screenState.applyLoadedSnapshot(updatedSnapshot)
         } catch {
             dependencies.logger.error("Failed to update mark-as-read-on-open setting: \(error)")
+        }
+    }
+
+    func updateAskBeforeMarkingAllAsRead(
+        isOn: Bool,
+        dependencies: AppDependencies
+    ) {
+        guard screenState.settingsSnapshot.askBeforeMarkingAllAsRead != isOn else {
+            return
+        }
+
+        guard let appSettingsService = dependencies.appSettingsService else {
+            dependencies.logger.error("App settings service is unavailable for ask-before-marking-all-as-read update")
+            return
+        }
+
+        do {
+            let updatedSnapshot = try appSettingsService.updateSettings(
+                AppSettingsPatch(
+                    askBeforeMarkingAllAsRead: isOn,
+                    updatedAt: .now
+                )
+            )
+            screenState.applyLoadedSnapshot(updatedSnapshot)
+        } catch {
+            dependencies.logger.error("Failed to update ask-before-marking-all-as-read setting: \\(error)")
         }
     }
 

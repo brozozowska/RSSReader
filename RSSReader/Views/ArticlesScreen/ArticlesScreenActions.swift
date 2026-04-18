@@ -2,6 +2,27 @@ import Foundation
 
 @MainActor
 extension ArticlesScreenController {
+    func handleMarkAllAsReadAction(
+        searchText: String,
+        selection: SidebarSelection?,
+        sourcesFilter: SourcesFilter,
+        dependencies: AppDependencies,
+        isPreviewMode: Bool
+    ) {
+        guard shouldAskBeforeMarkingAllAsRead(dependencies: dependencies) else {
+            confirmMarkAllAsRead(
+                searchText: searchText,
+                selection: selection,
+                sourcesFilter: sourcesFilter,
+                dependencies: dependencies,
+                isPreviewMode: isPreviewMode
+            )
+            return
+        }
+
+        screenState.presentMarkAllAsReadConfirmation()
+    }
+
     func visibleArticleIDs(searchText: String) -> [UUID] {
         screenState
             .derivedViewState(searchText: searchText)
@@ -161,5 +182,18 @@ extension ArticlesScreenController {
             selection: selection,
             sourcesFilter: sourcesFilter
         )
+    }
+
+    private func shouldAskBeforeMarkingAllAsRead(dependencies: AppDependencies) -> Bool {
+        guard let appSettingsService = dependencies.appSettingsService else {
+            return true
+        }
+
+        do {
+            return try appSettingsService.fetchSettings().askBeforeMarkingAllAsRead
+        } catch {
+            dependencies.logger.error("Failed to load app settings for mark-all-as-read confirmation policy: \\(error)")
+            return true
+        }
     }
 }

@@ -6,6 +6,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var refreshIntervalPreference: RefreshPreference
     var useiCloudSync: Bool
     var markAsReadOnOpen: Bool
+    var askBeforeMarkingAllAsRead: Bool
     var sortMode: ArticleSortMode
 
     init(
@@ -14,6 +15,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         refreshIntervalPreference: RefreshPreference = .manual,
         useiCloudSync: Bool = false,
         markAsReadOnOpen: Bool = true,
+        askBeforeMarkingAllAsRead: Bool = true,
         sortMode: ArticleSortMode = .publishedAtDescending
     ) {
         self.defaultReaderMode = defaultReaderMode
@@ -21,6 +23,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         self.refreshIntervalPreference = refreshIntervalPreference
         self.useiCloudSync = useiCloudSync
         self.markAsReadOnOpen = markAsReadOnOpen
+        self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         self.sortMode = sortMode
     }
 
@@ -31,6 +34,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
             refreshIntervalPreference: settings.refreshIntervalPreference,
             useiCloudSync: settings.useiCloudSync,
             markAsReadOnOpen: settings.markAsReadOnOpen,
+            askBeforeMarkingAllAsRead: settings.askBeforeMarkingAllAsRead,
             sortMode: settings.sortMode
         )
     }
@@ -42,6 +46,7 @@ struct AppSettingsPatch: Sendable {
     var refreshIntervalPreference: RefreshPreference? = nil
     var useiCloudSync: Bool? = nil
     var markAsReadOnOpen: Bool? = nil
+    var askBeforeMarkingAllAsRead: Bool? = nil
     var sortMode: ArticleSortMode? = nil
     var updatedAt: Date = .now
 }
@@ -84,6 +89,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 refreshIntervalPreference: snapshot.refreshIntervalPreference,
                 useiCloudSync: snapshot.useiCloudSync,
                 markAsReadOnOpen: snapshot.markAsReadOnOpen,
+                askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
                 sortMode: snapshot.sortMode,
                 updatedAt: updatedAt
             )
@@ -100,6 +106,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 refreshIntervalPreference: patch.refreshIntervalPreference,
                 useiCloudSync: patch.useiCloudSync,
                 markAsReadOnOpen: patch.markAsReadOnOpen,
+                askBeforeMarkingAllAsRead: patch.askBeforeMarkingAllAsRead,
                 sortMode: patch.sortMode,
                 updatedAt: patch.updatedAt
             )

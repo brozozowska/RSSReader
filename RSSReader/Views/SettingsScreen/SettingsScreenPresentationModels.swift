@@ -152,7 +152,7 @@ enum SettingsScreenPresentationBuilder {
         SettingsScreenSectionPresentation(
             id: .articleList,
             title: "Article List",
-            footer: "Ordering is configurable here. Bulk mark-as-read still requires confirmation until that policy becomes a dedicated setting.",
+            footer: "Ordering and bulk mark-as-read confirmation are configurable here.",
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
@@ -171,12 +171,12 @@ enum SettingsScreenPresentationBuilder {
                         }
                     )
                 ),
-                .statusRow(
-                    SettingsStatusRowItemPresentation(
+                .toggle(
+                    SettingsToggleItemPresentation(
                         id: .askBeforeMarkingAllAsRead,
-                        title: "Mark All Read Confirmation",
-                        subtitle: "Bulk mark-as-read currently always asks for confirmation.",
-                        valueTitle: "Required"
+                        title: "Ask Before Marking All Read",
+                        subtitle: "Show a confirmation before marking all visible articles as read.",
+                        isOn: snapshot.askBeforeMarkingAllAsRead
                     )
                 )
             ]

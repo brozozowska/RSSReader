@@ -12,6 +12,7 @@ final class AppSettings {
     var refreshIntervalPreference: RefreshPreference
     var useiCloudSync: Bool
     var markAsReadOnOpen: Bool
+    var askBeforeMarkingAllAsRead: Bool
     var sortMode: ArticleSortMode
     var createdAt: Date
     var updatedAt: Date
@@ -24,6 +25,7 @@ final class AppSettings {
         refreshIntervalPreference: RefreshPreference = .manual,
         useiCloudSync: Bool = false,
         markAsReadOnOpen: Bool = true,
+        askBeforeMarkingAllAsRead: Bool = true,
         sortMode: ArticleSortMode = .publishedAtDescending,
         createdAt: Date = .now,
         updatedAt: Date = .now
@@ -35,6 +37,7 @@ final class AppSettings {
         self.refreshIntervalPreference = refreshIntervalPreference
         self.useiCloudSync = useiCloudSync
         self.markAsReadOnOpen = markAsReadOnOpen
+        self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         self.sortMode = sortMode
         self.createdAt = createdAt
         self.updatedAt = updatedAt
