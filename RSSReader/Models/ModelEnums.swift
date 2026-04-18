@@ -23,7 +23,6 @@ enum RefreshPreference: String, Codable, CaseIterable, Sendable {
 enum ArticleSortMode: String, Codable, CaseIterable, Sendable {
     case publishedAtDescending
     case publishedAtAscending
-    case fetchedAtDescending
 }
 
 enum ArticleListSortOrder: String, CaseIterable, Sendable {
@@ -31,13 +30,11 @@ enum ArticleListSortOrder: String, CaseIterable, Sendable {
     case oldestFirst
 
     init(sortMode: ArticleSortMode) {
-        switch sortMode.normalizedForArticleListOrder {
+        switch sortMode {
         case .publishedAtDescending:
             self = .newestFirst
         case .publishedAtAscending:
             self = .oldestFirst
-        case .fetchedAtDescending:
-            self = .newestFirst
         }
     }
 
@@ -46,17 +43,6 @@ enum ArticleListSortOrder: String, CaseIterable, Sendable {
         case .newestFirst:
             .publishedAtDescending
         case .oldestFirst:
-            .publishedAtAscending
-        }
-    }
-}
-
-extension ArticleSortMode {
-    var normalizedForArticleListOrder: ArticleSortMode {
-        switch self {
-        case .publishedAtDescending, .fetchedAtDescending:
-            .publishedAtDescending
-        case .publishedAtAscending:
             .publishedAtAscending
         }
     }

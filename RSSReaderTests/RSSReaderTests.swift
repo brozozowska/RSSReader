@@ -1929,49 +1929,6 @@ struct RSSReaderTests {
         #expect(controller.screenState.articles.first?.title == "Controller Load")
     }
 
-    @Test
-    func articlesScreenControllerNormalizesLegacyFetchedSortModeToNewestFirstArticleOrder() async throws {
-        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
-        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
-        _ = try appSettingsRepository.update(
-            AppSettingsUpdate(
-                sortMode: .fetchedAtDescending,
-                updatedAt: .distantPast
-            )
-        )
-        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-sort-normalization.xml"]).first)
-        let olderPublishedNewerFetched = try harness.insertArticle(
-            feed: feed,
-            externalID: "controller-sort-older-published",
-            url: "https://example.com/articles/controller-sort-older",
-            title: "Older Published"
-        )
-        olderPublishedNewerFetched.publishedAt = Date(timeIntervalSince1970: 100)
-        olderPublishedNewerFetched.fetchedAt = Date(timeIntervalSince1970: 300)
-
-        let newerPublishedOlderFetched = try harness.insertArticle(
-            feed: feed,
-            externalID: "controller-sort-newer-published",
-            url: "https://example.com/articles/controller-sort-newer",
-            title: "Newer Published"
-        )
-        newerPublishedOlderFetched.publishedAt = Date(timeIntervalSince1970: 200)
-        newerPublishedOlderFetched.fetchedAt = Date(timeIntervalSince1970: 150)
-        try harness.saveModelContext()
-
-        let controller = ArticlesScreenController()
-
-        await controller.load(
-            selection: .feed(feed.id),
-            sourcesFilter: .allItems,
-            dependencies: harness.dependencies
-        )
-
-        #expect(controller.screenState.phase == .loaded)
-        #expect(controller.screenState.articles.map(\.id) == [newerPublishedOlderFetched.id, olderPublishedNewerFetched.id])
-    }
-
-    @Test
     func articlesScreenControllerPresentsRefreshFailureFromBatchRefreshResult() async throws {
         let client = ScriptedHTTPClient(
             responsesByURL: [
@@ -2658,7 +2615,7 @@ struct RSSReaderTests {
             refreshIntervalPreference: .every6Hours,
             useiCloudSync: true,
             markAsReadOnOpen: false,
-            sortMode: .fetchedAtDescending
+            sortMode: .publishedAtDescending
         )
 
         let savedSnapshot = try service.saveSettings(
@@ -2673,7 +2630,7 @@ struct RSSReaderTests {
         #expect(persistedSettings.refreshIntervalPreference == .every6Hours)
         #expect(persistedSettings.useiCloudSync)
         #expect(persistedSettings.markAsReadOnOpen == false)
-        #expect(persistedSettings.sortMode == .fetchedAtDescending)
+        #expect(persistedSettings.sortMode == .publishedAtDescending)
     }
 
     @Test
@@ -2702,7 +2659,7 @@ struct RSSReaderTests {
             refreshIntervalPreference: .daily,
             useiCloudSync: true,
             markAsReadOnOpen: false,
-            sortMode: .fetchedAtDescending
+            sortMode: .publishedAtDescending
         )
 
         let sections = SettingsScreenPresentationBuilder.buildSections(from: snapshot)
@@ -2858,7 +2815,7 @@ struct RSSReaderTests {
                 refreshIntervalPreference: .every15Minutes,
                 useiCloudSync: false,
                 markAsReadOnOpen: true,
-                sortMode: .fetchedAtDescending
+                sortMode: .publishedAtDescending
             ),
             updatedAt: .distantPast
         )

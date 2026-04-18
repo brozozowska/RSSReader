@@ -134,7 +134,7 @@ final class ArticlesScreenController {
         }
 
         do {
-            return try appSettingsService.fetchSettings().sortMode.normalizedForArticleListOrder
+            return try appSettingsService.fetchSettings().sortMode
         } catch {
             dependencies.logger.error("Failed to load app settings for article sort mode: \(error)")
             return .publishedAtDescending
