@@ -1023,7 +1023,7 @@ struct RSSReaderTests {
         #expect(viewState.content?.header.title == article.title)
         #expect(viewState.content?.header.feedTitle == article.feedTitle)
         #expect(viewState.content?.header.author == article.author)
-        #expect(viewState.content?.body.blocks == [.paragraph("Rendered body text")])
+        #expect(viewState.content?.body.blocks == [.paragraph(.plainText("Rendered body text"))])
         #expect(viewState.content?.body.source == .contentText)
         #expect(viewState.content?.body.readerMode == .embedded)
         #expect(viewState.toolbarActions.showsShareAction)
@@ -1080,7 +1080,7 @@ struct RSSReaderTests {
 
         state.applyLoadedArticle(article)
 
-        #expect(state.derivedViewState().content?.body.blocks == [.paragraph("HTML body")])
+        #expect(state.derivedViewState().content?.body.blocks == [.paragraph(.plainText("HTML body"))])
         #expect(state.derivedViewState().content?.body.source == .contentHTML)
     }
 
@@ -1100,12 +1100,69 @@ struct RSSReaderTests {
 
         #expect(
             content.body.blocks == [
-                .paragraph("First paragraph."),
+                .paragraph(.plainText("First paragraph.")),
                 .image(URL(string: "https://example.com/images/inline.png")!),
-                .paragraph("Second paragraph.")
+                .paragraph(.plainText("Second paragraph."))
             ]
         )
         #expect(content.body.source == .contentHTML)
+    }
+
+    @Test
+    func articleScreenContentRendererPreservesAnchorMetadataInsideHTMLParagraphs() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <p>Read <a href="/guides/swift">Swift Guide</a> today.</p>
+                """,
+                canonicalURL: "https://example.com/articles/body"
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .paragraph(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(text: "Read "),
+                            ArticleScreenTextSpan(
+                                text: "Swift Guide",
+                                linkURL: URL(string: "https://example.com/guides/swift")!
+                            ),
+                            ArticleScreenTextSpan(text: " today.")
+                        ]
+                    )
+                )
+            ]
+        )
+        #expect(content.body.source == .contentHTML)
+    }
+
+    @Test
+    func articleScreenContentRendererDetectsLinksInsidePlainTextBody() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentText: "Read more at https://example.com/guides/swift today."
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .paragraph(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(text: "Read more at "),
+                            ArticleScreenTextSpan(
+                                text: "https://example.com/guides/swift",
+                                linkURL: URL(string: "https://example.com/guides/swift")!
+                            ),
+                            ArticleScreenTextSpan(text: " today.")
+                        ]
+                    )
+                )
+            ]
+        )
+        #expect(content.body.source == .contentText)
     }
 
     @Test
@@ -1124,8 +1181,8 @@ struct RSSReaderTests {
 
         #expect(
             content.body.blocks == [
-                .paragraph("Short summary paragraph."),
-                .paragraph("Another summary paragraph."),
+                .paragraph(.plainText("Short summary paragraph.")),
+                .paragraph(.plainText("Another summary paragraph.")),
                 .fallbackNotice("This source only provides a summary, not the full article body.")
             ]
         )
@@ -1155,13 +1212,13 @@ struct RSSReaderTests {
     func articleScreenBodyContentStateDefinesFutureFullTextExtensionPoint() {
         let extractedContent = ArticleScreenBodyContentState.extractedFullText(
             blocks: [
-                .paragraph("Extracted full text paragraph.")
+                .paragraph(.plainText("Extracted full text paragraph."))
             ]
         )
 
         #expect(extractedContent.source == .fullTextExtracted)
         #expect(extractedContent.readerMode == .fullText)
-        #expect(extractedContent.blocks == [.paragraph("Extracted full text paragraph.")])
+        #expect(extractedContent.blocks == [.paragraph(.plainText("Extracted full text paragraph."))])
     }
 
     @Test

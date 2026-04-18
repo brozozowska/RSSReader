@@ -139,7 +139,7 @@ struct ReaderView: View {
 
     @MainActor
     private func handleMarkUnreadActionTap() {
-        controller.toggleArticleReadStatus(
+        _controller.wrappedValue.toggleArticleReadStatus(
             dependencies: dependencies,
             isPreviewMode: previewScreenState != nil
         )
@@ -147,7 +147,7 @@ struct ReaderView: View {
 
     @MainActor
     private func handleStarActionTap() {
-        controller.toggleArticleStarredStatus(
+        _controller.wrappedValue.toggleArticleStarredStatus(
             dependencies: dependencies,
             isPreviewMode: previewScreenState != nil
         )
@@ -155,7 +155,7 @@ struct ReaderView: View {
 
     @MainActor
     private func handleOpenInAppBrowserTap() {
-        controller.openArticleInAppBrowser(
+        _controller.wrappedValue.openArticleInAppBrowser(
             dependencies: dependencies,
             appState: appState
         )
@@ -165,7 +165,7 @@ struct ReaderView: View {
     private func bodyBlockView(_ block: ArticleScreenBodyBlock) -> some View {
         switch block {
         case .paragraph(let text):
-            Text(text)
+            Text(text.plainText)
                 .font(.body)
                 .frame(maxWidth: .infinity, alignment: .leading)
         case .image(let url):

@@ -180,6 +180,10 @@ enum ArticleScreenURLResolver {
         return validatedExternalURL(from: articleURL)
     }
 
+    static func resolveArticleBodyLinkURL(rawValue: String, baseURLString: String?) -> URL? {
+        resolveMediaURL(rawValue: rawValue, baseURLString: baseURLString)
+    }
+
     static func resolveMediaURL(rawValue: String, baseURLString: String?) -> URL? {
         if let validatedURL = validatedExternalURL(from: rawValue) {
             return validatedURL
