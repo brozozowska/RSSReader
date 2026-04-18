@@ -99,15 +99,29 @@ struct RootView: View {
 }
 
 private struct SettingsScreenSheet: View {
+    @Environment(\.appDependencies) private var dependencies
     let dismiss: () -> Void
+    @State private var settingsSnapshot = AppSettingsSnapshot()
 
     var body: some View {
+        let sections = SettingsScreenPresentationBuilder.buildSections(from: settingsSnapshot)
+
         NavigationStack {
-            ScreenPlaceholderView(
-                title: "Settings",
-                systemImage: "gearshape",
-                description: "Settings Screen will be implemented in the next roadmap step."
-            )
+            List {
+                ForEach(sections) { section in
+                    Section {
+                        ForEach(section.items) { item in
+                            itemRow(item)
+                        }
+                    } header: {
+                        Text(section.title)
+                    } footer: {
+                        if let footer = section.footer {
+                            Text(footer)
+                        }
+                    }
+                }
+            }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -115,6 +129,85 @@ private struct SettingsScreenSheet: View {
                     Button("Done", action: dismiss)
                 }
             }
+            .task {
+                loadSettingsIfNeeded()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func itemRow(_ item: SettingsScreenItemPresentation) -> some View {
+        switch item {
+        case .toggle(let toggleItem):
+            Toggle(isOn: .constant(toggleItem.isOn)) {
+                itemLabel(
+                    title: toggleItem.title,
+                    subtitle: toggleItem.subtitle
+                )
+            }
+            .disabled(true)
+        case .picker(let pickerItem):
+            LabeledContent {
+                Text(pickerItem.selectedValueTitle)
+                    .foregroundStyle(.secondary)
+            } label: {
+                itemLabel(
+                    title: pickerItem.title,
+                    subtitle: pickerItem.subtitle
+                )
+            }
+        case .navigationLink(let navigationItem):
+            HStack(spacing: 12) {
+                itemLabel(
+                    title: navigationItem.title,
+                    subtitle: navigationItem.subtitle
+                )
+
+                Spacer(minLength: 12)
+
+                if let valueTitle = navigationItem.valueTitle {
+                    Text(valueTitle)
+                        .foregroundStyle(.secondary)
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .opacity(navigationItem.isEnabled ? 1 : 0.6)
+        case .statusRow(let statusItem):
+            LabeledContent {
+                Text(statusItem.valueTitle)
+                    .foregroundStyle(.secondary)
+            } label: {
+                itemLabel(
+                    title: statusItem.title,
+                    subtitle: statusItem.subtitle
+                )
+            }
+        }
+    }
+
+    private func itemLabel(title: String, subtitle: String?) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .foregroundStyle(.primary)
+
+            if let subtitle, subtitle.isEmpty == false {
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func loadSettingsIfNeeded() {
+        guard let appSettingsService = dependencies.appSettingsService else { return }
+
+        do {
+            settingsSnapshot = try appSettingsService.fetchSettings()
+        } catch {
+            dependencies.logger.error("Failed to load settings snapshot for settings sheet: \(error)")
         }
     }
 }

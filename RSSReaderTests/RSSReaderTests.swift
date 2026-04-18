@@ -2653,6 +2653,126 @@ struct RSSReaderTests {
     }
 
     @Test
+    func settingsScreenPresentationBuilderBuildsSectionedContractFromSettingsSnapshot() {
+        let snapshot = AppSettingsSnapshot(
+            defaultReaderMode: .browser,
+            selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+            refreshIntervalPreference: .daily,
+            useiCloudSync: true,
+            markAsReadOnOpen: false,
+            sortMode: .fetchedAtDescending
+        )
+
+        let sections = SettingsScreenPresentationBuilder.buildSections(from: snapshot)
+
+        #expect(sections.map(\.id) == [.reading, .articleList, .refresh, .sync, .advanced])
+
+        let readingItems = sections[0].items
+        let articleListItems = sections[1].items
+        let refreshItems = sections[2].items
+        let syncItems = sections[3].items
+        let advancedItems = sections[4].items
+
+        #expect(
+            readingItems[0] == .picker(
+                SettingsPickerItemPresentation(
+                    id: .defaultReaderMode,
+                    title: "Default Reader",
+                    subtitle: "Choose how articles open by default.",
+                    selectedValueTitle: "In-App Browser",
+                    options: [
+                        SettingsPickerOptionPresentation(id: "embedded", title: "Embedded Reader", isSelected: false),
+                        SettingsPickerOptionPresentation(id: "reader", title: "Reader Mode", isSelected: false),
+                        SettingsPickerOptionPresentation(id: "browser", title: "In-App Browser", isSelected: true)
+                    ]
+                )
+            )
+        )
+        #expect(
+            readingItems[1] == .toggle(
+                SettingsToggleItemPresentation(
+                    id: .markAsReadOnOpen,
+                    title: "Mark Read on Open",
+                    subtitle: "Automatically mark an article as read when it is opened.",
+                    isOn: false
+                )
+            )
+        )
+        #expect(
+            articleListItems.contains(
+                .picker(
+                    SettingsPickerItemPresentation(
+                        id: .articleSortMode,
+                        title: "Sort Articles",
+                        subtitle: "Current persisted sort policy.",
+                        selectedValueTitle: "Newest by Fetch Date",
+                        options: [
+                            SettingsPickerOptionPresentation(id: "publishedAtDescending", title: "Newest by Publish Date", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "publishedAtAscending", title: "Oldest by Publish Date", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "fetchedAtDescending", title: "Newest by Fetch Date", isSelected: true)
+                        ]
+                    )
+                )
+            )
+        )
+        #expect(
+            refreshItems.contains(
+                .picker(
+                    SettingsPickerItemPresentation(
+                        id: .refreshInterval,
+                        title: "Background Refresh",
+                        subtitle: "Choose how often feeds should refresh when background refresh is available.",
+                        selectedValueTitle: "Daily",
+                        options: [
+                            SettingsPickerOptionPresentation(id: "manual", title: "Manual", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "every15Minutes", title: "Every 15 Minutes", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "hourly", title: "Hourly", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "every6Hours", title: "Every 6 Hours", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "daily", title: "Daily", isSelected: true)
+                        ]
+                    )
+                )
+            )
+        )
+        #expect(
+            syncItems == [
+                .statusRow(
+                    SettingsStatusRowItemPresentation(
+                        id: .iCloudSyncStatus,
+                        title: "iCloud Sync",
+                        subtitle: "Sync is enabled in settings, but CloudKit status is not implemented yet.",
+                        valueTitle: "Enabled"
+                    )
+                )
+            ]
+        )
+        #expect(advancedItems.count == 2)
+    }
+
+    @Test
+    func settingsScreenPresentationBuilderIncludesAllSupportedItemTypes() {
+        let sections = SettingsScreenPresentationBuilder.buildSections(from: AppSettingsSnapshot())
+        let items = sections.flatMap(\.items)
+
+        #expect(items.contains { item in
+            if case .toggle = item { return true }
+            return false
+        })
+        #expect(items.contains { item in
+            if case .picker = item { return true }
+            return false
+        })
+        #expect(items.contains { item in
+            if case .navigationLink = item { return true }
+            return false
+        })
+        #expect(items.contains { item in
+            if case .statusRow = item { return true }
+            return false
+        })
+    }
+
+    @Test
     func readingShellSourceSwitchResetsArticleDetailSelectionAndTriggersReload() {
         let appState = AppState()
         let initialReloadID = appState.articleListReloadID
