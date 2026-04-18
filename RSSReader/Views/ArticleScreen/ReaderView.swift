@@ -1,5 +1,12 @@
 import SwiftUI
 
+struct ArticleScreenActionHandlers {
+    let toggleReadStatus: () -> Void
+    let toggleStarredStatus: () -> Void
+    let openCurrentArticleLink: () -> Void
+    let bodyLinkTapped: (URL) -> Void
+}
+
 struct ReaderView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appDependencies) private var dependencies
@@ -137,37 +144,62 @@ struct ReaderView: View {
             }
     }
 
+    private var actionHandlers: ArticleScreenActionHandlers {
+        ArticleScreenActionHandlers(
+            toggleReadStatus: {
+                _controller.wrappedValue.toggleArticleReadStatus(
+                    dependencies: dependencies,
+                    isPreviewMode: previewScreenState != nil
+                )
+            },
+            toggleStarredStatus: {
+                _controller.wrappedValue.toggleArticleStarredStatus(
+                    dependencies: dependencies,
+                    isPreviewMode: previewScreenState != nil
+                )
+            },
+            openCurrentArticleLink: {
+                _controller.wrappedValue.openArticleInAppBrowser(
+                    dependencies: dependencies,
+                    appState: appState
+                )
+            },
+            bodyLinkTapped: { url in
+                _controller.wrappedValue.handleBodyLinkTap(
+                    url,
+                    dependencies: dependencies,
+                    appState: appState
+                )
+            }
+        )
+    }
+
     @MainActor
     private func handleMarkUnreadActionTap() {
-        _controller.wrappedValue.toggleArticleReadStatus(
-            dependencies: dependencies,
-            isPreviewMode: previewScreenState != nil
-        )
+        actionHandlers.toggleReadStatus()
     }
 
     @MainActor
     private func handleStarActionTap() {
-        _controller.wrappedValue.toggleArticleStarredStatus(
-            dependencies: dependencies,
-            isPreviewMode: previewScreenState != nil
-        )
+        actionHandlers.toggleStarredStatus()
     }
 
     @MainActor
     private func handleOpenInAppBrowserTap() {
-        _controller.wrappedValue.openArticleInAppBrowser(
-            dependencies: dependencies,
-            appState: appState
-        )
+        actionHandlers.openCurrentArticleLink()
     }
 
     @ViewBuilder
     private func bodyBlockView(_ block: ArticleScreenBodyBlock) -> some View {
         switch block {
         case .paragraph(let text):
-            Text(text.plainText)
+            Text(text.attributedString)
                 .font(.body)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .environment(\.openURL, OpenURLAction { url in
+                    actionHandlers.bodyLinkTapped(url)
+                    return .handled
+                })
         case .image(let url):
             AsyncImage(url: url) { phase in
                 switch phase {

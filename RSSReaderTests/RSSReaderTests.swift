@@ -1166,6 +1166,29 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articleScreenTextBlockBuildsAttributedStringWithLinkAttributes() {
+        let textBlock = ArticleScreenTextBlock(
+            spans: [
+                ArticleScreenTextSpan(text: "Read "),
+                ArticleScreenTextSpan(
+                    text: "Swift Guide",
+                    linkURL: URL(string: "https://example.com/guides/swift")!
+                ),
+                ArticleScreenTextSpan(text: " today.")
+            ]
+        )
+
+        let attributedString = textBlock.attributedString
+
+        #expect(String(attributedString.characters) == "Read Swift Guide today.")
+
+        let linkRuns = attributedString.runs.filter { $0.link != nil }
+        #expect(linkRuns.count == 1)
+        #expect(linkRuns.first?.link == URL(string: "https://example.com/guides/swift")!)
+        #expect(String(attributedString[linkRuns[0].range].characters) == "Swift Guide")
+    }
+
+    @Test
     func articleScreenContentRendererUsesSummaryWithFallbackNoticeWhenFullBodyIsUnavailable() {
         let content = ArticleScreenContentState(
             article: makeReaderArticleDTO(
@@ -1514,6 +1537,44 @@ struct RSSReaderTests {
             appState.presentedWebViewRoute == ArticleWebViewRoute(
                 articleID: articleModel.id,
                 url: URL(string: "https://example.com/articles/article-screen-open-web/canonical")!
+            )
+        )
+    }
+
+    @Test
+    func articleScreenControllerHandlesTappedBodyLinkThroughAppLevelWebViewRoute() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-body-link.xml"]).first)
+        let articleModel = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-body-link",
+            url: "https://example.com/articles/article-screen-body-link",
+            title: "Article Screen Body Link"
+        )
+        try harness.saveModelContext()
+        let controller = ArticleScreenController()
+        let tappedURL = URL(string: "https://example.com/guides/swift")!
+
+        await controller.load(articleID: articleModel.id, dependencies: harness.dependencies)
+        controller.handleBodyLinkTap(
+            tappedURL,
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+
+        #expect(
+            appState.selectedDetailRoute == .webView(
+                ArticleWebViewRoute(
+                    articleID: articleModel.id,
+                    url: tappedURL
+                )
+            )
+        )
+        #expect(
+            appState.presentedWebViewRoute == ArticleWebViewRoute(
+                articleID: articleModel.id,
+                url: tappedURL
             )
         )
     }

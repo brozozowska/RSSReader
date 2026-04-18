@@ -116,6 +116,15 @@ final class ArticleScreenController {
         dependencies.openArticleInWebView(article, using: appState)
     }
 
+    func handleBodyLinkTap(
+        _ url: URL,
+        dependencies: AppDependencies,
+        appState: AppState
+    ) {
+        guard let article = screenState.article else { return }
+        dependencies.openArticleBodyLink(url, articleID: article.id, using: appState)
+    }
+
     private func applyMarkAsReadOnOpenPolicy(
         to article: ReaderArticleDTO,
         dependencies: AppDependencies

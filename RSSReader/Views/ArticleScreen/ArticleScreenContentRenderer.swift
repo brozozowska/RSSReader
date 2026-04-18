@@ -24,6 +24,14 @@ struct ArticleScreenTextBlock: Equatable, Sendable {
         spans.map(\.text).joined()
     }
 
+    var attributedString: AttributedString {
+        spans.reduce(into: AttributedString()) { partialResult, span in
+            var attributedSpan = AttributedString(span.text)
+            attributedSpan.link = span.linkURL
+            partialResult.append(attributedSpan)
+        }
+    }
+
     init(spans: [ArticleScreenTextSpan]) {
         self.spans = spans.filter { $0.text.isEmpty == false }
     }

@@ -222,6 +222,11 @@ extension AppDependencies {
     }
 
     @MainActor
+    func openArticleBodyLink(_ url: URL, articleID: UUID, using appState: AppState) {
+        appState.presentWebView(articleID: articleID, url: url)
+    }
+
+    @MainActor
     func closePresentedArticleWebView(using appState: AppState) {
         appState.dismissPresentedWebView()
     }
