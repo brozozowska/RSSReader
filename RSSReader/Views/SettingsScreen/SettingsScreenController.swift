@@ -74,6 +74,25 @@ final class SettingsScreenController {
             dependencies.logger.info("Settings picker option is not implemented yet: \(itemID.rawValue).\(optionID)")
         }
     }
+
+    func handleToggleValueChange(
+        itemID: SettingsScreenItemID,
+        isOn: Bool,
+        dependencies: AppDependencies
+    ) {
+        switch itemID {
+        case .markAsReadOnOpen:
+            updateMarkAsReadOnOpen(isOn: isOn, dependencies: dependencies)
+        case .defaultReaderMode,
+                .articleSortMode,
+                .articleGrouping,
+                .refreshInterval,
+                .iCloudSyncStatus,
+                .linkOpening,
+                .appearance:
+            dependencies.logger.info("Settings toggle action is not implemented yet: \(itemID.rawValue).\(isOn)")
+        }
+    }
 }
 
 private extension SettingsScreenController {
@@ -106,6 +125,32 @@ private extension SettingsScreenController {
             screenState.applyLoadedSnapshot(updatedSnapshot)
         } catch {
             dependencies.logger.error("Failed to update default reader mode: \(error)")
+        }
+    }
+
+    func updateMarkAsReadOnOpen(
+        isOn: Bool,
+        dependencies: AppDependencies
+    ) {
+        guard screenState.settingsSnapshot.markAsReadOnOpen != isOn else {
+            return
+        }
+
+        guard let appSettingsService = dependencies.appSettingsService else {
+            dependencies.logger.error("App settings service is unavailable for mark-as-read-on-open update")
+            return
+        }
+
+        do {
+            let updatedSnapshot = try appSettingsService.updateSettings(
+                AppSettingsPatch(
+                    markAsReadOnOpen: isOn,
+                    updatedAt: .now
+                )
+            )
+            screenState.applyLoadedSnapshot(updatedSnapshot)
+        } catch {
+            dependencies.logger.error("Failed to update mark-as-read-on-open setting: \(error)")
         }
     }
 }

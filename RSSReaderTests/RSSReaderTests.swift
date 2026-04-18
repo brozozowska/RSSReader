@@ -2857,6 +2857,26 @@ struct RSSReaderTests {
     }
 
     @Test
+    func settingsScreenControllerPersistsUpdatedMarkAsReadOnOpenThroughSettingsService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+        #expect(controller.screenState.settingsSnapshot.markAsReadOnOpen)
+
+        controller.handleToggleValueChange(
+            itemID: .markAsReadOnOpen,
+            isOn: false,
+            dependencies: harness.dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.markAsReadOnOpen == false)
+        #expect(persistedSettings.markAsReadOnOpen == false)
+    }
+
+    @Test
     func settingsScreenControllerBuildsFailureStateWhenSettingsServiceIsUnavailable() {
         let controller = SettingsScreenController()
         let dependencies = AppDependencies.makeDefault()

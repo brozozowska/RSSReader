@@ -5,6 +5,7 @@ struct SettingsScreenActionHandlers {
     let retryLoad: () -> Void
     let selectItem: (SettingsScreenItemID) -> Void
     let selectPickerOption: (SettingsScreenItemID, String) -> Void
+    let toggleItem: (SettingsScreenItemID, Bool) -> Void
     let dismissPicker: () -> Void
 }
 
@@ -77,6 +78,13 @@ struct SettingsScreenView: View {
                     dependencies: dependencies
                 )
             },
+            toggleItem: { itemID, isOn in
+                controller.handleToggleValueChange(
+                    itemID: itemID,
+                    isOn: isOn,
+                    dependencies: dependencies
+                )
+            },
             dismissPicker: {
                 controller.dismissPresentedPicker()
             }
@@ -128,13 +136,12 @@ struct SettingsScreenView: View {
     private func itemRow(_ item: SettingsScreenItemPresentation) -> some View {
         switch item {
         case .toggle(let toggleItem):
-            Toggle(isOn: .constant(toggleItem.isOn)) {
+            Toggle(isOn: toggleBinding(for: toggleItem)) {
                 itemLabel(
                     title: toggleItem.title,
                     subtitle: toggleItem.subtitle
                 )
             }
-            .disabled(true)
         case .picker(let pickerItem):
             Button {
                 actionHandlers.selectItem(pickerItem.id)
@@ -202,5 +209,14 @@ struct SettingsScreenView: View {
 
     private func optionTitle(_ option: SettingsPickerOptionPresentation) -> String {
         option.isSelected ? "\(option.title) (Current)" : option.title
+    }
+
+    private func toggleBinding(for item: SettingsToggleItemPresentation) -> Binding<Bool> {
+        Binding(
+            get: { item.isOn },
+            set: { newValue in
+                actionHandlers.toggleItem(item.id, newValue)
+            }
+        )
     }
 }

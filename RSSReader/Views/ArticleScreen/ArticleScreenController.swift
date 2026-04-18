@@ -147,12 +147,12 @@ final class ArticleScreenController {
     }
 
     private func shouldMarkAsReadOnOpen(dependencies: AppDependencies) -> Bool {
-        guard let appSettingsRepository = dependencies.appSettingsRepository else {
+        guard let appSettingsService = dependencies.appSettingsService else {
             return true
         }
 
         do {
-            return try appSettingsRepository.fetchOrCreate().markAsReadOnOpen
+            return try appSettingsService.fetchSettings().markAsReadOnOpen
         } catch {
             dependencies.logger.error("Failed to load app settings for mark-as-read-on-open policy: \(error)")
             return true
