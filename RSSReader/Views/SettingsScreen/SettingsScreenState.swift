@@ -10,27 +10,40 @@ struct SettingsScreenState {
     private(set) var phase: SettingsScreenPhase = .loading
     private(set) var settingsSnapshot = AppSettingsSnapshot()
     private(set) var sections: [SettingsScreenSectionPresentation] = []
+    private(set) var presentedPicker: SettingsPickerItemPresentation? = nil
 
     mutating func beginLoading() {
         phase = .loading
+        presentedPicker = nil
     }
 
     mutating func applyLoadedSnapshot(_ snapshot: AppSettingsSnapshot) {
         settingsSnapshot = snapshot
         sections = SettingsScreenPresentationBuilder.buildSections(from: snapshot)
         phase = .loaded
+        presentedPicker = nil
     }
 
     mutating func applyLoadingFailure(_ message: String) {
         sections = []
         phase = .failed(message)
+        presentedPicker = nil
+    }
+
+    mutating func presentPicker(for itemID: SettingsScreenItemID) {
+        presentedPicker = pickerItem(for: itemID)
+    }
+
+    mutating func dismissPresentedPicker() {
+        presentedPicker = nil
     }
 
     func derivedViewState() -> SettingsScreenViewState {
         SettingsScreenViewState(
             sections: sections,
             primaryLoadingState: primaryLoadingState,
-            placeholder: placeholder
+            placeholder: placeholder,
+            presentedPicker: presentedPicker
         )
     }
 
@@ -73,5 +86,17 @@ private extension SettingsScreenState {
             description: message,
             actionTitle: "Retry"
         )
+    }
+
+    func pickerItem(for itemID: SettingsScreenItemID) -> SettingsPickerItemPresentation? {
+        sections
+            .flatMap(\.items)
+            .first { $0.id == itemID }
+            .flatMap { item in
+                guard case .picker(let pickerItem) = item else {
+                    return nil
+                }
+                return pickerItem
+            }
     }
 }

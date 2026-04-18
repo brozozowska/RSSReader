@@ -4,6 +4,8 @@ struct SettingsScreenActionHandlers {
     let dismiss: () -> Void
     let retryLoad: () -> Void
     let selectItem: (SettingsScreenItemID) -> Void
+    let selectPickerOption: (SettingsScreenItemID, String) -> Void
+    let dismissPicker: () -> Void
 }
 
 struct SettingsScreenView: View {
@@ -35,6 +37,27 @@ struct SettingsScreenView: View {
                     guard controller.isPreviewMode == false else { return }
                     controller.loadSettings(dependencies: dependencies)
                 }
+                .confirmationDialog(
+                    viewState.presentedPicker?.title ?? "",
+                    isPresented: presentedPickerBinding,
+                    titleVisibility: .visible
+                ) {
+                    if let picker = viewState.presentedPicker {
+                        ForEach(picker.options) { option in
+                            Button(optionTitle(option)) {
+                                actionHandlers.selectPickerOption(picker.id, option.id)
+                            }
+                        }
+                    }
+
+                    Button("Cancel", role: .cancel) {
+                        actionHandlers.dismissPicker()
+                    }
+                } message: {
+                    if let subtitle = viewState.presentedPicker?.subtitle, subtitle.isEmpty == false {
+                        Text(subtitle)
+                    }
+                }
         }
     }
 
@@ -46,6 +69,26 @@ struct SettingsScreenView: View {
             },
             selectItem: { itemID in
                 controller.handleItemSelection(itemID, dependencies: dependencies)
+            },
+            selectPickerOption: { itemID, optionID in
+                controller.handlePickerOptionSelection(
+                    itemID: itemID,
+                    optionID: optionID,
+                    dependencies: dependencies
+                )
+            },
+            dismissPicker: {
+                controller.dismissPresentedPicker()
+            }
+        )
+    }
+
+    private var presentedPickerBinding: Binding<Bool> {
+        Binding(
+            get: { controller.screenState.presentedPicker != nil },
+            set: { isPresented in
+                guard isPresented == false else { return }
+                controller.dismissPresentedPicker()
             }
         )
     }
@@ -155,5 +198,9 @@ struct SettingsScreenView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private func optionTitle(_ option: SettingsPickerOptionPresentation) -> String {
+        option.isSelected ? "\(option.title) (Current)" : option.title
     }
 }

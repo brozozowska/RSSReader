@@ -2793,6 +2793,20 @@ struct RSSReaderTests {
     }
 
     @Test
+    func settingsScreenStatePresentsDefaultReaderModePickerFromLoadedSections() {
+        var state = SettingsScreenState.previewLoaded(
+            snapshot: AppSettingsSnapshot(defaultReaderMode: .reader)
+        )
+
+        state.presentPicker(for: .defaultReaderMode)
+
+        let presentedPicker = state.derivedViewState().presentedPicker
+        #expect(presentedPicker?.id == .defaultReaderMode)
+        #expect(presentedPicker?.selectedValueTitle == "Reader Mode")
+        #expect(presentedPicker?.options.count == ReaderMode.allCases.count)
+    }
+
+    @Test
     func settingsScreenControllerLoadsSettingsSnapshotFromService() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let service = try #require(harness.dependencies.appSettingsService)
@@ -2817,6 +2831,29 @@ struct RSSReaderTests {
         #expect(viewState.sections.isEmpty == false)
         #expect(controller.screenState.settingsSnapshot.defaultReaderMode == .reader)
         #expect(controller.screenState.settingsSnapshot.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedDefaultReaderModeThroughSettingsService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+        controller.handleItemSelection(.defaultReaderMode, dependencies: harness.dependencies)
+
+        #expect(controller.viewState().presentedPicker?.id == .defaultReaderMode)
+
+        controller.handlePickerOptionSelection(
+            itemID: .defaultReaderMode,
+            optionID: ReaderMode.browser.rawValue,
+            dependencies: harness.dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.defaultReaderMode == .browser)
+        #expect(controller.viewState().presentedPicker == nil)
+        #expect(persistedSettings.defaultReaderMode == .browser)
     }
 
     @Test
