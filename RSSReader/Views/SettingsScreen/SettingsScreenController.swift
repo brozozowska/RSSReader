@@ -42,7 +42,7 @@ final class SettingsScreenController {
         case .defaultReaderMode, .articleSortMode:
             screenState.presentPicker(for: itemID)
         case .markAsReadOnOpen,
-                .articleGrouping,
+                .askBeforeMarkingAllAsRead,
                 .refreshInterval,
                 .iCloudSyncStatus,
                 .linkOpening,
@@ -66,7 +66,7 @@ final class SettingsScreenController {
         case .articleSortMode:
             updateArticleSortMode(optionID: optionID, dependencies: dependencies)
         case .markAsReadOnOpen,
-                .articleGrouping,
+                .askBeforeMarkingAllAsRead,
                 .refreshInterval,
                 .iCloudSyncStatus,
                 .linkOpening,
@@ -85,7 +85,7 @@ final class SettingsScreenController {
             updateMarkAsReadOnOpen(isOn: isOn, dependencies: dependencies)
         case .defaultReaderMode,
                 .articleSortMode,
-                .articleGrouping,
+                .askBeforeMarkingAllAsRead,
                 .refreshInterval,
                 .iCloudSyncStatus,
                 .linkOpening,

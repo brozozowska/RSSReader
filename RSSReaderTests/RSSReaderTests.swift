@@ -2698,7 +2698,7 @@ struct RSSReaderTests {
             )
         )
         #expect(
-            articleListItems.contains(
+            articleListItems == [
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .articleSortMode,
@@ -2710,8 +2710,16 @@ struct RSSReaderTests {
                             SettingsPickerOptionPresentation(id: "oldestFirst", title: "Oldest First", isSelected: false)
                         ]
                     )
+                ),
+                .statusRow(
+                    SettingsStatusRowItemPresentation(
+                        id: .askBeforeMarkingAllAsRead,
+                        title: "Mark All Read Confirmation",
+                        subtitle: "Bulk mark-as-read currently always asks for confirmation.",
+                        valueTitle: "Required"
+                    )
                 )
-            )
+            ]
         )
         #expect(
             refreshItems.contains(

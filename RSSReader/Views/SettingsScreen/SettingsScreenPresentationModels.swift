@@ -14,7 +14,7 @@ enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
     case defaultReaderMode
     case markAsReadOnOpen
     case articleSortMode
-    case articleGrouping
+    case askBeforeMarkingAllAsRead
     case refreshInterval
     case iCloudSyncStatus
     case linkOpening
@@ -152,7 +152,7 @@ enum SettingsScreenPresentationBuilder {
         SettingsScreenSectionPresentation(
             id: .articleList,
             title: "Article List",
-            footer: "List structure and ordering are represented as explicit presentation items instead of being assembled ad hoc in the view.",
+            footer: "Ordering is configurable here. Bulk mark-as-read still requires confirmation until that policy becomes a dedicated setting.",
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
@@ -171,13 +171,12 @@ enum SettingsScreenPresentationBuilder {
                         }
                     )
                 ),
-                .navigationLink(
-                    SettingsNavigationLinkItemPresentation(
-                        id: .articleGrouping,
-                        title: "Grouping",
-                        subtitle: "Future article grouping preferences will live behind a dedicated destination.",
-                        valueTitle: "Coming Soon",
-                        isEnabled: false
+                .statusRow(
+                    SettingsStatusRowItemPresentation(
+                        id: .askBeforeMarkingAllAsRead,
+                        title: "Mark All Read Confirmation",
+                        subtitle: "Bulk mark-as-read currently always asks for confirmation.",
+                        valueTitle: "Required"
                     )
                 )
             ]
