@@ -46,19 +46,21 @@ private struct AppRootContainer: View {
         guard hasLoadedPersistedSourcesFilter == false else { return }
         defer { hasLoadedPersistedSourcesFilter = true }
 
-        guard let appSettingsRepository = dependencies.appSettingsRepository else { return }
+        guard let appSettingsService = dependencies.appSettingsService else { return }
 
         do {
-            let settings = try appSettingsRepository.fetchOrCreate()
-            let restoredFilter = SourcesFilterPersistencePolicy.restoredFilter(from: settings)
+            let settings = try appSettingsService.fetchSettings()
+            let restoredFilter = SourcesFilterPersistencePolicy.restoredFilter(
+                from: settings.selectedSourcesFilterRawValue
+            )
 
             if appState.selectedSourcesFilter != restoredFilter {
                 appState.selectSourcesFilter(restoredFilter)
             }
 
             if settings.selectedSourcesFilterRawValue != restoredFilter.rawValue {
-                _ = try appSettingsRepository.update(
-                    SourcesFilterPersistencePolicy.makeSettingsUpdate(for: restoredFilter)
+                _ = try appSettingsService.updateSettings(
+                    SourcesFilterPersistencePolicy.makeSettingsPatch(for: restoredFilter)
                 )
             }
         } catch {
@@ -68,11 +70,11 @@ private struct AppRootContainer: View {
 
     @MainActor
     private func persistSourcesFilter(_ filter: SourcesFilter) {
-        guard let appSettingsRepository = dependencies.appSettingsRepository else { return }
+        guard let appSettingsService = dependencies.appSettingsService else { return }
 
         do {
-            _ = try appSettingsRepository.update(
-                SourcesFilterPersistencePolicy.makeSettingsUpdate(for: filter)
+            _ = try appSettingsService.updateSettings(
+                SourcesFilterPersistencePolicy.makeSettingsPatch(for: filter)
             )
         } catch {
             dependencies.logger.error("Failed to persist sources filter \(filter.rawValue): \(error)")
@@ -81,8 +83,8 @@ private struct AppRootContainer: View {
 }
 
 enum SourcesFilterPersistencePolicy {
-    static func restoredFilter(from settings: AppSettings) -> SourcesFilter {
-        if let rawValue = settings.selectedSourcesFilterRawValue,
+    static func restoredFilter(from persistedRawValue: String?) -> SourcesFilter {
+        if let rawValue = persistedRawValue,
            let persistedFilter = SourcesFilter(rawValue: rawValue) {
             return persistedFilter
         }
@@ -90,8 +92,8 @@ enum SourcesFilterPersistencePolicy {
         return .allItems
     }
 
-    static func makeSettingsUpdate(for filter: SourcesFilter, updatedAt: Date = .now) -> AppSettingsUpdate {
-        AppSettingsUpdate(
+    static func makeSettingsPatch(for filter: SourcesFilter, updatedAt: Date = .now) -> AppSettingsPatch {
+        AppSettingsPatch(
             selectedSourcesFilterRawValue: filter.rawValue,
             updatedAt: updatedAt
         )

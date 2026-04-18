@@ -25,6 +25,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let sourcesSidebarQueryService: (any SourcesSidebarQueryService)?
     let articleStateRepository: (any ArticleStateRepository)?
     let appSettingsRepository: (any AppSettingsRepository)?
+    let appSettingsService: (any AppSettingsService)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
     public let modelContainer: ModelContainer?
 
@@ -77,6 +78,9 @@ public final class AppDependencies: AppDependenciesProtocol {
         let appSettingsRepository = modelContainer.map { container in
             SwiftDataAppSettingsRepository(modelContext: container.mainContext)
         }
+        let appSettingsService = appSettingsRepository.map { repository in
+            DefaultAppSettingsService(repository: repository)
+        }
         let feedFetchLogRepository = modelContainer.map { container in
             SwiftDataFeedFetchLogRepository(modelContext: container.mainContext)
         }
@@ -110,6 +114,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.articleQueryService = articleQueryService
         self.sourcesSidebarQueryService = sourcesSidebarQueryService
         self.appSettingsRepository = appSettingsRepository
+        self.appSettingsService = appSettingsService
         self.feedFetchLogRepository = feedFetchLogRepository
         self.feedFetcher = resolvedFeedFetcher
     }
@@ -332,12 +337,12 @@ extension AppDependencies {
 private extension AppDependencies {
     @MainActor
     func shouldPresentSelectedArticleInWebViewByDefault() -> Bool {
-        guard let appSettingsRepository else {
+        guard let appSettingsService else {
             return false
         }
 
         do {
-            return try appSettingsRepository.fetchOrCreate().defaultReaderMode == .browser
+            return try appSettingsService.fetchSettings().defaultReaderMode == .browser
         } catch {
             logger.error("Failed to load app settings for default reader mode policy: \(error)")
             return false

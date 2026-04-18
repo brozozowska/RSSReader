@@ -2516,7 +2516,9 @@ struct RSSReaderTests {
     func sourcesFilterPersistencePolicyRestoresPersistedFilterFromSettingsRawValue() {
         let settings = AppSettings(selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue)
 
-        let restoredFilter = SourcesFilterPersistencePolicy.restoredFilter(from: settings)
+        let restoredFilter = SourcesFilterPersistencePolicy.restoredFilter(
+            from: settings.selectedSourcesFilterRawValue
+        )
 
         #expect(restoredFilter == .starred)
     }
@@ -2525,16 +2527,20 @@ struct RSSReaderTests {
     func sourcesFilterPersistencePolicyFallsBackToAllItemsWhenRawValueIsMissing() {
         let settings = AppSettings(selectedSourcesFilterRawValue: nil)
 
-        #expect(SourcesFilterPersistencePolicy.restoredFilter(from: settings) == .allItems)
+        #expect(
+            SourcesFilterPersistencePolicy.restoredFilter(
+                from: settings.selectedSourcesFilterRawValue
+            ) == .allItems
+        )
     }
 
     @Test
-    func sourcesFilterPersistencePolicyBuildsSettingsUpdateForSelectedFilter() {
-        let starredUpdate = SourcesFilterPersistencePolicy.makeSettingsUpdate(
+    func sourcesFilterPersistencePolicyBuildsSettingsPatchForSelectedFilter() {
+        let starredUpdate = SourcesFilterPersistencePolicy.makeSettingsPatch(
             for: .starred,
             updatedAt: .distantPast
         )
-        let unreadUpdate = SourcesFilterPersistencePolicy.makeSettingsUpdate(
+        let unreadUpdate = SourcesFilterPersistencePolicy.makeSettingsPatch(
             for: .unread,
             updatedAt: .distantPast
         )
@@ -2565,6 +2571,85 @@ struct RSSReaderTests {
         let settings = try repository.fetchOrCreate()
 
         #expect(settings.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
+    }
+
+    @Test
+    func appSettingsServiceFetchesSnapshotFromRepository() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let service = try #require(harness.dependencies.appSettingsService)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                defaultReaderMode: .browser,
+                selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+                refreshIntervalPreference: .hourly,
+                useiCloudSync: true,
+                markAsReadOnOpen: false,
+                sortMode: .publishedAtAscending,
+                updatedAt: .distantPast
+            )
+        )
+
+        let snapshot = try service.fetchSettings()
+
+        #expect(
+            snapshot == AppSettingsSnapshot(
+                defaultReaderMode: .browser,
+                selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+                refreshIntervalPreference: .hourly,
+                useiCloudSync: true,
+                markAsReadOnOpen: false,
+                sortMode: .publishedAtAscending
+            )
+        )
+    }
+
+    @Test
+    func appSettingsServiceSavesEditedSnapshot() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let service = try #require(harness.dependencies.appSettingsService)
+        let editedSettings = AppSettingsSnapshot(
+            defaultReaderMode: .reader,
+            selectedSourcesFilterRawValue: SourcesFilter.unread.rawValue,
+            refreshIntervalPreference: .every6Hours,
+            useiCloudSync: true,
+            markAsReadOnOpen: false,
+            sortMode: .fetchedAtDescending
+        )
+
+        let savedSnapshot = try service.saveSettings(
+            editedSettings,
+            updatedAt: .distantPast
+        )
+        let persistedSettings = try repository.fetchOrCreate()
+
+        #expect(savedSnapshot == editedSettings)
+        #expect(persistedSettings.defaultReaderMode == .reader)
+        #expect(persistedSettings.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
+        #expect(persistedSettings.refreshIntervalPreference == .every6Hours)
+        #expect(persistedSettings.useiCloudSync)
+        #expect(persistedSettings.markAsReadOnOpen == false)
+        #expect(persistedSettings.sortMode == .fetchedAtDescending)
+    }
+
+    @Test
+    func appSettingsServiceUpdatesSelectedSourcesFilterRawValueThroughPatch() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let service = try #require(harness.dependencies.appSettingsService)
+
+        let updatedSnapshot = try service.updateSettings(
+            AppSettingsPatch(
+                selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+                updatedAt: .distantPast
+            )
+        )
+        let persistedSettings = try repository.fetchOrCreate()
+
+        #expect(updatedSnapshot.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
+        #expect(persistedSettings.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
     }
 
     @Test
