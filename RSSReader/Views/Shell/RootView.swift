@@ -63,6 +63,11 @@ struct RootView: View {
                 )
             }
         }
+        .sheet(isPresented: settingsPresentationBinding) {
+            SettingsScreenSheet(
+                dismiss: { dependencies.dismissSettings(using: appState) }
+            )
+        }
         .onAppear(perform: syncPreferredCompactColumn)
         .onChange(of: appState.selectedSidebarSelection) { _, _ in
             syncPreferredCompactColumn()
@@ -72,10 +77,44 @@ struct RootView: View {
         }
     }
 
+    private var settingsPresentationBinding: Binding<Bool> {
+        Binding(
+            get: { appState.isPresentingSettingsScreen },
+            set: { isPresented in
+                if isPresented {
+                    appState.presentSettingsScreen()
+                } else {
+                    appState.dismissSettingsScreen()
+                }
+            }
+        )
+    }
+
     private func syncPreferredCompactColumn() {
         preferredCompactColumn = ReadingShellCompactNavigationState.preferredCompactColumn(
             sourceSelection: appState.selectedSidebarSelection,
             articleSelection: appState.selectedArticleID
         )
+    }
+}
+
+private struct SettingsScreenSheet: View {
+    let dismiss: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScreenPlaceholderView(
+                title: "Settings",
+                systemImage: "gearshape",
+                description: "Settings Screen will be implemented in the next roadmap step."
+            )
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done", action: dismiss)
+                }
+            }
+        }
     }
 }
