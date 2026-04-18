@@ -3055,6 +3055,31 @@ struct RSSReaderTests {
     }
 
     @Test
+    func settingsPresentationStateLivesInAppStateAndDoesNotResetReadingShellContext() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feedID = UUID()
+        let articleID = UUID()
+
+        harness.dependencies.showFeed(id: feedID, using: appState)
+        harness.dependencies.selectArticle(id: articleID, using: appState)
+
+        harness.dependencies.showSettings(using: appState)
+
+        #expect(appState.isPresentingSettingsScreen)
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .article(articleID))
+
+        harness.dependencies.dismissSettings(using: appState)
+
+        #expect(appState.isPresentingSettingsScreen == false)
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .article(articleID))
+    }
+
+    @Test
     func shellActionEntryPointsOpenAndCloseArticleWebViewViaDependencies() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()

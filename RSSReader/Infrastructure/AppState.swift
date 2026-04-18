@@ -63,6 +63,7 @@ struct ReadingNavigationState: Hashable, Sendable {
 public final class AppState {
     var readingNavigation = ReadingNavigationState()
     var selectedSourcesFilter: SourcesFilter = .allItems
+    var isPresentingSettingsScreen = false
     var articleListReloadID = UUID()
     var sourcesSidebarReloadID = UUID()
 
@@ -109,6 +110,14 @@ public final class AppState {
 
     func dismissPresentedWebView() {
         readingNavigation.dismissWebView()
+    }
+
+    func presentSettingsScreen() {
+        isPresentingSettingsScreen = true
+    }
+
+    func dismissSettingsScreen() {
+        isPresentingSettingsScreen = false
     }
 
     func selectSourcesFilter(_ filter: SourcesFilter) {

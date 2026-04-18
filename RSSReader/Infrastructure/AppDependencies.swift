@@ -222,6 +222,16 @@ extension AppDependencies {
     }
 
     @MainActor
+    func showSettings(using appState: AppState) {
+        appState.presentSettingsScreen()
+    }
+
+    @MainActor
+    func dismissSettings(using appState: AppState) {
+        appState.dismissSettingsScreen()
+    }
+
+    @MainActor
     func refreshFeed(id feedID: UUID) async -> FeedRefreshResult? {
         guard let feedRefreshService else {
             logger.error("Feed refresh service is unavailable")

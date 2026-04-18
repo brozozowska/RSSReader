@@ -154,8 +154,7 @@ struct SidebarView: View {
             Divider()
 
             Button("Settings") {
-                // TODO: Present settings screen when Settings Integration is implemented.
-                dependencies.logger.info("Settings action is not implemented yet")
+                dependencies.showSettings(using: appState)
             }
         } label: {
             Image(systemName: "ellipsis.circle")
