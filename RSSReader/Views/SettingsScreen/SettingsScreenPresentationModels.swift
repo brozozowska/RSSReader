@@ -30,6 +30,23 @@ struct SettingsScreenSectionPresentation: Identifiable, Equatable, Sendable {
     let items: [SettingsScreenItemPresentation]
 }
 
+struct SettingsScreenViewState: Equatable, Sendable {
+    let sections: [SettingsScreenSectionPresentation]
+    let primaryLoadingState: SettingsScreenPrimaryLoadingState?
+    let placeholder: SettingsScreenPlaceholderState?
+}
+
+struct SettingsScreenPrimaryLoadingState: Equatable, Sendable {
+    let title: String
+}
+
+struct SettingsScreenPlaceholderState: Equatable, Sendable {
+    let title: String
+    let systemImage: String
+    let description: String?
+    let actionTitle: String?
+}
+
 enum SettingsScreenItemPresentation: Identifiable, Equatable, Sendable {
     case toggle(SettingsToggleItemPresentation)
     case picker(SettingsPickerItemPresentation)

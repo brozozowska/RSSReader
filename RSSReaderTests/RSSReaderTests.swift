@@ -2773,6 +2773,71 @@ struct RSSReaderTests {
     }
 
     @Test
+    func settingsScreenStateBuildsLoadedViewStateFromSnapshot() {
+        let snapshot = AppSettingsSnapshot(
+            defaultReaderMode: .browser,
+            selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+            refreshIntervalPreference: .hourly,
+            useiCloudSync: true,
+            markAsReadOnOpen: false,
+            sortMode: .publishedAtAscending
+        )
+        var state = SettingsScreenState()
+
+        state.applyLoadedSnapshot(snapshot)
+        let viewState = state.derivedViewState()
+
+        #expect(viewState.primaryLoadingState == nil)
+        #expect(viewState.placeholder == nil)
+        #expect(viewState.sections.map(\.id) == [.reading, .articleList, .refresh, .sync, .advanced])
+    }
+
+    @Test
+    func settingsScreenControllerLoadsSettingsSnapshotFromService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let service = try #require(harness.dependencies.appSettingsService)
+        _ = try service.saveSettings(
+            AppSettingsSnapshot(
+                defaultReaderMode: .reader,
+                selectedSourcesFilterRawValue: SourcesFilter.unread.rawValue,
+                refreshIntervalPreference: .every15Minutes,
+                useiCloudSync: false,
+                markAsReadOnOpen: true,
+                sortMode: .fetchedAtDescending
+            ),
+            updatedAt: .distantPast
+        )
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+
+        let viewState = controller.viewState()
+        #expect(viewState.primaryLoadingState == nil)
+        #expect(viewState.placeholder == nil)
+        #expect(viewState.sections.isEmpty == false)
+        #expect(controller.screenState.settingsSnapshot.defaultReaderMode == .reader)
+        #expect(controller.screenState.settingsSnapshot.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
+    }
+
+    @Test
+    func settingsScreenControllerBuildsFailureStateWhenSettingsServiceIsUnavailable() {
+        let controller = SettingsScreenController()
+        let dependencies = AppDependencies.makeDefault()
+
+        controller.loadSettings(dependencies: dependencies)
+
+        #expect(controller.viewState().sections.isEmpty)
+        #expect(
+            controller.viewState().placeholder == SettingsScreenPlaceholderState(
+                title: "Unable to Load Settings",
+                systemImage: "exclamationmark.triangle",
+                description: "Settings are unavailable in the current app environment.",
+                actionTitle: "Retry"
+            )
+        )
+    }
+
+    @Test
     func readingShellSourceSwitchResetsArticleDetailSelectionAndTriggersReload() {
         let appState = AppState()
         let initialReloadID = appState.articleListReloadID
