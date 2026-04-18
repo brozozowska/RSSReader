@@ -39,10 +39,9 @@ final class SettingsScreenController {
 
     func handleItemSelection(_ itemID: SettingsScreenItemID, dependencies: AppDependencies) {
         switch itemID {
-        case .defaultReaderMode:
+        case .defaultReaderMode, .articleSortMode:
             screenState.presentPicker(for: itemID)
         case .markAsReadOnOpen,
-                .articleSortMode,
                 .articleGrouping,
                 .refreshInterval,
                 .iCloudSyncStatus,
@@ -64,8 +63,9 @@ final class SettingsScreenController {
         switch itemID {
         case .defaultReaderMode:
             updateDefaultReaderMode(optionID: optionID, dependencies: dependencies)
+        case .articleSortMode:
+            updateArticleSortMode(optionID: optionID, dependencies: dependencies)
         case .markAsReadOnOpen,
-                .articleSortMode,
                 .articleGrouping,
                 .refreshInterval,
                 .iCloudSyncStatus,
@@ -151,6 +151,39 @@ private extension SettingsScreenController {
             screenState.applyLoadedSnapshot(updatedSnapshot)
         } catch {
             dependencies.logger.error("Failed to update mark-as-read-on-open setting: \(error)")
+        }
+    }
+
+    func updateArticleSortMode(
+        optionID: String,
+        dependencies: AppDependencies
+    ) {
+        guard let selectedOrder = ArticleListSortOrder(rawValue: optionID) else {
+            dependencies.logger.error("Skipped article sort mode update because option is invalid: \(optionID)")
+            return
+        }
+
+        let selectedSortMode = selectedOrder.sortMode
+        guard screenState.settingsSnapshot.sortMode != selectedSortMode else {
+            screenState.dismissPresentedPicker()
+            return
+        }
+
+        guard let appSettingsService = dependencies.appSettingsService else {
+            dependencies.logger.error("App settings service is unavailable for article sort mode update")
+            return
+        }
+
+        do {
+            let updatedSnapshot = try appSettingsService.updateSettings(
+                AppSettingsPatch(
+                    sortMode: selectedSortMode,
+                    updatedAt: .now
+                )
+            )
+            screenState.applyLoadedSnapshot(updatedSnapshot)
+        } catch {
+            dependencies.logger.error("Failed to update article sort mode: \(error)")
         }
     }
 }

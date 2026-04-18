@@ -158,13 +158,15 @@ enum SettingsScreenPresentationBuilder {
                     SettingsPickerItemPresentation(
                         id: .articleSortMode,
                         title: "Sort Articles",
-                        subtitle: "Current persisted sort policy.",
-                        selectedValueTitle: articleSortModeTitle(snapshot.sortMode),
-                        options: ArticleSortMode.allCases.map { mode in
+                        subtitle: "Choose how unread and article lists are ordered.",
+                        selectedValueTitle: articleListSortOrderTitle(
+                            ArticleListSortOrder(sortMode: snapshot.sortMode)
+                        ),
+                        options: ArticleListSortOrder.allCases.map { order in
                             SettingsPickerOptionPresentation(
-                                id: mode.rawValue,
-                                title: articleSortModeTitle(mode),
-                                isSelected: snapshot.sortMode == mode
+                                id: order.rawValue,
+                                title: articleListSortOrderTitle(order),
+                                isSelected: ArticleListSortOrder(sortMode: snapshot.sortMode) == order
                             )
                         }
                     )
@@ -269,14 +271,12 @@ enum SettingsScreenPresentationBuilder {
         }
     }
 
-    private static func articleSortModeTitle(_ mode: ArticleSortMode) -> String {
-        switch mode {
-        case .publishedAtDescending:
-            "Newest by Publish Date"
-        case .publishedAtAscending:
-            "Oldest by Publish Date"
-        case .fetchedAtDescending:
-            "Newest by Fetch Date"
+    private static func articleListSortOrderTitle(_ order: ArticleListSortOrder) -> String {
+        switch order {
+        case .newestFirst:
+            "Newest First"
+        case .oldestFirst:
+            "Oldest First"
         }
     }
 

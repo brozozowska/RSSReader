@@ -1930,6 +1930,48 @@ struct RSSReaderTests {
     }
 
     @Test
+    func articlesScreenControllerNormalizesLegacyFetchedSortModeToNewestFirstArticleOrder() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(
+                sortMode: .fetchedAtDescending,
+                updatedAt: .distantPast
+            )
+        )
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-sort-normalization.xml"]).first)
+        let olderPublishedNewerFetched = try harness.insertArticle(
+            feed: feed,
+            externalID: "controller-sort-older-published",
+            url: "https://example.com/articles/controller-sort-older",
+            title: "Older Published"
+        )
+        olderPublishedNewerFetched.publishedAt = Date(timeIntervalSince1970: 100)
+        olderPublishedNewerFetched.fetchedAt = Date(timeIntervalSince1970: 300)
+
+        let newerPublishedOlderFetched = try harness.insertArticle(
+            feed: feed,
+            externalID: "controller-sort-newer-published",
+            url: "https://example.com/articles/controller-sort-newer",
+            title: "Newer Published"
+        )
+        newerPublishedOlderFetched.publishedAt = Date(timeIntervalSince1970: 200)
+        newerPublishedOlderFetched.fetchedAt = Date(timeIntervalSince1970: 150)
+        try harness.saveModelContext()
+
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.map(\.id) == [newerPublishedOlderFetched.id, olderPublishedNewerFetched.id])
+    }
+
+    @Test
     func articlesScreenControllerPresentsRefreshFailureFromBatchRefreshResult() async throws {
         let client = ScriptedHTTPClient(
             responsesByURL: [
@@ -2704,12 +2746,11 @@ struct RSSReaderTests {
                     SettingsPickerItemPresentation(
                         id: .articleSortMode,
                         title: "Sort Articles",
-                        subtitle: "Current persisted sort policy.",
-                        selectedValueTitle: "Newest by Fetch Date",
+                        subtitle: "Choose how unread and article lists are ordered.",
+                        selectedValueTitle: "Newest First",
                         options: [
-                            SettingsPickerOptionPresentation(id: "publishedAtDescending", title: "Newest by Publish Date", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "publishedAtAscending", title: "Oldest by Publish Date", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "fetchedAtDescending", title: "Newest by Fetch Date", isSelected: true)
+                            SettingsPickerOptionPresentation(id: "newestFirst", title: "Newest First", isSelected: true),
+                            SettingsPickerOptionPresentation(id: "oldestFirst", title: "Oldest First", isSelected: false)
                         ]
                     )
                 )
@@ -2854,6 +2895,29 @@ struct RSSReaderTests {
         #expect(controller.screenState.settingsSnapshot.defaultReaderMode == .browser)
         #expect(controller.viewState().presentedPicker == nil)
         #expect(persistedSettings.defaultReaderMode == .browser)
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedArticleSortModeThroughSettingsService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+        controller.handleItemSelection(.articleSortMode, dependencies: harness.dependencies)
+
+        #expect(controller.viewState().presentedPicker?.id == .articleSortMode)
+
+        controller.handlePickerOptionSelection(
+            itemID: .articleSortMode,
+            optionID: ArticleListSortOrder.oldestFirst.rawValue,
+            dependencies: harness.dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.sortMode == .publishedAtAscending)
+        #expect(controller.viewState().presentedPicker == nil)
+        #expect(persistedSettings.sortMode == .publishedAtAscending)
     }
 
     @Test

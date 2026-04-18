@@ -25,3 +25,39 @@ enum ArticleSortMode: String, Codable, CaseIterable, Sendable {
     case publishedAtAscending
     case fetchedAtDescending
 }
+
+enum ArticleListSortOrder: String, CaseIterable, Sendable {
+    case newestFirst
+    case oldestFirst
+
+    init(sortMode: ArticleSortMode) {
+        switch sortMode.normalizedForArticleListOrder {
+        case .publishedAtDescending:
+            self = .newestFirst
+        case .publishedAtAscending:
+            self = .oldestFirst
+        case .fetchedAtDescending:
+            self = .newestFirst
+        }
+    }
+
+    var sortMode: ArticleSortMode {
+        switch self {
+        case .newestFirst:
+            .publishedAtDescending
+        case .oldestFirst:
+            .publishedAtAscending
+        }
+    }
+}
+
+extension ArticleSortMode {
+    var normalizedForArticleListOrder: ArticleSortMode {
+        switch self {
+        case .publishedAtDescending, .fetchedAtDescending:
+            .publishedAtDescending
+        case .publishedAtAscending:
+            .publishedAtAscending
+        }
+    }
+}

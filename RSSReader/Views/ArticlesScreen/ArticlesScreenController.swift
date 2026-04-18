@@ -129,12 +129,12 @@ final class ArticlesScreenController {
     }
 
     private func loadSortMode(dependencies: AppDependencies) -> ArticleSortMode {
-        guard let appSettingsRepository = dependencies.appSettingsRepository else {
+        guard let appSettingsService = dependencies.appSettingsService else {
             return .publishedAtDescending
         }
 
         do {
-            return try appSettingsRepository.fetchOrCreate().sortMode
+            return try appSettingsService.fetchSettings().sortMode.normalizedForArticleListOrder
         } catch {
             dependencies.logger.error("Failed to load app settings for article sort mode: \(error)")
             return .publishedAtDescending
