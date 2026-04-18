@@ -119,10 +119,17 @@ final class ArticleScreenController {
     func handleBodyLinkTap(
         _ url: URL,
         dependencies: AppDependencies,
-        appState: AppState
+        appState: AppState,
+        openExternalURL: (URL) -> Void
     ) {
         guard let article = screenState.article else { return }
-        dependencies.openArticleBodyLink(url, articleID: article.id, using: appState)
+
+        switch articleBodyLinkOpeningPolicy(dependencies: dependencies) {
+        case .inAppBrowser:
+            dependencies.openArticleBodyLink(url, articleID: article.id, using: appState)
+        case .externalBrowser:
+            openExternalURL(url)
+        }
     }
 
     private func applyMarkAsReadOnOpenPolicy(
@@ -165,6 +172,21 @@ final class ArticleScreenController {
         } catch {
             dependencies.logger.error("Failed to load app settings for mark-as-read-on-open policy: \(error)")
             return true
+        }
+    }
+
+    private func articleBodyLinkOpeningPolicy(
+        dependencies: AppDependencies
+    ) -> ArticleBodyLinkOpeningPolicy {
+        guard let appSettingsService = dependencies.appSettingsService else {
+            return .inAppBrowser
+        }
+
+        do {
+            return try appSettingsService.fetchSettings().articleBodyLinkOpeningPolicy
+        } catch {
+            dependencies.logger.error("Failed to load app settings for article body link opening policy: \(error)")
+            return .inAppBrowser
         }
     }
 }

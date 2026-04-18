@@ -47,3 +47,8 @@ enum ArticleListSortOrder: String, CaseIterable, Sendable {
         }
     }
 }
+
+enum ArticleBodyLinkOpeningPolicy: String, Codable, CaseIterable, Sendable {
+    case inAppBrowser
+    case externalBrowser
+}

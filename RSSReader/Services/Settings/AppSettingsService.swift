@@ -8,6 +8,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var markAsReadOnOpen: Bool
     var askBeforeMarkingAllAsRead: Bool
     var sortMode: ArticleSortMode
+    var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
 
     init(
         defaultReaderMode: ReaderMode = .embedded,
@@ -16,7 +17,8 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         useiCloudSync: Bool = false,
         markAsReadOnOpen: Bool = true,
         askBeforeMarkingAllAsRead: Bool = true,
-        sortMode: ArticleSortMode = .publishedAtDescending
+        sortMode: ArticleSortMode = .publishedAtDescending,
+        articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser
     ) {
         self.defaultReaderMode = defaultReaderMode
         self.selectedSourcesFilterRawValue = selectedSourcesFilterRawValue
@@ -25,6 +27,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         self.markAsReadOnOpen = markAsReadOnOpen
         self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         self.sortMode = sortMode
+        self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
     }
 
     init(settings: AppSettings) {
@@ -35,7 +38,8 @@ struct AppSettingsSnapshot: Equatable, Sendable {
             useiCloudSync: settings.useiCloudSync,
             markAsReadOnOpen: settings.markAsReadOnOpen,
             askBeforeMarkingAllAsRead: settings.askBeforeMarkingAllAsRead,
-            sortMode: settings.sortMode
+            sortMode: settings.sortMode,
+            articleBodyLinkOpeningPolicy: settings.articleBodyLinkOpeningPolicy
         )
     }
 }
@@ -48,6 +52,7 @@ struct AppSettingsPatch: Sendable {
     var markAsReadOnOpen: Bool? = nil
     var askBeforeMarkingAllAsRead: Bool? = nil
     var sortMode: ArticleSortMode? = nil
+    var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
     var updatedAt: Date = .now
 }
 
@@ -91,6 +96,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 markAsReadOnOpen: snapshot.markAsReadOnOpen,
                 askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
                 sortMode: snapshot.sortMode,
+                articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
                 updatedAt: updatedAt
             )
         )
@@ -108,6 +114,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 markAsReadOnOpen: patch.markAsReadOnOpen,
                 askBeforeMarkingAllAsRead: patch.askBeforeMarkingAllAsRead,
                 sortMode: patch.sortMode,
+                articleBodyLinkOpeningPolicy: patch.articleBodyLinkOpeningPolicy,
                 updatedAt: patch.updatedAt
             )
         )

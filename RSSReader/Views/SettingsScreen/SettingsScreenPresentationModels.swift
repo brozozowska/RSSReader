@@ -17,7 +17,7 @@ enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
     case askBeforeMarkingAllAsRead
     case refreshInterval
     case iCloudSyncStatus
-    case linkOpening
+    case articleBodyLinkOpeningPolicy
     case appearance
 
     var id: String { rawValue }
@@ -143,6 +143,21 @@ enum SettingsScreenPresentationBuilder {
                         subtitle: "Automatically mark an article as read when it is opened.",
                         isOn: snapshot.markAsReadOnOpen
                     )
+                ),
+                .picker(
+                    SettingsPickerItemPresentation(
+                        id: .articleBodyLinkOpeningPolicy,
+                        title: "Article Links",
+                        subtitle: "Choose how links inside article text should open.",
+                        selectedValueTitle: articleBodyLinkOpeningPolicyTitle(snapshot.articleBodyLinkOpeningPolicy),
+                        options: ArticleBodyLinkOpeningPolicy.allCases.map { policy in
+                            SettingsPickerOptionPresentation(
+                                id: policy.rawValue,
+                                title: articleBodyLinkOpeningPolicyTitle(policy),
+                                isSelected: snapshot.articleBodyLinkOpeningPolicy == policy
+                            )
+                        }
+                    )
                 )
             ]
         )
@@ -239,15 +254,6 @@ enum SettingsScreenPresentationBuilder {
             items: [
                 .navigationLink(
                     SettingsNavigationLinkItemPresentation(
-                        id: .linkOpening,
-                        title: "Open Links",
-                        subtitle: "Link opening policy will be configurable in a dedicated flow.",
-                        valueTitle: "Coming Soon",
-                        isEnabled: false
-                    )
-                ),
-                .navigationLink(
-                    SettingsNavigationLinkItemPresentation(
                         id: .appearance,
                         title: "Appearance",
                         subtitle: "Theme and display preferences will be configured in a dedicated flow.",
@@ -291,6 +297,15 @@ enum SettingsScreenPresentationBuilder {
             "Every 6 Hours"
         case .daily:
             "Daily"
+        }
+    }
+
+    private static func articleBodyLinkOpeningPolicyTitle(_ policy: ArticleBodyLinkOpeningPolicy) -> String {
+        switch policy {
+        case .inAppBrowser:
+            "In-App Browser"
+        case .externalBrowser:
+            "External Browser"
         }
     }
 }

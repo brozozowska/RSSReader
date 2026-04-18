@@ -10,6 +10,7 @@ struct ArticleScreenActionHandlers {
 struct ReaderView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appDependencies) private var dependencies
+    @Environment(\.openURL) private var openURL
     let articleID: UUID?
     let showsBackButton: Bool
     let navigateBackToArticles: () -> Void
@@ -168,7 +169,10 @@ struct ReaderView: View {
                 _controller.wrappedValue.handleBodyLinkTap(
                     url,
                     dependencies: dependencies,
-                    appState: appState
+                    appState: appState,
+                    openExternalURL: { externalURL in
+                        openURL(externalURL)
+                    }
                 )
             }
         )

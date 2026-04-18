@@ -14,6 +14,7 @@ final class AppSettings {
     var markAsReadOnOpen: Bool
     var askBeforeMarkingAllAsRead: Bool
     var sortMode: ArticleSortMode
+    var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
     var createdAt: Date
     var updatedAt: Date
 
@@ -27,6 +28,7 @@ final class AppSettings {
         markAsReadOnOpen: Bool = true,
         askBeforeMarkingAllAsRead: Bool = true,
         sortMode: ArticleSortMode = .publishedAtDescending,
+        articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         createdAt: Date = .now,
         updatedAt: Date = .now
     ) {
@@ -39,6 +41,7 @@ final class AppSettings {
         self.markAsReadOnOpen = markAsReadOnOpen
         self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         self.sortMode = sortMode
+        self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

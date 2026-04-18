@@ -39,13 +39,12 @@ final class SettingsScreenController {
 
     func handleItemSelection(_ itemID: SettingsScreenItemID, dependencies: AppDependencies) {
         switch itemID {
-        case .defaultReaderMode, .articleSortMode:
+        case .defaultReaderMode, .articleSortMode, .articleBodyLinkOpeningPolicy:
             screenState.presentPicker(for: itemID)
         case .markAsReadOnOpen,
                 .askBeforeMarkingAllAsRead,
                 .refreshInterval,
                 .iCloudSyncStatus,
-                .linkOpening,
                 .appearance:
             dependencies.logger.info("Settings item action is not implemented yet: \(itemID.rawValue)")
         }
@@ -65,11 +64,12 @@ final class SettingsScreenController {
             updateDefaultReaderMode(optionID: optionID, dependencies: dependencies)
         case .articleSortMode:
             updateArticleSortMode(optionID: optionID, dependencies: dependencies)
+        case .articleBodyLinkOpeningPolicy:
+            updateArticleBodyLinkOpeningPolicy(optionID: optionID, dependencies: dependencies)
         case .markAsReadOnOpen,
                 .askBeforeMarkingAllAsRead,
                 .refreshInterval,
                 .iCloudSyncStatus,
-                .linkOpening,
                 .appearance:
             dependencies.logger.info("Settings picker option is not implemented yet: \(itemID.rawValue).\(optionID)")
         }
@@ -87,9 +87,9 @@ final class SettingsScreenController {
             updateAskBeforeMarkingAllAsRead(isOn: isOn, dependencies: dependencies)
         case .defaultReaderMode,
                 .articleSortMode,
+                .articleBodyLinkOpeningPolicy,
                 .refreshInterval,
                 .iCloudSyncStatus,
-                .linkOpening,
                 .appearance:
             dependencies.logger.info("Settings toggle action is not implemented yet: \(itemID.rawValue).\(isOn)")
         }
@@ -211,6 +211,38 @@ private extension SettingsScreenController {
             screenState.applyLoadedSnapshot(updatedSnapshot)
         } catch {
             dependencies.logger.error("Failed to update article sort mode: \(error)")
+        }
+    }
+
+    func updateArticleBodyLinkOpeningPolicy(
+        optionID: String,
+        dependencies: AppDependencies
+    ) {
+        guard let selectedPolicy = ArticleBodyLinkOpeningPolicy(rawValue: optionID) else {
+            dependencies.logger.error("Skipped article body link opening policy update because option is invalid: \(optionID)")
+            return
+        }
+
+        guard screenState.settingsSnapshot.articleBodyLinkOpeningPolicy != selectedPolicy else {
+            screenState.dismissPresentedPicker()
+            return
+        }
+
+        guard let appSettingsService = dependencies.appSettingsService else {
+            dependencies.logger.error("App settings service is unavailable for article body link opening policy update")
+            return
+        }
+
+        do {
+            let updatedSnapshot = try appSettingsService.updateSettings(
+                AppSettingsPatch(
+                    articleBodyLinkOpeningPolicy: selectedPolicy,
+                    updatedAt: .now
+                )
+            )
+            screenState.applyLoadedSnapshot(updatedSnapshot)
+        } catch {
+            dependencies.logger.error("Failed to update article body link opening policy: \(error)")
         }
     }
 }
