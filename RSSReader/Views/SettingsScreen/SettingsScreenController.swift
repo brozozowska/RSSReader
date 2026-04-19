@@ -138,22 +138,15 @@ private extension SettingsScreenController {
             return
         }
 
-        guard let appSettingsService = dependencies.appSettingsService else {
-            dependencies.logger.error("App settings service is unavailable for default reader mode update")
-            return
-        }
-
-        do {
-            let updatedSnapshot = try appSettingsService.updateSettings(
-                AppSettingsPatch(
-                    defaultReaderMode: selectedMode,
-                    updatedAt: .now
-                )
-            )
-            screenState.applyLoadedSnapshot(updatedSnapshot, iCloudSyncStatus: screenState.iCloudSyncStatus)
-        } catch {
-            dependencies.logger.error("Failed to update default reader mode: \(error)")
-        }
+        persistSettingsPatch(
+            AppSettingsPatch(
+                defaultReaderMode: selectedMode,
+                updatedAt: .now
+            ),
+            dependencies: dependencies,
+            unavailableServiceLog: "App settings service is unavailable for default reader mode update",
+            failureLogPrefix: "Failed to update default reader mode"
+        )
     }
 
     func updateMarkAsReadOnOpen(
@@ -164,22 +157,15 @@ private extension SettingsScreenController {
             return
         }
 
-        guard let appSettingsService = dependencies.appSettingsService else {
-            dependencies.logger.error("App settings service is unavailable for mark-as-read-on-open update")
-            return
-        }
-
-        do {
-            let updatedSnapshot = try appSettingsService.updateSettings(
-                AppSettingsPatch(
-                    markAsReadOnOpen: isOn,
-                    updatedAt: .now
-                )
-            )
-            screenState.applyLoadedSnapshot(updatedSnapshot, iCloudSyncStatus: screenState.iCloudSyncStatus)
-        } catch {
-            dependencies.logger.error("Failed to update mark-as-read-on-open setting: \(error)")
-        }
+        persistSettingsPatch(
+            AppSettingsPatch(
+                markAsReadOnOpen: isOn,
+                updatedAt: .now
+            ),
+            dependencies: dependencies,
+            unavailableServiceLog: "App settings service is unavailable for mark-as-read-on-open update",
+            failureLogPrefix: "Failed to update mark-as-read-on-open setting"
+        )
     }
 
     func updateAskBeforeMarkingAllAsRead(
@@ -190,22 +176,15 @@ private extension SettingsScreenController {
             return
         }
 
-        guard let appSettingsService = dependencies.appSettingsService else {
-            dependencies.logger.error("App settings service is unavailable for ask-before-marking-all-as-read update")
-            return
-        }
-
-        do {
-            let updatedSnapshot = try appSettingsService.updateSettings(
-                AppSettingsPatch(
-                    askBeforeMarkingAllAsRead: isOn,
-                    updatedAt: .now
-                )
-            )
-            screenState.applyLoadedSnapshot(updatedSnapshot, iCloudSyncStatus: screenState.iCloudSyncStatus)
-        } catch {
-            dependencies.logger.error("Failed to update ask-before-marking-all-as-read setting: \\(error)")
-        }
+        persistSettingsPatch(
+            AppSettingsPatch(
+                askBeforeMarkingAllAsRead: isOn,
+                updatedAt: .now
+            ),
+            dependencies: dependencies,
+            unavailableServiceLog: "App settings service is unavailable for ask-before-marking-all-as-read update",
+            failureLogPrefix: "Failed to update ask-before-marking-all-as-read setting"
+        )
     }
 
     func updateArticleSortMode(
@@ -223,22 +202,15 @@ private extension SettingsScreenController {
             return
         }
 
-        guard let appSettingsService = dependencies.appSettingsService else {
-            dependencies.logger.error("App settings service is unavailable for article sort mode update")
-            return
-        }
-
-        do {
-            let updatedSnapshot = try appSettingsService.updateSettings(
-                AppSettingsPatch(
-                    sortMode: selectedSortMode,
-                    updatedAt: .now
-                )
-            )
-            screenState.applyLoadedSnapshot(updatedSnapshot, iCloudSyncStatus: screenState.iCloudSyncStatus)
-        } catch {
-            dependencies.logger.error("Failed to update article sort mode: \(error)")
-        }
+        persistSettingsPatch(
+            AppSettingsPatch(
+                sortMode: selectedSortMode,
+                updatedAt: .now
+            ),
+            dependencies: dependencies,
+            unavailableServiceLog: "App settings service is unavailable for article sort mode update",
+            failureLogPrefix: "Failed to update article sort mode"
+        )
     }
 
     func updateArticleBodyLinkOpeningPolicy(
@@ -255,22 +227,15 @@ private extension SettingsScreenController {
             return
         }
 
-        guard let appSettingsService = dependencies.appSettingsService else {
-            dependencies.logger.error("App settings service is unavailable for article body link opening policy update")
-            return
-        }
-
-        do {
-            let updatedSnapshot = try appSettingsService.updateSettings(
-                AppSettingsPatch(
-                    articleBodyLinkOpeningPolicy: selectedPolicy,
-                    updatedAt: .now
-                )
-            )
-            screenState.applyLoadedSnapshot(updatedSnapshot, iCloudSyncStatus: screenState.iCloudSyncStatus)
-        } catch {
-            dependencies.logger.error("Failed to update article body link opening policy: \(error)")
-        }
+        persistSettingsPatch(
+            AppSettingsPatch(
+                articleBodyLinkOpeningPolicy: selectedPolicy,
+                updatedAt: .now
+            ),
+            dependencies: dependencies,
+            unavailableServiceLog: "App settings service is unavailable for article body link opening policy update",
+            failureLogPrefix: "Failed to update article body link opening policy"
+        )
     }
 
     func updateArticleSourceLinkOpeningPolicy(
@@ -287,22 +252,15 @@ private extension SettingsScreenController {
             return
         }
 
-        guard let appSettingsService = dependencies.appSettingsService else {
-            dependencies.logger.error("App settings service is unavailable for article source link opening policy update")
-            return
-        }
-
-        do {
-            let updatedSnapshot = try appSettingsService.updateSettings(
-                AppSettingsPatch(
-                    articleSourceLinkOpeningPolicy: selectedPolicy,
-                    updatedAt: .now
-                )
-            )
-            screenState.applyLoadedSnapshot(updatedSnapshot, iCloudSyncStatus: screenState.iCloudSyncStatus)
-        } catch {
-            dependencies.logger.error("Failed to update article source link opening policy: \(error)")
-        }
+        persistSettingsPatch(
+            AppSettingsPatch(
+                articleSourceLinkOpeningPolicy: selectedPolicy,
+                updatedAt: .now
+            ),
+            dependencies: dependencies,
+            unavailableServiceLog: "App settings service is unavailable for article source link opening policy update",
+            failureLogPrefix: "Failed to update article source link opening policy"
+        )
     }
 
     func updateInterfaceThemeMode(
@@ -320,22 +278,16 @@ private extension SettingsScreenController {
             return
         }
 
-        guard let appSettingsService = dependencies.appSettingsService else {
-            dependencies.logger.error("App settings service is unavailable for interface theme mode update")
-            return
-        }
-
-        do {
-            let updatedSnapshot = try appSettingsService.updateSettings(
-                AppSettingsPatch(
-                    interfaceThemeMode: selectedMode,
-                    updatedAt: .now
-                )
-            )
-            screenState.applyLoadedSnapshot(updatedSnapshot, iCloudSyncStatus: screenState.iCloudSyncStatus)
+        persistSettingsPatch(
+            AppSettingsPatch(
+                interfaceThemeMode: selectedMode,
+                updatedAt: .now
+            ),
+            dependencies: dependencies,
+            unavailableServiceLog: "App settings service is unavailable for interface theme mode update",
+            failureLogPrefix: "Failed to update interface theme mode"
+        ) { updatedSnapshot in
             appState?.applyInterfaceThemeMode(updatedSnapshot.interfaceThemeMode)
-        } catch {
-            dependencies.logger.error("Failed to update interface theme mode: \(error)")
         }
     }
 
@@ -363,10 +315,7 @@ private extension SettingsScreenController {
                 selectedPreference,
                 updatedAt: .now
             )
-            screenState.applyLoadedSnapshot(
-                updatedConfiguration.settingsSnapshot,
-                iCloudSyncStatus: screenState.iCloudSyncStatus
-            )
+            applyUpdatedSettingsSnapshot(updatedConfiguration.settingsSnapshot)
         } catch {
             dependencies.logger.error("Failed to update refresh interval preference: \(error)")
         }
@@ -401,5 +350,30 @@ private extension SettingsScreenController {
             appState?.applyICloudSyncStatus(failedStatus)
             return failedStatus
         }
+    }
+
+    func persistSettingsPatch(
+        _ patch: AppSettingsPatch,
+        dependencies: AppDependencies,
+        unavailableServiceLog: String,
+        failureLogPrefix: String,
+        onApplied: ((AppSettingsSnapshot) -> Void)? = nil
+    ) {
+        guard let appSettingsService = dependencies.appSettingsService else {
+            dependencies.logger.error(unavailableServiceLog)
+            return
+        }
+
+        do {
+            let updatedSnapshot = try appSettingsService.updateSettings(patch)
+            applyUpdatedSettingsSnapshot(updatedSnapshot)
+            onApplied?(updatedSnapshot)
+        } catch {
+            dependencies.logger.error("\(failureLogPrefix): \(error)")
+        }
+    }
+
+    func applyUpdatedSettingsSnapshot(_ snapshot: AppSettingsSnapshot) {
+        screenState.applyLoadedSnapshot(snapshot, iCloudSyncStatus: screenState.iCloudSyncStatus)
     }
 }
