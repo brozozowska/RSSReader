@@ -3,7 +3,7 @@ import SwiftUI
 struct ArticleScreenActionHandlers {
     let toggleReadStatus: () -> Void
     let toggleStarredStatus: () -> Void
-    let openCurrentArticleLink: () -> Void
+    let openSourceArticle: () -> Void
     let bodyLinkTapped: (URL) -> Void
 }
 
@@ -116,12 +116,12 @@ struct ReaderView: View {
                 ToolbarSpacer(placement: .bottomBar)
 
                 ToolbarItem(placement: .bottomBar) {
-                    Button(action: handleOpenInAppBrowserTap) {
-                        Image(systemName: bottomActions.openInAppBrowserSystemImage)
+                    Button(action: handleOpenSourceArticleTap) {
+                        Image(systemName: bottomActions.openSourceArticleSystemImage)
                     }
-                    .disabled(bottomActions.canOpenInAppBrowser == false)
-                    .accessibilityLabel(bottomActions.openInAppBrowserTitle)
-                }                
+                    .disabled(bottomActions.canOpenSourceArticle == false)
+                    .accessibilityLabel(bottomActions.openSourceArticleTitle)
+                }
             }
         }
         .task(id: articleID) {
@@ -159,10 +159,13 @@ struct ReaderView: View {
                     isPreviewMode: previewScreenState != nil
                 )
             },
-            openCurrentArticleLink: {
-                _controller.wrappedValue.openArticleInAppBrowser(
+            openSourceArticle: {
+                _controller.wrappedValue.openSourceArticle(
                     dependencies: dependencies,
-                    appState: appState
+                    appState: appState,
+                    openExternalURL: { externalURL in
+                        openURL(externalURL)
+                    }
                 )
             },
             bodyLinkTapped: { url in
@@ -189,8 +192,8 @@ struct ReaderView: View {
     }
 
     @MainActor
-    private func handleOpenInAppBrowserTap() {
-        actionHandlers.openCurrentArticleLink()
+    private func handleOpenSourceArticleTap() {
+        actionHandlers.openSourceArticle()
     }
 
     @ViewBuilder

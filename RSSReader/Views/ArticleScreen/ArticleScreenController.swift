@@ -108,12 +108,21 @@ final class ArticleScreenController {
         screenState.applyArticleMutation(article.updating(isStarred: newIsStarred))
     }
 
-    func openArticleInAppBrowser(
+    func openSourceArticle(
         dependencies: AppDependencies,
-        appState: AppState
+        appState: AppState,
+        openExternalURL: (URL) -> Void
     ) {
         guard let article = screenState.article else { return }
-        dependencies.openArticleInWebView(article, using: appState)
+        switch articleSourceLinkOpeningPolicy(dependencies: dependencies) {
+        case .inAppBrowser:
+            dependencies.openArticleInWebView(article, using: appState)
+        case .externalBrowser:
+            guard let url = ArticleScreenShareURLResolver.resolveShareURL(article: article) else {
+                return
+            }
+            openExternalURL(url)
+        }
     }
 
     func handleBodyLinkTap(
@@ -186,6 +195,21 @@ final class ArticleScreenController {
             return try appSettingsService.fetchSettings().articleBodyLinkOpeningPolicy
         } catch {
             dependencies.logger.error("Failed to load app settings for article body link opening policy: \(error)")
+            return .inAppBrowser
+        }
+    }
+
+    private func articleSourceLinkOpeningPolicy(
+        dependencies: AppDependencies
+    ) -> ArticleSourceLinkOpeningPolicy {
+        guard let appSettingsService = dependencies.appSettingsService else {
+            return .inAppBrowser
+        }
+
+        do {
+            return try appSettingsService.fetchSettings().articleSourceLinkOpeningPolicy
+        } catch {
+            dependencies.logger.error("Failed to load app settings for article source link opening policy: \(error)")
             return .inAppBrowser
         }
     }

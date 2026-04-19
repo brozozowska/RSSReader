@@ -9,6 +9,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var askBeforeMarkingAllAsRead: Bool
     var sortMode: ArticleSortMode
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
+    var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
 
     init(
         defaultReaderMode: ReaderMode = .embedded,
@@ -18,7 +19,8 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         markAsReadOnOpen: Bool = true,
         askBeforeMarkingAllAsRead: Bool = true,
         sortMode: ArticleSortMode = .publishedAtDescending,
-        articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser
+        articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
+        articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser
     ) {
         self.defaultReaderMode = defaultReaderMode
         self.selectedSourcesFilterRawValue = selectedSourcesFilterRawValue
@@ -28,6 +30,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         self.sortMode = sortMode
         self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
+        self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
     }
 
     init(settings: AppSettings) {
@@ -39,7 +42,8 @@ struct AppSettingsSnapshot: Equatable, Sendable {
             markAsReadOnOpen: settings.markAsReadOnOpen,
             askBeforeMarkingAllAsRead: settings.askBeforeMarkingAllAsRead,
             sortMode: settings.sortMode,
-            articleBodyLinkOpeningPolicy: settings.articleBodyLinkOpeningPolicy
+            articleBodyLinkOpeningPolicy: settings.articleBodyLinkOpeningPolicy,
+            articleSourceLinkOpeningPolicy: settings.articleSourceLinkOpeningPolicy
         )
     }
 }
@@ -53,6 +57,7 @@ struct AppSettingsPatch: Sendable {
     var askBeforeMarkingAllAsRead: Bool? = nil
     var sortMode: ArticleSortMode? = nil
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
+    var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
     var updatedAt: Date = .now
 }
 
@@ -97,6 +102,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
                 sortMode: snapshot.sortMode,
                 articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
+                articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
                 updatedAt: updatedAt
             )
         )
@@ -115,6 +121,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 askBeforeMarkingAllAsRead: patch.askBeforeMarkingAllAsRead,
                 sortMode: patch.sortMode,
                 articleBodyLinkOpeningPolicy: patch.articleBodyLinkOpeningPolicy,
+                articleSourceLinkOpeningPolicy: patch.articleSourceLinkOpeningPolicy,
                 updatedAt: patch.updatedAt
             )
         )

@@ -10,6 +10,7 @@ struct AppSettingsUpdate: Sendable {
     var askBeforeMarkingAllAsRead: Bool? = nil
     var sortMode: ArticleSortMode? = nil
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
+    var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
     var updatedAt: Date = .now
 }
 
@@ -86,6 +87,10 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
 
         if let articleBodyLinkOpeningPolicy = update.articleBodyLinkOpeningPolicy {
             settings.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
+        }
+
+        if let articleSourceLinkOpeningPolicy = update.articleSourceLinkOpeningPolicy {
+            settings.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
         }
 
         settings.updatedAt = update.updatedAt

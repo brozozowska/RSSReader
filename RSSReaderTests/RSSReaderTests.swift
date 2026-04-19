@@ -1278,9 +1278,9 @@ struct RSSReaderTests {
         )
 
         let loadedBottomActions = loadedState.derivedViewState().toolbarActions.bottomActions
-        #expect(loadedBottomActions?.openInAppBrowserTitle == "Open in App-Browser")
-        #expect(loadedBottomActions?.openInAppBrowserSystemImage == "safari")
-        #expect(loadedBottomActions?.canOpenInAppBrowser == true)
+        #expect(loadedBottomActions?.openSourceArticleTitle == "Open Source Article")
+        #expect(loadedBottomActions?.openSourceArticleSystemImage == "safari")
+        #expect(loadedBottomActions?.canOpenSourceArticle == true)
 
         var invalidURLState = ArticleScreenState()
         invalidURLState.applyLoadedArticle(
@@ -1291,7 +1291,7 @@ struct RSSReaderTests {
         )
 
         let invalidBottomActions = invalidURLState.derivedViewState().toolbarActions.bottomActions
-        #expect(invalidBottomActions?.canOpenInAppBrowser == false)
+        #expect(invalidBottomActions?.canOpenSourceArticle == false)
     }
 
     @Test
@@ -1508,6 +1508,7 @@ struct RSSReaderTests {
     func articleScreenControllerOpensCurrentArticleInAppLevelWebViewRoute() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-open-web.xml"]).first)
         let articleModel = try harness.insertArticle(
             feed: feed,
@@ -1515,14 +1516,24 @@ struct RSSReaderTests {
             url: "https://example.com/articles/article-screen-open-web",
             title: "Article Screen Open Web"
         )
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(
+                articleSourceLinkOpeningPolicy: .inAppBrowser,
+                updatedAt: .distantPast
+            )
+        )
         articleModel.canonicalURL = "https://example.com/articles/article-screen-open-web/canonical"
         try harness.saveModelContext()
         let controller = ArticleScreenController()
+        var externallyOpenedURL: URL?
 
         await controller.load(articleID: articleModel.id, dependencies: harness.dependencies)
-        controller.openArticleInAppBrowser(
+        controller.openSourceArticle(
             dependencies: harness.dependencies,
-            appState: appState
+            appState: appState,
+            openExternalURL: { url in
+                externallyOpenedURL = url
+            }
         )
 
         #expect(
@@ -1539,6 +1550,44 @@ struct RSSReaderTests {
                 url: URL(string: "https://example.com/articles/article-screen-open-web/canonical")!
             )
         )
+        #expect(externallyOpenedURL == nil)
+    }
+
+    @Test
+    func articleScreenControllerOpensCurrentArticleInExternalBrowserWhenSourcePolicyRequiresIt() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-open-external.xml"]).first)
+        let articleModel = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-open-external",
+            url: "https://example.com/articles/article-screen-open-external",
+            title: "Article Screen Open External"
+        )
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(
+                articleSourceLinkOpeningPolicy: .externalBrowser,
+                updatedAt: .distantPast
+            )
+        )
+        articleModel.canonicalURL = "https://example.com/articles/article-screen-open-external/canonical"
+        try harness.saveModelContext()
+        let controller = ArticleScreenController()
+        var externallyOpenedURL: URL?
+
+        await controller.load(articleID: articleModel.id, dependencies: harness.dependencies)
+        controller.openSourceArticle(
+            dependencies: harness.dependencies,
+            appState: appState,
+            openExternalURL: { url in
+                externallyOpenedURL = url
+            }
+        )
+
+        #expect(externallyOpenedURL == URL(string: "https://example.com/articles/article-screen-open-external/canonical")!)
+        #expect(appState.selectedDetailRoute == .none)
+        #expect(appState.presentedWebViewRoute == nil)
     }
 
     @Test
@@ -2797,6 +2846,7 @@ struct RSSReaderTests {
         #expect(settings.selectedSourcesFilterRawValue == SourcesFilter.allItems.rawValue)
         #expect(settings.askBeforeMarkingAllAsRead)
         #expect(settings.articleBodyLinkOpeningPolicy == .inAppBrowser)
+        #expect(settings.articleSourceLinkOpeningPolicy == .inAppBrowser)
     }
 
     @Test
@@ -2851,6 +2901,23 @@ struct RSSReaderTests {
     }
 
     @Test
+    func appSettingsRepositoryPersistsArticleSourceLinkOpeningPolicy() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                articleSourceLinkOpeningPolicy: .externalBrowser,
+                updatedAt: .distantPast
+            )
+        )
+
+        let settings = try repository.fetchOrCreate()
+
+        #expect(settings.articleSourceLinkOpeningPolicy == .externalBrowser)
+    }
+
+    @Test
     func appSettingsServiceFetchesSnapshotFromRepository() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
@@ -2866,6 +2933,7 @@ struct RSSReaderTests {
                 askBeforeMarkingAllAsRead: false,
                 sortMode: .publishedAtAscending,
                 articleBodyLinkOpeningPolicy: .externalBrowser,
+                articleSourceLinkOpeningPolicy: .externalBrowser,
                 updatedAt: .distantPast
             )
         )
@@ -2881,7 +2949,8 @@ struct RSSReaderTests {
                 markAsReadOnOpen: false,
                 askBeforeMarkingAllAsRead: false,
                 sortMode: .publishedAtAscending,
-                articleBodyLinkOpeningPolicy: .externalBrowser
+                articleBodyLinkOpeningPolicy: .externalBrowser,
+                articleSourceLinkOpeningPolicy: .externalBrowser
             )
         )
     }
@@ -2899,7 +2968,8 @@ struct RSSReaderTests {
             markAsReadOnOpen: false,
             askBeforeMarkingAllAsRead: false,
             sortMode: .publishedAtDescending,
-            articleBodyLinkOpeningPolicy: .externalBrowser
+            articleBodyLinkOpeningPolicy: .externalBrowser,
+            articleSourceLinkOpeningPolicy: .externalBrowser
         )
 
         let savedSnapshot = try service.saveSettings(
@@ -2917,6 +2987,7 @@ struct RSSReaderTests {
         #expect(persistedSettings.askBeforeMarkingAllAsRead == false)
         #expect(persistedSettings.sortMode == .publishedAtDescending)
         #expect(persistedSettings.articleBodyLinkOpeningPolicy == .externalBrowser)
+        #expect(persistedSettings.articleSourceLinkOpeningPolicy == .externalBrowser)
     }
 
     @Test
@@ -2947,7 +3018,8 @@ struct RSSReaderTests {
             markAsReadOnOpen: false,
             askBeforeMarkingAllAsRead: false,
             sortMode: .publishedAtDescending,
-            articleBodyLinkOpeningPolicy: .externalBrowser
+            articleBodyLinkOpeningPolicy: .externalBrowser,
+            articleSourceLinkOpeningPolicy: .externalBrowser
         )
 
         let sections = SettingsScreenPresentationBuilder.buildSections(from: snapshot)
@@ -2991,6 +3063,20 @@ struct RSSReaderTests {
                     id: .articleBodyLinkOpeningPolicy,
                     title: "Article Links",
                     subtitle: "Choose how links inside article text should open.",
+                    selectedValueTitle: "External Browser",
+                    options: [
+                        SettingsPickerOptionPresentation(id: "inAppBrowser", title: "In-App Browser", isSelected: false),
+                        SettingsPickerOptionPresentation(id: "externalBrowser", title: "External Browser", isSelected: true)
+                    ]
+                )
+            )
+        )
+        #expect(
+            readingItems[3] == .picker(
+                SettingsPickerItemPresentation(
+                    id: .articleSourceLinkOpeningPolicy,
+                    title: "Source Article",
+                    subtitle: "Choose how the toolbar action opens the original article URL.",
                     selectedValueTitle: "External Browser",
                     options: [
                         SettingsPickerOptionPresentation(id: "inAppBrowser", title: "In-App Browser", isSelected: false),
@@ -3127,7 +3213,8 @@ struct RSSReaderTests {
             markAsReadOnOpen: true,
             askBeforeMarkingAllAsRead: false,
             sortMode: .publishedAtDescending,
-            articleBodyLinkOpeningPolicy: .externalBrowser
+            articleBodyLinkOpeningPolicy: .externalBrowser,
+            articleSourceLinkOpeningPolicy: .externalBrowser
         ),
             updatedAt: .distantPast
         )
@@ -3143,6 +3230,7 @@ struct RSSReaderTests {
         #expect(controller.screenState.settingsSnapshot.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
         #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead == false)
         #expect(controller.screenState.settingsSnapshot.articleBodyLinkOpeningPolicy == .externalBrowser)
+        #expect(controller.screenState.settingsSnapshot.articleSourceLinkOpeningPolicy == .externalBrowser)
     }
 
     @Test
@@ -3252,6 +3340,29 @@ struct RSSReaderTests {
         #expect(controller.screenState.settingsSnapshot.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(controller.viewState().presentedPicker == nil)
         #expect(persistedSettings.articleBodyLinkOpeningPolicy == .externalBrowser)
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedArticleSourceLinkOpeningPolicyThroughSettingsService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+        controller.handleItemSelection(.articleSourceLinkOpeningPolicy, dependencies: harness.dependencies)
+
+        #expect(controller.viewState().presentedPicker?.id == .articleSourceLinkOpeningPolicy)
+
+        controller.handlePickerOptionSelection(
+            itemID: .articleSourceLinkOpeningPolicy,
+            optionID: ArticleSourceLinkOpeningPolicy.externalBrowser.rawValue,
+            dependencies: harness.dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.articleSourceLinkOpeningPolicy == .externalBrowser)
+        #expect(controller.viewState().presentedPicker == nil)
+        #expect(persistedSettings.articleSourceLinkOpeningPolicy == .externalBrowser)
     }
 
     @Test

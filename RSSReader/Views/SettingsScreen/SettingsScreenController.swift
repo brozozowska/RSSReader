@@ -39,7 +39,10 @@ final class SettingsScreenController {
 
     func handleItemSelection(_ itemID: SettingsScreenItemID, dependencies: AppDependencies) {
         switch itemID {
-        case .defaultReaderMode, .articleSortMode, .articleBodyLinkOpeningPolicy:
+        case .defaultReaderMode,
+                .articleSourceLinkOpeningPolicy,
+                .articleSortMode,
+                .articleBodyLinkOpeningPolicy:
             screenState.presentPicker(for: itemID)
         case .markAsReadOnOpen,
                 .askBeforeMarkingAllAsRead,
@@ -62,6 +65,8 @@ final class SettingsScreenController {
         switch itemID {
         case .defaultReaderMode:
             updateDefaultReaderMode(optionID: optionID, dependencies: dependencies)
+        case .articleSourceLinkOpeningPolicy:
+            updateArticleSourceLinkOpeningPolicy(optionID: optionID, dependencies: dependencies)
         case .articleSortMode:
             updateArticleSortMode(optionID: optionID, dependencies: dependencies)
         case .articleBodyLinkOpeningPolicy:
@@ -86,6 +91,7 @@ final class SettingsScreenController {
         case .askBeforeMarkingAllAsRead:
             updateAskBeforeMarkingAllAsRead(isOn: isOn, dependencies: dependencies)
         case .defaultReaderMode,
+                .articleSourceLinkOpeningPolicy,
                 .articleSortMode,
                 .articleBodyLinkOpeningPolicy,
                 .refreshInterval,
@@ -243,6 +249,38 @@ private extension SettingsScreenController {
             screenState.applyLoadedSnapshot(updatedSnapshot)
         } catch {
             dependencies.logger.error("Failed to update article body link opening policy: \(error)")
+        }
+    }
+
+    func updateArticleSourceLinkOpeningPolicy(
+        optionID: String,
+        dependencies: AppDependencies
+    ) {
+        guard let selectedPolicy = ArticleSourceLinkOpeningPolicy(rawValue: optionID) else {
+            dependencies.logger.error("Skipped article source link opening policy update because option is invalid: \(optionID)")
+            return
+        }
+
+        guard screenState.settingsSnapshot.articleSourceLinkOpeningPolicy != selectedPolicy else {
+            screenState.dismissPresentedPicker()
+            return
+        }
+
+        guard let appSettingsService = dependencies.appSettingsService else {
+            dependencies.logger.error("App settings service is unavailable for article source link opening policy update")
+            return
+        }
+
+        do {
+            let updatedSnapshot = try appSettingsService.updateSettings(
+                AppSettingsPatch(
+                    articleSourceLinkOpeningPolicy: selectedPolicy,
+                    updatedAt: .now
+                )
+            )
+            screenState.applyLoadedSnapshot(updatedSnapshot)
+        } catch {
+            dependencies.logger.error("Failed to update article source link opening policy: \(error)")
         }
     }
 }

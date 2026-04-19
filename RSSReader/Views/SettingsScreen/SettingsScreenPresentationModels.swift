@@ -13,6 +13,7 @@ enum SettingsScreenSectionID: String, Hashable, Identifiable, Sendable {
 enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
     case defaultReaderMode
     case markAsReadOnOpen
+    case articleSourceLinkOpeningPolicy
     case articleSortMode
     case askBeforeMarkingAllAsRead
     case refreshInterval
@@ -155,6 +156,21 @@ enum SettingsScreenPresentationBuilder {
                                 id: policy.rawValue,
                                 title: articleBodyLinkOpeningPolicyTitle(policy),
                                 isSelected: snapshot.articleBodyLinkOpeningPolicy == policy
+                            )
+                        }
+                    )
+                ),
+                .picker(
+                    SettingsPickerItemPresentation(
+                        id: .articleSourceLinkOpeningPolicy,
+                        title: "Source Article",
+                        subtitle: "Choose how the toolbar action opens the original article URL.",
+                        selectedValueTitle: articleSourceLinkOpeningPolicyTitle(snapshot.articleSourceLinkOpeningPolicy),
+                        options: ArticleSourceLinkOpeningPolicy.allCases.map { policy in
+                            SettingsPickerOptionPresentation(
+                                id: policy.rawValue,
+                                title: articleSourceLinkOpeningPolicyTitle(policy),
+                                isSelected: snapshot.articleSourceLinkOpeningPolicy == policy
                             )
                         }
                     )
@@ -301,6 +317,15 @@ enum SettingsScreenPresentationBuilder {
     }
 
     private static func articleBodyLinkOpeningPolicyTitle(_ policy: ArticleBodyLinkOpeningPolicy) -> String {
+        switch policy {
+        case .inAppBrowser:
+            "In-App Browser"
+        case .externalBrowser:
+            "External Browser"
+        }
+    }
+
+    private static func articleSourceLinkOpeningPolicyTitle(_ policy: ArticleSourceLinkOpeningPolicy) -> String {
         switch policy {
         case .inAppBrowser:
             "In-App Browser"

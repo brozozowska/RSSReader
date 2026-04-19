@@ -52,3 +52,8 @@ enum ArticleBodyLinkOpeningPolicy: String, Codable, CaseIterable, Sendable {
     case inAppBrowser
     case externalBrowser
 }
+
+enum ArticleSourceLinkOpeningPolicy: String, Codable, CaseIterable, Sendable {
+    case inAppBrowser
+    case externalBrowser
+}
