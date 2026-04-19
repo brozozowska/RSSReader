@@ -62,6 +62,13 @@ private struct AppRootContainer: View {
                 appState.applyInterfaceThemeMode(settings.interfaceThemeMode)
             }
 
+            if let iCloudSyncStatusService = dependencies.iCloudSyncStatusService {
+                let iCloudSyncStatus = try iCloudSyncStatusService.currentStatus()
+                if appState.iCloudSyncStatus != iCloudSyncStatus {
+                    appState.applyICloudSyncStatus(iCloudSyncStatus)
+                }
+            }
+
             if settings.selectedSourcesFilterRawValue != restoredFilter.rawValue {
                 _ = try appSettingsService.updateSettings(
                     SourcesFilterPersistencePolicy.makeSettingsPatch(for: restoredFilter)

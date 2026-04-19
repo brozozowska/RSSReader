@@ -6,7 +6,10 @@ import SwiftUI
 
 #Preview("Loaded Settings") {
     SettingsScreenPreviewContainer(
-        screenState: .previewLoaded(snapshot: SettingsScreenPreviewFactory.loadedSnapshot)
+        screenState: .previewLoaded(
+            snapshot: SettingsScreenPreviewFactory.loadedSnapshot,
+            iCloudSyncStatus: .statusUnavailable
+        )
     )
 }
 

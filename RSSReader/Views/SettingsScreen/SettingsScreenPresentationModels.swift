@@ -106,12 +106,15 @@ struct SettingsStatusRowItemPresentation: Equatable, Sendable {
 }
 
 enum SettingsScreenPresentationBuilder {
-    static func buildSections(from snapshot: AppSettingsSnapshot) -> [SettingsScreenSectionPresentation] {
+    static func buildSections(
+        from snapshot: AppSettingsSnapshot,
+        iCloudSyncStatus: ICloudSyncStatus = .disabled
+    ) -> [SettingsScreenSectionPresentation] {
         [
             readingSection(from: snapshot),
             articleListSection(from: snapshot),
             refreshSection(from: snapshot),
-            syncSection(from: snapshot),
+            syncSection(iCloudSyncStatus: iCloudSyncStatus),
             advancedSection(from: snapshot)
         ]
     }
@@ -239,23 +242,18 @@ enum SettingsScreenPresentationBuilder {
         )
     }
 
-    private static func syncSection(from snapshot: AppSettingsSnapshot) -> SettingsScreenSectionPresentation {
-        let syncValueTitle = snapshot.useiCloudSync ? "Enabled" : "Off"
-        let syncSubtitle = snapshot.useiCloudSync
-        ? "Sync is enabled in settings, but CloudKit status is not implemented yet."
-        : "Sync is currently turned off."
-
+    private static func syncSection(iCloudSyncStatus: ICloudSyncStatus) -> SettingsScreenSectionPresentation {
         return SettingsScreenSectionPresentation(
             id: .sync,
             title: "Sync",
-            footer: "Status rows let the screen show runtime or account state without pretending that every setting is editable inline.",
+            footer: "This indicator reflects app-level sync state and is designed to consume future CloudKit and account status, not behave like a local toggle.",
             items: [
                 .statusRow(
                     SettingsStatusRowItemPresentation(
                         id: .iCloudSyncStatus,
                         title: "iCloud Sync",
-                        subtitle: syncSubtitle,
-                        valueTitle: syncValueTitle
+                        subtitle: iCloudSyncStatusSubtitle(iCloudSyncStatus),
+                        valueTitle: iCloudSyncStatusTitle(iCloudSyncStatus)
                     )
                 )
             ]
@@ -352,6 +350,36 @@ enum SettingsScreenPresentationBuilder {
             "Dark"
         case .black:
             "Black"
+        }
+    }
+
+    private static func iCloudSyncStatusTitle(_ status: ICloudSyncStatus) -> String {
+        switch status {
+        case .disabled:
+            "Off"
+        case .statusUnavailable:
+            "Status Unavailable"
+        case .idle:
+            "Ready"
+        case .syncing:
+            "Syncing"
+        case .failed:
+            "Error"
+        }
+    }
+
+    private static func iCloudSyncStatusSubtitle(_ status: ICloudSyncStatus) -> String {
+        switch status {
+        case .disabled:
+            "Sync is currently turned off in settings."
+        case .statusUnavailable:
+            "Sync is enabled, but CloudKit wiring and app-level account status are not implemented yet."
+        case .idle:
+            "iCloud sync is available and waiting for the next sync event."
+        case .syncing:
+            "Changes are currently syncing with iCloud."
+        case .failed(let message):
+            message
         }
     }
 }

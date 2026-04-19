@@ -29,7 +29,12 @@ final class SettingsScreenController {
 
         do {
             let snapshot = try appSettingsService.fetchSettings()
-            screenState.applyLoadedSnapshot(snapshot)
+            let resolvedICloudSyncStatus = resolveICloudSyncStatus(
+                dependencies: dependencies,
+                appState: appState,
+                settingsSnapshot: snapshot
+            )
+            screenState.applyLoadedSnapshot(snapshot, iCloudSyncStatus: resolvedICloudSyncStatus)
             if let appState, appState.interfaceThemeMode != snapshot.interfaceThemeMode {
                 appState.applyInterfaceThemeMode(snapshot.interfaceThemeMode)
             }
@@ -145,7 +150,7 @@ private extension SettingsScreenController {
                     updatedAt: .now
                 )
             )
-            screenState.applyLoadedSnapshot(updatedSnapshot)
+            screenState.applyLoadedSnapshot(updatedSnapshot, iCloudSyncStatus: screenState.iCloudSyncStatus)
         } catch {
             dependencies.logger.error("Failed to update default reader mode: \(error)")
         }
@@ -171,7 +176,7 @@ private extension SettingsScreenController {
                     updatedAt: .now
                 )
             )
-            screenState.applyLoadedSnapshot(updatedSnapshot)
+            screenState.applyLoadedSnapshot(updatedSnapshot, iCloudSyncStatus: screenState.iCloudSyncStatus)
         } catch {
             dependencies.logger.error("Failed to update mark-as-read-on-open setting: \(error)")
         }
@@ -197,7 +202,7 @@ private extension SettingsScreenController {
                     updatedAt: .now
                 )
             )
-            screenState.applyLoadedSnapshot(updatedSnapshot)
+            screenState.applyLoadedSnapshot(updatedSnapshot, iCloudSyncStatus: screenState.iCloudSyncStatus)
         } catch {
             dependencies.logger.error("Failed to update ask-before-marking-all-as-read setting: \\(error)")
         }
@@ -230,7 +235,7 @@ private extension SettingsScreenController {
                     updatedAt: .now
                 )
             )
-            screenState.applyLoadedSnapshot(updatedSnapshot)
+            screenState.applyLoadedSnapshot(updatedSnapshot, iCloudSyncStatus: screenState.iCloudSyncStatus)
         } catch {
             dependencies.logger.error("Failed to update article sort mode: \(error)")
         }
@@ -262,7 +267,7 @@ private extension SettingsScreenController {
                     updatedAt: .now
                 )
             )
-            screenState.applyLoadedSnapshot(updatedSnapshot)
+            screenState.applyLoadedSnapshot(updatedSnapshot, iCloudSyncStatus: screenState.iCloudSyncStatus)
         } catch {
             dependencies.logger.error("Failed to update article body link opening policy: \(error)")
         }
@@ -294,7 +299,7 @@ private extension SettingsScreenController {
                     updatedAt: .now
                 )
             )
-            screenState.applyLoadedSnapshot(updatedSnapshot)
+            screenState.applyLoadedSnapshot(updatedSnapshot, iCloudSyncStatus: screenState.iCloudSyncStatus)
         } catch {
             dependencies.logger.error("Failed to update article source link opening policy: \(error)")
         }
@@ -327,7 +332,7 @@ private extension SettingsScreenController {
                     updatedAt: .now
                 )
             )
-            screenState.applyLoadedSnapshot(updatedSnapshot)
+            screenState.applyLoadedSnapshot(updatedSnapshot, iCloudSyncStatus: screenState.iCloudSyncStatus)
             appState?.applyInterfaceThemeMode(updatedSnapshot.interfaceThemeMode)
         } catch {
             dependencies.logger.error("Failed to update interface theme mode: \(error)")
@@ -358,9 +363,43 @@ private extension SettingsScreenController {
                 selectedPreference,
                 updatedAt: .now
             )
-            screenState.applyLoadedSnapshot(updatedConfiguration.settingsSnapshot)
+            screenState.applyLoadedSnapshot(
+                updatedConfiguration.settingsSnapshot,
+                iCloudSyncStatus: screenState.iCloudSyncStatus
+            )
         } catch {
             dependencies.logger.error("Failed to update refresh interval preference: \(error)")
+        }
+    }
+
+    func resolveICloudSyncStatus(
+        dependencies: AppDependencies,
+        appState: AppState?,
+        settingsSnapshot: AppSettingsSnapshot
+    ) -> ICloudSyncStatus {
+        if settingsSnapshot.useiCloudSync == false {
+            appState?.applyICloudSyncStatus(.disabled)
+            return .disabled
+        }
+
+        if let appState, appState.iCloudSyncStatus != .disabled {
+            return appState.iCloudSyncStatus
+        }
+
+        guard let iCloudSyncStatusService = dependencies.iCloudSyncStatusService else {
+            appState?.applyICloudSyncStatus(.statusUnavailable)
+            return .statusUnavailable
+        }
+
+        do {
+            let resolvedStatus = try iCloudSyncStatusService.currentStatus()
+            appState?.applyICloudSyncStatus(resolvedStatus)
+            return resolvedStatus
+        } catch {
+            dependencies.logger.error("Failed to resolve iCloud sync status: \(error)")
+            let failedStatus = ICloudSyncStatus.failed("Unable to load iCloud sync status right now.")
+            appState?.applyICloudSyncStatus(failedStatus)
+            return failedStatus
         }
     }
 }

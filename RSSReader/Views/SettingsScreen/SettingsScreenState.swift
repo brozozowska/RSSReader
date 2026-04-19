@@ -9,6 +9,7 @@ enum SettingsScreenPhase: Equatable {
 struct SettingsScreenState {
     private(set) var phase: SettingsScreenPhase = .loading
     private(set) var settingsSnapshot = AppSettingsSnapshot()
+    private(set) var iCloudSyncStatus: ICloudSyncStatus = .disabled
     private(set) var sections: [SettingsScreenSectionPresentation] = []
     private(set) var presentedPicker: SettingsPickerItemPresentation? = nil
 
@@ -17,9 +18,16 @@ struct SettingsScreenState {
         presentedPicker = nil
     }
 
-    mutating func applyLoadedSnapshot(_ snapshot: AppSettingsSnapshot) {
+    mutating func applyLoadedSnapshot(
+        _ snapshot: AppSettingsSnapshot,
+        iCloudSyncStatus: ICloudSyncStatus = .disabled
+    ) {
         settingsSnapshot = snapshot
-        sections = SettingsScreenPresentationBuilder.buildSections(from: snapshot)
+        self.iCloudSyncStatus = iCloudSyncStatus
+        sections = SettingsScreenPresentationBuilder.buildSections(
+            from: snapshot,
+            iCloudSyncStatus: iCloudSyncStatus
+        )
         phase = .loaded
         presentedPicker = nil
     }
@@ -59,9 +67,12 @@ struct SettingsScreenState {
         return state
     }
 
-    static func previewLoaded(snapshot: AppSettingsSnapshot) -> SettingsScreenState {
+    static func previewLoaded(
+        snapshot: AppSettingsSnapshot,
+        iCloudSyncStatus: ICloudSyncStatus = .disabled
+    ) -> SettingsScreenState {
         var state = SettingsScreenState()
-        state.applyLoadedSnapshot(snapshot)
+        state.applyLoadedSnapshot(snapshot, iCloudSyncStatus: iCloudSyncStatus)
         return state
     }
 }

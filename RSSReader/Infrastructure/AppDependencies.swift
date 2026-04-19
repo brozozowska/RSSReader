@@ -27,6 +27,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let appSettingsRepository: (any AppSettingsRepository)?
     let appSettingsService: (any AppSettingsService)?
     let backgroundRefreshService: (any BackgroundRefreshService)?
+    let iCloudSyncStatusService: (any ICloudSyncStatusService)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
     public let modelContainer: ModelContainer?
 
@@ -109,6 +110,9 @@ public final class AppDependencies: AppDependenciesProtocol {
                 feedRefreshService: feedRefreshService
             )
         }
+        let iCloudSyncStatusService = appSettingsService.map { service in
+            DefaultICloudSyncStatusService(appSettingsService: service)
+        }
 
         self.logger = logger
         self.httpClient = httpClient
@@ -124,6 +128,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.appSettingsRepository = appSettingsRepository
         self.appSettingsService = appSettingsService
         self.backgroundRefreshService = backgroundRefreshService
+        self.iCloudSyncStatusService = iCloudSyncStatusService
         self.feedFetchLogRepository = feedFetchLogRepository
         self.feedFetcher = resolvedFeedFetcher
     }

@@ -285,7 +285,7 @@
 - [x] организовать отдельную настройку policy открытия source article из `ArticleScreen` (`in-app browser` или внешний браузер): значение должно редактироваться через `Settings Screen`, сохраняться в `AppSettings` и применяться к нижнему toolbar-действию открытия исходной статьи, а не к inline-ссылкам внутри body;
 - [x] организовать настройку интерфейсного режима (`automatic light/dark`, `automatic light/black`, `light`, `dark`, `black`): для этого потребуется добавить новое persisted setting и определить app-level theme application policy, которой пока нет в `RootView` / `AppState`;
 - [x] организовать настройку background refresh policy через `refreshIntervalPreference`, связав `Settings Screen` с будущим `BackgroundRefreshService`, чтобы выбор между manual/background refresh не остался изолированным enum без runtime orchestration;
-- [ ] определить UX и статус-строку для `iCloud sync indicator`: в `AppSettings` уже есть `useiCloudSync`, но в проекте пока нет ни `CloudKit` wiring, ни app-level sync status source, поэтому индикатор нужно проектировать как consumer будущего sync state, а не как локальный UI toggle.
+- [x] определить UX и статус-строку для `iCloud sync indicator`: в `AppSettings` уже есть `useiCloudSync`, но в проекте пока нет ни `CloudKit` wiring, ни app-level sync status source, поэтому индикатор нужно проектировать как consumer будущего sync state, а не как локальный UI toggle.
 
 #### Source Management
 - [ ] создать `AddFeedViewModel`;

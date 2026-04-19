@@ -3052,6 +3052,24 @@ struct RSSReaderTests {
     }
 
     @Test
+    func iCloudSyncStatusServiceMapsPersistedUserIntentToRuntimeStatus() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let service = try #require(harness.dependencies.iCloudSyncStatusService)
+
+        #expect(try service.currentStatus() == .disabled)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                useiCloudSync: true,
+                updatedAt: .distantPast
+            )
+        )
+
+        #expect(try service.currentStatus() == .statusUnavailable)
+    }
+
+    @Test
     func appDependenciesSkipsBackgroundRefreshWhenPreferenceIsManual() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
@@ -3119,7 +3137,10 @@ struct RSSReaderTests {
             interfaceThemeMode: .black
         )
 
-        let sections = SettingsScreenPresentationBuilder.buildSections(from: snapshot)
+        let sections = SettingsScreenPresentationBuilder.buildSections(
+            from: snapshot,
+            iCloudSyncStatus: .statusUnavailable
+        )
 
         #expect(sections.map(\.id) == [.reading, .articleList, .refresh, .sync, .advanced])
 
@@ -3231,8 +3252,8 @@ struct RSSReaderTests {
                     SettingsStatusRowItemPresentation(
                         id: .iCloudSyncStatus,
                         title: "iCloud Sync",
-                        subtitle: "Sync is enabled in settings, but CloudKit status is not implemented yet.",
-                        valueTitle: "Enabled"
+                        subtitle: "Sync is enabled, but CloudKit wiring and app-level account status are not implemented yet.",
+                        valueTitle: "Status Unavailable"
                     )
                 )
             ]
@@ -3345,7 +3366,44 @@ struct RSSReaderTests {
         #expect(controller.screenState.settingsSnapshot.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(controller.screenState.settingsSnapshot.articleSourceLinkOpeningPolicy == .externalBrowser)
         #expect(controller.screenState.settingsSnapshot.interfaceThemeMode == .black)
+        #expect(controller.screenState.iCloudSyncStatus == .disabled)
         #expect(appState.interfaceThemeMode == .black)
+    }
+
+    @Test
+    func settingsScreenControllerPrefersAppLevelICloudSyncStatusOverPersistedFlag() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+        let appState = AppState()
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                useiCloudSync: true,
+                updatedAt: .distantPast
+            )
+        )
+        appState.applyICloudSyncStatus(.syncing)
+
+        controller.loadSettings(dependencies: harness.dependencies, appState: appState)
+
+        let syncSection = try #require(
+            controller.viewState().sections.first(where: { $0.id == .sync })
+        )
+        let syncItem = try #require(syncSection.items.first)
+
+        #expect(controller.screenState.iCloudSyncStatus == .syncing)
+        #expect(appState.iCloudSyncStatus == .syncing)
+        #expect(
+            syncItem == .statusRow(
+                SettingsStatusRowItemPresentation(
+                    id: .iCloudSyncStatus,
+                    title: "iCloud Sync",
+                    subtitle: "Changes are currently syncing with iCloud.",
+                    valueTitle: "Syncing"
+                )
+            )
+        )
     }
 
     @Test

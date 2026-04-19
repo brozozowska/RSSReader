@@ -64,6 +64,7 @@ public final class AppState {
     var readingNavigation = ReadingNavigationState()
     var selectedSourcesFilter: SourcesFilter = .allItems
     var interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
+    var iCloudSyncStatus: ICloudSyncStatus = .disabled
     var isPresentingSettingsScreen = false
     var articleListReloadID = UUID()
     var sourcesSidebarReloadID = UUID()
@@ -127,6 +128,10 @@ public final class AppState {
 
     func applyInterfaceThemeMode(_ mode: InterfaceThemeMode) {
         interfaceThemeMode = mode
+    }
+
+    func applyICloudSyncStatus(_ status: ICloudSyncStatus) {
+        iCloudSyncStatus = status
     }
 
     func requestArticleListReload() {
