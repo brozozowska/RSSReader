@@ -3136,11 +3136,12 @@ struct RSSReaderTests {
             articleSourceLinkOpeningPolicy: .externalBrowser,
             interfaceThemeMode: .black
         )
-
-        let sections = SettingsScreenPresentationBuilder.buildSections(
+        let input = SettingsScreenInputBuilder.build(
             from: snapshot,
             iCloudSyncStatus: .statusUnavailable
         )
+
+        let sections = SettingsScreenPresentationBuilder.buildSections(from: input)
 
         #expect(sections.map(\.id) == [.reading, .articleList, .refresh, .sync, .advanced])
 
@@ -3281,7 +3282,9 @@ struct RSSReaderTests {
 
     @Test
     func settingsScreenPresentationBuilderIncludesAllSupportedItemTypes() {
-        let sections = SettingsScreenPresentationBuilder.buildSections(from: AppSettingsSnapshot())
+        let sections = SettingsScreenPresentationBuilder.buildSections(
+            from: SettingsScreenInputBuilder.build(from: AppSettingsSnapshot())
+        )
         let items = sections.flatMap(\.items)
 
         #expect(items.contains { item in
@@ -3316,6 +3319,40 @@ struct RSSReaderTests {
         #expect(viewState.primaryLoadingState == nil)
         #expect(viewState.placeholder == nil)
         #expect(viewState.sections.map(\.id) == [.reading, .articleList, .refresh, .sync, .advanced])
+        #expect(state.settingsInput.defaultReaderMode == .browser)
+        #expect(state.settingsInput.articleListSortOrder == .oldestFirst)
+        #expect(state.settingsInput.iCloudSyncStatus == .disabled)
+    }
+
+    @Test
+    func settingsScreenInputBuilderNormalizesSnapshotIntoScreenSpecificInput() {
+        let snapshot = AppSettingsSnapshot(
+            defaultReaderMode: .reader,
+            selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+            refreshIntervalPreference: .every6Hours,
+            useiCloudSync: true,
+            markAsReadOnOpen: false,
+            askBeforeMarkingAllAsRead: false,
+            sortMode: .publishedAtAscending,
+            articleBodyLinkOpeningPolicy: .externalBrowser,
+            articleSourceLinkOpeningPolicy: .externalBrowser,
+            interfaceThemeMode: .black
+        )
+
+        let input = SettingsScreenInputBuilder.build(
+            from: snapshot,
+            iCloudSyncStatus: .syncing
+        )
+
+        #expect(input.defaultReaderMode == .reader)
+        #expect(input.markAsReadOnOpen == false)
+        #expect(input.articleBodyLinkOpeningPolicy == .externalBrowser)
+        #expect(input.articleSourceLinkOpeningPolicy == .externalBrowser)
+        #expect(input.articleListSortOrder == .oldestFirst)
+        #expect(input.askBeforeMarkingAllAsRead == false)
+        #expect(input.refreshIntervalPreference == .every6Hours)
+        #expect(input.iCloudSyncStatus == .syncing)
+        #expect(input.interfaceThemeMode == .black)
     }
 
     @Test

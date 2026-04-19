@@ -8,6 +8,7 @@ import SwiftUI
     SettingsScreenPreviewContainer(
         screenState: .previewLoaded(
             snapshot: SettingsScreenPreviewFactory.loadedSnapshot,
+            input: SettingsScreenPreviewFactory.loadedInput,
             iCloudSyncStatus: .statusUnavailable
         )
     )
@@ -45,6 +46,10 @@ private enum SettingsScreenPreviewFactory {
         useiCloudSync: true,
         markAsReadOnOpen: false,
         sortMode: .publishedAtAscending
+    )
+    static let loadedInput = SettingsScreenInputBuilder.build(
+        from: loadedSnapshot,
+        iCloudSyncStatus: .statusUnavailable
     )
 
     @MainActor

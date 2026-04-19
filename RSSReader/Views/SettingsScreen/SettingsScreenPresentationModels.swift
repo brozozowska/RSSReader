@@ -24,6 +24,40 @@ enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
     var id: String { rawValue }
 }
 
+struct SettingsScreenInput: Equatable, Sendable {
+    var defaultReaderMode: ReaderMode
+    var markAsReadOnOpen: Bool
+    var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
+    var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
+    var articleListSortOrder: ArticleListSortOrder
+    var askBeforeMarkingAllAsRead: Bool
+    var refreshIntervalPreference: RefreshPreference
+    var iCloudSyncStatus: ICloudSyncStatus
+    var interfaceThemeMode: InterfaceThemeMode
+
+    init(
+        defaultReaderMode: ReaderMode = .embedded,
+        markAsReadOnOpen: Bool = true,
+        articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
+        articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
+        articleListSortOrder: ArticleListSortOrder = .newestFirst,
+        askBeforeMarkingAllAsRead: Bool = true,
+        refreshIntervalPreference: RefreshPreference = .manual,
+        iCloudSyncStatus: ICloudSyncStatus = .disabled,
+        interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
+    ) {
+        self.defaultReaderMode = defaultReaderMode
+        self.markAsReadOnOpen = markAsReadOnOpen
+        self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
+        self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
+        self.articleListSortOrder = articleListSortOrder
+        self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
+        self.refreshIntervalPreference = refreshIntervalPreference
+        self.iCloudSyncStatus = iCloudSyncStatus
+        self.interfaceThemeMode = interfaceThemeMode
+    }
+}
+
 struct SettingsScreenSectionPresentation: Identifiable, Equatable, Sendable {
     let id: SettingsScreenSectionID
     let title: String
@@ -105,21 +139,37 @@ struct SettingsStatusRowItemPresentation: Equatable, Sendable {
     let valueTitle: String
 }
 
-enum SettingsScreenPresentationBuilder {
-    static func buildSections(
+enum SettingsScreenInputBuilder {
+    static func build(
         from snapshot: AppSettingsSnapshot,
         iCloudSyncStatus: ICloudSyncStatus = .disabled
-    ) -> [SettingsScreenSectionPresentation] {
+    ) -> SettingsScreenInput {
+        SettingsScreenInput(
+            defaultReaderMode: snapshot.defaultReaderMode,
+            markAsReadOnOpen: snapshot.markAsReadOnOpen,
+            articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
+            articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
+            articleListSortOrder: ArticleListSortOrder(sortMode: snapshot.sortMode),
+            askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
+            refreshIntervalPreference: snapshot.refreshIntervalPreference,
+            iCloudSyncStatus: iCloudSyncStatus,
+            interfaceThemeMode: snapshot.interfaceThemeMode
+        )
+    }
+}
+
+enum SettingsScreenPresentationBuilder {
+    static func buildSections(from input: SettingsScreenInput) -> [SettingsScreenSectionPresentation] {
         [
-            readingSection(from: snapshot),
-            articleListSection(from: snapshot),
-            refreshSection(from: snapshot),
-            syncSection(iCloudSyncStatus: iCloudSyncStatus),
-            advancedSection(from: snapshot)
+            readingSection(from: input),
+            articleListSection(from: input),
+            refreshSection(from: input),
+            syncSection(from: input),
+            advancedSection(from: input)
         ]
     }
 
-    private static func readingSection(from snapshot: AppSettingsSnapshot) -> SettingsScreenSectionPresentation {
+    private static func readingSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
         SettingsScreenSectionPresentation(
             id: .reading,
             title: "Reading",
@@ -130,12 +180,12 @@ enum SettingsScreenPresentationBuilder {
                         id: .defaultReaderMode,
                         title: "Default Reader",
                         subtitle: "Choose how articles open by default.",
-                        selectedValueTitle: readerModeTitle(snapshot.defaultReaderMode),
+                        selectedValueTitle: readerModeTitle(input.defaultReaderMode),
                         options: ReaderMode.allCases.map { mode in
                             SettingsPickerOptionPresentation(
                                 id: mode.rawValue,
                                 title: readerModeTitle(mode),
-                                isSelected: snapshot.defaultReaderMode == mode
+                                isSelected: input.defaultReaderMode == mode
                             )
                         }
                     )
@@ -145,7 +195,7 @@ enum SettingsScreenPresentationBuilder {
                         id: .markAsReadOnOpen,
                         title: "Mark Read on Open",
                         subtitle: "Automatically mark an article as read when it is opened.",
-                        isOn: snapshot.markAsReadOnOpen
+                        isOn: input.markAsReadOnOpen
                     )
                 ),
                 .picker(
@@ -153,12 +203,12 @@ enum SettingsScreenPresentationBuilder {
                         id: .articleBodyLinkOpeningPolicy,
                         title: "Article Links",
                         subtitle: "Choose how links inside article text should open.",
-                        selectedValueTitle: articleBodyLinkOpeningPolicyTitle(snapshot.articleBodyLinkOpeningPolicy),
+                        selectedValueTitle: articleBodyLinkOpeningPolicyTitle(input.articleBodyLinkOpeningPolicy),
                         options: ArticleBodyLinkOpeningPolicy.allCases.map { policy in
                             SettingsPickerOptionPresentation(
                                 id: policy.rawValue,
                                 title: articleBodyLinkOpeningPolicyTitle(policy),
-                                isSelected: snapshot.articleBodyLinkOpeningPolicy == policy
+                                isSelected: input.articleBodyLinkOpeningPolicy == policy
                             )
                         }
                     )
@@ -168,12 +218,12 @@ enum SettingsScreenPresentationBuilder {
                         id: .articleSourceLinkOpeningPolicy,
                         title: "Source Article",
                         subtitle: "Choose how the toolbar action opens the original article URL.",
-                        selectedValueTitle: articleSourceLinkOpeningPolicyTitle(snapshot.articleSourceLinkOpeningPolicy),
+                        selectedValueTitle: articleSourceLinkOpeningPolicyTitle(input.articleSourceLinkOpeningPolicy),
                         options: ArticleSourceLinkOpeningPolicy.allCases.map { policy in
                             SettingsPickerOptionPresentation(
                                 id: policy.rawValue,
                                 title: articleSourceLinkOpeningPolicyTitle(policy),
-                                isSelected: snapshot.articleSourceLinkOpeningPolicy == policy
+                                isSelected: input.articleSourceLinkOpeningPolicy == policy
                             )
                         }
                     )
@@ -182,7 +232,7 @@ enum SettingsScreenPresentationBuilder {
         )
     }
 
-    private static func articleListSection(from snapshot: AppSettingsSnapshot) -> SettingsScreenSectionPresentation {
+    private static func articleListSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
         SettingsScreenSectionPresentation(
             id: .articleList,
             title: "Article List",
@@ -193,14 +243,12 @@ enum SettingsScreenPresentationBuilder {
                         id: .articleSortMode,
                         title: "Sort Articles",
                         subtitle: "Choose how unread and article lists are ordered.",
-                        selectedValueTitle: articleListSortOrderTitle(
-                            ArticleListSortOrder(sortMode: snapshot.sortMode)
-                        ),
+                        selectedValueTitle: articleListSortOrderTitle(input.articleListSortOrder),
                         options: ArticleListSortOrder.allCases.map { order in
                             SettingsPickerOptionPresentation(
                                 id: order.rawValue,
                                 title: articleListSortOrderTitle(order),
-                                isSelected: ArticleListSortOrder(sortMode: snapshot.sortMode) == order
+                                isSelected: input.articleListSortOrder == order
                             )
                         }
                     )
@@ -210,14 +258,14 @@ enum SettingsScreenPresentationBuilder {
                         id: .askBeforeMarkingAllAsRead,
                         title: "Ask Before Marking All Read",
                         subtitle: "Show a confirmation before marking all visible articles as read.",
-                        isOn: snapshot.askBeforeMarkingAllAsRead
+                        isOn: input.askBeforeMarkingAllAsRead
                     )
                 )
             ]
         )
     }
 
-    private static func refreshSection(from snapshot: AppSettingsSnapshot) -> SettingsScreenSectionPresentation {
+    private static func refreshSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
         SettingsScreenSectionPresentation(
             id: .refresh,
             title: "Refresh",
@@ -228,12 +276,12 @@ enum SettingsScreenPresentationBuilder {
                         id: .refreshInterval,
                         title: "Background Refresh",
                         subtitle: "Choose how often feeds should refresh when background refresh is available.",
-                        selectedValueTitle: refreshPreferenceTitle(snapshot.refreshIntervalPreference),
+                        selectedValueTitle: refreshPreferenceTitle(input.refreshIntervalPreference),
                         options: RefreshPreference.allCases.map { preference in
                             SettingsPickerOptionPresentation(
                                 id: preference.rawValue,
                                 title: refreshPreferenceTitle(preference),
-                                isSelected: snapshot.refreshIntervalPreference == preference
+                                isSelected: input.refreshIntervalPreference == preference
                             )
                         }
                     )
@@ -242,7 +290,7 @@ enum SettingsScreenPresentationBuilder {
         )
     }
 
-    private static func syncSection(iCloudSyncStatus: ICloudSyncStatus) -> SettingsScreenSectionPresentation {
+    private static func syncSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
         return SettingsScreenSectionPresentation(
             id: .sync,
             title: "Sync",
@@ -252,15 +300,15 @@ enum SettingsScreenPresentationBuilder {
                     SettingsStatusRowItemPresentation(
                         id: .iCloudSyncStatus,
                         title: "iCloud Sync",
-                        subtitle: iCloudSyncStatusSubtitle(iCloudSyncStatus),
-                        valueTitle: iCloudSyncStatusTitle(iCloudSyncStatus)
+                        subtitle: iCloudSyncStatusSubtitle(input.iCloudSyncStatus),
+                        valueTitle: iCloudSyncStatusTitle(input.iCloudSyncStatus)
                     )
                 )
             ]
         )
     }
 
-    private static func advancedSection(from snapshot: AppSettingsSnapshot) -> SettingsScreenSectionPresentation {
+    private static func advancedSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
         SettingsScreenSectionPresentation(
             id: .advanced,
             title: "Advanced",
@@ -271,12 +319,12 @@ enum SettingsScreenPresentationBuilder {
                         id: .appearance,
                         title: "Appearance",
                         subtitle: "Choose between automatic light/dark handling, automatic light/black, or fixed appearance modes.",
-                        selectedValueTitle: interfaceThemeModeTitle(snapshot.interfaceThemeMode),
+                        selectedValueTitle: interfaceThemeModeTitle(input.interfaceThemeMode),
                         options: InterfaceThemeMode.allCases.map { mode in
                             SettingsPickerOptionPresentation(
                                 id: mode.rawValue,
                                 title: interfaceThemeModeTitle(mode),
-                                isSelected: snapshot.interfaceThemeMode == mode
+                                isSelected: input.interfaceThemeMode == mode
                             )
                         }
                     )

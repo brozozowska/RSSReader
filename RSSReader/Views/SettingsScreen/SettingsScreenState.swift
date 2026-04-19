@@ -9,6 +9,7 @@ enum SettingsScreenPhase: Equatable {
 struct SettingsScreenState {
     private(set) var phase: SettingsScreenPhase = .loading
     private(set) var settingsSnapshot = AppSettingsSnapshot()
+    private(set) var settingsInput = SettingsScreenInput()
     private(set) var iCloudSyncStatus: ICloudSyncStatus = .disabled
     private(set) var sections: [SettingsScreenSectionPresentation] = []
     private(set) var presentedPicker: SettingsPickerItemPresentation? = nil
@@ -22,12 +23,22 @@ struct SettingsScreenState {
         _ snapshot: AppSettingsSnapshot,
         iCloudSyncStatus: ICloudSyncStatus = .disabled
     ) {
-        settingsSnapshot = snapshot
-        self.iCloudSyncStatus = iCloudSyncStatus
-        sections = SettingsScreenPresentationBuilder.buildSections(
+        let input = SettingsScreenInputBuilder.build(
             from: snapshot,
             iCloudSyncStatus: iCloudSyncStatus
         )
+        applyLoadedSnapshot(snapshot, input: input, iCloudSyncStatus: iCloudSyncStatus)
+    }
+
+    mutating func applyLoadedSnapshot(
+        _ snapshot: AppSettingsSnapshot,
+        input: SettingsScreenInput,
+        iCloudSyncStatus: ICloudSyncStatus = .disabled
+    ) {
+        settingsSnapshot = snapshot
+        settingsInput = input
+        self.iCloudSyncStatus = iCloudSyncStatus
+        sections = SettingsScreenPresentationBuilder.buildSections(from: input)
         phase = .loaded
         presentedPicker = nil
     }
@@ -71,8 +82,24 @@ struct SettingsScreenState {
         snapshot: AppSettingsSnapshot,
         iCloudSyncStatus: ICloudSyncStatus = .disabled
     ) -> SettingsScreenState {
+        let input = SettingsScreenInputBuilder.build(
+            from: snapshot,
+            iCloudSyncStatus: iCloudSyncStatus
+        )
+        return previewLoaded(
+            snapshot: snapshot,
+            input: input,
+            iCloudSyncStatus: iCloudSyncStatus
+        )
+    }
+
+    static func previewLoaded(
+        snapshot: AppSettingsSnapshot,
+        input: SettingsScreenInput,
+        iCloudSyncStatus: ICloudSyncStatus = .disabled
+    ) -> SettingsScreenState {
         var state = SettingsScreenState()
-        state.applyLoadedSnapshot(snapshot, iCloudSyncStatus: iCloudSyncStatus)
+        state.applyLoadedSnapshot(snapshot, input: input, iCloudSyncStatus: iCloudSyncStatus)
         return state
     }
 }
