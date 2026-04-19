@@ -218,7 +218,7 @@ enum SettingsScreenPresentationBuilder {
         SettingsScreenSectionPresentation(
             id: .refresh,
             title: "Refresh",
-            footer: "Refresh preferences are represented as picker options even before the runtime orchestration is fully implemented.",
+            footer: "Manual disables scheduled background refresh, while automatic intervals are now interpreted through BackgroundRefreshService.",
             items: [
                 .picker(
                     SettingsPickerItemPresentation(

@@ -3013,6 +3013,80 @@ struct RSSReaderTests {
     }
 
     @Test
+    func backgroundRefreshServiceBuildsConfigurationFromPersistedRefreshPreference() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let service = try #require(harness.dependencies.backgroundRefreshService)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                refreshIntervalPreference: .every6Hours,
+                updatedAt: .distantPast
+            )
+        )
+
+        let configuration = try service.loadConfiguration()
+
+        #expect(configuration.settingsSnapshot.refreshIntervalPreference == .every6Hours)
+        #expect(configuration.policy.preference == .every6Hours)
+        #expect(configuration.policy.isAutomaticRefreshEnabled)
+        #expect(configuration.policy.minimumInterval == 21_600.0)
+    }
+
+    @Test
+    func backgroundRefreshServiceUpdatesRefreshPreferenceThroughAppSettings() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let service = try #require(harness.dependencies.backgroundRefreshService)
+
+        let updatedConfiguration = try service.updatePreference(
+            .daily,
+            updatedAt: .distantPast
+        )
+        let persistedSettings = try repository.fetchOrCreate()
+
+        #expect(updatedConfiguration.settingsSnapshot.refreshIntervalPreference == .daily)
+        #expect(updatedConfiguration.policy.preference == .daily)
+        #expect(updatedConfiguration.policy.minimumInterval == 86_400.0)
+        #expect(persistedSettings.refreshIntervalPreference == .daily)
+    }
+
+    @Test
+    func appDependenciesSkipsBackgroundRefreshWhenPreferenceIsManual() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                refreshIntervalPreference: .manual,
+                updatedAt: .distantPast
+            )
+        )
+
+        let result = await harness.dependencies.refreshFeedsForBackground()
+
+        #expect(result == nil)
+    }
+
+    @Test
+    func appDependenciesRunsBackgroundRefreshWhenPreferenceIsAutomatic() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                refreshIntervalPreference: .hourly,
+                updatedAt: .distantPast
+            )
+        )
+
+        let result = await harness.dependencies.refreshFeedsForBackground()
+
+        #expect(result?.trigger == .background)
+        #expect(result?.batchResult.results.isEmpty == true)
+    }
+
+    @Test
     func appSettingsServiceUpdatesSelectedSourcesFilterRawValueThroughPatch() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
@@ -3404,6 +3478,29 @@ struct RSSReaderTests {
         #expect(controller.screenState.settingsSnapshot.articleSourceLinkOpeningPolicy == .externalBrowser)
         #expect(controller.viewState().presentedPicker == nil)
         #expect(persistedSettings.articleSourceLinkOpeningPolicy == .externalBrowser)
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedRefreshIntervalThroughBackgroundRefreshService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+        controller.handleItemSelection(.refreshInterval, dependencies: harness.dependencies)
+
+        #expect(controller.viewState().presentedPicker?.id == .refreshInterval)
+
+        controller.handlePickerOptionSelection(
+            itemID: .refreshInterval,
+            optionID: RefreshPreference.daily.rawValue,
+            dependencies: harness.dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.refreshIntervalPreference == .daily)
+        #expect(controller.viewState().presentedPicker == nil)
+        #expect(persistedSettings.refreshIntervalPreference == .daily)
     }
 
     @Test

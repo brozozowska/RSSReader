@@ -26,6 +26,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let articleStateRepository: (any ArticleStateRepository)?
     let appSettingsRepository: (any AppSettingsRepository)?
     let appSettingsService: (any AppSettingsService)?
+    let backgroundRefreshService: (any BackgroundRefreshService)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
     public let modelContainer: ModelContainer?
 
@@ -101,6 +102,13 @@ public final class AppDependencies: AppDependenciesProtocol {
                 feedFetchLogRepository: feedFetchLogRepository
             )
         }()
+        let backgroundRefreshService = appSettingsService.map { service in
+            DefaultBackgroundRefreshService(
+                logger: logger,
+                appSettingsService: service,
+                feedRefreshService: feedRefreshService
+            )
+        }
 
         self.logger = logger
         self.httpClient = httpClient
@@ -115,6 +123,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.sourcesSidebarQueryService = sourcesSidebarQueryService
         self.appSettingsRepository = appSettingsRepository
         self.appSettingsService = appSettingsService
+        self.backgroundRefreshService = backgroundRefreshService
         self.feedFetchLogRepository = feedFetchLogRepository
         self.feedFetcher = resolvedFeedFetcher
     }
@@ -330,12 +339,12 @@ extension AppDependencies {
 
     @MainActor
     func refreshFeedsForBackground() async -> BackgroundFeedRefreshResult? {
-        guard let feedRefreshService else {
-            logger.error("Feed refresh service is unavailable")
+        guard let backgroundRefreshService else {
+            logger.error("Background refresh service is unavailable")
             return nil
         }
 
-        return await feedRefreshService.refreshAllActiveFeedsForBackground()
+        return await backgroundRefreshService.performScheduledRefresh()
     }
 }
 

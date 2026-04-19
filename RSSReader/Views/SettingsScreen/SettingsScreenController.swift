@@ -52,11 +52,11 @@ final class SettingsScreenController {
                 .articleSourceLinkOpeningPolicy,
                 .articleSortMode,
                 .articleBodyLinkOpeningPolicy,
-                .appearance:
+                .appearance,
+                .refreshInterval:
             screenState.presentPicker(for: itemID)
         case .markAsReadOnOpen,
                 .askBeforeMarkingAllAsRead,
-                .refreshInterval,
                 .iCloudSyncStatus:
             dependencies.logger.info("Settings item action is not implemented yet: \(itemID.rawValue)")
         }
@@ -81,6 +81,8 @@ final class SettingsScreenController {
             updateArticleSortMode(optionID: optionID, dependencies: dependencies)
         case .articleBodyLinkOpeningPolicy:
             updateArticleBodyLinkOpeningPolicy(optionID: optionID, dependencies: dependencies)
+        case .refreshInterval:
+            updateRefreshIntervalPreference(optionID: optionID, dependencies: dependencies)
         case .appearance:
             updateInterfaceThemeMode(
                 optionID: optionID,
@@ -89,7 +91,6 @@ final class SettingsScreenController {
             )
         case .markAsReadOnOpen,
                 .askBeforeMarkingAllAsRead,
-                .refreshInterval,
                 .iCloudSyncStatus:
             dependencies.logger.info("Settings picker option is not implemented yet: \(itemID.rawValue).\(optionID)")
         }
@@ -330,6 +331,36 @@ private extension SettingsScreenController {
             appState?.applyInterfaceThemeMode(updatedSnapshot.interfaceThemeMode)
         } catch {
             dependencies.logger.error("Failed to update interface theme mode: \(error)")
+        }
+    }
+
+    func updateRefreshIntervalPreference(
+        optionID: String,
+        dependencies: AppDependencies
+    ) {
+        guard let selectedPreference = RefreshPreference(rawValue: optionID) else {
+            dependencies.logger.error("Skipped refresh interval update because option is invalid: \(optionID)")
+            return
+        }
+
+        guard screenState.settingsSnapshot.refreshIntervalPreference != selectedPreference else {
+            screenState.dismissPresentedPicker()
+            return
+        }
+
+        guard let backgroundRefreshService = dependencies.backgroundRefreshService else {
+            dependencies.logger.error("Background refresh service is unavailable for refresh interval update")
+            return
+        }
+
+        do {
+            let updatedConfiguration = try backgroundRefreshService.updatePreference(
+                selectedPreference,
+                updatedAt: .now
+            )
+            screenState.applyLoadedSnapshot(updatedConfiguration.settingsSnapshot)
+        } catch {
+            dependencies.logger.error("Failed to update refresh interval preference: \(error)")
         }
     }
 }
