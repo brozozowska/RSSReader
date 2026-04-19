@@ -11,6 +11,8 @@ struct SettingsScreenActionHandlers {
 
 struct SettingsScreenView: View {
     @Environment(\.appDependencies) private var dependencies
+    @Environment(\.appThemeVariant) private var appThemeVariant
+    @Environment(AppState.self) private var appState
     @State private var controller: SettingsScreenController
     let dismiss: () -> Void
 
@@ -34,9 +36,10 @@ struct SettingsScreenView: View {
                         Button("Done", action: actionHandlers.dismiss)
                     }
                 }
+                .background(appThemeVariant.primaryBackground)
                 .task {
                     guard controller.isPreviewMode == false else { return }
-                    controller.loadSettings(dependencies: dependencies)
+                    controller.loadSettings(dependencies: dependencies, appState: appState)
                 }
                 .confirmationDialog(
                     viewState.presentedPicker?.title ?? "",
@@ -66,7 +69,7 @@ struct SettingsScreenView: View {
         SettingsScreenActionHandlers(
             dismiss: dismiss,
             retryLoad: {
-                controller.retryLoadingSettings(dependencies: dependencies)
+                controller.retryLoadingSettings(dependencies: dependencies, appState: appState)
             },
             selectItem: { itemID in
                 controller.handleItemSelection(itemID, dependencies: dependencies)
@@ -75,7 +78,8 @@ struct SettingsScreenView: View {
                 controller.handlePickerOptionSelection(
                     itemID: itemID,
                     optionID: optionID,
-                    dependencies: dependencies
+                    dependencies: dependencies,
+                    appState: appState
                 )
             },
             toggleItem: { itemID, isOn in
@@ -129,6 +133,8 @@ struct SettingsScreenView: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(appThemeVariant.primaryBackground)
         }
     }
 

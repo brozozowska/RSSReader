@@ -16,7 +16,10 @@ final class SettingsScreenController {
         screenState.derivedViewState()
     }
 
-    func loadSettings(dependencies: AppDependencies) {
+    func loadSettings(
+        dependencies: AppDependencies,
+        appState: AppState? = nil
+    ) {
         screenState.beginLoading()
 
         guard let appSettingsService = dependencies.appSettingsService else {
@@ -27,14 +30,20 @@ final class SettingsScreenController {
         do {
             let snapshot = try appSettingsService.fetchSettings()
             screenState.applyLoadedSnapshot(snapshot)
+            if let appState, appState.interfaceThemeMode != snapshot.interfaceThemeMode {
+                appState.applyInterfaceThemeMode(snapshot.interfaceThemeMode)
+            }
         } catch {
             dependencies.logger.error("Failed to load settings snapshot: \(error)")
             screenState.applyLoadingFailure("Unable to load settings right now. Try again.")
         }
     }
 
-    func retryLoadingSettings(dependencies: AppDependencies) {
-        loadSettings(dependencies: dependencies)
+    func retryLoadingSettings(
+        dependencies: AppDependencies,
+        appState: AppState? = nil
+    ) {
+        loadSettings(dependencies: dependencies, appState: appState)
     }
 
     func handleItemSelection(_ itemID: SettingsScreenItemID, dependencies: AppDependencies) {
@@ -42,13 +51,13 @@ final class SettingsScreenController {
         case .defaultReaderMode,
                 .articleSourceLinkOpeningPolicy,
                 .articleSortMode,
-                .articleBodyLinkOpeningPolicy:
+                .articleBodyLinkOpeningPolicy,
+                .appearance:
             screenState.presentPicker(for: itemID)
         case .markAsReadOnOpen,
                 .askBeforeMarkingAllAsRead,
                 .refreshInterval,
-                .iCloudSyncStatus,
-                .appearance:
+                .iCloudSyncStatus:
             dependencies.logger.info("Settings item action is not implemented yet: \(itemID.rawValue)")
         }
     }
@@ -60,7 +69,8 @@ final class SettingsScreenController {
     func handlePickerOptionSelection(
         itemID: SettingsScreenItemID,
         optionID: String,
-        dependencies: AppDependencies
+        dependencies: AppDependencies,
+        appState: AppState? = nil
     ) {
         switch itemID {
         case .defaultReaderMode:
@@ -71,11 +81,16 @@ final class SettingsScreenController {
             updateArticleSortMode(optionID: optionID, dependencies: dependencies)
         case .articleBodyLinkOpeningPolicy:
             updateArticleBodyLinkOpeningPolicy(optionID: optionID, dependencies: dependencies)
+        case .appearance:
+            updateInterfaceThemeMode(
+                optionID: optionID,
+                dependencies: dependencies,
+                appState: appState
+            )
         case .markAsReadOnOpen,
                 .askBeforeMarkingAllAsRead,
                 .refreshInterval,
-                .iCloudSyncStatus,
-                .appearance:
+                .iCloudSyncStatus:
             dependencies.logger.info("Settings picker option is not implemented yet: \(itemID.rawValue).\(optionID)")
         }
     }
@@ -281,6 +296,40 @@ private extension SettingsScreenController {
             screenState.applyLoadedSnapshot(updatedSnapshot)
         } catch {
             dependencies.logger.error("Failed to update article source link opening policy: \(error)")
+        }
+    }
+
+    func updateInterfaceThemeMode(
+        optionID: String,
+        dependencies: AppDependencies,
+        appState: AppState?
+    ) {
+        guard let selectedMode = InterfaceThemeMode(rawValue: optionID) else {
+            dependencies.logger.error("Skipped interface theme mode update because option is invalid: \(optionID)")
+            return
+        }
+
+        guard screenState.settingsSnapshot.interfaceThemeMode != selectedMode else {
+            screenState.dismissPresentedPicker()
+            return
+        }
+
+        guard let appSettingsService = dependencies.appSettingsService else {
+            dependencies.logger.error("App settings service is unavailable for interface theme mode update")
+            return
+        }
+
+        do {
+            let updatedSnapshot = try appSettingsService.updateSettings(
+                AppSettingsPatch(
+                    interfaceThemeMode: selectedMode,
+                    updatedAt: .now
+                )
+            )
+            screenState.applyLoadedSnapshot(updatedSnapshot)
+            appState?.applyInterfaceThemeMode(updatedSnapshot.interfaceThemeMode)
+        } catch {
+            dependencies.logger.error("Failed to update interface theme mode: \(error)")
         }
     }
 }

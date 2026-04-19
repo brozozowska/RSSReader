@@ -10,6 +10,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var sortMode: ArticleSortMode
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
+    var interfaceThemeMode: InterfaceThemeMode
 
     init(
         defaultReaderMode: ReaderMode = .embedded,
@@ -20,7 +21,8 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         askBeforeMarkingAllAsRead: Bool = true,
         sortMode: ArticleSortMode = .publishedAtDescending,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
-        articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser
+        articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
+        interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
     ) {
         self.defaultReaderMode = defaultReaderMode
         self.selectedSourcesFilterRawValue = selectedSourcesFilterRawValue
@@ -31,6 +33,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         self.sortMode = sortMode
         self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
+        self.interfaceThemeMode = interfaceThemeMode
     }
 
     init(settings: AppSettings) {
@@ -43,7 +46,8 @@ struct AppSettingsSnapshot: Equatable, Sendable {
             askBeforeMarkingAllAsRead: settings.askBeforeMarkingAllAsRead,
             sortMode: settings.sortMode,
             articleBodyLinkOpeningPolicy: settings.articleBodyLinkOpeningPolicy,
-            articleSourceLinkOpeningPolicy: settings.articleSourceLinkOpeningPolicy
+            articleSourceLinkOpeningPolicy: settings.articleSourceLinkOpeningPolicy,
+            interfaceThemeMode: settings.interfaceThemeMode
         )
     }
 }
@@ -58,6 +62,7 @@ struct AppSettingsPatch: Sendable {
     var sortMode: ArticleSortMode? = nil
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
+    var interfaceThemeMode: InterfaceThemeMode? = nil
     var updatedAt: Date = .now
 }
 
@@ -103,6 +108,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 sortMode: snapshot.sortMode,
                 articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
                 articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
+                interfaceThemeMode: snapshot.interfaceThemeMode,
                 updatedAt: updatedAt
             )
         )
@@ -122,6 +128,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 sortMode: patch.sortMode,
                 articleBodyLinkOpeningPolicy: patch.articleBodyLinkOpeningPolicy,
                 articleSourceLinkOpeningPolicy: patch.articleSourceLinkOpeningPolicy,
+                interfaceThemeMode: patch.interfaceThemeMode,
                 updatedAt: patch.updatedAt
             )
         )

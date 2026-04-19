@@ -63,6 +63,7 @@ struct ReadingNavigationState: Hashable, Sendable {
 public final class AppState {
     var readingNavigation = ReadingNavigationState()
     var selectedSourcesFilter: SourcesFilter = .allItems
+    var interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
     var isPresentingSettingsScreen = false
     var articleListReloadID = UUID()
     var sourcesSidebarReloadID = UUID()
@@ -122,6 +123,10 @@ public final class AppState {
 
     func selectSourcesFilter(_ filter: SourcesFilter) {
         selectedSourcesFilter = filter
+    }
+
+    func applyInterfaceThemeMode(_ mode: InterfaceThemeMode) {
+        interfaceThemeMode = mode
     }
 
     func requestArticleListReload() {

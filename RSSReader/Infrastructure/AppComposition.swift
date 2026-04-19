@@ -28,23 +28,23 @@ enum AppComposition {
 private struct AppRootContainer: View {
     let dependencies: AppDependencies
     @State private var appState = AppState()
-    @State private var hasLoadedPersistedSourcesFilter = false
+    @State private var hasRestoredPersistedAppSettings = false
 
     var body: some View {
         content
         .task {
-            await restorePersistedSourcesFilterIfNeeded()
+            await restorePersistedAppSettingsIfNeeded()
         }
         .onChange(of: appState.selectedSourcesFilter) { _, newFilter in
-            guard hasLoadedPersistedSourcesFilter else { return }
+            guard hasRestoredPersistedAppSettings else { return }
             persistSourcesFilter(newFilter)
         }
     }
 
     @MainActor
-    private func restorePersistedSourcesFilterIfNeeded() async {
-        guard hasLoadedPersistedSourcesFilter == false else { return }
-        defer { hasLoadedPersistedSourcesFilter = true }
+    private func restorePersistedAppSettingsIfNeeded() async {
+        guard hasRestoredPersistedAppSettings == false else { return }
+        defer { hasRestoredPersistedAppSettings = true }
 
         guard let appSettingsService = dependencies.appSettingsService else { return }
 
@@ -58,13 +58,17 @@ private struct AppRootContainer: View {
                 appState.selectSourcesFilter(restoredFilter)
             }
 
+            if appState.interfaceThemeMode != settings.interfaceThemeMode {
+                appState.applyInterfaceThemeMode(settings.interfaceThemeMode)
+            }
+
             if settings.selectedSourcesFilterRawValue != restoredFilter.rawValue {
                 _ = try appSettingsService.updateSettings(
                     SourcesFilterPersistencePolicy.makeSettingsPatch(for: restoredFilter)
                 )
             }
         } catch {
-            dependencies.logger.error("Failed to restore persisted sources filter: \(error)")
+            dependencies.logger.error("Failed to restore persisted app settings: \(error)")
         }
     }
 

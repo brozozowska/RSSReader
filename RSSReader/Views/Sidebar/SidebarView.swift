@@ -7,6 +7,7 @@ struct SidebarView: View {
 
     @Environment(\.appDependencies) private var dependencies
     @Environment(AppState.self) private var appState
+    @Environment(\.appThemeVariant) private var appThemeVariant
 
     // MARK: Configuration
 
@@ -64,7 +65,7 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
-        .background(Color.white)
+        .background(appThemeVariant.primaryBackground)
         .scrollDisabled(viewState.shouldDisableScrolling)
         .refreshable {
             await refreshSources()

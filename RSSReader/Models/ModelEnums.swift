@@ -57,3 +57,11 @@ enum ArticleSourceLinkOpeningPolicy: String, Codable, CaseIterable, Sendable {
     case inAppBrowser
     case externalBrowser
 }
+
+enum InterfaceThemeMode: String, Codable, CaseIterable, Sendable {
+    case automaticLightDark
+    case automaticLightBlack
+    case light
+    case dark
+    case black
+}

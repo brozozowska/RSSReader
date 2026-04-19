@@ -112,7 +112,7 @@ enum SettingsScreenPresentationBuilder {
             articleListSection(from: snapshot),
             refreshSection(from: snapshot),
             syncSection(from: snapshot),
-            advancedSection()
+            advancedSection(from: snapshot)
         ]
     }
 
@@ -262,19 +262,25 @@ enum SettingsScreenPresentationBuilder {
         )
     }
 
-    private static func advancedSection() -> SettingsScreenSectionPresentation {
+    private static func advancedSection(from snapshot: AppSettingsSnapshot) -> SettingsScreenSectionPresentation {
         SettingsScreenSectionPresentation(
             id: .advanced,
             title: "Advanced",
-            footer: "Navigation link rows reserve space for multi-step settings flows that will be implemented later.",
+            footer: "Appearance is applied at the app level so the selected interface mode immediately affects the shell and screen surfaces.",
             items: [
-                .navigationLink(
-                    SettingsNavigationLinkItemPresentation(
+                .picker(
+                    SettingsPickerItemPresentation(
                         id: .appearance,
                         title: "Appearance",
-                        subtitle: "Theme and display preferences will be configured in a dedicated flow.",
-                        valueTitle: "Coming Soon",
-                        isEnabled: false
+                        subtitle: "Choose between automatic light/dark handling, automatic light/black, or fixed appearance modes.",
+                        selectedValueTitle: interfaceThemeModeTitle(snapshot.interfaceThemeMode),
+                        options: InterfaceThemeMode.allCases.map { mode in
+                            SettingsPickerOptionPresentation(
+                                id: mode.rawValue,
+                                title: interfaceThemeModeTitle(mode),
+                                isSelected: snapshot.interfaceThemeMode == mode
+                            )
+                        }
                     )
                 )
             ]
@@ -331,6 +337,21 @@ enum SettingsScreenPresentationBuilder {
             "In-App Browser"
         case .externalBrowser:
             "External Browser"
+        }
+    }
+
+    private static func interfaceThemeModeTitle(_ mode: InterfaceThemeMode) -> String {
+        switch mode {
+        case .automaticLightDark:
+            "Automatic Light/Dark"
+        case .automaticLightBlack:
+            "Automatic Light/Black"
+        case .light:
+            "Light"
+        case .dark:
+            "Dark"
+        case .black:
+            "Black"
         }
     }
 }

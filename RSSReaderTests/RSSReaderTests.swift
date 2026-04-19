@@ -2847,6 +2847,7 @@ struct RSSReaderTests {
         #expect(settings.askBeforeMarkingAllAsRead)
         #expect(settings.articleBodyLinkOpeningPolicy == .inAppBrowser)
         #expect(settings.articleSourceLinkOpeningPolicy == .inAppBrowser)
+        #expect(settings.interfaceThemeMode == .automaticLightDark)
     }
 
     @Test
@@ -2918,6 +2919,23 @@ struct RSSReaderTests {
     }
 
     @Test
+    func appSettingsRepositoryPersistsInterfaceThemeMode() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                interfaceThemeMode: .black,
+                updatedAt: .distantPast
+            )
+        )
+
+        let settings = try repository.fetchOrCreate()
+
+        #expect(settings.interfaceThemeMode == .black)
+    }
+
+    @Test
     func appSettingsServiceFetchesSnapshotFromRepository() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
@@ -2934,6 +2952,7 @@ struct RSSReaderTests {
                 sortMode: .publishedAtAscending,
                 articleBodyLinkOpeningPolicy: .externalBrowser,
                 articleSourceLinkOpeningPolicy: .externalBrowser,
+                interfaceThemeMode: .black,
                 updatedAt: .distantPast
             )
         )
@@ -2950,7 +2969,8 @@ struct RSSReaderTests {
                 askBeforeMarkingAllAsRead: false,
                 sortMode: .publishedAtAscending,
                 articleBodyLinkOpeningPolicy: .externalBrowser,
-                articleSourceLinkOpeningPolicy: .externalBrowser
+                articleSourceLinkOpeningPolicy: .externalBrowser,
+                interfaceThemeMode: .black
             )
         )
     }
@@ -2969,7 +2989,8 @@ struct RSSReaderTests {
             askBeforeMarkingAllAsRead: false,
             sortMode: .publishedAtDescending,
             articleBodyLinkOpeningPolicy: .externalBrowser,
-            articleSourceLinkOpeningPolicy: .externalBrowser
+            articleSourceLinkOpeningPolicy: .externalBrowser,
+            interfaceThemeMode: .black
         )
 
         let savedSnapshot = try service.saveSettings(
@@ -2988,6 +3009,7 @@ struct RSSReaderTests {
         #expect(persistedSettings.sortMode == .publishedAtDescending)
         #expect(persistedSettings.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(persistedSettings.articleSourceLinkOpeningPolicy == .externalBrowser)
+        #expect(persistedSettings.interfaceThemeMode == .black)
     }
 
     @Test
@@ -3019,7 +3041,8 @@ struct RSSReaderTests {
             askBeforeMarkingAllAsRead: false,
             sortMode: .publishedAtDescending,
             articleBodyLinkOpeningPolicy: .externalBrowser,
-            articleSourceLinkOpeningPolicy: .externalBrowser
+            articleSourceLinkOpeningPolicy: .externalBrowser,
+            interfaceThemeMode: .black
         )
 
         let sections = SettingsScreenPresentationBuilder.buildSections(from: snapshot)
@@ -3140,7 +3163,25 @@ struct RSSReaderTests {
                 )
             ]
         )
-        #expect(advancedItems.count == 1)
+        #expect(
+            advancedItems == [
+                .picker(
+                    SettingsPickerItemPresentation(
+                        id: .appearance,
+                        title: "Appearance",
+                        subtitle: "Choose between automatic light/dark handling, automatic light/black, or fixed appearance modes.",
+                        selectedValueTitle: "Black",
+                        options: [
+                            SettingsPickerOptionPresentation(id: "automaticLightDark", title: "Automatic Light/Dark", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "automaticLightBlack", title: "Automatic Light/Black", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "light", title: "Light", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "dark", title: "Dark", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "black", title: "Black", isSelected: true)
+                        ]
+                    )
+                )
+            ]
+        )
     }
 
     @Test
@@ -3154,10 +3195,6 @@ struct RSSReaderTests {
         })
         #expect(items.contains { item in
             if case .picker = item { return true }
-            return false
-        })
-        #expect(items.contains { item in
-            if case .navigationLink = item { return true }
             return false
         })
         #expect(items.contains { item in
@@ -3214,13 +3251,15 @@ struct RSSReaderTests {
             askBeforeMarkingAllAsRead: false,
             sortMode: .publishedAtDescending,
             articleBodyLinkOpeningPolicy: .externalBrowser,
-            articleSourceLinkOpeningPolicy: .externalBrowser
+            articleSourceLinkOpeningPolicy: .externalBrowser,
+            interfaceThemeMode: .black
         ),
             updatedAt: .distantPast
         )
         let controller = SettingsScreenController()
+        let appState = AppState()
 
-        controller.loadSettings(dependencies: harness.dependencies)
+        controller.loadSettings(dependencies: harness.dependencies, appState: appState)
 
         let viewState = controller.viewState()
         #expect(viewState.primaryLoadingState == nil)
@@ -3231,6 +3270,8 @@ struct RSSReaderTests {
         #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead == false)
         #expect(controller.screenState.settingsSnapshot.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(controller.screenState.settingsSnapshot.articleSourceLinkOpeningPolicy == .externalBrowser)
+        #expect(controller.screenState.settingsSnapshot.interfaceThemeMode == .black)
+        #expect(appState.interfaceThemeMode == .black)
     }
 
     @Test
@@ -3363,6 +3404,77 @@ struct RSSReaderTests {
         #expect(controller.screenState.settingsSnapshot.articleSourceLinkOpeningPolicy == .externalBrowser)
         #expect(controller.viewState().presentedPicker == nil)
         #expect(persistedSettings.articleSourceLinkOpeningPolicy == .externalBrowser)
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedInterfaceThemeModeThroughSettingsService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+        let appState = AppState()
+
+        controller.loadSettings(dependencies: harness.dependencies, appState: appState)
+        controller.handleItemSelection(.appearance, dependencies: harness.dependencies)
+
+        #expect(controller.viewState().presentedPicker?.id == .appearance)
+
+        controller.handlePickerOptionSelection(
+            itemID: .appearance,
+            optionID: InterfaceThemeMode.black.rawValue,
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.interfaceThemeMode == .black)
+        #expect(controller.viewState().presentedPicker == nil)
+        #expect(persistedSettings.interfaceThemeMode == .black)
+        #expect(appState.interfaceThemeMode == .black)
+    }
+
+    @Test
+    func appThemeApplicationPolicyResolvesAutomaticModesAgainstSystemColorScheme() {
+        let automaticDarkPolicy = AppThemeApplicationPolicy(
+            interfaceThemeMode: .automaticLightDark,
+            systemColorScheme: .dark
+        )
+        let automaticBlackPolicy = AppThemeApplicationPolicy(
+            interfaceThemeMode: .automaticLightBlack,
+            systemColorScheme: .dark
+        )
+        let automaticLightPolicy = AppThemeApplicationPolicy(
+            interfaceThemeMode: .automaticLightBlack,
+            systemColorScheme: .light
+        )
+
+        #expect(automaticDarkPolicy.preferredColorScheme == nil)
+        #expect(automaticDarkPolicy.resolvedTheme == .dark)
+        #expect(automaticBlackPolicy.preferredColorScheme == nil)
+        #expect(automaticBlackPolicy.resolvedTheme == .black)
+        #expect(automaticLightPolicy.resolvedTheme == .light)
+    }
+
+    @Test
+    func appThemeApplicationPolicyUsesExplicitThemeModeForResolvedThemeAndPreferredColorScheme() {
+        let lightPolicy = AppThemeApplicationPolicy(
+            interfaceThemeMode: .light,
+            systemColorScheme: .dark
+        )
+        let darkPolicy = AppThemeApplicationPolicy(
+            interfaceThemeMode: .dark,
+            systemColorScheme: .light
+        )
+        let blackPolicy = AppThemeApplicationPolicy(
+            interfaceThemeMode: .black,
+            systemColorScheme: .light
+        )
+
+        #expect(lightPolicy.preferredColorScheme == .light)
+        #expect(lightPolicy.resolvedTheme == .light)
+        #expect(darkPolicy.preferredColorScheme == .dark)
+        #expect(darkPolicy.resolvedTheme == .dark)
+        #expect(blackPolicy.preferredColorScheme == .dark)
+        #expect(blackPolicy.resolvedTheme == .black)
     }
 
     @Test
