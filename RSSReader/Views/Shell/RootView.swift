@@ -74,7 +74,7 @@ struct RootView: View {
             )
         }
         .sheet(isPresented: sourceManagementPresentationBinding) {
-            SourceManagementModalPlaceholderView(
+            SourceManagementEntryView(
                 dismiss: { dependencies.dismissSourceManagement(using: appState) }
             )
         }
@@ -121,28 +121,5 @@ struct RootView: View {
             sourceSelection: appState.selectedSidebarSelection,
             articleSelection: appState.selectedArticleID
         )
-    }
-}
-
-private struct SourceManagementModalPlaceholderView: View {
-    @Environment(\.appThemeVariant) private var appThemeVariant
-    let dismiss: () -> Void
-
-    var body: some View {
-        NavigationStack {
-            ScreenPlaceholderView(
-                title: "Source Management",
-                systemImage: "plus.circle",
-                description: "This modal flow now lives above the reading shell. The add-feed and create-folder experience will be implemented in the next Source Management steps."
-            )
-            .navigationTitle("Add Source")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done", action: dismiss)
-                }
-            }
-            .background(appThemeVariant.primaryBackground)
-        }
     }
 }

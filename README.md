@@ -293,7 +293,7 @@
 #### Source Management
 - [x] добавить в `AppState` или соседний app-level navigation state отдельное состояние показа `Source Management Screen`, чтобы открытие/закрытие add-source flow не жило локально внутри `SidebarView`;
 - [x] определить app-level presentation для `Source Management Screen` на iPhone/iPad: экран должен открываться по действию `Add Source` из `SidebarView` как отдельный modal flow (`sheet`) поверх текущего `NavigationSplitView` и не входить в его detail-routing;
-- [ ] определить entry UX `Source Management Screen`: экран должен явно разделять сценарии `add feed`, `create folder` и последующие folder assignment / move actions, а не смешивать их в одном неструктурированном `Form`;
+- [x] определить entry UX `Source Management Screen`: экран должен явно разделять сценарии `add feed`, `create folder` и последующие folder assignment / move actions, а не смешивать их в одном неструктурированном `Form`;
 - [ ] собрать `Source Management Screen` в той же screen-архитектуре, что и остальные экраны: выделить `SourceManagementScreenState`, `SourceManagementScreenController`, presentation models, preview data и contract user actions;
 - [ ] добавить отдельный `FolderRepository` и подключить его в `AppDependencies`, чтобы создание папок и выбор списка папок не зависели от побочных эффектов в `FeedRepository` и не оставались без явной persistence boundary;
 - [ ] выделить service layer для source management operations: отдельный orchestration-service должен отвечать за preview feed по URL, создание feed, создание folder и перемещение feed между folder / ungrouped state, чтобы screen-level controller не координировал repository/network logic напрямую;

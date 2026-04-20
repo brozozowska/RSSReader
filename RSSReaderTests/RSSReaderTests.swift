@@ -4238,6 +4238,26 @@ struct RSSReaderTests {
     }
 
     @Test
+    func sourceManagementEntryScenariosSeparateCreationAndOrganizationPaths() {
+        #expect(SourceManagementEntryScenario.primaryScenarios == [.addFeed, .createFolder])
+        #expect(SourceManagementEntryScenario.organizationScenarios == [.moveSource])
+        #expect(SourceManagementEntryScenario.allCases == [.addFeed, .createFolder, .moveSource])
+    }
+
+    @Test
+    func sourceManagementMoveScenarioStaysSeparateFromInitialAddFlow() {
+        #expect(SourceManagementEntryScenario.moveSource.title == "Move Sources")
+        #expect(
+            SourceManagementEntryScenario.moveSource.subtitle.contains("existing feeds")
+        )
+        #expect(
+            SourceManagementEntryScenario.moveSource.upcomingSteps.contains {
+                $0.contains("instead of starting a new add-feed flow")
+            }
+        )
+    }
+
+    @Test
     func shellActionEntryPointsOpenAndCloseArticleWebViewViaDependencies() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
