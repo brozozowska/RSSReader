@@ -4211,7 +4211,7 @@ struct RSSReaderTests {
     }
 
     @Test
-    func sourceManagementPresentationStateLivesInAppStateAndDoesNotResetReadingShellContext() throws {
+    func sourceManagementPresentationStateUsesSeparateModalFlowAndDoesNotResetReadingShellContext() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
         let feedID = UUID()
@@ -4223,6 +4223,7 @@ struct RSSReaderTests {
         harness.dependencies.showSourceManagement(using: appState)
 
         #expect(appState.isPresentingSourceManagementScreen)
+        #expect(appState.isPresentingSettingsScreen == false)
         #expect(appState.selectedSidebarSelection == .feed(feedID))
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))
@@ -4230,6 +4231,7 @@ struct RSSReaderTests {
         harness.dependencies.dismissSourceManagement(using: appState)
 
         #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.isPresentingSettingsScreen == false)
         #expect(appState.selectedSidebarSelection == .feed(feedID))
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))

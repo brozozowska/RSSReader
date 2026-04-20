@@ -73,6 +73,11 @@ struct RootView: View {
                 dismiss: { dependencies.dismissSettings(using: appState) }
             )
         }
+        .sheet(isPresented: sourceManagementPresentationBinding) {
+            SourceManagementModalPlaceholderView(
+                dismiss: { dependencies.dismissSourceManagement(using: appState) }
+            )
+        }
         .preferredColorScheme(themeApplicationPolicy.preferredColorScheme)
         .environment(\.appThemeVariant, themeApplicationPolicy.resolvedTheme)
         .background(themeApplicationPolicy.resolvedTheme.primaryBackground.ignoresSafeArea())
@@ -98,10 +103,46 @@ struct RootView: View {
         )
     }
 
+    private var sourceManagementPresentationBinding: Binding<Bool> {
+        Binding(
+            get: { appState.isPresentingSourceManagementScreen },
+            set: { isPresented in
+                if isPresented {
+                    appState.presentSourceManagementScreen()
+                } else {
+                    appState.dismissSourceManagementScreen()
+                }
+            }
+        )
+    }
+
     private func syncPreferredCompactColumn() {
         preferredCompactColumn = ReadingShellCompactNavigationState.preferredCompactColumn(
             sourceSelection: appState.selectedSidebarSelection,
             articleSelection: appState.selectedArticleID
         )
+    }
+}
+
+private struct SourceManagementModalPlaceholderView: View {
+    @Environment(\.appThemeVariant) private var appThemeVariant
+    let dismiss: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScreenPlaceholderView(
+                title: "Source Management",
+                systemImage: "plus.circle",
+                description: "This modal flow now lives above the reading shell. The add-feed and create-folder experience will be implemented in the next Source Management steps."
+            )
+            .navigationTitle("Add Source")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done", action: dismiss)
+                }
+            }
+            .background(appThemeVariant.primaryBackground)
+        }
     }
 }

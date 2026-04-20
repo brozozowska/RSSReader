@@ -11,6 +11,12 @@ import SwiftData
     )
 }
 
+#Preview("Root Flow · Source Management Sheet") {
+    RootViewPreviewContainer(
+        initialAppState: RootViewPreviewFactory.makeSourceManagementAppState()
+    )
+}
+
 private struct RootViewPreviewContainer: View {
     let dependencies: AppDependencies
     @State private var appState: AppState
@@ -66,6 +72,14 @@ private enum RootViewPreviewFactory {
         let appState = AppState()
         appState.selectReadingSource(.feed(SampleIDs.vergeFeedID))
         appState.selectedArticleID = SampleIDs.firstArticleID
+        return appState
+    }
+
+    @MainActor
+    static func makeSourceManagementAppState() -> AppState {
+        let appState = AppState()
+        appState.selectReadingSource(.feed(SampleIDs.vergeFeedID))
+        appState.presentSourceManagementScreen()
         return appState
     }
 
