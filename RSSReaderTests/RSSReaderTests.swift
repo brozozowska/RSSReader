@@ -4238,23 +4238,30 @@ struct RSSReaderTests {
     }
 
     @Test
-    func sourceManagementEntryScenariosSeparateCreationAndOrganizationPaths() {
-        #expect(SourceManagementEntryScenario.primaryScenarios == [.addFeed, .createFolder])
-        #expect(SourceManagementEntryScenario.organizationScenarios == [.moveSource])
-        #expect(SourceManagementEntryScenario.allCases == [.addFeed, .createFolder, .moveSource])
+    func sourceManagementScreenStateBuildsSeparatedEntrySections() {
+        let state = SourceManagementScreenState.previewLoaded()
+        let viewState = state.derivedViewState()
+
+        #expect(viewState.summary.title == "Choose the source task you want to start.")
+        #expect(viewState.sections.map(\.id) == [.startNew, .organizeExisting])
+        #expect(viewState.sections.first?.items.map(\.id) == [.addFeed, .createFolder])
+        #expect(viewState.sections.last?.items.map(\.id) == [.moveSource])
     }
 
     @Test
-    func sourceManagementMoveScenarioStaysSeparateFromInitialAddFlow() {
-        #expect(SourceManagementEntryScenario.moveSource.title == "Move Sources")
-        #expect(
-            SourceManagementEntryScenario.moveSource.subtitle.contains("existing feeds")
-        )
-        #expect(
-            SourceManagementEntryScenario.moveSource.upcomingSteps.contains {
-                $0.contains("instead of starting a new add-feed flow")
-            }
-        )
+    func sourceManagementScreenControllerPresentsSelectedScenarioDestination() {
+        let controller = SourceManagementScreenController()
+
+        controller.handleScenarioSelection(.moveSource)
+
+        let destination = controller.viewState().presentedDestination
+        #expect(destination?.id == .moveSource)
+        #expect(destination?.title == "Move Sources")
+        #expect(destination?.steps.contains { $0.contains("instead of starting a new add-feed flow") } == true)
+
+        controller.dismissPresentedScenario()
+
+        #expect(controller.viewState().presentedDestination == nil)
     }
 
     @Test

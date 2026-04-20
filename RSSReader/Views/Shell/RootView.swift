@@ -74,7 +74,7 @@ struct RootView: View {
             )
         }
         .sheet(isPresented: sourceManagementPresentationBinding) {
-            SourceManagementEntryView(
+            SourceManagementScreenView(
                 dismiss: { dependencies.dismissSourceManagement(using: appState) }
             )
         }
