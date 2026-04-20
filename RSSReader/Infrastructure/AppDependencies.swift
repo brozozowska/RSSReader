@@ -19,6 +19,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     public let sourceIconCache: any SourceIconCaching
     let feedRefreshService: FeedRefreshService?
     let feedRepository: (any FeedRepository)?
+    let folderRepository: (any FolderRepository)?
     let articleRepository: (any ArticleRepository)?
     let articleStateService: ArticleStateService?
     let articleQueryService: (any ArticleQueryService)?
@@ -40,6 +41,9 @@ public final class AppDependencies: AppDependenciesProtocol {
     ) {
         let feedRepository = modelContainer.map { container in
             SwiftDataFeedRepository(modelContext: container.mainContext)
+        }
+        let folderRepository = modelContainer.map { container in
+            SwiftDataFolderRepository(modelContext: container.mainContext)
         }
         let articleRepository = modelContainer.map { container in
             SwiftDataArticleRepository(modelContext: container.mainContext)
@@ -120,6 +124,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.modelContainer = modelContainer
         self.feedRefreshService = feedRefreshService
         self.feedRepository = feedRepository
+        self.folderRepository = folderRepository
         self.articleRepository = articleRepository
         self.articleStateService = articleStateService
         self.articleStateRepository = articleStateRepository

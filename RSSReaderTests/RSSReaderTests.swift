@@ -2936,6 +2936,30 @@ struct RSSReaderTests {
     }
 
     @Test
+    func appDependenciesExposeSeparateFolderRepositoryWhenSwiftDataIsAvailable() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+
+        #expect(harness.dependencies.folderRepository != nil)
+    }
+
+    @Test
+    func folderRepositoryPersistsInsertedFoldersAndReturnsSortedList() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.folderRepository)
+
+        _ = try repository.insert(Folder(name: "Archive", sortOrder: 2))
+        _ = try repository.insert(Folder(name: "News", sortOrder: 0))
+        _ = try repository.insert(Folder(name: "Tech", sortOrder: 1))
+
+        let folders = try repository.fetchAllFolders()
+        let techFolder = try repository.fetchFolder(name: "Tech")
+
+        #expect(folders.map(\.name) == ["News", "Tech", "Archive"])
+        #expect(folders.map(\.sortOrder) == [0, 1, 2])
+        #expect(techFolder?.sortOrder == 1)
+    }
+
+    @Test
     func appSettingsServiceFetchesSnapshotFromRepository() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
@@ -4684,6 +4708,7 @@ private struct TestHarness {
     let dependencies: AppDependencies
     let modelContainer: ModelContainer
     let feedRepository: SwiftDataFeedRepository
+    let folderRepository: SwiftDataFolderRepository
     let articleRepository: SwiftDataArticleRepository
     let articleStateRepository: SwiftDataArticleStateRepository
     let articleStateService: ArticleStateService
@@ -4716,6 +4741,7 @@ private struct TestHarness {
         )
 
         let feedRepository = SwiftDataFeedRepository(modelContext: modelContext)
+        let folderRepository = SwiftDataFolderRepository(modelContext: modelContext)
         let articleRepository = SwiftDataArticleRepository(modelContext: modelContext)
         let articleStateRepository = SwiftDataArticleStateRepository(modelContext: modelContext)
         let articleStateService = ArticleStateService(
@@ -4738,6 +4764,7 @@ private struct TestHarness {
             dependencies: dependencies,
             modelContainer: modelContainer,
             feedRepository: feedRepository,
+            folderRepository: folderRepository,
             articleRepository: articleRepository,
             articleStateRepository: articleStateRepository,
             articleStateService: articleStateService,
