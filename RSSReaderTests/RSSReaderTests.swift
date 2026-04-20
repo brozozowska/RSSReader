@@ -2967,6 +2967,63 @@ struct RSSReaderTests {
     }
 
     @Test
+    func feedRepositoryUpdatesFolderAssignmentThroughExplicitPersistencePath() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let techFolder = try harness.folderRepository.insert(Folder(name: "Tech", sortOrder: 0))
+        let newsFolder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 1))
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: "https://example.com/feeds/folder-assignment.xml",
+                title: "Folder Assignment Feed",
+                kind: .rss
+            )
+        )
+
+        let techAssignmentDate = Date(timeIntervalSince1970: 1_705_000_000)
+        let newsAssignmentDate = techAssignmentDate.addingTimeInterval(60)
+        let ungroupedAssignmentDate = newsAssignmentDate.addingTimeInterval(60)
+
+        let techAssignedFeed = try harness.feedRepository.updateFolderAssignment(
+            for: feed.id,
+            with: FeedFolderAssignmentUpdate(
+                folder: techFolder,
+                updatedAt: techAssignmentDate
+            )
+        )
+        let techPersistedFeed = try harness.feedRepository.fetchFeed(id: feed.id)
+
+        #expect(techAssignedFeed?.folder?.id == techFolder.id)
+        #expect(techAssignedFeed?.updatedAt == techAssignmentDate)
+        #expect(techPersistedFeed?.folder?.id == techFolder.id)
+
+        let newsAssignedFeed = try harness.feedRepository.updateFolderAssignment(
+            for: feed.id,
+            with: FeedFolderAssignmentUpdate(
+                folder: newsFolder,
+                updatedAt: newsAssignmentDate
+            )
+        )
+        let newsPersistedFeed = try harness.feedRepository.fetchFeed(id: feed.id)
+
+        #expect(newsAssignedFeed?.folder?.id == newsFolder.id)
+        #expect(newsAssignedFeed?.updatedAt == newsAssignmentDate)
+        #expect(newsPersistedFeed?.folder?.id == newsFolder.id)
+
+        let ungroupedFeed = try harness.feedRepository.updateFolderAssignment(
+            for: feed.id,
+            with: FeedFolderAssignmentUpdate(
+                folder: nil,
+                updatedAt: ungroupedAssignmentDate
+            )
+        )
+        let ungroupedPersistedFeed = try harness.feedRepository.fetchFeed(id: feed.id)
+
+        #expect(ungroupedFeed?.folder == nil)
+        #expect(ungroupedFeed?.updatedAt == ungroupedAssignmentDate)
+        #expect(ungroupedPersistedFeed?.folder == nil)
+    }
+
+    @Test
     func sourceManagementServicePreviewsFeedMetadataThroughFetcherAndParser() async throws {
         let feedURL = "https://example.com/source-management-preview.xml"
         let harness = try TestHarness.make(

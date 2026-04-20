@@ -212,21 +212,34 @@ final class DefaultSourceManagementService: SourceManagementService {
     }
 
     func moveFeed(_ command: SourceManagementMoveFeedCommand) throws -> SourceManagementFeedSummary {
-        guard let feed = try feedRepository.fetchFeed(id: command.feedID) else {
+        guard try feedRepository.fetchMetadata(for: command.feedID) != nil else {
             logger.error("Skipped feed move because feed was not found: \(command.feedID.uuidString)")
             throw SourceManagementServiceError.feedNotFound(command.feedID)
         }
 
         let folder = try resolveFolder(for: command.folderPlacement)
-        feed.folder = folder
-        feed.updatedAt = command.updatedAt
-        try feedRepository.save()
+        let update = FeedFolderAssignmentUpdate(
+            folder: folder,
+            updatedAt: command.updatedAt
+        )
+        let feed = try feedRepository.updateFolderAssignment(
+            for: command.feedID,
+            with: update
+        )
 
-        return feedSummary(from: feed)
+        return feedSummary(from: try requireFeedSummarySource(feed, feedID: command.feedID))
     }
 }
 
 private extension DefaultSourceManagementService {
+    func requireFeedSummarySource(_ feed: Feed?, feedID: UUID) throws -> Feed {
+        guard let feed else {
+            logger.error("Skipped feed move because feed update path returned no feed: \(feedID.uuidString)")
+            throw SourceManagementServiceError.feedNotFound(feedID)
+        }
+        return feed
+    }
+
     func normalizedFeedURLString(_ value: String) throws -> String {
         let normalizedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard normalizedValue.isEmpty == false else {

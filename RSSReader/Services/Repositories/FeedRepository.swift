@@ -134,6 +134,11 @@ struct FeedMetadataUpdate: Sendable {
     var updatedAt: Date = .now
 }
 
+struct FeedFolderAssignmentUpdate: Sendable {
+    var folder: Folder? = nil
+    var updatedAt: Date = .now
+}
+
 @MainActor
 protocol FeedRepository {
     func fetchFeed(id: UUID) throws -> Feed?
@@ -154,6 +159,13 @@ protocol FeedRepository {
     ) throws -> Feed?
 
     @discardableResult
+    func updateFolderAssignment(
+        for feedID: UUID,
+        with update: FeedFolderAssignmentUpdate,
+        saveAfterOperation: Bool
+    ) throws -> Feed?
+
+    @discardableResult
     func delete(feedID: UUID) throws -> Bool
 
     func save() throws
@@ -165,6 +177,11 @@ extension FeedRepository {
     @discardableResult
     func updateMetadata(for feedID: UUID, with update: FeedMetadataUpdate) throws -> Feed? {
         try updateMetadata(for: feedID, with: update, saveAfterOperation: true)
+    }
+
+    @discardableResult
+    func updateFolderAssignment(for feedID: UUID, with update: FeedFolderAssignmentUpdate) throws -> Feed? {
+        try updateFolderAssignment(for: feedID, with: update, saveAfterOperation: true)
     }
 }
 
@@ -288,6 +305,23 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
             feed.lastSyncError = lastSyncError
         }
 
+        feed.updatedAt = update.updatedAt
+
+        if saveAfterOperation {
+            try saveIfNeeded()
+        }
+        return feed
+    }
+
+    @discardableResult
+    func updateFolderAssignment(
+        for feedID: UUID,
+        with update: FeedFolderAssignmentUpdate,
+        saveAfterOperation: Bool = true
+    ) throws -> Feed? {
+        guard let feed = try fetchFeed(id: feedID) else { return nil }
+
+        feed.folder = update.folder
         feed.updatedAt = update.updatedAt
 
         if saveAfterOperation {
