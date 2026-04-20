@@ -256,6 +256,16 @@ extension AppDependencies {
     }
 
     @MainActor
+    func showSourceManagement(using appState: AppState) {
+        appState.presentSourceManagementScreen()
+    }
+
+    @MainActor
+    func dismissSourceManagement(using appState: AppState) {
+        appState.dismissSourceManagementScreen()
+    }
+
+    @MainActor
     func refreshFeed(id feedID: UUID) async -> FeedRefreshResult? {
         guard let feedRefreshService else {
             logger.error("Feed refresh service is unavailable")

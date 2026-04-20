@@ -291,14 +291,23 @@
 - [x] провести cleanup `Settings Screen` contract и interaction paths: убрать неиспользуемые `navigationLink`-ветки и служебные `not implemented yet`-paths в `SettingsScreenController`, если они не нужны текущему UI и только размывают фактический contract экрана.
 
 #### Source Management
-- [ ] создать `AddFeedViewModel`;
-- [ ] экран добавления feed по URL;
-- [ ] валидация URL;
-- [ ] превью найденного feed;
-- [ ] сохранение feed;
-- [ ] первый refresh после добавления;
-- [ ] обработка ошибки при невалидном или неподдерживаемом feed;
-- [ ] empty/error UX для add feed flow.
+- [x] добавить в `AppState` или соседний app-level navigation state отдельное состояние показа `Source Management Screen`, чтобы открытие/закрытие add-source flow не жило локально внутри `SidebarView`;
+- [ ] определить app-level presentation для `Source Management Screen` на iPhone/iPad: экран должен открываться по действию `Add Source` из `SidebarView` как отдельный modal flow (`sheet`) поверх текущего `NavigationSplitView` и не входить в его detail-routing;
+- [ ] определить entry UX `Source Management Screen`: экран должен явно разделять сценарии `add feed`, `create folder` и последующие folder assignment / move actions, а не смешивать их в одном неструктурированном `Form`;
+- [ ] собрать `Source Management Screen` в той же screen-архитектуре, что и остальные экраны: выделить `SourceManagementScreenState`, `SourceManagementScreenController`, presentation models, preview data и contract user actions;
+- [ ] добавить отдельный `FolderRepository` и подключить его в `AppDependencies`, чтобы создание папок и выбор списка папок не зависели от побочных эффектов в `FeedRepository` и не оставались без явной persistence boundary;
+- [ ] выделить service layer для source management operations: отдельный orchestration-service должен отвечать за preview feed по URL, создание feed, создание folder и перемещение feed между folder / ungrouped state, чтобы screen-level controller не координировал repository/network logic напрямую;
+- [ ] расширить persistence/service contract для folder assignment: нужен явный update-path для назначения `Feed.folder`, переноса feed между папками и удаления feed из папки без ручной правки `SwiftData`-моделей из UI-слоя;
+- [ ] реализовать сценарий `create folder`: экран должен поддерживать создание новой папки с валидацией имени, проверкой уникальности и определением `sortOrder`, совместимым с текущим sidebar grouping;
+- [ ] организовать сценарий `add feed`: screen-level input model для URL, нормализация ввода, локальная валидация и понятное состояние primary action до запуска network preview;
+- [ ] реализовать preview feed по URL через существующие `FeedFetcher` и `FeedParserService`, чтобы до сохранения пользователь видел распознанные metadata (`title`, `subtitle`, `siteURL`, `iconURL`, `kind`) и мог подтвердить добавление источника;
+- [ ] организовать duplicate/invalid/unsupported handling для `add feed` flow: отдельные UX-сценарии нужны для невалидного URL, network failure, неподдерживаемого feed и уже существующего feed с тем же URL через `FeedRepository.fetchFeed(url:)`;
+- [ ] реализовать выбор папки при создании feed и отдельный move flow для существующих feed: пользователь должен иметь возможность поместить источник в новую или существующую папку, перенести его между папками и вернуть в `ungrouped` state;
+- [ ] реализовать сохранение нового feed после подтверждения preview: источник должен создаваться в persistence с нормализованным URL, стартовыми metadata из preview и выбранной целевой папкой либо `ungrouped` placement;
+- [ ] организовать первый refresh после добавления feed, чтобы после сохранения источник проходил через существующий refresh pipeline, загружал статьи и обновлял `Sidebar` / `Articles` без ручного перезапуска приложения;
+- [ ] определить source-level actions в `Sidebar`: нужен явный UX для запуска move flow над существующим feed, чтобы перемещение между папками происходило из списка источников, а не требовало повторного add-source сценария;
+- [ ] провести consistency pass для `Source Management` UX: выровнять loading / success / error / empty states, copy для create/move flows и app-level reload behavior после создания папки, добавления feed или перемещения источника.
+- [ ] провести cleanup / refactor `Source Management` flow после реализации основных сценариев: убрать временные ветки и дублирование orchestration-кода, выровнять screen contract и вынести повторяющиеся helpers из controller/presentation слоя.
 
 ### Sync
 #### Sync / CloudKit

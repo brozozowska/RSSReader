@@ -165,8 +165,7 @@ struct SidebarView: View {
 
     private var addSourceButton: some View {
         Button {
-            // TODO: Wire Add Source action when Source Management flow is implemented.
-            dependencies.logger.info("Add source action is not implemented yet")
+            dependencies.showSourceManagement(using: appState)
         } label: {
             Image(systemName: "plus")
         }
