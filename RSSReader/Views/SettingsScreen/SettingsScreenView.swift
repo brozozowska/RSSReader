@@ -70,9 +70,9 @@ struct SettingsScreenView: View {
             dismiss: dismiss,
             retryLoad: {
                 controller.retryLoadingSettings(dependencies: dependencies, appState: appState)
-            },
+            },        
             selectItem: { itemID in
-                controller.handleItemSelection(itemID, dependencies: dependencies)
+                controller.handleItemSelection(itemID)
             },
             selectPickerOption: { itemID, optionID in
                 controller.handlePickerOptionSelection(
@@ -163,30 +163,6 @@ struct SettingsScreenView: View {
                 }
             }
             .buttonStyle(.plain)
-        case .navigationLink(let navigationItem):
-            HStack(spacing: 12) {
-                itemLabel(
-                    title: navigationItem.title,
-                    subtitle: navigationItem.subtitle
-                )
-
-                Spacer(minLength: 12)
-
-                if let valueTitle = navigationItem.valueTitle {
-                    Text(valueTitle)
-                        .foregroundStyle(.secondary)
-                }
-
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-            }
-            .contentShape(Rectangle())
-            .opacity(navigationItem.isEnabled ? 1 : 0.6)
-            .onTapGesture {
-                guard navigationItem.isEnabled else { return }
-                actionHandlers.selectItem(navigationItem.id)
-            }
         case .statusRow(let statusItem):
             LabeledContent {
                 Text(statusItem.valueTitle)

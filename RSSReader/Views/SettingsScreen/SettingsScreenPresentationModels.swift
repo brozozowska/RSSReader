@@ -86,7 +86,6 @@ struct SettingsScreenPlaceholderState: Equatable, Sendable {
 enum SettingsScreenItemPresentation: Identifiable, Equatable, Sendable {
     case toggle(SettingsToggleItemPresentation)
     case picker(SettingsPickerItemPresentation)
-    case navigationLink(SettingsNavigationLinkItemPresentation)
     case statusRow(SettingsStatusRowItemPresentation)
 
     var id: SettingsScreenItemID {
@@ -94,8 +93,6 @@ enum SettingsScreenItemPresentation: Identifiable, Equatable, Sendable {
         case .toggle(let item):
             item.id
         case .picker(let item):
-            item.id
-        case .navigationLink(let item):
             item.id
         case .statusRow(let item):
             item.id
@@ -122,14 +119,6 @@ struct SettingsPickerOptionPresentation: Identifiable, Equatable, Sendable {
     let id: String
     let title: String
     let isSelected: Bool
-}
-
-struct SettingsNavigationLinkItemPresentation: Equatable, Sendable {
-    let id: SettingsScreenItemID
-    let title: String
-    let subtitle: String?
-    let valueTitle: String?
-    let isEnabled: Bool
 }
 
 struct SettingsStatusRowItemPresentation: Equatable, Sendable {

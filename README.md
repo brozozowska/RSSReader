@@ -288,7 +288,7 @@
 - [x] определить UX и статус-строку для `iCloud sync indicator`: в `AppSettings` уже есть `useiCloudSync`, но в проекте пока нет ни `CloudKit` wiring, ни app-level sync status source, поэтому индикатор нужно проектировать как consumer будущего sync state, а не как локальный UI toggle;
 - [x] сократить дублирование persistence flow в `SettingsScreenController`: сейчас почти каждая editable setting проходит через одинаковый шаблон `validate -> build AppSettingsPatch -> save -> applyLoadedSnapshot`, поэтому перед следующим эпиком стоит вынести общий helper и выровнять update-path для всех настроек;
 - [x] отделить screen-specific input `Settings Screen` от общего `AppSettingsSnapshot`: сейчас presentation pipeline экрана напрямую потребляет весь service snapshot, включая поля, которые не являются собственным UI input экрана, поэтому полезно ввести отдельную screen-level data model / normalized input для `Settings Screen`;
-- [ ] провести cleanup `Settings Screen` contract и interaction paths: убрать неиспользуемые `navigationLink`-ветки и служебные `not implemented yet`-paths в `SettingsScreenController`, если они не нужны текущему UI и только размывают фактический contract экрана.
+- [x] провести cleanup `Settings Screen` contract и interaction paths: убрать неиспользуемые `navigationLink`-ветки и служебные `not implemented yet`-paths в `SettingsScreenController`, если они не нужны текущему UI и только размывают фактический contract экрана.
 
 #### Source Management
 - [ ] создать `AddFeedViewModel`;

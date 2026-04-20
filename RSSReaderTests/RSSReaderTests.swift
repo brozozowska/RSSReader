@@ -3370,6 +3370,17 @@ struct RSSReaderTests {
     }
 
     @Test
+    func settingsScreenControllerDoesNotTreatSyncStatusRowAsInteractiveItem() {
+        let controller = SettingsScreenController(
+            previewScreenState: .previewLoaded(snapshot: AppSettingsSnapshot())
+        )
+
+        controller.handleItemSelection(.iCloudSyncStatus)
+
+        #expect(controller.viewState().presentedPicker == nil)
+    }
+
+    @Test
     func settingsScreenControllerLoadsSettingsSnapshotFromService() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let service = try #require(harness.dependencies.appSettingsService)
@@ -3450,7 +3461,7 @@ struct RSSReaderTests {
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: harness.dependencies)
-        controller.handleItemSelection(.defaultReaderMode, dependencies: harness.dependencies)
+        controller.handleItemSelection(.defaultReaderMode)
 
         #expect(controller.viewState().presentedPicker?.id == .defaultReaderMode)
 
@@ -3473,7 +3484,7 @@ struct RSSReaderTests {
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: harness.dependencies)
-        controller.handleItemSelection(.articleSortMode, dependencies: harness.dependencies)
+        controller.handleItemSelection(.articleSortMode)
 
         #expect(controller.viewState().presentedPicker?.id == .articleSortMode)
 
@@ -3536,7 +3547,7 @@ struct RSSReaderTests {
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: harness.dependencies)
-        controller.handleItemSelection(.articleBodyLinkOpeningPolicy, dependencies: harness.dependencies)
+        controller.handleItemSelection(.articleBodyLinkOpeningPolicy)
 
         #expect(controller.viewState().presentedPicker?.id == .articleBodyLinkOpeningPolicy)
 
@@ -3559,7 +3570,7 @@ struct RSSReaderTests {
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: harness.dependencies)
-        controller.handleItemSelection(.articleSourceLinkOpeningPolicy, dependencies: harness.dependencies)
+        controller.handleItemSelection(.articleSourceLinkOpeningPolicy)
 
         #expect(controller.viewState().presentedPicker?.id == .articleSourceLinkOpeningPolicy)
 
@@ -3582,7 +3593,7 @@ struct RSSReaderTests {
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: harness.dependencies)
-        controller.handleItemSelection(.refreshInterval, dependencies: harness.dependencies)
+        controller.handleItemSelection(.refreshInterval)
 
         #expect(controller.viewState().presentedPicker?.id == .refreshInterval)
 
@@ -3606,7 +3617,7 @@ struct RSSReaderTests {
         let appState = AppState()
 
         controller.loadSettings(dependencies: harness.dependencies, appState: appState)
-        controller.handleItemSelection(.appearance, dependencies: harness.dependencies)
+        controller.handleItemSelection(.appearance)
 
         #expect(controller.viewState().presentedPicker?.id == .appearance)
 

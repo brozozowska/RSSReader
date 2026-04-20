@@ -51,7 +51,7 @@ final class SettingsScreenController {
         loadSettings(dependencies: dependencies, appState: appState)
     }
 
-    func handleItemSelection(_ itemID: SettingsScreenItemID, dependencies: AppDependencies) {
+    func handleItemSelection(_ itemID: SettingsScreenItemID) {
         switch itemID {
         case .defaultReaderMode,
                 .articleSourceLinkOpeningPolicy,
@@ -63,7 +63,7 @@ final class SettingsScreenController {
         case .markAsReadOnOpen,
                 .askBeforeMarkingAllAsRead,
                 .iCloudSyncStatus:
-            dependencies.logger.info("Settings item action is not implemented yet: \(itemID.rawValue)")
+            return
         }
     }
 
@@ -97,7 +97,7 @@ final class SettingsScreenController {
         case .markAsReadOnOpen,
                 .askBeforeMarkingAllAsRead,
                 .iCloudSyncStatus:
-            dependencies.logger.info("Settings picker option is not implemented yet: \(itemID.rawValue).\(optionID)")
+            return
         }
     }
 
@@ -118,7 +118,7 @@ final class SettingsScreenController {
                 .refreshInterval,
                 .iCloudSyncStatus,
                 .appearance:
-            dependencies.logger.info("Settings toggle action is not implemented yet: \(itemID.rawValue).\(isOn)")
+            return
         }
     }
 }
