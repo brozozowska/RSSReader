@@ -1,0 +1,137 @@
+import Foundation
+
+struct AppSettingsSnapshot: Equatable, Sendable {
+    var defaultReaderMode: ReaderMode
+    var selectedSourcesFilterRawValue: String?
+    var refreshIntervalPreference: RefreshPreference
+    var useiCloudSync: Bool
+    var markAsReadOnOpen: Bool
+    var askBeforeMarkingAllAsRead: Bool
+    var sortMode: ArticleSortMode
+    var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
+    var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
+    var interfaceThemeMode: InterfaceThemeMode
+
+    init(
+        defaultReaderMode: ReaderMode = .embedded,
+        selectedSourcesFilterRawValue: String? = SourcesFilter.allItems.rawValue,
+        refreshIntervalPreference: RefreshPreference = .manual,
+        useiCloudSync: Bool = false,
+        markAsReadOnOpen: Bool = true,
+        askBeforeMarkingAllAsRead: Bool = true,
+        sortMode: ArticleSortMode = .publishedAtDescending,
+        articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
+        articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
+        interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
+    ) {
+        self.defaultReaderMode = defaultReaderMode
+        self.selectedSourcesFilterRawValue = selectedSourcesFilterRawValue
+        self.refreshIntervalPreference = refreshIntervalPreference
+        self.useiCloudSync = useiCloudSync
+        self.markAsReadOnOpen = markAsReadOnOpen
+        self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
+        self.sortMode = sortMode
+        self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
+        self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
+        self.interfaceThemeMode = interfaceThemeMode
+    }
+
+    init(settings: AppSettings) {
+        self.init(
+            defaultReaderMode: settings.defaultReaderMode,
+            selectedSourcesFilterRawValue: settings.selectedSourcesFilterRawValue,
+            refreshIntervalPreference: settings.refreshIntervalPreference,
+            useiCloudSync: settings.useiCloudSync,
+            markAsReadOnOpen: settings.markAsReadOnOpen,
+            askBeforeMarkingAllAsRead: settings.askBeforeMarkingAllAsRead,
+            sortMode: settings.sortMode,
+            articleBodyLinkOpeningPolicy: settings.articleBodyLinkOpeningPolicy,
+            articleSourceLinkOpeningPolicy: settings.articleSourceLinkOpeningPolicy,
+            interfaceThemeMode: settings.interfaceThemeMode
+        )
+    }
+}
+
+struct AppSettingsPatch: Sendable {
+    var defaultReaderMode: ReaderMode? = nil
+    var selectedSourcesFilterRawValue: String? = nil
+    var refreshIntervalPreference: RefreshPreference? = nil
+    var useiCloudSync: Bool? = nil
+    var markAsReadOnOpen: Bool? = nil
+    var askBeforeMarkingAllAsRead: Bool? = nil
+    var sortMode: ArticleSortMode? = nil
+    var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
+    var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
+    var interfaceThemeMode: InterfaceThemeMode? = nil
+    var updatedAt: Date = .now
+}
+
+@MainActor
+protocol AppSettingsService {
+    func fetchSettings() throws -> AppSettingsSnapshot
+
+    @discardableResult
+    func saveSettings(
+        _ snapshot: AppSettingsSnapshot,
+        updatedAt: Date
+    ) throws -> AppSettingsSnapshot
+
+    @discardableResult
+    func updateSettings(_ patch: AppSettingsPatch) throws -> AppSettingsSnapshot
+}
+
+@MainActor
+final class DefaultAppSettingsService: AppSettingsService {
+    private let repository: any AppSettingsRepository
+
+    init(repository: any AppSettingsRepository) {
+        self.repository = repository
+    }
+
+    func fetchSettings() throws -> AppSettingsSnapshot {
+        AppSettingsSnapshot(settings: try repository.fetchOrCreate())
+    }
+
+    @discardableResult
+    func saveSettings(
+        _ snapshot: AppSettingsSnapshot,
+        updatedAt: Date = .now
+    ) throws -> AppSettingsSnapshot {
+        let settings = try repository.update(
+            AppSettingsUpdate(
+                defaultReaderMode: snapshot.defaultReaderMode,
+                selectedSourcesFilterRawValue: snapshot.selectedSourcesFilterRawValue,
+                refreshIntervalPreference: snapshot.refreshIntervalPreference,
+                useiCloudSync: snapshot.useiCloudSync,
+                markAsReadOnOpen: snapshot.markAsReadOnOpen,
+                askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
+                sortMode: snapshot.sortMode,
+                articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
+                articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
+                interfaceThemeMode: snapshot.interfaceThemeMode,
+                updatedAt: updatedAt
+            )
+        )
+        return AppSettingsSnapshot(settings: settings)
+    }
+
+    @discardableResult
+    func updateSettings(_ patch: AppSettingsPatch) throws -> AppSettingsSnapshot {
+        let settings = try repository.update(
+            AppSettingsUpdate(
+                defaultReaderMode: patch.defaultReaderMode,
+                selectedSourcesFilterRawValue: patch.selectedSourcesFilterRawValue,
+                refreshIntervalPreference: patch.refreshIntervalPreference,
+                useiCloudSync: patch.useiCloudSync,
+                markAsReadOnOpen: patch.markAsReadOnOpen,
+                askBeforeMarkingAllAsRead: patch.askBeforeMarkingAllAsRead,
+                sortMode: patch.sortMode,
+                articleBodyLinkOpeningPolicy: patch.articleBodyLinkOpeningPolicy,
+                articleSourceLinkOpeningPolicy: patch.articleSourceLinkOpeningPolicy,
+                interfaceThemeMode: patch.interfaceThemeMode,
+                updatedAt: patch.updatedAt
+            )
+        )
+        return AppSettingsSnapshot(settings: settings)
+    }
+}

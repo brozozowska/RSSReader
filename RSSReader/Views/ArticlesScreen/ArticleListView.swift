@@ -65,7 +65,7 @@ struct ArticleListView: View {
 
             if derivedViewState.toolbarActions.showsMarkAllAsReadAction {
                 ToolbarItem(placement: .bottomBar) {
-                    Button(action: presentMarkAllAsReadConfirmation) {
+                    Button(action: handleMarkAllAsReadAction) {
                         Image(systemName: "checkmark.circle.fill")
                     }
                     .disabled(derivedViewState.toolbarActions.isMarkAllAsReadEnabled == false)
@@ -162,8 +162,17 @@ struct ArticleListView: View {
     }
 
     @MainActor
-    private func presentMarkAllAsReadConfirmation() {
-        controller.screenState.presentMarkAllAsReadConfirmation()
+    private func handleMarkAllAsReadAction() {
+        controller.handleMarkAllAsReadAction(
+            searchText: searchText,
+            selection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter,
+            dependencies: dependencies,
+            isPreviewMode: isPreviewMode
+        )
+        selection = stabilizedSelection(
+            availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
+        )
     }
 
     // MARK: Bulk Actions

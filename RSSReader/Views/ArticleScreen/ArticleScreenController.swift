@@ -108,12 +108,37 @@ final class ArticleScreenController {
         screenState.applyArticleMutation(article.updating(isStarred: newIsStarred))
     }
 
-    func openArticleInAppBrowser(
+    func openSourceArticle(
         dependencies: AppDependencies,
-        appState: AppState
+        appState: AppState,
+        openExternalURL: (URL) -> Void
     ) {
         guard let article = screenState.article else { return }
-        dependencies.openArticleInWebView(article, using: appState)
+        switch articleSourceLinkOpeningPolicy(dependencies: dependencies) {
+        case .inAppBrowser:
+            dependencies.openArticleInWebView(article, using: appState)
+        case .externalBrowser:
+            guard let url = ArticleScreenShareURLResolver.resolveShareURL(article: article) else {
+                return
+            }
+            openExternalURL(url)
+        }
+    }
+
+    func handleBodyLinkTap(
+        _ url: URL,
+        dependencies: AppDependencies,
+        appState: AppState,
+        openExternalURL: (URL) -> Void
+    ) {
+        guard let article = screenState.article else { return }
+
+        switch articleBodyLinkOpeningPolicy(dependencies: dependencies) {
+        case .inAppBrowser:
+            dependencies.openArticleBodyLink(url, articleID: article.id, using: appState)
+        case .externalBrowser:
+            openExternalURL(url)
+        }
     }
 
     private func applyMarkAsReadOnOpenPolicy(
@@ -147,15 +172,45 @@ final class ArticleScreenController {
     }
 
     private func shouldMarkAsReadOnOpen(dependencies: AppDependencies) -> Bool {
-        guard let appSettingsRepository = dependencies.appSettingsRepository else {
+        guard let appSettingsService = dependencies.appSettingsService else {
             return true
         }
 
         do {
-            return try appSettingsRepository.fetchOrCreate().markAsReadOnOpen
+            return try appSettingsService.fetchSettings().markAsReadOnOpen
         } catch {
             dependencies.logger.error("Failed to load app settings for mark-as-read-on-open policy: \(error)")
             return true
+        }
+    }
+
+    private func articleBodyLinkOpeningPolicy(
+        dependencies: AppDependencies
+    ) -> ArticleBodyLinkOpeningPolicy {
+        guard let appSettingsService = dependencies.appSettingsService else {
+            return .inAppBrowser
+        }
+
+        do {
+            return try appSettingsService.fetchSettings().articleBodyLinkOpeningPolicy
+        } catch {
+            dependencies.logger.error("Failed to load app settings for article body link opening policy: \(error)")
+            return .inAppBrowser
+        }
+    }
+
+    private func articleSourceLinkOpeningPolicy(
+        dependencies: AppDependencies
+    ) -> ArticleSourceLinkOpeningPolicy {
+        guard let appSettingsService = dependencies.appSettingsService else {
+            return .inAppBrowser
+        }
+
+        do {
+            return try appSettingsService.fetchSettings().articleSourceLinkOpeningPolicy
+        } catch {
+            dependencies.logger.error("Failed to load app settings for article source link opening policy: \(error)")
+            return .inAppBrowser
         }
     }
 }

@@ -25,6 +25,9 @@ public final class AppDependencies: AppDependenciesProtocol {
     let sourcesSidebarQueryService: (any SourcesSidebarQueryService)?
     let articleStateRepository: (any ArticleStateRepository)?
     let appSettingsRepository: (any AppSettingsRepository)?
+    let appSettingsService: (any AppSettingsService)?
+    let backgroundRefreshService: (any BackgroundRefreshService)?
+    let iCloudSyncStatusService: (any ICloudSyncStatusService)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
     public let modelContainer: ModelContainer?
 
@@ -77,6 +80,9 @@ public final class AppDependencies: AppDependenciesProtocol {
         let appSettingsRepository = modelContainer.map { container in
             SwiftDataAppSettingsRepository(modelContext: container.mainContext)
         }
+        let appSettingsService = appSettingsRepository.map { repository in
+            DefaultAppSettingsService(repository: repository)
+        }
         let feedFetchLogRepository = modelContainer.map { container in
             SwiftDataFeedFetchLogRepository(modelContext: container.mainContext)
         }
@@ -97,6 +103,16 @@ public final class AppDependencies: AppDependenciesProtocol {
                 feedFetchLogRepository: feedFetchLogRepository
             )
         }()
+        let backgroundRefreshService = appSettingsService.map { service in
+            DefaultBackgroundRefreshService(
+                logger: logger,
+                appSettingsService: service,
+                feedRefreshService: feedRefreshService
+            )
+        }
+        let iCloudSyncStatusService = appSettingsService.map { service in
+            DefaultICloudSyncStatusService(appSettingsService: service)
+        }
 
         self.logger = logger
         self.httpClient = httpClient
@@ -110,6 +126,9 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.articleQueryService = articleQueryService
         self.sourcesSidebarQueryService = sourcesSidebarQueryService
         self.appSettingsRepository = appSettingsRepository
+        self.appSettingsService = appSettingsService
+        self.backgroundRefreshService = backgroundRefreshService
+        self.iCloudSyncStatusService = iCloudSyncStatusService
         self.feedFetchLogRepository = feedFetchLogRepository
         self.feedFetcher = resolvedFeedFetcher
     }
@@ -217,8 +236,23 @@ extension AppDependencies {
     }
 
     @MainActor
+    func openArticleBodyLink(_ url: URL, articleID: UUID, using appState: AppState) {
+        appState.presentWebView(articleID: articleID, url: url)
+    }
+
+    @MainActor
     func closePresentedArticleWebView(using appState: AppState) {
         appState.dismissPresentedWebView()
+    }
+
+    @MainActor
+    func showSettings(using appState: AppState) {
+        appState.presentSettingsScreen()
+    }
+
+    @MainActor
+    func dismissSettings(using appState: AppState) {
+        appState.dismissSettingsScreen()
     }
 
     @MainActor
@@ -310,24 +344,24 @@ extension AppDependencies {
 
     @MainActor
     func refreshFeedsForBackground() async -> BackgroundFeedRefreshResult? {
-        guard let feedRefreshService else {
-            logger.error("Feed refresh service is unavailable")
+        guard let backgroundRefreshService else {
+            logger.error("Background refresh service is unavailable")
             return nil
         }
 
-        return await feedRefreshService.refreshAllActiveFeedsForBackground()
+        return await backgroundRefreshService.performScheduledRefresh()
     }
 }
 
 private extension AppDependencies {
     @MainActor
     func shouldPresentSelectedArticleInWebViewByDefault() -> Bool {
-        guard let appSettingsRepository else {
+        guard let appSettingsService else {
             return false
         }
 
         do {
-            return try appSettingsRepository.fetchOrCreate().defaultReaderMode == .browser
+            return try appSettingsService.fetchSettings().defaultReaderMode == .browser
         } catch {
             logger.error("Failed to load app settings for default reader mode policy: \(error)")
             return false

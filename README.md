@@ -268,14 +268,27 @@
 - [x] после декомпозиции `SidebarView` выровнять его границы с остальными экранами: `View` должна в основном рендерить готовый presentation contract, а не одновременно хранить local screen state, selection behavior, preview wiring и toolbar policy.
 
 #### Settings Integration
-- [ ] создать `SettingsViewModel`;
-- [ ] экран настроек;
-- [ ] настройка `markAsReadOnOpen`;
-- [ ] настройка `showUnreadOnly`;
-- [ ] настройка `sortMode`;
-- [ ] настройка `defaultReaderMode`;
-- [ ] iCloud sync indicator;
-- [ ] ручной refresh.
+- [x] привести модель `AppSettings` к целевому виду для `Settings Integration`: зафиксировать `selectedSourcesFilterRawValue` как единственный persisted источник для source filter state и оставить `showUnreadOnly` только как legacy-поле на время миграции;
+- [x] удалить `showUnreadOnly` из `AppSettings` и связанных persistence paths после завершения миграции на один `selectedSourcesFilterRawValue`;
+- [x] добавить в `AppState` или соседний app-level navigation state отдельное состояние показа `Settings Screen`, чтобы открытие/закрытие настроек на iPhone/iPad не жило локально внутри `SidebarView`;
+- [x] определить app-level presentation для `Settings Screen` на iPhone/iPad: экран должен открываться по действию `Settings` из toolbar/menu как отдельный modal flow (`sheet`) поверх текущего `NavigationSplitView` и не входить в его detail-routing;
+- [x] организовать единый settings flow загрузки/редактирования/сохранения `AppSettings`, чтобы экран не читал и не записывал `SwiftData` напрямую, а работал через явный repository/service boundary;
+- [x] выделить presentation model для секций настроек и их item types (`toggle`, `picker`, `navigation link`, `status row`), чтобы `Settings Screen` рендерил готовый UI contract, а не собирал форму ad hoc;
+- [x] собрать `Settings Screen` в той же screen-архитектуре, что и остальные экраны: выделить `SettingsScreenState`, `SettingsScreenController`, presentation models, preview data и contract user actions вместо прямой работы `View` с `AppSettingsRepository`;
+- [x] организовать настройку `defaultReaderMode`: значение должно редактироваться через `Settings Screen`, сохраняться в `AppSettings` и определять initial presentation policy при открытии статьи;
+- [x] организовать настройку `markAsReadOnOpen`: значение уже применяется в `ArticleScreenController`, но должно стать редактируемым через `Settings Screen` и сохраняться в `AppSettings`;
+- [x] организовать настройку сортировки unread/article list order через `sortMode`, сведя пользовательский выбор к понятным вариантам `Oldest first` / `Newest first` и не exposing технические raw values enum напрямую;
+- [x] организовать настройку `askBeforeMarkingAllAsRead`: сейчас `ArticlesScreenState` уже умеет хранить `pendingConfirmation`, но policy подтверждения не вынесена в `AppSettings` и не управляется пользователем;
+- [x] подготовить presentation model тела статьи к наличию tappable links: текущие `summary` / `contentHTML` / `contentText` сводятся в `ArticleScreenBodyBlock.paragraph(String)`, поэтому сначала нужно ввести link-aware representation для текста и не терять metadata о ссылках при рендеринге body content;
+- [x] определить screen-level contract для tap handling по ссылкам внутри тела статьи: `ReaderView` не должен открывать URL ad hoc, поэтому нужен явный user action flow `body link tapped` через `ArticleScreenController` и app-level/opening boundary;
+- [x] организовать отдельную настройку policy открытия ссылок именно из тела статьи (`in-app browser` или внешний браузер): значение должно редактироваться через `Settings Screen`, сохраняться в `AppSettings` и применяться в `Article Screen` при тапе по inline-links, а не к toolbar-действию открытия самой статьи;
+- [x] организовать отдельную настройку policy открытия source article из `ArticleScreen` (`in-app browser` или внешний браузер): значение должно редактироваться через `Settings Screen`, сохраняться в `AppSettings` и применяться к нижнему toolbar-действию открытия исходной статьи, а не к inline-ссылкам внутри body;
+- [x] организовать настройку интерфейсного режима (`automatic light/dark`, `automatic light/black`, `light`, `dark`, `black`): для этого потребуется добавить новое persisted setting и определить app-level theme application policy, которой пока нет в `RootView` / `AppState`;
+- [x] организовать настройку background refresh policy через `refreshIntervalPreference`, связав `Settings Screen` с будущим `BackgroundRefreshService`, чтобы выбор между manual/background refresh не остался изолированным enum без runtime orchestration;
+- [x] определить UX и статус-строку для `iCloud sync indicator`: в `AppSettings` уже есть `useiCloudSync`, но в проекте пока нет ни `CloudKit` wiring, ни app-level sync status source, поэтому индикатор нужно проектировать как consumer будущего sync state, а не как локальный UI toggle;
+- [x] сократить дублирование persistence flow в `SettingsScreenController`: сейчас почти каждая editable setting проходит через одинаковый шаблон `validate -> build AppSettingsPatch -> save -> applyLoadedSnapshot`, поэтому перед следующим эпиком стоит вынести общий helper и выровнять update-path для всех настроек;
+- [x] отделить screen-specific input `Settings Screen` от общего `AppSettingsSnapshot`: сейчас presentation pipeline экрана напрямую потребляет весь service snapshot, включая поля, которые не являются собственным UI input экрана, поэтому полезно ввести отдельную screen-level data model / normalized input для `Settings Screen`;
+- [x] провести cleanup `Settings Screen` contract и interaction paths: убрать неиспользуемые `navigationLink`-ветки и служебные `not implemented yet`-paths в `SettingsScreenController`, если они не нужны текущему UI и только размывают фактический contract экрана.
 
 #### Source Management
 - [ ] создать `AddFeedViewModel`;
@@ -302,7 +315,6 @@
 
 ### Background Refresh
 #### Background Refresh
-- [ ] создать BackgroundRefreshService;
 - [ ] зарегистрировать background task;
 - [ ] планировать следующий refresh;
 - [ ] запускать FeedRefreshService в фоне;

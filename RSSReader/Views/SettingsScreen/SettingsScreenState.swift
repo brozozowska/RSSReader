@@ -1,0 +1,140 @@
+import Foundation
+
+enum SettingsScreenPhase: Equatable {
+    case loading
+    case loaded
+    case failed(String)
+}
+
+struct SettingsScreenState {
+    private(set) var phase: SettingsScreenPhase = .loading
+    private(set) var settingsSnapshot = AppSettingsSnapshot()
+    private(set) var settingsInput = SettingsScreenInput()
+    private(set) var iCloudSyncStatus: ICloudSyncStatus = .disabled
+    private(set) var sections: [SettingsScreenSectionPresentation] = []
+    private(set) var presentedPicker: SettingsPickerItemPresentation? = nil
+
+    mutating func beginLoading() {
+        phase = .loading
+        presentedPicker = nil
+    }
+
+    mutating func applyLoadedSnapshot(
+        _ snapshot: AppSettingsSnapshot,
+        iCloudSyncStatus: ICloudSyncStatus = .disabled
+    ) {
+        let input = SettingsScreenInputBuilder.build(
+            from: snapshot,
+            iCloudSyncStatus: iCloudSyncStatus
+        )
+        applyLoadedSnapshot(snapshot, input: input, iCloudSyncStatus: iCloudSyncStatus)
+    }
+
+    mutating func applyLoadedSnapshot(
+        _ snapshot: AppSettingsSnapshot,
+        input: SettingsScreenInput,
+        iCloudSyncStatus: ICloudSyncStatus = .disabled
+    ) {
+        settingsSnapshot = snapshot
+        settingsInput = input
+        self.iCloudSyncStatus = iCloudSyncStatus
+        sections = SettingsScreenPresentationBuilder.buildSections(from: input)
+        phase = .loaded
+        presentedPicker = nil
+    }
+
+    mutating func applyLoadingFailure(_ message: String) {
+        sections = []
+        phase = .failed(message)
+        presentedPicker = nil
+    }
+
+    mutating func presentPicker(for itemID: SettingsScreenItemID) {
+        presentedPicker = pickerItem(for: itemID)
+    }
+
+    mutating func dismissPresentedPicker() {
+        presentedPicker = nil
+    }
+
+    func derivedViewState() -> SettingsScreenViewState {
+        SettingsScreenViewState(
+            sections: sections,
+            primaryLoadingState: primaryLoadingState,
+            placeholder: placeholder,
+            presentedPicker: presentedPicker
+        )
+    }
+
+    static func previewLoading() -> SettingsScreenState {
+        var state = SettingsScreenState()
+        state.beginLoading()
+        return state
+    }
+
+    static func previewFailed(message: String) -> SettingsScreenState {
+        var state = SettingsScreenState()
+        state.applyLoadingFailure(message)
+        return state
+    }
+
+    static func previewLoaded(
+        snapshot: AppSettingsSnapshot,
+        iCloudSyncStatus: ICloudSyncStatus = .disabled
+    ) -> SettingsScreenState {
+        let input = SettingsScreenInputBuilder.build(
+            from: snapshot,
+            iCloudSyncStatus: iCloudSyncStatus
+        )
+        return previewLoaded(
+            snapshot: snapshot,
+            input: input,
+            iCloudSyncStatus: iCloudSyncStatus
+        )
+    }
+
+    static func previewLoaded(
+        snapshot: AppSettingsSnapshot,
+        input: SettingsScreenInput,
+        iCloudSyncStatus: ICloudSyncStatus = .disabled
+    ) -> SettingsScreenState {
+        var state = SettingsScreenState()
+        state.applyLoadedSnapshot(snapshot, input: input, iCloudSyncStatus: iCloudSyncStatus)
+        return state
+    }
+}
+
+private extension SettingsScreenState {
+    var primaryLoadingState: SettingsScreenPrimaryLoadingState? {
+        guard phase == .loading else {
+            return nil
+        }
+
+        return SettingsScreenPrimaryLoadingState(title: "Loading Settings")
+    }
+
+    var placeholder: SettingsScreenPlaceholderState? {
+        guard case .failed(let message) = phase else {
+            return nil
+        }
+
+        return SettingsScreenPlaceholderState(
+            title: "Unable to Load Settings",
+            systemImage: "exclamationmark.triangle",
+            description: message,
+            actionTitle: "Retry"
+        )
+    }
+
+    func pickerItem(for itemID: SettingsScreenItemID) -> SettingsPickerItemPresentation? {
+        sections
+            .flatMap(\.items)
+            .first { $0.id == itemID }
+            .flatMap { item in
+                guard case .picker(let pickerItem) = item else {
+                    return nil
+                }
+                return pickerItem
+            }
+    }
+}

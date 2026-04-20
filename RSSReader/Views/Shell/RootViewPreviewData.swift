@@ -5,14 +5,22 @@ import SwiftData
     RootViewPreviewContainer()
 }
 
+#Preview("Root Flow · Article Inline Link") {
+    RootViewPreviewContainer(
+        initialAppState: RootViewPreviewFactory.makeArticleInlineLinkAppState()
+    )
+}
+
 private struct RootViewPreviewContainer: View {
     let dependencies: AppDependencies
     @State private var appState: AppState
 
-    init() {
+    init(initialAppState: AppState? = nil) {
         let dependencies = RootViewPreviewFactory.makeDependencies()
         self.dependencies = dependencies
-        self._appState = State(initialValue: RootViewPreviewFactory.makeAppState())
+        self._appState = State(
+            initialValue: initialAppState ?? RootViewPreviewFactory.makeAppState()
+        )
     }
 
     var body: some View {
@@ -54,6 +62,14 @@ private enum RootViewPreviewFactory {
     }
 
     @MainActor
+    static func makeArticleInlineLinkAppState() -> AppState {
+        let appState = AppState()
+        appState.selectReadingSource(.feed(SampleIDs.vergeFeedID))
+        appState.selectedArticleID = SampleIDs.firstArticleID
+        return appState
+    }
+
+    @MainActor
     static func reset(_ appState: AppState) {
         appState.selectReadingSource(nil)
     }
@@ -73,6 +89,10 @@ private enum RootViewPreviewFactory {
             externalID: "verge-preview-1",
             title: "Apple updates Safari reading features for in-app web flows",
             summary: "A preview article used to move from the single source screen into the articles list.",
+            contentHTML: """
+            <p>This preview article now includes an inline link to <a href="https://developer.apple.com/documentation/swiftui">SwiftUI documentation</a> so the root flow can exercise body link rendering.</p>
+            <p>Tap the link to verify that the `Article Screen` transitions into the in-app web flow from inside the article body.</p>
+            """,
             url: "https://example.com/articles/verge-preview-1",
             publishedAt: .now,
             feed: verge,
@@ -108,6 +128,7 @@ private enum RootViewPreviewFactory {
         externalID: String,
         title: String,
         summary: String,
+        contentHTML: String? = nil,
         url: String,
         publishedAt: Date,
         feed: Feed,
@@ -122,6 +143,7 @@ private enum RootViewPreviewFactory {
                 canonicalURL: url,
                 title: title,
                 summary: summary,
+                contentHTML: contentHTML,
                 author: "The Verge",
                 publishedAt: publishedAt
             )

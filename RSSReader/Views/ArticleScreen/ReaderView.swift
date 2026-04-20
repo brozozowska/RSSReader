@@ -1,8 +1,17 @@
 import SwiftUI
 
+struct ArticleScreenActionHandlers {
+    let toggleReadStatus: () -> Void
+    let toggleStarredStatus: () -> Void
+    let openSourceArticle: () -> Void
+    let bodyLinkTapped: (URL) -> Void
+}
+
 struct ReaderView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appDependencies) private var dependencies
+    @Environment(\.appThemeVariant) private var appThemeVariant
+    @Environment(\.openURL) private var openURL
     let articleID: UUID?
     let showsBackButton: Bool
     let navigateBackToArticles: () -> Void
@@ -67,6 +76,7 @@ struct ReaderView: View {
                 )
             }
         }
+        .background(appThemeVariant.primaryBackground.ignoresSafeArea())
         .toolbarTitleDisplayMode(.inline)
         .navigationTitle("")
         .toolbar {
@@ -108,12 +118,12 @@ struct ReaderView: View {
                 ToolbarSpacer(placement: .bottomBar)
 
                 ToolbarItem(placement: .bottomBar) {
-                    Button(action: handleOpenInAppBrowserTap) {
-                        Image(systemName: bottomActions.openInAppBrowserSystemImage)
+                    Button(action: handleOpenSourceArticleTap) {
+                        Image(systemName: bottomActions.openSourceArticleSystemImage)
                     }
-                    .disabled(bottomActions.canOpenInAppBrowser == false)
-                    .accessibilityLabel(bottomActions.openInAppBrowserTitle)
-                }                
+                    .disabled(bottomActions.canOpenSourceArticle == false)
+                    .accessibilityLabel(bottomActions.openSourceArticleTitle)
+                }
             }
         }
         .task(id: articleID) {
@@ -137,37 +147,68 @@ struct ReaderView: View {
             }
     }
 
+    private var actionHandlers: ArticleScreenActionHandlers {
+        ArticleScreenActionHandlers(
+            toggleReadStatus: {
+                _controller.wrappedValue.toggleArticleReadStatus(
+                    dependencies: dependencies,
+                    isPreviewMode: previewScreenState != nil
+                )
+            },
+            toggleStarredStatus: {
+                _controller.wrappedValue.toggleArticleStarredStatus(
+                    dependencies: dependencies,
+                    isPreviewMode: previewScreenState != nil
+                )
+            },
+            openSourceArticle: {
+                _controller.wrappedValue.openSourceArticle(
+                    dependencies: dependencies,
+                    appState: appState,
+                    openExternalURL: { externalURL in
+                        openURL(externalURL)
+                    }
+                )
+            },
+            bodyLinkTapped: { url in
+                _controller.wrappedValue.handleBodyLinkTap(
+                    url,
+                    dependencies: dependencies,
+                    appState: appState,
+                    openExternalURL: { externalURL in
+                        openURL(externalURL)
+                    }
+                )
+            }
+        )
+    }
+
     @MainActor
     private func handleMarkUnreadActionTap() {
-        controller.toggleArticleReadStatus(
-            dependencies: dependencies,
-            isPreviewMode: previewScreenState != nil
-        )
+        actionHandlers.toggleReadStatus()
     }
 
     @MainActor
     private func handleStarActionTap() {
-        controller.toggleArticleStarredStatus(
-            dependencies: dependencies,
-            isPreviewMode: previewScreenState != nil
-        )
+        actionHandlers.toggleStarredStatus()
     }
 
     @MainActor
-    private func handleOpenInAppBrowserTap() {
-        controller.openArticleInAppBrowser(
-            dependencies: dependencies,
-            appState: appState
-        )
+    private func handleOpenSourceArticleTap() {
+        actionHandlers.openSourceArticle()
     }
 
     @ViewBuilder
     private func bodyBlockView(_ block: ArticleScreenBodyBlock) -> some View {
         switch block {
         case .paragraph(let text):
-            Text(text)
+            Text(text.attributedString)
                 .font(.body)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .environment(\.openURL, OpenURLAction { url in
+                    actionHandlers.bodyLinkTapped(url)
+                    return .handled
+                })
         case .image(let url):
             AsyncImage(url: url) { phase in
                 switch phase {

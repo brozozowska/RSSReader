@@ -8,12 +8,15 @@ final class AppSettings {
     @Attribute(.unique) var id: UUID
     @Attribute(.unique) var singletonKey: String
     var defaultReaderMode: ReaderMode
-    var showUnreadOnly: Bool
     var selectedSourcesFilterRawValue: String?
     var refreshIntervalPreference: RefreshPreference
     var useiCloudSync: Bool
     var markAsReadOnOpen: Bool
+    var askBeforeMarkingAllAsRead: Bool
     var sortMode: ArticleSortMode
+    var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
+    var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
+    var interfaceThemeMode: InterfaceThemeMode
     var createdAt: Date
     var updatedAt: Date
 
@@ -21,24 +24,30 @@ final class AppSettings {
         id: UUID = UUID(),
         singletonKey: String = AppSettings.singletonKeyValue,
         defaultReaderMode: ReaderMode = .embedded,
-        showUnreadOnly: Bool = false,
-        selectedSourcesFilterRawValue: String? = nil,
+        selectedSourcesFilterRawValue: String? = SourcesFilter.allItems.rawValue,
         refreshIntervalPreference: RefreshPreference = .manual,
         useiCloudSync: Bool = false,
         markAsReadOnOpen: Bool = true,
+        askBeforeMarkingAllAsRead: Bool = true,
         sortMode: ArticleSortMode = .publishedAtDescending,
+        articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
+        articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
+        interfaceThemeMode: InterfaceThemeMode = .automaticLightDark,
         createdAt: Date = .now,
         updatedAt: Date = .now
     ) {
         self.id = id
         self.singletonKey = singletonKey
         self.defaultReaderMode = defaultReaderMode
-        self.showUnreadOnly = showUnreadOnly
         self.selectedSourcesFilterRawValue = selectedSourcesFilterRawValue
         self.refreshIntervalPreference = refreshIntervalPreference
         self.useiCloudSync = useiCloudSync
         self.markAsReadOnOpen = markAsReadOnOpen
+        self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         self.sortMode = sortMode
+        self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
+        self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
+        self.interfaceThemeMode = interfaceThemeMode
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

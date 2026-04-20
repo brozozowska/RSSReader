@@ -1023,7 +1023,7 @@ struct RSSReaderTests {
         #expect(viewState.content?.header.title == article.title)
         #expect(viewState.content?.header.feedTitle == article.feedTitle)
         #expect(viewState.content?.header.author == article.author)
-        #expect(viewState.content?.body.blocks == [.paragraph("Rendered body text")])
+        #expect(viewState.content?.body.blocks == [.paragraph(.plainText("Rendered body text"))])
         #expect(viewState.content?.body.source == .contentText)
         #expect(viewState.content?.body.readerMode == .embedded)
         #expect(viewState.toolbarActions.showsShareAction)
@@ -1080,7 +1080,7 @@ struct RSSReaderTests {
 
         state.applyLoadedArticle(article)
 
-        #expect(state.derivedViewState().content?.body.blocks == [.paragraph("HTML body")])
+        #expect(state.derivedViewState().content?.body.blocks == [.paragraph(.plainText("HTML body"))])
         #expect(state.derivedViewState().content?.body.source == .contentHTML)
     }
 
@@ -1100,12 +1100,92 @@ struct RSSReaderTests {
 
         #expect(
             content.body.blocks == [
-                .paragraph("First paragraph."),
+                .paragraph(.plainText("First paragraph.")),
                 .image(URL(string: "https://example.com/images/inline.png")!),
-                .paragraph("Second paragraph.")
+                .paragraph(.plainText("Second paragraph."))
             ]
         )
         #expect(content.body.source == .contentHTML)
+    }
+
+    @Test
+    func articleScreenContentRendererPreservesAnchorMetadataInsideHTMLParagraphs() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <p>Read <a href="/guides/swift">Swift Guide</a> today.</p>
+                """,
+                canonicalURL: "https://example.com/articles/body"
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .paragraph(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(text: "Read "),
+                            ArticleScreenTextSpan(
+                                text: "Swift Guide",
+                                linkURL: URL(string: "https://example.com/guides/swift")!
+                            ),
+                            ArticleScreenTextSpan(text: " today.")
+                        ]
+                    )
+                )
+            ]
+        )
+        #expect(content.body.source == .contentHTML)
+    }
+
+    @Test
+    func articleScreenContentRendererDetectsLinksInsidePlainTextBody() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentText: "Read more at https://example.com/guides/swift today."
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .paragraph(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(text: "Read more at "),
+                            ArticleScreenTextSpan(
+                                text: "https://example.com/guides/swift",
+                                linkURL: URL(string: "https://example.com/guides/swift")!
+                            ),
+                            ArticleScreenTextSpan(text: " today.")
+                        ]
+                    )
+                )
+            ]
+        )
+        #expect(content.body.source == .contentText)
+    }
+
+    @Test
+    func articleScreenTextBlockBuildsAttributedStringWithLinkAttributes() {
+        let textBlock = ArticleScreenTextBlock(
+            spans: [
+                ArticleScreenTextSpan(text: "Read "),
+                ArticleScreenTextSpan(
+                    text: "Swift Guide",
+                    linkURL: URL(string: "https://example.com/guides/swift")!
+                ),
+                ArticleScreenTextSpan(text: " today.")
+            ]
+        )
+
+        let attributedString = textBlock.attributedString
+
+        #expect(String(attributedString.characters) == "Read Swift Guide today.")
+
+        let linkRuns = attributedString.runs.filter { $0.link != nil }
+        #expect(linkRuns.count == 1)
+        #expect(linkRuns.first?.link == URL(string: "https://example.com/guides/swift")!)
+        #expect(String(attributedString[linkRuns[0].range].characters) == "Swift Guide")
     }
 
     @Test
@@ -1124,8 +1204,8 @@ struct RSSReaderTests {
 
         #expect(
             content.body.blocks == [
-                .paragraph("Short summary paragraph."),
-                .paragraph("Another summary paragraph."),
+                .paragraph(.plainText("Short summary paragraph.")),
+                .paragraph(.plainText("Another summary paragraph.")),
                 .fallbackNotice("This source only provides a summary, not the full article body.")
             ]
         )
@@ -1155,13 +1235,13 @@ struct RSSReaderTests {
     func articleScreenBodyContentStateDefinesFutureFullTextExtensionPoint() {
         let extractedContent = ArticleScreenBodyContentState.extractedFullText(
             blocks: [
-                .paragraph("Extracted full text paragraph.")
+                .paragraph(.plainText("Extracted full text paragraph."))
             ]
         )
 
         #expect(extractedContent.source == .fullTextExtracted)
         #expect(extractedContent.readerMode == .fullText)
-        #expect(extractedContent.blocks == [.paragraph("Extracted full text paragraph.")])
+        #expect(extractedContent.blocks == [.paragraph(.plainText("Extracted full text paragraph."))])
     }
 
     @Test
@@ -1198,9 +1278,9 @@ struct RSSReaderTests {
         )
 
         let loadedBottomActions = loadedState.derivedViewState().toolbarActions.bottomActions
-        #expect(loadedBottomActions?.openInAppBrowserTitle == "Open in App-Browser")
-        #expect(loadedBottomActions?.openInAppBrowserSystemImage == "safari")
-        #expect(loadedBottomActions?.canOpenInAppBrowser == true)
+        #expect(loadedBottomActions?.openSourceArticleTitle == "Open Source Article")
+        #expect(loadedBottomActions?.openSourceArticleSystemImage == "safari")
+        #expect(loadedBottomActions?.canOpenSourceArticle == true)
 
         var invalidURLState = ArticleScreenState()
         invalidURLState.applyLoadedArticle(
@@ -1211,7 +1291,7 @@ struct RSSReaderTests {
         )
 
         let invalidBottomActions = invalidURLState.derivedViewState().toolbarActions.bottomActions
-        #expect(invalidBottomActions?.canOpenInAppBrowser == false)
+        #expect(invalidBottomActions?.canOpenSourceArticle == false)
     }
 
     @Test
@@ -1352,7 +1432,7 @@ struct RSSReaderTests {
         #expect(updatedArticle.isRead == false)
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Read")
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.fill")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
 
         var persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -1428,6 +1508,7 @@ struct RSSReaderTests {
     func articleScreenControllerOpensCurrentArticleInAppLevelWebViewRoute() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-open-web.xml"]).first)
         let articleModel = try harness.insertArticle(
             feed: feed,
@@ -1435,14 +1516,24 @@ struct RSSReaderTests {
             url: "https://example.com/articles/article-screen-open-web",
             title: "Article Screen Open Web"
         )
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(
+                articleSourceLinkOpeningPolicy: .inAppBrowser,
+                updatedAt: .distantPast
+            )
+        )
         articleModel.canonicalURL = "https://example.com/articles/article-screen-open-web/canonical"
         try harness.saveModelContext()
         let controller = ArticleScreenController()
+        var externallyOpenedURL: URL?
 
         await controller.load(articleID: articleModel.id, dependencies: harness.dependencies)
-        controller.openArticleInAppBrowser(
+        controller.openSourceArticle(
             dependencies: harness.dependencies,
-            appState: appState
+            appState: appState,
+            openExternalURL: { url in
+                externallyOpenedURL = url
+            }
         )
 
         #expect(
@@ -1459,6 +1550,132 @@ struct RSSReaderTests {
                 url: URL(string: "https://example.com/articles/article-screen-open-web/canonical")!
             )
         )
+        #expect(externallyOpenedURL == nil)
+    }
+
+    @Test
+    func articleScreenControllerOpensCurrentArticleInExternalBrowserWhenSourcePolicyRequiresIt() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-open-external.xml"]).first)
+        let articleModel = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-open-external",
+            url: "https://example.com/articles/article-screen-open-external",
+            title: "Article Screen Open External"
+        )
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(
+                articleSourceLinkOpeningPolicy: .externalBrowser,
+                updatedAt: .distantPast
+            )
+        )
+        articleModel.canonicalURL = "https://example.com/articles/article-screen-open-external/canonical"
+        try harness.saveModelContext()
+        let controller = ArticleScreenController()
+        var externallyOpenedURL: URL?
+
+        await controller.load(articleID: articleModel.id, dependencies: harness.dependencies)
+        controller.openSourceArticle(
+            dependencies: harness.dependencies,
+            appState: appState,
+            openExternalURL: { url in
+                externallyOpenedURL = url
+            }
+        )
+
+        #expect(externallyOpenedURL == URL(string: "https://example.com/articles/article-screen-open-external/canonical")!)
+        #expect(appState.selectedDetailRoute == .none)
+        #expect(appState.presentedWebViewRoute == nil)
+    }
+
+    @Test
+    func articleScreenControllerHandlesTappedBodyLinkThroughAppLevelWebViewRoute() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-body-link.xml"]).first)
+        let articleModel = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-body-link",
+            url: "https://example.com/articles/article-screen-body-link",
+            title: "Article Screen Body Link"
+        )
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(
+                articleBodyLinkOpeningPolicy: .inAppBrowser,
+                updatedAt: .distantPast
+            )
+        )
+        try harness.saveModelContext()
+        let controller = ArticleScreenController()
+        let tappedURL = URL(string: "https://example.com/guides/swift")!
+        var externallyOpenedURL: URL?
+
+        await controller.load(articleID: articleModel.id, dependencies: harness.dependencies)
+        controller.handleBodyLinkTap(
+            tappedURL,
+            dependencies: harness.dependencies,
+            appState: appState,
+            openExternalURL: { url in
+                externallyOpenedURL = url
+            }
+        )
+
+        #expect(
+            appState.selectedDetailRoute == .webView(
+                ArticleWebViewRoute(
+                    articleID: articleModel.id,
+                    url: tappedURL
+                )
+            )
+        )
+        #expect(
+            appState.presentedWebViewRoute == ArticleWebViewRoute(
+                articleID: articleModel.id,
+                url: tappedURL
+            )
+        )
+        #expect(externallyOpenedURL == nil)
+    }
+
+    @Test
+    func articleScreenControllerOpensTappedBodyLinkInExternalBrowserWhenPolicyRequiresIt() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-external-body-link.xml"]).first)
+        let articleModel = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-external-body-link",
+            url: "https://example.com/articles/article-screen-external-body-link",
+            title: "Article Screen External Body Link"
+        )
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(
+                articleBodyLinkOpeningPolicy: .externalBrowser,
+                updatedAt: .distantPast
+            )
+        )
+        try harness.saveModelContext()
+        let controller = ArticleScreenController()
+        let tappedURL = URL(string: "https://example.com/guides/external")!
+        var externallyOpenedURL: URL?
+
+        await controller.load(articleID: articleModel.id, dependencies: harness.dependencies)
+        controller.handleBodyLinkTap(
+            tappedURL,
+            dependencies: harness.dependencies,
+            appState: appState,
+            openExternalURL: { url in
+                externallyOpenedURL = url
+            }
+        )
+
+        #expect(externallyOpenedURL == tappedURL)
+        #expect(appState.selectedDetailRoute == .none)
+        #expect(appState.presentedWebViewRoute == nil)
     }
 
     @Test
@@ -1739,8 +1956,8 @@ struct RSSReaderTests {
         #expect(state.navigationTitle == "Unread")
         #expect(state.navigationSubtitle == "3 Unread Items")
         #expect(state.showsPrimaryLoadingIndicator)
-        #expect(state.toolbarActions.showsSearchAction)
-        #expect(state.toolbarActions.showsMarkAllAsReadAction)
+        #expect(state.toolbarActions.showsSearchAction == false)
+        #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
     }
 
     @Test
@@ -1929,7 +2146,6 @@ struct RSSReaderTests {
         #expect(controller.screenState.articles.first?.title == "Controller Load")
     }
 
-    @Test
     func articlesScreenControllerPresentsRefreshFailureFromBatchRefreshResult() async throws {
         let client = ScriptedHTTPClient(
             responsesByURL: [
@@ -2141,6 +2357,80 @@ struct RSSReaderTests {
         )
         state.presentMarkAllAsReadConfirmation()
         #expect(state.pendingConfirmation == .markAllAsRead)
+    }
+
+    @Test
+    func articlesScreenControllerPresentsConfirmationWhenAskBeforeMarkingAllAsReadIsEnabled() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+        let controller = ArticlesScreenController(
+            previewScreenState: .previewLoaded(
+                selection: .feed(unreadItem.feedID),
+                navigationTitle: "Feed",
+                navigationSubtitle: "1 Unread Item",
+                articles: [unreadItem]
+            )
+        )
+
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(
+                askBeforeMarkingAllAsRead: true,
+                updatedAt: .distantPast
+            )
+        )
+
+        controller.handleMarkAllAsReadAction(
+            searchText: "",
+            selection: .feed(unreadItem.feedID),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        #expect(controller.screenState.pendingConfirmation == .markAllAsRead)
+        #expect(controller.screenState.articles.first?.isRead == false)
+    }
+
+    @Test
+    func articlesScreenControllerMarksAllAsReadImmediatelyWhenAskBeforeMarkingAllAsReadIsDisabled() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
+        let articleStateRepository = try #require(harness.dependencies.articleStateRepository)
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+        let controller = ArticlesScreenController(
+            previewScreenState: .previewLoaded(
+                selection: .feed(unreadItem.feedID),
+                navigationTitle: "Feed",
+                navigationSubtitle: "1 Unread Item",
+                articles: [unreadItem]
+            )
+        )
+
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(
+                askBeforeMarkingAllAsRead: false,
+                updatedAt: .distantPast
+            )
+        )
+
+        controller.handleMarkAllAsReadAction(
+            searchText: "",
+            selection: .feed(unreadItem.feedID),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        let persistedState = try articleStateRepository.fetchStateSnapshot(
+            feedID: unreadItem.feedID,
+            articleExternalID: unreadItem.articleExternalID
+        )
+
+        #expect(controller.screenState.pendingConfirmation == nil)
+        #expect(controller.screenState.articles.first?.isRead == true)
+        #expect(controller.screenState.navigationSubtitle == "0 Unread Items")
+        #expect(persistedState?.isRead == true)
     }
 
     @Test
@@ -2516,35 +2806,48 @@ struct RSSReaderTests {
     func sourcesFilterPersistencePolicyRestoresPersistedFilterFromSettingsRawValue() {
         let settings = AppSettings(selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue)
 
-        let restoredFilter = SourcesFilterPersistencePolicy.restoredFilter(from: settings)
+        let restoredFilter = SourcesFilterPersistencePolicy.restoredFilter(
+            from: settings.selectedSourcesFilterRawValue
+        )
 
         #expect(restoredFilter == .starred)
     }
 
     @Test
-    func sourcesFilterPersistencePolicyFallsBackToLegacyUnreadFlagWhenRawValueIsMissing() {
-        let unreadSettings = AppSettings(showUnreadOnly: true)
-        let defaultSettings = AppSettings(showUnreadOnly: false)
+    func sourcesFilterPersistencePolicyFallsBackToAllItemsWhenRawValueIsMissing() {
+        let settings = AppSettings(selectedSourcesFilterRawValue: nil)
 
-        #expect(SourcesFilterPersistencePolicy.restoredFilter(from: unreadSettings) == .unread)
-        #expect(SourcesFilterPersistencePolicy.restoredFilter(from: defaultSettings) == .allItems)
+        #expect(
+            SourcesFilterPersistencePolicy.restoredFilter(
+                from: settings.selectedSourcesFilterRawValue
+            ) == .allItems
+        )
     }
 
     @Test
-    func sourcesFilterPersistencePolicyBuildsSettingsUpdateForSelectedFilter() {
-        let starredUpdate = SourcesFilterPersistencePolicy.makeSettingsUpdate(
+    func sourcesFilterPersistencePolicyBuildsSettingsPatchForSelectedFilter() {
+        let starredUpdate = SourcesFilterPersistencePolicy.makeSettingsPatch(
             for: .starred,
             updatedAt: .distantPast
         )
-        let unreadUpdate = SourcesFilterPersistencePolicy.makeSettingsUpdate(
+        let unreadUpdate = SourcesFilterPersistencePolicy.makeSettingsPatch(
             for: .unread,
             updatedAt: .distantPast
         )
 
         #expect(starredUpdate.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
-        #expect(starredUpdate.showUnreadOnly == false)
         #expect(unreadUpdate.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
-        #expect(unreadUpdate.showUnreadOnly == true)
+    }
+
+    @Test
+    func appSettingsDefaultsUseSelectedSourcesFilterRawValueAsPrimarySourceFilterState() {
+        let settings = AppSettings()
+
+        #expect(settings.selectedSourcesFilterRawValue == SourcesFilter.allItems.rawValue)
+        #expect(settings.askBeforeMarkingAllAsRead)
+        #expect(settings.articleBodyLinkOpeningPolicy == .inAppBrowser)
+        #expect(settings.articleSourceLinkOpeningPolicy == .inAppBrowser)
+        #expect(settings.interfaceThemeMode == .automaticLightDark)
     }
 
     @Test
@@ -2562,6 +2865,837 @@ struct RSSReaderTests {
         let settings = try repository.fetchOrCreate()
 
         #expect(settings.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
+    }
+
+    @Test
+    func appSettingsRepositoryPersistsAskBeforeMarkingAllAsRead() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                askBeforeMarkingAllAsRead: false,
+                updatedAt: .distantPast
+            )
+        )
+
+        let settings = try repository.fetchOrCreate()
+
+        #expect(settings.askBeforeMarkingAllAsRead == false)
+    }
+
+    @Test
+    func appSettingsRepositoryPersistsArticleBodyLinkOpeningPolicy() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                articleBodyLinkOpeningPolicy: .externalBrowser,
+                updatedAt: .distantPast
+            )
+        )
+
+        let settings = try repository.fetchOrCreate()
+
+        #expect(settings.articleBodyLinkOpeningPolicy == .externalBrowser)
+    }
+
+    @Test
+    func appSettingsRepositoryPersistsArticleSourceLinkOpeningPolicy() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                articleSourceLinkOpeningPolicy: .externalBrowser,
+                updatedAt: .distantPast
+            )
+        )
+
+        let settings = try repository.fetchOrCreate()
+
+        #expect(settings.articleSourceLinkOpeningPolicy == .externalBrowser)
+    }
+
+    @Test
+    func appSettingsRepositoryPersistsInterfaceThemeMode() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                interfaceThemeMode: .black,
+                updatedAt: .distantPast
+            )
+        )
+
+        let settings = try repository.fetchOrCreate()
+
+        #expect(settings.interfaceThemeMode == .black)
+    }
+
+    @Test
+    func appSettingsServiceFetchesSnapshotFromRepository() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let service = try #require(harness.dependencies.appSettingsService)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                defaultReaderMode: .browser,
+                selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+                refreshIntervalPreference: .hourly,
+                useiCloudSync: true,
+                markAsReadOnOpen: false,
+                askBeforeMarkingAllAsRead: false,
+                sortMode: .publishedAtAscending,
+                articleBodyLinkOpeningPolicy: .externalBrowser,
+                articleSourceLinkOpeningPolicy: .externalBrowser,
+                interfaceThemeMode: .black,
+                updatedAt: .distantPast
+            )
+        )
+
+        let snapshot = try service.fetchSettings()
+
+        #expect(
+            snapshot == AppSettingsSnapshot(
+                defaultReaderMode: .browser,
+                selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+                refreshIntervalPreference: .hourly,
+                useiCloudSync: true,
+                markAsReadOnOpen: false,
+                askBeforeMarkingAllAsRead: false,
+                sortMode: .publishedAtAscending,
+                articleBodyLinkOpeningPolicy: .externalBrowser,
+                articleSourceLinkOpeningPolicy: .externalBrowser,
+                interfaceThemeMode: .black
+            )
+        )
+    }
+
+    @Test
+    func appSettingsServiceSavesEditedSnapshot() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let service = try #require(harness.dependencies.appSettingsService)
+        let editedSettings = AppSettingsSnapshot(
+            defaultReaderMode: .reader,
+            selectedSourcesFilterRawValue: SourcesFilter.unread.rawValue,
+            refreshIntervalPreference: .every6Hours,
+            useiCloudSync: true,
+            markAsReadOnOpen: false,
+            askBeforeMarkingAllAsRead: false,
+            sortMode: .publishedAtDescending,
+            articleBodyLinkOpeningPolicy: .externalBrowser,
+            articleSourceLinkOpeningPolicy: .externalBrowser,
+            interfaceThemeMode: .black
+        )
+
+        let savedSnapshot = try service.saveSettings(
+            editedSettings,
+            updatedAt: .distantPast
+        )
+        let persistedSettings = try repository.fetchOrCreate()
+
+        #expect(savedSnapshot == editedSettings)
+        #expect(persistedSettings.defaultReaderMode == .reader)
+        #expect(persistedSettings.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
+        #expect(persistedSettings.refreshIntervalPreference == .every6Hours)
+        #expect(persistedSettings.useiCloudSync)
+        #expect(persistedSettings.markAsReadOnOpen == false)
+        #expect(persistedSettings.askBeforeMarkingAllAsRead == false)
+        #expect(persistedSettings.sortMode == .publishedAtDescending)
+        #expect(persistedSettings.articleBodyLinkOpeningPolicy == .externalBrowser)
+        #expect(persistedSettings.articleSourceLinkOpeningPolicy == .externalBrowser)
+        #expect(persistedSettings.interfaceThemeMode == .black)
+    }
+
+    @Test
+    func backgroundRefreshServiceBuildsConfigurationFromPersistedRefreshPreference() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let service = try #require(harness.dependencies.backgroundRefreshService)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                refreshIntervalPreference: .every6Hours,
+                updatedAt: .distantPast
+            )
+        )
+
+        let configuration = try service.loadConfiguration()
+
+        #expect(configuration.settingsSnapshot.refreshIntervalPreference == .every6Hours)
+        #expect(configuration.policy.preference == .every6Hours)
+        #expect(configuration.policy.isAutomaticRefreshEnabled)
+        #expect(configuration.policy.minimumInterval == 21_600.0)
+    }
+
+    @Test
+    func backgroundRefreshServiceUpdatesRefreshPreferenceThroughAppSettings() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let service = try #require(harness.dependencies.backgroundRefreshService)
+
+        let updatedConfiguration = try service.updatePreference(
+            .daily,
+            updatedAt: .distantPast
+        )
+        let persistedSettings = try repository.fetchOrCreate()
+
+        #expect(updatedConfiguration.settingsSnapshot.refreshIntervalPreference == .daily)
+        #expect(updatedConfiguration.policy.preference == .daily)
+        #expect(updatedConfiguration.policy.minimumInterval == 86_400.0)
+        #expect(persistedSettings.refreshIntervalPreference == .daily)
+    }
+
+    @Test
+    func iCloudSyncStatusServiceMapsPersistedUserIntentToRuntimeStatus() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let service = try #require(harness.dependencies.iCloudSyncStatusService)
+
+        #expect(try service.currentStatus() == .disabled)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                useiCloudSync: true,
+                updatedAt: .distantPast
+            )
+        )
+
+        #expect(try service.currentStatus() == .statusUnavailable)
+    }
+
+    @Test
+    func appDependenciesSkipsBackgroundRefreshWhenPreferenceIsManual() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                refreshIntervalPreference: .manual,
+                updatedAt: .distantPast
+            )
+        )
+
+        let result = await harness.dependencies.refreshFeedsForBackground()
+
+        #expect(result == nil)
+    }
+
+    @Test
+    func appDependenciesRunsBackgroundRefreshWhenPreferenceIsAutomatic() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                refreshIntervalPreference: .hourly,
+                updatedAt: .distantPast
+            )
+        )
+
+        let result = await harness.dependencies.refreshFeedsForBackground()
+
+        #expect(result?.trigger == .background)
+        #expect(result?.batchResult.results.isEmpty == true)
+    }
+
+    @Test
+    func appSettingsServiceUpdatesSelectedSourcesFilterRawValueThroughPatch() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let service = try #require(harness.dependencies.appSettingsService)
+
+        let updatedSnapshot = try service.updateSettings(
+            AppSettingsPatch(
+                selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+                updatedAt: .distantPast
+            )
+        )
+        let persistedSettings = try repository.fetchOrCreate()
+
+        #expect(updatedSnapshot.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
+        #expect(persistedSettings.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
+    }
+
+    @Test
+    func settingsScreenPresentationBuilderBuildsSectionedContractFromSettingsSnapshot() {
+        let snapshot = AppSettingsSnapshot(
+            defaultReaderMode: .browser,
+            selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+            refreshIntervalPreference: .daily,
+            useiCloudSync: true,
+            markAsReadOnOpen: false,
+            askBeforeMarkingAllAsRead: false,
+            sortMode: .publishedAtDescending,
+            articleBodyLinkOpeningPolicy: .externalBrowser,
+            articleSourceLinkOpeningPolicy: .externalBrowser,
+            interfaceThemeMode: .black
+        )
+        let input = SettingsScreenInputBuilder.build(
+            from: snapshot,
+            iCloudSyncStatus: .statusUnavailable
+        )
+
+        let sections = SettingsScreenPresentationBuilder.buildSections(from: input)
+
+        #expect(sections.map(\.id) == [.reading, .articleList, .refresh, .sync, .advanced])
+
+        let readingItems = sections[0].items
+        let articleListItems = sections[1].items
+        let refreshItems = sections[2].items
+        let syncItems = sections[3].items
+        let advancedItems = sections[4].items
+
+        #expect(
+            readingItems[0] == .picker(
+                SettingsPickerItemPresentation(
+                    id: .defaultReaderMode,
+                    title: "Default Reader",
+                    subtitle: "Choose how articles open by default.",
+                    selectedValueTitle: "In-App Browser",
+                    options: [
+                        SettingsPickerOptionPresentation(id: "embedded", title: "Embedded Reader", isSelected: false),
+                        SettingsPickerOptionPresentation(id: "reader", title: "Reader Mode", isSelected: false),
+                        SettingsPickerOptionPresentation(id: "browser", title: "In-App Browser", isSelected: true)
+                    ]
+                )
+            )
+        )
+        #expect(
+            readingItems[1] == .toggle(
+                SettingsToggleItemPresentation(
+                    id: .markAsReadOnOpen,
+                    title: "Mark Read on Open",
+                    subtitle: "Automatically mark an article as read when it is opened.",
+                    isOn: false
+                )
+            )
+        )
+        #expect(
+            readingItems[2] == .picker(
+                SettingsPickerItemPresentation(
+                    id: .articleBodyLinkOpeningPolicy,
+                    title: "Article Links",
+                    subtitle: "Choose how links inside article text should open.",
+                    selectedValueTitle: "External Browser",
+                    options: [
+                        SettingsPickerOptionPresentation(id: "inAppBrowser", title: "In-App Browser", isSelected: false),
+                        SettingsPickerOptionPresentation(id: "externalBrowser", title: "External Browser", isSelected: true)
+                    ]
+                )
+            )
+        )
+        #expect(
+            readingItems[3] == .picker(
+                SettingsPickerItemPresentation(
+                    id: .articleSourceLinkOpeningPolicy,
+                    title: "Source Article",
+                    subtitle: "Choose how the toolbar action opens the original article URL.",
+                    selectedValueTitle: "External Browser",
+                    options: [
+                        SettingsPickerOptionPresentation(id: "inAppBrowser", title: "In-App Browser", isSelected: false),
+                        SettingsPickerOptionPresentation(id: "externalBrowser", title: "External Browser", isSelected: true)
+                    ]
+                )
+            )
+        )
+        #expect(
+            articleListItems == [
+                .picker(
+                    SettingsPickerItemPresentation(
+                        id: .articleSortMode,
+                        title: "Sort Articles",
+                        subtitle: "Choose how unread and article lists are ordered.",
+                        selectedValueTitle: "Newest First",
+                        options: [
+                            SettingsPickerOptionPresentation(id: "newestFirst", title: "Newest First", isSelected: true),
+                            SettingsPickerOptionPresentation(id: "oldestFirst", title: "Oldest First", isSelected: false)
+                        ]
+                    )
+                ),
+                .toggle(
+                    SettingsToggleItemPresentation(
+                        id: .askBeforeMarkingAllAsRead,
+                        title: "Ask Before Marking All Read",
+                        subtitle: "Show a confirmation before marking all visible articles as read.",
+                        isOn: false
+                    )
+                )
+            ]
+        )
+        #expect(
+            refreshItems.contains(
+                .picker(
+                    SettingsPickerItemPresentation(
+                        id: .refreshInterval,
+                        title: "Background Refresh",
+                        subtitle: "Choose how often feeds should refresh when background refresh is available.",
+                        selectedValueTitle: "Daily",
+                        options: [
+                            SettingsPickerOptionPresentation(id: "manual", title: "Manual", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "every15Minutes", title: "Every 15 Minutes", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "hourly", title: "Hourly", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "every6Hours", title: "Every 6 Hours", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "daily", title: "Daily", isSelected: true)
+                        ]
+                    )
+                )
+            )
+        )
+        #expect(
+            syncItems == [
+                .statusRow(
+                    SettingsStatusRowItemPresentation(
+                        id: .iCloudSyncStatus,
+                        title: "iCloud Sync",
+                        subtitle: "Sync is enabled, but CloudKit wiring and app-level account status are not implemented yet.",
+                        valueTitle: "Status Unavailable"
+                    )
+                )
+            ]
+        )
+        #expect(
+            advancedItems == [
+                .picker(
+                    SettingsPickerItemPresentation(
+                        id: .appearance,
+                        title: "Appearance",
+                        subtitle: "Choose between automatic light/dark handling, automatic light/black, or fixed appearance modes.",
+                        selectedValueTitle: "Black",
+                        options: [
+                            SettingsPickerOptionPresentation(id: "automaticLightDark", title: "Automatic Light/Dark", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "automaticLightBlack", title: "Automatic Light/Black", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "light", title: "Light", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "dark", title: "Dark", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "black", title: "Black", isSelected: true)
+                        ]
+                    )
+                )
+            ]
+        )
+    }
+
+    @Test
+    func settingsScreenPresentationBuilderIncludesAllSupportedItemTypes() {
+        let sections = SettingsScreenPresentationBuilder.buildSections(
+            from: SettingsScreenInputBuilder.build(from: AppSettingsSnapshot())
+        )
+        let items = sections.flatMap(\.items)
+
+        #expect(items.contains { item in
+            if case .toggle = item { return true }
+            return false
+        })
+        #expect(items.contains { item in
+            if case .picker = item { return true }
+            return false
+        })
+        #expect(items.contains { item in
+            if case .statusRow = item { return true }
+            return false
+        })
+    }
+
+    @Test
+    func settingsScreenStateBuildsLoadedViewStateFromSnapshot() {
+        let snapshot = AppSettingsSnapshot(
+            defaultReaderMode: .browser,
+            selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+            refreshIntervalPreference: .hourly,
+            useiCloudSync: true,
+            markAsReadOnOpen: false,
+            sortMode: .publishedAtAscending
+        )
+        var state = SettingsScreenState()
+
+        state.applyLoadedSnapshot(snapshot)
+        let viewState = state.derivedViewState()
+
+        #expect(viewState.primaryLoadingState == nil)
+        #expect(viewState.placeholder == nil)
+        #expect(viewState.sections.map(\.id) == [.reading, .articleList, .refresh, .sync, .advanced])
+        #expect(state.settingsInput.defaultReaderMode == .browser)
+        #expect(state.settingsInput.articleListSortOrder == .oldestFirst)
+        #expect(state.settingsInput.iCloudSyncStatus == .disabled)
+    }
+
+    @Test
+    func settingsScreenInputBuilderNormalizesSnapshotIntoScreenSpecificInput() {
+        let snapshot = AppSettingsSnapshot(
+            defaultReaderMode: .reader,
+            selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+            refreshIntervalPreference: .every6Hours,
+            useiCloudSync: true,
+            markAsReadOnOpen: false,
+            askBeforeMarkingAllAsRead: false,
+            sortMode: .publishedAtAscending,
+            articleBodyLinkOpeningPolicy: .externalBrowser,
+            articleSourceLinkOpeningPolicy: .externalBrowser,
+            interfaceThemeMode: .black
+        )
+
+        let input = SettingsScreenInputBuilder.build(
+            from: snapshot,
+            iCloudSyncStatus: .syncing
+        )
+
+        #expect(input.defaultReaderMode == .reader)
+        #expect(input.markAsReadOnOpen == false)
+        #expect(input.articleBodyLinkOpeningPolicy == .externalBrowser)
+        #expect(input.articleSourceLinkOpeningPolicy == .externalBrowser)
+        #expect(input.articleListSortOrder == .oldestFirst)
+        #expect(input.askBeforeMarkingAllAsRead == false)
+        #expect(input.refreshIntervalPreference == .every6Hours)
+        #expect(input.iCloudSyncStatus == .syncing)
+        #expect(input.interfaceThemeMode == .black)
+    }
+
+    @Test
+    func settingsScreenStatePresentsDefaultReaderModePickerFromLoadedSections() {
+        var state = SettingsScreenState.previewLoaded(
+            snapshot: AppSettingsSnapshot(defaultReaderMode: .reader)
+        )
+
+        state.presentPicker(for: .defaultReaderMode)
+
+        let presentedPicker = state.derivedViewState().presentedPicker
+        #expect(presentedPicker?.id == .defaultReaderMode)
+        #expect(presentedPicker?.selectedValueTitle == "Reader Mode")
+        #expect(presentedPicker?.options.count == ReaderMode.allCases.count)
+    }
+
+    @Test
+    func settingsScreenControllerDoesNotTreatSyncStatusRowAsInteractiveItem() {
+        let controller = SettingsScreenController(
+            previewScreenState: .previewLoaded(snapshot: AppSettingsSnapshot())
+        )
+
+        controller.handleItemSelection(.iCloudSyncStatus)
+
+        #expect(controller.viewState().presentedPicker == nil)
+    }
+
+    @Test
+    func settingsScreenControllerLoadsSettingsSnapshotFromService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let service = try #require(harness.dependencies.appSettingsService)
+        _ = try service.saveSettings(
+            AppSettingsSnapshot(
+                defaultReaderMode: .reader,
+                selectedSourcesFilterRawValue: SourcesFilter.unread.rawValue,
+            refreshIntervalPreference: .every15Minutes,
+            useiCloudSync: false,
+            markAsReadOnOpen: true,
+            askBeforeMarkingAllAsRead: false,
+            sortMode: .publishedAtDescending,
+            articleBodyLinkOpeningPolicy: .externalBrowser,
+            articleSourceLinkOpeningPolicy: .externalBrowser,
+            interfaceThemeMode: .black
+        ),
+            updatedAt: .distantPast
+        )
+        let controller = SettingsScreenController()
+        let appState = AppState()
+
+        controller.loadSettings(dependencies: harness.dependencies, appState: appState)
+
+        let viewState = controller.viewState()
+        #expect(viewState.primaryLoadingState == nil)
+        #expect(viewState.placeholder == nil)
+        #expect(viewState.sections.isEmpty == false)
+        #expect(controller.screenState.settingsSnapshot.defaultReaderMode == .reader)
+        #expect(controller.screenState.settingsSnapshot.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
+        #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead == false)
+        #expect(controller.screenState.settingsSnapshot.articleBodyLinkOpeningPolicy == .externalBrowser)
+        #expect(controller.screenState.settingsSnapshot.articleSourceLinkOpeningPolicy == .externalBrowser)
+        #expect(controller.screenState.settingsSnapshot.interfaceThemeMode == .black)
+        #expect(controller.screenState.iCloudSyncStatus == .disabled)
+        #expect(appState.interfaceThemeMode == .black)
+    }
+
+    @Test
+    func settingsScreenControllerPrefersAppLevelICloudSyncStatusOverPersistedFlag() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+        let appState = AppState()
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                useiCloudSync: true,
+                updatedAt: .distantPast
+            )
+        )
+        appState.applyICloudSyncStatus(.syncing)
+
+        controller.loadSettings(dependencies: harness.dependencies, appState: appState)
+
+        let syncSection = try #require(
+            controller.viewState().sections.first(where: { $0.id == .sync })
+        )
+        let syncItem = try #require(syncSection.items.first)
+
+        #expect(controller.screenState.iCloudSyncStatus == .syncing)
+        #expect(appState.iCloudSyncStatus == .syncing)
+        #expect(
+            syncItem == .statusRow(
+                SettingsStatusRowItemPresentation(
+                    id: .iCloudSyncStatus,
+                    title: "iCloud Sync",
+                    subtitle: "Changes are currently syncing with iCloud.",
+                    valueTitle: "Syncing"
+                )
+            )
+        )
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedDefaultReaderModeThroughSettingsService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+        controller.handleItemSelection(.defaultReaderMode)
+
+        #expect(controller.viewState().presentedPicker?.id == .defaultReaderMode)
+
+        controller.handlePickerOptionSelection(
+            itemID: .defaultReaderMode,
+            optionID: ReaderMode.browser.rawValue,
+            dependencies: harness.dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.defaultReaderMode == .browser)
+        #expect(controller.viewState().presentedPicker == nil)
+        #expect(persistedSettings.defaultReaderMode == .browser)
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedArticleSortModeThroughSettingsService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+        controller.handleItemSelection(.articleSortMode)
+
+        #expect(controller.viewState().presentedPicker?.id == .articleSortMode)
+
+        controller.handlePickerOptionSelection(
+            itemID: .articleSortMode,
+            optionID: ArticleListSortOrder.oldestFirst.rawValue,
+            dependencies: harness.dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.sortMode == .publishedAtAscending)
+        #expect(controller.viewState().presentedPicker == nil)
+        #expect(persistedSettings.sortMode == .publishedAtAscending)
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedMarkAsReadOnOpenThroughSettingsService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+        #expect(controller.screenState.settingsSnapshot.markAsReadOnOpen)
+
+        controller.handleToggleValueChange(
+            itemID: .markAsReadOnOpen,
+            isOn: false,
+            dependencies: harness.dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.markAsReadOnOpen == false)
+        #expect(persistedSettings.markAsReadOnOpen == false)
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedAskBeforeMarkingAllAsReadThroughSettingsService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+        #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead)
+
+        controller.handleToggleValueChange(
+            itemID: .askBeforeMarkingAllAsRead,
+            isOn: false,
+            dependencies: harness.dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead == false)
+        #expect(persistedSettings.askBeforeMarkingAllAsRead == false)
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedArticleBodyLinkOpeningPolicyThroughSettingsService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+        controller.handleItemSelection(.articleBodyLinkOpeningPolicy)
+
+        #expect(controller.viewState().presentedPicker?.id == .articleBodyLinkOpeningPolicy)
+
+        controller.handlePickerOptionSelection(
+            itemID: .articleBodyLinkOpeningPolicy,
+            optionID: ArticleBodyLinkOpeningPolicy.externalBrowser.rawValue,
+            dependencies: harness.dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.articleBodyLinkOpeningPolicy == .externalBrowser)
+        #expect(controller.viewState().presentedPicker == nil)
+        #expect(persistedSettings.articleBodyLinkOpeningPolicy == .externalBrowser)
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedArticleSourceLinkOpeningPolicyThroughSettingsService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+        controller.handleItemSelection(.articleSourceLinkOpeningPolicy)
+
+        #expect(controller.viewState().presentedPicker?.id == .articleSourceLinkOpeningPolicy)
+
+        controller.handlePickerOptionSelection(
+            itemID: .articleSourceLinkOpeningPolicy,
+            optionID: ArticleSourceLinkOpeningPolicy.externalBrowser.rawValue,
+            dependencies: harness.dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.articleSourceLinkOpeningPolicy == .externalBrowser)
+        #expect(controller.viewState().presentedPicker == nil)
+        #expect(persistedSettings.articleSourceLinkOpeningPolicy == .externalBrowser)
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedRefreshIntervalThroughBackgroundRefreshService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+        controller.handleItemSelection(.refreshInterval)
+
+        #expect(controller.viewState().presentedPicker?.id == .refreshInterval)
+
+        controller.handlePickerOptionSelection(
+            itemID: .refreshInterval,
+            optionID: RefreshPreference.daily.rawValue,
+            dependencies: harness.dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.refreshIntervalPreference == .daily)
+        #expect(controller.viewState().presentedPicker == nil)
+        #expect(persistedSettings.refreshIntervalPreference == .daily)
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedInterfaceThemeModeThroughSettingsService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+        let appState = AppState()
+
+        controller.loadSettings(dependencies: harness.dependencies, appState: appState)
+        controller.handleItemSelection(.appearance)
+
+        #expect(controller.viewState().presentedPicker?.id == .appearance)
+
+        controller.handlePickerOptionSelection(
+            itemID: .appearance,
+            optionID: InterfaceThemeMode.black.rawValue,
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.interfaceThemeMode == .black)
+        #expect(controller.viewState().presentedPicker == nil)
+        #expect(persistedSettings.interfaceThemeMode == .black)
+        #expect(appState.interfaceThemeMode == .black)
+    }
+
+    @Test
+    func appThemeApplicationPolicyResolvesAutomaticModesAgainstSystemColorScheme() {
+        let automaticDarkPolicy = AppThemeApplicationPolicy(
+            interfaceThemeMode: .automaticLightDark,
+            systemColorScheme: .dark
+        )
+        let automaticBlackPolicy = AppThemeApplicationPolicy(
+            interfaceThemeMode: .automaticLightBlack,
+            systemColorScheme: .dark
+        )
+        let automaticLightPolicy = AppThemeApplicationPolicy(
+            interfaceThemeMode: .automaticLightBlack,
+            systemColorScheme: .light
+        )
+
+        #expect(automaticDarkPolicy.preferredColorScheme == nil)
+        #expect(automaticDarkPolicy.resolvedTheme == .dark)
+        #expect(automaticBlackPolicy.preferredColorScheme == nil)
+        #expect(automaticBlackPolicy.resolvedTheme == .black)
+        #expect(automaticLightPolicy.resolvedTheme == .light)
+    }
+
+    @Test
+    func appThemeApplicationPolicyUsesExplicitThemeModeForResolvedThemeAndPreferredColorScheme() {
+        let lightPolicy = AppThemeApplicationPolicy(
+            interfaceThemeMode: .light,
+            systemColorScheme: .dark
+        )
+        let darkPolicy = AppThemeApplicationPolicy(
+            interfaceThemeMode: .dark,
+            systemColorScheme: .light
+        )
+        let blackPolicy = AppThemeApplicationPolicy(
+            interfaceThemeMode: .black,
+            systemColorScheme: .light
+        )
+
+        #expect(lightPolicy.preferredColorScheme == .light)
+        #expect(lightPolicy.resolvedTheme == .light)
+        #expect(darkPolicy.preferredColorScheme == .dark)
+        #expect(darkPolicy.resolvedTheme == .dark)
+        #expect(blackPolicy.preferredColorScheme == .dark)
+        #expect(blackPolicy.resolvedTheme == .black)
+    }
+
+    @Test
+    func settingsScreenControllerBuildsFailureStateWhenSettingsServiceIsUnavailable() {
+        let controller = SettingsScreenController()
+        let dependencies = AppDependencies.makeDefault()
+
+        controller.loadSettings(dependencies: dependencies)
+
+        #expect(controller.viewState().sections.isEmpty)
+        #expect(
+            controller.viewState().placeholder == SettingsScreenPlaceholderState(
+                title: "Unable to Load Settings",
+                systemImage: "exclamationmark.triangle",
+                description: "Settings are unavailable in the current app environment.",
+                actionTitle: "Retry"
+            )
+        )
     }
 
     @Test
@@ -3049,6 +4183,31 @@ struct RSSReaderTests {
 
         harness.dependencies.showStarred(using: appState)
         #expect(appState.selectedSidebarSelection == .starred)
+    }
+
+    @Test
+    func settingsPresentationStateLivesInAppStateAndDoesNotResetReadingShellContext() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feedID = UUID()
+        let articleID = UUID()
+
+        harness.dependencies.showFeed(id: feedID, using: appState)
+        harness.dependencies.selectArticle(id: articleID, using: appState)
+
+        harness.dependencies.showSettings(using: appState)
+
+        #expect(appState.isPresentingSettingsScreen)
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .article(articleID))
+
+        harness.dependencies.dismissSettings(using: appState)
+
+        #expect(appState.isPresentingSettingsScreen == false)
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .article(articleID))
     }
 
     @Test

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ScreenLoadingView: View {
+    @Environment(\.appThemeVariant) private var appThemeVariant
     let title: String
 
     var body: some View {
@@ -13,10 +14,12 @@ struct ScreenLoadingView: View {
                 .foregroundStyle(.primary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(appThemeVariant.primaryBackground)
     }
 }
 
 struct ScreenPlaceholderView: View {
+    @Environment(\.appThemeVariant) private var appThemeVariant
     let title: String
     let systemImage: String
     let description: String?
@@ -62,5 +65,6 @@ struct ScreenPlaceholderView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(24)
+        .background(appThemeVariant.primaryBackground)
     }
 }

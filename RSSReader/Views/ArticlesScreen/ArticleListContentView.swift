@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ArticleListContentView: View {
+    @Environment(\.appThemeVariant) private var appThemeVariant
     let sections: [ArticlesDaySection]
     @Binding var selection: UUID?
     let refreshAction: @MainActor () async -> Void
@@ -9,7 +10,7 @@ struct ArticleListContentView: View {
 
     var body: some View {
         ZStack {
-            Color(uiColor: .systemBackground)
+            appThemeVariant.primaryBackground
                 .ignoresSafeArea()
 
             List(selection: $selection) {

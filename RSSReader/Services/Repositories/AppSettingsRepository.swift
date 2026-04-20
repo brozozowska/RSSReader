@@ -3,12 +3,15 @@ import SwiftData
 
 struct AppSettingsUpdate: Sendable {
     var defaultReaderMode: ReaderMode? = nil
-    var showUnreadOnly: Bool? = nil
     var selectedSourcesFilterRawValue: String? = nil
     var refreshIntervalPreference: RefreshPreference? = nil
     var useiCloudSync: Bool? = nil
     var markAsReadOnOpen: Bool? = nil
+    var askBeforeMarkingAllAsRead: Bool? = nil
     var sortMode: ArticleSortMode? = nil
+    var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
+    var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
+    var interfaceThemeMode: InterfaceThemeMode? = nil
     var updatedAt: Date = .now
 }
 
@@ -59,10 +62,6 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
             settings.defaultReaderMode = defaultReaderMode
         }
 
-        if let showUnreadOnly = update.showUnreadOnly {
-            settings.showUnreadOnly = showUnreadOnly
-        }
-
         if let selectedSourcesFilterRawValue = update.selectedSourcesFilterRawValue {
             settings.selectedSourcesFilterRawValue = selectedSourcesFilterRawValue
         }
@@ -79,8 +78,24 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
             settings.markAsReadOnOpen = markAsReadOnOpen
         }
 
+        if let askBeforeMarkingAllAsRead = update.askBeforeMarkingAllAsRead {
+            settings.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
+        }
+
         if let sortMode = update.sortMode {
             settings.sortMode = sortMode
+        }
+
+        if let articleBodyLinkOpeningPolicy = update.articleBodyLinkOpeningPolicy {
+            settings.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
+        }
+
+        if let articleSourceLinkOpeningPolicy = update.articleSourceLinkOpeningPolicy {
+            settings.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
+        }
+
+        if let interfaceThemeMode = update.interfaceThemeMode {
+            settings.interfaceThemeMode = interfaceThemeMode
         }
 
         settings.updatedAt = update.updatedAt

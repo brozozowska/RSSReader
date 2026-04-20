@@ -97,18 +97,18 @@ struct ArticleScreenBottomActionsState: Equatable {
     let readToggleSystemImage: String
     let starTitle: String
     let starSystemImage: String
-    let openInAppBrowserTitle: String
-    let openInAppBrowserSystemImage: String
-    let canOpenInAppBrowser: Bool
+    let openSourceArticleTitle: String
+    let openSourceArticleSystemImage: String
+    let canOpenSourceArticle: Bool
 
     init(article: ReaderArticleDTO) {
         self.readToggleTitle = article.isRead ? "Mark Unread" : "Mark Read"
         self.readToggleSystemImage = article.isRead ? "circle.slash" : "circle"
         self.starTitle = article.isStarred ? "Unstar" : "Star"
         self.starSystemImage = article.isStarred ? "star.slash" : "star"
-        self.openInAppBrowserTitle = "Open in App-Browser"
-        self.openInAppBrowserSystemImage = "safari"
-        self.canOpenInAppBrowser = ArticleScreenURLResolver.resolveExternalURL(
+        self.openSourceArticleTitle = "Open Source Article"
+        self.openSourceArticleSystemImage = "safari"
+        self.canOpenSourceArticle = ArticleScreenURLResolver.resolveExternalURL(
             canonicalURL: article.canonicalURL,
             articleURL: article.articleURL
         ) != nil
@@ -178,6 +178,10 @@ enum ArticleScreenURLResolver {
         }
 
         return validatedExternalURL(from: articleURL)
+    }
+
+    static func resolveArticleBodyLinkURL(rawValue: String, baseURLString: String?) -> URL? {
+        resolveMediaURL(rawValue: rawValue, baseURLString: baseURLString)
     }
 
     static func resolveMediaURL(rawValue: String, baseURLString: String?) -> URL? {

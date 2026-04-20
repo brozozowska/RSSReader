@@ -19,6 +19,7 @@ enum WebViewScreenNavigationState {
 
 struct WebViewScreenView: View {
     @Environment(\.openURL) private var openURL
+    @Environment(\.appThemeVariant) private var appThemeVariant
 
     let route: ArticleWebViewRoute
     let closeWebView: () -> Void
@@ -49,7 +50,7 @@ struct WebViewScreenView: View {
             overlaySurface(viewState)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemBackground))
+        .background(appThemeVariant.primaryBackground)
         .ignoresSafeArea(edges: [.top, .bottom])
         .toolbarTitleDisplayMode(.inline)
         .navigationTitle(viewState.navigationTitle)
@@ -194,12 +195,13 @@ private struct WebViewScreenOpenExternalBrowserButton: View {
 // MARK: - Preview Surface
 
 private struct WebViewScreenPreviewSurface: View {
+    @Environment(\.appThemeVariant) private var appThemeVariant
     let url: URL
 
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [.white, Color(.systemGray6)],
+                colors: appThemeVariant.previewGradientColors,
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -212,21 +214,21 @@ private struct WebViewScreenPreviewSurface: View {
                     .lineLimit(1)
 
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(.systemGray5))
+                    .fill(appThemeVariant.tertiaryBackground)
                     .frame(height: 18)
 
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(.systemGray5))
+                    .fill(appThemeVariant.tertiaryBackground)
                     .frame(height: 18)
                     .frame(maxWidth: 240)
 
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color(.systemGray6))
+                    .fill(appThemeVariant.secondaryBackground)
                     .frame(height: 220)
 
                 ForEach(0..<4, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color(.systemGray5))
+                        .fill(appThemeVariant.tertiaryBackground)
                         .frame(height: 14)
                         .frame(maxWidth: index == 3 ? 220 : .infinity)
                 }

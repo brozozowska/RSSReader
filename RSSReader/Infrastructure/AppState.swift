@@ -63,6 +63,9 @@ struct ReadingNavigationState: Hashable, Sendable {
 public final class AppState {
     var readingNavigation = ReadingNavigationState()
     var selectedSourcesFilter: SourcesFilter = .allItems
+    var interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
+    var iCloudSyncStatus: ICloudSyncStatus = .disabled
+    var isPresentingSettingsScreen = false
     var articleListReloadID = UUID()
     var sourcesSidebarReloadID = UUID()
 
@@ -111,8 +114,24 @@ public final class AppState {
         readingNavigation.dismissWebView()
     }
 
+    func presentSettingsScreen() {
+        isPresentingSettingsScreen = true
+    }
+
+    func dismissSettingsScreen() {
+        isPresentingSettingsScreen = false
+    }
+
     func selectSourcesFilter(_ filter: SourcesFilter) {
         selectedSourcesFilter = filter
+    }
+
+    func applyInterfaceThemeMode(_ mode: InterfaceThemeMode) {
+        interfaceThemeMode = mode
+    }
+
+    func applyICloudSyncStatus(_ status: ICloudSyncStatus) {
+        iCloudSyncStatus = status
     }
 
     func requestArticleListReload() {

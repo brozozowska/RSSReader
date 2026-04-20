@@ -3,10 +3,15 @@ import SwiftUI
 struct RootView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appDependencies) private var dependencies
+    @Environment(\.colorScheme) private var systemColorScheme
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var preferredCompactColumn: NavigationSplitViewColumn = .sidebar
 
     var body: some View {
+        let themeApplicationPolicy = AppThemeApplicationPolicy(
+            interfaceThemeMode: appState.interfaceThemeMode,
+            systemColorScheme: systemColorScheme
+        )
         let detailDestination = ReadingShellDetailNavigationState.detailDestination(
             route: appState.selectedDetailRoute,
             selectedArticleID: appState.selectedArticleID
@@ -63,6 +68,14 @@ struct RootView: View {
                 )
             }
         }
+        .sheet(isPresented: settingsPresentationBinding) {
+            SettingsScreenView(
+                dismiss: { dependencies.dismissSettings(using: appState) }
+            )
+        }
+        .preferredColorScheme(themeApplicationPolicy.preferredColorScheme)
+        .environment(\.appThemeVariant, themeApplicationPolicy.resolvedTheme)
+        .background(themeApplicationPolicy.resolvedTheme.primaryBackground.ignoresSafeArea())
         .onAppear(perform: syncPreferredCompactColumn)
         .onChange(of: appState.selectedSidebarSelection) { _, _ in
             syncPreferredCompactColumn()
@@ -70,6 +83,19 @@ struct RootView: View {
         .onChange(of: appState.selectedArticleID) { _, _ in
             syncPreferredCompactColumn()
         }
+    }
+
+    private var settingsPresentationBinding: Binding<Bool> {
+        Binding(
+            get: { appState.isPresentingSettingsScreen },
+            set: { isPresented in
+                if isPresented {
+                    appState.presentSettingsScreen()
+                } else {
+                    appState.dismissSettingsScreen()
+                }
+            }
+        )
     }
 
     private func syncPreferredCompactColumn() {

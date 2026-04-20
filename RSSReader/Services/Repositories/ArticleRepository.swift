@@ -260,11 +260,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
                 SortDescriptor(\Article.publishedAt, order: .forward),
                 SortDescriptor(\Article.fetchedAt, order: .forward)
             ]
-        case .fetchedAtDescending:
-            [
-                SortDescriptor(\Article.fetchedAt, order: .reverse),
-                SortDescriptor(\Article.createdAt, order: .reverse)
-            ]
         }
     }
 }

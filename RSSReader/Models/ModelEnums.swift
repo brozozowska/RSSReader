@@ -23,5 +23,45 @@ enum RefreshPreference: String, Codable, CaseIterable, Sendable {
 enum ArticleSortMode: String, Codable, CaseIterable, Sendable {
     case publishedAtDescending
     case publishedAtAscending
-    case fetchedAtDescending
+}
+
+enum ArticleListSortOrder: String, CaseIterable, Sendable {
+    case newestFirst
+    case oldestFirst
+
+    init(sortMode: ArticleSortMode) {
+        switch sortMode {
+        case .publishedAtDescending:
+            self = .newestFirst
+        case .publishedAtAscending:
+            self = .oldestFirst
+        }
+    }
+
+    var sortMode: ArticleSortMode {
+        switch self {
+        case .newestFirst:
+            .publishedAtDescending
+        case .oldestFirst:
+            .publishedAtAscending
+        }
+    }
+}
+
+enum ArticleBodyLinkOpeningPolicy: String, Codable, CaseIterable, Sendable {
+    case inAppBrowser
+    case externalBrowser
+}
+
+enum ArticleSourceLinkOpeningPolicy: String, Codable, CaseIterable, Sendable {
+    case inAppBrowser
+    case externalBrowser
+}
+
+enum InterfaceThemeMode: String, Codable, CaseIterable, Sendable {
+    case automaticLightDark
+    case automaticLightBlack
+    case light
+    case dark
+    case black
 }
