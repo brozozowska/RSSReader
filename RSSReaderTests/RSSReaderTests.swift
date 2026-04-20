@@ -2943,6 +2943,13 @@ struct RSSReaderTests {
     }
 
     @Test
+    func appDependenciesExposeSourceManagementServiceWhenSwiftDataIsAvailable() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+
+        #expect(harness.dependencies.sourceManagementService != nil)
+    }
+
+    @Test
     func folderRepositoryPersistsInsertedFoldersAndReturnsSortedList() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.folderRepository)
@@ -2957,6 +2964,118 @@ struct RSSReaderTests {
         #expect(folders.map(\.name) == ["News", "Tech", "Archive"])
         #expect(folders.map(\.sortOrder) == [0, 1, 2])
         #expect(techFolder?.sortOrder == 1)
+    }
+
+    @Test
+    func sourceManagementServicePreviewsFeedMetadataThroughFetcherAndParser() async throws {
+        let feedURL = "https://example.com/source-management-preview.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Preview Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Preview Article",
+                            itemLink: "https://example.com/articles/preview",
+                            itemGUID: "preview-article",
+                            itemDescription: "Preview description",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+        let service = try #require(harness.dependencies.sourceManagementService)
+
+        let preview = try await service.previewFeed(urlString: feedURL)
+
+        #expect(preview.requestedURL == feedURL)
+        #expect(preview.resolvedFeedURL == feedURL)
+        #expect(preview.title == "Preview Feed")
+        #expect(preview.siteURL == "https://example.com/")
+        #expect(preview.kind == .rss)
+        #expect(preview.existingFeedID == nil)
+        #expect(preview.rejectedEntryCount == 0)
+    }
+
+    @Test
+    func sourceManagementServiceCreatesFolderWithNextSortOrder() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let service = try #require(harness.dependencies.sourceManagementService)
+
+        let firstFolder = try service.createFolder(
+            SourceManagementCreateFolderCommand(name: "News")
+        )
+        let secondFolder = try service.createFolder(
+            SourceManagementCreateFolderCommand(name: "Tech")
+        )
+
+        let folders = try harness.folderRepository.fetchAllFolders()
+
+        #expect(firstFolder.sortOrder == 0)
+        #expect(secondFolder.sortOrder == 1)
+        #expect(folders.map(\.name) == ["News", "Tech"])
+        #expect(folders.map(\.sortOrder) == [0, 1])
+    }
+
+    @Test
+    func sourceManagementServiceCreatesAndMovesFeedWithoutScreenLevelPersistenceAccess() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let service = try #require(harness.dependencies.sourceManagementService)
+        let techFolder = try service.createFolder(SourceManagementCreateFolderCommand(name: "Tech"))
+        let newsFolder = try service.createFolder(SourceManagementCreateFolderCommand(name: "News"))
+        let preview = SourceManagementFeedPreview(
+            requestedURL: "https://example.com/feed.xml",
+            resolvedFeedURL: "https://example.com/feed.xml",
+            title: "Example Feed",
+            subtitle: "Source management preview",
+            siteURL: "https://example.com/",
+            iconURL: "https://example.com/icon.png",
+            language: "en",
+            kind: .rss,
+            parserAnomalyCount: 0,
+            rejectedEntryCount: 0,
+            existingFeedID: nil
+        )
+
+        let createdFeed = try service.createFeed(
+            SourceManagementCreateFeedCommand(
+                preview: preview,
+                folderPlacement: .folder(techFolder.id)
+            )
+        )
+        let createdPersistedFeed = try harness.feedRepository.fetchFeed(id: createdFeed.id)
+        var persistedFeed = try #require(createdPersistedFeed)
+        #expect(persistedFeed.folder?.name == "Tech")
+
+        let movedFeed = try service.moveFeed(
+            SourceManagementMoveFeedCommand(
+                feedID: createdFeed.id,
+                folderPlacement: .folder(newsFolder.id)
+            )
+        )
+        #expect(movedFeed.folderName == "News")
+
+        let movedPersistedFeed = try harness.feedRepository.fetchFeed(id: createdFeed.id)
+        persistedFeed = try #require(movedPersistedFeed)
+        #expect(persistedFeed.folder?.name == "News")
+
+        let ungroupedFeed = try service.moveFeed(
+            SourceManagementMoveFeedCommand(
+                feedID: createdFeed.id,
+                folderPlacement: .ungrouped
+            )
+        )
+        #expect(ungroupedFeed.folderID == nil)
+        #expect(ungroupedFeed.folderName == nil)
+
+        let ungroupedPersistedFeed = try harness.feedRepository.fetchFeed(id: createdFeed.id)
+        persistedFeed = try #require(ungroupedPersistedFeed)
+        #expect(persistedFeed.folder == nil)
     }
 
     @Test
