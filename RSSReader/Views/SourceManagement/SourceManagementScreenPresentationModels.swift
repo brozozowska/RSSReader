@@ -135,6 +135,8 @@ struct SourceManagementCreateFolderPresentation: Hashable, Sendable {
     let namePrompt: String
     let validationMessage: String?
     let existingFolders: [SourceManagementCreateFolderExistingFolderPresentation]
+    let emptyStateTitle: String?
+    let emptyStateDescription: String?
     let placementDescription: String
     let primaryActionTitle: String
     let isPrimaryActionEnabled: Bool

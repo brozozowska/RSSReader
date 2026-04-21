@@ -151,7 +151,10 @@ struct SourceManagementScreenView: View {
                 controller.handleMoveSourcePlacementSelection(placement)
             },
             submitMoveSource: {
-                controller.submitMoveSource(dependencies: dependencies)
+                controller.submitMoveSource(
+                    dependencies: dependencies,
+                    appState: appState
+                )
             }
         )
     }
@@ -518,13 +521,20 @@ private struct SourceManagementCreateFolderView: View {
                 Text("Sidebar Placement")
             }
 
-            if let feedback = presentation.feedback {
+            if let emptyStateTitle = presentation.emptyStateTitle,
+               let emptyStateDescription = presentation.emptyStateDescription {
                 Section {
-                    SourceManagementCreateFolderFeedbackCard(feedback: feedback)
-                }
-            }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(emptyStateTitle)
+                            .font(.body.weight(.semibold))
 
-            if presentation.existingFolders.isEmpty == false {
+                        Text(emptyStateDescription)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            } else if presentation.existingFolders.isEmpty == false {
                 Section("Existing Folders") {
                     ForEach(presentation.existingFolders) { folder in
                         HStack(alignment: .firstTextBaseline) {
@@ -544,6 +554,12 @@ private struct SourceManagementCreateFolderView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                }
+            }
+
+            if let feedback = presentation.feedback {
+                Section {
+                    SourceManagementCreateFolderFeedbackCard(feedback: feedback)
                 }
             }
         }
@@ -700,8 +716,8 @@ private struct SourceManagementCreateFolderFeedbackCard: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: feedback.kind == .success ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                .foregroundStyle(feedback.kind == .success ? .green : .orange)
+            Image(systemName: feedback.kind == .success ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                .foregroundStyle(feedback.kind == .success ? .green : .red)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(feedback.title)

@@ -135,8 +135,8 @@ struct SourceManagementScreenState {
         refreshPresentedDestination()
     }
 
-    mutating func applyCreateFolderServiceUnavailable(message: String) {
-        createFolderState.applyServiceUnavailable(message: message)
+    mutating func applyCreateFolderServiceUnavailable(title: String, message: String) {
+        createFolderState.applyServiceUnavailable(title: title, message: message)
         refreshPresentedDestination()
     }
 
@@ -231,6 +231,10 @@ struct SourceManagementScreenState {
 
     func moveSourceCommand() -> SourceManagementMoveFeedCommand? {
         moveSourceState.moveCommand()
+    }
+
+    func selectedMoveSourceFeed() -> SourceManagementFeedSummary? {
+        moveSourceState.selectedFeed()
     }
 
     func derivedViewState() -> SourceManagementScreenViewState {
@@ -919,7 +923,7 @@ struct SourceManagementMoveSourceState {
         return "Choose where \(selectedFeedTitle) should live after the move completes."
     }
 
-    private func selectedFeed() -> SourceManagementFeedSummary? {
+    func selectedFeed() -> SourceManagementFeedSummary? {
         guard let selectedFeedID else { return nil }
         return feeds.first(where: { $0.id == selectedFeedID })
     }
@@ -1021,13 +1025,13 @@ struct SourceManagementCreateFolderState {
         editingFolder = nil
     }
 
-    mutating func applyServiceUnavailable(message: String) {
+    mutating func applyServiceUnavailable(title: String, message: String) {
         existingFolders = []
         isServiceAvailable = false
         isSubmitting = false
         feedback = SourceManagementCreateFolderFeedbackPresentation(
             kind: .failure,
-            title: "Folder creation is unavailable",
+            title: title,
             detail: message
         )
     }
@@ -1076,7 +1080,7 @@ struct SourceManagementCreateFolderState {
             title: wasEditing ? "Folder updated" : "Folder created",
             detail: wasEditing
                 ? "\"\(folder.name)\" keeps sidebar position #\(folder.sortOrder + 1)."
-                : "\"\(folder.name)\" will appear as sidebar folder #\(folder.sortOrder + 1)."
+                : "\"\(folder.name)\" now appears as sidebar folder #\(folder.sortOrder + 1)."
         )
     }
 
@@ -1111,9 +1115,13 @@ struct SourceManagementCreateFolderState {
             namePrompt: "Folder Name",
             validationMessage: validationMessage,
             existingFolders: existingFolderPresentations,
+            emptyStateTitle: existingFolders.isEmpty ? "No folders yet" : nil,
+            emptyStateDescription: existingFolders.isEmpty
+                ? "Create the first folder and it will appear in the sidebar as soon as the save step finishes."
+                : nil,
             placementDescription: placementDescription(for: nextSortOrder),
             primaryActionTitle: isSubmitting
-                ? (isEditing ? "Saving..." : "Creating...")
+                ? (isEditing ? "Saving Folder..." : "Creating Folder...")
                 : (isEditing ? "Save Folder" : "Create Folder"),
             isPrimaryActionEnabled: isServiceAvailable && validationMessage == nil && isSubmitting == false,
             isSubmitting: isSubmitting,
@@ -1157,9 +1165,9 @@ struct SourceManagementCreateFolderState {
         }
 
         if existingFolders.isEmpty {
-            return "This will become the first sidebar folder."
+            return "This folder will become the first sidebar group."
         }
 
-        return "The next compatible sidebar position is #\(sortOrder + 1), after \(existingFolders.count) existing folder(s)."
+        return "The next compatible sidebar position is #\(sortOrder + 1), after \(existingFolders.count) existing folders."
     }
 }

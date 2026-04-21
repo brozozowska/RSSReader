@@ -306,7 +306,10 @@
 - [x] реализовать сохранение нового feed после подтверждения preview: источник должен создаваться в persistence с нормализованным URL, стартовыми metadata из preview и выбранной целевой папкой либо `ungrouped` placement;
 - [x] организовать первый refresh после добавления feed, чтобы после сохранения источник проходил через существующий refresh pipeline, загружал статьи и обновлял `Sidebar` / `Articles` без ручного перезапуска приложения;
 - [x] определить source-level actions в `Sidebar`: нужен явный UX для запуска edit / move flow над существующим feed, чтобы редактирование или перемещение между папками происходило из списка источников, а не требовало повторного add-source сценария;
-- [ ] провести consistency pass для `Source Management` UX: выровнять loading / success / error / empty states, copy для create/move flows и app-level reload behavior после создания папки, добавления feed или перемещения источника.
+- [x] провести consistency pass для `Source Management` UX: выровнять loading / success / error / empty states, copy для create/edit/move flows и app-level reload behavior после создания папки, добавления feed или перемещения источника;
+- [ ] довести app-level completion behavior для `Source Management`: после `create folder`, `move source`, `edit feed`, `edit folder`, `unsubscribe` и `delete folder` должны быть явно определены reload `Sidebar` / `Articles`, retarget текущего selection и правила закрытия modal flow;
+- [ ] добавить shell-level regression tests для `Source Management`: нужны отдельные проверки на reload / selection / dismiss behavior после create / move / edit / delete операций, чтобы app-level orchestration не расходился с screen-level success state;
+- [ ] расширить preview / dev fixtures для `Source Management`: обновить `RootViewPreviewData` и `SourceManagementScreenPreviewData`, чтобы можно было вручную проверять create / edit / move flows, видимость новых папок и post-action состояние без живого сценария в приложении;
 - [ ] провести cleanup / refactor `Source Management` flow после реализации основных сценариев: убрать временные ветки и дублирование orchestration-кода, выровнять screen contract и вынести повторяющиеся helpers из controller/presentation слоя.
 
 ### Sync

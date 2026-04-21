@@ -5113,6 +5113,39 @@ struct RSSReaderTests {
     }
 
     @Test
+    func sourceManagementScreenControllerMovesFeedDismissesModalAndReloadsAffectedSelectionInAppFlow() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let newsFolder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
+        let techFolder = try harness.folderRepository.insert(Folder(name: "Tech", sortOrder: 1))
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: "https://example.com/app-move.xml",
+                title: "App Move",
+                kind: .rss,
+                folder: newsFolder
+            )
+        )
+        let controller = SourceManagementScreenController()
+        let appState = AppState()
+
+        harness.dependencies.showFolder(named: "News", using: appState)
+        let articleReloadIDBeforeMove = appState.articleListReloadID
+        let sidebarReloadIDBeforeMove = appState.sourcesSidebarReloadID
+
+        harness.dependencies.showSourceManagement(using: appState)
+        controller.handleScenarioSelection(.moveSource, dependencies: harness.dependencies)
+        controller.handleMoveSourcePlacementSelection(.folder(techFolder.id))
+        controller.submitMoveSource(dependencies: harness.dependencies, appState: appState)
+
+        let persistedFeed = try harness.feedRepository.fetchFeed(id: feed.id)
+
+        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeMove)
+        #expect(appState.articleListReloadID != articleReloadIDBeforeMove)
+        #expect(persistedFeed?.folder?.id == techFolder.id)
+    }
+
+    @Test
     func sourceManagementScreenControllerReturnsToAddFeedWithNewFolderSelectedAfterInlineFolderCreation() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         _ = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
@@ -5184,6 +5217,35 @@ struct RSSReaderTests {
         let folders = try harness.folderRepository.fetchAllFolders()
         #expect(folders.map(\.name) == ["News", "Research"])
         #expect(folders.map(\.sortOrder) == [0, 1])
+    }
+
+    @Test
+    func sourceManagementScreenControllerCreatesFolderRequestsSidebarReloadInAppFlow() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let controller = SourceManagementScreenController()
+        let appState = AppState()
+        let sidebarReloadIDBeforeCreation = appState.sourcesSidebarReloadID
+        let articleReloadIDBeforeCreation = appState.articleListReloadID
+
+        harness.dependencies.showSourceManagement(using: appState)
+        controller.handleScenarioSelection(.createFolder, dependencies: harness.dependencies)
+        controller.handleCreateFolderNameChange("Research")
+        controller.submitCreateFolder(
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+
+        guard case .createFolder(let createdDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected create-folder destination presentation after app-level creation")
+            return
+        }
+
+        #expect(appState.isPresentingSourceManagementScreen)
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCreation)
+        #expect(appState.articleListReloadID == articleReloadIDBeforeCreation)
+        #expect(createdDestination.feedback?.title == "Folder created")
+        #expect(createdDestination.feedback?.detail?.contains("now appears") == true)
+        #expect(try harness.folderRepository.fetchFolder(name: "Research") != nil)
     }
 
     @Test

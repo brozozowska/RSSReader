@@ -199,7 +199,10 @@ final class SourceManagementScreenController {
         screenState.selectMoveSourcePlacement(placement)
     }
 
-    func submitMoveSource(dependencies: AppDependencies) {
+    func submitMoveSource(
+        dependencies: AppDependencies,
+        appState: AppState? = nil
+    ) {
         guard let sourceManagementService = dependencies.sourceManagementService else {
             let unavailableMessage = "Source management service is unavailable for source moves."
             dependencies.logger.error(unavailableMessage)
@@ -219,8 +222,17 @@ final class SourceManagementScreenController {
         screenState.beginMoveSourceSubmission()
 
         do {
+            let previousFeed = screenState.selectedMoveSourceFeed()
             let movedFeed = try sourceManagementService.moveFeed(moveCommand)
             screenState.applyMovedSource(movedFeed)
+            if let appState {
+                dependencies.finishMovingSource(
+                    feedID: movedFeed.id,
+                    previousFolderName: previousFeed?.folderName,
+                    updatedFolderName: movedFeed.folderName,
+                    using: appState
+                )
+            }
         } catch let error as SourceManagementServiceError {
             dependencies.logger.error("Failed to move source through source management flow: \(error)")
             screenState.applyMoveSourceFailure(moveSourceErrorMessage(error))
@@ -245,7 +257,12 @@ final class SourceManagementScreenController {
             let unavailableMessage = "Source management service is unavailable for folder creation."
             dependencies.logger.error(unavailableMessage)
             screenState.applyCreateFolderServiceUnavailable(
-                message: "Folder creation is unavailable in the current app environment."
+                title: screenState.isEditingCreateFolder()
+                    ? "Folder editing is unavailable"
+                    : "Folder creation is unavailable",
+                message: screenState.isEditingCreateFolder()
+                    ? "Folder editing is unavailable in the current app environment."
+                    : "Folder creation is unavailable in the current app environment."
             )
             return
         }
@@ -285,6 +302,9 @@ final class SourceManagementScreenController {
                 )
             )
             screenState.applyCreatedFolder(folder)
+            if let appState {
+                dependencies.finishCreatingFolder(named: folder.name, using: appState)
+            }
             if scenarioToRestoreAfterCreateFolder == .addFeed {
                 let folders = try sourceManagementService.fetchFolders()
                 screenState.applyAddFeedFolderContext(folders: folders)
@@ -349,7 +369,10 @@ private extension SourceManagementScreenController {
         guard let sourceManagementService = dependencies.sourceManagementService else {
             let unavailableMessage = "Folder creation is unavailable in the current app environment."
             dependencies.logger.error("Skipped create-folder context loading because source management service is unavailable")
-            screenState.applyCreateFolderServiceUnavailable(message: unavailableMessage)
+            screenState.applyCreateFolderServiceUnavailable(
+                title: "Folder creation is unavailable",
+                message: unavailableMessage
+            )
             return
         }
 
@@ -370,7 +393,10 @@ private extension SourceManagementScreenController {
         guard let sourceManagementService = dependencies.sourceManagementService else {
             let unavailableMessage = "Folder editing is unavailable in the current app environment."
             dependencies.logger.error("Skipped folder editor context loading because source management service is unavailable")
-            screenState.applyCreateFolderServiceUnavailable(message: unavailableMessage)
+            screenState.applyCreateFolderServiceUnavailable(
+                title: "Folder editing is unavailable",
+                message: unavailableMessage
+            )
             return
         }
 

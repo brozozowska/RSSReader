@@ -316,6 +316,37 @@ extension AppDependencies {
     }
 
     @MainActor
+    func finishCreatingFolder(named folderName: String, using appState: AppState) {
+        logger.info("Finished source management folder creation for \(folderName)")
+        appState.requestSourcesSidebarReload()
+    }
+
+    @MainActor
+    func finishMovingSource(
+        feedID: UUID,
+        previousFolderName: String?,
+        updatedFolderName: String?,
+        using appState: AppState
+    ) {
+        appState.requestSourcesSidebarReload()
+
+        switch appState.selectedSidebarSelection {
+        case .feed(let selectedFeedID):
+            if selectedFeedID == feedID {
+                appState.requestArticleListReload()
+            }
+        case .folder(let folderName):
+            if folderName == previousFolderName || folderName == updatedFolderName {
+                appState.requestArticleListReload()
+            }
+        case .inbox, .unread, .starred, .none:
+            break
+        }
+
+        dismissSourceManagement(using: appState)
+    }
+
+    @MainActor
     func unsubscribeFeed(id feedID: UUID, using appState: AppState) {
         guard let sourceManagementService else {
             logger.error("Source management service is unavailable for feed deletion")

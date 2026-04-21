@@ -145,7 +145,7 @@ import SwiftUI
             feedback: SourceManagementCreateFolderFeedbackPresentation(
                 kind: .success,
                 title: "Folder created",
-                detail: "\"Research\" will appear as sidebar folder #3."
+                detail: "\"Research\" now appears as sidebar folder #3."
             )
         )
     )
