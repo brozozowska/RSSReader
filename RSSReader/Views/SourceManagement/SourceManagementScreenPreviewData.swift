@@ -12,6 +12,21 @@ import SwiftUI
     )
 }
 
+#Preview("Source Management Screen · Add Feed") {
+    SourceManagementScreenPreviewContainer(
+        screenState: .previewAddFeed(urlInput: " https://example.com/feed.xml ")
+    )
+}
+
+#Preview("Source Management Screen · Add Feed Ready") {
+    SourceManagementScreenPreviewContainer(
+        screenState: .previewAddFeed(
+            urlInput: "https://example.com/feed.xml",
+            preparedPreviewURL: "https://example.com/feed.xml"
+        )
+    )
+}
+
 #Preview("Source Management Screen · Create Folder") {
     SourceManagementScreenPreviewContainer(
         screenState: .previewCreateFolder(nameInput: "Research")

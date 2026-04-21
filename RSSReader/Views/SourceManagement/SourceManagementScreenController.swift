@@ -21,12 +21,14 @@ final class SourceManagementScreenController {
         dependencies: AppDependencies? = nil
     ) {
         switch scenarioID {
+        case .addFeed:
+            screenState.presentScenario(.addFeed)
         case .createFolder:
             if let dependencies {
                 loadCreateFolderContext(dependencies: dependencies)
             }
             screenState.presentScenario(.createFolder)
-        case .addFeed, .moveSource:
+        case .moveSource:
             screenState.presentScenario(scenarioID)
         }
     }
@@ -37,6 +39,15 @@ final class SourceManagementScreenController {
 
     func handleCreateFolderNameChange(_ value: String) {
         screenState.updateCreateFolderNameInput(value)
+    }
+
+    func handleAddFeedURLChange(_ value: String) {
+        screenState.updateAddFeedURLInput(value)
+    }
+
+    func prepareAddFeedPreview() {
+        guard screenState.addFeedValidationMessage() == nil else { return }
+        screenState.prepareAddFeedPreview()
     }
 
     func submitCreateFolder(dependencies: AppDependencies) {

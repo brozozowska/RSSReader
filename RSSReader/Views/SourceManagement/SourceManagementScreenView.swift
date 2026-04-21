@@ -4,6 +4,8 @@ struct SourceManagementScreenActionHandlers {
     let dismiss: () -> Void
     let selectScenario: (SourceManagementScenarioID) -> Void
     let dismissPresentedScenario: () -> Void
+    let updateAddFeedURL: (String) -> Void
+    let prepareAddFeedPreview: () -> Void
     let updateCreateFolderName: (String) -> Void
     let submitCreateFolder: () -> Void
 }
@@ -64,6 +66,12 @@ struct SourceManagementScreenView: View {
             }
             .navigationDestination(item: presentedDestinationBinding) { destination in
                 switch destination {
+                case .addFeed(let addFeed):
+                    SourceManagementAddFeedView(
+                        presentation: addFeed,
+                        urlBinding: addFeedURLBinding,
+                        preparePreview: actionHandlers.prepareAddFeedPreview
+                    )
                 case .placeholder(let placeholder):
                     SourceManagementScenarioPlaceholderView(destination: placeholder)
                 case .createFolder(let createFolder):
@@ -89,6 +97,12 @@ struct SourceManagementScreenView: View {
             dismissPresentedScenario: {
                 controller.dismissPresentedScenario()
             },
+            updateAddFeedURL: { value in
+                controller.handleAddFeedURLChange(value)
+            },
+            prepareAddFeedPreview: {
+                controller.prepareAddFeedPreview()
+            },
             updateCreateFolderName: { value in
                 controller.handleCreateFolderNameChange(value)
             },
@@ -111,14 +125,30 @@ struct SourceManagementScreenView: View {
         )
     }
 
+    private var addFeedURLBinding: Binding<String> {
+        Binding(
+            get: {
+                switch controller.viewState().presentedDestination {
+                case .addFeed(let presentation):
+                    return presentation.urlInput
+                case .placeholder, .createFolder, .none:
+                    return ""
+                }
+            },
+            set: { value in
+                actionHandlers.updateAddFeedURL(value)
+            }
+        )
+    }
+
     private var createFolderNameBinding: Binding<String> {
         Binding(
             get: {
                 switch controller.viewState().presentedDestination {
+                case .addFeed, .placeholder, .none:
+                    return ""
                 case .createFolder(let presentation):
                     return presentation.nameInput
-                case .placeholder, .none:
-                    return ""
                 }
             },
             set: { value in
@@ -178,6 +208,98 @@ private struct SourceManagementScreenItemCard: View {
             }
         }
         .padding(.vertical, 6)
+    }
+}
+
+private struct SourceManagementAddFeedView: View {
+    @Environment(\.appThemeVariant) private var appThemeVariant
+    let presentation: SourceManagementAddFeedPresentation
+    let urlBinding: Binding<String>
+    let preparePreview: () -> Void
+
+    var body: some View {
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(presentation.summaryTitle)
+                        .font(.headline)
+
+                    Text(presentation.summaryDescription)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
+
+            Section {
+                TextField(
+                    presentation.urlPrompt,
+                    text: urlBinding,
+                    prompt: Text("https://example.com/feed.xml")
+                )
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+                .textContentType(.URL)
+                .submitLabel(.done)
+                .onSubmit(preparePreview)
+
+                if let validationMessage = presentation.validationMessage {
+                    Text(validationMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                }
+            } header: {
+                Text("Feed URL")
+            } footer: {
+                Text("The URL is validated locally before any network preview starts.")
+            }
+
+            if let normalizedURL = presentation.normalizedURL {
+                Section("Normalized URL") {
+                    Text(normalizedURL)
+                        .textSelection(.enabled)
+                }
+            }
+
+            if let preparedPreview = presentation.preparedPreview {
+                Section {
+                    SourceManagementPreparedPreviewCard(preparedPreview: preparedPreview)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(appThemeVariant.primaryBackground)
+        .navigationTitle(presentation.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(presentation.primaryActionTitle, action: preparePreview)
+                    .disabled(presentation.isPrimaryActionEnabled == false)
+            }
+        }
+    }
+}
+
+private struct SourceManagementPreparedPreviewCard: View {
+    let preparedPreview: SourceManagementAddFeedPreparedPreviewPresentation
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(preparedPreview.title, systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+                .font(.body.weight(.semibold))
+
+            Text(preparedPreview.detail)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            Text(preparedPreview.normalizedURL)
+                .font(.footnote.monospaced())
+                .textSelection(.enabled)
+        }
+        .padding(.vertical, 4)
     }
 }
 

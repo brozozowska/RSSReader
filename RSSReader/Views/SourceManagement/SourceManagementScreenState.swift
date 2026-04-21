@@ -4,13 +4,16 @@ struct SourceManagementScreenState {
     private(set) var summary = SourceManagementScreenPresentationBuilder.buildSummary()
     private(set) var sections = SourceManagementScreenPresentationBuilder.buildSections()
     private(set) var presentedDestination: SourceManagementScreenDestinationPresentation? = nil
+    private(set) var addFeedState = SourceManagementAddFeedState()
     private(set) var createFolderState = SourceManagementCreateFolderState()
 
     mutating func presentScenario(_ scenarioID: SourceManagementScenarioID) {
         switch scenarioID {
+        case .addFeed:
+            presentedDestination = .addFeed(addFeedState.derivedPresentation())
         case .createFolder:
             presentedDestination = .createFolder(createFolderState.derivedPresentation())
-        case .addFeed, .moveSource:
+        case .moveSource:
             presentedDestination = .placeholder(
                 SourceManagementScreenPresentationBuilder.buildDestination(for: scenarioID)
             )
@@ -19,6 +22,20 @@ struct SourceManagementScreenState {
 
     mutating func dismissPresentedScenario() {
         presentedDestination = nil
+    }
+
+    mutating func updateAddFeedURLInput(_ value: String) {
+        addFeedState.updateURLInput(value)
+        refreshPresentedDestination()
+    }
+
+    mutating func prepareAddFeedPreview() {
+        addFeedState.preparePreviewRequest()
+        refreshPresentedDestination()
+    }
+
+    func addFeedValidationMessage() -> String? {
+        addFeedState.validationMessage()
     }
 
     mutating func applyCreateFolderContext(
@@ -83,6 +100,19 @@ struct SourceManagementScreenState {
         return state
     }
 
+    static func previewAddFeed(
+        urlInput: String = "",
+        preparedPreviewURL: String? = nil
+    ) -> SourceManagementScreenState {
+        var state = SourceManagementScreenState()
+        state.updateAddFeedURLInput(urlInput)
+        if preparedPreviewURL != nil {
+            state.addFeedState.preparePreviewRequest()
+        }
+        state.presentScenario(.addFeed)
+        return state
+    }
+
     static func previewCreateFolder(
         nameInput: String = "",
         feedback: SourceManagementCreateFolderFeedbackPresentation? = nil
@@ -115,6 +145,85 @@ struct SourceManagementScreenState {
     private mutating func refreshPresentedDestination() {
         guard let presentedDestination else { return }
         presentScenario(presentedDestination.id)
+    }
+}
+
+struct SourceManagementAddFeedState {
+    private(set) var urlInput = ""
+    private(set) var preparedPreviewURL: String? = nil
+
+    mutating func updateURLInput(_ value: String) {
+        urlInput = value
+        preparedPreviewURL = nil
+    }
+
+    mutating func preparePreviewRequest() {
+        guard let normalizedURL = normalizedValidatedURL() else { return }
+        preparedPreviewURL = normalizedURL
+    }
+
+    func derivedPresentation() -> SourceManagementAddFeedPresentation {
+        let validationMessage = validationMessage()
+        let normalizedURL = normalizedValidatedURL()
+        let isPrepared = preparedPreviewURL != nil
+
+        return SourceManagementAddFeedPresentation(
+            title: "Add Feed",
+            summaryTitle: "Feed Setup",
+            summaryDescription: "Prepare and validate the feed URL locally before the app starts any network preview work.",
+            urlInput: urlInput,
+            urlPrompt: "Feed URL",
+            validationMessage: validationMessage,
+            normalizedURL: normalizedURL,
+            primaryActionTitle: isPrepared ? "Preview Prepared" : "Prepare Preview",
+            isPrimaryActionEnabled: validationMessage == nil && isPrepared == false,
+            preparedPreview: preparedPreviewPresentation()
+        )
+    }
+
+    func validationMessage() -> String? {
+        let normalizedInput = normalizedURLInput()
+        guard normalizedInput.isEmpty == false else {
+            return "Enter a feed URL to continue."
+        }
+
+        guard let request = try? FeedRequest(
+            feedID: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
+            urlString: normalizedInput
+        ) else {
+            return "Enter a valid http or https URL."
+        }
+
+        guard let components = URLComponents(
+            url: request.url,
+            resolvingAgainstBaseURL: false
+        ), let scheme = components.scheme?.lowercased(),
+              ["http", "https"].contains(scheme),
+              let host = components.host,
+              host.isEmpty == false else {
+            return "Enter a valid http or https URL."
+        }
+
+        return nil
+    }
+
+    private func normalizedURLInput() -> String {
+        urlInput.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func normalizedValidatedURL() -> String? {
+        guard validationMessage() == nil else { return nil }
+        return URL(string: normalizedURLInput())?.absoluteString
+    }
+
+    private func preparedPreviewPresentation() -> SourceManagementAddFeedPreparedPreviewPresentation? {
+        guard let preparedPreviewURL else { return nil }
+
+        return SourceManagementAddFeedPreparedPreviewPresentation(
+            title: "Preview request is prepared",
+            detail: "The URL is normalized and ready for the network preview step that will be connected next.",
+            normalizedURL: preparedPreviewURL
+        )
     }
 }
 

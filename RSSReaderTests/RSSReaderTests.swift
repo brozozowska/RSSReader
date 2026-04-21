@@ -4449,6 +4449,42 @@ struct RSSReaderTests {
     }
 
     @Test
+    func sourceManagementScreenStateBuildsAddFeedPresentationWithNormalizedURLAndPrimaryActionState() {
+        var state = SourceManagementScreenState.previewLoaded()
+        state.presentScenario(.addFeed)
+
+        guard case .addFeed(let initialDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation")
+            return
+        }
+
+        #expect(initialDestination.validationMessage == "Enter a feed URL to continue.")
+        #expect(initialDestination.isPrimaryActionEnabled == false)
+
+        state.updateAddFeedURLInput(" https://example.com/feed.xml ")
+
+        guard case .addFeed(let validDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after URL input")
+            return
+        }
+
+        #expect(validDestination.validationMessage == nil)
+        #expect(validDestination.normalizedURL == "https://example.com/feed.xml")
+        #expect(validDestination.isPrimaryActionEnabled)
+
+        state.prepareAddFeedPreview()
+
+        guard case .addFeed(let preparedDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after preview preparation")
+            return
+        }
+
+        #expect(preparedDestination.primaryActionTitle == "Preview Prepared")
+        #expect(preparedDestination.isPrimaryActionEnabled == false)
+        #expect(preparedDestination.preparedPreview?.normalizedURL == "https://example.com/feed.xml")
+    }
+
+    @Test
     func sourceManagementScreenStateBuildsCreateFolderPresentationWithValidationAndPlacement() {
         var state = SourceManagementScreenState.previewLoaded()
         state.applyCreateFolderContext(
@@ -4497,6 +4533,28 @@ struct RSSReaderTests {
 
         #expect(validDestination.validationMessage == nil)
         #expect(validDestination.isPrimaryActionEnabled)
+    }
+
+    @Test
+    func sourceManagementScreenControllerPreparesAddFeedPreviewWithoutStartingNetworkRequest() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let controller = SourceManagementScreenController()
+
+        controller.handleScenarioSelection(.addFeed)
+        controller.handleAddFeedURLChange(" https://example.com/feed.xml ")
+        controller.prepareAddFeedPreview()
+
+        guard case .addFeed(let destination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after preview preparation")
+            return
+        }
+
+        #expect(destination.preparedPreview?.normalizedURL == "https://example.com/feed.xml")
+        #expect(destination.primaryActionTitle == "Preview Prepared")
+        #expect(destination.isPrimaryActionEnabled == false)
+
+        let recordedRequests = await harness.httpClient.recordedRequests()
+        #expect(recordedRequests.isEmpty)
     }
 
     @Test

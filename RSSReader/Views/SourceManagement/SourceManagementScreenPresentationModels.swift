@@ -43,6 +43,26 @@ struct SourceManagementScenarioPlaceholderPresentation: Identifiable, Hashable, 
     let steps: [String]
 }
 
+struct SourceManagementAddFeedPreparedPreviewPresentation: Hashable, Sendable {
+    let title: String
+    let detail: String
+    let normalizedURL: String
+}
+
+struct SourceManagementAddFeedPresentation: Hashable, Sendable {
+    let id: SourceManagementScenarioID = .addFeed
+    let title: String
+    let summaryTitle: String
+    let summaryDescription: String
+    let urlInput: String
+    let urlPrompt: String
+    let validationMessage: String?
+    let normalizedURL: String?
+    let primaryActionTitle: String
+    let isPrimaryActionEnabled: Bool
+    let preparedPreview: SourceManagementAddFeedPreparedPreviewPresentation?
+}
+
 enum SourceManagementCreateFolderFeedbackKind: Hashable, Sendable {
     case success
     case failure
@@ -78,11 +98,14 @@ struct SourceManagementCreateFolderPresentation: Hashable, Sendable {
 }
 
 enum SourceManagementScreenDestinationPresentation: Identifiable, Hashable, Sendable {
+    case addFeed(SourceManagementAddFeedPresentation)
     case placeholder(SourceManagementScenarioPlaceholderPresentation)
     case createFolder(SourceManagementCreateFolderPresentation)
 
     var id: SourceManagementScenarioID {
         switch self {
+        case .addFeed(let destination):
+            destination.id
         case .placeholder(let destination):
             destination.id
         case .createFolder(let destination):
