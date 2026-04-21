@@ -8,13 +8,54 @@ import SwiftUI
 
 #Preview("Source Management Screen · Move Sources") {
     SourceManagementScreenPreviewContainer(
-        screenState: .previewLoaded(presentedScenarioID: .moveSource)
+        screenState: .previewMoveSource(
+            feeds: [
+                SourceManagementFeedSummary(
+                    id: UUID(uuidString: "33333333-3333-3333-3333-333333333333")!,
+                    url: "https://example.com/feed.xml",
+                    title: "Example Feed",
+                    folderID: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
+                    folderName: "News"
+                ),
+                SourceManagementFeedSummary(
+                    id: UUID(uuidString: "44444444-4444-4444-4444-444444444444")!,
+                    url: "https://example.com/ungrouped.xml",
+                    title: "Ungrouped Feed",
+                    folderID: nil,
+                    folderName: nil
+                )
+            ],
+            folders: [
+                SourceManagementFolderSummary(
+                    id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
+                    name: "News",
+                    sortOrder: 0,
+                    feedCount: 4
+                ),
+                SourceManagementFolderSummary(
+                    id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
+                    name: "Tech",
+                    sortOrder: 1,
+                    feedCount: 7
+                )
+            ]
+        )
     )
 }
 
 #Preview("Source Management Screen · Add Feed") {
     SourceManagementScreenPreviewContainer(
-        screenState: .previewAddFeed(urlInput: " https://example.com/feed.xml ")
+        screenState: .previewAddFeed(
+            urlInput: " https://example.com/feed.xml ",
+            folders: [
+                SourceManagementFolderSummary(
+                    id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
+                    name: "News",
+                    sortOrder: 0,
+                    feedCount: 4
+                )
+            ]
+        )
     )
 }
 
@@ -34,7 +75,21 @@ import SwiftUI
                 parserAnomalyCount: 0,
                 rejectedEntryCount: 0,
                 existingFeedID: nil
-            )
+            ),
+            folders: [
+                SourceManagementFolderSummary(
+                    id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
+                    name: "News",
+                    sortOrder: 0,
+                    feedCount: 4
+                ),
+                SourceManagementFolderSummary(
+                    id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
+                    name: "Tech",
+                    sortOrder: 1,
+                    feedCount: 7
+                )
+            ]
         )
     )
 }
@@ -56,7 +111,24 @@ import SwiftUI
                 rejectedEntryCount: 2,
                 existingFeedID: nil
             ),
-            isConfirmed: true
+            isConfirmed: true,
+            folders: [
+                SourceManagementFolderSummary(
+                    id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
+                    name: "News",
+                    sortOrder: 0,
+                    feedCount: 4
+                ),
+                SourceManagementFolderSummary(
+                    id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
+                    name: "Tech",
+                    sortOrder: 1,
+                    feedCount: 7
+                )
+            ],
+            selectedPlacement: .folder(
+                UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+            )
         )
     )
 }

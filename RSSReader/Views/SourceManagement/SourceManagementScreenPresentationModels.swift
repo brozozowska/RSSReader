@@ -66,6 +66,22 @@ struct SourceManagementAddFeedPreviewPresentation: Hashable, Sendable {
     let diagnosticsSummary: String?
 }
 
+struct SourceManagementFolderPlacementOptionPresentation: Identifiable, Hashable, Sendable {
+    let placement: SourceManagementFolderPlacement
+    let title: String
+    let subtitle: String?
+    let isSelected: Bool
+
+    var id: String {
+        switch placement {
+        case .ungrouped:
+            return "ungrouped"
+        case .folder(let folderID):
+            return folderID.uuidString
+        }
+    }
+}
+
 struct SourceManagementAddFeedPresentation: Hashable, Sendable {
     let id: SourceManagementScenarioID = .addFeed
     let title: String
@@ -79,6 +95,10 @@ struct SourceManagementAddFeedPresentation: Hashable, Sendable {
     let isPrimaryActionEnabled: Bool
     let isLoadingPreview: Bool
     let preview: SourceManagementAddFeedPreviewPresentation?
+    let placementTitle: String
+    let placementDescription: String
+    let placementOptions: [SourceManagementFolderPlacementOptionPresentation]
+    let createFolderActionTitle: String?
     let status: SourceManagementAddFeedStatusPresentation?
 }
 
@@ -116,18 +136,57 @@ struct SourceManagementCreateFolderPresentation: Hashable, Sendable {
     let feedback: SourceManagementCreateFolderFeedbackPresentation?
 }
 
+struct SourceManagementMoveSourceFeedPresentation: Identifiable, Hashable, Sendable {
+    let id: UUID
+    let title: String
+    let subtitle: String
+    let currentPlacementTitle: String
+    let isSelected: Bool
+}
+
+enum SourceManagementMoveSourceFeedbackKind: Hashable, Sendable {
+    case success
+    case failure
+}
+
+struct SourceManagementMoveSourceFeedbackPresentation: Hashable, Sendable {
+    let kind: SourceManagementMoveSourceFeedbackKind
+    let title: String
+    let detail: String?
+}
+
+struct SourceManagementMoveSourcePresentation: Hashable, Sendable {
+    let id: SourceManagementScenarioID = .moveSource
+    let title: String
+    let summaryTitle: String
+    let summaryDescription: String
+    let feeds: [SourceManagementMoveSourceFeedPresentation]
+    let emptyStateTitle: String?
+    let emptyStateDescription: String?
+    let placementTitle: String
+    let placementDescription: String
+    let placementOptions: [SourceManagementFolderPlacementOptionPresentation]
+    let primaryActionTitle: String
+    let isPrimaryActionEnabled: Bool
+    let isSubmitting: Bool
+    let feedback: SourceManagementMoveSourceFeedbackPresentation?
+}
+
 enum SourceManagementScreenDestinationPresentation: Identifiable, Hashable, Sendable {
     case addFeed(SourceManagementAddFeedPresentation)
-    case placeholder(SourceManagementScenarioPlaceholderPresentation)
     case createFolder(SourceManagementCreateFolderPresentation)
+    case moveSource(SourceManagementMoveSourcePresentation)
+    case placeholder(SourceManagementScenarioPlaceholderPresentation)
 
     var id: SourceManagementScenarioID {
         switch self {
         case .addFeed(let destination):
             destination.id
-        case .placeholder(let destination):
-            destination.id
         case .createFolder(let destination):
+            destination.id
+        case .moveSource(let destination):
+            destination.id
+        case .placeholder(let destination):
             destination.id
         }
     }

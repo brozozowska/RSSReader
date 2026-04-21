@@ -10,7 +10,7 @@ enum SourceManagementServiceError: Error, Equatable {
     case folderNotFound(UUID)
 }
 
-enum SourceManagementFolderPlacement: Equatable, Sendable {
+enum SourceManagementFolderPlacement: Hashable, Sendable {
     case ungrouped
     case folder(UUID)
 }
@@ -89,6 +89,7 @@ struct SourceManagementMoveFeedCommand: Equatable, Sendable {
 @MainActor
 protocol SourceManagementService {
     func fetchFolders() throws -> [SourceManagementFolderSummary]
+    func fetchFeeds() throws -> [SourceManagementFeedSummary]
     func previewFeed(urlString: String) async throws -> SourceManagementFeedPreview
     func createFolder(_ command: SourceManagementCreateFolderCommand) throws -> SourceManagementFolderSummary
     func createFeed(_ command: SourceManagementCreateFeedCommand) throws -> SourceManagementFeedSummary
@@ -116,6 +117,10 @@ final class DefaultSourceManagementService: SourceManagementService {
 
     func fetchFolders() throws -> [SourceManagementFolderSummary] {
         try folderRepository.fetchAllFolders().map(folderSummary(from:))
+    }
+
+    func fetchFeeds() throws -> [SourceManagementFeedSummary] {
+        try feedRepository.fetchAllFeeds().map(feedSummary(from:))
     }
 
     func previewFeed(urlString: String) async throws -> SourceManagementFeedPreview {

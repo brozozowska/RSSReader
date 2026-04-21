@@ -5,9 +5,14 @@ struct SourceManagementScreenActionHandlers {
     let selectScenario: (SourceManagementScenarioID) -> Void
     let dismissPresentedScenario: () -> Void
     let updateAddFeedURL: (String) -> Void
+    let selectAddFeedFolderPlacement: (SourceManagementFolderPlacement) -> Void
+    let startCreateFolderFromAddFeed: () -> Void
     let handleAddFeedPrimaryAction: () -> Void
     let updateCreateFolderName: (String) -> Void
     let submitCreateFolder: () -> Void
+    let selectMoveSourceFeed: (UUID) -> Void
+    let selectMoveSourcePlacement: (SourceManagementFolderPlacement) -> Void
+    let submitMoveSource: () -> Void
 }
 
 struct SourceManagementScreenView: View {
@@ -70,16 +75,25 @@ struct SourceManagementScreenView: View {
                     SourceManagementAddFeedView(
                         presentation: addFeed,
                         urlBinding: addFeedURLBinding,
+                        selectPlacement: actionHandlers.selectAddFeedFolderPlacement,
+                        startCreateFolder: actionHandlers.startCreateFolderFromAddFeed,
                         handlePrimaryAction: actionHandlers.handleAddFeedPrimaryAction
                     )
-                case .placeholder(let placeholder):
-                    SourceManagementScenarioPlaceholderView(destination: placeholder)
                 case .createFolder(let createFolder):
                     SourceManagementCreateFolderView(
                         presentation: createFolder,
                         nameBinding: createFolderNameBinding,
                         submit: actionHandlers.submitCreateFolder
                     )
+                case .moveSource(let moveSource):
+                    SourceManagementMoveSourceView(
+                        presentation: moveSource,
+                        selectFeed: actionHandlers.selectMoveSourceFeed,
+                        selectPlacement: actionHandlers.selectMoveSourcePlacement,
+                        submit: actionHandlers.submitMoveSource
+                    )
+                case .placeholder(let placeholder):
+                    SourceManagementScenarioPlaceholderView(destination: placeholder)
                 }
             }
         }
@@ -100,6 +114,12 @@ struct SourceManagementScreenView: View {
             updateAddFeedURL: { value in
                 controller.handleAddFeedURLChange(value)
             },
+            selectAddFeedFolderPlacement: { placement in
+                controller.handleAddFeedFolderPlacementSelection(placement)
+            },
+            startCreateFolderFromAddFeed: {
+                controller.startCreateFolderFromAddFeed(dependencies: dependencies)
+            },
             handleAddFeedPrimaryAction: {
                 Task {
                     await controller.handleAddFeedPrimaryAction(dependencies: dependencies)
@@ -110,6 +130,15 @@ struct SourceManagementScreenView: View {
             },
             submitCreateFolder: {
                 controller.submitCreateFolder(dependencies: dependencies)
+            },
+            selectMoveSourceFeed: { feedID in
+                controller.handleMoveSourceFeedSelection(feedID)
+            },
+            selectMoveSourcePlacement: { placement in
+                controller.handleMoveSourcePlacementSelection(placement)
+            },
+            submitMoveSource: {
+                controller.submitMoveSource(dependencies: dependencies)
             }
         )
     }
@@ -133,7 +162,7 @@ struct SourceManagementScreenView: View {
                 switch controller.viewState().presentedDestination {
                 case .addFeed(let presentation):
                     return presentation.urlInput
-                case .placeholder, .createFolder, .none:
+                case .moveSource, .placeholder, .createFolder, .none:
                     return ""
                 }
             },
@@ -147,7 +176,7 @@ struct SourceManagementScreenView: View {
         Binding(
             get: {
                 switch controller.viewState().presentedDestination {
-                case .addFeed, .placeholder, .none:
+                case .addFeed, .moveSource, .placeholder, .none:
                     return ""
                 case .createFolder(let presentation):
                     return presentation.nameInput
@@ -217,6 +246,8 @@ private struct SourceManagementAddFeedView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     let presentation: SourceManagementAddFeedPresentation
     let urlBinding: Binding<String>
+    let selectPlacement: (SourceManagementFolderPlacement) -> Void
+    let startCreateFolder: () -> Void
     let handlePrimaryAction: () -> Void
 
     var body: some View {
@@ -270,6 +301,31 @@ private struct SourceManagementAddFeedView: View {
                 }
             }
 
+            if presentation.placementOptions.isEmpty == false {
+                Section {
+                    ForEach(presentation.placementOptions) { option in
+                        Button {
+                            selectPlacement(option.placement)
+                        } label: {
+                            SourceManagementFolderPlacementRow(option: option)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } header: {
+                    Text(presentation.placementTitle)
+                } footer: {
+                    Text(presentation.placementDescription)
+                }
+            }
+
+            if let createFolderActionTitle = presentation.createFolderActionTitle {
+                Section {
+                    Button(createFolderActionTitle, action: startCreateFolder)
+                } footer: {
+                    Text("Create a new folder first when the destination you need does not exist yet.")
+                }
+            }
+
             if let status = presentation.status {
                 Section {
                     SourceManagementAddFeedStatusCard(status: status)
@@ -287,6 +343,32 @@ private struct SourceManagementAddFeedView: View {
                     .disabled(presentation.isPrimaryActionEnabled == false)
             }
         }
+    }
+}
+
+private struct SourceManagementFolderPlacementRow: View {
+    let option: SourceManagementFolderPlacementOptionPresentation
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: option.isSelected ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(option.isSelected ? Color.accentColor : .secondary)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(option.title)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                if let subtitle = option.subtitle {
+                    Text(subtitle)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+        }
+        .padding(.vertical, 4)
     }
 }
 
@@ -463,6 +545,140 @@ private struct SourceManagementCreateFolderView: View {
                     .disabled(presentation.isPrimaryActionEnabled == false)
             }
         }
+    }
+}
+
+private struct SourceManagementMoveSourceView: View {
+    @Environment(\.appThemeVariant) private var appThemeVariant
+    let presentation: SourceManagementMoveSourcePresentation
+    let selectFeed: (UUID) -> Void
+    let selectPlacement: (SourceManagementFolderPlacement) -> Void
+    let submit: () -> Void
+
+    var body: some View {
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(presentation.summaryTitle)
+                        .font(.headline)
+
+                    Text(presentation.summaryDescription)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
+
+            if let emptyStateTitle = presentation.emptyStateTitle,
+               let emptyStateDescription = presentation.emptyStateDescription {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(emptyStateTitle)
+                            .font(.body.weight(.semibold))
+
+                        Text(emptyStateDescription)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            } else {
+                Section("Select Source") {
+                    ForEach(presentation.feeds) { feed in
+                        Button {
+                            selectFeed(feed.id)
+                        } label: {
+                            SourceManagementMoveSourceFeedRow(feed: feed)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Section {
+                    ForEach(presentation.placementOptions) { option in
+                        Button {
+                            selectPlacement(option.placement)
+                        } label: {
+                            SourceManagementFolderPlacementRow(option: option)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } header: {
+                    Text(presentation.placementTitle)
+                } footer: {
+                    Text(presentation.placementDescription)
+                }
+            }
+
+            if let feedback = presentation.feedback {
+                Section {
+                    SourceManagementMoveSourceFeedbackCard(feedback: feedback)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(appThemeVariant.primaryBackground)
+        .navigationTitle(presentation.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(presentation.primaryActionTitle, action: submit)
+                    .disabled(presentation.isPrimaryActionEnabled == false)
+            }
+        }
+    }
+}
+
+private struct SourceManagementMoveSourceFeedRow: View {
+    let feed: SourceManagementMoveSourceFeedPresentation
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: feed.isSelected ? "largecircle.fill.circle" : "circle")
+                .foregroundStyle(feed.isSelected ? Color.accentColor : .secondary)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(feed.title)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                Text(feed.subtitle)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+
+                Text("Current location: \(feed.currentPlacementTitle)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct SourceManagementMoveSourceFeedbackCard: View {
+    let feedback: SourceManagementMoveSourceFeedbackPresentation
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: feedback.kind == .success ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                .foregroundStyle(feedback.kind == .success ? .green : .red)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(feedback.title)
+                    .font(.body.weight(.semibold))
+
+                if let detail = feedback.detail {
+                    Text(detail)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 

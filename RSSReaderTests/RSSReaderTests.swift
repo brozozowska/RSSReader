@@ -4451,6 +4451,24 @@ struct RSSReaderTests {
     @Test
     func sourceManagementScreenStateBuildsAddFeedPresentationWithPreviewAndConfirmationState() {
         var state = SourceManagementScreenState.previewLoaded()
+        let newsFolderID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let techFolderID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        state.applyAddFeedFolderContext(
+            folders: [
+                SourceManagementFolderSummary(
+                    id: newsFolderID,
+                    name: "News",
+                    sortOrder: 0,
+                    feedCount: 5
+                ),
+                SourceManagementFolderSummary(
+                    id: techFolderID,
+                    name: "Tech",
+                    sortOrder: 1,
+                    feedCount: 3
+                )
+            ]
+        )
         state.presentScenario(.addFeed)
 
         guard case .addFeed(let initialDestination)? = state.derivedViewState().presentedDestination else {
@@ -4507,6 +4525,11 @@ struct RSSReaderTests {
         #expect(previewDestination.isPrimaryActionEnabled)
         #expect(previewDestination.preview?.title == "Example Feed")
         #expect(previewDestination.preview?.kindTitle == "RSS")
+        #expect(previewDestination.placementOptions.map(\.title) == ["Ungrouped", "News", "Tech"])
+        #expect(previewDestination.placementOptions.first?.isSelected == true)
+        #expect(previewDestination.createFolderActionTitle == "Create New Folder")
+
+        state.selectAddFeedFolderPlacement(.folder(techFolderID))
 
         state.confirmAddFeedPreview()
 
@@ -4518,6 +4541,8 @@ struct RSSReaderTests {
         #expect(confirmedDestination.primaryActionTitle == "Preview Confirmed")
         #expect(confirmedDestination.isPrimaryActionEnabled == false)
         #expect(confirmedDestination.status?.kind == .success)
+        #expect(confirmedDestination.placementOptions.last?.isSelected == true)
+        #expect(confirmedDestination.status?.detail?.contains("Tech") == true)
     }
 
     @Test
@@ -4737,24 +4762,136 @@ struct RSSReaderTests {
     }
 
     @Test
-    func sourceManagementScreenControllerPresentsSelectedScenarioDestination() {
-        let controller = SourceManagementScreenController()
+    func sourceManagementScreenStateBuildsMoveSourcePresentationWithFeedAndPlacementSelection() {
+        var state = SourceManagementScreenState.previewLoaded()
+        let newsFolderID = UUID(uuidString: "55555555-5555-5555-5555-555555555555")!
+        let techFolderID = UUID(uuidString: "66666666-6666-6666-6666-666666666666")!
+        state.applyMoveSourceContext(
+            feeds: [
+                SourceManagementFeedSummary(
+                    id: UUID(uuidString: "77777777-7777-7777-7777-777777777777")!,
+                    url: "https://example.com/apple.xml",
+                    title: "Apple Feed",
+                    folderID: newsFolderID,
+                    folderName: "News"
+                ),
+                SourceManagementFeedSummary(
+                    id: UUID(uuidString: "88888888-8888-8888-8888-888888888888")!,
+                    url: "https://example.com/beta.xml",
+                    title: "Beta Feed",
+                    folderID: nil,
+                    folderName: nil
+                )
+            ],
+            folders: [
+                SourceManagementFolderSummary(
+                    id: newsFolderID,
+                    name: "News",
+                    sortOrder: 0,
+                    feedCount: 2
+                ),
+                SourceManagementFolderSummary(
+                    id: techFolderID,
+                    name: "Tech",
+                    sortOrder: 1,
+                    feedCount: 6
+                )
+            ]
+        )
+        state.presentScenario(.moveSource)
 
-        controller.handleScenarioSelection(.moveSource)
-
-        let destination = controller.viewState().presentedDestination
-        guard case .placeholder(let placeholderDestination)? = destination else {
-            Issue.record("Expected placeholder destination presentation")
+        guard case .moveSource(let initialDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected move-source destination presentation")
             return
         }
 
-        #expect(placeholderDestination.id == .moveSource)
-        #expect(placeholderDestination.title == "Move Sources")
-        #expect(placeholderDestination.steps.contains { $0.contains("instead of starting a new add-feed flow") })
+        #expect(initialDestination.feeds.map(\.title) == ["Apple Feed", "Beta Feed"])
+        #expect(initialDestination.feeds.first?.isSelected == true)
+        #expect(initialDestination.placementOptions.map(\.title) == ["Ungrouped", "News", "Tech"])
+        #expect(initialDestination.isPrimaryActionEnabled == false)
 
-        controller.dismissPresentedScenario()
+        state.selectMoveSourcePlacement(.folder(techFolderID))
 
-        #expect(controller.viewState().presentedDestination == nil)
+        guard case .moveSource(let changedDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected move-source destination presentation after placement change")
+            return
+        }
+
+        #expect(changedDestination.isPrimaryActionEnabled)
+        #expect(changedDestination.placementOptions.last?.isSelected == true)
+    }
+
+    @Test
+    func sourceManagementScreenControllerMovesFeedThroughServiceAndRefreshesDestination() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let newsFolder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
+        let techFolder = try harness.folderRepository.insert(Folder(name: "Tech", sortOrder: 1))
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: "https://example.com/move-me.xml",
+                title: "Move Me",
+                kind: .rss,
+                folder: newsFolder
+            )
+        )
+        let controller = SourceManagementScreenController()
+
+        controller.handleScenarioSelection(.moveSource, dependencies: harness.dependencies)
+
+        guard case .moveSource(let initialDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected move-source destination presentation")
+            return
+        }
+
+        #expect(initialDestination.feeds.map(\.title) == ["Move Me"])
+        #expect(initialDestination.feeds.first?.currentPlacementTitle == "News")
+        #expect(initialDestination.isPrimaryActionEnabled == false)
+
+        controller.handleMoveSourcePlacementSelection(.folder(techFolder.id))
+        controller.submitMoveSource(dependencies: harness.dependencies)
+
+        guard case .moveSource(let movedDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected move-source destination presentation after move")
+            return
+        }
+
+        let persistedFeed = try harness.feedRepository.fetchFeed(id: feed.id)
+
+        #expect(movedDestination.feedback?.kind == .success)
+        #expect(movedDestination.feedback?.detail?.contains("Tech") == true)
+        #expect(movedDestination.feeds.first?.currentPlacementTitle == "Tech")
+        #expect(movedDestination.isPrimaryActionEnabled == false)
+        #expect(persistedFeed?.folder?.id == techFolder.id)
+    }
+
+    @Test
+    func sourceManagementScreenControllerReturnsToAddFeedWithNewFolderSelectedAfterInlineFolderCreation() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        _ = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
+        let controller = SourceManagementScreenController()
+
+        controller.handleScenarioSelection(.addFeed, dependencies: harness.dependencies)
+        controller.handleAddFeedURLChange("https://example.com/feed.xml")
+        controller.startCreateFolderFromAddFeed(dependencies: harness.dependencies)
+
+        guard case .createFolder(let createFolderDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected create-folder destination when starting from add-feed flow")
+            return
+        }
+
+        #expect(createFolderDestination.existingFolders.map(\.name) == ["News"])
+
+        controller.handleCreateFolderNameChange("Research")
+        controller.submitCreateFolder(dependencies: harness.dependencies)
+
+        guard case .addFeed(let addFeedDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination after inline folder creation")
+            return
+        }
+
+        #expect(addFeedDestination.urlInput == "https://example.com/feed.xml")
+        #expect(addFeedDestination.placementOptions.map(\.title) == ["Ungrouped", "News", "Research"])
+        #expect(addFeedDestination.placementOptions.last?.isSelected == true)
     }
 
     @Test

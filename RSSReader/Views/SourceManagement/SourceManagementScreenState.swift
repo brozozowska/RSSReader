@@ -5,6 +5,7 @@ struct SourceManagementScreenState {
     private(set) var sections = SourceManagementScreenPresentationBuilder.buildSections()
     private(set) var presentedDestination: SourceManagementScreenDestinationPresentation? = nil
     private(set) var addFeedState = SourceManagementAddFeedState()
+    private(set) var moveSourceState = SourceManagementMoveSourceState()
     private(set) var createFolderState = SourceManagementCreateFolderState()
 
     mutating func presentScenario(_ scenarioID: SourceManagementScenarioID) {
@@ -14,9 +15,7 @@ struct SourceManagementScreenState {
         case .createFolder:
             presentedDestination = .createFolder(createFolderState.derivedPresentation())
         case .moveSource:
-            presentedDestination = .placeholder(
-                SourceManagementScreenPresentationBuilder.buildDestination(for: scenarioID)
-            )
+            presentedDestination = .moveSource(moveSourceState.derivedPresentation())
         }
     }
 
@@ -64,6 +63,20 @@ struct SourceManagementScreenState {
         refreshPresentedDestination()
     }
 
+    mutating func applyAddFeedFolderContext(
+        folders: [SourceManagementFolderSummary]
+    ) {
+        addFeedState.applyAvailableFolders(folders)
+        refreshPresentedDestination()
+    }
+
+    mutating func selectAddFeedFolderPlacement(
+        _ placement: SourceManagementFolderPlacement
+    ) {
+        addFeedState.selectFolderPlacement(placement)
+        refreshPresentedDestination()
+    }
+
     mutating func applyCreateFolderContext(
         folders: [SourceManagementFolderSummary],
         isServiceAvailable: Bool = true
@@ -90,6 +103,41 @@ struct SourceManagementScreenState {
         refreshPresentedDestination()
     }
 
+    mutating func applyMoveSourceContext(
+        feeds: [SourceManagementFeedSummary],
+        folders: [SourceManagementFolderSummary]
+    ) {
+        moveSourceState.applyContext(feeds: feeds, folders: folders)
+        refreshPresentedDestination()
+    }
+
+    mutating func selectMoveSourceFeed(_ feedID: UUID) {
+        moveSourceState.selectFeed(feedID)
+        refreshPresentedDestination()
+    }
+
+    mutating func selectMoveSourcePlacement(
+        _ placement: SourceManagementFolderPlacement
+    ) {
+        moveSourceState.selectPlacement(placement)
+        refreshPresentedDestination()
+    }
+
+    mutating func beginMoveSourceSubmission() {
+        moveSourceState.beginSubmission()
+        refreshPresentedDestination()
+    }
+
+    mutating func applyMovedSource(_ feed: SourceManagementFeedSummary) {
+        moveSourceState.applyMovedFeed(feed)
+        refreshPresentedDestination()
+    }
+
+    mutating func applyMoveSourceFailure(_ message: String) {
+        moveSourceState.applyFailure(message: message)
+        refreshPresentedDestination()
+    }
+
     mutating func applyCreatedFolder(_ folder: SourceManagementFolderSummary) {
         createFolderState.applyCreatedFolder(folder)
         refreshPresentedDestination()
@@ -106,6 +154,10 @@ struct SourceManagementScreenState {
 
     func createFolderValidationMessage() -> String? {
         createFolderState.validationMessage()
+    }
+
+    func moveSourceCommand() -> SourceManagementMoveFeedCommand? {
+        moveSourceState.moveCommand()
     }
 
     func derivedViewState() -> SourceManagementScreenViewState {
@@ -130,10 +182,14 @@ struct SourceManagementScreenState {
         urlInput: String = "",
         preview: SourceManagementFeedPreview? = nil,
         isConfirmed: Bool = false,
-        failureMessage: String? = nil
+        failureMessage: String? = nil,
+        folders: [SourceManagementFolderSummary] = [],
+        selectedPlacement: SourceManagementFolderPlacement = .ungrouped
     ) -> SourceManagementScreenState {
         var state = SourceManagementScreenState()
         state.updateAddFeedURLInput(urlInput)
+        state.applyAddFeedFolderContext(folders: folders)
+        state.selectAddFeedFolderPlacement(selectedPlacement)
         if let preview {
             let requestURL = preview.requestedURL
             _ = state.beginAddFeedPreviewLoading()
@@ -153,6 +209,16 @@ struct SourceManagementScreenState {
             )
         }
         state.presentScenario(.addFeed)
+        return state
+    }
+
+    static func previewMoveSource(
+        feeds: [SourceManagementFeedSummary] = [],
+        folders: [SourceManagementFolderSummary] = []
+    ) -> SourceManagementScreenState {
+        var state = SourceManagementScreenState()
+        state.applyMoveSourceContext(feeds: feeds, folders: folders)
+        state.presentScenario(.moveSource)
         return state
     }
 
@@ -198,6 +264,8 @@ struct SourceManagementAddFeedState {
     private(set) var preview: SourceManagementFeedPreview? = nil
     private(set) var isPreviewConfirmed = false
     private(set) var previewStatus: SourceManagementAddFeedStatusPresentation? = nil
+    private(set) var availableFolders: [SourceManagementFolderSummary] = []
+    private(set) var selectedFolderPlacement: SourceManagementFolderPlacement = .ungrouped
 
     mutating func updateURLInput(_ value: String) {
         urlInput = value
@@ -206,6 +274,24 @@ struct SourceManagementAddFeedState {
         preview = nil
         isPreviewConfirmed = false
         previewStatus = nil
+    }
+
+    mutating func applyAvailableFolders(_ folders: [SourceManagementFolderSummary]) {
+        availableFolders = folders.sorted(by: folderSortComparator)
+        if case .folder(let folderID) = selectedFolderPlacement,
+           availableFolders.contains(where: { $0.id == folderID }) == false {
+            selectedFolderPlacement = .ungrouped
+        }
+    }
+
+    mutating func selectFolderPlacement(_ placement: SourceManagementFolderPlacement) {
+        switch placement {
+        case .ungrouped:
+            selectedFolderPlacement = .ungrouped
+        case .folder(let folderID):
+            guard availableFolders.contains(where: { $0.id == folderID }) else { return }
+            selectedFolderPlacement = .folder(folderID)
+        }
     }
 
     func validationMessage() -> String? {
@@ -315,6 +401,10 @@ struct SourceManagementAddFeedState {
             isPrimaryActionEnabled: isPrimaryActionEnabled,
             isLoadingPreview: isLoadingPreview,
             preview: previewPresentation(),
+            placementTitle: "Destination Folder",
+            placementDescription: placementDescription(),
+            placementOptions: placementOptions(),
+            createFolderActionTitle: preview?.existingFeedID == nil ? "Create New Folder" : nil,
             status: statusPresentation()
         )
     }
@@ -362,8 +452,51 @@ struct SourceManagementAddFeedState {
         return SourceManagementAddFeedStatusPresentation(
             title: "Preview confirmed",
             kind: .success,
-            detail: "The feed metadata is confirmed and ready for the feed-creation step."
+            detail: "The feed metadata is confirmed and ready for the feed-creation step in \(selectedPlacementTitle())."
         )
+    }
+
+    private func placementDescription() -> String {
+        if preview == nil {
+            return "Preview the feed first, then choose whether the source should stay ungrouped or land in a folder."
+        }
+
+        if availableFolders.isEmpty {
+            return "No folders are available yet. The source can stay ungrouped until you create a folder in Source Management."
+        }
+
+        return "Choose where the source should live once the feed-creation step saves it."
+    }
+
+    private func placementOptions() -> [SourceManagementFolderPlacementOptionPresentation] {
+        guard preview?.existingFeedID == nil else { return [] }
+
+        return [
+            SourceManagementFolderPlacementOptionPresentation(
+                placement: .ungrouped,
+                title: "Ungrouped",
+                subtitle: "Keep the source outside any folder.",
+                isSelected: selectedFolderPlacement == .ungrouped
+            )
+        ] + availableFolders.map { folder in
+            SourceManagementFolderPlacementOptionPresentation(
+                placement: .folder(folder.id),
+                title: folder.name,
+                subtitle: folder.feedCount == 1
+                    ? "1 existing feed"
+                    : "\(folder.feedCount) existing feeds",
+                isSelected: selectedFolderPlacement == .folder(folder.id)
+            )
+        }
+    }
+
+    private func selectedPlacementTitle() -> String {
+        switch selectedFolderPlacement {
+        case .ungrouped:
+            return "Ungrouped"
+        case .folder(let folderID):
+            return availableFolders.first(where: { $0.id == folderID })?.name ?? "Selected Folder"
+        }
     }
 
     private func diagnosticsSummary(preview: SourceManagementFeedPreview) -> String? {
@@ -383,6 +516,223 @@ struct SourceManagementAddFeedState {
         case .unknown:
             return "Unknown"
         }
+    }
+
+    private func folderSortComparator(
+        lhs: SourceManagementFolderSummary,
+        rhs: SourceManagementFolderSummary
+    ) -> Bool {
+        if lhs.sortOrder == rhs.sortOrder {
+            if lhs.name == rhs.name {
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+            return lhs.name < rhs.name
+        }
+        return lhs.sortOrder < rhs.sortOrder
+    }
+}
+
+struct SourceManagementMoveSourceState {
+    private(set) var feeds: [SourceManagementFeedSummary] = []
+    private(set) var folders: [SourceManagementFolderSummary] = []
+    private(set) var selectedFeedID: UUID? = nil
+    private(set) var selectedPlacement: SourceManagementFolderPlacement = .ungrouped
+    private(set) var isSubmitting = false
+    fileprivate(set) var feedback: SourceManagementMoveSourceFeedbackPresentation? = nil
+
+    mutating func applyContext(
+        feeds: [SourceManagementFeedSummary],
+        folders: [SourceManagementFolderSummary]
+    ) {
+        self.feeds = feeds.sorted(by: feedSortComparator)
+        self.folders = folders.sorted(by: folderSortComparator)
+
+        if let selectedFeedID,
+           self.feeds.contains(where: { $0.id == selectedFeedID }) {
+            selectedPlacement = currentPlacement(for: selectedFeedID) ?? .ungrouped
+        } else {
+            self.selectedFeedID = self.feeds.first?.id
+            selectedPlacement = currentPlacement(for: self.selectedFeedID) ?? .ungrouped
+        }
+
+        isSubmitting = false
+        if feedback?.kind == .failure {
+            feedback = nil
+        }
+    }
+
+    mutating func selectFeed(_ feedID: UUID) {
+        guard feeds.contains(where: { $0.id == feedID }) else { return }
+        selectedFeedID = feedID
+        selectedPlacement = currentPlacement(for: feedID) ?? .ungrouped
+        isSubmitting = false
+        feedback = nil
+    }
+
+    mutating func selectPlacement(_ placement: SourceManagementFolderPlacement) {
+        switch placement {
+        case .ungrouped:
+            selectedPlacement = .ungrouped
+        case .folder(let folderID):
+            guard folders.contains(where: { $0.id == folderID }) else { return }
+            selectedPlacement = .folder(folderID)
+        }
+        feedback = nil
+    }
+
+    mutating func beginSubmission() {
+        isSubmitting = true
+        feedback = nil
+    }
+
+    mutating func applyMovedFeed(_ feed: SourceManagementFeedSummary) {
+        guard let index = feeds.firstIndex(where: { $0.id == feed.id }) else { return }
+        feeds[index] = feed
+        feeds.sort(by: feedSortComparator)
+        selectedFeedID = feed.id
+        selectedPlacement = currentPlacement(for: feed.id) ?? .ungrouped
+        isSubmitting = false
+        feedback = SourceManagementMoveSourceFeedbackPresentation(
+            kind: .success,
+            title: "Source moved",
+            detail: "\(feed.title) now lives in \(placementTitle(for: selectedPlacement))."
+        )
+    }
+
+    mutating func applyFailure(message: String) {
+        isSubmitting = false
+        feedback = SourceManagementMoveSourceFeedbackPresentation(
+            kind: .failure,
+            title: "Source could not be moved",
+            detail: message
+        )
+    }
+
+    func derivedPresentation() -> SourceManagementMoveSourcePresentation {
+        let selectedFeedTitle = selectedFeed().map(\.title)
+        let canSubmit = selectedFeedID != nil
+            && currentPlacement(for: selectedFeedID) != nil
+            && currentPlacement(for: selectedFeedID) != selectedPlacement
+            && isSubmitting == false
+
+        return SourceManagementMoveSourcePresentation(
+            title: "Move Sources",
+            summaryTitle: "Source Organization",
+            summaryDescription: "Select an existing feed and move it between folders or return it to the ungrouped area.",
+            feeds: feeds.map { feed in
+                SourceManagementMoveSourceFeedPresentation(
+                    id: feed.id,
+                    title: feed.title,
+                    subtitle: feed.url,
+                    currentPlacementTitle: placementTitle(for: placement(for: feed)),
+                    isSelected: feed.id == selectedFeedID
+                )
+            },
+            emptyStateTitle: feeds.isEmpty ? "No existing feeds yet" : nil,
+            emptyStateDescription: feeds.isEmpty
+                ? "Add and save a source first, then return here to reorganize it."
+                : nil,
+            placementTitle: "Target Folder",
+            placementDescription: placementDescription(for: selectedFeedTitle),
+            placementOptions: placementOptions(),
+            primaryActionTitle: isSubmitting ? "Moving..." : "Move Source",
+            isPrimaryActionEnabled: canSubmit,
+            isSubmitting: isSubmitting,
+            feedback: feedback
+        )
+    }
+
+    func moveCommand() -> SourceManagementMoveFeedCommand? {
+        guard let selectedFeedID,
+              let currentPlacement = currentPlacement(for: selectedFeedID),
+              currentPlacement != selectedPlacement else {
+            return nil
+        }
+
+        return SourceManagementMoveFeedCommand(
+            feedID: selectedFeedID,
+            folderPlacement: selectedPlacement
+        )
+    }
+
+    private func placementOptions() -> [SourceManagementFolderPlacementOptionPresentation] {
+        guard selectedFeedID != nil else { return [] }
+
+        return [
+            SourceManagementFolderPlacementOptionPresentation(
+                placement: .ungrouped,
+                title: "Ungrouped",
+                subtitle: "Return the source to the default ungrouped area.",
+                isSelected: selectedPlacement == .ungrouped
+            )
+        ] + folders.map { folder in
+            SourceManagementFolderPlacementOptionPresentation(
+                placement: .folder(folder.id),
+                title: folder.name,
+                subtitle: folder.feedCount == 1
+                    ? "1 feed currently in this folder"
+                    : "\(folder.feedCount) feeds currently in this folder",
+                isSelected: selectedPlacement == .folder(folder.id)
+            )
+        }
+    }
+
+    private func placementDescription(for selectedFeedTitle: String?) -> String {
+        guard let selectedFeedTitle else {
+            return "Select a feed first, then choose the target folder or the ungrouped destination."
+        }
+
+        return "Choose where \(selectedFeedTitle) should live after the move completes."
+    }
+
+    private func selectedFeed() -> SourceManagementFeedSummary? {
+        guard let selectedFeedID else { return nil }
+        return feeds.first(where: { $0.id == selectedFeedID })
+    }
+
+    private func currentPlacement(for feedID: UUID?) -> SourceManagementFolderPlacement? {
+        guard let feedID,
+              let feed = feeds.first(where: { $0.id == feedID }) else { return nil }
+        return placement(for: feed)
+    }
+
+    private func placement(for feed: SourceManagementFeedSummary) -> SourceManagementFolderPlacement {
+        if let folderID = feed.folderID {
+            return .folder(folderID)
+        }
+        return .ungrouped
+    }
+
+    private func placementTitle(for placement: SourceManagementFolderPlacement) -> String {
+        switch placement {
+        case .ungrouped:
+            return "Ungrouped"
+        case .folder(let folderID):
+            return folders.first(where: { $0.id == folderID })?.name ?? "Selected Folder"
+        }
+    }
+
+    private func feedSortComparator(
+        lhs: SourceManagementFeedSummary,
+        rhs: SourceManagementFeedSummary
+    ) -> Bool {
+        if lhs.title == rhs.title {
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
+        return lhs.title < rhs.title
+    }
+
+    private func folderSortComparator(
+        lhs: SourceManagementFolderSummary,
+        rhs: SourceManagementFolderSummary
+    ) -> Bool {
+        if lhs.sortOrder == rhs.sortOrder {
+            if lhs.name == rhs.name {
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+            return lhs.name < rhs.name
+        }
+        return lhs.sortOrder < rhs.sortOrder
     }
 }
 
