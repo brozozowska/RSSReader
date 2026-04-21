@@ -309,7 +309,7 @@
 - [x] провести consistency pass для `Source Management` UX: выровнять loading / success / error / empty states, copy для create/edit/move flows и app-level reload behavior после создания папки, добавления feed или перемещения источника;
 - [x] довести app-level completion behavior для `Source Management`: после `create folder`, `move source`, `edit feed`, `edit folder`, `unsubscribe` и `delete folder` должны быть явно определены reload `Sidebar` / `Articles`, retarget текущего selection и правила закрытия modal flow;
 - [x] добавить shell-level regression tests для `Source Management`: нужны отдельные проверки на reload / selection / dismiss behavior после create / move / edit / delete операций, чтобы app-level orchestration не расходился с screen-level success state;
-- [ ] расширить preview / dev fixtures для `Source Management`: обновить `RootViewPreviewData` и `SourceManagementScreenPreviewData`, чтобы можно было вручную проверять create / edit / move flows, видимость новых папок и post-action состояние без живого сценария в приложении;
+- [x] расширить preview / dev fixtures для `Source Management`: обновить `RootViewPreviewData` и `SourceManagementScreenPreviewData`, чтобы можно было вручную проверять create / edit / move flows, видимость новых папок и post-action состояние без живого сценария в приложении;
 - [ ] провести cleanup / refactor `Source Management` flow после реализации основных сценариев: убрать временные ветки и дублирование orchestration-кода, выровнять screen contract и вынести повторяющиеся helpers из controller/presentation слоя.
 
 ### Sync
