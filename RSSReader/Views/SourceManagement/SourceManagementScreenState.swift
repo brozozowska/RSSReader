@@ -88,11 +88,35 @@ struct SourceManagementScreenState {
         refreshPresentedDestination()
     }
 
+    mutating func resetAddFeedForEntry() {
+        addFeedState.resetForEntry()
+        refreshPresentedDestination()
+    }
+
     mutating func selectAddFeedFolderPlacement(
         _ placement: SourceManagementFolderPlacement
     ) {
         addFeedState.selectFolderPlacement(placement)
         refreshPresentedDestination()
+    }
+
+    mutating func applyAddFeedEditContext(
+        feed: SourceManagementFeedSummary,
+        folders: [SourceManagementFolderSummary]
+    ) {
+        addFeedState.applyAvailableFolders(folders)
+        addFeedState.applyEditingFeed(feed)
+        refreshPresentedDestination()
+    }
+
+    func isEditingAddFeed() -> Bool {
+        addFeedState.isEditing
+    }
+
+    mutating func beginAddFeedUpdate() -> SourceManagementUpdateFeedCommand? {
+        let command = addFeedState.beginFeedUpdate()
+        refreshPresentedDestination()
+        return command
     }
 
     mutating func applyCreateFolderContext(
@@ -106,6 +130,11 @@ struct SourceManagementScreenState {
         refreshPresentedDestination()
     }
 
+    mutating func resetCreateFolderForEntry() {
+        createFolderState.resetForEntry()
+        refreshPresentedDestination()
+    }
+
     mutating func applyCreateFolderServiceUnavailable(message: String) {
         createFolderState.applyServiceUnavailable(message: message)
         refreshPresentedDestination()
@@ -114,6 +143,28 @@ struct SourceManagementScreenState {
     mutating func updateCreateFolderNameInput(_ value: String) {
         createFolderState.updateNameInput(value)
         refreshPresentedDestination()
+    }
+
+    mutating func applyCreateFolderEditContext(
+        folder: SourceManagementFolderSummary,
+        folders: [SourceManagementFolderSummary]
+    ) {
+        createFolderState.applyAvailableFolders(
+            folders,
+            isServiceAvailable: true
+        )
+        createFolderState.applyEditingFolder(folder)
+        refreshPresentedDestination()
+    }
+
+    func isEditingCreateFolder() -> Bool {
+        createFolderState.isEditing
+    }
+
+    mutating func beginCreateFolderUpdate() -> SourceManagementUpdateFolderCommand? {
+        let command = createFolderState.beginUpdate()
+        refreshPresentedDestination()
+        return command
     }
 
     mutating func beginCreateFolderSubmission() {
@@ -172,6 +223,10 @@ struct SourceManagementScreenState {
 
     func createFolderValidationMessage() -> String? {
         createFolderState.validationMessage()
+    }
+
+    func createFolderEditingName() -> String? {
+        createFolderState.editingName
     }
 
     func moveSourceCommand() -> SourceManagementMoveFeedCommand? {
@@ -286,6 +341,11 @@ struct SourceManagementAddFeedState {
     private(set) var previewStatus: SourceManagementAddFeedStatusPresentation? = nil
     private(set) var availableFolders: [SourceManagementFolderSummary] = []
     private(set) var selectedFolderPlacement: SourceManagementFolderPlacement = .ungrouped
+    private(set) var editingFeed: SourceManagementFeedSummary? = nil
+
+    var isEditing: Bool {
+        editingFeed != nil
+    }
 
     mutating func updateURLInput(_ value: String) {
         urlInput = value
@@ -304,6 +364,37 @@ struct SourceManagementAddFeedState {
            availableFolders.contains(where: { $0.id == folderID }) == false {
             selectedFolderPlacement = .ungrouped
         }
+    }
+
+    mutating func applyEditingFeed(_ feed: SourceManagementFeedSummary) {
+        editingFeed = feed
+        urlInput = feed.url
+        isLoadingPreview = false
+        isCreatingFeed = false
+        activePreviewRequestURL = nil
+        preview = nil
+        isPreviewConfirmed = false
+        createdFeed = nil
+        previewStatus = nil
+        if let folderID = feed.folderID,
+           availableFolders.contains(where: { $0.id == folderID }) {
+            selectedFolderPlacement = .folder(folderID)
+        } else {
+            selectedFolderPlacement = .ungrouped
+        }
+    }
+
+    mutating func resetForEntry() {
+        urlInput = ""
+        isLoadingPreview = false
+        isCreatingFeed = false
+        activePreviewRequestURL = nil
+        preview = nil
+        isPreviewConfirmed = false
+        createdFeed = nil
+        previewStatus = nil
+        selectedFolderPlacement = .ungrouped
+        editingFeed = nil
     }
 
     mutating func selectFolderPlacement(_ placement: SourceManagementFolderPlacement) {
@@ -346,6 +437,7 @@ struct SourceManagementAddFeedState {
 
     func canConfirmPreview() -> Bool {
         preview != nil
+            && hasDuplicateConflict == false
             && isPreviewConfirmed == false
             && isLoadingPreview == false
             && isCreatingFeed == false
@@ -354,7 +446,18 @@ struct SourceManagementAddFeedState {
 
     func canCreateFeed() -> Bool {
         preview != nil
-            && preview?.existingFeedID == nil
+            && editingFeed == nil
+            && hasDuplicateConflict == false
+            && isPreviewConfirmed
+            && isLoadingPreview == false
+            && isCreatingFeed == false
+            && createdFeed == nil
+    }
+
+    func canUpdateFeed() -> Bool {
+        preview != nil
+            && editingFeed != nil
+            && hasDuplicateConflict == false
             && isPreviewConfirmed
             && isLoadingPreview == false
             && isCreatingFeed == false
@@ -405,7 +508,7 @@ struct SourceManagementAddFeedState {
     }
 
     mutating func confirmPreview() {
-        guard preview != nil else { return }
+        guard preview != nil, hasDuplicateConflict == false else { return }
         isPreviewConfirmed = true
         previewStatus = nil
     }
@@ -422,13 +525,30 @@ struct SourceManagementAddFeedState {
         )
     }
 
+    mutating func beginFeedUpdate() -> SourceManagementUpdateFeedCommand? {
+        guard canUpdateFeed(), let preview, let editingFeed else { return nil }
+
+        isCreatingFeed = true
+        previewStatus = nil
+
+        return SourceManagementUpdateFeedCommand(
+            feedID: editingFeed.id,
+            preview: preview,
+            folderPlacement: selectedFolderPlacement
+        )
+    }
+
     mutating func applyCreatedFeed(_ feed: SourceManagementFeedSummary) {
+        let wasEditing = isEditing
         createdFeed = feed
         isCreatingFeed = false
+        editingFeed = feed
         previewStatus = SourceManagementAddFeedStatusPresentation(
-            title: "Feed added",
+            title: wasEditing ? "Feed updated" : "Feed added",
             kind: .success,
-            detail: "\(feed.title) was saved in \(feed.folderName ?? "Ungrouped")."
+            detail: wasEditing
+                ? "\(feed.title) now points to \(feed.url) in \(feed.folderName ?? "Ungrouped")."
+                : "\(feed.title) was saved in \(feed.folderName ?? "Ungrouped")."
         )
     }
 
@@ -450,17 +570,19 @@ struct SourceManagementAddFeedState {
             primaryActionTitle = "Loading Preview..."
             isPrimaryActionEnabled = false
         } else if isCreatingFeed {
-            primaryActionTitle = "Adding Feed..."
+            primaryActionTitle = isEditing ? "Saving Changes..." : "Adding Feed..."
             isPrimaryActionEnabled = false
         } else if createdFeed != nil {
-            primaryActionTitle = "Feed Added"
+            primaryActionTitle = isEditing ? "Changes Saved" : "Feed Added"
             isPrimaryActionEnabled = false
         } else if preview != nil {
-            if preview?.existingFeedID != nil {
+            if hasDuplicateConflict {
                 primaryActionTitle = "Already Added"
                 isPrimaryActionEnabled = false
             } else {
-                primaryActionTitle = isPreviewConfirmed ? "Add Feed" : "Confirm Feed"
+                primaryActionTitle = isPreviewConfirmed
+                    ? (isEditing ? "Save Changes" : "Add Feed")
+                    : (isEditing ? "Confirm Changes" : "Confirm Feed")
                 isPrimaryActionEnabled = true
             }
         } else {
@@ -469,9 +591,11 @@ struct SourceManagementAddFeedState {
         }
 
         return SourceManagementAddFeedPresentation(
-            title: "Add Feed",
-            summaryTitle: "Feed Setup",
-            summaryDescription: "Preview the feed metadata before you commit to adding this source.",
+            title: isEditing ? "Edit Feed" : "Add Feed",
+            summaryTitle: isEditing ? "Feed Details" : "Feed Setup",
+            summaryDescription: isEditing
+                ? "Update the source URL or destination folder, then load a fresh preview before saving the changes."
+                : "Preview the feed metadata before you commit to adding this source.",
             urlInput: urlInput,
             urlPrompt: "Feed URL",
             validationMessage: validationMessage,
@@ -483,11 +607,14 @@ struct SourceManagementAddFeedState {
             placementTitle: "Destination Folder",
             placementDescription: placementDescription(),
             placementOptions: placementOptions(),
-            createFolderActionTitle: preview?.existingFeedID == nil && createdFeed == nil && isCreatingFeed == false
-                ? "Create New Folder"
-                : nil,
+            createFolderActionTitle: createFolderActionTitle(),
             status: statusPresentation()
         )
+    }
+
+    private var hasDuplicateConflict: Bool {
+        guard let existingFeedID = preview?.existingFeedID else { return false }
+        return existingFeedID != editingFeed?.id
     }
 
     private func normalizedURLInput() -> String {
@@ -509,9 +636,9 @@ struct SourceManagementAddFeedState {
             iconURL: preview.iconURL,
             kindTitle: kindTitle(preview.kind),
             resolvedFeedURL: preview.resolvedFeedURL,
-            existingFeedNotice: preview.existingFeedID == nil
-                ? nil
-                : "This source already exists in the library.",
+            existingFeedNotice: hasDuplicateConflict
+                ? "This source already exists in the library."
+                : nil,
             diagnosticsSummary: diagnosticsSummary(preview: preview)
         )
     }
@@ -521,7 +648,7 @@ struct SourceManagementAddFeedState {
             return previewStatus
         }
 
-        if preview?.existingFeedID != nil {
+        if hasDuplicateConflict {
             return SourceManagementAddFeedStatusPresentation(
                 title: "This feed is already in the library",
                 kind: .warning,
@@ -533,16 +660,23 @@ struct SourceManagementAddFeedState {
         return SourceManagementAddFeedStatusPresentation(
             title: "Preview confirmed",
             kind: .success,
-            detail: "The feed metadata is confirmed and ready for the feed-creation step in \(selectedPlacementTitle())."
+            detail: isEditing
+                ? "The updated feed metadata is confirmed and ready to save in \(selectedPlacementTitle())."
+                : "The feed metadata is confirmed and ready for the feed-creation step in \(selectedPlacementTitle())."
         )
     }
 
     private func placementDescription() -> String {
         if createdFeed != nil {
-            return "The source has already been saved. Edit the URL to start a new add-feed flow."
+            return isEditing
+                ? "The source has already been updated. Edit the URL to start another edit flow."
+                : "The source has already been saved. Edit the URL to start a new add-feed flow."
         }
 
         if preview == nil {
+            if isEditing {
+                return "The current destination is preselected. Load a fresh preview before saving the updated source."
+            }
             return "Preview the feed first, then choose whether the source should stay ungrouped or land in a folder."
         }
 
@@ -550,13 +684,16 @@ struct SourceManagementAddFeedState {
             return "No folders are available yet. The source can stay ungrouped until you create a folder in Source Management."
         }
 
-        return "Choose where the source should live once the feed-creation step saves it."
+        return isEditing
+            ? "Choose where the existing source should live once the updated feed details are saved."
+            : "Choose where the source should live once the feed-creation step saves it."
     }
 
     private func placementOptions() -> [SourceManagementFolderPlacementOptionPresentation] {
-        guard preview?.existingFeedID == nil,
-              createdFeed == nil,
-              isCreatingFeed == false else { return [] }
+        guard createdFeed == nil,
+              isCreatingFeed == false,
+              hasDuplicateConflict == false,
+              preview != nil || isEditing else { return [] }
 
         return [
             SourceManagementFolderPlacementOptionPresentation(
@@ -575,6 +712,16 @@ struct SourceManagementAddFeedState {
                 isSelected: selectedFolderPlacement == .folder(folder.id)
             )
         }
+    }
+
+    private func createFolderActionTitle() -> String? {
+        guard createdFeed == nil,
+              isCreatingFeed == false,
+              hasDuplicateConflict == false,
+              preview != nil || isEditing else {
+            return nil
+        }
+        return "Create New Folder"
     }
 
     private func selectedPlacementTitle() -> String {
@@ -829,6 +976,15 @@ struct SourceManagementCreateFolderState {
     private(set) var isServiceAvailable = true
     private(set) var isSubmitting = false
     fileprivate(set) var feedback: SourceManagementCreateFolderFeedbackPresentation? = nil
+    private(set) var editingFolder: SourceManagementFolderSummary? = nil
+
+    var isEditing: Bool {
+        editingFolder != nil
+    }
+
+    var editingName: String? {
+        editingFolder?.name
+    }
 
     mutating func applyAvailableFolders(
         _ folders: [SourceManagementFolderSummary],
@@ -848,6 +1004,21 @@ struct SourceManagementCreateFolderState {
         if isServiceAvailable {
             feedback = nil
         }
+    }
+
+    mutating func applyEditingFolder(_ folder: SourceManagementFolderSummary) {
+        editingFolder = folder
+        nameInput = folder.name
+        isServiceAvailable = true
+        isSubmitting = false
+        feedback = nil
+    }
+
+    mutating func resetForEntry() {
+        nameInput = ""
+        isSubmitting = false
+        feedback = nil
+        editingFolder = nil
     }
 
     mutating func applyServiceUnavailable(message: String) {
@@ -874,7 +1045,18 @@ struct SourceManagementCreateFolderState {
         feedback = nil
     }
 
+    mutating func beginUpdate() -> SourceManagementUpdateFolderCommand? {
+        guard let editingFolder, validationMessage() == nil else { return nil }
+        isSubmitting = true
+        feedback = nil
+        return SourceManagementUpdateFolderCommand(
+            folderID: editingFolder.id,
+            name: normalizedName()
+        )
+    }
+
     mutating func applyCreatedFolder(_ folder: SourceManagementFolderSummary) {
+        let wasEditing = isEditing
         existingFolders.removeAll { $0.id == folder.id }
         existingFolders.append(folder)
         existingFolders.sort { lhs, rhs in
@@ -886,12 +1068,15 @@ struct SourceManagementCreateFolderState {
             }
             return lhs.sortOrder < rhs.sortOrder
         }
-        nameInput = ""
+        editingFolder = wasEditing ? folder : editingFolder
+        nameInput = wasEditing ? folder.name : ""
         isSubmitting = false
         feedback = SourceManagementCreateFolderFeedbackPresentation(
             kind: .success,
-            title: "Folder created",
-            detail: "\"\(folder.name)\" will appear as sidebar folder #\(folder.sortOrder + 1)."
+            title: wasEditing ? "Folder updated" : "Folder created",
+            detail: wasEditing
+                ? "\"\(folder.name)\" keeps sidebar position #\(folder.sortOrder + 1)."
+                : "\"\(folder.name)\" will appear as sidebar folder #\(folder.sortOrder + 1)."
         )
     }
 
@@ -899,7 +1084,7 @@ struct SourceManagementCreateFolderState {
         isSubmitting = false
         feedback = SourceManagementCreateFolderFeedbackPresentation(
             kind: .failure,
-            title: "Folder could not be created",
+            title: isEditing ? "Folder could not be updated" : "Folder could not be created",
             detail: message
         )
     }
@@ -917,15 +1102,19 @@ struct SourceManagementCreateFolderState {
         }
 
         return SourceManagementCreateFolderPresentation(
-            title: "Create Folder",
-            summaryTitle: "Folder Setup",
-            summaryDescription: "Create a reusable folder first when you want sidebar grouping to exist before any feed is assigned to it.",
+            title: isEditing ? "Edit Folder" : "Create Folder",
+            summaryTitle: isEditing ? "Folder Details" : "Folder Setup",
+            summaryDescription: isEditing
+                ? "Rename the existing folder while keeping the current sidebar grouping intact."
+                : "Create a reusable folder first when you want sidebar grouping to exist before any feed is assigned to it.",
             nameInput: nameInput,
             namePrompt: "Folder Name",
             validationMessage: validationMessage,
             existingFolders: existingFolderPresentations,
             placementDescription: placementDescription(for: nextSortOrder),
-            primaryActionTitle: isSubmitting ? "Creating..." : "Create Folder",
+            primaryActionTitle: isSubmitting
+                ? (isEditing ? "Saving..." : "Creating...")
+                : (isEditing ? "Save Folder" : "Create Folder"),
             isPrimaryActionEnabled: isServiceAvailable && validationMessage == nil && isSubmitting == false,
             isSubmitting: isSubmitting,
             feedback: feedback
@@ -942,7 +1131,9 @@ struct SourceManagementCreateFolderState {
             return "Enter a folder name to continue."
         }
 
-        if existingFolders.contains(where: { $0.name == normalizedValue }) {
+        if existingFolders.contains(where: {
+            $0.name == normalizedValue && $0.id != editingFolder?.id
+        }) {
             return "A folder with this name already exists."
         }
 
@@ -961,6 +1152,10 @@ struct SourceManagementCreateFolderState {
     }
 
     private func placementDescription(for sortOrder: Int) -> String {
+        if let editingFolder {
+            return "\"\(editingFolder.name)\" keeps sidebar position #\(editingFolder.sortOrder + 1)."
+        }
+
         if existingFolders.isEmpty {
             return "This will become the first sidebar folder."
         }

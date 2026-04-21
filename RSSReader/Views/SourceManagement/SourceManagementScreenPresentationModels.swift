@@ -1,5 +1,11 @@
 import Foundation
 
+enum SourceManagementScreenLaunchContext: Hashable, Sendable {
+    case entry
+    case editFeed(UUID)
+    case editFolder(UUID)
+}
+
 enum SourceManagementScenarioID: String, CaseIterable, Hashable, Identifiable, Sendable {
     case addFeed
     case createFolder

@@ -86,13 +86,54 @@ struct SourceManagementMoveFeedCommand: Equatable, Sendable {
     }
 }
 
+struct SourceManagementUpdateFeedCommand: Equatable, Sendable {
+    let feedID: UUID
+    let preview: SourceManagementFeedPreview
+    let folderPlacement: SourceManagementFolderPlacement
+    let updatedAt: Date
+
+    init(
+        feedID: UUID,
+        preview: SourceManagementFeedPreview,
+        folderPlacement: SourceManagementFolderPlacement,
+        updatedAt: Date = .now
+    ) {
+        self.feedID = feedID
+        self.preview = preview
+        self.folderPlacement = folderPlacement
+        self.updatedAt = updatedAt
+    }
+}
+
+struct SourceManagementUpdateFolderCommand: Equatable, Sendable {
+    let folderID: UUID
+    let name: String
+    let updatedAt: Date
+
+    init(
+        folderID: UUID,
+        name: String,
+        updatedAt: Date = .now
+    ) {
+        self.folderID = folderID
+        self.name = name
+        self.updatedAt = updatedAt
+    }
+}
+
 @MainActor
 protocol SourceManagementService {
     func fetchFolders() throws -> [SourceManagementFolderSummary]
     func fetchFeeds() throws -> [SourceManagementFeedSummary]
+    func fetchFeed(id: UUID) throws -> SourceManagementFeedSummary?
+    func fetchFolder(id: UUID) throws -> SourceManagementFolderSummary?
     func previewFeed(urlString: String) async throws -> SourceManagementFeedPreview
     func createFolder(_ command: SourceManagementCreateFolderCommand) throws -> SourceManagementFolderSummary
+    func updateFolder(_ command: SourceManagementUpdateFolderCommand) throws -> SourceManagementFolderSummary
+    func deleteFolder(id: UUID) throws
     func createFeed(_ command: SourceManagementCreateFeedCommand) throws -> SourceManagementFeedSummary
+    func updateFeed(_ command: SourceManagementUpdateFeedCommand) throws -> SourceManagementFeedSummary
+    func deleteFeed(id: UUID) throws
     func moveFeed(_ command: SourceManagementMoveFeedCommand) throws -> SourceManagementFeedSummary
 }
 
@@ -121,6 +162,14 @@ final class DefaultSourceManagementService: SourceManagementService {
 
     func fetchFeeds() throws -> [SourceManagementFeedSummary] {
         try feedRepository.fetchAllFeeds().map(feedSummary(from:))
+    }
+
+    func fetchFeed(id: UUID) throws -> SourceManagementFeedSummary? {
+        try feedRepository.fetchFeed(id: id).map(feedSummary(from:))
+    }
+
+    func fetchFolder(id: UUID) throws -> SourceManagementFolderSummary? {
+        try folderRepository.fetchFolder(id: id).map(folderSummary(from:))
     }
 
     func previewFeed(urlString: String) async throws -> SourceManagementFeedPreview {
@@ -188,6 +237,62 @@ final class DefaultSourceManagementService: SourceManagementService {
         return folderSummary(from: folder)
     }
 
+    func updateFolder(_ command: SourceManagementUpdateFolderCommand) throws -> SourceManagementFolderSummary {
+        let normalizedName = try normalizedFolderName(command.name)
+
+        guard try folderRepository.fetchFolder(id: command.folderID) != nil else {
+            logger.error("Skipped folder update because folder was not found: \(command.folderID.uuidString)")
+            throw SourceManagementServiceError.folderNotFound(command.folderID)
+        }
+
+        if let existingFolder = try folderRepository.fetchFolder(name: normalizedName),
+           existingFolder.id != command.folderID {
+            logger.error("Skipped folder update because another folder already uses name: \(normalizedName)")
+            throw SourceManagementServiceError.duplicateFolderName(normalizedName)
+        }
+
+        guard let folder = try folderRepository.update(
+            folderID: command.folderID,
+            with: FolderDetailsUpdate(
+                name: normalizedName,
+                updatedAt: command.updatedAt
+            )
+        ) else {
+            logger.error("Skipped folder update because update path returned no folder: \(command.folderID.uuidString)")
+            throw SourceManagementServiceError.folderNotFound(command.folderID)
+        }
+
+        return folderSummary(from: folder)
+    }
+
+    func deleteFolder(id folderID: UUID) throws {
+        guard let folder = try folderRepository.fetchFolder(id: folderID) else {
+            logger.error("Skipped folder deletion because folder was not found: \(folderID.uuidString)")
+            throw SourceManagementServiceError.folderNotFound(folderID)
+        }
+
+        let containedFeedIDs = try feedRepository.fetchAllFeeds()
+            .filter { $0.folder?.id == folderID }
+            .map(\.id)
+
+        do {
+            for feedID in containedFeedIDs {
+                _ = try feedRepository.updateFolderAssignment(
+                    for: feedID,
+                    with: FeedFolderAssignmentUpdate(
+                        folder: nil,
+                        updatedAt: .now
+                    ),
+                    saveAfterOperation: false
+                )
+            }
+            try folderRepository.delete(folder)
+        } catch {
+            feedRepository.rollback()
+            throw error
+        }
+    }
+
     func createFeed(_ command: SourceManagementCreateFeedCommand) throws -> SourceManagementFeedSummary {
         if try existingFeed(
             resolvedFeedURL: command.preview.resolvedFeedURL,
@@ -214,6 +319,61 @@ final class DefaultSourceManagementService: SourceManagementService {
         )
 
         return feedSummary(from: feed)
+    }
+
+    func updateFeed(_ command: SourceManagementUpdateFeedCommand) throws -> SourceManagementFeedSummary {
+        guard try feedRepository.fetchMetadata(for: command.feedID) != nil else {
+            logger.error("Skipped feed update because feed was not found: \(command.feedID.uuidString)")
+            throw SourceManagementServiceError.feedNotFound(command.feedID)
+        }
+
+        if let duplicateFeed = try existingFeed(
+            resolvedFeedURL: command.preview.resolvedFeedURL,
+            requestedURL: command.preview.requestedURL
+        ), duplicateFeed.id != command.feedID {
+            logger.error("Skipped feed update because another feed already uses URL: \(command.preview.resolvedFeedURL)")
+            throw SourceManagementServiceError.duplicateFeed(command.preview.resolvedFeedURL)
+        }
+
+        let folder = try resolveFolder(for: command.folderPlacement)
+
+        do {
+            let updatedFeed = try feedRepository.updateDetails(
+                for: command.feedID,
+                with: FeedDetailsUpdate(
+                    url: command.preview.resolvedFeedURL,
+                    siteURL: command.preview.siteURL,
+                    title: command.preview.title,
+                    subtitle: command.preview.subtitle,
+                    iconURL: command.preview.iconURL,
+                    language: command.preview.language,
+                    kind: command.preview.kind,
+                    updatedAt: command.updatedAt
+                ),
+                saveAfterOperation: false
+            )
+            let finalFeed = try feedRepository.updateFolderAssignment(
+                for: command.feedID,
+                with: FeedFolderAssignmentUpdate(
+                    folder: folder,
+                    updatedAt: command.updatedAt
+                ),
+                saveAfterOperation: false
+            ) ?? updatedFeed
+            try feedRepository.save()
+            return feedSummary(from: try requireFeedSummarySource(finalFeed, feedID: command.feedID))
+        } catch {
+            feedRepository.rollback()
+            throw error
+        }
+    }
+
+    func deleteFeed(id feedID: UUID) throws {
+        let didDelete = try feedRepository.delete(feedID: feedID)
+        guard didDelete else {
+            logger.error("Skipped feed deletion because feed was not found: \(feedID.uuidString)")
+            throw SourceManagementServiceError.feedNotFound(feedID)
+        }
     }
 
     func moveFeed(_ command: SourceManagementMoveFeedCommand) throws -> SourceManagementFeedSummary {

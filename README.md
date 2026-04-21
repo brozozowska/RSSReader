@@ -305,7 +305,7 @@
 - [x] реализовать выбор папки при создании feed и отдельный move flow для существующих feed: пользователь должен иметь возможность поместить источник в новую или существующую папку, перенести его между папками и вернуть в `ungrouped` state;
 - [x] реализовать сохранение нового feed после подтверждения preview: источник должен создаваться в persistence с нормализованным URL, стартовыми metadata из preview и выбранной целевой папкой либо `ungrouped` placement;
 - [x] организовать первый refresh после добавления feed, чтобы после сохранения источник проходил через существующий refresh pipeline, загружал статьи и обновлял `Sidebar` / `Articles` без ручного перезапуска приложения;
-- [ ] определить source-level actions в `Sidebar`: нужен явный UX для запуска move flow над существующим feed, чтобы перемещение между папками происходило из списка источников, а не требовало повторного add-source сценария;
+- [x] определить source-level actions в `Sidebar`: нужен явный UX для запуска edit / move flow над существующим feed, чтобы редактирование или перемещение между папками происходило из списка источников, а не требовало повторного add-source сценария;
 - [ ] провести consistency pass для `Source Management` UX: выровнять loading / success / error / empty states, copy для create/move flows и app-level reload behavior после создания папки, добавления feed или перемещения источника.
 - [ ] провести cleanup / refactor `Source Management` flow после реализации основных сценариев: убрать временные ветки и дублирование orchestration-кода, выровнять screen contract и вынести повторяющиеся helpers из controller/presentation слоя.
 

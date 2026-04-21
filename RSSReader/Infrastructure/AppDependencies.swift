@@ -280,6 +280,90 @@ extension AppDependencies {
     }
 
     @MainActor
+    func showFeedEditor(id feedID: UUID, using appState: AppState) {
+        appState.presentSourceManagementScreen(launchContext: .editFeed(feedID))
+    }
+
+    @MainActor
+    func showFolderEditor(named folderName: String, using appState: AppState) {
+        guard let folderRepository else {
+            logger.error("Folder repository is unavailable for folder editing")
+            return
+        }
+
+        do {
+            guard let folder = try folderRepository.fetchFolder(name: folderName) else {
+                logger.error("Skipped folder editor presentation because folder \(folderName) was not found")
+                return
+            }
+            appState.presentSourceManagementScreen(launchContext: .editFolder(folder.id))
+        } catch {
+            logger.error("Failed to resolve folder editor presentation for \(folderName): \(error)")
+        }
+    }
+
+    @MainActor
+    func finishFolderEditing(
+        previousName: String,
+        updatedFolderName: String,
+        using appState: AppState
+    ) {
+        appState.requestSourcesSidebarReload()
+        if appState.selectedSidebarSelection == .folder(previousName) {
+            showFolder(named: updatedFolderName, using: appState)
+        }
+        dismissSourceManagement(using: appState)
+    }
+
+    @MainActor
+    func unsubscribeFeed(id feedID: UUID, using appState: AppState) {
+        guard let sourceManagementService else {
+            logger.error("Source management service is unavailable for feed deletion")
+            return
+        }
+
+        do {
+            try sourceManagementService.deleteFeed(id: feedID)
+            appState.requestSourcesSidebarReload()
+            if appState.selectedSidebarSelection == .feed(feedID) {
+                showInbox(using: appState)
+            } else {
+                appState.requestArticleListReload()
+            }
+        } catch {
+            logger.error("Failed to unsubscribe feed \(feedID): \(error)")
+        }
+    }
+
+    @MainActor
+    func deleteFolder(named folderName: String, using appState: AppState) {
+        guard let folderRepository else {
+            logger.error("Folder repository is unavailable for folder deletion")
+            return
+        }
+        guard let sourceManagementService else {
+            logger.error("Source management service is unavailable for folder deletion")
+            return
+        }
+
+        do {
+            guard let folder = try folderRepository.fetchFolder(name: folderName) else {
+                logger.error("Skipped folder deletion because folder \(folderName) was not found")
+                return
+            }
+            try sourceManagementService.deleteFolder(id: folder.id)
+            appState.requestSourcesSidebarReload()
+            if appState.selectedSidebarSelection == .folder(folderName) {
+                showInbox(using: appState)
+            } else {
+                appState.requestArticleListReload()
+            }
+        } catch {
+            logger.error("Failed to delete folder \(folderName): \(error)")
+        }
+    }
+
+    @MainActor
     func dismissSourceManagement(using appState: AppState) {
         appState.dismissSourceManagementScreen()
     }

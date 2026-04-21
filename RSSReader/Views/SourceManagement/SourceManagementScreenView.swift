@@ -21,12 +21,15 @@ struct SourceManagementScreenView: View {
     @Environment(AppState.self) private var appState
     @State private var controller: SourceManagementScreenController
     let dismiss: () -> Void
+    let launchContext: SourceManagementScreenLaunchContext
 
     init(
         dismiss: @escaping () -> Void,
+        launchContext: SourceManagementScreenLaunchContext = .entry,
         previewScreenState: SourceManagementScreenState? = nil
     ) {
         self.dismiss = dismiss
+        self.launchContext = launchContext
         self._controller = State(
             initialValue: SourceManagementScreenController(previewScreenState: previewScreenState)
         )
@@ -97,6 +100,9 @@ struct SourceManagementScreenView: View {
                     SourceManagementScenarioPlaceholderView(destination: placeholder)
                 }
             }
+            .task(id: launchContext) {
+                controller.handleLaunchContext(launchContext, dependencies: dependencies)
+            }
         }
     }
 
@@ -133,7 +139,10 @@ struct SourceManagementScreenView: View {
                 controller.handleCreateFolderNameChange(value)
             },
             submitCreateFolder: {
-                controller.submitCreateFolder(dependencies: dependencies)
+                controller.submitCreateFolder(
+                    dependencies: dependencies,
+                    appState: appState
+                )
             },
             selectMoveSourceFeed: { feedID in
                 controller.handleMoveSourceFeedSelection(feedID)

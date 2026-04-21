@@ -67,6 +67,7 @@ public final class AppState {
     var iCloudSyncStatus: ICloudSyncStatus = .disabled
     var isPresentingSettingsScreen = false
     var isPresentingSourceManagementScreen = false
+    var sourceManagementLaunchContext: SourceManagementScreenLaunchContext = .entry
     var articleListReloadID = UUID()
     var sourcesSidebarReloadID = UUID()
 
@@ -123,12 +124,16 @@ public final class AppState {
         isPresentingSettingsScreen = false
     }
 
-    func presentSourceManagementScreen() {
+    func presentSourceManagementScreen(
+        launchContext: SourceManagementScreenLaunchContext = .entry
+    ) {
+        sourceManagementLaunchContext = launchContext
         isPresentingSourceManagementScreen = true
     }
 
     func dismissSourceManagementScreen() {
         isPresentingSourceManagementScreen = false
+        sourceManagementLaunchContext = .entry
     }
 
     func selectSourcesFilter(_ filter: SourcesFilter) {

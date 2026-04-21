@@ -134,6 +134,17 @@ struct FeedMetadataUpdate: Sendable {
     var updatedAt: Date = .now
 }
 
+struct FeedDetailsUpdate: Sendable {
+    var url: String? = nil
+    var siteURL: String? = nil
+    var title: String? = nil
+    var subtitle: String? = nil
+    var iconURL: String? = nil
+    var language: String? = nil
+    var kind: FeedKind? = nil
+    var updatedAt: Date = .now
+}
+
 struct FeedFolderAssignmentUpdate: Sendable {
     var folder: Folder? = nil
     var updatedAt: Date = .now
@@ -159,6 +170,13 @@ protocol FeedRepository {
     ) throws -> Feed?
 
     @discardableResult
+    func updateDetails(
+        for feedID: UUID,
+        with update: FeedDetailsUpdate,
+        saveAfterOperation: Bool
+    ) throws -> Feed?
+
+    @discardableResult
     func updateFolderAssignment(
         for feedID: UUID,
         with update: FeedFolderAssignmentUpdate,
@@ -177,6 +195,11 @@ extension FeedRepository {
     @discardableResult
     func updateMetadata(for feedID: UUID, with update: FeedMetadataUpdate) throws -> Feed? {
         try updateMetadata(for: feedID, with: update, saveAfterOperation: true)
+    }
+
+    @discardableResult
+    func updateDetails(for feedID: UUID, with update: FeedDetailsUpdate) throws -> Feed? {
+        try updateDetails(for: feedID, with: update, saveAfterOperation: true)
     }
 
     @discardableResult
@@ -303,6 +326,50 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
             feed.lastSyncError = nil
         } else if let lastSyncError = update.lastSyncError {
             feed.lastSyncError = lastSyncError
+        }
+
+        feed.updatedAt = update.updatedAt
+
+        if saveAfterOperation {
+            try saveIfNeeded()
+        }
+        return feed
+    }
+
+    @discardableResult
+    func updateDetails(
+        for feedID: UUID,
+        with update: FeedDetailsUpdate,
+        saveAfterOperation: Bool = true
+    ) throws -> Feed? {
+        guard let feed = try fetchFeed(id: feedID) else { return nil }
+
+        if let url = update.url {
+            feed.url = url
+        }
+
+        if let siteURL = update.siteURL {
+            feed.siteURL = siteURL
+        }
+
+        if let title = update.title, title.isEmpty == false {
+            feed.title = title
+        }
+
+        if let subtitle = update.subtitle {
+            feed.subtitle = subtitle
+        }
+
+        if let iconURL = update.iconURL {
+            feed.iconURL = iconURL
+        }
+
+        if let language = update.language {
+            feed.language = language
+        }
+
+        if let kind = update.kind {
+            feed.kind = kind
         }
 
         feed.updatedAt = update.updatedAt

@@ -255,6 +255,15 @@ struct SidebarView: View {
         .onTapGesture {
             selection = row.selection
         }
+        .contextMenu {
+            Button("Edit...") {
+                dependencies.showFeedEditor(id: row.id, using: appState)
+            }
+
+            Button("Unsubscribe", role: .destructive) {
+                dependencies.unsubscribeFeed(id: row.id, using: appState)
+            }
+        }
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
         .tag(Optional(row.selection))
@@ -288,6 +297,15 @@ struct SidebarView: View {
             }
         }
         .font(.body)
+        .contextMenu {
+            Button("Edit...") {
+                dependencies.showFolderEditor(named: row.name, using: appState)
+            }
+
+            Button("Delete", role: .destructive) {
+                dependencies.deleteFolder(named: row.name, using: appState)
+            }
+        }
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
         .tag(Optional(row.selection))

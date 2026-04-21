@@ -75,7 +75,8 @@ struct RootView: View {
         }
         .sheet(isPresented: sourceManagementPresentationBinding) {
             SourceManagementScreenView(
-                dismiss: { dependencies.dismissSourceManagement(using: appState) }
+                dismiss: { dependencies.dismissSourceManagement(using: appState) },
+                launchContext: appState.sourceManagementLaunchContext
             )
         }
         .preferredColorScheme(themeApplicationPolicy.preferredColorScheme)
