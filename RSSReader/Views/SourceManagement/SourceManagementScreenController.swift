@@ -56,7 +56,7 @@ final class SourceManagementScreenController {
         guard let sourceManagementService = dependencies.sourceManagementService else {
             dependencies.logger.error("Source management service is unavailable for feed preview")
             screenState.applyAddFeedPreviewFailure(
-                "Feed preview is unavailable in the current app environment.",
+                addFeedPreviewUnavailableStatus(),
                 requestURL: requestURL
             )
             return
@@ -65,16 +65,10 @@ final class SourceManagementScreenController {
         do {
             let preview = try await sourceManagementService.previewFeed(urlString: requestURL)
             screenState.applyLoadedAddFeedPreview(preview, requestURL: requestURL)
-        } catch let error as SourceManagementServiceError {
-            dependencies.logger.error("Failed to preview feed through source management flow: \(error)")
-            screenState.applyAddFeedPreviewFailure(
-                addFeedPreviewErrorMessage(error),
-                requestURL: requestURL
-            )
         } catch {
             dependencies.logger.error("Failed to preview feed through source management flow: \(error)")
             screenState.applyAddFeedPreviewFailure(
-                "Unable to load the feed preview right now. Try again.",
+                addFeedPreviewFailureStatus(for: error),
                 requestURL: requestURL
             )
         }
@@ -152,18 +146,149 @@ private extension SourceManagementScreenController {
         }
     }
 
-    func addFeedPreviewErrorMessage(_ error: SourceManagementServiceError) -> String {
+    func addFeedPreviewUnavailableStatus() -> SourceManagementAddFeedStatusPresentation {
+        SourceManagementAddFeedStatusPresentation(
+            title: "Feed preview is unavailable",
+            kind: .failure,
+            detail: "Feed preview is unavailable in the current app environment."
+        )
+    }
+
+    func addFeedPreviewFailureStatus(for error: Error) -> SourceManagementAddFeedStatusPresentation {
+        if let error = error as? SourceManagementServiceError {
+            return addFeedPreviewFailureStatus(for: error)
+        }
+
+        if let error = error as? FeedFetchError {
+            return addFeedPreviewFailureStatus(for: error)
+        }
+
+        if let error = error as? FeedParserError {
+            return addFeedPreviewFailureStatus(for: error)
+        }
+
+        return SourceManagementAddFeedStatusPresentation(
+            title: "Preview could not be loaded",
+            kind: .failure,
+            detail: "Unable to load the feed preview right now. Try again."
+        )
+    }
+
+    func addFeedPreviewFailureStatus(
+        for error: SourceManagementServiceError
+    ) -> SourceManagementAddFeedStatusPresentation {
         switch error {
         case .invalidFeedURL:
-            return "Enter a valid http or https URL."
+            return SourceManagementAddFeedStatusPresentation(
+                title: "Enter a valid feed URL",
+                kind: .failure,
+                detail: "Use a full http or https URL before loading the preview."
+            )
         case .previewUnavailableForNotModifiedResponse:
-            return "The source returned a not-modified response, so preview metadata could not be loaded."
+            return SourceManagementAddFeedStatusPresentation(
+                title: "Preview metadata is unavailable",
+                kind: .failure,
+                detail: "The source returned a not-modified response, so the app could not inspect the feed contents."
+            )
         case .duplicateFeed,
                 .emptyFolderName,
                 .duplicateFolderName,
                 .feedNotFound,
                 .folderNotFound:
-            return "Unable to load the feed preview right now. Try again."
+            return SourceManagementAddFeedStatusPresentation(
+                title: "Preview could not be loaded",
+                kind: .failure,
+                detail: "Unable to load the feed preview right now. Try again."
+            )
+        }
+    }
+
+    func addFeedPreviewFailureStatus(
+        for error: FeedFetchError
+    ) -> SourceManagementAddFeedStatusPresentation {
+        switch error {
+        case .transport(let transportError):
+            return SourceManagementAddFeedStatusPresentation(
+                title: "Network error while loading preview",
+                kind: .failure,
+                detail: networkFailureDetail(for: transportError)
+            )
+        case .invalidStatusCode(let statusCode):
+            return SourceManagementAddFeedStatusPresentation(
+                title: "Preview could not be loaded",
+                kind: .failure,
+                detail: "The server returned HTTP \(statusCode) instead of usable feed metadata."
+            )
+        case .unsupportedContentType(let contentType):
+            let detail: String
+            if let contentType, contentType.isEmpty == false {
+                detail = "The URL responded with \(contentType), not a supported RSS or Atom feed."
+            } else {
+                detail = "The URL responded, but it did not advertise a supported RSS or Atom content type."
+            }
+            return SourceManagementAddFeedStatusPresentation(
+                title: "Source is not a supported feed",
+                kind: .failure,
+                detail: detail
+            )
+        }
+    }
+
+    func addFeedPreviewFailureStatus(
+        for error: FeedParserError
+    ) -> SourceManagementAddFeedStatusPresentation {
+        switch error {
+        case .emptyDocument:
+            return SourceManagementAddFeedStatusPresentation(
+                title: "Source is not a supported feed",
+                kind: .failure,
+                detail: "The URL responded, but the document was empty."
+            )
+        case .malformedXML:
+            return SourceManagementAddFeedStatusPresentation(
+                title: "Source is not a supported feed",
+                kind: .failure,
+                detail: "The URL responded, but the document could not be parsed as RSS or Atom."
+            )
+        case .unsupportedFeedKind:
+            return SourceManagementAddFeedStatusPresentation(
+                title: "Source is not a supported feed",
+                kind: .failure,
+                detail: "The URL responded, but it did not contain a supported RSS or Atom feed."
+            )
+        case .missingRSSElement(let elementName):
+            return SourceManagementAddFeedStatusPresentation(
+                title: "Source is not a supported feed",
+                kind: .failure,
+                detail: "The RSS document is missing the required \(elementName) element."
+            )
+        case .missingAtomElement(let elementName):
+            return SourceManagementAddFeedStatusPresentation(
+                title: "Source is not a supported feed",
+                kind: .failure,
+                detail: "The Atom document is missing the required \(elementName) element."
+            )
+        }
+    }
+
+    func networkFailureDetail(for error: FeedTransportError) -> String {
+        switch error {
+        case .timedOut:
+            return "The request timed out before the feed preview could be loaded."
+        case .cannotFindHost, .dnsLookupFailed:
+            return "The host name could not be resolved for this feed URL."
+        case .cannotConnectToHost, .resourceUnavailable:
+            return "The app could not connect to the server for this feed URL."
+        case .networkConnectionLost:
+            return "The network connection was lost while loading the feed preview."
+        case .notConnectedToInternet:
+            return "Check the internet connection and try loading the preview again."
+        case .internationalRoamingOff, .callIsActive, .dataNotAllowed:
+            return "The current network settings are blocking the feed preview request."
+        case .invalidResponse:
+            return "The server returned an invalid response for this feed preview request."
+        case .unknown:
+            return "The preview request failed for an unknown network reason."
         }
     }
 }

@@ -4461,6 +4461,16 @@ struct RSSReaderTests {
         #expect(initialDestination.validationMessage == "Enter a feed URL to continue.")
         #expect(initialDestination.isPrimaryActionEnabled == false)
 
+        state.updateAddFeedURLInput("example")
+
+        guard case .addFeed(let invalidDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after invalid URL input")
+            return
+        }
+
+        #expect(invalidDestination.validationMessage == "Enter a valid http or https URL.")
+        #expect(invalidDestination.isPrimaryActionEnabled == false)
+
         state.updateAddFeedURLInput(" https://example.com/feed.xml ")
 
         guard case .addFeed(let validDestination)? = state.derivedViewState().presentedDestination else {
@@ -4613,6 +4623,117 @@ struct RSSReaderTests {
 
         #expect(confirmedDestination.primaryActionTitle == "Preview Confirmed")
         #expect(confirmedDestination.status?.kind == .success)
+    }
+
+    @Test
+    func sourceManagementScreenControllerShowsDuplicateFeedWarningWhenPreviewMatchesExistingSource() async throws {
+        let feedURL = "https://example.com/existing-feed.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Existing Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Existing Article",
+                            itemLink: "https://example.com/articles/existing",
+                            itemGUID: "existing-article",
+                            itemDescription: "Existing description",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+        _ = try harness.feedRepository.insert(
+            Feed(
+                url: feedURL,
+                title: "Existing Feed",
+                kind: .rss
+            )
+        )
+        let controller = SourceManagementScreenController()
+
+        controller.handleScenarioSelection(.addFeed)
+        controller.handleAddFeedURLChange(feedURL)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+
+        guard case .addFeed(let destination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after duplicate preview loading")
+            return
+        }
+
+        #expect(destination.preview?.title == "Existing Feed")
+        #expect(destination.preview?.existingFeedNotice == "This source already exists in the library.")
+        #expect(destination.status?.kind == .warning)
+        #expect(destination.status?.title == "This feed is already in the library")
+        #expect(destination.primaryActionTitle == "Already Added")
+        #expect(destination.isPrimaryActionEnabled == false)
+    }
+
+    @Test
+    func sourceManagementScreenControllerShowsNetworkFailureStatusWhenPreviewRequestFails() async throws {
+        let feedURL = "https://example.com/network-failure.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .urlError(.notConnectedToInternet)
+                ]
+            )
+        )
+        let controller = SourceManagementScreenController()
+
+        controller.handleScenarioSelection(.addFeed)
+        controller.handleAddFeedURLChange(feedURL)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+
+        guard case .addFeed(let destination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after network failure")
+            return
+        }
+
+        #expect(destination.preview == nil)
+        #expect(destination.status?.kind == .failure)
+        #expect(destination.status?.title == "Network error while loading preview")
+        #expect(destination.status?.detail == "Check the internet connection and try loading the preview again.")
+        #expect(destination.primaryActionTitle == "Preview Feed")
+        #expect(destination.isPrimaryActionEnabled)
+    }
+
+    @Test
+    func sourceManagementScreenControllerShowsUnsupportedFeedStatusWhenPreviewResponseIsNotAFeed() async throws {
+        let feedURL = "https://example.com/not-a-feed"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "text/html; charset=utf-8"],
+                        body: "<html><body>Not a feed</body></html>"
+                    )
+                ]
+            )
+        )
+        let controller = SourceManagementScreenController()
+
+        controller.handleScenarioSelection(.addFeed)
+        controller.handleAddFeedURLChange(feedURL)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+
+        guard case .addFeed(let destination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after unsupported-feed failure")
+            return
+        }
+
+        #expect(destination.preview == nil)
+        #expect(destination.status?.kind == .failure)
+        #expect(destination.status?.title == "Source is not a supported feed")
+        #expect(destination.status?.detail == "The URL responded with text/html; charset=utf-8, not a supported RSS or Atom feed.")
+        #expect(destination.primaryActionTitle == "Preview Feed")
+        #expect(destination.isPrimaryActionEnabled)
     }
 
     @Test

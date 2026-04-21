@@ -52,10 +52,10 @@ struct SourceManagementScreenState {
     }
 
     mutating func applyAddFeedPreviewFailure(
-        _ message: String,
+        _ status: SourceManagementAddFeedStatusPresentation,
         requestURL: String?
     ) {
-        addFeedState.applyPreviewFailure(message: message, requestURL: requestURL)
+        addFeedState.applyPreviewFailure(status: status, requestURL: requestURL)
         refreshPresentedDestination()
     }
 
@@ -143,7 +143,14 @@ struct SourceManagementScreenState {
             }
         } else if let failureMessage {
             let requestURL = state.beginAddFeedPreviewLoading()
-            state.applyAddFeedPreviewFailure(failureMessage, requestURL: requestURL)
+            state.applyAddFeedPreviewFailure(
+                SourceManagementAddFeedStatusPresentation(
+                    title: "Preview could not be loaded",
+                    kind: .failure,
+                    detail: failureMessage
+                ),
+                requestURL: requestURL
+            )
         }
         state.presentScenario(.addFeed)
         return state
@@ -190,7 +197,7 @@ struct SourceManagementAddFeedState {
     private(set) var activePreviewRequestURL: String? = nil
     private(set) var preview: SourceManagementFeedPreview? = nil
     private(set) var isPreviewConfirmed = false
-    private(set) var previewFailureMessage: String? = nil
+    private(set) var previewStatus: SourceManagementAddFeedStatusPresentation? = nil
 
     mutating func updateURLInput(_ value: String) {
         urlInput = value
@@ -198,7 +205,7 @@ struct SourceManagementAddFeedState {
         activePreviewRequestURL = nil
         preview = nil
         isPreviewConfirmed = false
-        previewFailureMessage = nil
+        previewStatus = nil
     }
 
     func validationMessage() -> String? {
@@ -238,7 +245,7 @@ struct SourceManagementAddFeedState {
         activePreviewRequestURL = normalizedURL
         preview = nil
         isPreviewConfirmed = false
-        previewFailureMessage = nil
+        previewStatus = nil
         return normalizedURL
     }
 
@@ -251,24 +258,27 @@ struct SourceManagementAddFeedState {
         self.preview = preview
         isLoadingPreview = false
         activePreviewRequestURL = nil
-        previewFailureMessage = nil
+        previewStatus = nil
         isPreviewConfirmed = false
     }
 
-    mutating func applyPreviewFailure(message: String, requestURL: String?) {
+    mutating func applyPreviewFailure(
+        status: SourceManagementAddFeedStatusPresentation,
+        requestURL: String?
+    ) {
         guard requestURL == nil || activePreviewRequestURL == requestURL else { return }
 
         isLoadingPreview = false
         activePreviewRequestURL = nil
         preview = nil
         isPreviewConfirmed = false
-        previewFailureMessage = message
+        previewStatus = status
     }
 
     mutating func confirmPreview() {
         guard preview != nil else { return }
         isPreviewConfirmed = true
-        previewFailureMessage = nil
+        previewStatus = nil
     }
 
     func derivedPresentation() -> SourceManagementAddFeedPresentation {
@@ -281,8 +291,13 @@ struct SourceManagementAddFeedState {
             primaryActionTitle = "Loading Preview..."
             isPrimaryActionEnabled = false
         } else if preview != nil {
-            primaryActionTitle = isPreviewConfirmed ? "Preview Confirmed" : "Confirm Feed"
-            isPrimaryActionEnabled = isPreviewConfirmed == false
+            if preview?.existingFeedID != nil {
+                primaryActionTitle = "Already Added"
+                isPrimaryActionEnabled = false
+            } else {
+                primaryActionTitle = isPreviewConfirmed ? "Preview Confirmed" : "Confirm Feed"
+                isPrimaryActionEnabled = isPreviewConfirmed == false
+            }
         } else {
             primaryActionTitle = "Preview Feed"
             isPrimaryActionEnabled = validationMessage == nil
@@ -331,11 +346,15 @@ struct SourceManagementAddFeedState {
     }
 
     private func statusPresentation() -> SourceManagementAddFeedStatusPresentation? {
-        if let previewFailureMessage {
+        if let previewStatus {
+            return previewStatus
+        }
+
+        if preview?.existingFeedID != nil {
             return SourceManagementAddFeedStatusPresentation(
-                title: "Preview could not be loaded",
-                kind: .failure,
-                detail: previewFailureMessage
+                title: "This feed is already in the library",
+                kind: .warning,
+                detail: "Use the existing source instead of creating a duplicate subscription."
             )
         }
 

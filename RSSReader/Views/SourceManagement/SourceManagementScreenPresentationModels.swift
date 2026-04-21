@@ -45,6 +45,7 @@ struct SourceManagementScenarioPlaceholderPresentation: Identifiable, Hashable, 
 
 enum SourceManagementAddFeedStatusKind: Hashable, Sendable {
     case success
+    case warning
     case failure
 }
 

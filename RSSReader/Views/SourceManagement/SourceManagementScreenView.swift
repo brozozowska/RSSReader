@@ -335,8 +335,8 @@ private struct SourceManagementAddFeedStatusCard: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: status.kind == .success ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                .foregroundStyle(status.kind == .success ? .green : .orange)
+            Image(systemName: statusIconName)
+                .foregroundStyle(statusColor)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(status.title)
@@ -350,6 +350,28 @@ private struct SourceManagementAddFeedStatusCard: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private var statusColor: Color {
+        switch status.kind {
+        case .success:
+            .green
+        case .warning:
+            .orange
+        case .failure:
+            .red
+        }
+    }
+
+    private var statusIconName: String {
+        switch status.kind {
+        case .success:
+            "checkmark.circle.fill"
+        case .warning:
+            "exclamationmark.triangle.fill"
+        case .failure:
+            "xmark.octagon.fill"
+        }
     }
 }
 
