@@ -43,10 +43,26 @@ struct SourceManagementScenarioPlaceholderPresentation: Identifiable, Hashable, 
     let steps: [String]
 }
 
-struct SourceManagementAddFeedPreparedPreviewPresentation: Hashable, Sendable {
+enum SourceManagementAddFeedStatusKind: Hashable, Sendable {
+    case success
+    case failure
+}
+
+struct SourceManagementAddFeedStatusPresentation: Hashable, Sendable {
     let title: String
-    let detail: String
-    let normalizedURL: String
+    let kind: SourceManagementAddFeedStatusKind
+    let detail: String?
+}
+
+struct SourceManagementAddFeedPreviewPresentation: Hashable, Sendable {
+    let title: String
+    let subtitle: String?
+    let siteURL: String?
+    let iconURL: String?
+    let kindTitle: String
+    let resolvedFeedURL: String
+    let existingFeedNotice: String?
+    let diagnosticsSummary: String?
 }
 
 struct SourceManagementAddFeedPresentation: Hashable, Sendable {
@@ -60,7 +76,9 @@ struct SourceManagementAddFeedPresentation: Hashable, Sendable {
     let normalizedURL: String?
     let primaryActionTitle: String
     let isPrimaryActionEnabled: Bool
-    let preparedPreview: SourceManagementAddFeedPreparedPreviewPresentation?
+    let isLoadingPreview: Bool
+    let preview: SourceManagementAddFeedPreviewPresentation?
+    let status: SourceManagementAddFeedStatusPresentation?
 }
 
 enum SourceManagementCreateFolderFeedbackKind: Hashable, Sendable {

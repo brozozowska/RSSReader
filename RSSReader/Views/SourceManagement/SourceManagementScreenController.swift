@@ -45,9 +45,39 @@ final class SourceManagementScreenController {
         screenState.updateAddFeedURLInput(value)
     }
 
-    func prepareAddFeedPreview() {
-        guard screenState.addFeedValidationMessage() == nil else { return }
-        screenState.prepareAddFeedPreview()
+    func handleAddFeedPrimaryAction(dependencies: AppDependencies) async {
+        if screenState.addFeedCanConfirmPreview() {
+            screenState.confirmAddFeedPreview()
+            return
+        }
+
+        guard let requestURL = screenState.beginAddFeedPreviewLoading() else { return }
+
+        guard let sourceManagementService = dependencies.sourceManagementService else {
+            dependencies.logger.error("Source management service is unavailable for feed preview")
+            screenState.applyAddFeedPreviewFailure(
+                "Feed preview is unavailable in the current app environment.",
+                requestURL: requestURL
+            )
+            return
+        }
+
+        do {
+            let preview = try await sourceManagementService.previewFeed(urlString: requestURL)
+            screenState.applyLoadedAddFeedPreview(preview, requestURL: requestURL)
+        } catch let error as SourceManagementServiceError {
+            dependencies.logger.error("Failed to preview feed through source management flow: \(error)")
+            screenState.applyAddFeedPreviewFailure(
+                addFeedPreviewErrorMessage(error),
+                requestURL: requestURL
+            )
+        } catch {
+            dependencies.logger.error("Failed to preview feed through source management flow: \(error)")
+            screenState.applyAddFeedPreviewFailure(
+                "Unable to load the feed preview right now. Try again.",
+                requestURL: requestURL
+            )
+        }
     }
 
     func submitCreateFolder(dependencies: AppDependencies) {
@@ -119,6 +149,21 @@ private extension SourceManagementScreenController {
                 .feedNotFound,
                 .folderNotFound:
             return "Unable to create the folder right now. Try again."
+        }
+    }
+
+    func addFeedPreviewErrorMessage(_ error: SourceManagementServiceError) -> String {
+        switch error {
+        case .invalidFeedURL:
+            return "Enter a valid http or https URL."
+        case .previewUnavailableForNotModifiedResponse:
+            return "The source returned a not-modified response, so preview metadata could not be loaded."
+        case .duplicateFeed,
+                .emptyFolderName,
+                .duplicateFolderName,
+                .feedNotFound,
+                .folderNotFound:
+            return "Unable to load the feed preview right now. Try again."
         }
     }
 }

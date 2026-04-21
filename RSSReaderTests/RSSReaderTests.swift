@@ -4449,7 +4449,7 @@ struct RSSReaderTests {
     }
 
     @Test
-    func sourceManagementScreenStateBuildsAddFeedPresentationWithNormalizedURLAndPrimaryActionState() {
+    func sourceManagementScreenStateBuildsAddFeedPresentationWithPreviewAndConfirmationState() {
         var state = SourceManagementScreenState.previewLoaded()
         state.presentScenario(.addFeed)
 
@@ -4472,16 +4472,42 @@ struct RSSReaderTests {
         #expect(validDestination.normalizedURL == "https://example.com/feed.xml")
         #expect(validDestination.isPrimaryActionEnabled)
 
-        state.prepareAddFeedPreview()
+        let preview = SourceManagementFeedPreview(
+            requestedURL: "https://example.com/feed.xml",
+            resolvedFeedURL: "https://example.com/feed.xml",
+            title: "Example Feed",
+            subtitle: "Preview subtitle",
+            siteURL: "https://example.com/",
+            iconURL: "https://example.com/icon.png",
+            language: "en",
+            kind: .rss,
+            parserAnomalyCount: 0,
+            rejectedEntryCount: 0,
+            existingFeedID: nil
+        )
+        let requestURL = state.beginAddFeedPreviewLoading()
+        state.applyLoadedAddFeedPreview(preview, requestURL: requestURL ?? "")
 
-        guard case .addFeed(let preparedDestination)? = state.derivedViewState().presentedDestination else {
-            Issue.record("Expected add-feed destination presentation after preview preparation")
+        guard case .addFeed(let previewDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after preview loading")
             return
         }
 
-        #expect(preparedDestination.primaryActionTitle == "Preview Prepared")
-        #expect(preparedDestination.isPrimaryActionEnabled == false)
-        #expect(preparedDestination.preparedPreview?.normalizedURL == "https://example.com/feed.xml")
+        #expect(previewDestination.primaryActionTitle == "Confirm Feed")
+        #expect(previewDestination.isPrimaryActionEnabled)
+        #expect(previewDestination.preview?.title == "Example Feed")
+        #expect(previewDestination.preview?.kindTitle == "RSS")
+
+        state.confirmAddFeedPreview()
+
+        guard case .addFeed(let confirmedDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after confirmation")
+            return
+        }
+
+        #expect(confirmedDestination.primaryActionTitle == "Preview Confirmed")
+        #expect(confirmedDestination.isPrimaryActionEnabled == false)
+        #expect(confirmedDestination.status?.kind == .success)
     }
 
     @Test
@@ -4536,25 +4562,57 @@ struct RSSReaderTests {
     }
 
     @Test
-    func sourceManagementScreenControllerPreparesAddFeedPreviewWithoutStartingNetworkRequest() async throws {
-        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+    func sourceManagementScreenControllerLoadsFeedPreviewThroughSourceManagementService() async throws {
+        let feedURL = "https://example.com/preview-controller.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Controller Preview Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Preview Article",
+                            itemLink: "https://example.com/articles/preview",
+                            itemGUID: "controller-preview-article",
+                            itemDescription: "Preview description",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
         let controller = SourceManagementScreenController()
 
         controller.handleScenarioSelection(.addFeed)
-        controller.handleAddFeedURLChange(" https://example.com/feed.xml ")
-        controller.prepareAddFeedPreview()
+        controller.handleAddFeedURLChange(" \(feedURL) ")
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
 
         guard case .addFeed(let destination)? = controller.viewState().presentedDestination else {
-            Issue.record("Expected add-feed destination presentation after preview preparation")
+            Issue.record("Expected add-feed destination presentation after preview loading")
             return
         }
 
-        #expect(destination.preparedPreview?.normalizedURL == "https://example.com/feed.xml")
-        #expect(destination.primaryActionTitle == "Preview Prepared")
-        #expect(destination.isPrimaryActionEnabled == false)
+        #expect(destination.preview?.title == "Controller Preview Feed")
+        #expect(destination.preview?.siteURL == "https://example.com/")
+        #expect(destination.preview?.kindTitle == "RSS")
+        #expect(destination.primaryActionTitle == "Confirm Feed")
+        #expect(destination.isPrimaryActionEnabled)
 
         let recordedRequests = await harness.httpClient.recordedRequests()
-        #expect(recordedRequests.isEmpty)
+        #expect(recordedRequests.map(\.url.absoluteString) == [feedURL])
+
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+
+        guard case .addFeed(let confirmedDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after preview confirmation")
+            return
+        }
+
+        #expect(confirmedDestination.primaryActionTitle == "Preview Confirmed")
+        #expect(confirmedDestination.status?.kind == .success)
     }
 
     @Test

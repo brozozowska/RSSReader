@@ -18,11 +18,45 @@ import SwiftUI
     )
 }
 
-#Preview("Source Management Screen · Add Feed Ready") {
+#Preview("Source Management Screen · Add Feed Preview") {
     SourceManagementScreenPreviewContainer(
         screenState: .previewAddFeed(
             urlInput: "https://example.com/feed.xml",
-            preparedPreviewURL: "https://example.com/feed.xml"
+            preview: SourceManagementFeedPreview(
+                requestedURL: "https://example.com/feed.xml",
+                resolvedFeedURL: "https://example.com/feed.xml",
+                title: "Example Feed",
+                subtitle: "Preview from sample metadata",
+                siteURL: "https://example.com/",
+                iconURL: "https://example.com/icon.png",
+                language: "en",
+                kind: .rss,
+                parserAnomalyCount: 0,
+                rejectedEntryCount: 0,
+                existingFeedID: nil
+            )
+        )
+    )
+}
+
+#Preview("Source Management Screen · Add Feed Confirmed") {
+    SourceManagementScreenPreviewContainer(
+        screenState: .previewAddFeed(
+            urlInput: "https://example.com/feed.xml",
+            preview: SourceManagementFeedPreview(
+                requestedURL: "https://example.com/feed.xml",
+                resolvedFeedURL: "https://example.com/feed.xml",
+                title: "Example Feed",
+                subtitle: "Preview from sample metadata",
+                siteURL: "https://example.com/",
+                iconURL: "https://example.com/icon.png",
+                language: "en",
+                kind: .rss,
+                parserAnomalyCount: 1,
+                rejectedEntryCount: 2,
+                existingFeedID: nil
+            ),
+            isConfirmed: true
         )
     )
 }

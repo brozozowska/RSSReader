@@ -5,7 +5,7 @@ struct SourceManagementScreenActionHandlers {
     let selectScenario: (SourceManagementScenarioID) -> Void
     let dismissPresentedScenario: () -> Void
     let updateAddFeedURL: (String) -> Void
-    let prepareAddFeedPreview: () -> Void
+    let handleAddFeedPrimaryAction: () -> Void
     let updateCreateFolderName: (String) -> Void
     let submitCreateFolder: () -> Void
 }
@@ -70,7 +70,7 @@ struct SourceManagementScreenView: View {
                     SourceManagementAddFeedView(
                         presentation: addFeed,
                         urlBinding: addFeedURLBinding,
-                        preparePreview: actionHandlers.prepareAddFeedPreview
+                        handlePrimaryAction: actionHandlers.handleAddFeedPrimaryAction
                     )
                 case .placeholder(let placeholder):
                     SourceManagementScenarioPlaceholderView(destination: placeholder)
@@ -100,8 +100,10 @@ struct SourceManagementScreenView: View {
             updateAddFeedURL: { value in
                 controller.handleAddFeedURLChange(value)
             },
-            prepareAddFeedPreview: {
-                controller.prepareAddFeedPreview()
+            handleAddFeedPrimaryAction: {
+                Task {
+                    await controller.handleAddFeedPrimaryAction(dependencies: dependencies)
+                }
             },
             updateCreateFolderName: { value in
                 controller.handleCreateFolderNameChange(value)
@@ -215,7 +217,7 @@ private struct SourceManagementAddFeedView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     let presentation: SourceManagementAddFeedPresentation
     let urlBinding: Binding<String>
-    let preparePreview: () -> Void
+    let handlePrimaryAction: () -> Void
 
     var body: some View {
         List {
@@ -242,7 +244,7 @@ private struct SourceManagementAddFeedView: View {
                 .keyboardType(.URL)
                 .textContentType(.URL)
                 .submitLabel(.done)
-                .onSubmit(preparePreview)
+                .onSubmit(handlePrimaryAction)
 
                 if let validationMessage = presentation.validationMessage {
                     Text(validationMessage)
@@ -262,9 +264,15 @@ private struct SourceManagementAddFeedView: View {
                 }
             }
 
-            if let preparedPreview = presentation.preparedPreview {
+            if let preview = presentation.preview {
+                Section("Preview Metadata") {
+                    SourceManagementAddFeedPreviewCard(preview: preview)
+                }
+            }
+
+            if let status = presentation.status {
                 Section {
-                    SourceManagementPreparedPreviewCard(preparedPreview: preparedPreview)
+                    SourceManagementAddFeedStatusCard(status: status)
                 }
             }
         }
@@ -275,29 +283,71 @@ private struct SourceManagementAddFeedView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button(presentation.primaryActionTitle, action: preparePreview)
+                Button(presentation.primaryActionTitle, action: handlePrimaryAction)
                     .disabled(presentation.isPrimaryActionEnabled == false)
             }
         }
     }
 }
 
-private struct SourceManagementPreparedPreviewCard: View {
-    let preparedPreview: SourceManagementAddFeedPreparedPreviewPresentation
+private struct SourceManagementAddFeedPreviewCard: View {
+    let preview: SourceManagementAddFeedPreviewPresentation
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label(preparedPreview.title, systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
+            Text(preview.title)
                 .font(.body.weight(.semibold))
 
-            Text(preparedPreview.detail)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            LabeledContent("Kind", value: preview.kindTitle)
 
-            Text(preparedPreview.normalizedURL)
-                .font(.footnote.monospaced())
-                .textSelection(.enabled)
+            if let subtitle = preview.subtitle {
+                LabeledContent("Subtitle", value: subtitle)
+            }
+
+            LabeledContent("Resolved Feed URL", value: preview.resolvedFeedURL)
+
+            if let siteURL = preview.siteURL {
+                LabeledContent("Site URL", value: siteURL)
+            }
+
+            if let iconURL = preview.iconURL {
+                LabeledContent("Icon URL", value: iconURL)
+            }
+
+            if let existingFeedNotice = preview.existingFeedNotice {
+                Text(existingFeedNotice)
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
+
+            if let diagnosticsSummary = preview.diagnosticsSummary {
+                Text(diagnosticsSummary)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct SourceManagementAddFeedStatusCard: View {
+    let status: SourceManagementAddFeedStatusPresentation
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: status.kind == .success ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(status.kind == .success ? .green : .orange)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(status.title)
+                    .font(.body.weight(.semibold))
+
+                if let detail = status.detail {
+                    Text(detail)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .padding(.vertical, 4)
     }
