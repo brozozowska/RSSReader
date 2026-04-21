@@ -107,7 +107,7 @@ final class SourceManagementScreenController {
                 let updatedFeed = try sourceManagementService.updateFeed(updateCommand)
                 screenState.applyCreatedAddFeed(updatedFeed)
                 if let appState {
-                    _ = await dependencies.refreshAfterAddingFeed(
+                    _ = await dependencies.finishSavingFeed(
                         id: updatedFeed.id,
                         using: appState
                     )
@@ -143,7 +143,7 @@ final class SourceManagementScreenController {
                 let createdFeed = try sourceManagementService.createFeed(createCommand)
                 screenState.applyCreatedAddFeed(createdFeed)
                 if let appState {
-                    _ = await dependencies.refreshAfterAddingFeed(
+                    _ = await dependencies.finishSavingFeed(
                         id: createdFeed.id,
                         using: appState
                     )

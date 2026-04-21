@@ -347,6 +347,42 @@ extension AppDependencies {
     }
 
     @MainActor
+    func finishSavingFeed(id feedID: UUID, using appState: AppState) async -> FeedRefreshResult? {
+        let result: FeedRefreshResult?
+        if let feedRefreshService {
+            result = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
+        } else {
+            logger.error("Feed refresh service is unavailable for source save completion")
+            result = nil
+        }
+
+        appState.requestSourcesSidebarReload()
+        showFeed(id: feedID, using: appState)
+        dismissSourceManagement(using: appState)
+        return result
+    }
+
+    @MainActor
+    func finishUnsubscribingFeed(id feedID: UUID, using appState: AppState) {
+        appState.requestSourcesSidebarReload()
+        if appState.selectedSidebarSelection == .feed(feedID) {
+            showInbox(using: appState)
+        } else {
+            appState.requestArticleListReload()
+        }
+    }
+
+    @MainActor
+    func finishDeletingFolder(named folderName: String, using appState: AppState) {
+        appState.requestSourcesSidebarReload()
+        if appState.selectedSidebarSelection == .folder(folderName) {
+            showInbox(using: appState)
+        } else {
+            appState.requestArticleListReload()
+        }
+    }
+
+    @MainActor
     func unsubscribeFeed(id feedID: UUID, using appState: AppState) {
         guard let sourceManagementService else {
             logger.error("Source management service is unavailable for feed deletion")
@@ -355,12 +391,7 @@ extension AppDependencies {
 
         do {
             try sourceManagementService.deleteFeed(id: feedID)
-            appState.requestSourcesSidebarReload()
-            if appState.selectedSidebarSelection == .feed(feedID) {
-                showInbox(using: appState)
-            } else {
-                appState.requestArticleListReload()
-            }
+            finishUnsubscribingFeed(id: feedID, using: appState)
         } catch {
             logger.error("Failed to unsubscribe feed \(feedID): \(error)")
         }
@@ -383,12 +414,7 @@ extension AppDependencies {
                 return
             }
             try sourceManagementService.deleteFolder(id: folder.id)
-            appState.requestSourcesSidebarReload()
-            if appState.selectedSidebarSelection == .folder(folderName) {
-                showInbox(using: appState)
-            } else {
-                appState.requestArticleListReload()
-            }
+            finishDeletingFolder(named: folderName, using: appState)
         } catch {
             logger.error("Failed to delete folder \(folderName): \(error)")
         }
@@ -411,18 +437,7 @@ extension AppDependencies {
 
     @MainActor
     func refreshAfterAddingFeed(id feedID: UUID, using appState: AppState) async -> FeedRefreshResult? {
-        let result: FeedRefreshResult?
-        if let feedRefreshService {
-            result = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
-        } else {
-            logger.error("Feed refresh service is unavailable for initial post-create refresh")
-            result = nil
-        }
-
-        appState.requestSourcesSidebarReload()
-        showFeed(id: feedID, using: appState)
-        dismissSourceManagement(using: appState)
-        return result
+        await finishSavingFeed(id: feedID, using: appState)
     }
 
     @MainActor
