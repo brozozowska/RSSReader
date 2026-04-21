@@ -4538,11 +4538,32 @@ struct RSSReaderTests {
             return
         }
 
-        #expect(confirmedDestination.primaryActionTitle == "Preview Confirmed")
-        #expect(confirmedDestination.isPrimaryActionEnabled == false)
+        #expect(confirmedDestination.primaryActionTitle == "Add Feed")
+        #expect(confirmedDestination.isPrimaryActionEnabled)
         #expect(confirmedDestination.status?.kind == .success)
         #expect(confirmedDestination.placementOptions.last?.isSelected == true)
         #expect(confirmedDestination.status?.detail?.contains("Tech") == true)
+
+        let createCommand = state.beginAddFeedCreation()
+        #expect(createCommand?.folderPlacement == .folder(techFolderID))
+        state.applyCreatedAddFeed(
+            SourceManagementFeedSummary(
+                id: UUID(uuidString: "99999999-9999-9999-9999-999999999999")!,
+                url: "https://example.com/feed.xml",
+                title: "Example Feed",
+                folderID: techFolderID,
+                folderName: "Tech"
+            )
+        )
+
+        guard case .addFeed(let createdDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after feed creation")
+            return
+        }
+
+        #expect(createdDestination.primaryActionTitle == "Feed Added")
+        #expect(createdDestination.isPrimaryActionEnabled == false)
+        #expect(createdDestination.status?.title == "Feed added")
     }
 
     @Test
@@ -4646,8 +4667,59 @@ struct RSSReaderTests {
             return
         }
 
-        #expect(confirmedDestination.primaryActionTitle == "Preview Confirmed")
+        #expect(confirmedDestination.primaryActionTitle == "Add Feed")
         #expect(confirmedDestination.status?.kind == .success)
+    }
+
+    @Test
+    func sourceManagementScreenControllerCreatesFeedThroughServiceAfterConfirmedPreview() async throws {
+        let feedURL = "https://example.com/create-from-preview.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Created Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Created Article",
+                            itemLink: "https://example.com/articles/created",
+                            itemGUID: "created-article",
+                            itemDescription: "Created description",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+        let folder = try harness.folderRepository.insert(Folder(name: "Tech", sortOrder: 0))
+        let controller = SourceManagementScreenController()
+
+        controller.handleScenarioSelection(.addFeed, dependencies: harness.dependencies)
+        controller.handleAddFeedURLChange(" \(feedURL) ")
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+        controller.handleAddFeedFolderPlacementSelection(.folder(folder.id))
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+
+        guard case .addFeed(let createdDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after feed creation")
+            return
+        }
+
+        let persistedFeed = try harness.feedRepository.fetchFeed(url: feedURL)
+
+        #expect(createdDestination.primaryActionTitle == "Feed Added")
+        #expect(createdDestination.isPrimaryActionEnabled == false)
+        #expect(createdDestination.status?.title == "Feed added")
+        #expect(createdDestination.status?.detail == "Created Feed was saved in Tech.")
+        #expect(persistedFeed?.url == feedURL)
+        #expect(persistedFeed?.title == "Created Feed")
+        #expect(persistedFeed?.siteURL == "https://example.com/")
+        #expect(persistedFeed?.kind == .rss)
+        #expect(persistedFeed?.folder?.id == folder.id)
     }
 
     @Test

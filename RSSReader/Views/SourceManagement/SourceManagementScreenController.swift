@@ -71,6 +71,36 @@ final class SourceManagementScreenController {
             return
         }
 
+        if let createCommand = screenState.beginAddFeedCreation() {
+            guard let sourceManagementService = dependencies.sourceManagementService else {
+                dependencies.logger.error("Source management service is unavailable for feed creation")
+                screenState.applyAddFeedCreationFailure(
+                    addFeedCreationUnavailableStatus()
+                )
+                return
+            }
+
+            do {
+                let createdFeed = try sourceManagementService.createFeed(createCommand)
+                screenState.applyCreatedAddFeed(createdFeed)
+            } catch let error as SourceManagementServiceError {
+                dependencies.logger.error("Failed to create feed through source management flow: \(error)")
+                screenState.applyAddFeedCreationFailure(
+                    addFeedCreationFailureStatus(for: error)
+                )
+            } catch {
+                dependencies.logger.error("Failed to create feed through source management flow: \(error)")
+                screenState.applyAddFeedCreationFailure(
+                    SourceManagementAddFeedStatusPresentation(
+                        title: "Feed could not be added",
+                        kind: .failure,
+                        detail: "Unable to save the new source right now. Try again."
+                    )
+                )
+            }
+            return
+        }
+
         guard let requestURL = screenState.beginAddFeedPreviewLoading() else { return }
 
         guard let sourceManagementService = dependencies.sourceManagementService else {
@@ -267,6 +297,43 @@ private extension SourceManagementScreenController {
                 .emptyFolderName,
                 .duplicateFolderName:
             return "Unable to move the source right now. Try again."
+        }
+    }
+
+    func addFeedCreationUnavailableStatus() -> SourceManagementAddFeedStatusPresentation {
+        SourceManagementAddFeedStatusPresentation(
+            title: "Feed creation is unavailable",
+            kind: .failure,
+            detail: "The app cannot save a new source in the current environment."
+        )
+    }
+
+    func addFeedCreationFailureStatus(
+        for error: SourceManagementServiceError
+    ) -> SourceManagementAddFeedStatusPresentation {
+        switch error {
+        case .duplicateFeed:
+            return SourceManagementAddFeedStatusPresentation(
+                title: "This feed is already in the library",
+                kind: .warning,
+                detail: "Another source with the same normalized URL was saved before this create step finished."
+            )
+        case .folderNotFound:
+            return SourceManagementAddFeedStatusPresentation(
+                title: "Destination folder is unavailable",
+                kind: .failure,
+                detail: "The selected folder no longer exists. Choose another destination and try again."
+            )
+        case .invalidFeedURL,
+                .previewUnavailableForNotModifiedResponse,
+                .emptyFolderName,
+                .duplicateFolderName,
+                .feedNotFound:
+            return SourceManagementAddFeedStatusPresentation(
+                title: "Feed could not be added",
+                kind: .failure,
+                detail: "Unable to save the new source right now. Try again."
+            )
         }
     }
 
