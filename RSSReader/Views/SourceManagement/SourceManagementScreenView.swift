@@ -18,6 +18,7 @@ struct SourceManagementScreenActionHandlers {
 struct SourceManagementScreenView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     @Environment(\.appDependencies) private var dependencies
+    @Environment(AppState.self) private var appState
     @State private var controller: SourceManagementScreenController
     let dismiss: () -> Void
 
@@ -122,7 +123,10 @@ struct SourceManagementScreenView: View {
             },
             handleAddFeedPrimaryAction: {
                 Task {
-                    await controller.handleAddFeedPrimaryAction(dependencies: dependencies)
+                    await controller.handleAddFeedPrimaryAction(
+                        dependencies: dependencies,
+                        appState: appState
+                    )
                 }
             },
             updateCreateFolderName: { value in

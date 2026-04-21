@@ -166,6 +166,7 @@ private struct SourceManagementScreenPreviewContainer: View {
             previewScreenState: screenState
         )
         .environment(\.appDependencies, dependencies)
+        .environment(AppState())
     }
 }
 

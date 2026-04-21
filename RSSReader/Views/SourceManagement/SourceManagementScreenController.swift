@@ -65,7 +65,10 @@ final class SourceManagementScreenController {
         screenState.presentScenario(.createFolder)
     }
 
-    func handleAddFeedPrimaryAction(dependencies: AppDependencies) async {
+    func handleAddFeedPrimaryAction(
+        dependencies: AppDependencies,
+        appState: AppState? = nil
+    ) async {
         if screenState.addFeedCanConfirmPreview() {
             screenState.confirmAddFeedPreview()
             return
@@ -83,6 +86,12 @@ final class SourceManagementScreenController {
             do {
                 let createdFeed = try sourceManagementService.createFeed(createCommand)
                 screenState.applyCreatedAddFeed(createdFeed)
+                if let appState {
+                    _ = await dependencies.refreshAfterAddingFeed(
+                        id: createdFeed.id,
+                        using: appState
+                    )
+                }
             } catch let error as SourceManagementServiceError {
                 dependencies.logger.error("Failed to create feed through source management flow: \(error)")
                 screenState.applyAddFeedCreationFailure(

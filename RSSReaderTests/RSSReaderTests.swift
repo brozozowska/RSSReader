@@ -4723,6 +4723,55 @@ struct RSSReaderTests {
     }
 
     @Test
+    func sourceManagementScreenControllerCreatesFeedRefreshesItAndDismissesSourceManagementFlow() async throws {
+        let feedURL = "https://example.com/create-and-refresh.xml"
+        let responseStep = ScriptedHTTPClient.Step.response(
+            statusCode: 200,
+            headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+            body: Self.validRSSFeedXML(
+                channelTitle: "Created And Refreshed Feed",
+                channelLink: "https://example.com/",
+                language: "en",
+                itemTitle: "First Refreshed Article",
+                itemLink: "https://example.com/articles/first-refreshed",
+                itemGUID: "first-refreshed-article",
+                itemDescription: "Refreshed description",
+                pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+            )
+        )
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                steps: [responseStep, responseStep]
+            )
+        )
+        let appState = AppState()
+        let controller = SourceManagementScreenController()
+        let articleReloadIDBeforeCreation = appState.articleListReloadID
+        let sidebarReloadIDBeforeCreation = appState.sourcesSidebarReloadID
+
+        harness.dependencies.showSourceManagement(using: appState)
+        controller.handleScenarioSelection(.addFeed, dependencies: harness.dependencies)
+        controller.handleAddFeedURLChange(feedURL)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
+
+        let persistedFeed = try #require(try harness.feedRepository.fetchFeed(url: feedURL))
+        let articles = try harness.articleRepository.fetchArticles(feedID: persistedFeed.id)
+        let requests = await harness.httpClient.recordedRequests()
+
+        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.selectedSidebarSelection == .feed(persistedFeed.id))
+        #expect(appState.articleListReloadID != articleReloadIDBeforeCreation)
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCreation)
+        #expect(persistedFeed.lastFetchedAt != nil)
+        #expect(persistedFeed.lastSuccessfulFetchAt != nil)
+        #expect(articles.count == 1)
+        #expect(articles.first?.title == "First Refreshed Article")
+        #expect(requests.map(\.url.absoluteString) == [feedURL, feedURL])
+    }
+
+    @Test
     func sourceManagementScreenControllerShowsDuplicateFeedWarningWhenPreviewMatchesExistingSource() async throws {
         let feedURL = "https://example.com/existing-feed.xml"
         let harness = try TestHarness.make(
@@ -5100,6 +5149,57 @@ struct RSSReaderTests {
         #expect(result?.status == .notModified)
         #expect(appState.articleListReloadID != reloadIDAfterSourceSelection)
         #expect(appState.articleListReloadID != reloadIDBeforeRefresh)
+    }
+
+    @Test
+    func shellActionEntryPointsRefreshAfterAddingFeedRefreshesNewSourceSelectsItAndClosesModalFlow() async throws {
+        let feedURL = "https://example.com/shell-refresh-added.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Shell Refreshed Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Shell Refreshed Article",
+                            itemLink: "https://example.com/articles/shell-refreshed",
+                            itemGUID: "shell-refreshed-article",
+                            itemDescription: "Shell refreshed description",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+        let appState = AppState()
+        let articleReloadIDBeforeRefresh = appState.articleListReloadID
+        let sidebarReloadIDBeforeRefresh = appState.sourcesSidebarReloadID
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: feedURL,
+                title: "Shell Feed",
+                kind: .rss
+            )
+        )
+
+        harness.dependencies.showSourceManagement(using: appState)
+
+        let result = await harness.dependencies.refreshAfterAddingFeed(id: feed.id, using: appState)
+        let refreshedFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
+        let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+
+        #expect(result?.status == .fetched)
+        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.selectedSidebarSelection == .feed(feed.id))
+        #expect(appState.articleListReloadID != articleReloadIDBeforeRefresh)
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeRefresh)
+        #expect(refreshedFeed.lastFetchedAt != nil)
+        #expect(refreshedFeed.lastSuccessfulFetchAt != nil)
+        #expect(articles.count == 1)
+        #expect(articles.first?.title == "Shell Refreshed Article")
     }
 
     @Test

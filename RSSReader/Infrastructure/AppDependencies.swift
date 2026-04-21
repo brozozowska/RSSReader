@@ -295,6 +295,22 @@ extension AppDependencies {
     }
 
     @MainActor
+    func refreshAfterAddingFeed(id feedID: UUID, using appState: AppState) async -> FeedRefreshResult? {
+        let result: FeedRefreshResult?
+        if let feedRefreshService {
+            result = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
+        } else {
+            logger.error("Feed refresh service is unavailable for initial post-create refresh")
+            result = nil
+        }
+
+        appState.requestSourcesSidebarReload()
+        showFeed(id: feedID, using: appState)
+        dismissSourceManagement(using: appState)
+        return result
+    }
+
+    @MainActor
     func refreshSelectedFeed(using appState: AppState) async -> FeedRefreshResult? {
         guard let selectedFeedID = appState.selectedFeedID else {
             logger.info("Skipped manual refresh because no feed is selected")
