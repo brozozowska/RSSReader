@@ -35,12 +35,60 @@ struct SourceManagementScreenItemPresentation: Identifiable, Equatable, Sendable
     let badgeTitle: String
 }
 
-struct SourceManagementScreenDestinationPresentation: Identifiable, Hashable, Sendable {
+struct SourceManagementScenarioPlaceholderPresentation: Identifiable, Hashable, Sendable {
     let id: SourceManagementScenarioID
     let title: String
     let summaryTitle: String
     let summaryDescription: String
     let steps: [String]
+}
+
+enum SourceManagementCreateFolderFeedbackKind: Hashable, Sendable {
+    case success
+    case failure
+}
+
+struct SourceManagementCreateFolderFeedbackPresentation: Hashable, Sendable {
+    let kind: SourceManagementCreateFolderFeedbackKind
+    let title: String
+    let detail: String?
+}
+
+struct SourceManagementCreateFolderExistingFolderPresentation: Identifiable, Hashable, Sendable {
+    let id: UUID
+    let name: String
+    let sortOrder: Int
+    let feedCount: Int
+}
+
+struct SourceManagementCreateFolderPresentation: Hashable, Sendable {
+    let id: SourceManagementScenarioID = .createFolder
+    let title: String
+    let summaryTitle: String
+    let summaryDescription: String
+    let nameInput: String
+    let namePrompt: String
+    let validationMessage: String?
+    let existingFolders: [SourceManagementCreateFolderExistingFolderPresentation]
+    let placementDescription: String
+    let primaryActionTitle: String
+    let isPrimaryActionEnabled: Bool
+    let isSubmitting: Bool
+    let feedback: SourceManagementCreateFolderFeedbackPresentation?
+}
+
+enum SourceManagementScreenDestinationPresentation: Identifiable, Hashable, Sendable {
+    case placeholder(SourceManagementScenarioPlaceholderPresentation)
+    case createFolder(SourceManagementCreateFolderPresentation)
+
+    var id: SourceManagementScenarioID {
+        switch self {
+        case .placeholder(let destination):
+            destination.id
+        case .createFolder(let destination):
+            destination.id
+        }
+    }
 }
 
 struct SourceManagementScreenViewState: Equatable, Sendable {
@@ -99,10 +147,10 @@ enum SourceManagementScreenPresentationBuilder {
 
     static func buildDestination(
         for scenarioID: SourceManagementScenarioID
-    ) -> SourceManagementScreenDestinationPresentation {
+    ) -> SourceManagementScenarioPlaceholderPresentation {
         switch scenarioID {
         case .addFeed:
-            SourceManagementScreenDestinationPresentation(
+            SourceManagementScenarioPlaceholderPresentation(
                 id: .addFeed,
                 title: "Add Feed",
                 summaryTitle: "Feed Setup",
@@ -114,7 +162,7 @@ enum SourceManagementScreenPresentationBuilder {
                 ]
             )
         case .createFolder:
-            SourceManagementScreenDestinationPresentation(
+            SourceManagementScenarioPlaceholderPresentation(
                 id: .createFolder,
                 title: "Create Folder",
                 summaryTitle: "Folder Setup",
@@ -126,7 +174,7 @@ enum SourceManagementScreenPresentationBuilder {
                 ]
             )
         case .moveSource:
-            SourceManagementScreenDestinationPresentation(
+            SourceManagementScenarioPlaceholderPresentation(
                 id: .moveSource,
                 title: "Move Sources",
                 summaryTitle: "Source Organization",

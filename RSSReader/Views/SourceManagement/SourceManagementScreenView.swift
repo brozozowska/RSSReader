@@ -4,10 +4,13 @@ struct SourceManagementScreenActionHandlers {
     let dismiss: () -> Void
     let selectScenario: (SourceManagementScenarioID) -> Void
     let dismissPresentedScenario: () -> Void
+    let updateCreateFolderName: (String) -> Void
+    let submitCreateFolder: () -> Void
 }
 
 struct SourceManagementScreenView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
+    @Environment(\.appDependencies) private var dependencies
     @State private var controller: SourceManagementScreenController
     let dismiss: () -> Void
 
@@ -60,7 +63,16 @@ struct SourceManagementScreenView: View {
                 }
             }
             .navigationDestination(item: presentedDestinationBinding) { destination in
-                SourceManagementScenarioPlaceholderView(destination: destination)
+                switch destination {
+                case .placeholder(let placeholder):
+                    SourceManagementScenarioPlaceholderView(destination: placeholder)
+                case .createFolder(let createFolder):
+                    SourceManagementCreateFolderView(
+                        presentation: createFolder,
+                        nameBinding: createFolderNameBinding,
+                        submit: actionHandlers.submitCreateFolder
+                    )
+                }
             }
         }
     }
@@ -69,10 +81,19 @@ struct SourceManagementScreenView: View {
         SourceManagementScreenActionHandlers(
             dismiss: dismiss,
             selectScenario: { scenarioID in
-                controller.handleScenarioSelection(scenarioID)
+                controller.handleScenarioSelection(
+                    scenarioID,
+                    dependencies: dependencies
+                )
             },
             dismissPresentedScenario: {
                 controller.dismissPresentedScenario()
+            },
+            updateCreateFolderName: { value in
+                controller.handleCreateFolderNameChange(value)
+            },
+            submitCreateFolder: {
+                controller.submitCreateFolder(dependencies: dependencies)
             }
         )
     }
@@ -82,10 +103,26 @@ struct SourceManagementScreenView: View {
             get: { controller.screenState.presentedDestination },
             set: { destination in
                 if let destination {
-                    controller.handleScenarioSelection(destination.id)
+                    controller.handleScenarioSelection(destination.id, dependencies: dependencies)
                 } else {
                     controller.dismissPresentedScenario()
                 }
+            }
+        )
+    }
+
+    private var createFolderNameBinding: Binding<String> {
+        Binding(
+            get: {
+                switch controller.viewState().presentedDestination {
+                case .createFolder(let presentation):
+                    return presentation.nameInput
+                case .placeholder, .none:
+                    return ""
+                }
+            },
+            set: { value in
+                actionHandlers.updateCreateFolderName(value)
             }
         )
     }
@@ -144,9 +181,123 @@ private struct SourceManagementScreenItemCard: View {
     }
 }
 
+private struct SourceManagementCreateFolderView: View {
+    @Environment(\.appThemeVariant) private var appThemeVariant
+    let presentation: SourceManagementCreateFolderPresentation
+    let nameBinding: Binding<String>
+    let submit: () -> Void
+
+    var body: some View {
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(presentation.summaryTitle)
+                        .font(.headline)
+
+                    Text(presentation.summaryDescription)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
+
+            Section {
+                TextField(
+                    presentation.namePrompt,
+                    text: nameBinding,
+                    prompt: Text("Examples: News, Tech, Design")
+                )
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+                .submitLabel(.done)
+                .onSubmit(submit)
+
+                if let validationMessage = presentation.validationMessage {
+                    Text(validationMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                }
+            } header: {
+                Text("Folder Name")
+            } footer: {
+                Text("Folder names stay unique within the current sidebar grouping.")
+            }
+
+            Section {
+                Text(presentation.placementDescription)
+            } header: {
+                Text("Sidebar Placement")
+            }
+
+            if let feedback = presentation.feedback {
+                Section {
+                    SourceManagementCreateFolderFeedbackCard(feedback: feedback)
+                }
+            }
+
+            if presentation.existingFolders.isEmpty == false {
+                Section("Existing Folders") {
+                    ForEach(presentation.existingFolders) { folder in
+                        HStack(alignment: .firstTextBaseline) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(folder.name)
+                                    .font(.body.weight(.semibold))
+
+                                Text("Sidebar position #\(folder.sortOrder + 1)")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            Text(folder.feedCount == 1 ? "1 feed" : "\(folder.feedCount) feeds")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(appThemeVariant.primaryBackground)
+        .navigationTitle(presentation.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(presentation.primaryActionTitle, action: submit)
+                    .disabled(presentation.isPrimaryActionEnabled == false)
+            }
+        }
+    }
+}
+
+private struct SourceManagementCreateFolderFeedbackCard: View {
+    let feedback: SourceManagementCreateFolderFeedbackPresentation
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: feedback.kind == .success ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(feedback.kind == .success ? .green : .orange)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(feedback.title)
+                    .font(.body.weight(.semibold))
+
+                if let detail = feedback.detail {
+                    Text(detail)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 private struct SourceManagementScenarioPlaceholderView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
-    let destination: SourceManagementScreenDestinationPresentation
+    let destination: SourceManagementScenarioPlaceholderPresentation
 
     var body: some View {
         List {

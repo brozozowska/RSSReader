@@ -12,6 +12,24 @@ import SwiftUI
     )
 }
 
+#Preview("Source Management Screen · Create Folder") {
+    SourceManagementScreenPreviewContainer(
+        screenState: .previewCreateFolder(nameInput: "Research")
+    )
+}
+
+#Preview("Source Management Screen · Create Folder Success") {
+    SourceManagementScreenPreviewContainer(
+        screenState: .previewCreateFolder(
+            feedback: SourceManagementCreateFolderFeedbackPresentation(
+                kind: .success,
+                title: "Folder created",
+                detail: "\"Research\" will appear as sidebar folder #3."
+            )
+        )
+    )
+}
+
 private struct SourceManagementScreenPreviewContainer: View {
     let dependencies: AppDependencies
     let screenState: SourceManagementScreenState
