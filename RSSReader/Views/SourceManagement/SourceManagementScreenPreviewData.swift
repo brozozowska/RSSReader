@@ -133,18 +133,18 @@ private enum SourceManagementScreenPreviewFactory {
     }
 
     static func makeEntryState() -> SourceManagementScreenState {
-        .previewLoaded()
+        makeBaseState()
     }
 
     static func makeAddFeedDraftState() -> SourceManagementScreenState {
-        .previewAddFeed(
+        makeAddFeedState(
             urlInput: " https://feedbin.com/blog.xml ",
             folders: folders
         )
     }
 
     static func makeAddFeedPreviewState() -> SourceManagementScreenState {
-        .previewAddFeed(
+        makeAddFeedState(
             urlInput: samplePreview().requestedURL,
             preview: samplePreview(),
             folders: folders,
@@ -153,7 +153,7 @@ private enum SourceManagementScreenPreviewFactory {
     }
 
     static func makeAddFeedDuplicateState() -> SourceManagementScreenState {
-        .previewAddFeed(
+        makeAddFeedState(
             urlInput: samplePreview(existingFeedID: SampleIDs.macstoriesFeedID).requestedURL,
             preview: samplePreview(existingFeedID: SampleIDs.macstoriesFeedID),
             folders: folders
@@ -161,7 +161,7 @@ private enum SourceManagementScreenPreviewFactory {
     }
 
     static func makeAddFeedSavedState() -> SourceManagementScreenState {
-        var state = SourceManagementScreenState.previewAddFeed(
+        var state = makeAddFeedState(
             urlInput: samplePreview().requestedURL,
             preview: samplePreview(),
             isConfirmed: true,
@@ -182,14 +182,14 @@ private enum SourceManagementScreenPreviewFactory {
     }
 
     static func makeEditFeedState() -> SourceManagementScreenState {
-        var state = SourceManagementScreenState()
+        var state = makeBaseState()
         state.applyAddFeedEditContext(feed: feeds[0], folders: folders)
         state.presentScenario(.addFeed)
         return state
     }
 
     static func makeCreateFirstFolderState() -> SourceManagementScreenState {
-        var state = SourceManagementScreenState()
+        var state = makeBaseState()
         state.applyCreateFolderContext(folders: [])
         state.updateCreateFolderNameInput("Reading List")
         state.presentScenario(.createFolder)
@@ -197,7 +197,7 @@ private enum SourceManagementScreenPreviewFactory {
     }
 
     static func makeCreateFolderSavedState() -> SourceManagementScreenState {
-        var state = SourceManagementScreenState()
+        var state = makeBaseState()
         state.applyCreateFolderContext(folders: [])
         state.updateCreateFolderNameInput("Reading List")
         state.beginCreateFolderSubmission()
@@ -214,17 +214,14 @@ private enum SourceManagementScreenPreviewFactory {
     }
 
     static func makeEditFolderState() -> SourceManagementScreenState {
-        var state = SourceManagementScreenState()
+        var state = makeBaseState()
         state.applyCreateFolderEditContext(folder: folders[0], folders: folders)
         state.presentScenario(.createFolder)
         return state
     }
 
     static func makeMoveSourceState() -> SourceManagementScreenState {
-        var state = SourceManagementScreenState.previewMoveSource(
-            feeds: feeds,
-            folders: folders
-        )
+        var state = makeMoveSourceBaseState(feeds: feeds, folders: folders)
         state.selectMoveSourceFeed(SampleIDs.sixcolorsFeedID)
         state.selectMoveSourcePlacement(.folder(SampleIDs.researchFolderID))
         return state
@@ -259,5 +256,59 @@ private enum SourceManagementScreenPreviewFactory {
             rejectedEntryCount: 0,
             existingFeedID: existingFeedID
         )
+    }
+
+    static func makeBaseState(
+        presentedScenarioID: SourceManagementScenarioID? = nil
+    ) -> SourceManagementScreenState {
+        var state = SourceManagementScreenState()
+        if let presentedScenarioID {
+            state.presentScenario(presentedScenarioID)
+        }
+        return state
+    }
+
+    static func makeAddFeedState(
+        urlInput: String = "",
+        preview: SourceManagementFeedPreview? = nil,
+        isConfirmed: Bool = false,
+        failureMessage: String? = nil,
+        folders: [SourceManagementFolderSummary] = [],
+        selectedPlacement: SourceManagementFolderPlacement = .ungrouped
+    ) -> SourceManagementScreenState {
+        var state = makeBaseState()
+        state.updateAddFeedURLInput(urlInput)
+        state.applyAddFeedFolderContext(folders: folders)
+        state.selectAddFeedFolderPlacement(selectedPlacement)
+        if let preview {
+            let requestURL = preview.requestedURL
+            _ = state.beginAddFeedPreviewLoading()
+            state.applyLoadedAddFeedPreview(preview, requestURL: requestURL)
+            if isConfirmed {
+                state.confirmAddFeedPreview()
+            }
+        } else if let failureMessage {
+            let requestURL = state.beginAddFeedPreviewLoading()
+            state.applyAddFeedPreviewFailure(
+                SourceManagementAddFeedStatusPresentation(
+                    title: "Preview could not be loaded",
+                    kind: .failure,
+                    detail: failureMessage
+                ),
+                requestURL: requestURL
+            )
+        }
+        state.presentScenario(.addFeed)
+        return state
+    }
+
+    static func makeMoveSourceBaseState(
+        feeds: [SourceManagementFeedSummary] = [],
+        folders: [SourceManagementFolderSummary] = []
+    ) -> SourceManagementScreenState {
+        var state = makeBaseState()
+        state.applyMoveSourceContext(feeds: feeds, folders: folders)
+        state.presentScenario(.moveSource)
+        return state
     }
 }

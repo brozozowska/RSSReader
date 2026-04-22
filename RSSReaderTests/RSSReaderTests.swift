@@ -4466,7 +4466,7 @@ struct RSSReaderTests {
 
     @Test
     func sourceManagementScreenStateBuildsSeparatedEntrySections() {
-        let state = SourceManagementScreenState.previewLoaded()
+        let state = SourceManagementScreenState.makePreviewFixture()
         let viewState = state.derivedViewState()
 
         #expect(viewState.summary.title == "Choose the source task you want to start.")
@@ -4477,7 +4477,7 @@ struct RSSReaderTests {
 
     @Test
     func sourceManagementScreenStateBuildsAddFeedPresentationWithPreviewAndConfirmationState() {
-        var state = SourceManagementScreenState.previewLoaded()
+        var state = SourceManagementScreenState.makePreviewFixture()
         let newsFolderID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
         let techFolderID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
         state.applyAddFeedFolderContext(
@@ -4595,7 +4595,7 @@ struct RSSReaderTests {
 
     @Test
     func sourceManagementScreenStateBuildsCreateFolderPresentationWithValidationAndPlacement() {
-        var state = SourceManagementScreenState.previewLoaded()
+        var state = SourceManagementScreenState.makePreviewFixture()
         state.applyCreateFolderContext(
             folders: [
                 SourceManagementFolderSummary(
@@ -5011,7 +5011,7 @@ struct RSSReaderTests {
 
     @Test
     func sourceManagementScreenStateBuildsMoveSourcePresentationWithFeedAndPlacementSelection() {
-        var state = SourceManagementScreenState.previewLoaded()
+        var state = SourceManagementScreenState.makePreviewFixture()
         let newsFolderID = UUID(uuidString: "55555555-5555-5555-5555-555555555555")!
         let techFolderID = UUID(uuidString: "66666666-6666-6666-6666-666666666666")!
         state.applyMoveSourceContext(
@@ -6083,6 +6083,18 @@ private struct TestLogger: Logging {
     func debug(_ message: @autoclosure () -> String) {}
     func info(_ message: @autoclosure () -> String) {}
     func error(_ message: @autoclosure () -> String) {}
+}
+
+private extension SourceManagementScreenState {
+    static func makePreviewFixture(
+        presentedScenarioID: SourceManagementScenarioID? = nil
+    ) -> SourceManagementScreenState {
+        var state = SourceManagementScreenState()
+        if let presentedScenarioID {
+            state.presentScenario(presentedScenarioID)
+        }
+        return state
+    }
 }
 
 private actor ScriptedHTTPClient: HTTPClient {
