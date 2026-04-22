@@ -5,22 +5,14 @@ import SwiftData
     RootViewPreviewContainer()
 }
 
-#Preview("Root Flow · Article Inline Link") {
-    RootViewPreviewContainer(
-        initialAppState: RootViewPreviewFactory.makeArticleInlineLinkAppState()
-    )
-}
-
 private struct RootViewPreviewContainer: View {
     let dependencies: AppDependencies
     @State private var appState: AppState
 
-    init(initialAppState: AppState? = nil) {
+    init() {
         let dependencies = RootViewPreviewFactory.makeDependencies()
         self.dependencies = dependencies
-        self._appState = State(
-            initialValue: initialAppState ?? RootViewPreviewFactory.makeAppState()
-        )
+        self._appState = State(initialValue: RootViewPreviewFactory.makeAppState())
     }
 
     var body: some View {
@@ -34,10 +26,15 @@ private struct RootViewPreviewContainer: View {
 
 private enum RootViewPreviewFactory {
     enum SampleIDs {
+        static let techFolderID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        static let researchFolderID = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
         static let vergeFeedID = UUID(uuidString: "00000000-0000-0000-0000-000000000101")!
+        static let macstoriesFeedID = UUID(uuidString: "00000000-0000-0000-0000-000000000102")!
+        static let sixcolorsFeedID = UUID(uuidString: "00000000-0000-0000-0000-000000000103")!
         static let firstArticleID = UUID(uuidString: "00000000-0000-0000-0000-000000000201")!
         static let secondArticleID = UUID(uuidString: "00000000-0000-0000-0000-000000000202")!
         static let thirdArticleID = UUID(uuidString: "00000000-0000-0000-0000-000000000203")!
+        static let fourthArticleID = UUID(uuidString: "00000000-0000-0000-0000-000000000204")!
     }
 
     @MainActor
@@ -56,42 +53,56 @@ private enum RootViewPreviewFactory {
 
     @MainActor
     static func makeAppState() -> AppState {
-        let appState = AppState()
-        reset(appState)
-        return appState
-    }
-
-    @MainActor
-    static func makeArticleInlineLinkAppState() -> AppState {
-        let appState = AppState()
-        appState.selectReadingSource(.feed(SampleIDs.vergeFeedID))
-        appState.selectedArticleID = SampleIDs.firstArticleID
-        return appState
-    }
-
-    @MainActor
-    static func reset(_ appState: AppState) {
-        appState.selectReadingSource(nil)
+        AppState()
     }
 
     @MainActor
     private static func seed(_ modelContext: ModelContext) {
+        let techFolder = Folder(
+            id: SampleIDs.techFolderID,
+            name: "Tech",
+            sortOrder: 0
+        )
+        let researchFolder = Folder(
+            id: SampleIDs.researchFolderID,
+            name: "Research",
+            sortOrder: 1
+        )
         let verge = Feed(
             id: SampleIDs.vergeFeedID,
             url: "https://www.theverge.com/rss/index.xml",
             siteURL: "https://www.theverge.com",
             title: "The Verge"
         )
+        let macstories = Feed(
+            id: SampleIDs.macstoriesFeedID,
+            url: "https://www.macstories.net/feed/",
+            siteURL: "https://www.macstories.net",
+            title: "MacStories",
+            folder: techFolder
+        )
+        let sixcolors = Feed(
+            id: SampleIDs.sixcolorsFeedID,
+            url: "https://sixcolors.com/feed/",
+            siteURL: "https://sixcolors.com",
+            title: "Six Colors",
+            folder: researchFolder
+        )
+
+        modelContext.insert(techFolder)
+        modelContext.insert(researchFolder)
         modelContext.insert(verge)
+        modelContext.insert(macstories)
+        modelContext.insert(sixcolors)
 
         insertArticle(
             id: SampleIDs.firstArticleID,
             externalID: "verge-preview-1",
             title: "Apple updates Safari reading features for in-app web flows",
-            summary: "A preview article used to move from the single source screen into the articles list.",
+            summary: "Use this seeded article to move from the source list into articles and the article reader.",
             contentHTML: """
-            <p>This preview article now includes an inline link to <a href="https://developer.apple.com/documentation/swiftui">SwiftUI documentation</a> so the root flow can exercise body link rendering.</p>
-            <p>Tap the link to verify that the `Article Screen` transitions into the in-app web flow from inside the article body.</p>
+            <p>This preview article includes an inline link to <a href="https://developer.apple.com/documentation/swiftui">SwiftUI documentation</a> so the root flow can exercise the in-app web transition.</p>
+            <p>The same root fixture also includes folders and grouped sources, so Source Management actions can be reached from the sidebar without switching previews.</p>
             """,
             url: "https://example.com/articles/verge-preview-1",
             publishedAt: .now,
@@ -101,21 +112,31 @@ private enum RootViewPreviewFactory {
         insertArticle(
             id: SampleIDs.secondArticleID,
             externalID: "verge-preview-2",
-            title: "The Verge preview keeps the compact root flow focused on one source",
-            summary: "A second article keeps the destination list realistic once the source is selected.",
+            title: "The root preview keeps one ungrouped feed for add and edit checks",
+            summary: "The ungrouped source makes it easy to test edit, unsubscribe, and move-source flows.",
             url: "https://example.com/articles/verge-preview-2",
-            publishedAt: .now.addingTimeInterval(-3600),
+            publishedAt: .now.addingTimeInterval(-3_600),
             feed: verge,
             modelContext: modelContext
         )
         insertArticle(
             id: SampleIDs.thirdArticleID,
-            externalID: "verge-preview-3",
-            title: "Three seeded articles are enough for the next preview step",
-            summary: "This third article exists only to support the next shell preview stage without touching deeper navigation yet.",
-            url: "https://example.com/articles/verge-preview-3",
-            publishedAt: .now.addingTimeInterval(-7200),
-            feed: verge,
+            externalID: "macstories-preview-1",
+            title: "Grouped sources make folder actions visible in one root preview",
+            summary: "This article belongs to the Tech folder fixture.",
+            url: "https://example.com/articles/macstories-preview-1",
+            publishedAt: .now.addingTimeInterval(-7_200),
+            feed: macstories,
+            modelContext: modelContext
+        )
+        insertArticle(
+            id: SampleIDs.fourthArticleID,
+            externalID: "sixcolors-preview-1",
+            title: "Research folder fixture supports move and rename checks",
+            summary: "This article belongs to the Research folder fixture.",
+            url: "https://example.com/articles/sixcolors-preview-1",
+            publishedAt: .now.addingTimeInterval(-10_800),
+            feed: sixcolors,
             modelContext: modelContext
         )
 
@@ -144,7 +165,7 @@ private enum RootViewPreviewFactory {
                 title: title,
                 summary: summary,
                 contentHTML: contentHTML,
-                author: "The Verge",
+                author: feed.title,
                 publishedAt: publishedAt
             )
         )
@@ -153,13 +174,38 @@ private enum RootViewPreviewFactory {
 
 private struct RootViewPreviewFeedFetcher: FeedFetching {
     func fetch(_ request: FeedRequest) async throws -> FeedFetchResult {
-        .notModified(
+        let siteURL = request.url.deletingLastPathComponent()
+        let hostTitle = request.url.host?
+            .split(separator: ".")
+            .dropFirst(request.url.host?.hasPrefix("www.") == true ? 1 : 0)
+            .first
+            .map { $0.capitalized } ?? "Preview"
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0">
+          <channel>
+            <title>\(hostTitle) Preview Feed</title>
+            <link>\(siteURL.absoluteString)</link>
+            <description>Preview feed generated for RootView fixtures.</description>
+            <language>en</language>
+            <item>
+              <title>\(hostTitle) Preview Article</title>
+              <link>\(siteURL.absoluteString)/articles/preview</link>
+              <guid isPermaLink="false">\(request.url.absoluteString)</guid>
+              <description>Preview article used by RootView preview fixtures.</description>
+              <pubDate>Tue, 02 Jan 2024 10:00:00 GMT</pubDate>
+            </item>
+          </channel>
+        </rss>
+        """
+
+        return .fetched(
             FeedResponse(
                 request: request,
                 sourceURL: request.url,
-                statusCode: 304,
-                headers: [:],
-                body: Data()
+                statusCode: 200,
+                headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                body: Data(xml.utf8)
             )
         )
     }

@@ -2936,6 +2936,206 @@ struct RSSReaderTests {
     }
 
     @Test
+    func appDependenciesExposeSeparateFolderRepositoryWhenSwiftDataIsAvailable() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+
+        #expect(harness.dependencies.folderRepository != nil)
+    }
+
+    @Test
+    func appDependenciesExposeSourceManagementServiceWhenSwiftDataIsAvailable() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+
+        #expect(harness.dependencies.sourceManagementService != nil)
+    }
+
+    @Test
+    func folderRepositoryPersistsInsertedFoldersAndReturnsSortedList() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.folderRepository)
+
+        _ = try repository.insert(Folder(name: "Archive", sortOrder: 2))
+        _ = try repository.insert(Folder(name: "News", sortOrder: 0))
+        _ = try repository.insert(Folder(name: "Tech", sortOrder: 1))
+
+        let folders = try repository.fetchAllFolders()
+        let techFolder = try repository.fetchFolder(name: "Tech")
+
+        #expect(folders.map(\.name) == ["News", "Tech", "Archive"])
+        #expect(folders.map(\.sortOrder) == [0, 1, 2])
+        #expect(techFolder?.sortOrder == 1)
+    }
+
+    @Test
+    func feedRepositoryUpdatesFolderAssignmentThroughExplicitPersistencePath() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let techFolder = try harness.folderRepository.insert(Folder(name: "Tech", sortOrder: 0))
+        let newsFolder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 1))
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: "https://example.com/feeds/folder-assignment.xml",
+                title: "Folder Assignment Feed",
+                kind: .rss
+            )
+        )
+
+        let techAssignmentDate = Date(timeIntervalSince1970: 1_705_000_000)
+        let newsAssignmentDate = techAssignmentDate.addingTimeInterval(60)
+        let ungroupedAssignmentDate = newsAssignmentDate.addingTimeInterval(60)
+
+        let techAssignedFeed = try harness.feedRepository.updateFolderAssignment(
+            for: feed.id,
+            with: FeedFolderAssignmentUpdate(
+                folder: techFolder,
+                updatedAt: techAssignmentDate
+            )
+        )
+        let techPersistedFeed = try harness.feedRepository.fetchFeed(id: feed.id)
+
+        #expect(techAssignedFeed?.folder?.id == techFolder.id)
+        #expect(techAssignedFeed?.updatedAt == techAssignmentDate)
+        #expect(techPersistedFeed?.folder?.id == techFolder.id)
+
+        let newsAssignedFeed = try harness.feedRepository.updateFolderAssignment(
+            for: feed.id,
+            with: FeedFolderAssignmentUpdate(
+                folder: newsFolder,
+                updatedAt: newsAssignmentDate
+            )
+        )
+        let newsPersistedFeed = try harness.feedRepository.fetchFeed(id: feed.id)
+
+        #expect(newsAssignedFeed?.folder?.id == newsFolder.id)
+        #expect(newsAssignedFeed?.updatedAt == newsAssignmentDate)
+        #expect(newsPersistedFeed?.folder?.id == newsFolder.id)
+
+        let ungroupedFeed = try harness.feedRepository.updateFolderAssignment(
+            for: feed.id,
+            with: FeedFolderAssignmentUpdate(
+                folder: nil,
+                updatedAt: ungroupedAssignmentDate
+            )
+        )
+        let ungroupedPersistedFeed = try harness.feedRepository.fetchFeed(id: feed.id)
+
+        #expect(ungroupedFeed?.folder == nil)
+        #expect(ungroupedFeed?.updatedAt == ungroupedAssignmentDate)
+        #expect(ungroupedPersistedFeed?.folder == nil)
+    }
+
+    @Test
+    func sourceManagementServicePreviewsFeedMetadataThroughFetcherAndParser() async throws {
+        let feedURL = "https://example.com/source-management-preview.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Preview Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Preview Article",
+                            itemLink: "https://example.com/articles/preview",
+                            itemGUID: "preview-article",
+                            itemDescription: "Preview description",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+        let service = try #require(harness.dependencies.sourceManagementService)
+
+        let preview = try await service.previewFeed(urlString: feedURL)
+
+        #expect(preview.requestedURL == feedURL)
+        #expect(preview.resolvedFeedURL == feedURL)
+        #expect(preview.title == "Preview Feed")
+        #expect(preview.siteURL == "https://example.com/")
+        #expect(preview.kind == .rss)
+        #expect(preview.existingFeedID == nil)
+        #expect(preview.rejectedEntryCount == 0)
+    }
+
+    @Test
+    func sourceManagementServiceCreatesFolderWithNextSortOrder() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let service = try #require(harness.dependencies.sourceManagementService)
+
+        let firstFolder = try service.createFolder(
+            SourceManagementCreateFolderCommand(name: "News")
+        )
+        let secondFolder = try service.createFolder(
+            SourceManagementCreateFolderCommand(name: "Tech")
+        )
+
+        let folders = try harness.folderRepository.fetchAllFolders()
+
+        #expect(firstFolder.sortOrder == 0)
+        #expect(secondFolder.sortOrder == 1)
+        #expect(folders.map(\.name) == ["News", "Tech"])
+        #expect(folders.map(\.sortOrder) == [0, 1])
+    }
+
+    @Test
+    func sourceManagementServiceCreatesAndMovesFeedWithoutScreenLevelPersistenceAccess() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let service = try #require(harness.dependencies.sourceManagementService)
+        let techFolder = try service.createFolder(SourceManagementCreateFolderCommand(name: "Tech"))
+        let newsFolder = try service.createFolder(SourceManagementCreateFolderCommand(name: "News"))
+        let preview = SourceManagementFeedPreview(
+            requestedURL: "https://example.com/feed.xml",
+            resolvedFeedURL: "https://example.com/feed.xml",
+            title: "Example Feed",
+            subtitle: "Source management preview",
+            siteURL: "https://example.com/",
+            iconURL: "https://example.com/icon.png",
+            language: "en",
+            kind: .rss,
+            parserAnomalyCount: 0,
+            rejectedEntryCount: 0,
+            existingFeedID: nil
+        )
+
+        let createdFeed = try service.createFeed(
+            SourceManagementCreateFeedCommand(
+                preview: preview,
+                folderPlacement: .folder(techFolder.id)
+            )
+        )
+        let createdPersistedFeed = try harness.feedRepository.fetchFeed(id: createdFeed.id)
+        var persistedFeed = try #require(createdPersistedFeed)
+        #expect(persistedFeed.folder?.name == "Tech")
+
+        let movedFeed = try service.moveFeed(
+            SourceManagementMoveFeedCommand(
+                feedID: createdFeed.id,
+                folderPlacement: .folder(newsFolder.id)
+            )
+        )
+        #expect(movedFeed.folderName == "News")
+
+        let movedPersistedFeed = try harness.feedRepository.fetchFeed(id: createdFeed.id)
+        persistedFeed = try #require(movedPersistedFeed)
+        #expect(persistedFeed.folder?.name == "News")
+
+        let ungroupedFeed = try service.moveFeed(
+            SourceManagementMoveFeedCommand(
+                feedID: createdFeed.id,
+                folderPlacement: .ungrouped
+            )
+        )
+        #expect(ungroupedFeed.folderID == nil)
+        #expect(ungroupedFeed.folderName == nil)
+
+        let ungroupedPersistedFeed = try harness.feedRepository.fetchFeed(id: createdFeed.id)
+        persistedFeed = try #require(ungroupedPersistedFeed)
+        #expect(persistedFeed.folder == nil)
+    }
+
+    @Test
     func appSettingsServiceFetchesSnapshotFromRepository() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
@@ -4211,6 +4411,874 @@ struct RSSReaderTests {
     }
 
     @Test
+    func sourceManagementPresentationStateUsesSeparateModalFlowAndDoesNotResetReadingShellContext() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feedID = UUID()
+        let articleID = UUID()
+
+        harness.dependencies.showFeed(id: feedID, using: appState)
+        harness.dependencies.selectArticle(id: articleID, using: appState)
+
+        harness.dependencies.showSourceManagement(using: appState)
+
+        #expect(appState.isPresentingSourceManagementScreen)
+        #expect(appState.isPresentingSettingsScreen == false)
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .article(articleID))
+
+        harness.dependencies.dismissSourceManagement(using: appState)
+
+        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.isPresentingSettingsScreen == false)
+        #expect(appState.sourceManagementLaunchContext == .entry)
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .article(articleID))
+    }
+
+    @Test
+    func sourceManagementPresentationStateTracksSidebarEditLaunchContextWithoutResettingReadingShellContext() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feedID = UUID()
+        let articleID = UUID()
+
+        harness.dependencies.showFeed(id: feedID, using: appState)
+        harness.dependencies.selectArticle(id: articleID, using: appState)
+        harness.dependencies.showFeedEditor(id: feedID, using: appState)
+
+        #expect(appState.isPresentingSourceManagementScreen)
+        #expect(appState.sourceManagementLaunchContext == .editFeed(feedID))
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .article(articleID))
+
+        harness.dependencies.dismissSourceManagement(using: appState)
+
+        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.sourceManagementLaunchContext == .entry)
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .article(articleID))
+    }
+
+    @Test
+    func sourceManagementScreenStateBuildsSeparatedEntrySections() {
+        let state = SourceManagementScreenState.makePreviewFixture()
+        let viewState = state.derivedViewState()
+
+        #expect(viewState.summary.title == "Choose the source task you want to start.")
+        #expect(viewState.sections.map(\.id) == [.startNew, .organizeExisting])
+        #expect(viewState.sections.first?.items.map(\.id) == [.addFeed, .createFolder])
+        #expect(viewState.sections.last?.items.map(\.id) == [.moveSource])
+    }
+
+    @Test
+    func sourceManagementScreenStateBuildsAddFeedPresentationWithPreviewAndConfirmationState() {
+        var state = SourceManagementScreenState.makePreviewFixture()
+        let newsFolderID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let techFolderID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        state.applyAddFeedFolderContext(
+            folders: [
+                SourceManagementFolderSummary(
+                    id: newsFolderID,
+                    name: "News",
+                    sortOrder: 0,
+                    feedCount: 5
+                ),
+                SourceManagementFolderSummary(
+                    id: techFolderID,
+                    name: "Tech",
+                    sortOrder: 1,
+                    feedCount: 3
+                )
+            ]
+        )
+        state.presentScenario(.addFeed)
+
+        guard case .addFeed(let initialDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation")
+            return
+        }
+
+        #expect(initialDestination.validationMessage == "Enter a feed URL to continue.")
+        #expect(initialDestination.isPrimaryActionEnabled == false)
+
+        state.updateAddFeedURLInput("example")
+
+        guard case .addFeed(let invalidDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after invalid URL input")
+            return
+        }
+
+        #expect(invalidDestination.validationMessage == "Enter a valid http or https URL.")
+        #expect(invalidDestination.isPrimaryActionEnabled == false)
+
+        state.updateAddFeedURLInput(" https://example.com/feed.xml ")
+
+        guard case .addFeed(let validDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after URL input")
+            return
+        }
+
+        #expect(validDestination.validationMessage == nil)
+        #expect(validDestination.normalizedURL == "https://example.com/feed.xml")
+        #expect(validDestination.isPrimaryActionEnabled)
+
+        let preview = SourceManagementFeedPreview(
+            requestedURL: "https://example.com/feed.xml",
+            resolvedFeedURL: "https://example.com/feed.xml",
+            title: "Example Feed",
+            subtitle: "Preview subtitle",
+            siteURL: "https://example.com/",
+            iconURL: "https://example.com/icon.png",
+            language: "en",
+            kind: .rss,
+            parserAnomalyCount: 0,
+            rejectedEntryCount: 0,
+            existingFeedID: nil
+        )
+        let requestURL = state.beginAddFeedPreviewLoading()
+        state.applyLoadedAddFeedPreview(preview, requestURL: requestURL ?? "")
+
+        guard case .addFeed(let previewDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after preview loading")
+            return
+        }
+
+        #expect(previewDestination.primaryActionTitle == "Confirm Feed")
+        #expect(previewDestination.isPrimaryActionEnabled)
+        #expect(previewDestination.preview?.title == "Example Feed")
+        #expect(previewDestination.preview?.kindTitle == "RSS")
+        #expect(previewDestination.placementOptions.map(\.title) == ["Ungrouped", "News", "Tech"])
+        #expect(previewDestination.placementOptions.first?.isSelected == true)
+        #expect(previewDestination.createFolderActionTitle == "Create New Folder")
+
+        state.selectAddFeedFolderPlacement(.folder(techFolderID))
+
+        state.confirmAddFeedPreview()
+
+        guard case .addFeed(let confirmedDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after confirmation")
+            return
+        }
+
+        #expect(confirmedDestination.primaryActionTitle == "Add Feed")
+        #expect(confirmedDestination.isPrimaryActionEnabled)
+        #expect(confirmedDestination.status?.kind == .success)
+        #expect(confirmedDestination.placementOptions.last?.isSelected == true)
+        #expect(confirmedDestination.status?.detail?.contains("Tech") == true)
+
+        let createCommand = state.beginAddFeedCreation()
+        #expect(createCommand?.folderPlacement == .folder(techFolderID))
+        state.applyCreatedAddFeed(
+            SourceManagementFeedSummary(
+                id: UUID(uuidString: "99999999-9999-9999-9999-999999999999")!,
+                url: "https://example.com/feed.xml",
+                title: "Example Feed",
+                folderID: techFolderID,
+                folderName: "Tech"
+            )
+        )
+
+        guard case .addFeed(let createdDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after feed creation")
+            return
+        }
+
+        #expect(createdDestination.primaryActionTitle == "Feed Added")
+        #expect(createdDestination.isPrimaryActionEnabled == false)
+        #expect(createdDestination.status?.title == "Feed added")
+    }
+
+    @Test
+    func sourceManagementScreenStateBuildsCreateFolderPresentationWithValidationAndPlacement() {
+        var state = SourceManagementScreenState.makePreviewFixture()
+        state.applyCreateFolderContext(
+            folders: [
+                SourceManagementFolderSummary(
+                    id: UUID(uuidString: "33333333-3333-3333-3333-333333333333")!,
+                    name: "News",
+                    sortOrder: 0,
+                    feedCount: 5
+                ),
+                SourceManagementFolderSummary(
+                    id: UUID(uuidString: "44444444-4444-4444-4444-444444444444")!,
+                    name: "Tech",
+                    sortOrder: 1,
+                    feedCount: 3
+                )
+            ]
+        )
+        state.presentScenario(.createFolder)
+
+        guard case .createFolder(let initialDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected create-folder destination presentation")
+            return
+        }
+
+        #expect(initialDestination.existingFolders.map(\.name) == ["News", "Tech"])
+        #expect(initialDestination.placementDescription.contains("#3"))
+        #expect(initialDestination.isPrimaryActionEnabled == false)
+
+        state.updateCreateFolderNameInput("News")
+
+        guard case .createFolder(let duplicateDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected create-folder destination presentation after duplicate input")
+            return
+        }
+
+        #expect(duplicateDestination.validationMessage == "A folder with this name already exists.")
+        #expect(duplicateDestination.isPrimaryActionEnabled == false)
+
+        state.updateCreateFolderNameInput("Research")
+
+        guard case .createFolder(let validDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected create-folder destination presentation after valid input")
+            return
+        }
+
+        #expect(validDestination.validationMessage == nil)
+        #expect(validDestination.isPrimaryActionEnabled)
+    }
+
+    @Test
+    func sourceManagementScreenControllerLoadsFeedPreviewThroughSourceManagementService() async throws {
+        let feedURL = "https://example.com/preview-controller.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Controller Preview Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Preview Article",
+                            itemLink: "https://example.com/articles/preview",
+                            itemGUID: "controller-preview-article",
+                            itemDescription: "Preview description",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+        let controller = SourceManagementScreenController()
+
+        controller.handleScenarioSelection(.addFeed)
+        controller.handleAddFeedURLChange(" \(feedURL) ")
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+
+        guard case .addFeed(let destination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after preview loading")
+            return
+        }
+
+        #expect(destination.preview?.title == "Controller Preview Feed")
+        #expect(destination.preview?.siteURL == "https://example.com/")
+        #expect(destination.preview?.kindTitle == "RSS")
+        #expect(destination.primaryActionTitle == "Confirm Feed")
+        #expect(destination.isPrimaryActionEnabled)
+
+        let recordedRequests = await harness.httpClient.recordedRequests()
+        #expect(recordedRequests.map(\.url.absoluteString) == [feedURL])
+
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+
+        guard case .addFeed(let confirmedDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after preview confirmation")
+            return
+        }
+
+        #expect(confirmedDestination.primaryActionTitle == "Add Feed")
+        #expect(confirmedDestination.status?.kind == .success)
+    }
+
+    @Test
+    func sourceManagementScreenControllerCreatesFeedThroughServiceAfterConfirmedPreview() async throws {
+        let feedURL = "https://example.com/create-from-preview.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Created Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Created Article",
+                            itemLink: "https://example.com/articles/created",
+                            itemGUID: "created-article",
+                            itemDescription: "Created description",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+        let folder = try harness.folderRepository.insert(Folder(name: "Tech", sortOrder: 0))
+        let controller = SourceManagementScreenController()
+
+        controller.handleScenarioSelection(.addFeed, dependencies: harness.dependencies)
+        controller.handleAddFeedURLChange(" \(feedURL) ")
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+        controller.handleAddFeedFolderPlacementSelection(.folder(folder.id))
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+
+        guard case .addFeed(let createdDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after feed creation")
+            return
+        }
+
+        let persistedFeed = try harness.feedRepository.fetchFeed(url: feedURL)
+
+        #expect(createdDestination.primaryActionTitle == "Feed Added")
+        #expect(createdDestination.isPrimaryActionEnabled == false)
+        #expect(createdDestination.status?.title == "Feed added")
+        #expect(createdDestination.status?.detail == "Created Feed was saved in Tech.")
+        #expect(persistedFeed?.url == feedURL)
+        #expect(persistedFeed?.title == "Created Feed")
+        #expect(persistedFeed?.siteURL == "https://example.com/")
+        #expect(persistedFeed?.kind == .rss)
+        #expect(persistedFeed?.folder?.id == folder.id)
+    }
+
+    @Test
+    func sourceManagementScreenControllerCreatesFeedRefreshesItAndDismissesSourceManagementFlow() async throws {
+        let feedURL = "https://example.com/create-and-refresh.xml"
+        let responseStep = ScriptedHTTPClient.Step.response(
+            statusCode: 200,
+            headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+            body: Self.validRSSFeedXML(
+                channelTitle: "Created And Refreshed Feed",
+                channelLink: "https://example.com/",
+                language: "en",
+                itemTitle: "First Refreshed Article",
+                itemLink: "https://example.com/articles/first-refreshed",
+                itemGUID: "first-refreshed-article",
+                itemDescription: "Refreshed description",
+                pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+            )
+        )
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                steps: [responseStep, responseStep]
+            )
+        )
+        let appState = AppState()
+        let controller = SourceManagementScreenController()
+        let articleReloadIDBeforeCreation = appState.articleListReloadID
+        let sidebarReloadIDBeforeCreation = appState.sourcesSidebarReloadID
+
+        harness.dependencies.showSourceManagement(using: appState)
+        controller.handleScenarioSelection(.addFeed, dependencies: harness.dependencies)
+        controller.handleAddFeedURLChange(feedURL)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
+
+        let persistedFeed = try #require(try harness.feedRepository.fetchFeed(url: feedURL))
+        let articles = try harness.articleRepository.fetchArticles(feedID: persistedFeed.id)
+        let requests = await harness.httpClient.recordedRequests()
+
+        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.selectedSidebarSelection == .feed(persistedFeed.id))
+        #expect(appState.articleListReloadID != articleReloadIDBeforeCreation)
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCreation)
+        #expect(persistedFeed.lastFetchedAt != nil)
+        #expect(persistedFeed.lastSuccessfulFetchAt != nil)
+        #expect(articles.count == 1)
+        #expect(articles.first?.title == "First Refreshed Article")
+        #expect(requests.map(\.url.absoluteString) == [feedURL, feedURL])
+    }
+
+    @Test
+    func sourceManagementScreenControllerEditsFeedFromSidebarLaunchContextAndRefreshesUpdatedSource() async throws {
+        let initialURL = "https://example.com/original-feed.xml"
+        let updatedURL = "https://example.com/updated-feed.xml"
+        let previewStep = ScriptedHTTPClient.Step.response(
+            statusCode: 200,
+            headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+            body: Self.validRSSFeedXML(
+                channelTitle: "Updated Feed Title",
+                channelLink: "https://example.com/",
+                language: "en",
+                itemTitle: "Updated Feed Article",
+                itemLink: "https://example.com/articles/updated-feed",
+                itemGUID: "updated-feed-article",
+                itemDescription: "Updated feed description",
+                pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+            )
+        )
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(steps: [previewStep, previewStep])
+        )
+        let originalFolder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
+        let updatedFolder = try harness.folderRepository.insert(Folder(name: "Tech", sortOrder: 1))
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: initialURL,
+                title: "Original Feed",
+                kind: .rss,
+                folder: originalFolder
+            )
+        )
+        let appState = AppState()
+        let controller = SourceManagementScreenController()
+
+        harness.dependencies.showFeed(id: feed.id, using: appState)
+        harness.dependencies.showFeedEditor(id: feed.id, using: appState)
+        controller.handleLaunchContext(.editFeed(feed.id), dependencies: harness.dependencies)
+
+        guard case .addFeed(let initialDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation for feed editor launch context")
+            return
+        }
+
+        #expect(initialDestination.title == "Edit Feed")
+        #expect(initialDestination.urlInput == initialURL)
+        #expect(initialDestination.placementOptions.first(where: { $0.title == "News" })?.isSelected == true)
+
+        controller.handleAddFeedURLChange(updatedURL)
+        controller.handleAddFeedFolderPlacementSelection(.folder(updatedFolder.id))
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
+
+        let persistedFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
+        let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        let requests = await harness.httpClient.recordedRequests()
+
+        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.selectedSidebarSelection == .feed(feed.id))
+        #expect(persistedFeed.url == updatedURL)
+        #expect(persistedFeed.title == "Updated Feed Title")
+        #expect(persistedFeed.folder?.id == updatedFolder.id)
+        #expect(persistedFeed.lastSuccessfulFetchAt != nil)
+        #expect(articles.count == 1)
+        #expect(articles.first?.title == "Updated Feed Article")
+        #expect(requests.map(\.url.absoluteString) == [updatedURL, updatedURL])
+    }
+
+    @Test
+    func sourceManagementScreenControllerEditsFolderFromSidebarLaunchContextAndRetargetsSelection() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let folder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
+        let controller = SourceManagementScreenController()
+        let sidebarReloadIDBeforeEdit = appState.sourcesSidebarReloadID
+
+        harness.dependencies.showFolder(named: "News", using: appState)
+        harness.dependencies.showFolderEditor(named: "News", using: appState)
+        controller.handleLaunchContext(.editFolder(folder.id), dependencies: harness.dependencies)
+
+        guard case .createFolder(let initialDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected create-folder destination presentation for folder editor launch context")
+            return
+        }
+
+        #expect(initialDestination.title == "Edit Folder")
+        #expect(initialDestination.nameInput == "News")
+
+        controller.handleCreateFolderNameChange("World News")
+        controller.submitCreateFolder(dependencies: harness.dependencies, appState: appState)
+
+        let renamedFolder = try #require(try harness.folderRepository.fetchFolder(id: folder.id))
+
+        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.selectedSidebarSelection == .folder("World News"))
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeEdit)
+        #expect(renamedFolder.name == "World News")
+        #expect(renamedFolder.sortOrder == 0)
+    }
+
+    @Test
+    func sourceManagementScreenControllerShowsDuplicateFeedWarningWhenPreviewMatchesExistingSource() async throws {
+        let feedURL = "https://example.com/existing-feed.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Existing Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Existing Article",
+                            itemLink: "https://example.com/articles/existing",
+                            itemGUID: "existing-article",
+                            itemDescription: "Existing description",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+        _ = try harness.feedRepository.insert(
+            Feed(
+                url: feedURL,
+                title: "Existing Feed",
+                kind: .rss
+            )
+        )
+        let controller = SourceManagementScreenController()
+
+        controller.handleScenarioSelection(.addFeed)
+        controller.handleAddFeedURLChange(feedURL)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+
+        guard case .addFeed(let destination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after duplicate preview loading")
+            return
+        }
+
+        #expect(destination.preview?.title == "Existing Feed")
+        #expect(destination.preview?.existingFeedNotice == "This source already exists in the library.")
+        #expect(destination.status?.kind == .warning)
+        #expect(destination.status?.title == "This feed is already in the library")
+        #expect(destination.primaryActionTitle == "Already Added")
+        #expect(destination.isPrimaryActionEnabled == false)
+    }
+
+    @Test
+    func sourceManagementScreenControllerShowsNetworkFailureStatusWhenPreviewRequestFails() async throws {
+        let feedURL = "https://example.com/network-failure.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .urlError(.notConnectedToInternet)
+                ]
+            )
+        )
+        let controller = SourceManagementScreenController()
+
+        controller.handleScenarioSelection(.addFeed)
+        controller.handleAddFeedURLChange(feedURL)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+
+        guard case .addFeed(let destination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after network failure")
+            return
+        }
+
+        #expect(destination.preview == nil)
+        #expect(destination.status?.kind == .failure)
+        #expect(destination.status?.title == "Network error while loading preview")
+        #expect(destination.status?.detail == "Check the internet connection and try loading the preview again.")
+        #expect(destination.primaryActionTitle == "Preview Feed")
+        #expect(destination.isPrimaryActionEnabled)
+    }
+
+    @Test
+    func sourceManagementScreenControllerShowsUnsupportedFeedStatusWhenPreviewResponseIsNotAFeed() async throws {
+        let feedURL = "https://example.com/not-a-feed"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "text/html; charset=utf-8"],
+                        body: "<html><body>Not a feed</body></html>"
+                    )
+                ]
+            )
+        )
+        let controller = SourceManagementScreenController()
+
+        controller.handleScenarioSelection(.addFeed)
+        controller.handleAddFeedURLChange(feedURL)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+
+        guard case .addFeed(let destination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after unsupported-feed failure")
+            return
+        }
+
+        #expect(destination.preview == nil)
+        #expect(destination.status?.kind == .failure)
+        #expect(destination.status?.title == "Source is not a supported feed")
+        #expect(destination.status?.detail == "The URL responded with text/html; charset=utf-8, not a supported RSS or Atom feed.")
+        #expect(destination.primaryActionTitle == "Preview Feed")
+        #expect(destination.isPrimaryActionEnabled)
+    }
+
+    @Test
+    func sourceManagementScreenStateBuildsMoveSourcePresentationWithFeedAndPlacementSelection() {
+        var state = SourceManagementScreenState.makePreviewFixture()
+        let newsFolderID = UUID(uuidString: "55555555-5555-5555-5555-555555555555")!
+        let techFolderID = UUID(uuidString: "66666666-6666-6666-6666-666666666666")!
+        state.applyMoveSourceContext(
+            feeds: [
+                SourceManagementFeedSummary(
+                    id: UUID(uuidString: "77777777-7777-7777-7777-777777777777")!,
+                    url: "https://example.com/apple.xml",
+                    title: "Apple Feed",
+                    folderID: newsFolderID,
+                    folderName: "News"
+                ),
+                SourceManagementFeedSummary(
+                    id: UUID(uuidString: "88888888-8888-8888-8888-888888888888")!,
+                    url: "https://example.com/beta.xml",
+                    title: "Beta Feed",
+                    folderID: nil,
+                    folderName: nil
+                )
+            ],
+            folders: [
+                SourceManagementFolderSummary(
+                    id: newsFolderID,
+                    name: "News",
+                    sortOrder: 0,
+                    feedCount: 2
+                ),
+                SourceManagementFolderSummary(
+                    id: techFolderID,
+                    name: "Tech",
+                    sortOrder: 1,
+                    feedCount: 6
+                )
+            ]
+        )
+        state.presentScenario(.moveSource)
+
+        guard case .moveSource(let initialDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected move-source destination presentation")
+            return
+        }
+
+        #expect(initialDestination.feeds.map(\.title) == ["Apple Feed", "Beta Feed"])
+        #expect(initialDestination.feeds.first?.isSelected == true)
+        #expect(initialDestination.placementOptions.map(\.title) == ["Ungrouped", "News", "Tech"])
+        #expect(initialDestination.isPrimaryActionEnabled == false)
+
+        state.selectMoveSourcePlacement(.folder(techFolderID))
+
+        guard case .moveSource(let changedDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected move-source destination presentation after placement change")
+            return
+        }
+
+        #expect(changedDestination.isPrimaryActionEnabled)
+        #expect(changedDestination.placementOptions.last?.isSelected == true)
+    }
+
+    @Test
+    func sourceManagementScreenControllerMovesFeedThroughServiceAndRefreshesDestination() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let newsFolder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
+        let techFolder = try harness.folderRepository.insert(Folder(name: "Tech", sortOrder: 1))
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: "https://example.com/move-me.xml",
+                title: "Move Me",
+                kind: .rss,
+                folder: newsFolder
+            )
+        )
+        let controller = SourceManagementScreenController()
+
+        controller.handleScenarioSelection(.moveSource, dependencies: harness.dependencies)
+
+        guard case .moveSource(let initialDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected move-source destination presentation")
+            return
+        }
+
+        #expect(initialDestination.feeds.map(\.title) == ["Move Me"])
+        #expect(initialDestination.feeds.first?.currentPlacementTitle == "News")
+        #expect(initialDestination.isPrimaryActionEnabled == false)
+
+        controller.handleMoveSourcePlacementSelection(.folder(techFolder.id))
+        controller.submitMoveSource(dependencies: harness.dependencies)
+
+        guard case .moveSource(let movedDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected move-source destination presentation after move")
+            return
+        }
+
+        let persistedFeed = try harness.feedRepository.fetchFeed(id: feed.id)
+
+        #expect(movedDestination.feedback?.kind == .success)
+        #expect(movedDestination.feedback?.detail?.contains("Tech") == true)
+        #expect(movedDestination.feeds.first?.currentPlacementTitle == "Tech")
+        #expect(movedDestination.isPrimaryActionEnabled == false)
+        #expect(persistedFeed?.folder?.id == techFolder.id)
+    }
+
+    @Test
+    func sourceManagementScreenControllerMovesFeedDismissesModalAndReloadsAffectedSelectionInAppFlow() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let newsFolder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
+        let techFolder = try harness.folderRepository.insert(Folder(name: "Tech", sortOrder: 1))
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: "https://example.com/app-move.xml",
+                title: "App Move",
+                kind: .rss,
+                folder: newsFolder
+            )
+        )
+        let controller = SourceManagementScreenController()
+        let appState = AppState()
+
+        harness.dependencies.showFolder(named: "News", using: appState)
+        let articleReloadIDBeforeMove = appState.articleListReloadID
+        let sidebarReloadIDBeforeMove = appState.sourcesSidebarReloadID
+
+        harness.dependencies.showSourceManagement(using: appState)
+        controller.handleScenarioSelection(.moveSource, dependencies: harness.dependencies)
+        controller.handleMoveSourcePlacementSelection(.folder(techFolder.id))
+        controller.submitMoveSource(dependencies: harness.dependencies, appState: appState)
+
+        let persistedFeed = try harness.feedRepository.fetchFeed(id: feed.id)
+
+        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeMove)
+        #expect(appState.articleListReloadID != articleReloadIDBeforeMove)
+        #expect(persistedFeed?.folder?.id == techFolder.id)
+    }
+
+    @Test
+    func sourceManagementScreenControllerReturnsToAddFeedWithNewFolderSelectedAfterInlineFolderCreation() async throws {
+        let feedURL = "https://example.com/feed.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Example Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Example Article",
+                            itemLink: "https://example.com/articles/example",
+                            itemGUID: "example-article",
+                            itemDescription: "Example description",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+        _ = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
+        let controller = SourceManagementScreenController()
+
+        controller.handleScenarioSelection(.addFeed, dependencies: harness.dependencies)
+        controller.handleAddFeedURLChange(feedURL)
+        controller.startCreateFolderFromAddFeed(dependencies: harness.dependencies)
+
+        guard case .createFolder(let createFolderDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected create-folder destination when starting from add-feed flow")
+            return
+        }
+
+        #expect(createFolderDestination.existingFolders.map(\.name) == ["News"])
+
+        controller.handleCreateFolderNameChange("Research")
+        controller.submitCreateFolder(dependencies: harness.dependencies)
+
+        guard case .addFeed(let addFeedDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination after inline folder creation")
+            return
+        }
+
+        #expect(addFeedDestination.urlInput == feedURL)
+        #expect(addFeedDestination.primaryActionTitle == "Preview Feed")
+        #expect(addFeedDestination.placementOptions.isEmpty)
+
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+
+        guard case .addFeed(let previewDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after loading preview")
+            return
+        }
+
+        #expect(previewDestination.placementOptions.map(\.title) == ["Ungrouped", "News", "Research"])
+        #expect(previewDestination.placementOptions.last?.isSelected == true)
+    }
+
+    @Test
+    func sourceManagementScreenControllerCreatesFolderThroughServiceAndRefreshesDestination() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let controller = SourceManagementScreenController()
+
+        _ = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
+
+        controller.handleScenarioSelection(.createFolder, dependencies: harness.dependencies)
+
+        guard case .createFolder(let initialDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected create-folder destination presentation")
+            return
+        }
+
+        #expect(initialDestination.existingFolders.map(\.name) == ["News"])
+        #expect(initialDestination.isPrimaryActionEnabled == false)
+
+        controller.handleCreateFolderNameChange("Research")
+
+        guard case .createFolder(let draftDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected create-folder destination presentation after input")
+            return
+        }
+
+        #expect(draftDestination.validationMessage == nil)
+        #expect(draftDestination.isPrimaryActionEnabled)
+
+        controller.submitCreateFolder(dependencies: harness.dependencies)
+
+        guard case .createFolder(let createdDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected create-folder destination presentation after submission")
+            return
+        }
+
+        #expect(createdDestination.nameInput.isEmpty)
+        #expect(createdDestination.existingFolders.map(\.name) == ["News", "Research"])
+        #expect(createdDestination.placementDescription.contains("#3"))
+        #expect(createdDestination.feedback?.kind == .success)
+
+        let folders = try harness.folderRepository.fetchAllFolders()
+        #expect(folders.map(\.name) == ["News", "Research"])
+        #expect(folders.map(\.sortOrder) == [0, 1])
+    }
+
+    @Test
+    func sourceManagementScreenControllerCreatesFolderRequestsSidebarReloadInAppFlow() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let controller = SourceManagementScreenController()
+        let appState = AppState()
+        let sidebarReloadIDBeforeCreation = appState.sourcesSidebarReloadID
+        let articleReloadIDBeforeCreation = appState.articleListReloadID
+
+        harness.dependencies.showSourceManagement(using: appState)
+        controller.handleScenarioSelection(.createFolder, dependencies: harness.dependencies)
+        controller.handleCreateFolderNameChange("Research")
+        controller.submitCreateFolder(
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+
+        guard case .createFolder(let createdDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected create-folder destination presentation after app-level creation")
+            return
+        }
+
+        #expect(appState.isPresentingSourceManagementScreen)
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCreation)
+        #expect(appState.articleListReloadID == articleReloadIDBeforeCreation)
+        #expect(createdDestination.feedback?.title == "Folder created")
+        #expect(createdDestination.feedback?.detail?.contains("now appears") == true)
+        #expect(try harness.folderRepository.fetchFolder(name: "Research") != nil)
+    }
+
+    @Test
     func shellActionEntryPointsOpenAndCloseArticleWebViewViaDependencies() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
@@ -4300,6 +5368,274 @@ struct RSSReaderTests {
         #expect(result?.status == .notModified)
         #expect(appState.articleListReloadID != reloadIDAfterSourceSelection)
         #expect(appState.articleListReloadID != reloadIDBeforeRefresh)
+    }
+
+    @Test
+    func shellActionEntryPointsRefreshAfterAddingFeedRefreshesNewSourceSelectsItAndClosesModalFlow() async throws {
+        let feedURL = "https://example.com/shell-refresh-added.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Shell Refreshed Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Shell Refreshed Article",
+                            itemLink: "https://example.com/articles/shell-refreshed",
+                            itemGUID: "shell-refreshed-article",
+                            itemDescription: "Shell refreshed description",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+        let appState = AppState()
+        let articleReloadIDBeforeRefresh = appState.articleListReloadID
+        let sidebarReloadIDBeforeRefresh = appState.sourcesSidebarReloadID
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: feedURL,
+                title: "Shell Feed",
+                kind: .rss
+            )
+        )
+
+        harness.dependencies.showSourceManagement(using: appState)
+
+        let result = await harness.dependencies.refreshAfterAddingFeed(id: feed.id, using: appState)
+        let refreshedFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
+        let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+
+        #expect(result?.status == .fetched)
+        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.selectedSidebarSelection == .feed(feed.id))
+        #expect(appState.articleListReloadID != articleReloadIDBeforeRefresh)
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeRefresh)
+        #expect(refreshedFeed.lastFetchedAt != nil)
+        #expect(refreshedFeed.lastSuccessfulFetchAt != nil)
+        #expect(articles.count == 1)
+        #expect(articles.first?.title == "Shell Refreshed Article")
+    }
+
+    @Test
+    func shellActionCompletionHelpersCreateFolderReloadsSidebarAndKeepsModalFlowOpen() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+
+        harness.dependencies.showInbox(using: appState)
+        harness.dependencies.showSourceManagement(using: appState)
+        let sidebarReloadIDBeforeCompletion = appState.sourcesSidebarReloadID
+        let articleReloadIDBeforeCompletion = appState.articleListReloadID
+
+        harness.dependencies.finishCreatingFolder(named: "Research", using: appState)
+
+        #expect(appState.isPresentingSourceManagementScreen)
+        #expect(appState.selectedSidebarSelection == .inbox)
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCompletion)
+        #expect(appState.articleListReloadID == articleReloadIDBeforeCompletion)
+    }
+
+    @Test
+    func shellActionCompletionHelpersMoveSourceReloadsSelectedFeedAndDismissesModalFlow() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: "https://example.com/helper-move.xml",
+                title: "Helper Move",
+                kind: .rss
+            )
+        )
+
+        harness.dependencies.showFeed(id: feed.id, using: appState)
+        harness.dependencies.showSourceManagement(using: appState)
+        let sidebarReloadIDBeforeCompletion = appState.sourcesSidebarReloadID
+        let articleReloadIDBeforeCompletion = appState.articleListReloadID
+
+        harness.dependencies.finishMovingSource(
+            feedID: feed.id,
+            previousFolderName: "News",
+            updatedFolderName: "Tech",
+            using: appState
+        )
+
+        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.selectedSidebarSelection == .feed(feed.id))
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCompletion)
+        #expect(appState.articleListReloadID != articleReloadIDBeforeCompletion)
+    }
+
+    @Test
+    func shellActionCompletionHelpersEditFolderRetargetsSelectionAndDismissesModalFlow() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+
+        harness.dependencies.showFolder(named: "News", using: appState)
+        harness.dependencies.showSourceManagement(using: appState)
+        let sidebarReloadIDBeforeCompletion = appState.sourcesSidebarReloadID
+        let articleReloadIDBeforeCompletion = appState.articleListReloadID
+
+        harness.dependencies.finishFolderEditing(
+            previousName: "News",
+            updatedFolderName: "World News",
+            using: appState
+        )
+
+        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.selectedSidebarSelection == .folder("World News"))
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCompletion)
+        #expect(appState.articleListReloadID != articleReloadIDBeforeCompletion)
+    }
+
+    @Test
+    func shellActionCompletionHelpersSaveFeedRefreshesSelectionAndDismissesModalFlow() async throws {
+        let feedURL = "https://example.com/helper-save.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Helper Saved Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Helper Saved Article",
+                            itemLink: "https://example.com/articles/helper-saved",
+                            itemGUID: "helper-saved-article",
+                            itemDescription: "Helper saved description",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+        let appState = AppState()
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: feedURL,
+                title: "Helper Feed",
+                kind: .rss
+            )
+        )
+
+        harness.dependencies.showInbox(using: appState)
+        harness.dependencies.showSourceManagement(using: appState)
+        let sidebarReloadIDBeforeCompletion = appState.sourcesSidebarReloadID
+        let articleReloadIDBeforeCompletion = appState.articleListReloadID
+
+        let result = await harness.dependencies.finishSavingFeed(id: feed.id, using: appState)
+        let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+
+        #expect(result?.status == .fetched)
+        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.selectedSidebarSelection == .feed(feed.id))
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCompletion)
+        #expect(appState.articleListReloadID != articleReloadIDBeforeCompletion)
+        #expect(articles.count == 1)
+        #expect(articles.first?.title == "Helper Saved Article")
+    }
+
+    @Test
+    func shellActionCompletionHelpersUnsubscribeFeedKeepsCurrentSelectionWhenAnotherSourceIsRemoved() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let selectedFeed = try harness.feedRepository.insert(
+            Feed(
+                url: "https://example.com/helper-selected.xml",
+                title: "Selected Feed",
+                kind: .rss
+            )
+        )
+        let removedFeedID = UUID()
+
+        harness.dependencies.showFeed(id: selectedFeed.id, using: appState)
+        let sidebarReloadIDBeforeCompletion = appState.sourcesSidebarReloadID
+        let articleReloadIDBeforeCompletion = appState.articleListReloadID
+
+        harness.dependencies.finishUnsubscribingFeed(id: removedFeedID, using: appState)
+
+        #expect(appState.selectedSidebarSelection == .feed(selectedFeed.id))
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCompletion)
+        #expect(appState.articleListReloadID != articleReloadIDBeforeCompletion)
+    }
+
+    @Test
+    func shellActionCompletionHelpersDeleteFolderKeepsCurrentSelectionWhenAnotherFolderIsRemoved() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: "https://example.com/helper-delete-folder.xml",
+                title: "Current Feed",
+                kind: .rss
+            )
+        )
+
+        harness.dependencies.showFeed(id: feed.id, using: appState)
+        let sidebarReloadIDBeforeCompletion = appState.sourcesSidebarReloadID
+        let articleReloadIDBeforeCompletion = appState.articleListReloadID
+
+        harness.dependencies.finishDeletingFolder(named: "Archived", using: appState)
+
+        #expect(appState.selectedSidebarSelection == .feed(feed.id))
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCompletion)
+        #expect(appState.articleListReloadID != articleReloadIDBeforeCompletion)
+    }
+
+    @Test
+    func shellActionEntryPointsUnsubscribeFeedRemovesSourceAndResetsSelection() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: "https://example.com/unsubscribe.xml",
+                title: "Unsubscribe Me",
+                kind: .rss
+            )
+        )
+        let sidebarReloadIDBeforeDelete = appState.sourcesSidebarReloadID
+        let articleReloadIDBeforeDelete = appState.articleListReloadID
+
+        harness.dependencies.showFeed(id: feed.id, using: appState)
+        harness.dependencies.unsubscribeFeed(id: feed.id, using: appState)
+
+        #expect(try harness.feedRepository.fetchFeed(id: feed.id) == nil)
+        #expect(appState.selectedSidebarSelection == .inbox)
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeDelete)
+        #expect(appState.articleListReloadID != articleReloadIDBeforeDelete)
+    }
+
+    @Test
+    func shellActionEntryPointsDeleteFolderUngroupsFeedsAndResetsFolderSelection() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let folder = try harness.folderRepository.insert(Folder(name: "Tech", sortOrder: 0))
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: "https://example.com/folder-delete.xml",
+                title: "Folder Feed",
+                kind: .rss,
+                folder: folder
+            )
+        )
+        let sidebarReloadIDBeforeDelete = appState.sourcesSidebarReloadID
+        let articleReloadIDBeforeDelete = appState.articleListReloadID
+
+        harness.dependencies.showFolder(named: "Tech", using: appState)
+        harness.dependencies.deleteFolder(named: "Tech", using: appState)
+
+        let persistedFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
+
+        #expect(try harness.folderRepository.fetchFolder(name: "Tech") == nil)
+        #expect(persistedFeed.folder == nil)
+        #expect(appState.selectedSidebarSelection == .inbox)
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeDelete)
+        #expect(appState.articleListReloadID != articleReloadIDBeforeDelete)
     }
 
     @Test
@@ -4630,6 +5966,7 @@ private struct TestHarness {
     let dependencies: AppDependencies
     let modelContainer: ModelContainer
     let feedRepository: SwiftDataFeedRepository
+    let folderRepository: SwiftDataFolderRepository
     let articleRepository: SwiftDataArticleRepository
     let articleStateRepository: SwiftDataArticleStateRepository
     let articleStateService: ArticleStateService
@@ -4662,6 +5999,7 @@ private struct TestHarness {
         )
 
         let feedRepository = SwiftDataFeedRepository(modelContext: modelContext)
+        let folderRepository = SwiftDataFolderRepository(modelContext: modelContext)
         let articleRepository = SwiftDataArticleRepository(modelContext: modelContext)
         let articleStateRepository = SwiftDataArticleStateRepository(modelContext: modelContext)
         let articleStateService = ArticleStateService(
@@ -4684,6 +6022,7 @@ private struct TestHarness {
             dependencies: dependencies,
             modelContainer: modelContainer,
             feedRepository: feedRepository,
+            folderRepository: folderRepository,
             articleRepository: articleRepository,
             articleStateRepository: articleStateRepository,
             articleStateService: articleStateService,
@@ -4744,6 +6083,18 @@ private struct TestLogger: Logging {
     func debug(_ message: @autoclosure () -> String) {}
     func info(_ message: @autoclosure () -> String) {}
     func error(_ message: @autoclosure () -> String) {}
+}
+
+private extension SourceManagementScreenState {
+    static func makePreviewFixture(
+        presentedScenarioID: SourceManagementScenarioID? = nil
+    ) -> SourceManagementScreenState {
+        var state = SourceManagementScreenState()
+        if let presentedScenarioID {
+            state.presentScenario(presentedScenarioID)
+        }
+        return state
+    }
 }
 
 private actor ScriptedHTTPClient: HTTPClient {

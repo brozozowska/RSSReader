@@ -73,6 +73,12 @@ struct RootView: View {
                 dismiss: { dependencies.dismissSettings(using: appState) }
             )
         }
+        .sheet(isPresented: sourceManagementPresentationBinding) {
+            SourceManagementScreenView(
+                dismiss: { dependencies.dismissSourceManagement(using: appState) },
+                launchContext: appState.sourceManagementLaunchContext
+            )
+        }
         .preferredColorScheme(themeApplicationPolicy.preferredColorScheme)
         .environment(\.appThemeVariant, themeApplicationPolicy.resolvedTheme)
         .background(themeApplicationPolicy.resolvedTheme.primaryBackground.ignoresSafeArea())
@@ -93,6 +99,19 @@ struct RootView: View {
                     appState.presentSettingsScreen()
                 } else {
                     appState.dismissSettingsScreen()
+                }
+            }
+        )
+    }
+
+    private var sourceManagementPresentationBinding: Binding<Bool> {
+        Binding(
+            get: { appState.isPresentingSourceManagementScreen },
+            set: { isPresented in
+                if isPresented {
+                    appState.presentSourceManagementScreen()
+                } else {
+                    appState.dismissSourceManagementScreen()
                 }
             }
         )

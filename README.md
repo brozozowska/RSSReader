@@ -291,14 +291,30 @@
 - [x] провести cleanup `Settings Screen` contract и interaction paths: убрать неиспользуемые `navigationLink`-ветки и служебные `not implemented yet`-paths в `SettingsScreenController`, если они не нужны текущему UI и только размывают фактический contract экрана.
 
 #### Source Management
-- [ ] создать `AddFeedViewModel`;
-- [ ] экран добавления feed по URL;
-- [ ] валидация URL;
-- [ ] превью найденного feed;
-- [ ] сохранение feed;
-- [ ] первый refresh после добавления;
-- [ ] обработка ошибки при невалидном или неподдерживаемом feed;
-- [ ] empty/error UX для add feed flow.
+- [x] добавить в `AppState` или соседний app-level navigation state отдельное состояние показа `Source Management Screen`, чтобы открытие/закрытие add-source flow не жило локально внутри `SidebarView`;
+- [x] определить app-level presentation для `Source Management Screen` на iPhone/iPad: экран должен открываться по действию `Add Source` из `SidebarView` как отдельный modal flow (`sheet`) поверх текущего `NavigationSplitView` и не входить в его detail-routing;
+- [x] определить entry UX `Source Management Screen`: экран должен явно разделять сценарии `add feed`, `create folder` и последующие folder assignment / move actions, а не смешивать их в одном неструктурированном `Form`;
+- [x] собрать `Source Management Screen` в той же screen-архитектуре, что и остальные экраны: выделить `SourceManagementScreenState`, `SourceManagementScreenController`, presentation models, preview data и contract user actions;
+- [x] добавить отдельный `FolderRepository` и подключить его в `AppDependencies`, чтобы создание папок и выбор списка папок не зависели от побочных эффектов в `FeedRepository` и не оставались без явной persistence boundary;
+- [x] выделить service layer для source management operations: отдельный orchestration-service должен отвечать за preview feed по URL, создание feed, создание folder и перемещение feed между folder / ungrouped state, чтобы screen-level controller не координировал repository/network logic напрямую;
+- [x] расширить persistence/service contract для folder assignment: нужен явный update-path для назначения `Feed.folder`, переноса feed между папками и удаления feed из папки без ручной правки `SwiftData`-моделей из UI-слоя;
+- [x] реализовать сценарий `create folder`: экран должен поддерживать создание новой папки с валидацией имени, проверкой уникальности и определением `sortOrder`, совместимым с текущим sidebar grouping;
+- [x] организовать сценарий `add feed`: screen-level input model для URL, нормализация ввода, локальная валидация и понятное состояние primary action до запуска network preview;
+- [x] реализовать preview feed по URL через существующие `FeedFetcher` и `FeedParserService`, чтобы до сохранения пользователь видел распознанные metadata (`title`, `subtitle`, `siteURL`, `iconURL`, `kind`) и мог подтвердить добавление источника;
+- [x] организовать duplicate/invalid/unsupported handling для `add feed` flow: отдельные UX-сценарии нужны для невалидного URL, network failure, неподдерживаемого feed и уже существующего feed с тем же URL через `FeedRepository.fetchFeed(url:)`;
+- [x] реализовать выбор папки при создании feed и отдельный move flow для существующих feed: пользователь должен иметь возможность поместить источник в новую или существующую папку, перенести его между папками и вернуть в `ungrouped` state;
+- [x] реализовать сохранение нового feed после подтверждения preview: источник должен создаваться в persistence с нормализованным URL, стартовыми metadata из preview и выбранной целевой папкой либо `ungrouped` placement;
+- [x] организовать первый refresh после добавления feed, чтобы после сохранения источник проходил через существующий refresh pipeline, загружал статьи и обновлял `Sidebar` / `Articles` без ручного перезапуска приложения;
+- [x] определить source-level actions в `Sidebar`: нужен явный UX для запуска edit / move flow над существующим feed, чтобы редактирование или перемещение между папками происходило из списка источников, а не требовало повторного add-source сценария;
+- [x] провести consistency pass для `Source Management` UX: выровнять loading / success / error / empty states, copy для create/edit/move flows и app-level reload behavior после создания папки, добавления feed или перемещения источника;
+- [x] довести app-level completion behavior для `Source Management`: после `create folder`, `move source`, `edit feed`, `edit folder`, `unsubscribe` и `delete folder` должны быть явно определены reload `Sidebar` / `Articles`, retarget текущего selection и правила закрытия modal flow;
+- [x] добавить shell-level regression tests для `Source Management`: нужны отдельные проверки на reload / selection / dismiss behavior после create / move / edit / delete операций, чтобы app-level orchestration не расходился с screen-level success state;
+- [x] расширить preview / dev fixtures для `Source Management`: обновить `RootViewPreviewData` и `SourceManagementScreenPreviewData`, чтобы можно было вручную проверять create / edit / move flows, видимость новых папок и post-action состояние без живого сценария в приложении;
+- [x] убрать `SourceManagementScenarioPlaceholderPresentation` и placeholder-routing из `SourceManagementScreenPresentationModels` / `SourceManagementScreenView`, а также выровнять `Source Management` tests с актуальным screen/state contract после cleanup временных веток;
+- [x] вынести preview-only builders из `SourceManagementScreenState` в `SourceManagementScreenPreviewData` и test fixtures, чтобы production state не смешивался с dev fixtures;
+- [x] декомпозировать `SourceManagementScreenController`: разделить context loading, add/edit/create/move orchestration и mapping ошибок/status presentation, чтобы controller перестал быть монолитной точкой входа;
+- [x] сократить дублирование source / folder context loading и completion glue между `SourceManagementScreenController` и `AppDependencies`, чтобы app-level routing и screen-level orchestration читались как единый flow без повторяющихся helper-веток;
+- [x] почистить `SourceManagementScreenView`: убрать routing-specific `Binding` / `ActionHandlers` glue из корневого view и вынести общие status / feedback card helpers.
 
 ### Sync
 #### Sync / CloudKit
