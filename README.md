@@ -312,7 +312,7 @@
 - [x] расширить preview / dev fixtures для `Source Management`: обновить `RootViewPreviewData` и `SourceManagementScreenPreviewData`, чтобы можно было вручную проверять create / edit / move flows, видимость новых папок и post-action состояние без живого сценария в приложении;
 - [x] убрать `SourceManagementScenarioPlaceholderPresentation` и placeholder-routing из `SourceManagementScreenPresentationModels` / `SourceManagementScreenView`, а также выровнять `Source Management` tests с актуальным screen/state contract после cleanup временных веток;
 - [x] вынести preview-only builders из `SourceManagementScreenState` в `SourceManagementScreenPreviewData` и test fixtures, чтобы production state не смешивался с dev fixtures;
-- [ ] декомпозировать `SourceManagementScreenController`: разделить context loading, add/edit/create/move orchestration и mapping ошибок/status presentation, чтобы controller перестал быть монолитной точкой входа;
+- [x] декомпозировать `SourceManagementScreenController`: разделить context loading, add/edit/create/move orchestration и mapping ошибок/status presentation, чтобы controller перестал быть монолитной точкой входа;
 - [ ] сократить дублирование source / folder context loading и completion glue между `SourceManagementScreenController` и `AppDependencies`, чтобы app-level routing и screen-level orchestration читались как единый flow без повторяющихся helper-веток;
 - [ ] почистить `SourceManagementScreenView`: убрать routing-specific `Binding` / `ActionHandlers` glue из корневого view и вынести общие status / feedback card helpers.
 

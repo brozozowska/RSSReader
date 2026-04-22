@@ -27,10 +27,18 @@ final class SourceManagementScreenController {
         case .entry:
             return
         case .editFeed(let feedID):
-            loadAddFeedEditContext(feedID: feedID, dependencies: dependencies)
+            SourceManagementScreenContextLoader.loadAddFeedEditContext(
+                feedID: feedID,
+                into: &screenState,
+                dependencies: dependencies
+            )
             screenState.presentScenario(.addFeed)
         case .editFolder(let folderID):
-            loadCreateFolderEditContext(folderID: folderID, dependencies: dependencies)
+            SourceManagementScreenContextLoader.loadCreateFolderEditContext(
+                folderID: folderID,
+                into: &screenState,
+                dependencies: dependencies
+            )
             screenState.presentScenario(.createFolder)
         }
     }
@@ -43,19 +51,28 @@ final class SourceManagementScreenController {
         case .addFeed:
             screenState.resetAddFeedForEntry()
             if let dependencies {
-                loadAddFeedContext(dependencies: dependencies)
+                SourceManagementScreenContextLoader.loadAddFeedContext(
+                    into: &screenState,
+                    dependencies: dependencies
+                )
             }
             screenState.presentScenario(.addFeed)
         case .createFolder:
             scenarioToRestoreAfterCreateFolder = nil
             screenState.resetCreateFolderForEntry()
             if let dependencies {
-                loadCreateFolderContext(dependencies: dependencies)
+                SourceManagementScreenContextLoader.loadCreateFolderContext(
+                    into: &screenState,
+                    dependencies: dependencies
+                )
             }
             screenState.presentScenario(.createFolder)
         case .moveSource:
             if let dependencies {
-                loadMoveSourceContext(dependencies: dependencies)
+                SourceManagementScreenContextLoader.loadMoveSourceContext(
+                    into: &screenState,
+                    dependencies: dependencies
+                )
             }
             screenState.presentScenario(scenarioID)
         }
@@ -81,7 +98,10 @@ final class SourceManagementScreenController {
 
     func startCreateFolderFromAddFeed(dependencies: AppDependencies) {
         scenarioToRestoreAfterCreateFolder = .addFeed
-        loadCreateFolderContext(dependencies: dependencies)
+        SourceManagementScreenContextLoader.loadCreateFolderContext(
+            into: &screenState,
+            dependencies: dependencies
+        )
         screenState.presentScenario(.createFolder)
     }
 
@@ -95,98 +115,28 @@ final class SourceManagementScreenController {
         }
 
         if let updateCommand = screenState.beginAddFeedUpdate() {
-            guard let sourceManagementService = dependencies.sourceManagementService else {
-                dependencies.logger.error("Source management service is unavailable for feed updates")
-                screenState.applyAddFeedCreationFailure(
-                    addFeedSaveUnavailableStatus(isEditing: true)
-                )
-                return
-            }
-
-            do {
-                let updatedFeed = try sourceManagementService.updateFeed(updateCommand)
-                screenState.applyCreatedAddFeed(updatedFeed)
-                if let appState {
-                    _ = await dependencies.finishSavingFeed(
-                        id: updatedFeed.id,
-                        using: appState
-                    )
-                }
-            } catch let error as SourceManagementServiceError {
-                dependencies.logger.error("Failed to update feed through source management flow: \(error)")
-                screenState.applyAddFeedCreationFailure(
-                    addFeedSaveFailureStatus(for: error, isEditing: true)
-                )
-            } catch {
-                dependencies.logger.error("Failed to update feed through source management flow: \(error)")
-                screenState.applyAddFeedCreationFailure(
-                    SourceManagementAddFeedStatusPresentation(
-                        title: "Feed changes could not be saved",
-                        kind: .failure,
-                        detail: "Unable to save the source changes right now. Try again."
-                    )
-                )
-            }
+            await performAddFeedUpdate(
+                updateCommand,
+                dependencies: dependencies,
+                appState: appState
+            )
             return
         }
 
         if let createCommand = screenState.beginAddFeedCreation() {
-            guard let sourceManagementService = dependencies.sourceManagementService else {
-                dependencies.logger.error("Source management service is unavailable for feed creation")
-                screenState.applyAddFeedCreationFailure(
-                    addFeedSaveUnavailableStatus(isEditing: false)
-                )
-                return
-            }
-
-            do {
-                let createdFeed = try sourceManagementService.createFeed(createCommand)
-                screenState.applyCreatedAddFeed(createdFeed)
-                if let appState {
-                    _ = await dependencies.finishSavingFeed(
-                        id: createdFeed.id,
-                        using: appState
-                    )
-                }
-            } catch let error as SourceManagementServiceError {
-                dependencies.logger.error("Failed to create feed through source management flow: \(error)")
-                screenState.applyAddFeedCreationFailure(
-                    addFeedSaveFailureStatus(for: error, isEditing: false)
-                )
-            } catch {
-                dependencies.logger.error("Failed to create feed through source management flow: \(error)")
-                screenState.applyAddFeedCreationFailure(
-                    SourceManagementAddFeedStatusPresentation(
-                        title: "Feed could not be added",
-                        kind: .failure,
-                        detail: "Unable to save the new source right now. Try again."
-                    )
-                )
-            }
+            await performAddFeedCreation(
+                createCommand,
+                dependencies: dependencies,
+                appState: appState
+            )
             return
         }
 
         guard let requestURL = screenState.beginAddFeedPreviewLoading() else { return }
-
-        guard let sourceManagementService = dependencies.sourceManagementService else {
-            dependencies.logger.error("Source management service is unavailable for feed preview")
-            screenState.applyAddFeedPreviewFailure(
-                addFeedPreviewUnavailableStatus(),
-                requestURL: requestURL
-            )
-            return
-        }
-
-        do {
-            let preview = try await sourceManagementService.previewFeed(urlString: requestURL)
-            screenState.applyLoadedAddFeedPreview(preview, requestURL: requestURL)
-        } catch {
-            dependencies.logger.error("Failed to preview feed through source management flow: \(error)")
-            screenState.applyAddFeedPreviewFailure(
-                addFeedPreviewFailureStatus(for: error),
-                requestURL: requestURL
-            )
-        }
+        await performAddFeedPreview(
+            requestURL: requestURL,
+            dependencies: dependencies
+        )
     }
 
     func handleMoveSourceFeedSelection(_ feedID: UUID) {
@@ -220,28 +170,12 @@ final class SourceManagementScreenController {
         }
 
         screenState.beginMoveSourceSubmission()
-
-        do {
-            let previousFeed = screenState.selectedMoveSourceFeed()
-            let movedFeed = try sourceManagementService.moveFeed(moveCommand)
-            screenState.applyMovedSource(movedFeed)
-            if let appState {
-                dependencies.finishMovingSource(
-                    feedID: movedFeed.id,
-                    previousFolderName: previousFeed?.folderName,
-                    updatedFolderName: movedFeed.folderName,
-                    using: appState
-                )
-            }
-        } catch let error as SourceManagementServiceError {
-            dependencies.logger.error("Failed to move source through source management flow: \(error)")
-            screenState.applyMoveSourceFailure(moveSourceErrorMessage(error))
-        } catch {
-            dependencies.logger.error("Failed to move source through source management flow: \(error)")
-            screenState.applyMoveSourceFailure(
-                "Unable to move the source right now. Try again."
-            )
-        }
+        performMoveSource(
+            moveCommand,
+            using: sourceManagementService,
+            dependencies: dependencies,
+            appState: appState
+        )
     }
 
     func submitCreateFolder(
@@ -268,33 +202,201 @@ final class SourceManagementScreenController {
         }
 
         if let updateCommand = screenState.beginCreateFolderUpdate() {
-            let previousFolderName = screenState.createFolderEditingName()
-
-            do {
-                let folder = try sourceManagementService.updateFolder(updateCommand)
-                screenState.applyCreatedFolder(folder)
-                if let appState, let previousFolderName {
-                    dependencies.finishFolderEditing(
-                        previousName: previousFolderName,
-                        updatedFolderName: folder.name,
-                        using: appState
-                    )
-                }
-            } catch let error as SourceManagementServiceError {
-                let message = createFolderErrorMessage(error)
-                dependencies.logger.error("Failed to update folder through source management flow: \(error)")
-                screenState.applyCreateFolderFailure(message)
-            } catch {
-                dependencies.logger.error("Failed to update folder through source management flow: \(error)")
-                screenState.applyCreateFolderFailure(
-                    "Unable to update the folder right now. Try again."
-                )
-            }
+            performCreateFolderUpdate(
+                updateCommand,
+                using: sourceManagementService,
+                dependencies: dependencies,
+                appState: appState
+            )
             return
         }
 
         screenState.beginCreateFolderSubmission()
+        performCreateFolderCreation(
+            using: sourceManagementService,
+            dependencies: dependencies,
+            appState: appState
+        )
+    }
+}
 
+private extension SourceManagementScreenController {
+    func performAddFeedUpdate(
+        _ updateCommand: SourceManagementUpdateFeedCommand,
+        dependencies: AppDependencies,
+        appState: AppState?
+    ) async {
+        guard let sourceManagementService = dependencies.sourceManagementService else {
+            dependencies.logger.error("Source management service is unavailable for feed updates")
+            screenState.applyAddFeedCreationFailure(
+                SourceManagementScreenStatusMapper.addFeedSaveUnavailableStatus(isEditing: true)
+            )
+            return
+        }
+
+        do {
+            let updatedFeed = try sourceManagementService.updateFeed(updateCommand)
+            screenState.applyCreatedAddFeed(updatedFeed)
+            if let appState {
+                _ = await dependencies.finishSavingFeed(
+                    id: updatedFeed.id,
+                    using: appState
+                )
+            }
+        } catch let error as SourceManagementServiceError {
+            dependencies.logger.error("Failed to update feed through source management flow: \(error)")
+            screenState.applyAddFeedCreationFailure(
+                SourceManagementScreenStatusMapper.addFeedSaveFailureStatus(
+                    for: error,
+                    isEditing: true
+                )
+            )
+        } catch {
+            dependencies.logger.error("Failed to update feed through source management flow: \(error)")
+            screenState.applyAddFeedCreationFailure(
+                SourceManagementAddFeedStatusPresentation(
+                    title: "Feed changes could not be saved",
+                    kind: .failure,
+                    detail: "Unable to save the source changes right now. Try again."
+                )
+            )
+        }
+    }
+
+    func performAddFeedCreation(
+        _ createCommand: SourceManagementCreateFeedCommand,
+        dependencies: AppDependencies,
+        appState: AppState?
+    ) async {
+        guard let sourceManagementService = dependencies.sourceManagementService else {
+            dependencies.logger.error("Source management service is unavailable for feed creation")
+            screenState.applyAddFeedCreationFailure(
+                SourceManagementScreenStatusMapper.addFeedSaveUnavailableStatus(isEditing: false)
+            )
+            return
+        }
+
+        do {
+            let createdFeed = try sourceManagementService.createFeed(createCommand)
+            screenState.applyCreatedAddFeed(createdFeed)
+            if let appState {
+                _ = await dependencies.finishSavingFeed(
+                    id: createdFeed.id,
+                    using: appState
+                )
+            }
+        } catch let error as SourceManagementServiceError {
+            dependencies.logger.error("Failed to create feed through source management flow: \(error)")
+            screenState.applyAddFeedCreationFailure(
+                SourceManagementScreenStatusMapper.addFeedSaveFailureStatus(
+                    for: error,
+                    isEditing: false
+                )
+            )
+        } catch {
+            dependencies.logger.error("Failed to create feed through source management flow: \(error)")
+            screenState.applyAddFeedCreationFailure(
+                SourceManagementAddFeedStatusPresentation(
+                    title: "Feed could not be added",
+                    kind: .failure,
+                    detail: "Unable to save the new source right now. Try again."
+                )
+            )
+        }
+    }
+
+    func performAddFeedPreview(
+        requestURL: String,
+        dependencies: AppDependencies
+    ) async {
+        guard let sourceManagementService = dependencies.sourceManagementService else {
+            dependencies.logger.error("Source management service is unavailable for feed preview")
+            screenState.applyAddFeedPreviewFailure(
+                SourceManagementScreenStatusMapper.addFeedPreviewUnavailableStatus(),
+                requestURL: requestURL
+            )
+            return
+        }
+
+        do {
+            let preview = try await sourceManagementService.previewFeed(urlString: requestURL)
+            screenState.applyLoadedAddFeedPreview(preview, requestURL: requestURL)
+        } catch {
+            dependencies.logger.error("Failed to preview feed through source management flow: \(error)")
+            screenState.applyAddFeedPreviewFailure(
+                SourceManagementScreenStatusMapper.addFeedPreviewFailureStatus(for: error),
+                requestURL: requestURL
+            )
+        }
+    }
+
+    func performMoveSource(
+        _ moveCommand: SourceManagementMoveFeedCommand,
+        using sourceManagementService: SourceManagementService,
+        dependencies: AppDependencies,
+        appState: AppState?
+    ) {
+        do {
+            let previousFeed = screenState.selectedMoveSourceFeed()
+            let movedFeed = try sourceManagementService.moveFeed(moveCommand)
+            screenState.applyMovedSource(movedFeed)
+            if let appState {
+                dependencies.finishMovingSource(
+                    feedID: movedFeed.id,
+                    previousFolderName: previousFeed?.folderName,
+                    updatedFolderName: movedFeed.folderName,
+                    using: appState
+                )
+            }
+        } catch let error as SourceManagementServiceError {
+            dependencies.logger.error("Failed to move source through source management flow: \(error)")
+            screenState.applyMoveSourceFailure(
+                SourceManagementScreenStatusMapper.moveSourceErrorMessage(error)
+            )
+        } catch {
+            dependencies.logger.error("Failed to move source through source management flow: \(error)")
+            screenState.applyMoveSourceFailure(
+                "Unable to move the source right now. Try again."
+            )
+        }
+    }
+
+    func performCreateFolderUpdate(
+        _ updateCommand: SourceManagementUpdateFolderCommand,
+        using sourceManagementService: SourceManagementService,
+        dependencies: AppDependencies,
+        appState: AppState?
+    ) {
+        let previousFolderName = screenState.createFolderEditingName()
+
+        do {
+            let folder = try sourceManagementService.updateFolder(updateCommand)
+            screenState.applyCreatedFolder(folder)
+            if let appState, let previousFolderName {
+                dependencies.finishFolderEditing(
+                    previousName: previousFolderName,
+                    updatedFolderName: folder.name,
+                    using: appState
+                )
+            }
+        } catch let error as SourceManagementServiceError {
+            dependencies.logger.error("Failed to update folder through source management flow: \(error)")
+            screenState.applyCreateFolderFailure(
+                SourceManagementScreenStatusMapper.createFolderErrorMessage(error)
+            )
+        } catch {
+            dependencies.logger.error("Failed to update folder through source management flow: \(error)")
+            screenState.applyCreateFolderFailure(
+                "Unable to update the folder right now. Try again."
+            )
+        }
+    }
+
+    func performCreateFolderCreation(
+        using sourceManagementService: SourceManagementService,
+        dependencies: AppDependencies,
+        appState: AppState?
+    ) {
         do {
             let folder = try sourceManagementService.createFolder(
                 SourceManagementCreateFolderCommand(
@@ -313,9 +415,10 @@ final class SourceManagementScreenController {
                 scenarioToRestoreAfterCreateFolder = nil
             }
         } catch let error as SourceManagementServiceError {
-            let message = createFolderErrorMessage(error)
             dependencies.logger.error("Failed to create folder through source management flow: \(error)")
-            screenState.applyCreateFolderFailure(message)
+            screenState.applyCreateFolderFailure(
+                SourceManagementScreenStatusMapper.createFolderErrorMessage(error)
+            )
         } catch {
             dependencies.logger.error("Failed to create folder through source management flow: \(error)")
             screenState.applyCreateFolderFailure(
@@ -325,8 +428,12 @@ final class SourceManagementScreenController {
     }
 }
 
-private extension SourceManagementScreenController {
-    func loadAddFeedContext(dependencies: AppDependencies) {
+private enum SourceManagementScreenContextLoader {
+    @MainActor
+    static func loadAddFeedContext(
+        into screenState: inout SourceManagementScreenState,
+        dependencies: AppDependencies
+    ) {
         guard let sourceManagementService = dependencies.sourceManagementService else {
             dependencies.logger.error("Skipped add-feed folder context loading because source management service is unavailable")
             screenState.applyAddFeedFolderContext(folders: [])
@@ -342,7 +449,12 @@ private extension SourceManagementScreenController {
         }
     }
 
-    func loadAddFeedEditContext(feedID: UUID, dependencies: AppDependencies) {
+    @MainActor
+    static func loadAddFeedEditContext(
+        feedID: UUID,
+        into screenState: inout SourceManagementScreenState,
+        dependencies: AppDependencies
+    ) {
         screenState.resetAddFeedForEntry()
 
         guard let sourceManagementService = dependencies.sourceManagementService else {
@@ -357,6 +469,7 @@ private extension SourceManagementScreenController {
                 screenState.applyAddFeedFolderContext(folders: [])
                 return
             }
+
             let folders = try sourceManagementService.fetchFolders()
             screenState.applyAddFeedEditContext(feed: feed, folders: folders)
         } catch {
@@ -365,7 +478,11 @@ private extension SourceManagementScreenController {
         }
     }
 
-    func loadCreateFolderContext(dependencies: AppDependencies) {
+    @MainActor
+    static func loadCreateFolderContext(
+        into screenState: inout SourceManagementScreenState,
+        dependencies: AppDependencies
+    ) {
         guard let sourceManagementService = dependencies.sourceManagementService else {
             let unavailableMessage = "Folder creation is unavailable in the current app environment."
             dependencies.logger.error("Skipped create-folder context loading because source management service is unavailable")
@@ -387,7 +504,12 @@ private extension SourceManagementScreenController {
         }
     }
 
-    func loadCreateFolderEditContext(folderID: UUID, dependencies: AppDependencies) {
+    @MainActor
+    static func loadCreateFolderEditContext(
+        folderID: UUID,
+        into screenState: inout SourceManagementScreenState,
+        dependencies: AppDependencies
+    ) {
         screenState.resetCreateFolderForEntry()
 
         guard let sourceManagementService = dependencies.sourceManagementService else {
@@ -405,6 +527,7 @@ private extension SourceManagementScreenController {
                 dependencies.logger.error("Skipped folder editor context loading because folder \(folderID) was not found")
                 return
             }
+
             let folders = try sourceManagementService.fetchFolders()
             screenState.applyCreateFolderEditContext(folder: folder, folders: folders)
         } catch {
@@ -415,7 +538,11 @@ private extension SourceManagementScreenController {
         }
     }
 
-    func loadMoveSourceContext(dependencies: AppDependencies) {
+    @MainActor
+    static func loadMoveSourceContext(
+        into screenState: inout SourceManagementScreenState,
+        dependencies: AppDependencies
+    ) {
         guard let sourceManagementService = dependencies.sourceManagementService else {
             dependencies.logger.error("Skipped move-source context loading because source management service is unavailable")
             screenState.applyMoveSourceContext(feeds: [], folders: [])
@@ -437,8 +564,10 @@ private extension SourceManagementScreenController {
             )
         }
     }
+}
 
-    func createFolderErrorMessage(_ error: SourceManagementServiceError) -> String {
+private enum SourceManagementScreenStatusMapper {
+    static func createFolderErrorMessage(_ error: SourceManagementServiceError) -> String {
         switch error {
         case .emptyFolderName:
             return "Enter a folder name to continue."
@@ -453,7 +582,7 @@ private extension SourceManagementScreenController {
         }
     }
 
-    func moveSourceErrorMessage(_ error: SourceManagementServiceError) -> String {
+    static func moveSourceErrorMessage(_ error: SourceManagementServiceError) -> String {
         switch error {
         case .feedNotFound:
             return "The selected source no longer exists. Reload the move flow and try again."
@@ -468,7 +597,7 @@ private extension SourceManagementScreenController {
         }
     }
 
-    func addFeedSaveUnavailableStatus(
+    static func addFeedSaveUnavailableStatus(
         isEditing: Bool
     ) -> SourceManagementAddFeedStatusPresentation {
         SourceManagementAddFeedStatusPresentation(
@@ -480,7 +609,7 @@ private extension SourceManagementScreenController {
         )
     }
 
-    func addFeedSaveFailureStatus(
+    static func addFeedSaveFailureStatus(
         for error: SourceManagementServiceError,
         isEditing: Bool
     ) -> SourceManagementAddFeedStatusPresentation {
@@ -514,7 +643,7 @@ private extension SourceManagementScreenController {
         }
     }
 
-    func addFeedPreviewUnavailableStatus() -> SourceManagementAddFeedStatusPresentation {
+    static func addFeedPreviewUnavailableStatus() -> SourceManagementAddFeedStatusPresentation {
         SourceManagementAddFeedStatusPresentation(
             title: "Feed preview is unavailable",
             kind: .failure,
@@ -522,7 +651,9 @@ private extension SourceManagementScreenController {
         )
     }
 
-    func addFeedPreviewFailureStatus(for error: Error) -> SourceManagementAddFeedStatusPresentation {
+    static func addFeedPreviewFailureStatus(
+        for error: Error
+    ) -> SourceManagementAddFeedStatusPresentation {
         if let error = error as? SourceManagementServiceError {
             return addFeedPreviewFailureStatus(for: error)
         }
@@ -542,7 +673,7 @@ private extension SourceManagementScreenController {
         )
     }
 
-    func addFeedPreviewFailureStatus(
+    static func addFeedPreviewFailureStatus(
         for error: SourceManagementServiceError
     ) -> SourceManagementAddFeedStatusPresentation {
         switch error {
@@ -571,7 +702,7 @@ private extension SourceManagementScreenController {
         }
     }
 
-    func addFeedPreviewFailureStatus(
+    static func addFeedPreviewFailureStatus(
         for error: FeedFetchError
     ) -> SourceManagementAddFeedStatusPresentation {
         switch error {
@@ -602,7 +733,7 @@ private extension SourceManagementScreenController {
         }
     }
 
-    func addFeedPreviewFailureStatus(
+    static func addFeedPreviewFailureStatus(
         for error: FeedParserError
     ) -> SourceManagementAddFeedStatusPresentation {
         switch error {
@@ -639,7 +770,7 @@ private extension SourceManagementScreenController {
         }
     }
 
-    func networkFailureDetail(for error: FeedTransportError) -> String {
+    static func networkFailureDetail(for error: FeedTransportError) -> String {
         switch error {
         case .timedOut:
             return "The request timed out before the feed preview could be loaded."
