@@ -3,7 +3,6 @@ import SwiftUI
 struct SourceManagementScreenActionHandlers {
     let dismiss: () -> Void
     let selectScenario: (SourceManagementScenarioID) -> Void
-    let dismissPresentedScenario: () -> Void
     let updateAddFeedURL: (String) -> Void
     let selectAddFeedFolderPlacement: (SourceManagementFolderPlacement) -> Void
     let startCreateFolderFromAddFeed: () -> Void
@@ -96,8 +95,6 @@ struct SourceManagementScreenView: View {
                         selectPlacement: actionHandlers.selectMoveSourcePlacement,
                         submit: actionHandlers.submitMoveSource
                     )
-                case .placeholder(let placeholder):
-                    SourceManagementScenarioPlaceholderView(destination: placeholder)
                 }
             }
             .task(id: launchContext) {
@@ -114,9 +111,6 @@ struct SourceManagementScreenView: View {
                     scenarioID,
                     dependencies: dependencies
                 )
-            },
-            dismissPresentedScenario: {
-                controller.dismissPresentedScenario()
             },
             updateAddFeedURL: { value in
                 controller.handleAddFeedURLChange(value)
@@ -178,7 +172,7 @@ struct SourceManagementScreenView: View {
                 switch controller.viewState().presentedDestination {
                 case .addFeed(let presentation):
                     return presentation.urlInput
-                case .moveSource, .placeholder, .createFolder, .none:
+                case .moveSource, .createFolder, .none:
                     return ""
                 }
             },
@@ -192,7 +186,7 @@ struct SourceManagementScreenView: View {
         Binding(
             get: {
                 switch controller.viewState().presentedDestination {
-                case .addFeed, .moveSource, .placeholder, .none:
+                case .addFeed, .moveSource, .none:
                     return ""
                 case .createFolder(let presentation):
                     return presentation.nameInput
@@ -731,37 +725,5 @@ private struct SourceManagementCreateFolderFeedbackCard: View {
             }
         }
         .padding(.vertical, 4)
-    }
-}
-
-private struct SourceManagementScenarioPlaceholderView: View {
-    @Environment(\.appThemeVariant) private var appThemeVariant
-    let destination: SourceManagementScenarioPlaceholderPresentation
-
-    var body: some View {
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(destination.summaryTitle)
-                        .font(.headline)
-
-                    Text(destination.summaryDescription)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 4)
-            }
-
-            Section("What This Flow Will Cover") {
-                ForEach(destination.steps, id: \.self) { step in
-                    Text(step)
-                }
-            }
-        }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(appThemeVariant.primaryBackground)
-        .navigationTitle(destination.title)
-        .navigationBarTitleDisplayMode(.inline)
     }
 }

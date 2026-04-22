@@ -546,7 +546,7 @@ struct SourceManagementAddFeedState {
         let wasEditing = isEditing
         createdFeed = feed
         isCreatingFeed = false
-        editingFeed = feed
+        editingFeed = wasEditing ? feed : nil
         previewStatus = SourceManagementAddFeedStatusPresentation(
             title: wasEditing ? "Feed updated" : "Feed added",
             kind: .success,

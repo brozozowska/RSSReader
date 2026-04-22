@@ -5146,13 +5146,33 @@ struct RSSReaderTests {
     }
 
     @Test
-    func sourceManagementScreenControllerReturnsToAddFeedWithNewFolderSelectedAfterInlineFolderCreation() throws {
-        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+    func sourceManagementScreenControllerReturnsToAddFeedWithNewFolderSelectedAfterInlineFolderCreation() async throws {
+        let feedURL = "https://example.com/feed.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: Self.validRSSFeedXML(
+                            channelTitle: "Example Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Example Article",
+                            itemLink: "https://example.com/articles/example",
+                            itemGUID: "example-article",
+                            itemDescription: "Example description",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
         _ = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
         let controller = SourceManagementScreenController()
 
         controller.handleScenarioSelection(.addFeed, dependencies: harness.dependencies)
-        controller.handleAddFeedURLChange("https://example.com/feed.xml")
+        controller.handleAddFeedURLChange(feedURL)
         controller.startCreateFolderFromAddFeed(dependencies: harness.dependencies)
 
         guard case .createFolder(let createFolderDestination)? = controller.viewState().presentedDestination else {
@@ -5170,9 +5190,19 @@ struct RSSReaderTests {
             return
         }
 
-        #expect(addFeedDestination.urlInput == "https://example.com/feed.xml")
-        #expect(addFeedDestination.placementOptions.map(\.title) == ["Ungrouped", "News", "Research"])
-        #expect(addFeedDestination.placementOptions.last?.isSelected == true)
+        #expect(addFeedDestination.urlInput == feedURL)
+        #expect(addFeedDestination.primaryActionTitle == "Preview Feed")
+        #expect(addFeedDestination.placementOptions.isEmpty)
+
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+
+        guard case .addFeed(let previewDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after loading preview")
+            return
+        }
+
+        #expect(previewDestination.placementOptions.map(\.title) == ["Ungrouped", "News", "Research"])
+        #expect(previewDestination.placementOptions.last?.isSelected == true)
     }
 
     @Test

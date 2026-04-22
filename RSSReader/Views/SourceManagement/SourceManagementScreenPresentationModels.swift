@@ -41,14 +41,6 @@ struct SourceManagementScreenItemPresentation: Identifiable, Equatable, Sendable
     let badgeTitle: String
 }
 
-struct SourceManagementScenarioPlaceholderPresentation: Identifiable, Hashable, Sendable {
-    let id: SourceManagementScenarioID
-    let title: String
-    let summaryTitle: String
-    let summaryDescription: String
-    let steps: [String]
-}
-
 enum SourceManagementAddFeedStatusKind: Hashable, Sendable {
     case success
     case warning
@@ -184,7 +176,6 @@ enum SourceManagementScreenDestinationPresentation: Identifiable, Hashable, Send
     case addFeed(SourceManagementAddFeedPresentation)
     case createFolder(SourceManagementCreateFolderPresentation)
     case moveSource(SourceManagementMoveSourcePresentation)
-    case placeholder(SourceManagementScenarioPlaceholderPresentation)
 
     var id: SourceManagementScenarioID {
         switch self {
@@ -193,8 +184,6 @@ enum SourceManagementScreenDestinationPresentation: Identifiable, Hashable, Send
         case .createFolder(let destination):
             destination.id
         case .moveSource(let destination):
-            destination.id
-        case .placeholder(let destination):
             destination.id
         }
     }
@@ -253,50 +242,6 @@ enum SourceManagementScreenPresentationBuilder {
             )
         ]
     }
-
-    static func buildDestination(
-        for scenarioID: SourceManagementScenarioID
-    ) -> SourceManagementScenarioPlaceholderPresentation {
-        switch scenarioID {
-        case .addFeed:
-            SourceManagementScenarioPlaceholderPresentation(
-                id: .addFeed,
-                title: "Add Feed",
-                summaryTitle: "Feed Setup",
-                summaryDescription: "This flow is dedicated to adding a new feed from URL input through preview and confirmation.",
-                steps: [
-                    "accept and normalize a feed URL before any network request starts",
-                    "preview feed metadata so the user can confirm the source before saving",
-                    "choose a destination folder or keep the feed ungrouped"
-                ]
-            )
-        case .createFolder:
-            SourceManagementScenarioPlaceholderPresentation(
-                id: .createFolder,
-                title: "Create Folder",
-                summaryTitle: "Folder Setup",
-                summaryDescription: "This flow is dedicated to creating a reusable folder before any feed is assigned to it.",
-                steps: [
-                    "collect a folder name with validation and uniqueness checks",
-                    "reserve a compatible sort order for the sidebar grouping model",
-                    "return the new folder as a destination for later source assignment"
-                ]
-            )
-        case .moveSource:
-            SourceManagementScenarioPlaceholderPresentation(
-                id: .moveSource,
-                title: "Move Sources",
-                summaryTitle: "Source Organization",
-                summaryDescription: "This flow is dedicated to reorganizing existing feeds after they are already in the library.",
-                steps: [
-                    "pick an existing feed instead of starting a new add-feed flow",
-                    "move the feed into another folder or back to the ungrouped state",
-                    "keep organization work separate from feed creation and URL validation"
-                ]
-            )
-        }
-    }
-
     private static func item(
         id: SourceManagementScenarioID,
         title: String,
