@@ -303,6 +303,147 @@ extension AppDependencies {
     }
 
     @MainActor
+    func loadSourceManagementAddFeedContext(
+        into screenState: inout SourceManagementScreenState
+    ) {
+        guard let sourceManagementService else {
+            logger.error("Skipped add-feed folder context loading because source management service is unavailable")
+            screenState.applyAddFeedFolderContext(folders: [])
+            return
+        }
+
+        do {
+            let folders = try sourceManagementService.fetchFolders()
+            screenState.applyAddFeedFolderContext(folders: folders)
+        } catch {
+            logger.error("Failed to load folder context for add-feed flow: \(error)")
+            screenState.applyAddFeedFolderContext(folders: [])
+        }
+    }
+
+    @MainActor
+    func loadSourceManagementAddFeedEditContext(
+        feedID: UUID,
+        into screenState: inout SourceManagementScreenState
+    ) {
+        screenState.resetAddFeedForEntry()
+
+        guard let sourceManagementService else {
+            logger.error("Skipped feed editor context loading because source management service is unavailable")
+            screenState.applyAddFeedFolderContext(folders: [])
+            return
+        }
+
+        do {
+            guard let feed = try sourceManagementService.fetchFeed(id: feedID) else {
+                logger.error("Skipped feed editor context loading because feed \(feedID) was not found")
+                screenState.applyAddFeedFolderContext(folders: [])
+                return
+            }
+
+            let folders = try sourceManagementService.fetchFolders()
+            screenState.applyAddFeedEditContext(feed: feed, folders: folders)
+        } catch {
+            logger.error("Failed to load feed editor context for source management screen: \(error)")
+            screenState.applyAddFeedFolderContext(folders: [])
+        }
+    }
+
+    @MainActor
+    func loadSourceManagementCreateFolderContext(
+        into screenState: inout SourceManagementScreenState
+    ) {
+        guard let sourceManagementService else {
+            let unavailableMessage = "Folder creation is unavailable in the current app environment."
+            logger.error("Skipped create-folder context loading because source management service is unavailable")
+            screenState.applyCreateFolderServiceUnavailable(
+                title: "Folder creation is unavailable",
+                message: unavailableMessage
+            )
+            return
+        }
+
+        do {
+            let folders = try sourceManagementService.fetchFolders()
+            screenState.applyCreateFolderContext(folders: folders)
+        } catch {
+            logger.error("Failed to load folder context for source management screen: \(error)")
+            screenState.applyCreateFolderFailure(
+                "Unable to load existing folders right now. Try again."
+            )
+        }
+    }
+
+    @MainActor
+    func loadSourceManagementCreateFolderEditContext(
+        folderID: UUID,
+        into screenState: inout SourceManagementScreenState
+    ) {
+        screenState.resetCreateFolderForEntry()
+
+        guard let sourceManagementService else {
+            let unavailableMessage = "Folder editing is unavailable in the current app environment."
+            logger.error("Skipped folder editor context loading because source management service is unavailable")
+            screenState.applyCreateFolderServiceUnavailable(
+                title: "Folder editing is unavailable",
+                message: unavailableMessage
+            )
+            return
+        }
+
+        do {
+            guard let folder = try sourceManagementService.fetchFolder(id: folderID) else {
+                logger.error("Skipped folder editor context loading because folder \(folderID) was not found")
+                return
+            }
+
+            let folders = try sourceManagementService.fetchFolders()
+            screenState.applyCreateFolderEditContext(folder: folder, folders: folders)
+        } catch {
+            logger.error("Failed to load folder editor context for source management screen: \(error)")
+            screenState.applyCreateFolderFailure(
+                "Unable to load the folder details right now. Try again."
+            )
+        }
+    }
+
+    @MainActor
+    func loadSourceManagementMoveSourceContext(
+        into screenState: inout SourceManagementScreenState
+    ) {
+        guard let sourceManagementService else {
+            logger.error("Skipped move-source context loading because source management service is unavailable")
+            screenState.applyMoveSourceContext(feeds: [], folders: [])
+            screenState.applyMoveSourceFailure(
+                "Source moves are unavailable in the current app environment."
+            )
+            return
+        }
+
+        do {
+            let feeds = try sourceManagementService.fetchFeeds()
+            let folders = try sourceManagementService.fetchFolders()
+            screenState.applyMoveSourceContext(feeds: feeds, folders: folders)
+        } catch {
+            logger.error("Failed to load move-source context for source management screen: \(error)")
+            screenState.applyMoveSourceContext(feeds: [], folders: [])
+            screenState.applyMoveSourceFailure(
+                "Unable to load existing sources right now. Try again."
+            )
+        }
+    }
+
+    @MainActor
+    func restoreAddFeedAfterCreatingFolder(
+        _ folder: SourceManagementFolderSummary,
+        into screenState: inout SourceManagementScreenState
+    ) {
+        loadSourceManagementAddFeedContext(into: &screenState)
+        screenState.selectAddFeedFolderPlacement(.folder(folder.id))
+        screenState.presentScenario(.addFeed)
+    }
+
+    @MainActor
     func finishFolderEditing(
         previousName: String,
         updatedFolderName: String,
@@ -360,6 +501,54 @@ extension AppDependencies {
         showFeed(id: feedID, using: appState)
         dismissSourceManagement(using: appState)
         return result
+    }
+
+    @MainActor
+    func completeSourceManagementFolderEditing(
+        previousName: String?,
+        updatedFolderName: String,
+        using appState: AppState?
+    ) {
+        guard let appState, let previousName else { return }
+        finishFolderEditing(
+            previousName: previousName,
+            updatedFolderName: updatedFolderName,
+            using: appState
+        )
+    }
+
+    @MainActor
+    func completeSourceManagementFolderCreation(
+        named folderName: String,
+        using appState: AppState?
+    ) {
+        guard let appState else { return }
+        finishCreatingFolder(named: folderName, using: appState)
+    }
+
+    @MainActor
+    func completeSourceManagementMove(
+        feedID: UUID,
+        previousFolderName: String?,
+        updatedFolderName: String?,
+        using appState: AppState?
+    ) {
+        guard let appState else { return }
+        finishMovingSource(
+            feedID: feedID,
+            previousFolderName: previousFolderName,
+            updatedFolderName: updatedFolderName,
+            using: appState
+        )
+    }
+
+    @MainActor
+    func completeSourceManagementFeedSave(
+        id feedID: UUID,
+        using appState: AppState?
+    ) async -> FeedRefreshResult? {
+        guard let appState else { return nil }
+        return await finishSavingFeed(id: feedID, using: appState)
     }
 
     @MainActor
