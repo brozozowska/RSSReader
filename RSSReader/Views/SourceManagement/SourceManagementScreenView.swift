@@ -1,19 +1,5 @@
 import SwiftUI
 
-struct SourceManagementScreenActionHandlers {
-    let dismiss: () -> Void
-    let selectScenario: (SourceManagementScenarioID) -> Void
-    let updateAddFeedURL: (String) -> Void
-    let selectAddFeedFolderPlacement: (SourceManagementFolderPlacement) -> Void
-    let startCreateFolderFromAddFeed: () -> Void
-    let handleAddFeedPrimaryAction: () -> Void
-    let updateCreateFolderName: (String) -> Void
-    let submitCreateFolder: () -> Void
-    let selectMoveSourceFeed: (UUID) -> Void
-    let selectMoveSourcePlacement: (SourceManagementFolderPlacement) -> Void
-    let submitMoveSource: () -> Void
-}
-
 struct SourceManagementScreenView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     @Environment(\.appDependencies) private var dependencies
@@ -36,6 +22,12 @@ struct SourceManagementScreenView: View {
 
     var body: some View {
         let viewState = controller.viewState()
+        let navigator = SourceManagementScreenNavigator(
+            controller: controller,
+            dependencies: dependencies,
+            appState: appState,
+            dismiss: dismiss
+        )
 
         NavigationStack {
             List {
@@ -47,7 +39,7 @@ struct SourceManagementScreenView: View {
                     Section {
                         ForEach(section.items) { item in
                             Button {
-                                actionHandlers.selectScenario(item.id)
+                                navigator.selectScenario(item.id)
                             } label: {
                                 SourceManagementScreenItemCard(item: item)
                             }
@@ -69,101 +61,113 @@ struct SourceManagementScreenView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done", action: actionHandlers.dismiss)
+                    Button("Done", action: navigator.dismiss)
                 }
             }
-            .navigationDestination(item: presentedDestinationBinding) { destination in
-                switch destination {
-                case .addFeed(let addFeed):
-                    SourceManagementAddFeedView(
-                        presentation: addFeed,
-                        urlBinding: addFeedURLBinding,
-                        selectPlacement: actionHandlers.selectAddFeedFolderPlacement,
-                        startCreateFolder: actionHandlers.startCreateFolderFromAddFeed,
-                        handlePrimaryAction: actionHandlers.handleAddFeedPrimaryAction
-                    )
-                case .createFolder(let createFolder):
-                    SourceManagementCreateFolderView(
-                        presentation: createFolder,
-                        nameBinding: createFolderNameBinding,
-                        submit: actionHandlers.submitCreateFolder
-                    )
-                case .moveSource(let moveSource):
-                    SourceManagementMoveSourceView(
-                        presentation: moveSource,
-                        selectFeed: actionHandlers.selectMoveSourceFeed,
-                        selectPlacement: actionHandlers.selectMoveSourcePlacement,
-                        submit: actionHandlers.submitMoveSource
-                    )
-                }
+            .navigationDestination(item: navigator.presentedDestinationBinding) { destination in
+                navigator.destinationView(for: destination)
             }
             .task(id: launchContext) {
-                controller.handleLaunchContext(launchContext, dependencies: dependencies)
+                navigator.handleLaunchContext(launchContext)
             }
         }
     }
 
-    private var actionHandlers: SourceManagementScreenActionHandlers {
-        SourceManagementScreenActionHandlers(
-            dismiss: dismiss,
-            selectScenario: { scenarioID in
-                controller.handleScenarioSelection(
-                    scenarioID,
-                    dependencies: dependencies
-                )
-            },
-            updateAddFeedURL: { value in
-                controller.handleAddFeedURLChange(value)
-            },
-            selectAddFeedFolderPlacement: { placement in
-                controller.handleAddFeedFolderPlacementSelection(placement)
-            },
-            startCreateFolderFromAddFeed: {
-                controller.startCreateFolderFromAddFeed(dependencies: dependencies)
-            },
-            handleAddFeedPrimaryAction: {
-                Task {
-                    await controller.handleAddFeedPrimaryAction(
-                        dependencies: dependencies,
-                        appState: appState
-                    )
-                }
-            },
-            updateCreateFolderName: { value in
-                controller.handleCreateFolderNameChange(value)
-            },
-            submitCreateFolder: {
-                controller.submitCreateFolder(
-                    dependencies: dependencies,
-                    appState: appState
-                )
-            },
-            selectMoveSourceFeed: { feedID in
-                controller.handleMoveSourceFeedSelection(feedID)
-            },
-            selectMoveSourcePlacement: { placement in
-                controller.handleMoveSourcePlacementSelection(placement)
-            },
-            submitMoveSource: {
-                controller.submitMoveSource(
-                    dependencies: dependencies,
-                    appState: appState
-                )
-            }
+    private func summarySection(_ summary: SourceManagementScreenSummaryPresentation) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(summary.title)
+                .font(.headline)
+
+            Text(summary.description)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct SourceManagementScreenNavigator {
+    let controller: SourceManagementScreenController
+    let dependencies: AppDependencies
+    let appState: AppState
+    let dismiss: () -> Void
+
+    func handleLaunchContext(_ launchContext: SourceManagementScreenLaunchContext) {
+        controller.handleLaunchContext(launchContext, dependencies: dependencies)
+    }
+
+    func selectScenario(_ scenarioID: SourceManagementScenarioID) {
+        controller.handleScenarioSelection(
+            scenarioID,
+            dependencies: dependencies
         )
     }
 
-    private var presentedDestinationBinding: Binding<SourceManagementScreenDestinationPresentation?> {
+    var presentedDestinationBinding: Binding<SourceManagementScreenDestinationPresentation?> {
         Binding(
             get: { controller.screenState.presentedDestination },
             set: { destination in
                 if let destination {
-                    controller.handleScenarioSelection(destination.id, dependencies: dependencies)
+                    selectScenario(destination.id)
                 } else {
                     controller.dismissPresentedScenario()
                 }
             }
         )
+    }
+
+    @ViewBuilder
+    func destinationView(
+        for destination: SourceManagementScreenDestinationPresentation
+    ) -> some View {
+        switch destination {
+        case .addFeed(let addFeed):
+            SourceManagementAddFeedView(
+                presentation: addFeed,
+                urlBinding: addFeedURLBinding,
+                selectPlacement: { placement in
+                    controller.handleAddFeedFolderPlacementSelection(placement)
+                },
+                startCreateFolder: {
+                    controller.startCreateFolderFromAddFeed(dependencies: dependencies)
+                },
+                handlePrimaryAction: {
+                    Task {
+                        await controller.handleAddFeedPrimaryAction(
+                            dependencies: dependencies,
+                            appState: appState
+                        )
+                    }
+                }
+            )
+        case .createFolder(let createFolder):
+            SourceManagementCreateFolderView(
+                presentation: createFolder,
+                nameBinding: createFolderNameBinding,
+                submit: {
+                    controller.submitCreateFolder(
+                        dependencies: dependencies,
+                        appState: appState
+                    )
+                }
+            )
+        case .moveSource(let moveSource):
+            SourceManagementMoveSourceView(
+                presentation: moveSource,
+                selectFeed: { feedID in
+                    controller.handleMoveSourceFeedSelection(feedID)
+                },
+                selectPlacement: { placement in
+                    controller.handleMoveSourcePlacementSelection(placement)
+                },
+                submit: {
+                    controller.submitMoveSource(
+                        dependencies: dependencies,
+                        appState: appState
+                    )
+                }
+            )
+        }
     }
 
     private var addFeedURLBinding: Binding<String> {
@@ -177,7 +181,7 @@ struct SourceManagementScreenView: View {
                 }
             },
             set: { value in
-                actionHandlers.updateAddFeedURL(value)
+                controller.handleAddFeedURLChange(value)
             }
         )
     }
@@ -193,21 +197,9 @@ struct SourceManagementScreenView: View {
                 }
             },
             set: { value in
-                actionHandlers.updateCreateFolderName(value)
+                controller.handleCreateFolderNameChange(value)
             }
         )
-    }
-
-    private func summarySection(_ summary: SourceManagementScreenSummaryPresentation) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(summary.title)
-                .font(.headline)
-
-            Text(summary.description)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .padding(.vertical, 4)
     }
 }
 
@@ -338,7 +330,9 @@ private struct SourceManagementAddFeedView: View {
 
             if let status = presentation.status {
                 Section {
-                    SourceManagementAddFeedStatusCard(status: status)
+                    SourceManagementFeedbackCard(
+                        feedback: .init(status: status)
+                    )
                 }
             }
         }
@@ -419,51 +413,6 @@ private struct SourceManagementAddFeedPreviewCard: View {
             }
         }
         .padding(.vertical, 4)
-    }
-}
-
-private struct SourceManagementAddFeedStatusCard: View {
-    let status: SourceManagementAddFeedStatusPresentation
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: statusIconName)
-                .foregroundStyle(statusColor)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(status.title)
-                    .font(.body.weight(.semibold))
-
-                if let detail = status.detail {
-                    Text(detail)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    private var statusColor: Color {
-        switch status.kind {
-        case .success:
-            .green
-        case .warning:
-            .orange
-        case .failure:
-            .red
-        }
-    }
-
-    private var statusIconName: String {
-        switch status.kind {
-        case .success:
-            "checkmark.circle.fill"
-        case .warning:
-            "exclamationmark.triangle.fill"
-        case .failure:
-            "xmark.octagon.fill"
-        }
     }
 }
 
@@ -553,7 +502,9 @@ private struct SourceManagementCreateFolderView: View {
 
             if let feedback = presentation.feedback {
                 Section {
-                    SourceManagementCreateFolderFeedbackCard(feedback: feedback)
+                    SourceManagementFeedbackCard(
+                        feedback: .init(createFolderFeedback: feedback)
+                    )
                 }
             }
         }
@@ -635,7 +586,9 @@ private struct SourceManagementMoveSourceView: View {
 
             if let feedback = presentation.feedback {
                 Section {
-                    SourceManagementMoveSourceFeedbackCard(feedback: feedback)
+                    SourceManagementFeedbackCard(
+                        feedback: .init(moveSourceFeedback: feedback)
+                    )
                 }
             }
         }
@@ -682,13 +635,13 @@ private struct SourceManagementMoveSourceFeedRow: View {
     }
 }
 
-private struct SourceManagementMoveSourceFeedbackCard: View {
-    let feedback: SourceManagementMoveSourceFeedbackPresentation
+private struct SourceManagementFeedbackCard: View {
+    let feedback: SourceManagementFeedbackCardPresentation
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: feedback.kind == .success ? "checkmark.circle.fill" : "xmark.octagon.fill")
-                .foregroundStyle(feedback.kind == .success ? .green : .red)
+            Image(systemName: feedback.tone.systemImageName)
+                .foregroundStyle(feedback.tone.color)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(feedback.title)
@@ -705,25 +658,71 @@ private struct SourceManagementMoveSourceFeedbackCard: View {
     }
 }
 
-private struct SourceManagementCreateFolderFeedbackCard: View {
-    let feedback: SourceManagementCreateFolderFeedbackPresentation
+private struct SourceManagementFeedbackCardPresentation {
+    let title: String
+    let detail: String?
+    let tone: SourceManagementFeedbackTone
 
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: feedback.kind == .success ? "checkmark.circle.fill" : "xmark.octagon.fill")
-                .foregroundStyle(feedback.kind == .success ? .green : .red)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(feedback.title)
-                    .font(.body.weight(.semibold))
-
-                if let detail = feedback.detail {
-                    Text(detail)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
+    init(status: SourceManagementAddFeedStatusPresentation) {
+        self.title = status.title
+        self.detail = status.detail
+        switch status.kind {
+        case .success:
+            self.tone = .success
+        case .warning:
+            self.tone = .warning
+        case .failure:
+            self.tone = .failure
         }
-        .padding(.vertical, 4)
+    }
+
+    init(createFolderFeedback: SourceManagementCreateFolderFeedbackPresentation) {
+        self.title = createFolderFeedback.title
+        self.detail = createFolderFeedback.detail
+        switch createFolderFeedback.kind {
+        case .success:
+            self.tone = .success
+        case .failure:
+            self.tone = .failure
+        }
+    }
+
+    init(moveSourceFeedback: SourceManagementMoveSourceFeedbackPresentation) {
+        self.title = moveSourceFeedback.title
+        self.detail = moveSourceFeedback.detail
+        switch moveSourceFeedback.kind {
+        case .success:
+            self.tone = .success
+        case .failure:
+            self.tone = .failure
+        }
+    }
+}
+
+private enum SourceManagementFeedbackTone {
+    case success
+    case warning
+    case failure
+
+    var color: Color {
+        switch self {
+        case .success:
+            .green
+        case .warning:
+            .orange
+        case .failure:
+            .red
+        }
+    }
+
+    var systemImageName: String {
+        switch self {
+        case .success:
+            "checkmark.circle.fill"
+        case .warning:
+            "exclamationmark.triangle.fill"
+        case .failure:
+            "xmark.octagon.fill"
+        }
     }
 }

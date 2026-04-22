@@ -314,7 +314,7 @@
 - [x] вынести preview-only builders из `SourceManagementScreenState` в `SourceManagementScreenPreviewData` и test fixtures, чтобы production state не смешивался с dev fixtures;
 - [x] декомпозировать `SourceManagementScreenController`: разделить context loading, add/edit/create/move orchestration и mapping ошибок/status presentation, чтобы controller перестал быть монолитной точкой входа;
 - [x] сократить дублирование source / folder context loading и completion glue между `SourceManagementScreenController` и `AppDependencies`, чтобы app-level routing и screen-level orchestration читались как единый flow без повторяющихся helper-веток;
-- [ ] почистить `SourceManagementScreenView`: убрать routing-specific `Binding` / `ActionHandlers` glue из корневого view и вынести общие status / feedback card helpers.
+- [x] почистить `SourceManagementScreenView`: убрать routing-specific `Binding` / `ActionHandlers` glue из корневого view и вынести общие status / feedback card helpers.
 
 ### Sync
 #### Sync / CloudKit
