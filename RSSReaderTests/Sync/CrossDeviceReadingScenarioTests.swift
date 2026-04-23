@@ -92,9 +92,9 @@ struct CrossDeviceReadingScenarioTests {
             )
         )
 
-        let preRefreshSidebar = try #require(harness.dependencies.sourcesSidebarQueryService?.fetchSnapshot())
+        let preRefreshSidebar = try #require(try harness.dependencies.sourcesSidebarQueryService?.fetchSnapshot())
         let preRefreshAllItems = try #require(
-            harness.dependencies.articleQueryService?.fetchInboxListItems(
+            try harness.dependencies.articleQueryService?.fetchInboxListItems(
                 sortMode: .publishedAtDescending,
                 filter: .all
             )
@@ -111,25 +111,25 @@ struct CrossDeviceReadingScenarioTests {
         #expect(refreshResult.upsertedEntryCount == 1)
 
         let postRefreshAllItems = try #require(
-            harness.dependencies.articleQueryService?.fetchInboxListItems(
+            try harness.dependencies.articleQueryService?.fetchInboxListItems(
                 sortMode: .publishedAtDescending,
                 filter: .all
             )
         )
         let postRefreshUnreadItems = try #require(
-            harness.dependencies.articleQueryService?.fetchInboxListItems(
+            try harness.dependencies.articleQueryService?.fetchInboxListItems(
                 sortMode: .publishedAtDescending,
                 filter: .unread
             )
         )
         let postRefreshStarredItems = try #require(
-            harness.dependencies.articleQueryService?.fetchInboxListItems(
+            try harness.dependencies.articleQueryService?.fetchInboxListItems(
                 sortMode: .publishedAtDescending,
                 filter: .starred
             )
         )
         let refreshedArticle = try #require(postRefreshAllItems.first)
-        let postRefreshSidebar = try #require(harness.dependencies.sourcesSidebarQueryService?.fetchSnapshot())
+        let postRefreshSidebar = try #require(try harness.dependencies.sourcesSidebarQueryService?.fetchSnapshot())
 
         #expect(postRefreshAllItems.count == 1)
         #expect(refreshedArticle.feedID == feed.id)
@@ -209,7 +209,7 @@ struct CrossDeviceReadingScenarioTests {
         let backgroundRefreshService = try #require(harness.dependencies.backgroundRefreshService)
 
         let preRefreshAllItems = try #require(
-            harness.dependencies.articleQueryService?.fetchInboxListItems(
+            try harness.dependencies.articleQueryService?.fetchInboxListItems(
                 sortMode: .publishedAtDescending,
                 filter: .all
             )
@@ -227,19 +227,19 @@ struct CrossDeviceReadingScenarioTests {
         #expect(resolvedBackgroundResult.summary.totalUpsertedEntryCount == 1)
 
         let postRefreshAllItems = try #require(
-            harness.dependencies.articleQueryService?.fetchInboxListItems(
+            try harness.dependencies.articleQueryService?.fetchInboxListItems(
                 sortMode: .publishedAtDescending,
                 filter: .all
             )
         )
         let postRefreshUnreadItems = try #require(
-            harness.dependencies.articleQueryService?.fetchInboxListItems(
+            try harness.dependencies.articleQueryService?.fetchInboxListItems(
                 sortMode: .publishedAtDescending,
                 filter: .unread
             )
         )
         let postRefreshStarredItems = try #require(
-            harness.dependencies.articleQueryService?.fetchInboxListItems(
+            try harness.dependencies.articleQueryService?.fetchInboxListItems(
                 sortMode: .publishedAtDescending,
                 filter: .starred
             )
