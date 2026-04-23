@@ -325,6 +325,7 @@
 ### Sync
 #### Sync / CloudKit Foundation
 - [x] зафиксировать целевой cross-device reading scenario для sync: между устройствами должны синхронизироваться структура источников и `ArticleState`, а актуальный список `Article` должен появляться на втором устройстве после manual refresh или background refresh без промежуточной app-авторизации;
+- [x] вынести общий test-support и sync/cross-device tests из `RSSReaderTests.swift` в отдельные файлы, чтобы дальнейшая декомпозиция test target шла по feature-oriented структуре;
 - [ ] зафиксировать целевой sync scope: в CloudKit должны синхронизироваться `Feed`, `Folder`, `ArticleState` и `AppSettings`, а `Article` и `FeedFetchLog` должны оставаться только локальным storage слоем;
 - [ ] провести audit CloudKit compatibility для `AppSettings`, `Feed` и `Folder`: проверить `@Attribute(.unique)`, relationship semantics и текущие invariants, которые могут блокировать SwiftData sync;
 - [ ] провести audit CloudKit compatibility для `ArticleState`, `Article` и `FeedFetchLog`: проверить `#Unique`, nonoptional relationships, delete rules и закрепить границу между sync-backed сущностями и локальным article cache;
