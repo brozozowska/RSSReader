@@ -16,29 +16,35 @@
 
 Проект строится как SwiftUI-приложение с акцентом на читаемую структуру, изоляцию ответственности и удобство дальнейшего развития.
 
-Предполагаемая структура проекта:
-- **App** — точка входа в приложение, конфигурация контейнера SwiftData, регистрация background tasks, корневой роутинг;
-- **Models** — доменные модели и структуры данных;
-- **Services** — работа с сетью, XML, нормализацией, хранилищем, синхронизацией, фоновой загрузкой;
-- **ViewModels** — состояние экранов и пользовательские действия;
-- **Views** — экранные и переиспользуемые SwiftUI-компоненты;
-- **Infrastructure** — конфигурация приложения, зависимости, логирование, служебные компоненты.
+Текущая структура проекта:
+- **Infrastructure** — app composition, dependency wiring, `AppState`, app-level navigation и служебные компоненты;
+- **Models** — доменные модели и persistence entities;
+- **Services** — network, parsing, repositories, query/read-model слой, sync, background refresh и прикладные сервисы;
+- **Views** — экранные модули и переиспользуемые SwiftUI-компоненты;
+- **RSSReaderApp / ContentView** — точка входа и корневая интеграция UI с app-level composition.
 
 Ключевые архитектурные принципы:
 - **SwiftUI** как основной UI-фреймворк;
-- **MVVM-подход** для разделения представления и логики представления;
+- screen-oriented архитектура вместо классического `MVVM`;
 - **SwiftData** для локального хранения данных;
 - **Repository pattern** для изоляции доступа к данным;
 - **Swift Concurrency (async/await)** для асинхронных операций и потоков событий через AsyncSequence/AsyncStream;
 - минимизация жёсткой связанности между UI, хранением и сетевым слоем.
 
-Базовый поток данных предполагается таким:
-1. приложение запрашивает RSS-источник;
-2. сетевой слой загружает данные;
-3. слой парсинга преобразует RSS во внутренние модели;
-4. репозитории сохраняют и отдают данные приложению;
-5. ViewModels подготавливают состояние для интерфейса;
-6. Views отображают список лент, статьи и состояние приложения.
+Экранный модуль обычно строится из следующих частей:
+- `...ScreenController` — принимает пользовательские действия, вызывает зависимости и оркестрирует screen flow;
+- `...ScreenState` — хранит изменяемое состояние экрана;
+- `...DerivedViewState` и `...PresentationModels` — подготавливают состояние в форме, удобной для SwiftUI-представления;
+- `...View` — отображает UI и пробрасывает действия обратно в controller;
+- `...PreviewData` — изолирует preview-сценарии от runtime composition.
+
+Базовый поток данных в проекте устроен так:
+1. `View` передаёт пользовательское действие в `ScreenController`;
+2. `ScreenController` обращается к `AppDependencies`, `Services`, `Repositories` или query layer;
+3. данные загружаются, нормализуются, сохраняются и возвращаются в screen flow;
+4. `ScreenState` фиксирует актуальное состояние экрана;
+5. `DerivedViewState` и presentation-модели преобразуют его в UI-ready representation;
+6. `View` отображает результат, не беря на себя orchestration бизнес-логики.
 
 ## Roadmap
 
@@ -317,26 +323,64 @@
 - [x] почистить `SourceManagementScreenView`: убрать routing-specific `Binding` / `ActionHandlers` glue из корневого view и вынести общие status / feedback card helpers.
 
 ### Sync
-#### Sync / CloudKit
-- [ ] настроить SwiftData + CloudKit;
-- [ ] проверить синк Feed;
-- [ ] проверить синк ArticleState;
-- [ ] проверить синк AppSettings;
-- [ ] добавить Folder в sync scope;
-- [ ] реализовать SyncCoordinator;
-- [ ] обработка конфликтов ArticleState по updatedAt;
-- [ ] проверить сценарий запуска на втором устройстве;
-- [ ] добавить UI-индикатор состояния синка;
-- [ ] логирование sync-ошибок.
+#### Sync / CloudKit Foundation
+- [x] зафиксировать целевой cross-device reading scenario для sync: между устройствами должны синхронизироваться структура источников и `ArticleState`, а актуальный список `Article` должен появляться на втором устройстве после manual refresh или background refresh без промежуточной app-авторизации;
+- [ ] зафиксировать целевой sync scope: в CloudKit должны синхронизироваться `Feed`, `Folder`, `ArticleState` и `AppSettings`, а `Article` и `FeedFetchLog` должны оставаться только локальным storage слоем;
+- [ ] провести audit CloudKit compatibility для `AppSettings`, `Feed` и `Folder`: проверить `@Attribute(.unique)`, relationship semantics и текущие invariants, которые могут блокировать SwiftData sync;
+- [ ] провести audit CloudKit compatibility для `ArticleState`, `Article` и `FeedFetchLog`: проверить `#Unique`, nonoptional relationships, delete rules и закрепить границу между sync-backed сущностями и локальным article cache;
+- [ ] адаптировать schema и repository layer для `AppSettings`, `Feed` и `Folder`: убрать зависимость от schema-level uniqueness там, где она несовместима с CloudKit, и перенести инварианты в repository/service layer;
+- [ ] адаптировать schema и repository layer для `ArticleState`: привести модель к CloudKit-compatible виду и сохранить корректность conflict/update paths на уровне repository/service logic;
+- [ ] закрепить `Article` и `FeedFetchLog` как local-only storage и отделить их от sync-backed persistence configuration;
+- [ ] переразложить `ModelConfiguration` в `AppDependencies.makeWithSwiftData`, чтобы sync-backed и local-only store были описаны явно, а CloudKit container policy не зависел от неявного automatic discovery;
+- [ ] настроить Xcode capabilities для CloudKit sync: включить `iCloud` и `Background Modes` с `Remote notifications` и зафиксировать используемый CloudKit container;
+- [ ] реализовать DEBUG-only bootstrap development schema для CloudKit, чтобы development container инициализировался до запуска runtime sync и не требовал ручных разрозненных действий.
+
+#### Sync Runtime
+- [ ] определить app-level policy для sync enablement и `useiCloudSync`: зафиксировать, как persisted user intent влияет на создание sync-backed store и как приложение ведёт себя при выключенном sync;
+- [ ] реализовать проверку iCloud account availability через runtime account status APIs и выделить отдельные состояния `available`, `noAccount`, `restricted`, `temporarilyUnavailable` и `couldNotDetermine`;
+- [ ] создать базовый `SyncCoordinator` как app-level orchestration layer для CloudKit/SwiftData sync lifecycle и единственную точку владения runtime sync state;
+- [ ] подключить runtime account status и store status к `SyncCoordinator`, чтобы coordinator умел различать disabled state, account problems, активную синхронизацию и runtime failures;
+- [ ] заменить текущий placeholder `ICloudSyncStatusService` на реализацию, которая читает фактический runtime state из `SyncCoordinator` и account/store context;
+- [ ] расширить account/status UX для sync: `Settings Screen` должен показывать понятные статусы отсутствия iCloud account, необходимости входа в `Apple ID`, restricted/temporarily unavailable cases и не требовать отдельную учётную запись приложения;
+- [ ] подключить `SyncCoordinator` и runtime sync status к `AppState` и `AppComposition`, чтобы shell-level state обновлялся из реального sync lifecycle, а не только из persisted intent;
+- [ ] реализовать app-level reload triggers после remote sync, чтобы изменения из CloudKit обновляли `Sidebar`, `Articles`, `Article Screen` и другие screen-level controller flows.
+
+#### Sync Validation
+- [ ] проверить sync для `Feed`: добавление, изменение и удаление источников на одном устройстве должны переноситься на второе устройство;
+- [ ] проверить sync для `Folder`: создание папок, изменение структуры и folder assignment для feed должны переноситься между устройствами;
+- [ ] проверить sync для `AppSettings`: настройки чтения, сортировки, link policies, темы и других persisted preferences должны консистентно приходить на второе устройство;
+- [ ] проверить sync для `ArticleState`: read/starred/hidden state должен синхронизироваться между устройствами без потери локальных действий и без рассинхронизации с article list/query layer;
+- [ ] проверить и при необходимости скорректировать conflict resolution `ArticleState` по `updatedAt` для реального multi-device сценария и CloudKit merge behavior;
+- [ ] проверить сценарий cross-device manual refresh: после refresh и чтения на первом устройстве второе устройство должно после ручного refresh получить тот же набор `Article`, а synced `ArticleState` должен сразу скрыть уже прочитанные материалы из `Unread`;
+- [ ] проверить, что `Article` и `FeedFetchLog` не попадают в CloudKit sync и остаются только локальным cache/diagnostic storage;
+- [ ] проверить end-to-end сценарий запуска на втором устройстве: чистый запуск, вход в тот же `Apple ID`, получение уже существующих `Feed` / `Folder` / `AppSettings` / `ArticleState`, дальнейшее чтение на двух устройствах и восстановление после временного отсутствия сети.
+
+#### Sync Hardening
+- [ ] добавить app-level логирование и диагностику sync-ошибок для container setup, schema/bootstrap failures, account/status resolution, merge issues и runtime sync failures;
+- [ ] провести cleanup / refactor sync-related кода: убрать placeholder-only ветки, выровнять границы между `SyncCoordinator`, status service и shell state, а также удалить временные debug hooks и одноразовые migration helpers, если они больше не нужны.
 
 ### Background Refresh
-#### Background Refresh
-- [ ] зарегистрировать background task;
-- [ ] планировать следующий refresh;
-- [ ] запускать FeedRefreshService в фоне;
-- [ ] корректно завершать background task;
-- [ ] обновлять данные после background refresh;
-- [ ] проверить поведение при отсутствии сети.
+#### Background Refresh Foundation
+- [ ] зарегистрировать `background task` identifier и app-level entry point в `RSSReaderApp`, чтобы система могла запускать feed refresh в фоне через SwiftUI `backgroundTask`;
+- [ ] выделить отдельный scheduler layer для background refresh requests, чтобы планирование следующего запуска не жило внутри `RSSReaderApp`, `RootView` или screen/controller кода;
+- [ ] связать scheduler с app lifecycle: при запуске приложения и после успешного выполнения background task должен планироваться следующий refresh request консистентно с выбранной policy;
+- [ ] связать scheduler с `refreshIntervalPreference`: при изменении настройки приложение должно перепланировать или отключать фоновые задачи без расхождения между `Settings Screen`, `BackgroundRefreshService` и runtime scheduling.
+
+#### Background Refresh Execution
+- [ ] подключить системный `background task` к существующему `BackgroundRefreshService`, чтобы фактическое выполнение фонового refresh шло через уже реализованный service layer, а не через отдельную app-level orchestration ветку;
+- [ ] корректно завершать `background task` с учётом успешного refresh, partial failure и cancellation, чтобы система получала валидный execution result;
+- [ ] сохранять результат background refresh так, чтобы при следующем foreground/open экраны видели уже обновлённый локальный список `Article` без обязательного ручного refresh;
+- [ ] реализовать app-level reload behavior после успешного background refresh, чтобы `AppState`, shell и screen-level controller flows обновлялись консистентно при возврате приложения на экран;
+- [ ] обработать сценарии отсутствия сети, системных runtime ограничений и других execution failures так, чтобы background refresh не порождал ложный success и не ломал локальное состояние.
+
+#### Background Refresh Validation
+- [ ] проверить сценарий “обновили источники на iPhone, прочитали часть статей, открыли iPad после background refresh”: iPad должен получить свежие `Article` локально и применить synced `ArticleState`, показав только непрочитанные статьи в `Unread`;
+- [ ] проверить fallback-сценарий без background refresh: после тех же действий на первом устройстве второй девайс должен достигать консистентного состояния через manual refresh;
+- [ ] проверить поведение background refresh при отсутствии сети, временной недоступности системы и отключённой automatic refresh policy.
+
+#### Background Refresh Hardening
+- [ ] добавить логирование и диагностику background refresh execution, scheduling decisions и системных отказов запуска;
+- [ ] провести cleanup / refactor background refresh-related кода: выровнять границы между scheduler, `BackgroundRefreshService`, app lifecycle wiring и screen reload helpers, а также убрать временные debug hooks, если они больше не нужны.
 
 ### Polish
 #### Testing
@@ -382,7 +426,3 @@
 - **CloudKit**
 - **Swift Testing**
 - **Git/GitHub**
-
-## Статус проекта
-
-Проект находится на ранней стадии разработки. В текущем состоянии основной фокус направлен на формирование архитектурного фундамента и подготовку MVP.
