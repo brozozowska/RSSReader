@@ -2,8 +2,9 @@ import Foundation
 import Testing
 @testable import RSSReader
 
+@Suite("Sync / Cross-Device")
 @MainActor
-extension RSSReaderTests {
+struct CrossDeviceReadingScenarioTests {
     @Test
     func crossDeviceReadingScenarioDeclaresSyncAndMaterializationContract() {
         let scenario = CrossDeviceReadingScenario.current
@@ -55,7 +56,7 @@ extension RSSReaderTests {
                         headers: [
                             "Content-Type": "application/rss+xml; charset=utf-8"
                         ],
-                        body: Self.validRSSFeedXML(
+                        body: makeValidRSSFeedXML(
                             channelTitle: "Cross Device Feed",
                             channelLink: "https://example.com/",
                             language: "en",
@@ -164,7 +165,7 @@ extension RSSReaderTests {
                         headers: [
                             "Content-Type": "application/rss+xml; charset=utf-8"
                         ],
-                        body: Self.validRSSFeedXML(
+                        body: makeValidRSSFeedXML(
                             channelTitle: "Background Cross Device Feed",
                             channelLink: "https://example.com/",
                             language: "en",

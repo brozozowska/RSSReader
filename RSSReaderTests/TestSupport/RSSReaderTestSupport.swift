@@ -72,6 +72,36 @@ func makeReaderArticleDTO(
     )
 }
 
+func makeValidRSSFeedXML(
+    channelTitle: String,
+    channelLink: String,
+    language: String,
+    itemTitle: String,
+    itemLink: String,
+    itemGUID: String,
+    itemDescription: String,
+    pubDate: String
+) -> String {
+    """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <rss version="2.0">
+      <channel>
+        <title>\(channelTitle)</title>
+        <link>\(channelLink)</link>
+        <description>Integration test feed</description>
+        <language>\(language)</language>
+        <item>
+          <title>\(itemTitle)</title>
+          <link>\(itemLink)</link>
+          <guid isPermaLink="false">\(itemGUID)</guid>
+          <description>\(itemDescription)</description>
+          <pubDate>\(pubDate)</pubDate>
+        </item>
+      </channel>
+    </rss>
+    """
+}
+
 extension RSSReaderTests {
     static func validRSSFeedXML(
         channelTitle: String,
@@ -83,24 +113,16 @@ extension RSSReaderTests {
         itemDescription: String,
         pubDate: String
     ) -> String {
-        """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <rss version="2.0">
-          <channel>
-            <title>\(channelTitle)</title>
-            <link>\(channelLink)</link>
-            <description>Integration test feed</description>
-            <language>\(language)</language>
-            <item>
-              <title>\(itemTitle)</title>
-              <link>\(itemLink)</link>
-              <guid isPermaLink="false">\(itemGUID)</guid>
-              <description>\(itemDescription)</description>
-              <pubDate>\(pubDate)</pubDate>
-            </item>
-          </channel>
-        </rss>
-        """
+        makeValidRSSFeedXML(
+            channelTitle: channelTitle,
+            channelLink: channelLink,
+            language: language,
+            itemTitle: itemTitle,
+            itemLink: itemLink,
+            itemGUID: itemGUID,
+            itemDescription: itemDescription,
+            pubDate: pubDate
+        )
     }
 }
 
