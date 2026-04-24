@@ -102,30 +102,6 @@ func makeValidRSSFeedXML(
     """
 }
 
-extension RSSReaderTests {
-    static func validRSSFeedXML(
-        channelTitle: String,
-        channelLink: String,
-        language: String,
-        itemTitle: String,
-        itemLink: String,
-        itemGUID: String,
-        itemDescription: String,
-        pubDate: String
-    ) -> String {
-        makeValidRSSFeedXML(
-            channelTitle: channelTitle,
-            channelLink: channelLink,
-            language: language,
-            itemTitle: itemTitle,
-            itemLink: itemLink,
-            itemGUID: itemGUID,
-            itemDescription: itemDescription,
-            pubDate: pubDate
-        )
-    }
-}
-
 struct TestHarness {
     let dependencies: AppDependencies
     let modelContainer: ModelContainer
