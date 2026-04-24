@@ -20,12 +20,27 @@ struct AppDependenciesTests {
     }
 
     @Test
-    func appDependenciesBuildSwiftDataContainerWithExplicitSyncAndLocalConfigurations() throws {
-        let dependencies = AppDependencies.makeWithSwiftData(
-            modelPartition: AppPersistenceModelPartition.current
+    func appDependenciesBuildSwiftDataConfigurationsWithActiveCloudKitOnlyForSyncBackedStore() throws {
+        let configurationPlan = AppDependencies.makeSwiftDataConfigurationPlan(
+            modelPartition: AppPersistenceModelPartition.current,
+            isStoredInMemoryOnly: false
         )
 
-        let modelContainer = try #require(dependencies.modelContainer)
-        #expect(modelContainer.configurations.count == 2)
+        let configurationsByName = Dictionary(
+            uniqueKeysWithValues: configurationPlan.modelContainerConfigurations.map { ($0.name, $0) }
+        )
+        let syncBackedConfiguration = try #require(configurationsByName["SyncBackedStore"])
+        let localOnlyConfiguration = try #require(configurationsByName["LocalOnlyStore"])
+        let syncBackedCloudKitDatabase = String(describing: syncBackedConfiguration.cloudKitDatabase)
+        let localOnlyCloudKitDatabase = String(describing: localOnlyConfiguration.cloudKitDatabase)
+
+        #expect(configurationPlan.modelContainerConfigurations.count == 2)
+        #expect(
+            syncBackedCloudKitDatabase
+                .contains("_privateDBName: Optional(\"\(CloudKitContainerConfiguration.containerIdentifier)\")")
+        )
+        #expect(localOnlyCloudKitDatabase.contains("_none: true"))
+        #expect(syncBackedConfiguration.isStoredInMemoryOnly == false)
+        #expect(localOnlyConfiguration.isStoredInMemoryOnly == false)
     }
 }

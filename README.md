@@ -345,7 +345,7 @@
 - [x] настроить Xcode capabilities для CloudKit sync: включить `iCloud` и `Background Modes` с `Remote notifications` и зафиксировать используемый CloudKit container;
 - [x] встроить DEBUG-only bootstrap orchestration для CloudKit development schema: добавить app-level entry point, explicit preflight и skip/logging path, чтобы инициализация development schema имела единую точку запуска и не требовала ручного отдельного сценария;
 - [x] завершить CloudKit-compatible persistence boundary для source/article слоя: убрать ownership collections `Feed.articles` и `Folder.feeds`, заменить direct `Article.feed` relationship на scalar local-cache linkage и довести `DEBUG-only` development schema bootstrap до реального `initializeCloudKitSchema()` path с зафиксированным success / skip behavior в тестах;
-- [ ] перевести `SyncBackedStore` с `.none` на explicit private CloudKit database policy и проверить, что `ModelContainer` поднимается с активным CloudKit-backed configuration только для sync-backed моделей;
+- [x] перевести `SyncBackedStore` с `.none` на explicit private CloudKit database policy и проверить, что `ModelContainer` поднимается с активным CloudKit-backed configuration только для sync-backed моделей;
 
 #### Sync Runtime
 - [ ] определить app-level policy для sync enablement и `useiCloudSync`: зафиксировать, как persisted user intent влияет на создание sync-backed store и как приложение ведёт себя при выключенном sync;

@@ -57,6 +57,21 @@ struct AppPersistenceModelPartitionTests {
         #expect(plan.modelContainerConfigurations.count == 2)
     }
 
+    @Test
+    func persistenceConfigurationPlanAcceptsExplicitPrivateCloudKitPolicyForSyncBackedStore() {
+        let plan = AppPersistenceConfigurationPlan.make(
+            modelPartition: AppPersistenceModelPartition.current,
+            isStoredInMemoryOnly: false,
+            syncBackedCloudKitPolicy: CloudKitContainerConfiguration.syncBackedDatabasePolicy
+        )
+
+        #expect(
+            plan.syncBackedStore.cloudKitPolicy
+                == .privateContainer(CloudKitContainerConfiguration.containerIdentifier)
+        )
+        #expect(plan.localOnlyStore.cloudKitPolicy == .disabled)
+    }
+
     private func modelTypeNames(_ models: [any PersistentModel.Type]) -> [String] {
         models.map { String(reflecting: $0) }
     }

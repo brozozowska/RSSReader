@@ -170,6 +170,17 @@ public extension AppDependencies {
 }
 
 extension AppDependencies {
+    static func makeSwiftDataConfigurationPlan(
+        modelPartition: AppPersistenceModelPartition,
+        isStoredInMemoryOnly: Bool
+    ) -> AppPersistenceConfigurationPlan {
+        AppPersistenceConfigurationPlan.make(
+            modelPartition: modelPartition,
+            isStoredInMemoryOnly: isStoredInMemoryOnly,
+            syncBackedCloudKitPolicy: CloudKitContainerConfiguration.syncBackedDatabasePolicy
+        )
+    }
+
     static func makeWithSwiftData(modelPartition: AppPersistenceModelPartition) -> AppDependencies {
 #if DEBUG
         let baseLogger = OSLogger(category: "app")
@@ -179,7 +190,7 @@ extension AppDependencies {
         let logger: Logging = FilteredLogger(minLevel: .info, base: baseLogger)
 #endif
         let schema = modelPartition.schema
-        let configurationPlan = AppPersistenceConfigurationPlan.make(
+        let configurationPlan = makeSwiftDataConfigurationPlan(
             modelPartition: modelPartition,
             isStoredInMemoryOnly: false
         )
