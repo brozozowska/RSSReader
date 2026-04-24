@@ -5,7 +5,7 @@ import Testing
 @MainActor
 struct CloudKitCompatibilityAuditTests {
     @Test
-    func cloudKitCompatibilityAuditFlagsCurrentAppSettingsFeedAndFolderBlockers() throws {
+    func cloudKitCompatibilityAuditTracksRemainingFeedAndFolderBlockersAfterUniquenessMigration() throws {
         let audit = CloudKitCompatibilityAudit.appSettingsFeedFolder
 
         #expect(audit.reports.map(\.model) == [.appSettings, .feed, .folder])
@@ -14,22 +14,9 @@ struct CloudKitCompatibilityAuditTests {
         let feedReport = try #require(audit.report(for: .feed))
         let folderReport = try #require(audit.report(for: .folder))
 
-        #expect(appSettingsReport.hasBlockingFindings)
+        #expect(appSettingsReport.hasBlockingFindings == false)
         #expect(feedReport.hasBlockingFindings)
         #expect(folderReport.hasBlockingFindings)
-
-        #expect(
-            appSettingsReport.findings.contains {
-                $0.rule == .unsupportedUniqueConstraint
-                    && $0.affectedPaths == ["AppSettings.id", "AppSettings.singletonKey"]
-            }
-        )
-        #expect(
-            feedReport.findings.contains {
-                $0.rule == .unsupportedUniqueConstraint
-                    && $0.affectedPaths == ["Feed.id", "Feed.url"]
-            }
-        )
         #expect(
             feedReport.findings.contains {
                 $0.rule == .nonOptionalRelationship
@@ -40,12 +27,6 @@ struct CloudKitCompatibilityAuditTests {
             feedReport.findings.contains {
                 $0.rule == .crossStoreRelationship
                     && $0.affectedPaths == ["Feed.articles", "Article.feed"]
-            }
-        )
-        #expect(
-            folderReport.findings.contains {
-                $0.rule == .unsupportedUniqueConstraint
-                    && $0.affectedPaths == ["Folder.id", "Folder.name"]
             }
         )
         #expect(
@@ -76,13 +57,21 @@ struct CloudKitCompatibilityAuditTests {
         #expect(
             feedReport.findings.contains {
                 $0.rule == .repositoryManagedIdentityInvariant
-                    && $0.affectedPaths == ["SwiftDataFeedRepository.fetchFeed(url:)"]
+                    && $0.affectedPaths == [
+                        "SwiftDataFeedRepository.fetchFeed(url:)",
+                        "SwiftDataFeedRepository.insert(_:)",
+                        "SwiftDataFeedRepository.updateDetails(for:with:saveAfterOperation:)"
+                    ]
             }
         )
         #expect(
             folderReport.findings.contains {
                 $0.rule == .repositoryManagedIdentityInvariant
-                    && $0.affectedPaths == ["SwiftDataFolderRepository.fetchFolder(name:)"]
+                    && $0.affectedPaths == [
+                        "SwiftDataFolderRepository.fetchFolder(name:)",
+                        "SwiftDataFolderRepository.insert(_:)",
+                        "SwiftDataFolderRepository.update(folderID:with:saveAfterOperation:)"
+                    ]
             }
         )
     }

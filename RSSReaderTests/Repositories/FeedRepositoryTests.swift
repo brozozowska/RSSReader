@@ -42,4 +42,39 @@ struct FeedRepositoryTests {
         #expect(ungroupedFeed?.updatedAt == ungroupedAssignmentDate)
         #expect(ungroupedPersistedFeed?.folder == nil)
     }
+
+    @Test
+    func feedRepositoryRejectsDuplicateURLOnInsertWithoutSchemaLevelUniqueness() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+
+        _ = try harness.feedRepository.insert(
+            Feed(url: "https://example.com/duplicate.xml", title: "First")
+        )
+
+        #expect(throws: RepositoryInvariantViolation.duplicateFeedURL("https://example.com/duplicate.xml")) {
+            _ = try harness.feedRepository.insert(
+                Feed(url: "https://example.com/duplicate.xml", title: "Second")
+            )
+        }
+    }
+
+    @Test
+    func feedRepositoryRejectsDuplicateURLOnUpdateWithoutSchemaLevelUniqueness() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feeds = try harness.insertFeeds(
+            urls: [
+                "https://example.com/first.xml",
+                "https://example.com/second.xml"
+            ]
+        )
+        let firstFeed = try #require(feeds.first)
+        let secondFeed = try #require(feeds.last)
+
+        #expect(throws: RepositoryInvariantViolation.duplicateFeedURL(secondFeed.url)) {
+            _ = try harness.feedRepository.updateDetails(
+                for: firstFeed.id,
+                with: FeedDetailsUpdate(url: secondFeed.url)
+            )
+        }
+    }
 }

@@ -5,8 +5,8 @@ import SwiftData
 final class Feed {
     #Index<Feed>([\.isActive])
 
-    @Attribute(.unique) var id: UUID
-    @Attribute(.unique) var url: String
+    var id: UUID
+    var url: String
     var siteURL: String?
     var title: String
     var subtitle: String?

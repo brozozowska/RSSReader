@@ -51,9 +51,10 @@ final class SwiftDataFolderRepository: FolderRepository, SwiftDataRepositoryCont
     }
 
     func fetchFolder(name: String) throws -> Folder? {
+        guard let normalizedName = normalizedIdentifier(name) else { return nil }
         let descriptor = FetchDescriptor<Folder>(
             predicate: #Predicate<Folder> { folder in
-                folder.name == name
+                folder.name == normalizedName
             }
         )
         return try fetchFirst(descriptor)
@@ -72,6 +73,12 @@ final class SwiftDataFolderRepository: FolderRepository, SwiftDataRepositoryCont
 
     @discardableResult
     func insert(_ folder: Folder) throws -> Folder {
+        let normalizedName = normalizedIdentifier(folder.name) ?? folder.name
+        if let existingFolder = try fetchFolder(name: normalizedName), existingFolder.id != folder.id {
+            throw RepositoryInvariantViolation.duplicateFolderName(normalizedName)
+        }
+
+        folder.name = normalizedName
         modelContext.insert(folder)
         try saveIfNeeded()
         return folder
@@ -86,7 +93,11 @@ final class SwiftDataFolderRepository: FolderRepository, SwiftDataRepositoryCont
         guard let folder = try fetchFolder(id: folderID) else { return nil }
 
         if let name = update.name, name.isEmpty == false {
-            folder.name = name
+            let normalizedName = normalizedIdentifier(name) ?? name
+            if let existingFolder = try fetchFolder(name: normalizedName), existingFolder.id != folderID {
+                throw RepositoryInvariantViolation.duplicateFolderName(normalizedName)
+            }
+            folder.name = normalizedName
         }
         folder.updatedAt = update.updatedAt
 

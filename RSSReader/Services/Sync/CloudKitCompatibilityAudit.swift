@@ -41,16 +41,6 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                 model: .appSettings,
                 findings: [
                     CloudKitCompatibilityFinding(
-                        severity: .blocker,
-                        rule: .unsupportedUniqueConstraint,
-                        affectedPaths: [
-                            "AppSettings.id",
-                            "AppSettings.singletonKey"
-                        ],
-                        summary: "CloudKit-backed SwiftData does not support uniqueness enforcement for AppSettings identity fields.",
-                        recommendedFollowUp: "Remove schema-level uniqueness from AppSettings and keep singleton resolution in repository/service logic."
-                    ),
-                    CloudKitCompatibilityFinding(
                         severity: .warning,
                         rule: .repositoryManagedIdentityInvariant,
                         affectedPaths: [
@@ -65,16 +55,6 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
             CloudKitModelCompatibilityReport(
                 model: .feed,
                 findings: [
-                    CloudKitCompatibilityFinding(
-                        severity: .blocker,
-                        rule: .unsupportedUniqueConstraint,
-                        affectedPaths: [
-                            "Feed.id",
-                            "Feed.url"
-                        ],
-                        summary: "CloudKit-backed SwiftData cannot enforce unique Feed identifiers or source URLs at the schema level.",
-                        recommendedFollowUp: "Move feed identity and duplicate prevention into repository/service upsert paths."
-                    ),
                     CloudKitCompatibilityFinding(
                         severity: .blocker,
                         rule: .nonOptionalRelationship,
@@ -98,26 +78,18 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                         severity: .warning,
                         rule: .repositoryManagedIdentityInvariant,
                         affectedPaths: [
-                            "SwiftDataFeedRepository.fetchFeed(url:)"
+                            "SwiftDataFeedRepository.fetchFeed(url:)",
+                            "SwiftDataFeedRepository.insert(_:)",
+                            "SwiftDataFeedRepository.updateDetails(for:with:saveAfterOperation:)"
                         ],
-                        summary: "FeedRepository currently assumes URL-based identity lookup for duplicate prevention and edit flows.",
-                        recommendedFollowUp: "Keep URL identity checks in repository/service logic after removing schema-level uniqueness."
+                        summary: "FeedRepository now owns URL identity checks for duplicate prevention instead of relying on schema-level uniqueness.",
+                        recommendedFollowUp: "Keep feed URL invariants in repository/service logic while the relationship boundary is still being migrated."
                     )
                 ]
             ),
             CloudKitModelCompatibilityReport(
                 model: .folder,
                 findings: [
-                    CloudKitCompatibilityFinding(
-                        severity: .blocker,
-                        rule: .unsupportedUniqueConstraint,
-                        affectedPaths: [
-                            "Folder.id",
-                            "Folder.name"
-                        ],
-                        summary: "CloudKit-backed SwiftData cannot enforce unique Folder identifiers or folder names at the schema level.",
-                        recommendedFollowUp: "Move folder identity and duplicate-name validation into repository/service logic."
-                    ),
                     CloudKitCompatibilityFinding(
                         severity: .blocker,
                         rule: .nonOptionalRelationship,
@@ -131,15 +103,17 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                         severity: .warning,
                         rule: .repositoryManagedIdentityInvariant,
                         affectedPaths: [
-                            "SwiftDataFolderRepository.fetchFolder(name:)"
+                            "SwiftDataFolderRepository.fetchFolder(name:)",
+                            "SwiftDataFolderRepository.insert(_:)",
+                            "SwiftDataFolderRepository.update(folderID:with:saveAfterOperation:)"
                         ],
-                        summary: "FolderRepository currently uses name-based lookup as a user-visible identity invariant.",
-                        recommendedFollowUp: "Preserve duplicate-name validation in repository/service logic after removing schema-level uniqueness."
+                        summary: "FolderRepository now owns duplicate-name validation instead of relying on schema-level uniqueness.",
+                        recommendedFollowUp: "Keep folder-name invariants in repository/service logic while relationship semantics are still being migrated."
                     )
                 ]
             )
         ],
-        sourceSummary: "Audit based on Apple SwiftData CloudKit documentation: CloudKit does not support unique constraints, requires relationships to remain optional, and forbids cross-configuration relationships between stores."
+        sourceSummary: "Audit based on Apple SwiftData CloudKit documentation: schema-level uniqueness has been removed for AppSettings, Feed, and Folder, while remaining CloudKit blockers are relationship semantics and store-boundary coupling."
     )
 
     static let articleStateArticleFeedFetchLog = CloudKitCompatibilityAudit(

@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import RSSReader
 
@@ -136,5 +137,31 @@ struct AppSettingsPersistenceTests {
         let settings = try repository.fetchOrCreate()
 
         #expect(settings.interfaceThemeMode == .black)
+    }
+
+    @Test
+    func appSettingsRepositoryCollapsesDuplicateSingletonRowsWithoutSchemaLevelUniqueness() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let modelContext = harness.modelContainer.mainContext
+        let olderSettings = AppSettings(
+            selectedSourcesFilterRawValue: SourcesFilter.unread.rawValue,
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+        let newerSettings = AppSettings(
+            selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+            updatedAt: Date(timeIntervalSince1970: 200)
+        )
+
+        modelContext.insert(olderSettings)
+        modelContext.insert(newerSettings)
+        try modelContext.save()
+
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let canonicalSettings = try repository.fetchOrCreate()
+        let persistedSettings = try modelContext.fetch(FetchDescriptor<AppSettings>())
+
+        #expect(canonicalSettings.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
+        #expect(persistedSettings.count == 1)
+        #expect(persistedSettings.first?.singletonKey == AppSettings.singletonKeyValue)
     }
 }
