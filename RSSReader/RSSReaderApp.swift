@@ -4,7 +4,7 @@ import SwiftUI
 struct RSSReaderApp: App {
     var body: some Scene {
         WindowGroup {
-            AppComposition.makeRoot(models: AppComposition.appModels)
+            AppComposition.makeRoot(modelPartition: AppComposition.persistenceModelPartition)
         }
     }
 }

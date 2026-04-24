@@ -1,0 +1,43 @@
+import SwiftData
+import Testing
+@testable import RSSReader
+
+@Suite("Infrastructure / Persistence Model Partition")
+@MainActor
+struct AppPersistenceModelPartitionTests {
+    @Test
+    func persistenceModelPartitionMatchesCloudKitSyncScope() {
+        let partition = AppPersistenceModelPartition.current
+        let scope = CloudKitSyncScope.current
+
+        #expect(partition.syncBackedScopeModels == scope.syncBackedModels)
+        #expect(partition.localOnlyScopeModels == scope.localOnlyModels)
+    }
+
+    @Test
+    func persistenceModelPartitionKeepsArticleAndFeedFetchLogLocalOnly() {
+        let partition = AppPersistenceModelPartition.current
+
+        #expect(
+            modelTypeNames(partition.localOnlyModels)
+                == modelTypeNames([Article.self, FeedFetchLog.self])
+        )
+        #expect(
+            modelTypeNames(partition.syncBackedModels)
+                == modelTypeNames([AppSettings.self, ArticleState.self, Feed.self, Folder.self])
+        )
+    }
+
+    @Test
+    func appCompositionExposesCombinedPersistenceModelsFromPartition() {
+        let partition = AppComposition.persistenceModelPartition
+
+        #expect(modelTypeNames(AppComposition.syncBackedModels) == modelTypeNames(partition.syncBackedModels))
+        #expect(modelTypeNames(AppComposition.localOnlyModels) == modelTypeNames(partition.localOnlyModels))
+        #expect(modelTypeNames(AppComposition.appModels) == modelTypeNames(partition.allModels))
+    }
+
+    private func modelTypeNames(_ models: [any PersistentModel.Type]) -> [String] {
+        models.map { String(reflecting: $0) }
+    }
+}

@@ -165,8 +165,11 @@ public extension AppDependencies {
 #endif
         return AppDependencies(logger: logger)
     }
-    
-    static func makeWithSwiftData(models: [any PersistentModel.Type]) -> AppDependencies {
+
+}
+
+extension AppDependencies {
+    static func makeWithSwiftData(modelPartition: AppPersistenceModelPartition) -> AppDependencies {
 #if DEBUG
         let baseLogger = OSLogger(category: "app")
         let logger: Logging = FilteredLogger(minLevel: .debug, base: baseLogger)
@@ -174,7 +177,7 @@ public extension AppDependencies {
         let baseLogger = OSLogger(category: "app")
         let logger: Logging = FilteredLogger(minLevel: .info, base: baseLogger)
 #endif
-        let schema = Schema(models)
+        let schema = modelPartition.schema
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         let modelContainer = try? ModelContainer(for: schema, configurations: [configuration])
         return AppDependencies(logger: logger, modelContainer: modelContainer)

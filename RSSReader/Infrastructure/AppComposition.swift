@@ -4,22 +4,18 @@ import Observation
 
 /// Сборка корневого дерева приложения с зависимостями и (при наличии) SwiftData контейнером.
 /// Создаёт корневой View c установленными зависимостями.
-/// - Parameter models: Список SwiftData моделей. Если пустой — контейнер не создаётся.
+/// - Parameter modelPartition: Partition SwiftData моделей. Если `nil` — контейнер не создаётся.
 enum AppComposition {
-    static let appModels: [any PersistentModel.Type] = [
-        AppSettings.self,
-        Article.self,
-        ArticleState.self,
-        Feed.self,
-        FeedFetchLog.self,
-        Folder.self
-    ]
+    static let persistenceModelPartition = AppPersistenceModelPartition.current
+    static let syncBackedModels = persistenceModelPartition.syncBackedModels
+    static let localOnlyModels = persistenceModelPartition.localOnlyModels
+    static let appModels = persistenceModelPartition.allModels
 
     @ViewBuilder
-    static func makeRoot(models: [any PersistentModel.Type] = []) -> some View {
-        let deps: AppDependencies = models.isEmpty
-        ? AppDependencies.makeDefault()
-        : AppDependencies.makeWithSwiftData(models: models)
+    static func makeRoot(modelPartition: AppPersistenceModelPartition? = nil) -> some View {
+        let deps: AppDependencies = modelPartition.map {
+            AppDependencies.makeWithSwiftData(modelPartition: $0)
+        } ?? AppDependencies.makeDefault()
 
         AppRootContainer(dependencies: deps)
     }
