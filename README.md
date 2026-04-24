@@ -341,7 +341,7 @@
 - [x] адаптировать schema и repository layer для `AppSettings`, `Feed` и `Folder`: убрать зависимость от schema-level uniqueness там, где она несовместима с CloudKit, и перенести инварианты в repository/service layer;
 - [x] адаптировать schema и repository layer для `ArticleState`: привести модель к CloudKit-compatible виду и сохранить корректность conflict/update paths на уровне repository/service logic;
 - [x] закрепить `Article` и `FeedFetchLog` как local-only storage и отделить их от sync-backed persistence configuration;
-- [ ] переразложить `ModelConfiguration` в `AppDependencies.makeWithSwiftData`, чтобы sync-backed и local-only store были описаны явно, а CloudKit container policy не зависел от неявного automatic discovery;
+- [x] переразложить `ModelConfiguration` в `AppDependencies.makeWithSwiftData`, чтобы sync-backed и local-only store были описаны явно, а CloudKit container policy не зависел от неявного automatic discovery;
 - [ ] настроить Xcode capabilities для CloudKit sync: включить `iCloud` и `Background Modes` с `Remote notifications` и зафиксировать используемый CloudKit container;
 - [ ] реализовать DEBUG-only bootstrap development schema для CloudKit, чтобы development container инициализировался до запуска runtime sync и не требовал ручных разрозненных действий.
 

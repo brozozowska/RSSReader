@@ -37,6 +37,26 @@ struct AppPersistenceModelPartitionTests {
         #expect(modelTypeNames(AppComposition.appModels) == modelTypeNames(partition.allModels))
     }
 
+    @Test
+    func persistenceConfigurationPlanBuildsExplicitSyncAndLocalStores() {
+        let plan = AppPersistenceConfigurationPlan.make(
+            modelPartition: AppPersistenceModelPartition.current,
+            isStoredInMemoryOnly: false
+        )
+
+        #expect(
+            modelTypeNames(plan.syncBackedStore.modelTypes)
+                == modelTypeNames([AppSettings.self, ArticleState.self, Feed.self, Folder.self])
+        )
+        #expect(
+            modelTypeNames(plan.localOnlyStore.modelTypes)
+                == modelTypeNames([Article.self, FeedFetchLog.self])
+        )
+        #expect(plan.syncBackedStore.cloudKitPolicy == .disabled)
+        #expect(plan.localOnlyStore.cloudKitPolicy == .disabled)
+        #expect(plan.modelContainerConfigurations.count == 2)
+    }
+
     private func modelTypeNames(_ models: [any PersistentModel.Type]) -> [String] {
         models.map { String(reflecting: $0) }
     }

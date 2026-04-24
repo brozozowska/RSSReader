@@ -40,8 +40,14 @@ private enum RootViewPreviewFactory {
     @MainActor
     static func makeDependencies() -> AppDependencies {
         let schema = AppComposition.persistenceModelPartition.schema
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-        let container = try! ModelContainer(for: schema, configurations: [configuration])
+        let configurationPlan = AppPersistenceConfigurationPlan.make(
+            modelPartition: AppComposition.persistenceModelPartition,
+            isStoredInMemoryOnly: true
+        )
+        let container = try! ModelContainer(
+            for: schema,
+            configurations: configurationPlan.modelContainerConfigurations
+        )
         seed(container.mainContext)
 
         return AppDependencies(

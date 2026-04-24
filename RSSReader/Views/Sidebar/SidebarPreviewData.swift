@@ -87,8 +87,14 @@ private enum SidebarPreviewFactory {
     @MainActor
     static func makeDependencies(for scenario: SidebarPreviewScenario) -> AppDependencies {
         let schema = AppComposition.persistenceModelPartition.schema
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-        let container = try! ModelContainer(for: schema, configurations: [configuration])
+        let configurationPlan = AppPersistenceConfigurationPlan.make(
+            modelPartition: AppComposition.persistenceModelPartition,
+            isStoredInMemoryOnly: true
+        )
+        let container = try! ModelContainer(
+            for: schema,
+            configurations: configurationPlan.modelContainerConfigurations
+        )
         seed(container.mainContext, for: scenario)
         return AppDependencies(
             logger: ConsoleLogger(),

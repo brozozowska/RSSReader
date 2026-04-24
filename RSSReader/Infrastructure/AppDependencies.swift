@@ -178,8 +178,14 @@ extension AppDependencies {
         let logger: Logging = FilteredLogger(minLevel: .info, base: baseLogger)
 #endif
         let schema = modelPartition.schema
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-        let modelContainer = try? ModelContainer(for: schema, configurations: [configuration])
+        let configurationPlan = AppPersistenceConfigurationPlan.make(
+            modelPartition: modelPartition,
+            isStoredInMemoryOnly: false
+        )
+        let modelContainer = try? ModelContainer(
+            for: schema,
+            configurations: configurationPlan.modelContainerConfigurations
+        )
         return AppDependencies(logger: logger, modelContainer: modelContainer)
     }
 }

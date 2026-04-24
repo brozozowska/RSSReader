@@ -52,6 +52,14 @@ struct AppPersistenceModelPartition {
         syncBackedModels + localOnlyModels
     }
 
+    var syncBackedSchema: Schema {
+        Schema(syncBackedModels)
+    }
+
+    var localOnlySchema: Schema {
+        Schema(localOnlyModels)
+    }
+
     var syncBackedScopeModels: Set<CloudKitSyncScopeModel> {
         Set(syncBackedEntries.map { $0.scopeModel })
     }

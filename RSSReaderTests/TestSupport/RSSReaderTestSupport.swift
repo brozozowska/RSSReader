@@ -117,8 +117,14 @@ struct TestHarness {
     @MainActor
     static func make(httpClient: ScriptedHTTPClient) throws -> TestHarness {
         let schema = AppComposition.persistenceModelPartition.schema
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-        let modelContainer = try ModelContainer(for: schema, configurations: [configuration])
+        let configurationPlan = AppPersistenceConfigurationPlan.make(
+            modelPartition: AppComposition.persistenceModelPartition,
+            isStoredInMemoryOnly: true
+        )
+        let modelContainer = try ModelContainer(
+            for: schema,
+            configurations: configurationPlan.modelContainerConfigurations
+        )
         let modelContext = modelContainer.mainContext
         let feedFetcher = FeedFetcher(
             httpClient: httpClient,
