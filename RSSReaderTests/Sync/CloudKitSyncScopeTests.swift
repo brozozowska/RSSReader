@@ -41,4 +41,16 @@ struct CloudKitSyncScopeTests {
                 )
         )
     }
+
+    @Test
+    func cloudKitContainerConfigurationDeclaresExplicitPrivateContainerIdentifier() {
+        #expect(
+            CloudKitContainerConfiguration.containerIdentifier
+                == "iCloud.ru.brozozowska.RSSReader"
+        )
+        #expect(
+            CloudKitContainerConfiguration.syncBackedDatabasePolicy
+                == .privateContainer("iCloud.ru.brozozowska.RSSReader")
+        )
+    }
 }
