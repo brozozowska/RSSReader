@@ -164,7 +164,10 @@ private enum RootViewPreviewFactory {
         modelContext.insert(
             Article(
                 id: id,
-                feed: feed,
+                feedID: feed.id,
+                feedTitle: feed.title,
+                feedSiteURL: feed.siteURL,
+                feedFolderName: feed.folder?.name,
                 externalID: externalID,
                 url: url,
                 canonicalURL: url,

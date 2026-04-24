@@ -156,6 +156,7 @@ protocol FeedRepository {
     func fetchFeed(url: String) throws -> Feed?
     func fetchAllFeeds() throws -> [Feed]
     func fetchActiveFeeds() throws -> [Feed]
+    func countFeeds(inFolderID folderID: UUID?) throws -> Int
     func fetchSidebarItems() throws -> [FeedSidebarItem]
     func fetchMetadata(for feedID: UUID) throws -> FeedFetchMetadata?
 
@@ -256,6 +257,24 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
             ]
         )
         return try modelContext.fetch(descriptor)
+    }
+
+    func countFeeds(inFolderID folderID: UUID?) throws -> Int {
+        if let folderID {
+            let descriptor = FetchDescriptor<Feed>(
+                predicate: #Predicate<Feed> { feed in
+                    feed.folder?.id == folderID
+                }
+            )
+            return try modelContext.fetch(descriptor).count
+        }
+
+        let descriptor = FetchDescriptor<Feed>(
+            predicate: #Predicate<Feed> { feed in
+                feed.folder == nil
+            }
+        )
+        return try modelContext.fetch(descriptor).count
     }
 
     func fetchSidebarItems() throws -> [FeedSidebarItem] {

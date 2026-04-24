@@ -344,10 +344,8 @@
 - [x] переразложить `ModelConfiguration` в `AppDependencies.makeWithSwiftData`, чтобы sync-backed и local-only store были описаны явно, а CloudKit container policy не зависел от неявного automatic discovery;
 - [x] настроить Xcode capabilities для CloudKit sync: включить `iCloud` и `Background Modes` с `Remote notifications` и зафиксировать используемый CloudKit container;
 - [x] встроить DEBUG-only bootstrap orchestration для CloudKit development schema: добавить app-level entry point, explicit preflight и skip/logging path, чтобы инициализация development schema имела единую точку запуска и не требовала ручного отдельного сценария;
-- [ ] адаптировать relationship semantics для sync-backed `Feed` и `Folder`: убрать CloudKit-blocking ownership collections (`Feed.articles`, `Folder.feeds`) и сохранить корректность source structure / grouping queries без неoptional collection relationships;
-- [ ] разорвать persistence coupling между sync-backed `Feed` и local-only `Article`: заменить direct `Feed` ↔ `Article` relationship и cascade delete path на local-cache linkage / explicit cleanup, чтобы separate store boundary перестала нарушаться;
+- [x] завершить CloudKit-compatible persistence boundary для source/article слоя: убрать ownership collections `Feed.articles` и `Folder.feeds`, заменить direct `Article.feed` relationship на scalar local-cache linkage и довести `DEBUG-only` development schema bootstrap до реального `initializeCloudKitSchema()` path с зафиксированным success / skip behavior в тестах;
 - [ ] перевести `SyncBackedStore` с `.none` на explicit private CloudKit database policy и проверить, что `ModelContainer` поднимается с активным CloudKit-backed configuration только для sync-backed моделей;
-- [ ] довести DEBUG-only development schema bootstrap до реального `initializeCloudKitSchema()` path для `SyncBackedStore` после устранения blocking findings и зафиксировать expected success / skip behavior в тестах.
 
 #### Sync Runtime
 - [ ] определить app-level policy для sync enablement и `useiCloudSync`: зафиксировать, как persisted user intent влияет на создание sync-backed store и как приложение ведёт себя при выключенном sync;

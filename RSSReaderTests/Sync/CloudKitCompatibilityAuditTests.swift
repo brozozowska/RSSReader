@@ -5,7 +5,7 @@ import Testing
 @MainActor
 struct CloudKitCompatibilityAuditTests {
     @Test
-    func cloudKitCompatibilityAuditTracksRemainingFeedAndFolderBlockersAfterUniquenessMigration() throws {
+    func cloudKitCompatibilityAuditTracksCleanSyncBackedModelSetAfterRelationshipMigration() throws {
         let audit = CloudKitCompatibilityAudit.appSettingsFeedFolder
 
         #expect(audit.reports.map(\.model) == [.appSettings, .feed, .folder])
@@ -15,26 +15,8 @@ struct CloudKitCompatibilityAuditTests {
         let folderReport = try #require(audit.report(for: .folder))
 
         #expect(appSettingsReport.hasBlockingFindings == false)
-        #expect(feedReport.hasBlockingFindings)
-        #expect(folderReport.hasBlockingFindings)
-        #expect(
-            feedReport.findings.contains {
-                $0.rule == .nonOptionalRelationship
-                    && $0.affectedPaths == ["Feed.articles"]
-            }
-        )
-        #expect(
-            feedReport.findings.contains {
-                $0.rule == .crossStoreRelationship
-                    && $0.affectedPaths == ["Feed.articles", "Article.feed"]
-            }
-        )
-        #expect(
-            folderReport.findings.contains {
-                $0.rule == .nonOptionalRelationship
-                    && $0.affectedPaths == ["Folder.feeds"]
-            }
-        )
+        #expect(feedReport.hasBlockingFindings == false)
+        #expect(folderReport.hasBlockingFindings == false)
     }
 
     @Test
@@ -91,12 +73,6 @@ struct CloudKitCompatibilityAuditTests {
         #expect(feedFetchLogReport.hasBlockingFindings)
         #expect(
             articleReport.findings.contains {
-                $0.rule == .nonOptionalRelationship
-                    && $0.affectedPaths == ["Article.feed"]
-            }
-        )
-        #expect(
-            articleReport.findings.contains {
                 $0.rule == .localOnlyStoreBoundary
                     && $0.affectedPaths == [
                         "Article",
@@ -107,10 +83,13 @@ struct CloudKitCompatibilityAuditTests {
         )
         #expect(
             articleReport.findings.contains {
-                $0.rule == .deleteRuleStoreCoupling
+                $0.rule == .repositoryManagedIdentityInvariant
                     && $0.affectedPaths == [
-                        "Feed.articles",
-                        "Article.feed",
+                        "Article.feedID",
+                        "Article.feedTitle",
+                        "Article.feedSiteURL",
+                        "Article.feedFolderName",
+                        "SwiftDataArticleRepository.refreshFeedProjection(for:saveAfterOperation:)",
                         "FeedDeletionService.delete(_:in:)"
                     ]
             }

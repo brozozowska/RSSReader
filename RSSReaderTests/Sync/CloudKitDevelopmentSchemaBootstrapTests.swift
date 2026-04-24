@@ -5,23 +5,23 @@ import Testing
 @MainActor
 struct CloudKitDevelopmentSchemaBootstrapTests {
     @Test
-    func cloudKitDevelopmentSchemaBootstrapSkipsWhileSyncBackedAuditHasBlockers() {
-        let decision = CloudKitDevelopmentSchemaBootstrap.makeDecision()
+    func cloudKitDevelopmentSchemaBootstrapSkipsWhenExplicitAuditStillHasSyncBackedBlockers() {
+        let decision = CloudKitDevelopmentSchemaBootstrap.makeDecision(
+            audit: blockedSyncBackedAudit()
+        )
 
         switch decision {
         case .run:
             Issue.record("Expected bootstrap to skip while sync-backed audit still reports blockers")
         case .skip(let reason):
             #expect(reason.contains("sync-backed schema still has CloudKit blockers"))
-            #expect(reason.contains("feed: Feed.articles"))
-            #expect(reason.contains("folder: Folder.feeds"))
+            #expect(reason.contains("feed: Feed, Article.feed"))
         }
     }
 
     @Test
-    func cloudKitDevelopmentSchemaBootstrapBuildsRequestOnceSyncBackedAuditIsClean() throws {
+    func cloudKitDevelopmentSchemaBootstrapBuildsRequestFromCurrentCleanSyncBackedAudit() throws {
         let decision = CloudKitDevelopmentSchemaBootstrap.makeDecision(
-            audit: cleanSyncBackedAudit(),
             syncBackedPolicy: .privateContainer("iCloud.ru.brozozowska.RSSReader")
         )
 
@@ -46,7 +46,6 @@ struct CloudKitDevelopmentSchemaBootstrapTests {
     @Test
     func cloudKitDevelopmentSchemaBootstrapRequiresExplicitPrivateContainerPolicy() {
         let decision = CloudKitDevelopmentSchemaBootstrap.makeDecision(
-            audit: cleanSyncBackedAudit(),
             syncBackedPolicy: .disabled
         )
 
@@ -58,15 +57,26 @@ struct CloudKitDevelopmentSchemaBootstrapTests {
         }
     }
 
-    private func cleanSyncBackedAudit() -> CloudKitCompatibilityAudit {
+    private func blockedSyncBackedAudit() -> CloudKitCompatibilityAudit {
         CloudKitCompatibilityAudit(
             reports: [
                 CloudKitModelCompatibilityReport(model: .appSettings, findings: []),
-                CloudKitModelCompatibilityReport(model: .feed, findings: []),
+                CloudKitModelCompatibilityReport(
+                    model: .feed,
+                    findings: [
+                        CloudKitCompatibilityFinding(
+                            severity: .blocker,
+                            rule: .crossStoreRelationship,
+                            affectedPaths: ["Feed", "Article.feed"],
+                            summary: "Test fixture",
+                            recommendedFollowUp: "Test fixture"
+                        )
+                    ]
+                ),
                 CloudKitModelCompatibilityReport(model: .folder, findings: []),
                 CloudKitModelCompatibilityReport(model: .articleState, findings: [])
             ],
-            sourceSummary: "Test fixture"
+            sourceSummary: "Blocked test fixture"
         )
     }
 }

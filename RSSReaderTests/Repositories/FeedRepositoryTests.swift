@@ -77,4 +77,26 @@ struct FeedRepositoryTests {
             )
         }
     }
+
+    @Test
+    func feedRepositoryDeleteRemovesLocalArticlesBeforeFeedDisappears() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/delete-feed.xml"]).first
+        )
+
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-1",
+            url: "https://example.com/articles/1",
+            title: "Article One"
+        )
+
+        let deleted = try harness.feedRepository.delete(feedID: feed.id)
+        let remainingArticles = try harness.articleRepository.fetchInbox(sortMode: .publishedAtDescending)
+
+        #expect(deleted)
+        #expect(remainingArticles.isEmpty)
+        #expect(try harness.feedRepository.fetchFeed(id: feed.id) == nil)
+    }
 }

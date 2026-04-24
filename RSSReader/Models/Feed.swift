@@ -15,8 +15,6 @@ final class Feed {
     var kind: FeedKind
     var isActive: Bool
     var folder: Folder?
-    @Relationship(deleteRule: .cascade, inverse: \Article.feed)
-    var articles: [Article] = []
     var lastFetchedAt: Date?
     var lastSuccessfulFetchAt: Date?
     var lastETag: String?

@@ -95,7 +95,7 @@ public final class AppDependencies: AppDependenciesProtocol {
             httpClient: httpClient
         )
         let sourceManagementService: (any SourceManagementService)? = {
-            guard let feedRepository, let folderRepository else {
+            guard let feedRepository, let folderRepository, let articleRepository else {
                 return nil
             }
 
@@ -103,7 +103,8 @@ public final class AppDependencies: AppDependenciesProtocol {
                 logger: logger,
                 feedFetcher: resolvedFeedFetcher,
                 feedRepository: feedRepository,
-                folderRepository: folderRepository
+                folderRepository: folderRepository,
+                articleRepository: articleRepository
             )
         }()
         let resolvedSourceIconCache = sourceIconCache ?? SourceIconCacheService(httpClient: httpClient)

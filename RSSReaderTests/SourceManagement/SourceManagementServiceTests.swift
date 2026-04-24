@@ -116,4 +116,36 @@ struct SourceManagementServiceTests {
         persistedFeed = try #require(ungroupedPersistedFeed)
         #expect(persistedFeed.folder == nil)
     }
+
+    @Test
+    func sourceManagementServiceBuildsFolderFeedCountsWithoutFolderOwnedFeedCollection() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let service = try #require(harness.dependencies.sourceManagementService)
+        let newsFolder = try service.createFolder(SourceManagementCreateFolderCommand(name: "News"))
+        let techFolder = try service.createFolder(SourceManagementCreateFolderCommand(name: "Tech"))
+        let preview = SourceManagementFeedPreview(
+            requestedURL: "https://example.com/grouped-feed.xml",
+            resolvedFeedURL: "https://example.com/grouped-feed.xml",
+            title: "Grouped Feed",
+            subtitle: nil,
+            siteURL: "https://example.com/",
+            iconURL: nil,
+            language: "en",
+            kind: .rss,
+            parserAnomalyCount: 0,
+            rejectedEntryCount: 0,
+            existingFeedID: nil
+        )
+
+        _ = try service.createFeed(
+            SourceManagementCreateFeedCommand(
+                preview: preview,
+                folderPlacement: .folder(newsFolder.id)
+            )
+        )
+
+        let groupedFolders = try service.fetchFolders()
+        #expect(groupedFolders.first(where: { $0.id == newsFolder.id })?.feedCount == 1)
+        #expect(groupedFolders.first(where: { $0.id == techFolder.id })?.feedCount == 0)
+    }
 }

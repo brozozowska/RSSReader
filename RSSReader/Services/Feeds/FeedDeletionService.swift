@@ -6,6 +6,13 @@ enum FeedDeletionService {
         let feedID = feed.id
 
         try modelContext.delete(
+            model: Article.self,
+            where: #Predicate<Article> { article in
+                article.feedID == feedID
+            }
+        )
+
+        try modelContext.delete(
             model: ArticleState.self,
             where: #Predicate<ArticleState> { articleState in
                 articleState.feedID == feedID

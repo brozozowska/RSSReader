@@ -319,6 +319,8 @@ final class FeedRefreshService: FeedRefreshCoordinating {
             throw FeedRefreshServiceError.feedNotFound(metadata.id)
         }
 
+        _ = try articleRepository.refreshFeedProjection(for: feed, saveAfterOperation: false)
+
         let reconciledCount = try reconcileArticles(
             for: metadata.id,
             entries: pipelineResult.feed.entries,

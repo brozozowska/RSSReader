@@ -200,7 +200,10 @@ struct TestHarness {
         isDeletedAtSource: Bool = false
     ) throws -> Article {
         let article = Article(
-            feed: feed,
+            feedID: feed.id,
+            feedTitle: feed.title,
+            feedSiteURL: feed.siteURL,
+            feedFolderName: feed.folder?.name,
             externalID: externalID,
             guid: guid,
             url: url,

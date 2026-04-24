@@ -271,7 +271,10 @@ private enum SidebarPreviewFactory {
         isStarred: Bool = false
     ) {
         let article = Article(
-            feed: feed,
+            feedID: feed.id,
+            feedTitle: feed.title,
+            feedSiteURL: feed.siteURL,
+            feedFolderName: feed.folder?.name,
             externalID: externalID,
             url: "https://example.com/articles/\(externalID)",
             title: title

@@ -56,25 +56,6 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                 model: .feed,
                 findings: [
                     CloudKitCompatibilityFinding(
-                        severity: .blocker,
-                        rule: .nonOptionalRelationship,
-                        affectedPaths: [
-                            "Feed.articles"
-                        ],
-                        summary: "CloudKit compatibility requires relationships to remain optional, but Feed currently owns a nonoptional articles collection.",
-                        recommendedFollowUp: "Remove the sync-backed Feed -> Article relationship from the CloudKit store boundary."
-                    ),
-                    CloudKitCompatibilityFinding(
-                        severity: .blocker,
-                        rule: .crossStoreRelationship,
-                        affectedPaths: [
-                            "Feed.articles",
-                            "Article.feed"
-                        ],
-                        summary: "The current Feed <-> Article relationship crosses the intended sync-backed/local-only store boundary.",
-                        recommendedFollowUp: "Separate sync-backed Feed persistence from local Article storage before enabling CloudKit."
-                    ),
-                    CloudKitCompatibilityFinding(
                         severity: .warning,
                         rule: .repositoryManagedIdentityInvariant,
                         affectedPaths: [
@@ -91,15 +72,6 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                 model: .folder,
                 findings: [
                     CloudKitCompatibilityFinding(
-                        severity: .blocker,
-                        rule: .nonOptionalRelationship,
-                        affectedPaths: [
-                            "Folder.feeds"
-                        ],
-                        summary: "CloudKit compatibility requires relationships to remain optional, but Folder currently owns a nonoptional feeds collection.",
-                        recommendedFollowUp: "Rework Folder <-> Feed relationship semantics for the sync-backed store configuration."
-                    ),
-                    CloudKitCompatibilityFinding(
                         severity: .warning,
                         rule: .repositoryManagedIdentityInvariant,
                         affectedPaths: [
@@ -113,7 +85,7 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                 ]
             )
         ],
-        sourceSummary: "Audit based on Apple SwiftData CloudKit documentation: schema-level uniqueness has been removed for AppSettings, Feed, and Folder, while remaining CloudKit blockers are relationship semantics and store-boundary coupling."
+        sourceSummary: "Audit based on Apple SwiftData CloudKit documentation: schema-level uniqueness, sync-backed ownership collections, and Feed/Article store coupling have been removed from the sync-backed model set."
     )
 
     static let articleStateArticleFeedFetchLog = CloudKitCompatibilityAudit(
@@ -150,33 +122,14 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                 model: .article,
                 findings: [
                     CloudKitCompatibilityFinding(
-                        severity: .blocker,
+                        severity: .warning,
                         rule: .unsupportedUniqueConstraint,
                         affectedPaths: [
                             "Article.id",
-                            "Article.#Unique(feed, externalID)"
+                            "Article.#Unique(feedID, externalID)"
                         ],
-                        summary: "Article cannot rely on unique id or compound uniqueness over feed and externalID in a CloudKit-backed schema.",
-                        recommendedFollowUp: "Keep article deduplication in ArticleRepository and DeduplicationService instead of schema-level uniqueness."
-                    ),
-                    CloudKitCompatibilityFinding(
-                        severity: .blocker,
-                        rule: .nonOptionalRelationship,
-                        affectedPaths: [
-                            "Article.feed"
-                        ],
-                        summary: "CloudKit compatibility requires relationships to remain optional, but Article currently requires a nonoptional Feed relationship.",
-                        recommendedFollowUp: "Keep Article out of the CloudKit-backed store or redesign the relationship boundary before sync is enabled."
-                    ),
-                    CloudKitCompatibilityFinding(
-                        severity: .blocker,
-                        rule: .crossStoreRelationship,
-                        affectedPaths: [
-                            "Article.feed",
-                            "Feed.articles"
-                        ],
-                        summary: "Article currently depends on a direct relationship to sync-backed Feed, which prevents a clean split between local cache and sync-backed models.",
-                        recommendedFollowUp: "Break the direct Feed <-> Article store coupling before introducing separate CloudKit and local stores."
+                        summary: "Article still uses local-only uniqueness over feedID and externalID, which is acceptable only while the article cache remains outside the CloudKit-backed store.",
+                        recommendedFollowUp: "Keep article deduplication in ArticleRepository and DeduplicationService unless Article ever becomes part of a sync-backed schema."
                     ),
                     CloudKitCompatibilityFinding(
                         severity: .blocker,
@@ -190,15 +143,18 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                         recommendedFollowUp: "Keep Article in the local-only store and materialize it from manual/background refresh on each device."
                     ),
                     CloudKitCompatibilityFinding(
-                        severity: .blocker,
-                        rule: .deleteRuleStoreCoupling,
+                        severity: .warning,
+                        rule: .repositoryManagedIdentityInvariant,
                         affectedPaths: [
-                            "Feed.articles",
-                            "Article.feed",
+                            "Article.feedID",
+                            "Article.feedTitle",
+                            "Article.feedSiteURL",
+                            "Article.feedFolderName",
+                            "SwiftDataArticleRepository.refreshFeedProjection(for:saveAfterOperation:)",
                             "FeedDeletionService.delete(_:in:)"
                         ],
-                        summary: "The current cascade-based Feed -> Article lifecycle couples local article deletion to sync-backed Feed ownership.",
-                        recommendedFollowUp: "Replace delete-rule coupling with explicit local-store cleanup once Feed and Article live in separate store configurations."
+                        summary: "Article now carries a scalar feed projection that must stay in sync with Feed updates and explicit cleanup paths in repository/service logic.",
+                        recommendedFollowUp: "Preserve explicit feed-projection refresh and feedID-based cleanup while Article remains a local-only cache model."
                     )
                 ]
             ),
@@ -238,7 +194,7 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                 ]
             )
         ],
-        sourceSummary: "Audit based on Apple SwiftData CloudKit documentation: ArticleState uniqueness has been migrated into repository logic, while Article and FeedFetchLog remain local-only/cache-oriented and relationship-coupled outside the CloudKit-backed store."
+        sourceSummary: "Audit based on Apple SwiftData CloudKit documentation: ArticleState uniqueness has been migrated into repository logic, while Article and FeedFetchLog remain local-only/cache-oriented models outside the CloudKit-backed store."
     )
 
     func report(for model: CloudKitSyncScopeModel) -> CloudKitModelCompatibilityReport? {

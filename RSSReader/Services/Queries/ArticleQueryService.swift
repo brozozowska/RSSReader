@@ -42,7 +42,7 @@ final class DefaultArticleQueryService: ArticleQueryService {
         filter: ArticleListFilter
     ) throws -> [ArticleListItemDTO] {
         let articles = try articleRepository.fetchInbox(sortMode: sortMode)
-            .filter { $0.feed.folder?.name == folderName }
+            .filter { $0.feedFolderName == folderName }
 
         return try makeListItems(from: articles, filter: filter)
     }
