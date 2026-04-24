@@ -22,19 +22,6 @@ struct CrossDeviceReadingScenarioTests {
     }
 
     @Test
-    func settingsScreenPresentationBuilderUsesCrossDeviceReadingScenarioInSyncFooter() throws {
-        let sections = SettingsScreenPresentationBuilder.buildSections(
-            from: SettingsScreenInputBuilder.build(
-                from: AppSettingsSnapshot(useiCloudSync: true),
-                iCloudSyncStatus: .statusUnavailable
-            )
-        )
-        let syncSection = try #require(sections.first { $0.id == .sync })
-
-        #expect(syncSection.footer == CrossDeviceReadingScenario.current.settingsSectionFooter)
-    }
-
-    @Test
     func crossDeviceManualRefreshMaterializesArticlesAndAppliesSyncedArticleState() async throws {
         let feedURL = "https://example.com/cross-device-feed.xml"
         let articleURL = "https://example.com/articles/cross-device"

@@ -280,10 +280,13 @@ enum SettingsScreenPresentationBuilder {
     }
 
     private static func syncSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
+        let readingScenario = CrossDeviceReadingScenario.current
+        let syncScope = CloudKitSyncScope.current
+
         return SettingsScreenSectionPresentation(
             id: .sync,
             title: "Sync",
-            footer: CrossDeviceReadingScenario.current.settingsSectionFooter,
+            footer: syncScope.settingsSectionFooter(readingScenario: readingScenario),
             items: [
                 .statusRow(
                     SettingsStatusRowItemPresentation(
