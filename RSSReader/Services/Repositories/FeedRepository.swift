@@ -156,6 +156,7 @@ protocol FeedRepository {
     func fetchFeed(url: String) throws -> Feed?
     func fetchAllFeeds() throws -> [Feed]
     func fetchActiveFeeds() throws -> [Feed]
+    func countFeeds(inFolderID folderID: UUID?) throws -> Int
     func fetchSidebarItems() throws -> [FeedSidebarItem]
     func fetchMetadata(for feedID: UUID) throws -> FeedFetchMetadata?
 
@@ -226,9 +227,10 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
     }
 
     func fetchFeed(url: String) throws -> Feed? {
+        guard let normalizedURL = normalizedIdentifier(url) else { return nil }
         let descriptor = FetchDescriptor<Feed>(
             predicate: #Predicate<Feed> { feed in
-                feed.url == url
+                feed.url == normalizedURL
             }
         )
         return try fetchFirst(descriptor)
@@ -257,6 +259,24 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
         return try modelContext.fetch(descriptor)
     }
 
+    func countFeeds(inFolderID folderID: UUID?) throws -> Int {
+        if let folderID {
+            let descriptor = FetchDescriptor<Feed>(
+                predicate: #Predicate<Feed> { feed in
+                    feed.folder?.id == folderID
+                }
+            )
+            return try modelContext.fetch(descriptor).count
+        }
+
+        let descriptor = FetchDescriptor<Feed>(
+            predicate: #Predicate<Feed> { feed in
+                feed.folder == nil
+            }
+        )
+        return try modelContext.fetch(descriptor).count
+    }
+
     func fetchSidebarItems() throws -> [FeedSidebarItem] {
         try fetchActiveFeeds().map { feed in
             FeedSidebarItem(feed: feed)
@@ -269,6 +289,12 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
 
     @discardableResult
     func insert(_ feed: Feed) throws -> Feed {
+        let normalizedURL = normalizedIdentifier(feed.url) ?? feed.url
+        if let existingFeed = try fetchFeed(url: normalizedURL), existingFeed.id != feed.id {
+            throw RepositoryInvariantViolation.duplicateFeedURL(normalizedURL)
+        }
+
+        feed.url = normalizedURL
         modelContext.insert(feed)
         try saveIfNeeded()
         return feed
@@ -345,7 +371,11 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
         guard let feed = try fetchFeed(id: feedID) else { return nil }
 
         if let url = update.url {
-            feed.url = url
+            let normalizedURL = normalizedIdentifier(url) ?? url
+            if let existingFeed = try fetchFeed(url: normalizedURL), existingFeed.id != feedID {
+                throw RepositoryInvariantViolation.duplicateFeedURL(normalizedURL)
+            }
+            feed.url = normalizedURL
         }
 
         if let siteURL = update.siteURL {

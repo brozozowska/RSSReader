@@ -5,8 +5,8 @@ import SwiftData
 final class AppSettings {
     static let singletonKeyValue = "app-settings"
 
-    @Attribute(.unique) var id: UUID
-    @Attribute(.unique) var singletonKey: String
+    var id: UUID
+    var singletonKey: String
     var defaultReaderMode: ReaderMode
     var selectedSourcesFilterRawValue: String?
     var refreshIntervalPreference: RefreshPreference

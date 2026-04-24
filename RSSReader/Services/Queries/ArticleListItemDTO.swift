@@ -45,7 +45,7 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
     init(article: Article, state: ArticleState?) {
         self.id = article.id
         self.feedID = article.feedID
-        self.feedTitle = article.feed.title
+        self.feedTitle = article.feedTitle
         self.articleExternalID = article.externalID
         self.title = article.title
         self.summary = article.summary
@@ -60,7 +60,7 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
     init(article: Article, state: ArticleUserStateSnapshot?) {
         self.id = article.id
         self.feedID = article.feedID
-        self.feedTitle = article.feed.title
+        self.feedTitle = article.feedTitle
         self.articleExternalID = article.externalID
         self.title = article.title
         self.summary = article.summary

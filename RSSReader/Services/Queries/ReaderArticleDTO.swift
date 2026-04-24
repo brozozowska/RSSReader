@@ -63,8 +63,8 @@ struct ReaderArticleDTO: Sendable, Identifiable {
     init(article: Article, state: ArticleState?) {
         self.id = article.id
         self.feedID = article.feedID
-        self.feedTitle = article.feed.title
-        self.feedSiteURL = article.feed.siteURL
+        self.feedTitle = article.feedTitle
+        self.feedSiteURL = article.feedSiteURL
         self.articleExternalID = article.externalID
         self.title = article.title
         self.summary = article.summary
@@ -84,8 +84,8 @@ struct ReaderArticleDTO: Sendable, Identifiable {
     init(article: Article, state: ArticleUserStateSnapshot?) {
         self.id = article.id
         self.feedID = article.feedID
-        self.feedTitle = article.feed.title
-        self.feedSiteURL = article.feed.siteURL
+        self.feedTitle = article.feedTitle
+        self.feedSiteURL = article.feedSiteURL
         self.articleExternalID = article.externalID
         self.title = article.title
         self.summary = article.summary

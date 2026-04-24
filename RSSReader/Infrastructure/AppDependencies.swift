@@ -95,7 +95,7 @@ public final class AppDependencies: AppDependenciesProtocol {
             httpClient: httpClient
         )
         let sourceManagementService: (any SourceManagementService)? = {
-            guard let feedRepository, let folderRepository else {
+            guard let feedRepository, let folderRepository, let articleRepository else {
                 return nil
             }
 
@@ -103,7 +103,8 @@ public final class AppDependencies: AppDependenciesProtocol {
                 logger: logger,
                 feedFetcher: resolvedFeedFetcher,
                 feedRepository: feedRepository,
-                folderRepository: folderRepository
+                folderRepository: folderRepository,
+                articleRepository: articleRepository
             )
         }()
         let resolvedSourceIconCache = sourceIconCache ?? SourceIconCacheService(httpClient: httpClient)
@@ -165,8 +166,22 @@ public extension AppDependencies {
 #endif
         return AppDependencies(logger: logger)
     }
-    
-    static func makeWithSwiftData(models: [any PersistentModel.Type]) -> AppDependencies {
+
+}
+
+extension AppDependencies {
+    static func makeSwiftDataConfigurationPlan(
+        modelPartition: AppPersistenceModelPartition,
+        isStoredInMemoryOnly: Bool
+    ) -> AppPersistenceConfigurationPlan {
+        AppPersistenceConfigurationPlan.make(
+            modelPartition: modelPartition,
+            isStoredInMemoryOnly: isStoredInMemoryOnly,
+            syncBackedCloudKitPolicy: CloudKitContainerConfiguration.syncBackedDatabasePolicy
+        )
+    }
+
+    static func makeWithSwiftData(modelPartition: AppPersistenceModelPartition) -> AppDependencies {
 #if DEBUG
         let baseLogger = OSLogger(category: "app")
         let logger: Logging = FilteredLogger(minLevel: .debug, base: baseLogger)
@@ -174,9 +189,15 @@ public extension AppDependencies {
         let baseLogger = OSLogger(category: "app")
         let logger: Logging = FilteredLogger(minLevel: .info, base: baseLogger)
 #endif
-        let schema = Schema(models)
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-        let modelContainer = try? ModelContainer(for: schema, configurations: [configuration])
+        let schema = modelPartition.schema
+        let configurationPlan = makeSwiftDataConfigurationPlan(
+            modelPartition: modelPartition,
+            isStoredInMemoryOnly: false
+        )
+        let modelContainer = try? ModelContainer(
+            for: schema,
+            configurations: configurationPlan.modelContainerConfigurations
+        )
         return AppDependencies(logger: logger, modelContainer: modelContainer)
     }
 }

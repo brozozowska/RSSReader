@@ -35,16 +35,12 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
     }
 
     func fetch() throws -> AppSettings? {
-        let descriptor = FetchDescriptor<AppSettings>(
-            predicate: #Predicate<AppSettings> { appSettings in
-                appSettings.singletonKey == "app-settings"
-            }
-        )
-        return try fetchFirst(descriptor)
+        try fetchSingletonSettings().first
     }
 
     func fetchOrCreate() throws -> AppSettings {
         if let existingSettings = try fetch() {
+            try removeDuplicateSingletonSettings(keeping: existingSettings)
             return existingSettings
         }
 
@@ -106,5 +102,28 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
 
     func save() throws {
         try saveIfNeeded(force: true)
+    }
+
+    private func fetchSingletonSettings() throws -> [AppSettings] {
+        let descriptor = FetchDescriptor<AppSettings>(
+            predicate: #Predicate<AppSettings> { appSettings in
+                appSettings.singletonKey == "app-settings"
+            },
+            sortBy: [
+                SortDescriptor(\AppSettings.updatedAt, order: .reverse),
+                SortDescriptor(\AppSettings.createdAt, order: .reverse)
+            ]
+        )
+        return try modelContext.fetch(descriptor)
+    }
+
+    private func removeDuplicateSingletonSettings(keeping canonicalSettings: AppSettings) throws {
+        let duplicateSettings = try fetchSingletonSettings().filter { $0 !== canonicalSettings }
+        guard duplicateSettings.isEmpty == false else { return }
+
+        for settings in duplicateSettings {
+            modelContext.delete(settings)
+        }
+        try saveIfNeeded()
     }
 }

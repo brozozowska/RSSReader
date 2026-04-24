@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        AppComposition.makeRoot(models: AppComposition.appModels)
+        AppComposition.makeRoot(modelPartition: AppComposition.persistenceModelPartition)
     }
 }
 

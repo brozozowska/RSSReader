@@ -143,21 +143,26 @@ final class DefaultSourceManagementService: SourceManagementService {
     private let feedFetcher: any FeedFetching
     private let feedRepository: any FeedRepository
     private let folderRepository: any FolderRepository
+    private let articleRepository: any ArticleRepository
 
     init(
         logger: Logging,
         feedFetcher: any FeedFetching,
         feedRepository: any FeedRepository,
-        folderRepository: any FolderRepository
+        folderRepository: any FolderRepository,
+        articleRepository: any ArticleRepository
     ) {
         self.logger = logger
         self.feedFetcher = feedFetcher
         self.feedRepository = feedRepository
         self.folderRepository = folderRepository
+        self.articleRepository = articleRepository
     }
 
     func fetchFolders() throws -> [SourceManagementFolderSummary] {
-        try folderRepository.fetchAllFolders().map(folderSummary(from:))
+        try folderRepository.fetchAllFolders().map { folder in
+            try folderSummary(from: folder)
+        }
     }
 
     func fetchFeeds() throws -> [SourceManagementFeedSummary] {
@@ -169,7 +174,9 @@ final class DefaultSourceManagementService: SourceManagementService {
     }
 
     func fetchFolder(id: UUID) throws -> SourceManagementFolderSummary? {
-        try folderRepository.fetchFolder(id: id).map(folderSummary(from:))
+        try folderRepository.fetchFolder(id: id).map { folder in
+            try folderSummary(from: folder)
+        }
     }
 
     func previewFeed(urlString: String) async throws -> SourceManagementFeedPreview {
@@ -234,7 +241,7 @@ final class DefaultSourceManagementService: SourceManagementService {
             )
         )
 
-        return folderSummary(from: folder)
+        return try folderSummary(from: folder)
     }
 
     func updateFolder(_ command: SourceManagementUpdateFolderCommand) throws -> SourceManagementFolderSummary {
@@ -256,13 +263,21 @@ final class DefaultSourceManagementService: SourceManagementService {
             with: FolderDetailsUpdate(
                 name: normalizedName,
                 updatedAt: command.updatedAt
-            )
+            ),
+            saveAfterOperation: false
         ) else {
             logger.error("Skipped folder update because update path returned no folder: \(command.folderID.uuidString)")
             throw SourceManagementServiceError.folderNotFound(command.folderID)
         }
 
-        return folderSummary(from: folder)
+        let feedsInFolder = try feedRepository.fetchAllFeeds()
+            .filter { $0.folder?.id == folder.id }
+        for feed in feedsInFolder {
+            _ = try articleRepository.refreshFeedProjection(for: feed, saveAfterOperation: false)
+        }
+        try folderRepository.save()
+
+        return try folderSummary(from: folder)
     }
 
     func deleteFolder(id folderID: UUID) throws {
@@ -277,14 +292,16 @@ final class DefaultSourceManagementService: SourceManagementService {
 
         do {
             for feedID in containedFeedIDs {
-                _ = try feedRepository.updateFolderAssignment(
+                if let updatedFeed = try feedRepository.updateFolderAssignment(
                     for: feedID,
                     with: FeedFolderAssignmentUpdate(
                         folder: nil,
                         updatedAt: .now
                     ),
                     saveAfterOperation: false
-                )
+                ) {
+                    _ = try articleRepository.refreshFeedProjection(for: updatedFeed, saveAfterOperation: false)
+                }
             }
             try folderRepository.delete(folder)
         } catch {
@@ -360,6 +377,9 @@ final class DefaultSourceManagementService: SourceManagementService {
                 ),
                 saveAfterOperation: false
             ) ?? updatedFeed
+            if let finalFeed {
+                _ = try articleRepository.refreshFeedProjection(for: finalFeed, saveAfterOperation: false)
+            }
             try feedRepository.save()
             return feedSummary(from: try requireFeedSummarySource(finalFeed, feedID: command.feedID))
         } catch {
@@ -391,6 +411,10 @@ final class DefaultSourceManagementService: SourceManagementService {
             for: command.feedID,
             with: update
         )
+        if let feed {
+            _ = try articleRepository.refreshFeedProjection(for: feed, saveAfterOperation: false)
+            try feedRepository.save()
+        }
 
         return feedSummary(from: try requireFeedSummarySource(feed, feedID: command.feedID))
     }
@@ -452,12 +476,12 @@ private extension DefaultSourceManagementService {
         }
     }
 
-    func folderSummary(from folder: Folder) -> SourceManagementFolderSummary {
+    func folderSummary(from folder: Folder) throws -> SourceManagementFolderSummary {
         SourceManagementFolderSummary(
             id: folder.id,
             name: folder.name,
             sortOrder: folder.sortOrder,
-            feedCount: folder.feeds.count
+            feedCount: try feedRepository.countFeeds(inFolderID: folder.id)
         )
     }
 

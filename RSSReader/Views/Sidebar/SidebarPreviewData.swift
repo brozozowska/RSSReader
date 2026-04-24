@@ -86,9 +86,15 @@ private enum SidebarPreviewFactory {
 
     @MainActor
     static func makeDependencies(for scenario: SidebarPreviewScenario) -> AppDependencies {
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-        let schema = Schema(AppComposition.appModels)
-        let container = try! ModelContainer(for: schema, configurations: [configuration])
+        let schema = AppComposition.persistenceModelPartition.schema
+        let configurationPlan = AppPersistenceConfigurationPlan.make(
+            modelPartition: AppComposition.persistenceModelPartition,
+            isStoredInMemoryOnly: true
+        )
+        let container = try! ModelContainer(
+            for: schema,
+            configurations: configurationPlan.modelContainerConfigurations
+        )
         seed(container.mainContext, for: scenario)
         return AppDependencies(
             logger: ConsoleLogger(),
@@ -265,7 +271,10 @@ private enum SidebarPreviewFactory {
         isStarred: Bool = false
     ) {
         let article = Article(
-            feed: feed,
+            feedID: feed.id,
+            feedTitle: feed.title,
+            feedSiteURL: feed.siteURL,
+            feedFolderName: feed.folder?.name,
             externalID: externalID,
             url: "https://example.com/articles/\(externalID)",
             title: title

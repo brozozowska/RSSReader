@@ -280,10 +280,13 @@ enum SettingsScreenPresentationBuilder {
     }
 
     private static func syncSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
+        let readingScenario = CrossDeviceReadingScenario.current
+        let syncScope = CloudKitSyncScope.current
+
         return SettingsScreenSectionPresentation(
             id: .sync,
             title: "Sync",
-            footer: "This indicator reflects app-level sync state and is designed to consume future CloudKit and account status, not behave like a local toggle.",
+            footer: syncScope.settingsSectionFooter(readingScenario: readingScenario),
             items: [
                 .statusRow(
                     SettingsStatusRowItemPresentation(

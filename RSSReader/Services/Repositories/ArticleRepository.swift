@@ -3,6 +3,7 @@ import SwiftData
 
 @MainActor
 protocol ArticleRepository {
+    func refreshFeedProjection(for feed: Feed, saveAfterOperation: Bool) throws -> Int
     func fetchArticle(id: UUID) throws -> Article?
     func fetchArticle(feedID: UUID, externalID: String) throws -> Article?
     func fetchArticles(feedID: UUID) throws -> [Article]
@@ -41,6 +42,10 @@ protocol ArticleRepository {
 }
 
 extension ArticleRepository {
+    func refreshFeedProjection(for feed: Feed) throws -> Int {
+        try refreshFeedProjection(for: feed, saveAfterOperation: true)
+    }
+
     func reconcileArticles(feedID: UUID, keepingExternalIDs: Set<String>, fetchedAt: Date) throws -> Int {
         try reconcileArticles(
             feedID: feedID,
@@ -69,6 +74,34 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         self.modelContext = modelContext
     }
 
+    func refreshFeedProjection(for feed: Feed, saveAfterOperation: Bool = true) throws -> Int {
+        let articles = try fetchArticles(feedID: feed.id)
+        var updatedCount = 0
+
+        for article in articles {
+            if article.feedTitle != feed.title {
+                article.feedTitle = feed.title
+                updatedCount += 1
+            }
+
+            if article.feedSiteURL != feed.siteURL {
+                article.feedSiteURL = feed.siteURL
+                updatedCount += 1
+            }
+
+            let folderName = feed.folder?.name
+            if article.feedFolderName != folderName {
+                article.feedFolderName = folderName
+                updatedCount += 1
+            }
+        }
+
+        if updatedCount > 0, saveAfterOperation {
+            try saveIfNeeded()
+        }
+        return updatedCount
+    }
+
     func fetchArticle(id: UUID) throws -> Article? {
         let descriptor = FetchDescriptor<Article>(
             predicate: #Predicate<Article> { article in
@@ -81,7 +114,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     func fetchArticle(feedID: UUID, externalID: String) throws -> Article? {
         let descriptor = FetchDescriptor<Article>(
             predicate: #Predicate<Article> { article in
-                article.feed.id == feedID && article.externalID == externalID
+                article.feedID == feedID && article.externalID == externalID
             }
         )
         return try fetchFirst(descriptor)
@@ -90,7 +123,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     func fetchArticles(feedID: UUID) throws -> [Article] {
         let descriptor = FetchDescriptor<Article>(
             predicate: #Predicate<Article> { article in
-                article.feed.id == feedID
+                article.feedID == feedID
             }
         )
         return try modelContext.fetch(descriptor)
@@ -99,7 +132,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article] {
         let descriptor = FetchDescriptor<Article>(
             predicate: #Predicate<Article> { article in
-                article.feed.id == feedID && article.isDeletedAtSource == false
+                article.feedID == feedID && article.isDeletedAtSource == false
             },
             sortBy: sortDescriptors(for: sortMode)
         )
@@ -224,7 +257,10 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         }
 
         let article = Article(
-            feed: feed,
+            feedID: feed.id,
+            feedTitle: feed.title,
+            feedSiteURL: feed.siteURL,
+            feedFolderName: feed.folder?.name,
             externalID: payload.externalID,
             guid: payload.guid,
             url: payload.url,

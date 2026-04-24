@@ -5,8 +5,8 @@ import SwiftData
 final class Feed {
     #Index<Feed>([\.isActive])
 
-    @Attribute(.unique) var id: UUID
-    @Attribute(.unique) var url: String
+    var id: UUID
+    var url: String
     var siteURL: String?
     var title: String
     var subtitle: String?
@@ -15,8 +15,6 @@ final class Feed {
     var kind: FeedKind
     var isActive: Bool
     var folder: Folder?
-    @Relationship(deleteRule: .cascade, inverse: \Article.feed)
-    var articles: [Article] = []
     var lastFetchedAt: Date?
     var lastSuccessfulFetchAt: Date?
     var lastETag: String?
