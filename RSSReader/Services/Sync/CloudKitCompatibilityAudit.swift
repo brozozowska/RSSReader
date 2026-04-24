@@ -122,25 +122,16 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                 model: .articleState,
                 findings: [
                     CloudKitCompatibilityFinding(
-                        severity: .blocker,
-                        rule: .unsupportedUniqueConstraint,
-                        affectedPaths: [
-                            "ArticleState.id",
-                            "ArticleState.#Unique(feedID, articleExternalID)"
-                        ],
-                        summary: "CloudKit-backed SwiftData cannot enforce ArticleState identity via unique id or compound uniqueness on feedID and articleExternalID.",
-                        recommendedFollowUp: "Remove schema-level uniqueness from ArticleState and preserve composite-key upsert logic in repository code."
-                    ),
-                    CloudKitCompatibilityFinding(
                         severity: .warning,
                         rule: .repositoryManagedIdentityInvariant,
                         affectedPaths: [
                             "SwiftDataArticleStateRepository.fetchState(feedID:articleExternalID:)",
                             "SwiftDataArticleStateRepository.fetchOrCreate(feedID:articleExternalID:)",
+                            "SwiftDataArticleStateRepository.fetchCanonicalState(feedID:articleExternalID:removeDuplicates:)",
                             "SwiftDataArticleStateRepository.shouldApply(_:to:)"
                         ],
-                        summary: "ArticleState currently relies on repository-managed composite identity and last-write-wins conflict resolution instead of model relationships.",
-                        recommendedFollowUp: "Keep composite-key identity and updatedAt-based conflict resolution in repository/service logic after schema migration."
+                        summary: "ArticleState now relies on repository-managed composite identity, duplicate-row repair, and last-write-wins conflict resolution instead of schema-level uniqueness.",
+                        recommendedFollowUp: "Keep composite-key identity repair and updatedAt-based conflict resolution in repository/service logic for the CloudKit-backed model."
                     ),
                     CloudKitCompatibilityFinding(
                         severity: .warning,
@@ -247,7 +238,7 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                 ]
             )
         ],
-        sourceSummary: "Audit based on Apple SwiftData CloudKit documentation: unique constraints are unsupported, CloudKit-compatible relationships must remain optional, and local-only cache models should be isolated from sync-backed store configuration."
+        sourceSummary: "Audit based on Apple SwiftData CloudKit documentation: ArticleState uniqueness has been migrated into repository logic, while Article and FeedFetchLog remain local-only/cache-oriented and relationship-coupled outside the CloudKit-backed store."
     )
 
     func report(for model: CloudKitSyncScopeModel) -> CloudKitModelCompatibilityReport? {

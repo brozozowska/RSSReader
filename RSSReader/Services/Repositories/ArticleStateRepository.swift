@@ -80,12 +80,7 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
     }
 
     func fetchState(feedID: UUID, articleExternalID: String) throws -> ArticleState? {
-        let descriptor = FetchDescriptor<ArticleState>(
-            predicate: #Predicate<ArticleState> { articleState in
-                articleState.feedID == feedID && articleState.articleExternalID == articleExternalID
-            }
-        )
-        return try fetchFirst(descriptor)
+        try fetchMatchingStates(feedID: feedID, articleExternalID: articleExternalID).first
     }
 
     func fetchOrCreate(feedID: UUID, articleExternalID: String) throws -> ArticleState {
@@ -226,7 +221,11 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
         articleExternalID: String,
         saveAfterCreation: Bool
     ) throws -> ArticleState {
-        if let existingState = try fetchState(feedID: feedID, articleExternalID: articleExternalID) {
+        if let existingState = try fetchCanonicalState(
+            feedID: feedID,
+            articleExternalID: articleExternalID,
+            removeDuplicates: true
+        ) {
             return existingState
         }
 
@@ -262,6 +261,45 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
 
         try saveIfNeeded()
         return articleStates
+    }
+
+    private func fetchCanonicalState(
+        feedID: UUID,
+        articleExternalID: String,
+        removeDuplicates: Bool
+    ) throws -> ArticleState? {
+        let matchingStates = try fetchMatchingStates(feedID: feedID, articleExternalID: articleExternalID)
+        guard let canonicalState = matchingStates.first else { return nil }
+
+        if removeDuplicates {
+            let duplicateStates = matchingStates.dropFirst()
+            if duplicateStates.isEmpty == false {
+                for duplicateState in duplicateStates {
+                    modelContext.delete(duplicateState)
+                }
+                try saveIfNeeded()
+            }
+        }
+
+        return canonicalState
+    }
+
+    private func fetchMatchingStates(feedID: UUID, articleExternalID: String) throws -> [ArticleState] {
+        let descriptor = FetchDescriptor<ArticleState>(
+            predicate: #Predicate<ArticleState> { articleState in
+                articleState.feedID == feedID && articleState.articleExternalID == articleExternalID
+            }
+        )
+        let matchingStates = try modelContext.fetch(descriptor)
+        return matchingStates.sorted(by: articleStateCanonicalOrder)
+    }
+
+    private func articleStateCanonicalOrder(_ lhs: ArticleState, _ rhs: ArticleState) -> Bool {
+        if lhs.updatedAt != rhs.updatedAt {
+            return lhs.updatedAt > rhs.updatedAt
+        }
+
+        return lhs.id.uuidString > rhs.id.uuidString
     }
 
     private func apply(_ update: ArticleStateUpsert, to articleState: ArticleState) {

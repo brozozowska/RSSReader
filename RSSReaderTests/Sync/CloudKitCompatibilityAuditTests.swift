@@ -86,19 +86,9 @@ struct CloudKitCompatibilityAuditTests {
         let articleReport = try #require(audit.report(for: .article))
         let feedFetchLogReport = try #require(audit.report(for: .feedFetchLog))
 
-        #expect(articleStateReport.hasBlockingFindings)
+        #expect(articleStateReport.hasBlockingFindings == false)
         #expect(articleReport.hasBlockingFindings)
         #expect(feedFetchLogReport.hasBlockingFindings)
-
-        #expect(
-            articleStateReport.findings.contains {
-                $0.rule == .unsupportedUniqueConstraint
-                    && $0.affectedPaths == [
-                        "ArticleState.id",
-                        "ArticleState.#Unique(feedID, articleExternalID)"
-                    ]
-            }
-        )
         #expect(
             articleReport.findings.contains {
                 $0.rule == .nonOptionalRelationship
@@ -148,6 +138,7 @@ struct CloudKitCompatibilityAuditTests {
                     && $0.affectedPaths == [
                         "SwiftDataArticleStateRepository.fetchState(feedID:articleExternalID:)",
                         "SwiftDataArticleStateRepository.fetchOrCreate(feedID:articleExternalID:)",
+                        "SwiftDataArticleStateRepository.fetchCanonicalState(feedID:articleExternalID:removeDuplicates:)",
                         "SwiftDataArticleStateRepository.shouldApply(_:to:)"
                     ]
             }

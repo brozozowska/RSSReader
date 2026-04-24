@@ -339,7 +339,7 @@
 - [x] провести audit CloudKit compatibility для `AppSettings`, `Feed` и `Folder`: проверить `@Attribute(.unique)`, relationship semantics и текущие invariants, которые могут блокировать SwiftData sync;
 - [x] провести audit CloudKit compatibility для `ArticleState`, `Article` и `FeedFetchLog`: проверить `#Unique`, nonoptional relationships, delete rules и закрепить границу между sync-backed сущностями и локальным article cache;
 - [x] адаптировать schema и repository layer для `AppSettings`, `Feed` и `Folder`: убрать зависимость от schema-level uniqueness там, где она несовместима с CloudKit, и перенести инварианты в repository/service layer;
-- [ ] адаптировать schema и repository layer для `ArticleState`: привести модель к CloudKit-compatible виду и сохранить корректность conflict/update paths на уровне repository/service logic;
+- [x] адаптировать schema и repository layer для `ArticleState`: привести модель к CloudKit-compatible виду и сохранить корректность conflict/update paths на уровне repository/service logic;
 - [ ] закрепить `Article` и `FeedFetchLog` как local-only storage и отделить их от sync-backed persistence configuration;
 - [ ] переразложить `ModelConfiguration` в `AppDependencies.makeWithSwiftData`, чтобы sync-backed и local-only store были описаны явно, а CloudKit container policy не зависел от неявного automatic discovery;
 - [ ] настроить Xcode capabilities для CloudKit sync: включить `iCloud` и `Background Modes` с `Remote notifications` и зафиксировать используемый CloudKit container;

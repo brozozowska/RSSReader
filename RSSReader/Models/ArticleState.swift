@@ -3,10 +3,9 @@ import SwiftData
 
 @Model
 final class ArticleState {
-    #Unique<ArticleState>([\.feedID, \.articleExternalID])
     #Index<ArticleState>([\.updatedAt])
 
-    @Attribute(.unique) var id: UUID
+    var id: UUID
     var articleExternalID: String
     var feedID: UUID
     var isRead: Bool
