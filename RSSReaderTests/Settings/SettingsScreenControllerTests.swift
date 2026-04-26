@@ -74,15 +74,26 @@ struct SettingsScreenControllerTests {
         let syncSection = try #require(
             controller.viewState().sections.first(where: { $0.id == .sync })
         )
-        let syncItem = try #require(syncSection.items.first)
+        let syncToggle = try #require(syncSection.items.first)
+        let syncStatusItem = try #require(syncSection.items.last)
 
         #expect(controller.screenState.iCloudSyncStatus == .syncing)
         #expect(appState.iCloudSyncStatus == .syncing)
         #expect(
-            syncItem == .statusRow(
+            syncToggle == .toggle(
+                SettingsToggleItemPresentation(
+                    id: .useICloudSync,
+                    title: "Enable iCloud Sync",
+                    subtitle: "Applies on next launch. The app will rebuild its sync container and try to use iCloud for supported data.",
+                    isOn: true
+                )
+            )
+        )
+        #expect(
+            syncStatusItem == .statusRow(
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
-                    title: "iCloud Sync",
+                    title: "Current Status",
                     subtitle: "Changes are currently syncing with iCloud.",
                     valueTitle: "Syncing"
                 )
@@ -174,6 +185,27 @@ struct SettingsScreenControllerTests {
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead == false)
         #expect(persistedSettings.askBeforeMarkingAllAsRead == false)
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedICloudSyncPreferenceThroughSettingsService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+        #expect(controller.screenState.settingsSnapshot.useiCloudSync == false)
+
+        controller.handleToggleValueChange(
+            itemID: .useICloudSync,
+            isOn: true,
+            dependencies: harness.dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.useiCloudSync)
+        #expect(persistedSettings.useiCloudSync)
+        #expect(controller.screenState.iCloudSyncStatus == .disabled)
     }
 
     @Test

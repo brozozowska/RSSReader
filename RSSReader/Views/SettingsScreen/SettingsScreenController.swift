@@ -62,6 +62,7 @@ final class SettingsScreenController {
             screenState.presentPicker(for: itemID)
         case .markAsReadOnOpen,
                 .askBeforeMarkingAllAsRead,
+                .useICloudSync,
                 .iCloudSyncStatus:
             return
         }
@@ -96,6 +97,7 @@ final class SettingsScreenController {
             )
         case .markAsReadOnOpen,
                 .askBeforeMarkingAllAsRead,
+                .useICloudSync,
                 .iCloudSyncStatus:
             return
         }
@@ -111,6 +113,8 @@ final class SettingsScreenController {
             updateMarkAsReadOnOpen(isOn: isOn, dependencies: dependencies)
         case .askBeforeMarkingAllAsRead:
             updateAskBeforeMarkingAllAsRead(isOn: isOn, dependencies: dependencies)
+        case .useICloudSync:
+            updateUseICloudSync(isOn: isOn, dependencies: dependencies)
         case .defaultReaderMode,
                 .articleSourceLinkOpeningPolicy,
                 .articleSortMode,
@@ -184,6 +188,25 @@ private extension SettingsScreenController {
             dependencies: dependencies,
             unavailableServiceLog: "App settings service is unavailable for ask-before-marking-all-as-read update",
             failureLogPrefix: "Failed to update ask-before-marking-all-as-read setting"
+        )
+    }
+
+    func updateUseICloudSync(
+        isOn: Bool,
+        dependencies: AppDependencies
+    ) {
+        guard screenState.settingsSnapshot.useiCloudSync != isOn else {
+            return
+        }
+
+        persistSettingsPatch(
+            AppSettingsPatch(
+                useiCloudSync: isOn,
+                updatedAt: .now
+            ),
+            dependencies: dependencies,
+            unavailableServiceLog: "App settings service is unavailable for iCloud sync preference update",
+            failureLogPrefix: "Failed to update iCloud sync preference"
         )
     }
 

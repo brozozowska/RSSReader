@@ -17,6 +17,7 @@ enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
     case articleSortMode
     case askBeforeMarkingAllAsRead
     case refreshInterval
+    case useICloudSync
     case iCloudSyncStatus
     case articleBodyLinkOpeningPolicy
     case appearance
@@ -32,6 +33,7 @@ struct SettingsScreenInput: Equatable, Sendable {
     var articleListSortOrder: ArticleListSortOrder
     var askBeforeMarkingAllAsRead: Bool
     var refreshIntervalPreference: RefreshPreference
+    var useiCloudSync: Bool
     var iCloudSyncStatus: ICloudSyncStatus
     var interfaceThemeMode: InterfaceThemeMode
 
@@ -43,6 +45,7 @@ struct SettingsScreenInput: Equatable, Sendable {
         articleListSortOrder: ArticleListSortOrder = .newestFirst,
         askBeforeMarkingAllAsRead: Bool = true,
         refreshIntervalPreference: RefreshPreference = .manual,
+        useiCloudSync: Bool = false,
         iCloudSyncStatus: ICloudSyncStatus = .disabled,
         interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
     ) {
@@ -53,6 +56,7 @@ struct SettingsScreenInput: Equatable, Sendable {
         self.articleListSortOrder = articleListSortOrder
         self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         self.refreshIntervalPreference = refreshIntervalPreference
+        self.useiCloudSync = useiCloudSync
         self.iCloudSyncStatus = iCloudSyncStatus
         self.interfaceThemeMode = interfaceThemeMode
     }
@@ -141,6 +145,7 @@ enum SettingsScreenInputBuilder {
             articleListSortOrder: ArticleListSortOrder(sortMode: snapshot.sortMode),
             askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
             refreshIntervalPreference: snapshot.refreshIntervalPreference,
+            useiCloudSync: snapshot.useiCloudSync,
             iCloudSyncStatus: iCloudSyncStatus,
             interfaceThemeMode: snapshot.interfaceThemeMode
         )
@@ -286,12 +291,20 @@ enum SettingsScreenPresentationBuilder {
         return SettingsScreenSectionPresentation(
             id: .sync,
             title: "Sync",
-            footer: syncScope.settingsSectionFooter(readingScenario: readingScenario),
+            footer: syncSectionFooter(input: input, syncScope: syncScope, readingScenario: readingScenario),
             items: [
+                .toggle(
+                    SettingsToggleItemPresentation(
+                        id: .useICloudSync,
+                        title: "Enable iCloud Sync",
+                        subtitle: iCloudSyncPreferenceSubtitle(input.useiCloudSync),
+                        isOn: input.useiCloudSync
+                    )
+                ),
                 .statusRow(
                     SettingsStatusRowItemPresentation(
                         id: .iCloudSyncStatus,
-                        title: "iCloud Sync",
+                        title: "Current Status",
                         subtitle: iCloudSyncStatusSubtitle(input.iCloudSyncStatus),
                         valueTitle: iCloudSyncStatusTitle(input.iCloudSyncStatus)
                     )
@@ -393,6 +406,14 @@ enum SettingsScreenPresentationBuilder {
         }
     }
 
+    private static func iCloudSyncPreferenceSubtitle(_ isEnabled: Bool) -> String {
+        if isEnabled {
+            return "Applies on next launch. The app will rebuild its sync container and try to use iCloud for supported data."
+        }
+
+        return "Applies on next launch. Supported sync data will stay only on this device until iCloud sync is enabled again."
+    }
+
     private static func iCloudSyncStatusTitle(_ status: ICloudSyncStatus) -> String {
         switch status {
         case .disabled:
@@ -411,9 +432,9 @@ enum SettingsScreenPresentationBuilder {
     private static func iCloudSyncStatusSubtitle(_ status: ICloudSyncStatus) -> String {
         switch status {
         case .disabled:
-            "Sync is currently turned off in settings."
+            "The current app session is running without iCloud sync."
         case .statusUnavailable:
-            "Sync is enabled, but CloudKit wiring and app-level account status are not implemented yet."
+            "This session is configured for sync, but CloudKit runtime wiring and account status are not implemented yet."
         case .idle:
             "iCloud sync is available and waiting for the next sync event."
         case .syncing:
@@ -421,5 +442,16 @@ enum SettingsScreenPresentationBuilder {
         case .failed(let message):
             message
         }
+    }
+
+    private static func syncSectionFooter(
+        input: SettingsScreenInput,
+        syncScope: CloudKitSyncScope,
+        readingScenario: CrossDeviceReadingScenario
+    ) -> String {
+        let scopeFooter = syncScope.settingsSectionFooter(readingScenario: readingScenario)
+        let relaunchFooter = "Changing the sync preference applies on the next app launch because the model container must be rebuilt for the selected sync policy."
+
+        return "\(scopeFooter) \(relaunchFooter)"
     }
 }

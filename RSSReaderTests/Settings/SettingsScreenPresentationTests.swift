@@ -132,11 +132,19 @@ struct SettingsScreenPresentationTests {
         )
         #expect(
             syncItems == [
+                .toggle(
+                    SettingsToggleItemPresentation(
+                        id: .useICloudSync,
+                        title: "Enable iCloud Sync",
+                        subtitle: "Applies on next launch. The app will rebuild its sync container and try to use iCloud for supported data.",
+                        isOn: true
+                    )
+                ),
                 .statusRow(
                     SettingsStatusRowItemPresentation(
                         id: .iCloudSyncStatus,
-                        title: "iCloud Sync",
-                        subtitle: "Sync is enabled, but CloudKit wiring and app-level account status are not implemented yet.",
+                        title: "Current Status",
+                        subtitle: "This session is configured for sync, but CloudKit runtime wiring and account status are not implemented yet.",
                         valueTitle: "Status Unavailable"
                     )
                 )
@@ -211,6 +219,7 @@ struct SettingsScreenPresentationTests {
         #expect(input.articleListSortOrder == .oldestFirst)
         #expect(input.askBeforeMarkingAllAsRead == false)
         #expect(input.refreshIntervalPreference == .every6Hours)
+        #expect(input.useiCloudSync)
         #expect(input.iCloudSyncStatus == .syncing)
         #expect(input.interfaceThemeMode == .black)
     }
