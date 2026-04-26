@@ -348,14 +348,19 @@
 - [x] перевести `SyncBackedStore` с `.none` на explicit private CloudKit database policy и проверить, что `ModelContainer` поднимается с активным CloudKit-backed configuration только для sync-backed моделей;
 
 #### Sync Runtime
-- [ ] определить app-level policy для sync enablement и `useiCloudSync`: зафиксировать, как persisted user intent влияет на создание sync-backed store и как приложение ведёт себя при выключенном sync;
-- [ ] реализовать проверку iCloud account availability через runtime account status APIs и выделить отдельные состояния `available`, `noAccount`, `restricted`, `temporarilyUnavailable` и `couldNotDetermine`;
+- [x] зафиксировать source of truth для sync enablement и `useiCloudSync`: persisted setting `AppSettings.useiCloudSync` остаётся пользовательской app-level boot preference; первый запуск идёт в disabled state по дефолтному `false`; при выключенном sync sync-backed store продолжает жить локально, но поднимается без `CloudKit`; изменение настройки требует нового app launch / `ModelContainer` rebuild, а не мгновенного runtime-переключения policy;
+- [ ] довести `Settings Screen` contract для sync enablement до явного UX-решения: если `useiCloudSync` остаётся, экран должен уметь редактировать этот intent как app-level настройку; если нет, нужно убрать рассинхронизацию между persisted setting, status row и runtime policy;
+- [ ] подключить `AppComposition` / `AppDependencies.makeWithSwiftData` к policy sync enablement, чтобы `sync-backed` store поднимался либо с private `CloudKit`, либо с `.none`, а runtime поведение не расходилось с persisted user intent;
+- [ ] реализовать runtime account availability adapter через `CKContainer.accountStatus()` и `CKAccountChanged`, выделив отдельные состояния `available`, `noAccount`, `restricted`, `temporarilyUnavailable` и `couldNotDetermine`;
+- [ ] выделить `CloudKit` runtime event source на базе `NSPersistentCloudKitContainer.eventChangedNotification`, чтобы приложение различало `setup`, `import`, `export`, активную синхронизацию и runtime failures, а не опиралось на абстрактный placeholder store status;
 - [ ] создать базовый `SyncCoordinator` как app-level orchestration layer для CloudKit/SwiftData sync lifecycle и единственную точку владения runtime sync state;
-- [ ] подключить runtime account status и store status к `SyncCoordinator`, чтобы coordinator умел различать disabled state, account problems, активную синхронизацию и runtime failures;
+- [ ] подключить account availability и `CloudKit` events к `SyncCoordinator`, чтобы coordinator различал disabled state, account problems, setup/import/export activity и runtime failures;
+- [ ] подключить `SyncCoordinator` к `AppDependencies` и `AppComposition`, чтобы coordinator имел app-level lifetime и стал единым runtime source для status service, shell state и последующих reload consumers;
 - [ ] заменить текущий placeholder `ICloudSyncStatusService` на реализацию, которая читает фактический runtime state из `SyncCoordinator` и account/store context;
-- [ ] расширить account/status UX для sync: `Settings Screen` должен показывать понятные статусы отсутствия iCloud account, необходимости входа в `Apple ID`, restricted/temporarily unavailable cases и не требовать отдельную учётную запись приложения;
-- [ ] подключить `SyncCoordinator` и runtime sync status к `AppState` и `AppComposition`, чтобы shell-level state обновлялся из реального sync lifecycle, а не только из persisted intent;
-- [ ] реализовать app-level reload triggers после remote sync, чтобы изменения из CloudKit обновляли `Sidebar`, `Articles`, `Article Screen` и другие screen-level controller flows.
+- [ ] расширить account/status UX для sync: `Settings Screen` должен показывать понятные статусы отсутствия iCloud account, необходимости входа в `Apple ID`, restricted/temporarilyUnavailable cases и не требовать отдельную учётную запись приложения;
+- [ ] подключить runtime sync status из `SyncCoordinator` к `AppState` и shell-level state, чтобы UI обновлялся из реального sync lifecycle, а не только из persisted intent;
+- [ ] реализовать app-level reload triggers именно для `CloudKit import` / remote sync path на базе `NSPersistentStoreRemoteChange` и завершения import-событий, чтобы изменения из CloudKit обновляли `Sidebar`, `Articles`, `Article Screen` и другие screen-level controller flows отдельно от reload behavior следующего эпика `Background Refresh`;
+- [ ] добавить unit/integration tests для `SyncCoordinator`, account status mapping, `CloudKit` event mapping и remote reload wiring, чтобы следующий блок `Sync Validation` проверял уже стабилизированный runtime contract.
 
 #### Sync Validation
 - [ ] проверить sync для `Feed`: добавление, изменение и удаление источников на одном устройстве должны переноситься на второе устройство;
