@@ -20,7 +20,7 @@ enum CloudKitRuntimeEvent: Equatable, Sendable {
     case failed(CloudKitRuntimeActivity, CloudKitRuntimeEventContext, String?)
 }
 
-protocol CloudKitRuntimeEventSource {
+protocol CloudKitRuntimeEventSource: Sendable {
     func events() -> AsyncStream<CloudKitRuntimeEvent>
 }
 
@@ -36,7 +36,7 @@ protocol PersistentCloudKitEventRepresenting {
 
 extension NSPersistentCloudKitContainer.Event: PersistentCloudKitEventRepresenting {}
 
-struct DefaultCloudKitRuntimeEventSource: CloudKitRuntimeEventSource {
+struct DefaultCloudKitRuntimeEventSource: CloudKitRuntimeEventSource, @unchecked Sendable {
     private let notificationCenter: NotificationCenter
     private let eventChangedNotification: Notification.Name
     private let eventNotificationUserInfoKey: String

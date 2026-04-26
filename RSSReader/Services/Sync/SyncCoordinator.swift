@@ -77,6 +77,8 @@ final class SyncCoordinator {
     private var activeActivity: CloudKitRuntimeActivity?
     private var lastFailure: SyncRuntimeFailure?
     private var lastEventContext: CloudKitRuntimeEventContext?
+    private var accountAvailabilityObservationTask: Task<Void, Never>?
+    private var cloudKitRuntimeEventObservationTask: Task<Void, Never>?
 
     init(isSyncEnabled: Bool = false) {
         self.isSyncEnabled = isSyncEnabled
@@ -99,10 +101,52 @@ final class SyncCoordinator {
         runtimeState.iCloudSyncStatus
     }
 
+    func connectRuntimeSources(
+        accountAvailabilityService: any ICloudAccountAvailabilityService,
+        cloudKitRuntimeEventSource: any CloudKitRuntimeEventSource
+    ) {
+        disconnectRuntimeSources()
+        guard isSyncEnabled else {
+            recomputeRuntimeState()
+            return
+        }
+
+        accountAvailabilityObservationTask = Task { [weak self] in
+            let initialAvailability = await accountAvailabilityService.currentAvailability()
+            await MainActor.run {
+                self?.applyAccountAvailability(initialAvailability)
+            }
+
+            for await availability in accountAvailabilityService.availabilityChanges() {
+                guard Task.isCancelled == false else { return }
+                await MainActor.run {
+                    self?.applyAccountAvailability(availability)
+                }
+            }
+        }
+
+        cloudKitRuntimeEventObservationTask = Task { [weak self] in
+            for await runtimeEvent in cloudKitRuntimeEventSource.events() {
+                guard Task.isCancelled == false else { return }
+                await MainActor.run {
+                    self?.applyCloudKitRuntimeEvent(runtimeEvent)
+                }
+            }
+        }
+    }
+
+    func disconnectRuntimeSources() {
+        accountAvailabilityObservationTask?.cancel()
+        cloudKitRuntimeEventObservationTask?.cancel()
+        accountAvailabilityObservationTask = nil
+        cloudKitRuntimeEventObservationTask = nil
+    }
+
     func applySyncEnablement(isEnabled: Bool) {
         isSyncEnabled = isEnabled
 
         if isEnabled == false {
+            disconnectRuntimeSources()
             accountAvailability = nil
             activeActivity = nil
             lastFailure = nil

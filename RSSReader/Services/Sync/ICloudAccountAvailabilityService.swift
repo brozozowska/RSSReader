@@ -9,7 +9,7 @@ enum ICloudAccountAvailability: String, Equatable, Sendable {
     case couldNotDetermine
 }
 
-protocol ICloudAccountAvailabilityService {
+protocol ICloudAccountAvailabilityService: Sendable {
     func currentAvailability() async -> ICloudAccountAvailability
     func availabilityChanges() -> AsyncStream<ICloudAccountAvailability>
 }
@@ -20,7 +20,7 @@ protocol CloudKitAccountStatusQuerying {
 
 extension CKContainer: CloudKitAccountStatusQuerying {}
 
-struct DefaultICloudAccountAvailabilityService: ICloudAccountAvailabilityService {
+struct DefaultICloudAccountAvailabilityService: ICloudAccountAvailabilityService, @unchecked Sendable {
     private let accountStatusQuery: any CloudKitAccountStatusQuerying
     private let notificationCenter: NotificationCenter
     private let accountChangedNotification: Notification.Name
