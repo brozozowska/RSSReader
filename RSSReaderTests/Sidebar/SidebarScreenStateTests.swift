@@ -11,7 +11,8 @@ struct SidebarScreenStateTests {
 
         let viewState = state.derivedViewState(
             filter: .allItems,
-            expandedFolderNames: []
+            expandedFolderNames: [],
+            iCloudSyncStatus: .disabled
         )
 
         #expect(state.phase == .loading)
@@ -44,7 +45,8 @@ struct SidebarScreenStateTests {
 
         let viewState = state.derivedViewState(
             filter: .allItems,
-            expandedFolderNames: ["Tech"]
+            expandedFolderNames: ["Tech"],
+            iCloudSyncStatus: .disabled
         )
 
         #expect(state.phase == .loaded)

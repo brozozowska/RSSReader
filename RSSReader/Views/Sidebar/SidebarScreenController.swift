@@ -14,10 +14,14 @@ final class SidebarScreenController {
         self.isPreviewMode = previewScreenState != nil
     }
 
-    func viewState(filter: SourcesFilter) -> SidebarScreenDerivedViewState {
+    func viewState(
+        filter: SourcesFilter,
+        iCloudSyncStatus: ICloudSyncStatus
+    ) -> SidebarScreenDerivedViewState {
         screenState.derivedViewState(
             filter: filter,
-            expandedFolderNames: expandedFolderNames
+            expandedFolderNames: expandedFolderNames,
+            iCloudSyncStatus: iCloudSyncStatus
         )
     }
 

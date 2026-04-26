@@ -27,6 +27,19 @@ enum AppComposition {
 
         AppRootContainer(dependencies: deps)
     }
+
+    @MainActor
+    static func applyCurrentICloudSyncStatus(
+        from syncCoordinator: SyncCoordinator?,
+        to appState: AppState
+    ) {
+        guard let syncCoordinator else { return }
+
+        let resolvedStatus = syncCoordinator.iCloudSyncStatus
+        if appState.iCloudSyncStatus != resolvedStatus {
+            appState.applyICloudSyncStatus(resolvedStatus)
+        }
+    }
 }
 
 private struct AppRootContainer: View {
@@ -35,9 +48,21 @@ private struct AppRootContainer: View {
     @State private var hasRestoredPersistedAppSettings = false
 
     var body: some View {
+        let runtimeSyncStatus = dependencies.syncCoordinator?.iCloudSyncStatus
+
         content
         .task {
+            AppComposition.applyCurrentICloudSyncStatus(
+                from: dependencies.syncCoordinator,
+                to: appState
+            )
             await restorePersistedAppSettingsIfNeeded()
+        }
+        .onChange(of: runtimeSyncStatus) { _, _ in
+            AppComposition.applyCurrentICloudSyncStatus(
+                from: dependencies.syncCoordinator,
+                to: appState
+            )
         }
         .onChange(of: appState.selectedSourcesFilter) { _, newFilter in
             guard hasRestoredPersistedAppSettings else { return }

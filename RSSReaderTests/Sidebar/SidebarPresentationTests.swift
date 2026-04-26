@@ -137,4 +137,28 @@ struct SidebarPresentationTests {
         #expect(state.subtitle == expectedSubtitle)
         #expect(state.isSyncing == false)
     }
+
+    @Test
+    func sidebarToolbarStateUsesRuntimeSyncingStatusForShellToolbar() {
+        let refreshDate = Calendar.current.date(byAdding: .hour, value: -2, to: Date()) ?? Date()
+        let state = SidebarToolbarState(
+            refreshStatus: .idle(lastUpdatedAt: refreshDate),
+            iCloudSyncStatus: .syncing
+        )
+
+        #expect(state.subtitle == "Syncing...")
+        #expect(state.isSyncing)
+    }
+
+    @Test
+    func sidebarToolbarStateUsesRuntimeFailureStatusForShellToolbar() {
+        let refreshDate = Calendar.current.date(byAdding: .hour, value: -2, to: Date()) ?? Date()
+        let state = SidebarToolbarState(
+            refreshStatus: .idle(lastUpdatedAt: refreshDate),
+            iCloudSyncStatus: .failed("Setup failed.")
+        )
+
+        #expect(state.subtitle == "Sync failed")
+        #expect(state.isSyncing == false)
+    }
 }

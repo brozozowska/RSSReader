@@ -55,7 +55,8 @@ struct SidebarScreenState {
 
     func derivedViewState(
         filter: SourcesFilter,
-        expandedFolderNames: Set<String>
+        expandedFolderNames: Set<String>,
+        iCloudSyncStatus: ICloudSyncStatus
     ) -> SidebarScreenDerivedViewState {
         let visibleFeeds = SidebarFeedVisibility.filteredFeeds(
             feeds: feeds,
@@ -112,7 +113,10 @@ struct SidebarScreenState {
             shouldDisableScrolling: phase != .loaded,
             primaryLoadingState: primaryLoadingState,
             placeholder: placeholder,
-            toolbarState: SidebarToolbarState(refreshStatus: refreshStatus)
+            toolbarState: SidebarToolbarState(
+                refreshStatus: refreshStatus,
+                iCloudSyncStatus: iCloudSyncStatus
+            )
         )
     }
 
