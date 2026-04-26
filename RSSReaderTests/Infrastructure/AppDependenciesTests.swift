@@ -21,6 +21,13 @@ struct AppDependenciesTests {
     }
 
     @Test
+    func appDependenciesExposeCloudKitRuntimeEventSource() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+
+        _ = harness.dependencies.cloudKitRuntimeEventSource
+    }
+
+    @Test
     func appDependenciesBuildSwiftDataConfigurationsWithActiveCloudKitOnlyForSyncBackedStore() throws {
         let configurationPlan = AppDependencies.makeSwiftDataConfigurationPlan(
             modelPartition: AppPersistenceModelPartition.current,

@@ -30,6 +30,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let appSettingsService: (any AppSettingsService)?
     let backgroundRefreshService: (any BackgroundRefreshService)?
     let iCloudAccountAvailabilityService: any ICloudAccountAvailabilityService
+    let cloudKitRuntimeEventSource: any CloudKitRuntimeEventSource
     let iCloudSyncStatusService: (any ICloudSyncStatusService)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
     public let modelContainer: ModelContainer?
@@ -130,6 +131,7 @@ public final class AppDependencies: AppDependenciesProtocol {
             )
         }
         let iCloudAccountAvailabilityService = DefaultICloudAccountAvailabilityService()
+        let cloudKitRuntimeEventSource = DefaultCloudKitRuntimeEventSource()
         let iCloudSyncStatusService = appSettingsService.map { service in
             DefaultICloudSyncStatusService(appSettingsService: service)
         }
@@ -151,6 +153,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.appSettingsService = appSettingsService
         self.backgroundRefreshService = backgroundRefreshService
         self.iCloudAccountAvailabilityService = iCloudAccountAvailabilityService
+        self.cloudKitRuntimeEventSource = cloudKitRuntimeEventSource
         self.iCloudSyncStatusService = iCloudSyncStatusService
         self.feedFetchLogRepository = feedFetchLogRepository
         self.feedFetcher = resolvedFeedFetcher
