@@ -102,6 +102,47 @@ struct SettingsScreenControllerTests {
     }
 
     @Test
+    func settingsScreenControllerUsesSyncCoordinatorRuntimeStateForDetailedICloudAccountUX() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let syncCoordinator = SyncCoordinator(isSyncEnabled: true)
+        syncCoordinator.applyAccountAvailability(.noAccount)
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            httpClient: harness.httpClient,
+            modelContainer: harness.modelContainer,
+            syncCoordinator: syncCoordinator
+        )
+        let service = try #require(dependencies.appSettingsService)
+        _ = try service.saveSettings(
+            AppSettingsSnapshot(useiCloudSync: true),
+            updatedAt: .distantPast
+        )
+        let controller = SettingsScreenController()
+        let appState = AppState()
+
+        controller.loadSettings(dependencies: dependencies, appState: appState)
+
+        let syncSection = try #require(
+            controller.viewState().sections.first(where: { $0.id == .sync })
+        )
+        let syncStatusItem = try #require(syncSection.items.last)
+
+        #expect(controller.screenState.iCloudSyncStatus == .statusUnavailable)
+        #expect(controller.screenState.syncStatusPresentation == .noAccount)
+        #expect(appState.iCloudSyncStatus == .statusUnavailable)
+        #expect(
+            syncStatusItem == .statusRow(
+                SettingsStatusRowItemPresentation(
+                    id: .iCloudSyncStatus,
+                    title: "Current Status",
+                    subtitle: "Sign in to iCloud with the Apple ID used on this device to enable sync. RSSReader does not require a separate account.",
+                    valueTitle: "Sign In Required"
+                )
+            )
+        )
+    }
+
+    @Test
     func settingsScreenControllerPersistsUpdatedDefaultReaderModeThroughSettingsService() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)

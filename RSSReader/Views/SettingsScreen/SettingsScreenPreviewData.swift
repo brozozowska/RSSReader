@@ -8,8 +8,7 @@ import SwiftUI
     SettingsScreenPreviewContainer(
         screenState: .previewLoaded(
             snapshot: SettingsScreenPreviewFactory.loadedSnapshot,
-            input: SettingsScreenPreviewFactory.loadedInput,
-            iCloudSyncStatus: .statusUnavailable
+            input: SettingsScreenPreviewFactory.loadedInput
         )
     )
 }
@@ -49,7 +48,8 @@ private enum SettingsScreenPreviewFactory {
     )
     static let loadedInput = SettingsScreenInputBuilder.build(
         from: loadedSnapshot,
-        iCloudSyncStatus: .statusUnavailable
+        iCloudSyncStatus: .statusUnavailable,
+        syncStatusPresentation: .noAccount
     )
 
     @MainActor

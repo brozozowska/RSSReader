@@ -35,6 +35,7 @@ struct SettingsScreenInput: Equatable, Sendable {
     var refreshIntervalPreference: RefreshPreference
     var useiCloudSync: Bool
     var iCloudSyncStatus: ICloudSyncStatus
+    var syncStatusPresentation: SettingsSyncStatusPresentation
     var interfaceThemeMode: InterfaceThemeMode
 
     init(
@@ -47,6 +48,7 @@ struct SettingsScreenInput: Equatable, Sendable {
         refreshIntervalPreference: RefreshPreference = .manual,
         useiCloudSync: Bool = false,
         iCloudSyncStatus: ICloudSyncStatus = .disabled,
+        syncStatusPresentation: SettingsSyncStatusPresentation = .disabled,
         interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
     ) {
         self.defaultReaderMode = defaultReaderMode
@@ -58,7 +60,94 @@ struct SettingsScreenInput: Equatable, Sendable {
         self.refreshIntervalPreference = refreshIntervalPreference
         self.useiCloudSync = useiCloudSync
         self.iCloudSyncStatus = iCloudSyncStatus
+        self.syncStatusPresentation = syncStatusPresentation
         self.interfaceThemeMode = interfaceThemeMode
+    }
+}
+
+enum SettingsSyncStatusPresentation: Equatable, Sendable {
+    case disabled
+    case statusUnavailable
+    case checkingAccount
+    case ready
+    case syncing
+    case preparing
+    case importing
+    case uploading
+    case noAccount
+    case restricted
+    case temporarilyUnavailable
+    case couldNotDetermine
+    case failed(String)
+
+    init(iCloudSyncStatus: ICloudSyncStatus) {
+        switch iCloudSyncStatus {
+        case .disabled:
+            self = .disabled
+        case .statusUnavailable:
+            self = .statusUnavailable
+        case .idle:
+            self = .ready
+        case .syncing:
+            self = .syncing
+        case .failed(let message):
+            self = .failed(message)
+        }
+    }
+
+    init(runtimeState: SyncRuntimeState) {
+        switch runtimeState.phase {
+        case .disabled:
+            self = .disabled
+        case .statusUnavailable:
+            self = .checkingAccount
+        case .idle:
+            self = .ready
+        case .accountProblem(let availability):
+            switch availability {
+            case .available:
+                self = .ready
+            case .noAccount:
+                self = .noAccount
+            case .restricted:
+                self = .restricted
+            case .temporarilyUnavailable:
+                self = .temporarilyUnavailable
+            case .couldNotDetermine:
+                self = .couldNotDetermine
+            }
+        case .syncing(let activity):
+            switch activity {
+            case .setup:
+                self = .preparing
+            case .import:
+                self = .importing
+            case .export:
+                self = .uploading
+            }
+        case .failed(let failure):
+            self = .failed(failure.resolvedMessage)
+        }
+    }
+
+    var iCloudSyncStatus: ICloudSyncStatus {
+        switch self {
+        case .disabled:
+            return .disabled
+        case .statusUnavailable,
+                .checkingAccount,
+                .noAccount,
+                .restricted,
+                .temporarilyUnavailable,
+                .couldNotDetermine:
+            return .statusUnavailable
+        case .ready:
+            return .idle
+        case .syncing, .preparing, .importing, .uploading:
+            return .syncing
+        case .failed(let message):
+            return .failed(message)
+        }
     }
 }
 
@@ -135,9 +224,13 @@ struct SettingsStatusRowItemPresentation: Equatable, Sendable {
 enum SettingsScreenInputBuilder {
     static func build(
         from snapshot: AppSettingsSnapshot,
-        iCloudSyncStatus: ICloudSyncStatus = .disabled
+        iCloudSyncStatus: ICloudSyncStatus = .disabled,
+        syncStatusPresentation: SettingsSyncStatusPresentation? = nil
     ) -> SettingsScreenInput {
-        SettingsScreenInput(
+        let resolvedSyncStatusPresentation = syncStatusPresentation
+            ?? SettingsSyncStatusPresentation(iCloudSyncStatus: iCloudSyncStatus)
+
+        return SettingsScreenInput(
             defaultReaderMode: snapshot.defaultReaderMode,
             markAsReadOnOpen: snapshot.markAsReadOnOpen,
             articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
@@ -146,7 +239,8 @@ enum SettingsScreenInputBuilder {
             askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
             refreshIntervalPreference: snapshot.refreshIntervalPreference,
             useiCloudSync: snapshot.useiCloudSync,
-            iCloudSyncStatus: iCloudSyncStatus,
+            iCloudSyncStatus: resolvedSyncStatusPresentation.iCloudSyncStatus,
+            syncStatusPresentation: resolvedSyncStatusPresentation,
             interfaceThemeMode: snapshot.interfaceThemeMode
         )
     }
@@ -305,8 +399,8 @@ enum SettingsScreenPresentationBuilder {
                     SettingsStatusRowItemPresentation(
                         id: .iCloudSyncStatus,
                         title: "Current Status",
-                        subtitle: iCloudSyncStatusSubtitle(input.iCloudSyncStatus),
-                        valueTitle: iCloudSyncStatusTitle(input.iCloudSyncStatus)
+                        subtitle: iCloudSyncStatusSubtitle(input.syncStatusPresentation),
+                        valueTitle: iCloudSyncStatusTitle(input.syncStatusPresentation)
                     )
                 )
             ]
@@ -414,31 +508,63 @@ enum SettingsScreenPresentationBuilder {
         return "Applies on next launch. Supported sync data will stay only on this device until iCloud sync is enabled again."
     }
 
-    private static func iCloudSyncStatusTitle(_ status: ICloudSyncStatus) -> String {
+    private static func iCloudSyncStatusTitle(_ status: SettingsSyncStatusPresentation) -> String {
         switch status {
         case .disabled:
             "Off"
         case .statusUnavailable:
             "Status Unavailable"
-        case .idle:
+        case .checkingAccount:
+            "Checking"
+        case .ready:
             "Ready"
         case .syncing:
             "Syncing"
+        case .preparing:
+            "Preparing"
+        case .importing:
+            "Importing"
+        case .uploading:
+            "Uploading"
+        case .noAccount:
+            "Sign In Required"
+        case .restricted:
+            "Restricted"
+        case .temporarilyUnavailable:
+            "Temporarily Unavailable"
+        case .couldNotDetermine:
+            "Account Unavailable"
         case .failed:
             "Error"
         }
     }
 
-    private static func iCloudSyncStatusSubtitle(_ status: ICloudSyncStatus) -> String {
+    private static func iCloudSyncStatusSubtitle(_ status: SettingsSyncStatusPresentation) -> String {
         switch status {
         case .disabled:
             "The current app session is running without iCloud sync."
         case .statusUnavailable:
-            "This session is configured for sync, but CloudKit runtime wiring and account status are not implemented yet."
-        case .idle:
-            "iCloud sync is available and waiting for the next sync event."
+            "The current app session could not read the live iCloud sync status."
+        case .checkingAccount:
+            "The app is checking the current iCloud account and CloudKit session status."
+        case .ready:
+            "iCloud sync is available for the Apple ID currently signed in on this device."
         case .syncing:
             "Changes are currently syncing with iCloud."
+        case .preparing:
+            "The app is preparing the iCloud sync session for supported data."
+        case .importing:
+            "Changes from iCloud are currently being applied on this device."
+        case .uploading:
+            "Changes from this device are currently being uploaded to iCloud."
+        case .noAccount:
+            "Sign in to iCloud with the Apple ID used on this device to enable sync. RSSReader does not require a separate account."
+        case .restricted:
+            "This device cannot use iCloud right now because account changes or CloudKit access are restricted."
+        case .temporarilyUnavailable:
+            "The current iCloud account is temporarily unavailable. Try again later."
+        case .couldNotDetermine:
+            "The app could not determine the current iCloud account status. Check the device Apple ID and iCloud availability, then try again."
         case .failed(let message):
             message
         }
@@ -450,8 +576,9 @@ enum SettingsScreenPresentationBuilder {
         readingScenario: CrossDeviceReadingScenario
     ) -> String {
         let scopeFooter = syncScope.settingsSectionFooter(readingScenario: readingScenario)
+        let accountFooter = "RSSReader uses the Apple ID already signed in to this device for iCloud sync and does not require a separate app account."
         let relaunchFooter = "Changing the sync preference applies on the next app launch because the model container must be rebuilt for the selected sync policy."
 
-        return "\(scopeFooter) \(relaunchFooter)"
+        return "\(scopeFooter) \(accountFooter) \(relaunchFooter)"
     }
 }
