@@ -137,8 +137,8 @@ public final class AppDependencies: AppDependenciesProtocol {
         }
         let iCloudAccountAvailabilityService = iCloudAccountAvailabilityService ?? DefaultICloudAccountAvailabilityService()
         let cloudKitRuntimeEventSource = cloudKitRuntimeEventSource ?? DefaultCloudKitRuntimeEventSource()
-        let iCloudSyncStatusService = appSettingsService.map { service in
-            DefaultICloudSyncStatusService(appSettingsService: service)
+        let iCloudSyncStatusService = syncCoordinator.map { syncCoordinator in
+            DefaultICloudSyncStatusService(syncCoordinator: syncCoordinator)
         }
 
         self.logger = logger
