@@ -172,16 +172,21 @@ public extension AppDependencies {
 extension AppDependencies {
     static func makeSwiftDataConfigurationPlan(
         modelPartition: AppPersistenceModelPartition,
-        isStoredInMemoryOnly: Bool
+        isStoredInMemoryOnly: Bool,
+        syncBackedCloudKitPolicy: AppPersistenceCloudKitPolicy = CloudKitContainerConfiguration.syncBackedDatabasePolicy
     ) -> AppPersistenceConfigurationPlan {
         AppPersistenceConfigurationPlan.make(
             modelPartition: modelPartition,
             isStoredInMemoryOnly: isStoredInMemoryOnly,
-            syncBackedCloudKitPolicy: CloudKitContainerConfiguration.syncBackedDatabasePolicy
+            syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
         )
     }
 
-    static func makeWithSwiftData(modelPartition: AppPersistenceModelPartition) -> AppDependencies {
+    @MainActor
+    static func makeWithSwiftData(
+        modelPartition: AppPersistenceModelPartition,
+        syncEnablementPolicy: AppSyncEnablementPolicy
+    ) -> AppDependencies {
 #if DEBUG
         let baseLogger = OSLogger(category: "app")
         let logger: Logging = FilteredLogger(minLevel: .debug, base: baseLogger)
@@ -189,16 +194,78 @@ extension AppDependencies {
         let baseLogger = OSLogger(category: "app")
         let logger: Logging = FilteredLogger(minLevel: .info, base: baseLogger)
 #endif
+
+        let bootstrapSettingsSnapshot = makeSyncEnablementBootstrapSettingsSnapshot(
+            modelPartition: modelPartition,
+            logger: logger
+        )
+        let syncBackedCloudKitPolicy = resolveSyncBackedCloudKitPolicy(
+            syncEnablementPolicy: syncEnablementPolicy,
+            bootstrapSettingsSnapshot: bootstrapSettingsSnapshot
+        )
+        let modelContainer = try? makeModelContainer(
+            modelPartition: modelPartition,
+            isStoredInMemoryOnly: false,
+            syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
+        )
+        return AppDependencies(logger: logger, modelContainer: modelContainer)
+    }
+}
+
+extension AppDependencies {
+    static func resolveSyncBackedCloudKitPolicy(
+        syncEnablementPolicy: AppSyncEnablementPolicy,
+        bootstrapSettingsSnapshot: AppSettingsSnapshot?
+    ) -> AppPersistenceCloudKitPolicy {
+        syncEnablementPolicy.syncBackedCloudKitPolicy(for: bootstrapSettingsSnapshot)
+    }
+
+    @MainActor
+    static func fetchSyncEnablementBootstrapSettings(
+        from modelContainer: ModelContainer
+    ) throws -> AppSettingsSnapshot? {
+        let repository = SwiftDataAppSettingsRepository(modelContext: modelContainer.mainContext)
+        guard let settings = try repository.fetch() else {
+            return nil
+        }
+
+        return AppSettingsSnapshot(settings: settings)
+    }
+
+    private static func makeModelContainer(
+        modelPartition: AppPersistenceModelPartition,
+        isStoredInMemoryOnly: Bool,
+        syncBackedCloudKitPolicy: AppPersistenceCloudKitPolicy
+    ) throws -> ModelContainer {
         let schema = modelPartition.schema
         let configurationPlan = makeSwiftDataConfigurationPlan(
             modelPartition: modelPartition,
-            isStoredInMemoryOnly: false
+            isStoredInMemoryOnly: isStoredInMemoryOnly,
+            syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
         )
-        let modelContainer = try? ModelContainer(
+
+        return try ModelContainer(
             for: schema,
             configurations: configurationPlan.modelContainerConfigurations
         )
-        return AppDependencies(logger: logger, modelContainer: modelContainer)
+    }
+
+    @MainActor
+    private static func makeSyncEnablementBootstrapSettingsSnapshot(
+        modelPartition: AppPersistenceModelPartition,
+        logger: Logging
+    ) -> AppSettingsSnapshot? {
+        do {
+            let bootstrapContainer = try makeModelContainer(
+                modelPartition: modelPartition,
+                isStoredInMemoryOnly: false,
+                syncBackedCloudKitPolicy: .disabled
+            )
+            return try fetchSyncEnablementBootstrapSettings(from: bootstrapContainer)
+        } catch {
+            logger.error("Failed to resolve sync enablement bootstrap settings: \(error)")
+            return nil
+        }
     }
 }
 

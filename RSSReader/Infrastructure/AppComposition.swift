@@ -7,14 +7,19 @@ import Observation
 /// - Parameter modelPartition: Partition SwiftData моделей. Если `nil` — контейнер не создаётся.
 enum AppComposition {
     static let persistenceModelPartition = AppPersistenceModelPartition.current
+    static let syncEnablementPolicy = AppSyncEnablementPolicy.current
     static let syncBackedModels = persistenceModelPartition.syncBackedModels
     static let localOnlyModels = persistenceModelPartition.localOnlyModels
     static let appModels = persistenceModelPartition.allModels
 
+    @MainActor
     @ViewBuilder
     static func makeRoot(modelPartition: AppPersistenceModelPartition? = nil) -> some View {
         let deps: AppDependencies = modelPartition.map {
-            AppDependencies.makeWithSwiftData(modelPartition: $0)
+            AppDependencies.makeWithSwiftData(
+                modelPartition: $0,
+                syncEnablementPolicy: syncEnablementPolicy
+            )
         } ?? AppDependencies.makeDefault()
 
         AppRootContainer(dependencies: deps)
