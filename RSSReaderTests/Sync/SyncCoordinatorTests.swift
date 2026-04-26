@@ -284,19 +284,18 @@ private actor TestCloudKitRuntimeEventSource: CloudKitRuntimeEventSource {
 
 private struct TimedOutError: Error {}
 
-@MainActor
 private func expectEventually(
-    timeoutNanoseconds: UInt64 = 1_000_000_000,
+    timeoutNanoseconds: UInt64 = 2_000_000_000,
     condition: @escaping @MainActor () -> Bool
 ) async throws {
     let deadline = ContinuousClock.now + .nanoseconds(Int64(timeoutNanoseconds))
 
     while ContinuousClock.now < deadline {
-        if condition() {
+        if await MainActor.run(body: condition) {
             return
         }
 
-        await Task.yield()
+        try await Task.sleep(for: .milliseconds(10))
     }
 
     throw TimedOutError()

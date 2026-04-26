@@ -31,16 +31,21 @@ public final class AppDependencies: AppDependenciesProtocol {
     let backgroundRefreshService: (any BackgroundRefreshService)?
     let iCloudAccountAvailabilityService: any ICloudAccountAvailabilityService
     let cloudKitRuntimeEventSource: any CloudKitRuntimeEventSource
+    let syncCoordinator: SyncCoordinator?
     let iCloudSyncStatusService: (any ICloudSyncStatusService)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
     public let modelContainer: ModelContainer?
+    private var hasStartedSyncCoordinatorAppLifetime = false
 
-    public init(
+    init(
         logger: Logging,
         httpClient: any HTTPClient = URLSessionHTTPClient(),
         feedFetcher: (any FeedFetching)? = nil,
         sourceIconCache: (any SourceIconCaching)? = nil,
-        modelContainer: ModelContainer? = nil
+        modelContainer: ModelContainer? = nil,
+        iCloudAccountAvailabilityService: (any ICloudAccountAvailabilityService)? = nil,
+        cloudKitRuntimeEventSource: (any CloudKitRuntimeEventSource)? = nil,
+        syncCoordinator: SyncCoordinator? = nil
     ) {
         let feedRepository = modelContainer.map { container in
             SwiftDataFeedRepository(modelContext: container.mainContext)
@@ -130,8 +135,8 @@ public final class AppDependencies: AppDependenciesProtocol {
                 feedRefreshService: feedRefreshService
             )
         }
-        let iCloudAccountAvailabilityService = DefaultICloudAccountAvailabilityService()
-        let cloudKitRuntimeEventSource = DefaultCloudKitRuntimeEventSource()
+        let iCloudAccountAvailabilityService = iCloudAccountAvailabilityService ?? DefaultICloudAccountAvailabilityService()
+        let cloudKitRuntimeEventSource = cloudKitRuntimeEventSource ?? DefaultCloudKitRuntimeEventSource()
         let iCloudSyncStatusService = appSettingsService.map { service in
             DefaultICloudSyncStatusService(appSettingsService: service)
         }
@@ -154,6 +159,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.backgroundRefreshService = backgroundRefreshService
         self.iCloudAccountAvailabilityService = iCloudAccountAvailabilityService
         self.cloudKitRuntimeEventSource = cloudKitRuntimeEventSource
+        self.syncCoordinator = syncCoordinator
         self.iCloudSyncStatusService = iCloudSyncStatusService
         self.feedFetchLogRepository = feedFetchLogRepository
         self.feedFetcher = resolvedFeedFetcher
@@ -161,7 +167,7 @@ public final class AppDependencies: AppDependenciesProtocol {
 }
 
 // MARK: - Factory
-public extension AppDependencies {
+extension AppDependencies {
     static func makeDefault() -> AppDependencies {
 #if DEBUG
         let baseLogger = OSLogger(category: "app")
@@ -171,6 +177,18 @@ public extension AppDependencies {
         let logger: Logging = FilteredLogger(minLevel: .info, base: baseLogger)
 #endif
         return AppDependencies(logger: logger)
+    }
+
+    @MainActor
+    static func makeDefault(syncCoordinator: SyncCoordinator) -> AppDependencies {
+#if DEBUG
+        let baseLogger = OSLogger(category: "app")
+        let logger: Logging = FilteredLogger(minLevel: .debug, base: baseLogger)
+#else
+        let baseLogger = OSLogger(category: "app")
+        let logger: Logging = FilteredLogger(minLevel: .info, base: baseLogger)
+#endif
+        return AppDependencies(logger: logger, syncCoordinator: syncCoordinator)
     }
 
 }
@@ -193,6 +211,20 @@ extension AppDependencies {
         modelPartition: AppPersistenceModelPartition,
         syncEnablementPolicy: AppSyncEnablementPolicy
     ) -> AppDependencies {
+        let syncCoordinator = SyncCoordinator()
+        return makeWithSwiftData(
+            modelPartition: modelPartition,
+            syncEnablementPolicy: syncEnablementPolicy,
+            syncCoordinator: syncCoordinator
+        )
+    }
+
+    @MainActor
+    static func makeWithSwiftData(
+        modelPartition: AppPersistenceModelPartition,
+        syncEnablementPolicy: AppSyncEnablementPolicy,
+        syncCoordinator: SyncCoordinator
+    ) -> AppDependencies {
 #if DEBUG
         let baseLogger = OSLogger(category: "app")
         let logger: Logging = FilteredLogger(minLevel: .debug, base: baseLogger)
@@ -214,7 +246,11 @@ extension AppDependencies {
             isStoredInMemoryOnly: false,
             syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
         )
-        return AppDependencies(logger: logger, modelContainer: modelContainer)
+        return AppDependencies(
+            logger: logger,
+            modelContainer: modelContainer,
+            syncCoordinator: syncCoordinator
+        )
     }
 }
 
@@ -271,6 +307,37 @@ extension AppDependencies {
         } catch {
             logger.error("Failed to resolve sync enablement bootstrap settings: \(error)")
             return nil
+        }
+    }
+}
+
+extension AppDependencies {
+    @MainActor
+    func startSyncCoordinatorAppLifetime() {
+        guard hasStartedSyncCoordinatorAppLifetime == false else { return }
+        hasStartedSyncCoordinatorAppLifetime = true
+
+        guard let syncCoordinator else { return }
+
+        let isSyncEnabled = resolveInitialSyncEnablementForCoordinator()
+        syncCoordinator.applySyncEnablement(isEnabled: isSyncEnabled)
+        syncCoordinator.connectRuntimeSources(
+            accountAvailabilityService: iCloudAccountAvailabilityService,
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource
+        )
+    }
+
+    @MainActor
+    private func resolveInitialSyncEnablementForCoordinator() -> Bool {
+        guard let appSettingsService else {
+            return false
+        }
+
+        do {
+            return try appSettingsService.fetchSettings().useiCloudSync
+        } catch {
+            logger.error("Failed to resolve initial sync enablement for SyncCoordinator: \(error)")
+            return false
         }
     }
 }

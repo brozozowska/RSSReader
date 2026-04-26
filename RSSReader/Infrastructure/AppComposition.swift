@@ -15,12 +15,15 @@ enum AppComposition {
     @MainActor
     @ViewBuilder
     static func makeRoot(modelPartition: AppPersistenceModelPartition? = nil) -> some View {
+        let syncCoordinator = SyncCoordinator()
         let deps: AppDependencies = modelPartition.map {
             AppDependencies.makeWithSwiftData(
                 modelPartition: $0,
-                syncEnablementPolicy: syncEnablementPolicy
+                syncEnablementPolicy: syncEnablementPolicy,
+                syncCoordinator: syncCoordinator
             )
-        } ?? AppDependencies.makeDefault()
+        } ?? AppDependencies.makeDefault(syncCoordinator: syncCoordinator)
+        let _ = deps.startSyncCoordinatorAppLifetime()
 
         AppRootContainer(dependencies: deps)
     }
