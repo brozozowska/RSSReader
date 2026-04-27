@@ -36,7 +36,7 @@ enum CloudKitDevelopmentSchemaBootstrap {
     }
 
     static func makeDecision(
-        audit: CloudKitCompatibilityAudit = .appSettingsFeedFolder,
+        audit: CloudKitCompatibilityAudit = .currentSyncBackedModelSet,
         modelPartition: AppPersistenceModelPartition = .current,
         containerIdentifier: String = CloudKitContainerConfiguration.containerIdentifier,
         syncBackedPolicy: AppPersistenceCloudKitPolicy = CloudKitContainerConfiguration.syncBackedDatabasePolicy

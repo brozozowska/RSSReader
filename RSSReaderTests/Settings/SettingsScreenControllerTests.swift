@@ -361,4 +361,25 @@ struct SettingsScreenControllerTests {
             )
         )
     }
+
+    @Test
+    func settingsScreenControllerShowsModelContainerBootstrapFailureWhenAvailable() {
+        let controller = SettingsScreenController()
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            modelContainerBootstrapFailureDescription: "The app could not initialize its data store for the current sync configuration."
+        )
+
+        controller.loadSettings(dependencies: dependencies)
+
+        #expect(controller.viewState().sections.isEmpty)
+        #expect(
+            controller.viewState().placeholder == SettingsScreenPlaceholderState(
+                title: "Unable to Load Settings",
+                systemImage: "exclamationmark.triangle",
+                description: "The app could not initialize its data store for the current sync configuration.",
+                actionTitle: "Retry"
+            )
+        )
+    }
 }

@@ -120,6 +120,53 @@ struct AppDependenciesTests {
     }
 
     @Test
+    func appDependenciesBootstrapFailureDescriptionIncludesNSErrorContext() {
+        let underlyingError = NSError(
+            domain: "NSCocoaErrorDomain",
+            code: 134060,
+            userInfo: [
+                NSLocalizedDescriptionKey: "Persistent store failed to load."
+            ]
+        )
+        let topLevelError = NSError(
+            domain: "SwiftData.SwiftDataError",
+            code: 1,
+            userInfo: [
+                NSUnderlyingErrorKey: underlyingError
+            ]
+        )
+
+        let description = AppDependencies.makeModelContainerBootstrapFailureDescription(
+            for: topLevelError,
+            syncBackedCloudKitPolicy: .privateContainer("iCloud.ru.brozozowska.RSSReader")
+        )
+
+        #expect(description.contains("privateContainer(\"iCloud.ru.brozozowska.RSSReader\")"))
+        #expect(description.contains("Error: domain=SwiftData.SwiftDataError code=1"))
+        #expect(description.contains("Underlying error 1: domain=NSCocoaErrorDomain code=134060"))
+        #expect(description.contains("Persistent store failed to load."))
+    }
+
+    @Test
+    func appDependenciesBootstrapFailureDescriptionAppendsPersistentStoreProbeDetails() {
+        let error = NSError(
+            domain: "SwiftData.SwiftDataError",
+            code: 1,
+            userInfo: [:]
+        )
+
+        let description = AppDependencies.makeModelContainerBootstrapFailureDescription(
+            for: error,
+            syncBackedCloudKitPolicy: .privateContainer("iCloud.ru.brozozowska.RSSReader"),
+            persistentStoreProbeFailureDescription: "Error: domain=NSCocoaErrorDomain code=134060 localizedDescription=Persistent store probe failed. userInfo={}"
+        )
+
+        #expect(description.contains("Persistent store probe:"))
+        #expect(description.contains("domain=NSCocoaErrorDomain code=134060"))
+        #expect(description.contains("Persistent store probe failed."))
+    }
+
+    @Test
     func appDependenciesStartSyncCoordinatorAppLifetimeUsesPersistedSyncEnablementAndConnectsRuntimeSources() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let syncCoordinator = SyncCoordinator()

@@ -5,23 +5,23 @@ import SwiftData
 final class Feed {
     #Index<Feed>([\.isActive])
 
-    var id: UUID
-    var url: String
+    var id: UUID = UUID()
+    var url: String = ""
     var siteURL: String?
-    var title: String
+    var title: String = ""
     var subtitle: String?
     var iconURL: String?
     var language: String?
-    var kind: FeedKind
-    var isActive: Bool
+    var kind: FeedKind = FeedKind.unknown
+    var isActive: Bool = true
     var folder: Folder?
     var lastFetchedAt: Date?
     var lastSuccessfulFetchAt: Date?
     var lastETag: String?
     var lastModifiedHeader: String?
     var lastSyncError: String?
-    var createdAt: Date
-    var updatedAt: Date
+    var createdAt: Date = Date.now
+    var updatedAt: Date = Date.now
 
     init(
         id: UUID = UUID(),

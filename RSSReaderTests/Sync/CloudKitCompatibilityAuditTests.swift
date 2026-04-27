@@ -6,24 +6,27 @@ import Testing
 struct CloudKitCompatibilityAuditTests {
     @Test
     func cloudKitCompatibilityAuditTracksCleanSyncBackedModelSetAfterRelationshipMigration() throws {
-        let audit = CloudKitCompatibilityAudit.appSettingsFeedFolder
+        let audit = CloudKitCompatibilityAudit.currentSyncBackedModelSet
 
-        #expect(audit.reports.map(\.model) == [.appSettings, .feed, .folder])
+        #expect(audit.reports.map(\.model) == [.appSettings, .articleState, .feed, .folder])
 
         let appSettingsReport = try #require(audit.report(for: .appSettings))
+        let articleStateReport = try #require(audit.report(for: .articleState))
         let feedReport = try #require(audit.report(for: .feed))
         let folderReport = try #require(audit.report(for: .folder))
 
         #expect(appSettingsReport.hasBlockingFindings == false)
+        #expect(articleStateReport.hasBlockingFindings == false)
         #expect(feedReport.hasBlockingFindings == false)
         #expect(folderReport.hasBlockingFindings == false)
     }
 
     @Test
     func cloudKitCompatibilityAuditCapturesRepositoryManagedIdentityInvariants() throws {
-        let audit = CloudKitCompatibilityAudit.appSettingsFeedFolder
+        let audit = CloudKitCompatibilityAudit.currentSyncBackedModelSet
 
         let appSettingsReport = try #require(audit.report(for: .appSettings))
+        let articleStateReport = try #require(audit.report(for: .articleState))
         let feedReport = try #require(audit.report(for: .feed))
         let folderReport = try #require(audit.report(for: .folder))
 
@@ -47,6 +50,17 @@ struct CloudKitCompatibilityAuditTests {
             }
         )
         #expect(
+            articleStateReport.findings.contains {
+                $0.rule == .repositoryManagedIdentityInvariant
+                    && $0.affectedPaths == [
+                        "SwiftDataArticleStateRepository.fetchState(feedID:articleExternalID:)",
+                        "SwiftDataArticleStateRepository.fetchOrCreate(feedID:articleExternalID:)",
+                        "SwiftDataArticleStateRepository.fetchCanonicalState(feedID:articleExternalID:removeDuplicates:)",
+                        "SwiftDataArticleStateRepository.shouldApply(_:to:)"
+                    ]
+            }
+        )
+        #expect(
             folderReport.findings.contains {
                 $0.rule == .repositoryManagedIdentityInvariant
                     && $0.affectedPaths == [
@@ -56,6 +70,14 @@ struct CloudKitCompatibilityAuditTests {
                     ]
             }
         )
+    }
+
+    @Test
+    func cloudKitCompatibilityAuditMatchesCurrentSyncBackedPartitionWithoutDrift() {
+        let audit = CloudKitCompatibilityAudit.currentSyncBackedModelSet
+        let syncBackedScope = AppPersistenceModelPartition.current.syncBackedScopeModels
+
+        #expect(Set(audit.reports.map(\.model)) == syncBackedScope)
     }
 
     @Test

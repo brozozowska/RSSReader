@@ -5,20 +5,20 @@ import SwiftData
 final class AppSettings {
     static let singletonKeyValue = "app-settings"
 
-    var id: UUID
-    var singletonKey: String
-    var defaultReaderMode: ReaderMode
-    var selectedSourcesFilterRawValue: String?
-    var refreshIntervalPreference: RefreshPreference
-    var useiCloudSync: Bool
-    var markAsReadOnOpen: Bool
-    var askBeforeMarkingAllAsRead: Bool
-    var sortMode: ArticleSortMode
-    var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
-    var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
-    var interfaceThemeMode: InterfaceThemeMode
-    var createdAt: Date
-    var updatedAt: Date
+    var id: UUID = UUID()
+    var singletonKey: String = AppSettings.singletonKeyValue
+    var defaultReaderMode: ReaderMode = ReaderMode.embedded
+    var selectedSourcesFilterRawValue: String? = SourcesFilter.allItems.rawValue
+    var refreshIntervalPreference: RefreshPreference = RefreshPreference.manual
+    var useiCloudSync: Bool = false
+    var markAsReadOnOpen: Bool = true
+    var askBeforeMarkingAllAsRead: Bool = true
+    var sortMode: ArticleSortMode = ArticleSortMode.publishedAtDescending
+    var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = ArticleBodyLinkOpeningPolicy.inAppBrowser
+    var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = ArticleSourceLinkOpeningPolicy.inAppBrowser
+    var interfaceThemeMode: InterfaceThemeMode = InterfaceThemeMode.automaticLightDark
+    var createdAt: Date = Date.now
+    var updatedAt: Date = Date.now
 
     init(
         id: UUID = UUID(),

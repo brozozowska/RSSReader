@@ -5,17 +5,17 @@ import SwiftData
 final class ArticleState {
     #Index<ArticleState>([\.updatedAt])
 
-    var id: UUID
-    var articleExternalID: String
-    var feedID: UUID
-    var isRead: Bool
+    var id: UUID = UUID()
+    var articleExternalID: String = ""
+    var feedID: UUID = UUID()
+    var isRead: Bool = false
     var readAt: Date?
-    var isStarred: Bool
+    var isStarred: Bool = false
     var starredAt: Date?
-    var isHidden: Bool
+    var isHidden: Bool = false
     var hiddenAt: Date?
     var lastInteractionAt: Date?
-    var updatedAt: Date
+    var updatedAt: Date = Date.now
 
     init(
         id: UUID = UUID(),

@@ -23,7 +23,9 @@ final class SettingsScreenController {
         screenState.beginLoading()
 
         guard let appSettingsService = dependencies.appSettingsService else {
-            screenState.applyLoadingFailure("Settings are unavailable in the current app environment.")
+            let message = dependencies.modelContainerBootstrapFailureDescription
+                ?? "Settings are unavailable in the current app environment."
+            screenState.applyLoadingFailure(message)
             return
         }
 

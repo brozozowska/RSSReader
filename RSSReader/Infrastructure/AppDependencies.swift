@@ -1,3 +1,4 @@
+import CoreData
 import Foundation
 import SwiftUI
 import SwiftData
@@ -36,6 +37,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let iCloudSyncStatusService: (any ICloudSyncStatusService)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
     public let modelContainer: ModelContainer?
+    let modelContainerBootstrapFailureDescription: String?
     private var hasStartedSyncCoordinatorAppLifetime = false
     private var hasStartedRemoteSyncReloadAppLifetime = false
     private var remoteSyncReloadObservationTask: Task<Void, Never>?
@@ -48,6 +50,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         feedFetcher: (any FeedFetching)? = nil,
         sourceIconCache: (any SourceIconCaching)? = nil,
         modelContainer: ModelContainer? = nil,
+        modelContainerBootstrapFailureDescription: String? = nil,
         iCloudAccountAvailabilityService: (any ICloudAccountAvailabilityService)? = nil,
         cloudKitRuntimeEventSource: (any CloudKitRuntimeEventSource)? = nil,
         persistentStoreRemoteChangeSource: (any PersistentStoreRemoteChangeSource)? = nil,
@@ -152,6 +155,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.httpClient = httpClient
         self.sourceIconCache = resolvedSourceIconCache
         self.modelContainer = modelContainer
+        self.modelContainerBootstrapFailureDescription = modelContainerBootstrapFailureDescription
         self.feedRefreshService = feedRefreshService
         self.feedRepository = feedRepository
         self.folderRepository = folderRepository
@@ -249,14 +253,34 @@ extension AppDependencies {
             syncEnablementPolicy: syncEnablementPolicy,
             bootstrapSettingsSnapshot: bootstrapSettingsSnapshot
         )
-        let modelContainer = try? makeModelContainer(
-            modelPartition: modelPartition,
-            isStoredInMemoryOnly: false,
-            syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
-        )
+        let modelContainer: ModelContainer?
+        let modelContainerBootstrapFailureDescription: String?
+        do {
+            modelContainer = try makeModelContainer(
+                modelPartition: modelPartition,
+                isStoredInMemoryOnly: false,
+                syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
+            )
+            modelContainerBootstrapFailureDescription = nil
+        } catch {
+            let persistentStoreProbeFailureDescription = makePersistentStoreProbeFailureDescription(
+                modelPartition: modelPartition,
+                syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
+            )
+            logger.error(
+                "Failed to create model container for sync policy \(String(describing: syncBackedCloudKitPolicy)): \(error)"
+            )
+            modelContainer = nil
+            modelContainerBootstrapFailureDescription = makeModelContainerBootstrapFailureDescription(
+                for: error,
+                syncBackedCloudKitPolicy: syncBackedCloudKitPolicy,
+                persistentStoreProbeFailureDescription: persistentStoreProbeFailureDescription
+            )
+        }
         return AppDependencies(
             logger: logger,
             modelContainer: modelContainer,
+            modelContainerBootstrapFailureDescription: modelContainerBootstrapFailureDescription,
             syncCoordinator: syncCoordinator
         )
     }
@@ -298,6 +322,126 @@ extension AppDependencies {
             for: schema,
             configurations: configurationPlan.modelContainerConfigurations
         )
+    }
+
+    static func makeModelContainerBootstrapFailureDescription(
+        for error: Error,
+        syncBackedCloudKitPolicy: AppPersistenceCloudKitPolicy,
+        persistentStoreProbeFailureDescription: String? = nil
+    ) -> String {
+        let policyDescription = String(describing: syncBackedCloudKitPolicy)
+        let errorDescription = describeBootstrapErrorChain(error).joined(separator: "\n")
+        let persistentStoreProbeSection: String
+        if let persistentStoreProbeFailureDescription {
+            persistentStoreProbeSection = "\nPersistent store probe:\n\(persistentStoreProbeFailureDescription)"
+        } else {
+            persistentStoreProbeSection = ""
+        }
+        return """
+        The app could not initialize its data store for the current sync configuration (\(policyDescription)).
+        \(errorDescription)
+        \(persistentStoreProbeSection)
+        """
+    }
+
+    private static func makePersistentStoreProbeFailureDescription(
+        modelPartition: AppPersistenceModelPartition,
+        syncBackedCloudKitPolicy: AppPersistenceCloudKitPolicy
+    ) -> String? {
+        guard case .privateContainer(let containerIdentifier) = syncBackedCloudKitPolicy else {
+            return nil
+        }
+
+        let configurationPlan = makeSwiftDataConfigurationPlan(
+            modelPartition: modelPartition,
+            isStoredInMemoryOnly: false,
+            syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
+        )
+        let syncBackedStore = configurationPlan.syncBackedStore
+
+        guard let managedObjectModel = NSManagedObjectModel.makeManagedObjectModel(for: syncBackedStore.modelTypes) else {
+            return "Could not create managed object model for persistent store probe."
+        }
+        managedObjectModel.setEntities(
+            managedObjectModel.entities,
+            forConfigurationName: syncBackedStore.name
+        )
+
+        let storeDescription = NSPersistentStoreDescription(url: syncBackedStore.modelConfiguration.url)
+        storeDescription.configuration = syncBackedStore.name
+        storeDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
+            containerIdentifier: containerIdentifier.isEmpty ? CloudKitContainerConfiguration.containerIdentifier : containerIdentifier
+        )
+        storeDescription.shouldAddStoreAsynchronously = false
+
+        let container = NSPersistentCloudKitContainer(
+            name: syncBackedStore.name,
+            managedObjectModel: managedObjectModel
+        )
+        container.persistentStoreDescriptions = [storeDescription]
+
+        var loadError: Error?
+        container.loadPersistentStores { _, error in
+            loadError = error
+        }
+
+        guard let loadError else {
+            if let store = container.persistentStoreCoordinator.persistentStores.first {
+                try? container.persistentStoreCoordinator.remove(store)
+            }
+            return nil
+        }
+
+        return describeBootstrapErrorChain(loadError).joined(separator: "\n")
+    }
+
+    private static func describeBootstrapErrorChain(_ error: Error) -> [String] {
+        describeBootstrapErrorChain(error, level: 0)
+    }
+
+    private static func describeBootstrapErrorChain(_ error: Error, level: Int) -> [String] {
+        let nsError = error as NSError
+        let prefix = level == 0 ? "Error" : "Underlying error \(level)"
+        var lines = ["\(prefix): \(describeNSError(nsError))"]
+
+        for underlyingError in extractUnderlyingErrors(from: nsError) {
+            lines.append(contentsOf: describeBootstrapErrorChain(underlyingError, level: level + 1))
+        }
+
+        return lines
+    }
+
+    private static func describeNSError(_ error: NSError) -> String {
+        let userInfoDescription = describeUserInfo(error.userInfo)
+        return "domain=\(error.domain) code=\(error.code) localizedDescription=\(error.localizedDescription) userInfo=\(userInfoDescription)"
+    }
+
+    private static func describeUserInfo(_ userInfo: [String: Any]) -> String {
+        guard userInfo.isEmpty == false else { return "{}" }
+
+        let filteredEntries = userInfo
+            .filter { $0.key != NSUnderlyingErrorKey }
+            .sorted { $0.key < $1.key }
+
+        guard filteredEntries.isEmpty == false else { return "{}" }
+
+        let pairs = filteredEntries.map { key, value in
+            "\(key)=\(String(describing: value))"
+        }
+
+        return "{\(pairs.joined(separator: ", "))}"
+    }
+
+    private static func extractUnderlyingErrors(from error: NSError) -> [Error] {
+        if let underlyingError = error.userInfo[NSUnderlyingErrorKey] as? Error {
+            return [underlyingError]
+        }
+
+        if let underlyingErrors = error.userInfo[NSUnderlyingErrorKey] as? [Error] {
+            return underlyingErrors
+        }
+
+        return []
     }
 
     @MainActor
