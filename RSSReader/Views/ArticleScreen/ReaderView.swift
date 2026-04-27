@@ -13,6 +13,7 @@ struct ReaderView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     @Environment(\.openURL) private var openURL
     let articleID: UUID?
+    let reloadID: UUID
     let showsBackButton: Bool
     let navigateBackToArticles: () -> Void
     let previewScreenState: ArticleScreenState?
@@ -20,11 +21,13 @@ struct ReaderView: View {
 
     init(
         articleID: UUID?,
+        reloadID: UUID = UUID(),
         showsBackButton: Bool,
         navigateBackToArticles: @escaping () -> Void,
         previewScreenState: ArticleScreenState? = nil
     ) {
         self.articleID = articleID
+        self.reloadID = reloadID
         self.showsBackButton = showsBackButton
         self.navigateBackToArticles = navigateBackToArticles
         self.previewScreenState = previewScreenState
@@ -126,7 +129,7 @@ struct ReaderView: View {
                 }
             }
         }
-        .task(id: articleID) {
+        .task(id: ArticleScreenLoadContext(articleID: articleID, reloadID: reloadID)) {
             guard previewScreenState == nil else { return }
             await controller.load(articleID: articleID, dependencies: dependencies)
         }
@@ -243,4 +246,9 @@ struct ReaderView: View {
                 .padding(.top, 4)
         }
     }
+}
+
+private struct ArticleScreenLoadContext: Hashable {
+    let articleID: UUID?
+    let reloadID: UUID
 }

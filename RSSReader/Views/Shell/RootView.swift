@@ -46,15 +46,17 @@ struct RootView: View {
                 if horizontalSizeClass == .compact {
                     EmptyView()
                 } else {
-                    ReaderView(
-                        articleID: nil,
-                        showsBackButton: false,
-                        navigateBackToArticles: {}
-                    )
+                ReaderView(
+                    articleID: nil,
+                    reloadID: appState.articleScreenReloadID,
+                    showsBackButton: false,
+                    navigateBackToArticles: {}
+                )
                 }
             case .article(let articleID):
                 ReaderView(
                     articleID: articleID,
+                    reloadID: appState.articleScreenReloadID,
                     showsBackButton: ArticleScreenNavigationState.showsBackButton(
                         horizontalSizeClass: horizontalSizeClass,
                         articleSelection: articleID

@@ -56,6 +56,7 @@ private struct AppRootContainer: View {
                 from: dependencies.syncCoordinator,
                 to: appState
             )
+            dependencies.startRemoteSyncReloadAppLifetime(using: appState)
             await restorePersistedAppSettingsIfNeeded()
         }
         .onChange(of: runtimeSyncStatus) { _, _ in

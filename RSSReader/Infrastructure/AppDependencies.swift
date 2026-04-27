@@ -31,11 +31,16 @@ public final class AppDependencies: AppDependenciesProtocol {
     let backgroundRefreshService: (any BackgroundRefreshService)?
     let iCloudAccountAvailabilityService: any ICloudAccountAvailabilityService
     let cloudKitRuntimeEventSource: any CloudKitRuntimeEventSource
+    let persistentStoreRemoteChangeSource: any PersistentStoreRemoteChangeSource
     let syncCoordinator: SyncCoordinator?
     let iCloudSyncStatusService: (any ICloudSyncStatusService)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
     public let modelContainer: ModelContainer?
     private var hasStartedSyncCoordinatorAppLifetime = false
+    private var hasStartedRemoteSyncReloadAppLifetime = false
+    private var remoteSyncReloadObservationTask: Task<Void, Never>?
+    private var remoteSyncReloadPendingImportCompletion = false
+    private var remoteSyncReloadPendingStoreChange = false
 
     init(
         logger: Logging,
@@ -45,6 +50,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         modelContainer: ModelContainer? = nil,
         iCloudAccountAvailabilityService: (any ICloudAccountAvailabilityService)? = nil,
         cloudKitRuntimeEventSource: (any CloudKitRuntimeEventSource)? = nil,
+        persistentStoreRemoteChangeSource: (any PersistentStoreRemoteChangeSource)? = nil,
         syncCoordinator: SyncCoordinator? = nil
     ) {
         let feedRepository = modelContainer.map { container in
@@ -137,6 +143,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         }
         let iCloudAccountAvailabilityService = iCloudAccountAvailabilityService ?? DefaultICloudAccountAvailabilityService()
         let cloudKitRuntimeEventSource = cloudKitRuntimeEventSource ?? DefaultCloudKitRuntimeEventSource()
+        let persistentStoreRemoteChangeSource = persistentStoreRemoteChangeSource ?? DefaultPersistentStoreRemoteChangeSource()
         let iCloudSyncStatusService = syncCoordinator.map { syncCoordinator in
             DefaultICloudSyncStatusService(syncCoordinator: syncCoordinator)
         }
@@ -159,6 +166,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.backgroundRefreshService = backgroundRefreshService
         self.iCloudAccountAvailabilityService = iCloudAccountAvailabilityService
         self.cloudKitRuntimeEventSource = cloudKitRuntimeEventSource
+        self.persistentStoreRemoteChangeSource = persistentStoreRemoteChangeSource
         self.syncCoordinator = syncCoordinator
         self.iCloudSyncStatusService = iCloudSyncStatusService
         self.feedFetchLogRepository = feedFetchLogRepository
@@ -328,6 +336,44 @@ extension AppDependencies {
     }
 
     @MainActor
+    func startRemoteSyncReloadAppLifetime(using appState: AppState) {
+        guard hasStartedRemoteSyncReloadAppLifetime == false else { return }
+        hasStartedRemoteSyncReloadAppLifetime = true
+        let runtimeEvents = cloudKitRuntimeEventSource.events()
+        let remoteChangeEvents = persistentStoreRemoteChangeSource.events()
+
+        remoteSyncReloadObservationTask = Task { [weak self] in
+            guard let self else { return }
+
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { [weak self] in
+                    guard let self else { return }
+
+                    for await runtimeEvent in runtimeEvents {
+                        guard Task.isCancelled == false else { return }
+                        await MainActor.run {
+                            self.handleRemoteSyncReload(runtimeEvent: runtimeEvent, using: appState)
+                        }
+                    }
+                }
+
+                group.addTask { [weak self] in
+                    guard let self else { return }
+
+                    for await remoteChangeEvent in remoteChangeEvents {
+                        guard Task.isCancelled == false else { return }
+                        await MainActor.run {
+                            self.handleRemoteSyncReload(remoteChangeEvent: remoteChangeEvent, using: appState)
+                        }
+                    }
+                }
+
+                await group.waitForAll()
+            }
+        }
+    }
+
+    @MainActor
     private func resolveInitialSyncEnablementForCoordinator() -> Bool {
         guard let appSettingsService else {
             return false
@@ -339,6 +385,50 @@ extension AppDependencies {
             logger.error("Failed to resolve initial sync enablement for SyncCoordinator: \(error)")
             return false
         }
+    }
+
+    @MainActor
+    private func handleRemoteSyncReload(
+        runtimeEvent: CloudKitRuntimeEvent,
+        using appState: AppState
+    ) {
+        guard syncCoordinator?.runtimeState.isSyncEnabled == true else { return }
+
+        switch runtimeEvent {
+        case .started(.import, _):
+            remoteSyncReloadPendingImportCompletion = false
+        case .finished(.import, _):
+            remoteSyncReloadPendingImportCompletion = true
+            flushPendingRemoteSyncReloadIfNeeded(using: appState)
+        case .failed(.import, _, _):
+            remoteSyncReloadPendingImportCompletion = false
+            remoteSyncReloadPendingStoreChange = false
+        case .started, .finished, .failed:
+            return
+        }
+    }
+
+    @MainActor
+    private func handleRemoteSyncReload(
+        remoteChangeEvent: PersistentStoreRemoteChangeEvent,
+        using appState: AppState
+    ) {
+        guard syncCoordinator?.runtimeState.isSyncEnabled == true else { return }
+
+        _ = remoteChangeEvent
+        remoteSyncReloadPendingStoreChange = true
+        flushPendingRemoteSyncReloadIfNeeded(using: appState)
+    }
+
+    @MainActor
+    private func flushPendingRemoteSyncReloadIfNeeded(using appState: AppState) {
+        guard remoteSyncReloadPendingImportCompletion, remoteSyncReloadPendingStoreChange else {
+            return
+        }
+
+        remoteSyncReloadPendingImportCompletion = false
+        remoteSyncReloadPendingStoreChange = false
+        appState.requestRemoteSyncReload()
     }
 }
 

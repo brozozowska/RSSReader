@@ -35,7 +35,7 @@ struct CloudKitSyncScopeTests {
         let syncSection = try #require(sections.first { $0.id == .sync })
         let expectedFooter = CloudKitSyncScope.current.settingsSectionFooter(
             readingScenario: CrossDeviceReadingScenario.current
-        ) + " Changing the sync preference applies on the next app launch because the model container must be rebuilt for the selected sync policy."
+        ) + " RSSReader uses the Apple ID already signed in to this device for iCloud sync and does not require a separate app account. Changing the sync preference applies on the next app launch because the model container must be rebuilt for the selected sync policy."
 
         #expect(syncSection.footer == expectedFooter)
     }
