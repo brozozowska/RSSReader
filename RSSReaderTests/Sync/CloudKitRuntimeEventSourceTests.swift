@@ -4,6 +4,7 @@ import Testing
 @testable import RSSReader
 
 @Suite("Sync / CloudKit Runtime Event Source")
+@MainActor
 struct CloudKitRuntimeEventSourceTests {
     @Test
     func mapReturnsSetupStartedEventWhenCloudKitSetupIsActive() {
@@ -140,6 +141,22 @@ struct CloudKitRuntimeEventSourceTests {
                 )
             )
         )
+    }
+
+    @Test
+    func makeRuntimeEventReturnsNilWhenNotificationDoesNotContainCloudKitEvent() {
+        let notification = Notification(
+            name: Notification.Name("TestCloudKitEventChanged"),
+            object: nil,
+            userInfo: [:]
+        )
+
+        let runtimeEvent = DefaultCloudKitRuntimeEventSource.makeRuntimeEvent(
+            from: notification,
+            eventNotificationUserInfoKey: "TestCloudKitEventUserInfoKey"
+        )
+
+        #expect(runtimeEvent == nil)
     }
 }
 

@@ -60,6 +60,32 @@ struct SyncCoordinatorTests {
     }
 
     @Test
+    func applyCloudKitRuntimeEventRestoresIdlePhaseWhenImportFinishes() {
+        let coordinator = SyncCoordinator(isSyncEnabled: true)
+        let activeContext = CloudKitRuntimeEventContext(
+            identifier: UUID(),
+            storeIdentifier: "SyncBackedStore",
+            startDate: .distantPast,
+            endDate: nil
+        )
+        let finishedContext = CloudKitRuntimeEventContext(
+            identifier: activeContext.identifier,
+            storeIdentifier: activeContext.storeIdentifier,
+            startDate: activeContext.startDate,
+            endDate: .now
+        )
+
+        coordinator.applyAccountAvailability(.available)
+        coordinator.applyCloudKitRuntimeEvent(.started(.import, activeContext))
+        coordinator.applyCloudKitRuntimeEvent(.finished(.import, finishedContext))
+
+        #expect(coordinator.runtimeState.phase == .idle)
+        #expect(coordinator.runtimeState.activeActivity == nil)
+        #expect(coordinator.runtimeState.lastEventContext == finishedContext)
+        #expect(coordinator.iCloudSyncStatus == .idle)
+    }
+
+    @Test
     func applyCloudKitFailureTransitionsCoordinatorToFailedState() {
         let coordinator = SyncCoordinator(isSyncEnabled: true)
         let context = CloudKitRuntimeEventContext(
