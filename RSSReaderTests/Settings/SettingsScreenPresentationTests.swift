@@ -132,11 +132,19 @@ struct SettingsScreenPresentationTests {
         )
         #expect(
             syncItems == [
+                .toggle(
+                    SettingsToggleItemPresentation(
+                        id: .useICloudSync,
+                        title: "Enable iCloud Sync",
+                        subtitle: "Applies on next launch. The app will rebuild its sync container and try to use iCloud for supported data.",
+                        isOn: true
+                    )
+                ),
                 .statusRow(
                     SettingsStatusRowItemPresentation(
                         id: .iCloudSyncStatus,
-                        title: "iCloud Sync",
-                        subtitle: "Sync is enabled, but CloudKit wiring and app-level account status are not implemented yet.",
+                        title: "Current Status",
+                        subtitle: "The current app session could not read the live iCloud sync status.",
                         valueTitle: "Status Unavailable"
                     )
                 )
@@ -211,7 +219,95 @@ struct SettingsScreenPresentationTests {
         #expect(input.articleListSortOrder == .oldestFirst)
         #expect(input.askBeforeMarkingAllAsRead == false)
         #expect(input.refreshIntervalPreference == .every6Hours)
+        #expect(input.useiCloudSync)
         #expect(input.iCloudSyncStatus == .syncing)
+        #expect(input.syncStatusPresentation == .syncing)
         #expect(input.interfaceThemeMode == .black)
+    }
+
+    @Test
+    func settingsScreenPresentationBuilderShowsAppleIDSignInGuidanceWhenNoICloudAccountIsAvailable() throws {
+        let input = SettingsScreenInput(
+            useiCloudSync: true,
+            iCloudSyncStatus: .statusUnavailable,
+            syncStatusPresentation: .noAccount
+        )
+
+        let syncSection = try #require(
+            SettingsScreenPresentationBuilder.buildSections(from: input).first(where: { $0.id == .sync })
+        )
+        let statusRow = try #require(syncSection.items.last)
+
+        #expect(
+            statusRow == .statusRow(
+                SettingsStatusRowItemPresentation(
+                    id: .iCloudSyncStatus,
+                    title: "Current Status",
+                    subtitle: "Sign in to iCloud with the Apple ID used on this device to enable sync. RSSReader does not require a separate account.",
+                    valueTitle: "Sign In Required"
+                )
+            )
+        )
+        #expect(syncSection.footer?.contains("does not require a separate app account") == true)
+    }
+
+    @Test
+    func settingsScreenPresentationBuilderShowsSpecificAccountProblemCopyForRestrictedAndTemporaryCases() throws {
+        let restrictedInput = SettingsScreenInput(
+            useiCloudSync: true,
+            iCloudSyncStatus: .statusUnavailable,
+            syncStatusPresentation: .restricted
+        )
+        let temporarilyUnavailableInput = SettingsScreenInput(
+            useiCloudSync: true,
+            iCloudSyncStatus: .statusUnavailable,
+            syncStatusPresentation: .temporarilyUnavailable
+        )
+        let couldNotDetermineInput = SettingsScreenInput(
+            useiCloudSync: true,
+            iCloudSyncStatus: .statusUnavailable,
+            syncStatusPresentation: .couldNotDetermine
+        )
+
+        let restrictedSection = try #require(
+            SettingsScreenPresentationBuilder.buildSections(from: restrictedInput).first(where: { $0.id == .sync })
+        )
+        let temporarilyUnavailableSection = try #require(
+            SettingsScreenPresentationBuilder.buildSections(from: temporarilyUnavailableInput).first(where: { $0.id == .sync })
+        )
+        let couldNotDetermineSection = try #require(
+            SettingsScreenPresentationBuilder.buildSections(from: couldNotDetermineInput).first(where: { $0.id == .sync })
+        )
+
+        #expect(
+            restrictedSection.items.last == .statusRow(
+                SettingsStatusRowItemPresentation(
+                    id: .iCloudSyncStatus,
+                    title: "Current Status",
+                    subtitle: "This device cannot use iCloud right now because account changes or CloudKit access are restricted.",
+                    valueTitle: "Restricted"
+                )
+            )
+        )
+        #expect(
+            temporarilyUnavailableSection.items.last == .statusRow(
+                SettingsStatusRowItemPresentation(
+                    id: .iCloudSyncStatus,
+                    title: "Current Status",
+                    subtitle: "The current iCloud account is temporarily unavailable. Try again later.",
+                    valueTitle: "Temporarily Unavailable"
+                )
+            )
+        )
+        #expect(
+            couldNotDetermineSection.items.last == .statusRow(
+                SettingsStatusRowItemPresentation(
+                    id: .iCloudSyncStatus,
+                    title: "Current Status",
+                    subtitle: "The app could not determine the current iCloud account status. Check the device Apple ID and iCloud availability, then try again.",
+                    valueTitle: "Account Unavailable"
+                )
+            )
+        )
     }
 }

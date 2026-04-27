@@ -1,0 +1,105 @@
+import CloudKit
+import Foundation
+import Testing
+@testable import RSSReader
+
+@Suite("Sync / iCloud Account Availability")
+@MainActor
+struct ICloudAccountAvailabilityServiceTests {
+    @Test
+    func currentAvailabilityMapsAvailableAccountStatus() async {
+        let service = makeService(results: [.success(.available)])
+
+        #expect(await service.currentAvailability() == .available)
+    }
+
+    @Test
+    func currentAvailabilityMapsNoAccountStatus() async {
+        let service = makeService(results: [.success(.noAccount)])
+
+        #expect(await service.currentAvailability() == .noAccount)
+    }
+
+    @Test
+    func currentAvailabilityMapsRestrictedStatus() async {
+        let service = makeService(results: [.success(.restricted)])
+
+        #expect(await service.currentAvailability() == .restricted)
+    }
+
+    @Test
+    func currentAvailabilityMapsTemporarilyUnavailableStatus() async {
+        let service = makeService(results: [.success(.temporarilyUnavailable)])
+
+        #expect(await service.currentAvailability() == .temporarilyUnavailable)
+    }
+
+    @Test
+    func currentAvailabilityMapsCouldNotDetermineStatus() async {
+        let service = makeService(results: [.success(.couldNotDetermine)])
+
+        #expect(await service.currentAvailability() == .couldNotDetermine)
+    }
+
+    @Test
+    func currentAvailabilityMapsQueryFailureToCouldNotDetermine() async {
+        let service = makeService(results: [.failure(TestError.accountStatusFailed)])
+
+        #expect(await service.currentAvailability() == .couldNotDetermine)
+    }
+
+    @Test
+    func availabilityChangesRequeriesAccountStatusWhenAccountChangedNotificationArrives() async throws {
+        let notificationCenter = NotificationCenter()
+        let notificationName = Notification.Name("TestCKAccountChanged")
+        let service = makeService(
+            results: [.success(.restricted)],
+            notificationCenter: notificationCenter,
+            notificationName: notificationName
+        )
+        var iterator = service.availabilityChanges().makeAsyncIterator()
+
+        notificationCenter.post(name: notificationName, object: nil)
+
+        let update = try await #require(iterator.next())
+        #expect(update == .restricted)
+    }
+
+    private func makeService(
+        results: [Result<CKAccountStatus, Error>],
+        notificationCenter: NotificationCenter = NotificationCenter(),
+        notificationName: Notification.Name = .CKAccountChanged
+    ) -> DefaultICloudAccountAvailabilityService {
+        DefaultICloudAccountAvailabilityService(
+            accountStatusQuery: ScriptedCloudKitAccountStatusQuery(results: results),
+            notificationCenter: notificationCenter,
+            accountChangedNotification: notificationName
+        )
+    }
+}
+
+private actor ScriptedCloudKitAccountStatusQuery: CloudKitAccountStatusQuerying {
+    private var results: [Result<CKAccountStatus, Error>]
+
+    init(results: [Result<CKAccountStatus, Error>]) {
+        self.results = results
+    }
+
+    func accountStatus() async throws -> CKAccountStatus {
+        guard results.isEmpty == false else {
+            return .couldNotDetermine
+        }
+
+        let result = results.removeFirst()
+        switch result {
+        case .success(let status):
+            return status
+        case .failure(let error):
+            throw error
+        }
+    }
+}
+
+private enum TestError: Error {
+    case accountStatusFailed
+}

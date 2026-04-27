@@ -7,17 +7,38 @@ import Observation
 /// - Parameter modelPartition: Partition SwiftData моделей. Если `nil` — контейнер не создаётся.
 enum AppComposition {
     static let persistenceModelPartition = AppPersistenceModelPartition.current
+    static let syncEnablementPolicy = AppSyncEnablementPolicy.current
     static let syncBackedModels = persistenceModelPartition.syncBackedModels
     static let localOnlyModels = persistenceModelPartition.localOnlyModels
     static let appModels = persistenceModelPartition.allModels
 
+    @MainActor
     @ViewBuilder
     static func makeRoot(modelPartition: AppPersistenceModelPartition? = nil) -> some View {
+        let syncCoordinator = SyncCoordinator()
         let deps: AppDependencies = modelPartition.map {
-            AppDependencies.makeWithSwiftData(modelPartition: $0)
-        } ?? AppDependencies.makeDefault()
+            AppDependencies.makeWithSwiftData(
+                modelPartition: $0,
+                syncEnablementPolicy: syncEnablementPolicy,
+                syncCoordinator: syncCoordinator
+            )
+        } ?? AppDependencies.makeDefault(syncCoordinator: syncCoordinator)
+        let _ = deps.startSyncCoordinatorAppLifetime()
 
         AppRootContainer(dependencies: deps)
+    }
+
+    @MainActor
+    static func applyCurrentICloudSyncStatus(
+        from syncCoordinator: SyncCoordinator?,
+        to appState: AppState
+    ) {
+        guard let syncCoordinator else { return }
+
+        let resolvedStatus = syncCoordinator.iCloudSyncStatus
+        if appState.iCloudSyncStatus != resolvedStatus {
+            appState.applyICloudSyncStatus(resolvedStatus)
+        }
     }
 }
 
@@ -27,9 +48,22 @@ private struct AppRootContainer: View {
     @State private var hasRestoredPersistedAppSettings = false
 
     var body: some View {
+        let runtimeSyncStatus = dependencies.syncCoordinator?.iCloudSyncStatus
+
         content
         .task {
+            AppComposition.applyCurrentICloudSyncStatus(
+                from: dependencies.syncCoordinator,
+                to: appState
+            )
+            dependencies.startRemoteSyncReloadAppLifetime(using: appState)
             await restorePersistedAppSettingsIfNeeded()
+        }
+        .onChange(of: runtimeSyncStatus) { _, _ in
+            AppComposition.applyCurrentICloudSyncStatus(
+                from: dependencies.syncCoordinator,
+                to: appState
+            )
         }
         .onChange(of: appState.selectedSourcesFilter) { _, newFilter in
             guard hasRestoredPersistedAppSettings else { return }

@@ -29,12 +29,16 @@ final class SettingsScreenController {
 
         do {
             let snapshot = try appSettingsService.fetchSettings()
-            let resolvedICloudSyncStatus = resolveICloudSyncStatus(
+            let resolvedSyncStatus = resolveSyncStatusPresentation(
                 dependencies: dependencies,
                 appState: appState,
                 settingsSnapshot: snapshot
             )
-            screenState.applyLoadedSnapshot(snapshot, iCloudSyncStatus: resolvedICloudSyncStatus)
+            screenState.applyLoadedSnapshot(
+                snapshot,
+                iCloudSyncStatus: resolvedSyncStatus.iCloudSyncStatus,
+                syncStatusPresentation: resolvedSyncStatus
+            )
             if let appState, appState.interfaceThemeMode != snapshot.interfaceThemeMode {
                 appState.applyInterfaceThemeMode(snapshot.interfaceThemeMode)
             }
@@ -62,6 +66,7 @@ final class SettingsScreenController {
             screenState.presentPicker(for: itemID)
         case .markAsReadOnOpen,
                 .askBeforeMarkingAllAsRead,
+                .useICloudSync,
                 .iCloudSyncStatus:
             return
         }
@@ -96,6 +101,7 @@ final class SettingsScreenController {
             )
         case .markAsReadOnOpen,
                 .askBeforeMarkingAllAsRead,
+                .useICloudSync,
                 .iCloudSyncStatus:
             return
         }
@@ -111,6 +117,8 @@ final class SettingsScreenController {
             updateMarkAsReadOnOpen(isOn: isOn, dependencies: dependencies)
         case .askBeforeMarkingAllAsRead:
             updateAskBeforeMarkingAllAsRead(isOn: isOn, dependencies: dependencies)
+        case .useICloudSync:
+            updateUseICloudSync(isOn: isOn, dependencies: dependencies)
         case .defaultReaderMode,
                 .articleSourceLinkOpeningPolicy,
                 .articleSortMode,
@@ -184,6 +192,25 @@ private extension SettingsScreenController {
             dependencies: dependencies,
             unavailableServiceLog: "App settings service is unavailable for ask-before-marking-all-as-read update",
             failureLogPrefix: "Failed to update ask-before-marking-all-as-read setting"
+        )
+    }
+
+    func updateUseICloudSync(
+        isOn: Bool,
+        dependencies: AppDependencies
+    ) {
+        guard screenState.settingsSnapshot.useiCloudSync != isOn else {
+            return
+        }
+
+        persistSettingsPatch(
+            AppSettingsPatch(
+                useiCloudSync: isOn,
+                updatedAt: .now
+            ),
+            dependencies: dependencies,
+            unavailableServiceLog: "App settings service is unavailable for iCloud sync preference update",
+            failureLogPrefix: "Failed to update iCloud sync preference"
         )
     }
 
@@ -321,18 +348,25 @@ private extension SettingsScreenController {
         }
     }
 
-    func resolveICloudSyncStatus(
+    func resolveSyncStatusPresentation(
         dependencies: AppDependencies,
         appState: AppState?,
         settingsSnapshot: AppSettingsSnapshot
-    ) -> ICloudSyncStatus {
-        if settingsSnapshot.useiCloudSync == false {
-            appState?.applyICloudSyncStatus(.disabled)
-            return .disabled
+    ) -> SettingsSyncStatusPresentation {
+        if let syncCoordinator = dependencies.syncCoordinator,
+           syncCoordinator.runtimeState.isSyncEnabled {
+            let resolvedStatus = SettingsSyncStatusPresentation(runtimeState: syncCoordinator.runtimeState)
+            appState?.applyICloudSyncStatus(resolvedStatus.iCloudSyncStatus)
+            return resolvedStatus
         }
 
         if let appState, appState.iCloudSyncStatus != .disabled {
-            return appState.iCloudSyncStatus
+            return SettingsSyncStatusPresentation(iCloudSyncStatus: appState.iCloudSyncStatus)
+        }
+
+        if settingsSnapshot.useiCloudSync == false {
+            appState?.applyICloudSyncStatus(.disabled)
+            return .disabled
         }
 
         guard let iCloudSyncStatusService = dependencies.iCloudSyncStatusService else {
@@ -343,11 +377,11 @@ private extension SettingsScreenController {
         do {
             let resolvedStatus = try iCloudSyncStatusService.currentStatus()
             appState?.applyICloudSyncStatus(resolvedStatus)
-            return resolvedStatus
+            return SettingsSyncStatusPresentation(iCloudSyncStatus: resolvedStatus)
         } catch {
             dependencies.logger.error("Failed to resolve iCloud sync status: \(error)")
-            let failedStatus = ICloudSyncStatus.failed("Unable to load iCloud sync status right now.")
-            appState?.applyICloudSyncStatus(failedStatus)
+            let failedStatus = SettingsSyncStatusPresentation.failed("Unable to load iCloud sync status right now.")
+            appState?.applyICloudSyncStatus(failedStatus.iCloudSyncStatus)
             return failedStatus
         }
     }
@@ -374,6 +408,10 @@ private extension SettingsScreenController {
     }
 
     func applyUpdatedSettingsSnapshot(_ snapshot: AppSettingsSnapshot) {
-        screenState.applyLoadedSnapshot(snapshot, iCloudSyncStatus: screenState.iCloudSyncStatus)
+        screenState.applyLoadedSnapshot(
+            snapshot,
+            iCloudSyncStatus: screenState.iCloudSyncStatus,
+            syncStatusPresentation: screenState.syncStatusPresentation
+        )
     }
 }

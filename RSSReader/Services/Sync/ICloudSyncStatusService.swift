@@ -9,19 +9,15 @@ enum ICloudSyncStatus: Equatable, Sendable {
 }
 
 protocol ICloudSyncStatusService {
+    @MainActor
     func currentStatus() throws -> ICloudSyncStatus
 }
 
 struct DefaultICloudSyncStatusService: ICloudSyncStatusService {
-    let appSettingsService: any AppSettingsService
+    let syncCoordinator: SyncCoordinator
 
+    @MainActor
     func currentStatus() throws -> ICloudSyncStatus {
-        let settings = try appSettingsService.fetchSettings()
-
-        guard settings.useiCloudSync else {
-            return .disabled
-        }
-
-        return .statusUnavailable
+        syncCoordinator.iCloudSyncStatus
     }
 }

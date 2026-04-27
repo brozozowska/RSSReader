@@ -70,6 +70,7 @@ public final class AppState {
     var sourceManagementLaunchContext: SourceManagementScreenLaunchContext = .entry
     var articleListReloadID = UUID()
     var sourcesSidebarReloadID = UUID()
+    var articleScreenReloadID = UUID()
 
     var selectedSidebarSelection: SidebarSelection? {
         get { readingNavigation.sourceSelection }
@@ -154,6 +155,16 @@ public final class AppState {
 
     func requestSourcesSidebarReload() {
         sourcesSidebarReloadID = UUID()
+    }
+
+    func requestArticleScreenReload() {
+        articleScreenReloadID = UUID()
+    }
+
+    func requestRemoteSyncReload() {
+        requestSourcesSidebarReload()
+        requestArticleListReload()
+        requestArticleScreenReload()
     }
 
     func selectReadingSource(_ sourceSelection: SourceSelection?) {

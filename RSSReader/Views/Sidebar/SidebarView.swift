@@ -28,7 +28,10 @@ struct SidebarView: View {
     // MARK: Body
 
     var body: some View {
-        let viewState = controller.viewState(filter: appState.selectedSourcesFilter)
+        let viewState = controller.viewState(
+            filter: appState.selectedSourcesFilter,
+            iCloudSyncStatus: appState.iCloudSyncStatus
+        )
 
         List(selection: $selection) {
             if viewState.smartRows.isEmpty == false {

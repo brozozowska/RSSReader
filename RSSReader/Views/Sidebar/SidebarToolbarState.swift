@@ -6,20 +6,35 @@ struct SidebarToolbarState: Equatable {
 
     init(
         refreshStatus: SidebarRefreshStatus,
+        iCloudSyncStatus: ICloudSyncStatus = .disabled,
         formatter: SidebarSubtitleFormatter = SidebarSubtitleFormatter()
     ) {
-        self.subtitle = formatter.text(for: refreshStatus)
-        self.isSyncing = refreshStatus.isSyncing
+        self.subtitle = formatter.text(
+            for: refreshStatus,
+            iCloudSyncStatus: iCloudSyncStatus
+        )
+        self.isSyncing = refreshStatus.isSyncing || iCloudSyncStatus == .syncing
     }
 }
 
 struct SidebarSubtitleFormatter {
-    func text(for refreshStatus: SidebarRefreshStatus) -> String {
+    func text(
+        for refreshStatus: SidebarRefreshStatus,
+        iCloudSyncStatus: ICloudSyncStatus = .disabled
+    ) -> String {
+        if refreshStatus.isSyncing || iCloudSyncStatus == .syncing {
+            return "Syncing..."
+        }
+
+        if case .failed = iCloudSyncStatus {
+            return "Sync failed"
+        }
+
         switch refreshStatus {
-        case .syncing:
-            "Syncing..."
         case .idle(let lastUpdatedAt):
-            lastUpdatedText(for: lastUpdatedAt)
+            return lastUpdatedText(for: lastUpdatedAt)
+        case .syncing:
+            return "Syncing..."
         }
     }
 

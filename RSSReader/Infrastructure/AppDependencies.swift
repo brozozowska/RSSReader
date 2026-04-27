@@ -29,16 +29,29 @@ public final class AppDependencies: AppDependenciesProtocol {
     let appSettingsRepository: (any AppSettingsRepository)?
     let appSettingsService: (any AppSettingsService)?
     let backgroundRefreshService: (any BackgroundRefreshService)?
+    let iCloudAccountAvailabilityService: any ICloudAccountAvailabilityService
+    let cloudKitRuntimeEventSource: any CloudKitRuntimeEventSource
+    let persistentStoreRemoteChangeSource: any PersistentStoreRemoteChangeSource
+    let syncCoordinator: SyncCoordinator?
     let iCloudSyncStatusService: (any ICloudSyncStatusService)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
     public let modelContainer: ModelContainer?
+    private var hasStartedSyncCoordinatorAppLifetime = false
+    private var hasStartedRemoteSyncReloadAppLifetime = false
+    private var remoteSyncReloadObservationTask: Task<Void, Never>?
+    private var remoteSyncReloadPendingImportCompletion = false
+    private var remoteSyncReloadPendingStoreChange = false
 
-    public init(
+    init(
         logger: Logging,
         httpClient: any HTTPClient = URLSessionHTTPClient(),
         feedFetcher: (any FeedFetching)? = nil,
         sourceIconCache: (any SourceIconCaching)? = nil,
-        modelContainer: ModelContainer? = nil
+        modelContainer: ModelContainer? = nil,
+        iCloudAccountAvailabilityService: (any ICloudAccountAvailabilityService)? = nil,
+        cloudKitRuntimeEventSource: (any CloudKitRuntimeEventSource)? = nil,
+        persistentStoreRemoteChangeSource: (any PersistentStoreRemoteChangeSource)? = nil,
+        syncCoordinator: SyncCoordinator? = nil
     ) {
         let feedRepository = modelContainer.map { container in
             SwiftDataFeedRepository(modelContext: container.mainContext)
@@ -128,8 +141,11 @@ public final class AppDependencies: AppDependenciesProtocol {
                 feedRefreshService: feedRefreshService
             )
         }
-        let iCloudSyncStatusService = appSettingsService.map { service in
-            DefaultICloudSyncStatusService(appSettingsService: service)
+        let iCloudAccountAvailabilityService = iCloudAccountAvailabilityService ?? DefaultICloudAccountAvailabilityService()
+        let cloudKitRuntimeEventSource = cloudKitRuntimeEventSource ?? DefaultCloudKitRuntimeEventSource()
+        let persistentStoreRemoteChangeSource = persistentStoreRemoteChangeSource ?? DefaultPersistentStoreRemoteChangeSource()
+        let iCloudSyncStatusService = syncCoordinator.map { syncCoordinator in
+            DefaultICloudSyncStatusService(syncCoordinator: syncCoordinator)
         }
 
         self.logger = logger
@@ -148,6 +164,10 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.appSettingsRepository = appSettingsRepository
         self.appSettingsService = appSettingsService
         self.backgroundRefreshService = backgroundRefreshService
+        self.iCloudAccountAvailabilityService = iCloudAccountAvailabilityService
+        self.cloudKitRuntimeEventSource = cloudKitRuntimeEventSource
+        self.persistentStoreRemoteChangeSource = persistentStoreRemoteChangeSource
+        self.syncCoordinator = syncCoordinator
         self.iCloudSyncStatusService = iCloudSyncStatusService
         self.feedFetchLogRepository = feedFetchLogRepository
         self.feedFetcher = resolvedFeedFetcher
@@ -155,7 +175,7 @@ public final class AppDependencies: AppDependenciesProtocol {
 }
 
 // MARK: - Factory
-public extension AppDependencies {
+extension AppDependencies {
     static func makeDefault() -> AppDependencies {
 #if DEBUG
         let baseLogger = OSLogger(category: "app")
@@ -167,21 +187,8 @@ public extension AppDependencies {
         return AppDependencies(logger: logger)
     }
 
-}
-
-extension AppDependencies {
-    static func makeSwiftDataConfigurationPlan(
-        modelPartition: AppPersistenceModelPartition,
-        isStoredInMemoryOnly: Bool
-    ) -> AppPersistenceConfigurationPlan {
-        AppPersistenceConfigurationPlan.make(
-            modelPartition: modelPartition,
-            isStoredInMemoryOnly: isStoredInMemoryOnly,
-            syncBackedCloudKitPolicy: CloudKitContainerConfiguration.syncBackedDatabasePolicy
-        )
-    }
-
-    static func makeWithSwiftData(modelPartition: AppPersistenceModelPartition) -> AppDependencies {
+    @MainActor
+    static func makeDefault(syncCoordinator: SyncCoordinator) -> AppDependencies {
 #if DEBUG
         let baseLogger = OSLogger(category: "app")
         let logger: Logging = FilteredLogger(minLevel: .debug, base: baseLogger)
@@ -189,16 +196,239 @@ extension AppDependencies {
         let baseLogger = OSLogger(category: "app")
         let logger: Logging = FilteredLogger(minLevel: .info, base: baseLogger)
 #endif
+        return AppDependencies(logger: logger, syncCoordinator: syncCoordinator)
+    }
+
+}
+
+extension AppDependencies {
+    static func makeSwiftDataConfigurationPlan(
+        modelPartition: AppPersistenceModelPartition,
+        isStoredInMemoryOnly: Bool,
+        syncBackedCloudKitPolicy: AppPersistenceCloudKitPolicy = CloudKitContainerConfiguration.syncBackedDatabasePolicy
+    ) -> AppPersistenceConfigurationPlan {
+        AppPersistenceConfigurationPlan.make(
+            modelPartition: modelPartition,
+            isStoredInMemoryOnly: isStoredInMemoryOnly,
+            syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
+        )
+    }
+
+    @MainActor
+    static func makeWithSwiftData(
+        modelPartition: AppPersistenceModelPartition,
+        syncEnablementPolicy: AppSyncEnablementPolicy
+    ) -> AppDependencies {
+        let syncCoordinator = SyncCoordinator()
+        return makeWithSwiftData(
+            modelPartition: modelPartition,
+            syncEnablementPolicy: syncEnablementPolicy,
+            syncCoordinator: syncCoordinator
+        )
+    }
+
+    @MainActor
+    static func makeWithSwiftData(
+        modelPartition: AppPersistenceModelPartition,
+        syncEnablementPolicy: AppSyncEnablementPolicy,
+        syncCoordinator: SyncCoordinator
+    ) -> AppDependencies {
+#if DEBUG
+        let baseLogger = OSLogger(category: "app")
+        let logger: Logging = FilteredLogger(minLevel: .debug, base: baseLogger)
+#else
+        let baseLogger = OSLogger(category: "app")
+        let logger: Logging = FilteredLogger(minLevel: .info, base: baseLogger)
+#endif
+
+        let bootstrapSettingsSnapshot = makeSyncEnablementBootstrapSettingsSnapshot(
+            modelPartition: modelPartition,
+            logger: logger
+        )
+        let syncBackedCloudKitPolicy = resolveSyncBackedCloudKitPolicy(
+            syncEnablementPolicy: syncEnablementPolicy,
+            bootstrapSettingsSnapshot: bootstrapSettingsSnapshot
+        )
+        let modelContainer = try? makeModelContainer(
+            modelPartition: modelPartition,
+            isStoredInMemoryOnly: false,
+            syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
+        )
+        return AppDependencies(
+            logger: logger,
+            modelContainer: modelContainer,
+            syncCoordinator: syncCoordinator
+        )
+    }
+}
+
+extension AppDependencies {
+    static func resolveSyncBackedCloudKitPolicy(
+        syncEnablementPolicy: AppSyncEnablementPolicy,
+        bootstrapSettingsSnapshot: AppSettingsSnapshot?
+    ) -> AppPersistenceCloudKitPolicy {
+        syncEnablementPolicy.syncBackedCloudKitPolicy(for: bootstrapSettingsSnapshot)
+    }
+
+    @MainActor
+    static func fetchSyncEnablementBootstrapSettings(
+        from modelContainer: ModelContainer
+    ) throws -> AppSettingsSnapshot? {
+        let repository = SwiftDataAppSettingsRepository(modelContext: modelContainer.mainContext)
+        guard let settings = try repository.fetch() else {
+            return nil
+        }
+
+        return AppSettingsSnapshot(settings: settings)
+    }
+
+    private static func makeModelContainer(
+        modelPartition: AppPersistenceModelPartition,
+        isStoredInMemoryOnly: Bool,
+        syncBackedCloudKitPolicy: AppPersistenceCloudKitPolicy
+    ) throws -> ModelContainer {
         let schema = modelPartition.schema
         let configurationPlan = makeSwiftDataConfigurationPlan(
             modelPartition: modelPartition,
-            isStoredInMemoryOnly: false
+            isStoredInMemoryOnly: isStoredInMemoryOnly,
+            syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
         )
-        let modelContainer = try? ModelContainer(
+
+        return try ModelContainer(
             for: schema,
             configurations: configurationPlan.modelContainerConfigurations
         )
-        return AppDependencies(logger: logger, modelContainer: modelContainer)
+    }
+
+    @MainActor
+    private static func makeSyncEnablementBootstrapSettingsSnapshot(
+        modelPartition: AppPersistenceModelPartition,
+        logger: Logging
+    ) -> AppSettingsSnapshot? {
+        do {
+            let bootstrapContainer = try makeModelContainer(
+                modelPartition: modelPartition,
+                isStoredInMemoryOnly: false,
+                syncBackedCloudKitPolicy: .disabled
+            )
+            return try fetchSyncEnablementBootstrapSettings(from: bootstrapContainer)
+        } catch {
+            logger.error("Failed to resolve sync enablement bootstrap settings: \(error)")
+            return nil
+        }
+    }
+}
+
+extension AppDependencies {
+    @MainActor
+    func startSyncCoordinatorAppLifetime() {
+        guard hasStartedSyncCoordinatorAppLifetime == false else { return }
+        hasStartedSyncCoordinatorAppLifetime = true
+
+        guard let syncCoordinator else { return }
+
+        let isSyncEnabled = resolveInitialSyncEnablementForCoordinator()
+        syncCoordinator.applySyncEnablement(isEnabled: isSyncEnabled)
+        syncCoordinator.connectRuntimeSources(
+            accountAvailabilityService: iCloudAccountAvailabilityService,
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource
+        )
+    }
+
+    @MainActor
+    func startRemoteSyncReloadAppLifetime(using appState: AppState) {
+        guard hasStartedRemoteSyncReloadAppLifetime == false else { return }
+        hasStartedRemoteSyncReloadAppLifetime = true
+        let runtimeEvents = cloudKitRuntimeEventSource.events()
+        let remoteChangeEvents = persistentStoreRemoteChangeSource.events()
+
+        remoteSyncReloadObservationTask = Task { [weak self] in
+            guard let self else { return }
+
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { [weak self] in
+                    guard let self else { return }
+
+                    for await runtimeEvent in runtimeEvents {
+                        guard Task.isCancelled == false else { return }
+                        await MainActor.run {
+                            self.handleRemoteSyncReload(runtimeEvent: runtimeEvent, using: appState)
+                        }
+                    }
+                }
+
+                group.addTask { [weak self] in
+                    guard let self else { return }
+
+                    for await remoteChangeEvent in remoteChangeEvents {
+                        guard Task.isCancelled == false else { return }
+                        await MainActor.run {
+                            self.handleRemoteSyncReload(remoteChangeEvent: remoteChangeEvent, using: appState)
+                        }
+                    }
+                }
+
+                await group.waitForAll()
+            }
+        }
+    }
+
+    @MainActor
+    private func resolveInitialSyncEnablementForCoordinator() -> Bool {
+        guard let appSettingsService else {
+            return false
+        }
+
+        do {
+            return try appSettingsService.fetchSettings().useiCloudSync
+        } catch {
+            logger.error("Failed to resolve initial sync enablement for SyncCoordinator: \(error)")
+            return false
+        }
+    }
+
+    @MainActor
+    private func handleRemoteSyncReload(
+        runtimeEvent: CloudKitRuntimeEvent,
+        using appState: AppState
+    ) {
+        guard syncCoordinator?.runtimeState.isSyncEnabled == true else { return }
+
+        switch runtimeEvent {
+        case .started(.import, _):
+            remoteSyncReloadPendingImportCompletion = false
+        case .finished(.import, _):
+            remoteSyncReloadPendingImportCompletion = true
+            flushPendingRemoteSyncReloadIfNeeded(using: appState)
+        case .failed(.import, _, _):
+            remoteSyncReloadPendingImportCompletion = false
+            remoteSyncReloadPendingStoreChange = false
+        case .started, .finished, .failed:
+            return
+        }
+    }
+
+    @MainActor
+    private func handleRemoteSyncReload(
+        remoteChangeEvent: PersistentStoreRemoteChangeEvent,
+        using appState: AppState
+    ) {
+        guard syncCoordinator?.runtimeState.isSyncEnabled == true else { return }
+
+        _ = remoteChangeEvent
+        remoteSyncReloadPendingStoreChange = true
+        flushPendingRemoteSyncReloadIfNeeded(using: appState)
+    }
+
+    @MainActor
+    private func flushPendingRemoteSyncReloadIfNeeded(using appState: AppState) {
+        guard remoteSyncReloadPendingImportCompletion, remoteSyncReloadPendingStoreChange else {
+            return
+        }
+
+        remoteSyncReloadPendingImportCompletion = false
+        remoteSyncReloadPendingStoreChange = false
+        appState.requestRemoteSyncReload()
     }
 }
 
