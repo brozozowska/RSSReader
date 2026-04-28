@@ -101,6 +101,24 @@ struct AppDependenciesTests {
     }
 
     @Test
+    func appDependenciesResolveSyncBackedCloudKitPolicyPrefersLocalBootstrapPreferenceWhenAvailable() {
+        #expect(
+            AppDependencies.resolveSyncBackedCloudKitPolicy(
+                syncEnablementPolicy: .current,
+                bootstrapSettingsSnapshot: AppSettingsSnapshot(useiCloudSync: false),
+                localBootstrapPreference: .enabled
+            ) == .privateContainer(CloudKitContainerConfiguration.containerIdentifier)
+        )
+        #expect(
+            AppDependencies.resolveSyncBackedCloudKitPolicy(
+                syncEnablementPolicy: .current,
+                bootstrapSettingsSnapshot: AppSettingsSnapshot(useiCloudSync: true),
+                localBootstrapPreference: .disabled
+            ) == .disabled
+        )
+    }
+
+    @Test
     func appDependenciesFetchSyncEnablementBootstrapSettingsFromModelContainer() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)

@@ -8,7 +8,7 @@ struct AppSyncEnablementPolicyTests {
     func currentPolicyUsesPersistedAppSettingsFlagAsSourceOfTruth() {
         let policy = AppSyncEnablementPolicy.current
 
-        #expect(matchesSourceOfTruth(policy.sourceOfTruth, .appSettingsUseICloudSync))
+        #expect(matchesSourceOfTruth(policy.sourceOfTruth, .bootstrapPreferenceAndAppSettings))
         #expect(matchesFirstLaunchBehavior(policy.firstLaunchBehavior, .defaultToDisabled))
         #expect(matchesDisabledBehavior(policy.disabledBehavior, .keepSyncScopedModelsInLocalStore))
         #expect(matchesSettingsChangeBehavior(policy.settingsChangeBehavior, .requiresAppRelaunch))
@@ -28,6 +28,30 @@ struct AppSyncEnablementPolicyTests {
 
         #expect(matchesBootPreference(policy.bootPreference(from: AppSettingsSnapshot(useiCloudSync: false)), .disabled))
         #expect(matchesBootPreference(policy.bootPreference(from: AppSettingsSnapshot(useiCloudSync: true)), .enabled))
+    }
+
+    @Test
+    func localBootstrapPreferenceOverridesPersistedAppSettingsDuringContainerBootstrap() {
+        let policy = AppSyncEnablementPolicy.current
+
+        #expect(
+            matchesBootPreference(
+                policy.bootPreference(
+                    from: AppSettingsSnapshot(useiCloudSync: false),
+                    localBootstrapPreference: .enabled
+                ),
+                .enabled
+            )
+        )
+        #expect(
+            matchesBootPreference(
+                policy.bootPreference(
+                    from: AppSettingsSnapshot(useiCloudSync: true),
+                    localBootstrapPreference: .disabled
+                ),
+                .disabled
+            )
+        )
     }
 
     @Test
@@ -62,7 +86,7 @@ struct AppSyncEnablementPolicyTests {
         _ rhs: AppSyncEnablementSourceOfTruth
     ) -> Bool {
         switch (lhs, rhs) {
-        case (.appSettingsUseICloudSync, .appSettingsUseICloudSync):
+        case (.bootstrapPreferenceAndAppSettings, .bootstrapPreferenceAndAppSettings):
             true
         }
     }

@@ -1,7 +1,7 @@
 import Foundation
 
 enum AppSyncEnablementSourceOfTruth: String, Equatable, Sendable {
-    case appSettingsUseICloudSync
+    case bootstrapPreferenceAndAppSettings
 }
 
 enum AppSyncBootPreference: String, Equatable, Sendable {
@@ -34,13 +34,20 @@ struct AppSyncEnablementPolicy: Equatable, Sendable {
     let settingsChangeBehavior: AppSyncSettingsChangeBehavior
 
     static let current = AppSyncEnablementPolicy(
-        sourceOfTruth: .appSettingsUseICloudSync,
+        sourceOfTruth: .bootstrapPreferenceAndAppSettings,
         firstLaunchBehavior: .defaultToDisabled,
         disabledBehavior: .keepSyncScopedModelsInLocalStore,
         settingsChangeBehavior: .requiresAppRelaunch
     )
 
-    func bootPreference(from settingsSnapshot: AppSettingsSnapshot?) -> AppSyncBootPreference {
+    func bootPreference(
+        from settingsSnapshot: AppSettingsSnapshot?,
+        localBootstrapPreference: AppSyncBootPreference? = nil
+    ) -> AppSyncBootPreference {
+        if let localBootstrapPreference {
+            return localBootstrapPreference
+        }
+
         guard let settingsSnapshot else {
             return .disabled
         }
@@ -50,9 +57,13 @@ struct AppSyncEnablementPolicy: Equatable, Sendable {
 
     func syncBackedCloudKitPolicy(
         for settingsSnapshot: AppSettingsSnapshot?,
+        localBootstrapPreference: AppSyncBootPreference? = nil,
         enabledPolicy: AppPersistenceCloudKitPolicy = CloudKitContainerConfiguration.syncBackedDatabasePolicy
     ) -> AppPersistenceCloudKitPolicy {
-        bootPreference(from: settingsSnapshot).usesCloudKit ? enabledPolicy : .disabled
+        bootPreference(
+            from: settingsSnapshot,
+            localBootstrapPreference: localBootstrapPreference
+        ).usesCloudKit ? enabledPolicy : .disabled
     }
 
     /// `ModelContainer` captures CloudKit configuration at creation time, so changing

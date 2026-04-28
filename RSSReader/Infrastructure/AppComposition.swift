@@ -29,6 +29,11 @@ enum AppComposition {
     }
 
     @MainActor
+    static func makeRoot(dependencies: AppDependencies) -> some View {
+        AppRootContainer(dependencies: dependencies)
+    }
+
+    @MainActor
     static func applyCurrentICloudSyncStatus(
         from syncCoordinator: SyncCoordinator?,
         to appState: AppState
@@ -42,7 +47,7 @@ enum AppComposition {
     }
 }
 
-private struct AppRootContainer: View {
+struct AppRootContainer: View {
     let dependencies: AppDependencies
     @State private var appState = AppState()
     @State private var hasRestoredPersistedAppSettings = false

@@ -1,4 +1,5 @@
 import CoreData
+import CloudKit
 import Foundation
 import SwiftUI
 import SwiftData
@@ -38,6 +39,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
     public let modelContainer: ModelContainer?
     let modelContainerBootstrapFailureDescription: String?
+    let syncBootstrapPreferenceStore: any AppSyncBootstrapPreferenceStoring
     private var hasStartedSyncCoordinatorAppLifetime = false
     private var hasStartedRemoteSyncReloadAppLifetime = false
     private var remoteSyncReloadObservationTask: Task<Void, Never>?
@@ -51,6 +53,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         sourceIconCache: (any SourceIconCaching)? = nil,
         modelContainer: ModelContainer? = nil,
         modelContainerBootstrapFailureDescription: String? = nil,
+        syncBootstrapPreferenceStore: (any AppSyncBootstrapPreferenceStoring)? = nil,
         iCloudAccountAvailabilityService: (any ICloudAccountAvailabilityService)? = nil,
         cloudKitRuntimeEventSource: (any CloudKitRuntimeEventSource)? = nil,
         persistentStoreRemoteChangeSource: (any PersistentStoreRemoteChangeSource)? = nil,
@@ -144,9 +147,12 @@ public final class AppDependencies: AppDependenciesProtocol {
                 feedRefreshService: feedRefreshService
             )
         }
-        let iCloudAccountAvailabilityService = iCloudAccountAvailabilityService ?? DefaultICloudAccountAvailabilityService()
+        let iCloudAccountAvailabilityService = iCloudAccountAvailabilityService
+            ?? DefaultICloudAccountAvailabilityService(logger: logger)
         let cloudKitRuntimeEventSource = cloudKitRuntimeEventSource ?? DefaultCloudKitRuntimeEventSource()
         let persistentStoreRemoteChangeSource = persistentStoreRemoteChangeSource ?? DefaultPersistentStoreRemoteChangeSource()
+        let syncBootstrapPreferenceStore = syncBootstrapPreferenceStore
+            ?? AppSyncBootstrapPreferenceStore(logger: logger)
         let iCloudSyncStatusService = syncCoordinator.map { syncCoordinator in
             DefaultICloudSyncStatusService(syncCoordinator: syncCoordinator)
         }
@@ -156,6 +162,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.sourceIconCache = resolvedSourceIconCache
         self.modelContainer = modelContainer
         self.modelContainerBootstrapFailureDescription = modelContainerBootstrapFailureDescription
+        self.syncBootstrapPreferenceStore = syncBootstrapPreferenceStore
         self.feedRefreshService = feedRefreshService
         self.feedRepository = feedRepository
         self.folderRepository = folderRepository
@@ -235,7 +242,8 @@ extension AppDependencies {
     static func makeWithSwiftData(
         modelPartition: AppPersistenceModelPartition,
         syncEnablementPolicy: AppSyncEnablementPolicy,
-        syncCoordinator: SyncCoordinator
+        syncCoordinator: SyncCoordinator,
+        syncBootstrapPreferenceStore: (any AppSyncBootstrapPreferenceStoring)? = nil
     ) -> AppDependencies {
 #if DEBUG
         let baseLogger = OSLogger(category: "app")
@@ -245,13 +253,20 @@ extension AppDependencies {
         let logger: Logging = FilteredLogger(minLevel: .info, base: baseLogger)
 #endif
 
+        let resolvedSyncBootstrapPreferenceStore = syncBootstrapPreferenceStore
+            ?? AppSyncBootstrapPreferenceStore(logger: logger)
         let bootstrapSettingsSnapshot = makeSyncEnablementBootstrapSettingsSnapshot(
             modelPartition: modelPartition,
             logger: logger
         )
-        let syncBackedCloudKitPolicy = resolveSyncBackedCloudKitPolicy(
+        let desiredSyncBackedCloudKitPolicy = resolveSyncBackedCloudKitPolicy(
             syncEnablementPolicy: syncEnablementPolicy,
-            bootstrapSettingsSnapshot: bootstrapSettingsSnapshot
+            bootstrapSettingsSnapshot: bootstrapSettingsSnapshot,
+            localBootstrapPreference: resolvedSyncBootstrapPreferenceStore.currentBootPreference()
+        )
+        let syncBackedCloudKitPolicy = resolveBootstrapModelContainerCloudKitPolicy(
+            desiredPolicy: desiredSyncBackedCloudKitPolicy,
+            logger: logger
         )
         let modelContainer: ModelContainer?
         let modelContainerBootstrapFailureDescription: String?
@@ -281,6 +296,7 @@ extension AppDependencies {
             logger: logger,
             modelContainer: modelContainer,
             modelContainerBootstrapFailureDescription: modelContainerBootstrapFailureDescription,
+            syncBootstrapPreferenceStore: resolvedSyncBootstrapPreferenceStore,
             syncCoordinator: syncCoordinator
         )
     }
@@ -289,9 +305,36 @@ extension AppDependencies {
 extension AppDependencies {
     static func resolveSyncBackedCloudKitPolicy(
         syncEnablementPolicy: AppSyncEnablementPolicy,
-        bootstrapSettingsSnapshot: AppSettingsSnapshot?
+        bootstrapSettingsSnapshot: AppSettingsSnapshot?,
+        localBootstrapPreference: AppSyncBootPreference? = nil
     ) -> AppPersistenceCloudKitPolicy {
-        syncEnablementPolicy.syncBackedCloudKitPolicy(for: bootstrapSettingsSnapshot)
+        syncEnablementPolicy.syncBackedCloudKitPolicy(
+            for: bootstrapSettingsSnapshot,
+            localBootstrapPreference: localBootstrapPreference
+        )
+    }
+
+    static func resolveBootstrapModelContainerCloudKitPolicy(
+        desiredPolicy: AppPersistenceCloudKitPolicy,
+        logger: Logging
+    ) -> AppPersistenceCloudKitPolicy {
+        guard case .privateContainer(let containerIdentifier) = desiredPolicy else {
+            return desiredPolicy
+        }
+
+        let resolvedContainerIdentifier = containerIdentifier.isEmpty
+            ? CloudKitContainerConfiguration.containerIdentifier
+            : containerIdentifier
+        let accountStatus = currentCloudKitAccountStatus(for: resolvedContainerIdentifier)
+
+        guard accountStatus == .available else {
+            logger.info(
+                "Skipped CloudKit-backed model container bootstrap because account status is \(String(describing: accountStatus))"
+            )
+            return .disabled
+        }
+
+        return desiredPolicy
     }
 
     @MainActor
@@ -352,6 +395,14 @@ extension AppDependencies {
             return nil
         }
 
+        let resolvedContainerIdentifier = containerIdentifier.isEmpty
+            ? CloudKitContainerConfiguration.containerIdentifier
+            : containerIdentifier
+        let accountStatus = currentCloudKitAccountStatus(for: resolvedContainerIdentifier)
+        guard accountStatus == .available else {
+            return "Persistent store probe skipped because CloudKit account status is \(String(describing: accountStatus))."
+        }
+
         let configurationPlan = makeSwiftDataConfigurationPlan(
             modelPartition: modelPartition,
             isStoredInMemoryOnly: false,
@@ -362,15 +413,10 @@ extension AppDependencies {
         guard let managedObjectModel = NSManagedObjectModel.makeManagedObjectModel(for: syncBackedStore.modelTypes) else {
             return "Could not create managed object model for persistent store probe."
         }
-        managedObjectModel.setEntities(
-            managedObjectModel.entities,
-            forConfigurationName: syncBackedStore.name
-        )
 
         let storeDescription = NSPersistentStoreDescription(url: syncBackedStore.modelConfiguration.url)
-        storeDescription.configuration = syncBackedStore.name
         storeDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
-            containerIdentifier: containerIdentifier.isEmpty ? CloudKitContainerConfiguration.containerIdentifier : containerIdentifier
+            containerIdentifier: resolvedContainerIdentifier
         )
         storeDescription.shouldAddStoreAsynchronously = false
 
@@ -393,6 +439,20 @@ extension AppDependencies {
         }
 
         return describeBootstrapErrorChain(loadError).joined(separator: "\n")
+    }
+
+    private static func currentCloudKitAccountStatus(for containerIdentifier: String) -> CKAccountStatus {
+        let container = CKContainer(identifier: containerIdentifier)
+        let semaphore = DispatchSemaphore(value: 0)
+        var resolvedStatus: CKAccountStatus = .couldNotDetermine
+
+        container.accountStatus { status, _ in
+            resolvedStatus = status
+            semaphore.signal()
+        }
+
+        _ = semaphore.wait(timeout: .now() + 5)
+        return resolvedStatus
     }
 
     private static func describeBootstrapErrorChain(_ error: Error) -> [String] {
@@ -519,6 +579,10 @@ extension AppDependencies {
 
     @MainActor
     private func resolveInitialSyncEnablementForCoordinator() -> Bool {
+        if let localBootstrapPreference = syncBootstrapPreferenceStore.currentBootPreference() {
+            return localBootstrapPreference.usesCloudKit
+        }
+
         guard let appSettingsService else {
             return false
         }

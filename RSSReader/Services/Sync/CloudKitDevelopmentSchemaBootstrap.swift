@@ -1,3 +1,4 @@
+import CloudKit
 import CoreData
 import Foundation
 import SwiftData
@@ -24,6 +25,13 @@ enum CloudKitDevelopmentSchemaBootstrap {
 
         switch makeDecision() {
         case .run(let request):
+            let accountStatus = currentAccountStatus(for: request.containerIdentifier)
+            guard accountStatus == .available else {
+                logger.info(
+                    "Skipped CloudKit development schema bootstrap because account status is \(String(describing: accountStatus))"
+                )
+                return
+            }
             do {
                 try initializeDevelopmentSchema(using: request, logger: logger)
             } catch {
@@ -80,41 +88,58 @@ enum CloudKitDevelopmentSchemaBootstrap {
         using request: CloudKitDevelopmentSchemaBootstrapRequest,
         logger: Logging
     ) throws {
-        guard let managedObjectModel = NSManagedObjectModel.makeManagedObjectModel(for: request.modelTypes) else {
-            throw CloudKitDevelopmentSchemaBootstrapError.couldNotCreateManagedObjectModel
-        }
+        try autoreleasepool {
+            guard let managedObjectModel = NSManagedObjectModel.makeManagedObjectModel(for: request.modelTypes) else {
+                throw CloudKitDevelopmentSchemaBootstrapError.couldNotCreateManagedObjectModel
+            }
 
-        let storeDescription = NSPersistentStoreDescription(url: request.storeURL)
-        storeDescription.configuration = request.storeConfigurationName
-        storeDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
-            containerIdentifier: request.containerIdentifier
-        )
-        storeDescription.shouldAddStoreAsynchronously = false
+            let storeDescription = NSPersistentStoreDescription(url: request.storeURL)
+            storeDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
+                containerIdentifier: request.containerIdentifier
+            )
+            storeDescription.shouldAddStoreAsynchronously = false
 
-        let container = NSPersistentCloudKitContainer(
-            name: request.storeConfigurationName,
-            managedObjectModel: managedObjectModel
-        )
-        container.persistentStoreDescriptions = [storeDescription]
+            let container = NSPersistentCloudKitContainer(
+                name: request.storeConfigurationName,
+                managedObjectModel: managedObjectModel
+            )
+            container.persistentStoreDescriptions = [storeDescription]
 
-        var loadError: Error?
-        container.loadPersistentStores { _, error in
-            loadError = error
-        }
+            var loadError: Error?
+            container.loadPersistentStores { _, error in
+                loadError = error
+            }
 
-        if let loadError {
-            throw loadError
-        }
+            if let loadError {
+                throw loadError
+            }
 
-        try container.initializeCloudKitSchema()
+            try container.initializeCloudKitSchema()
 
-        if let store = container.persistentStoreCoordinator.persistentStores.first {
-            try container.persistentStoreCoordinator.remove(store)
+            if let store = container.persistentStoreCoordinator.persistentStores.first {
+                try container.persistentStoreCoordinator.remove(store)
+            }
+
+            container.persistentStoreDescriptions = []
         }
 
         logger.info(
             "Initialized CloudKit development schema for \(request.containerIdentifier) using \(request.storeConfigurationName)"
         )
+    }
+
+    private static func currentAccountStatus(for containerIdentifier: String) -> CKAccountStatus {
+        let container = CKContainer(identifier: containerIdentifier)
+        let semaphore = DispatchSemaphore(value: 0)
+        var resolvedStatus: CKAccountStatus = .couldNotDetermine
+
+        container.accountStatus { status, _ in
+            resolvedStatus = status
+            semaphore.signal()
+        }
+
+        _ = semaphore.wait(timeout: .now() + 5)
+        return resolvedStatus
     }
 }
 

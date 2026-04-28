@@ -212,7 +212,10 @@ private extension SettingsScreenController {
             ),
             dependencies: dependencies,
             unavailableServiceLog: "App settings service is unavailable for iCloud sync preference update",
-            failureLogPrefix: "Failed to update iCloud sync preference"
+            failureLogPrefix: "Failed to update iCloud sync preference",
+            onApplied: { _ in
+                dependencies.syncBootstrapPreferenceStore.saveBootPreference(isOn ? .enabled : .disabled)
+            }
         )
     }
 
