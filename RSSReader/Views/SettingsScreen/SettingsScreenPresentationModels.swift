@@ -36,6 +36,7 @@ struct SettingsScreenInput: Equatable, Sendable {
     var useiCloudSync: Bool
     var iCloudSyncStatus: ICloudSyncStatus
     var syncStatusPresentation: SettingsSyncStatusPresentation
+    var isUsingLocalOnlySyncFallbackForCurrentLaunch: Bool
     var interfaceThemeMode: InterfaceThemeMode
 
     init(
@@ -49,6 +50,7 @@ struct SettingsScreenInput: Equatable, Sendable {
         useiCloudSync: Bool = false,
         iCloudSyncStatus: ICloudSyncStatus = .disabled,
         syncStatusPresentation: SettingsSyncStatusPresentation = .disabled,
+        isUsingLocalOnlySyncFallbackForCurrentLaunch: Bool = false,
         interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
     ) {
         self.defaultReaderMode = defaultReaderMode
@@ -61,6 +63,7 @@ struct SettingsScreenInput: Equatable, Sendable {
         self.useiCloudSync = useiCloudSync
         self.iCloudSyncStatus = iCloudSyncStatus
         self.syncStatusPresentation = syncStatusPresentation
+        self.isUsingLocalOnlySyncFallbackForCurrentLaunch = isUsingLocalOnlySyncFallbackForCurrentLaunch
         self.interfaceThemeMode = interfaceThemeMode
     }
 }
@@ -225,7 +228,8 @@ enum SettingsScreenInputBuilder {
     static func build(
         from snapshot: AppSettingsSnapshot,
         iCloudSyncStatus: ICloudSyncStatus = .disabled,
-        syncStatusPresentation: SettingsSyncStatusPresentation? = nil
+        syncStatusPresentation: SettingsSyncStatusPresentation? = nil,
+        isUsingLocalOnlySyncFallbackForCurrentLaunch: Bool = false
     ) -> SettingsScreenInput {
         let resolvedSyncStatusPresentation = syncStatusPresentation
             ?? SettingsSyncStatusPresentation(iCloudSyncStatus: iCloudSyncStatus)
@@ -241,6 +245,7 @@ enum SettingsScreenInputBuilder {
             useiCloudSync: snapshot.useiCloudSync,
             iCloudSyncStatus: resolvedSyncStatusPresentation.iCloudSyncStatus,
             syncStatusPresentation: resolvedSyncStatusPresentation,
+            isUsingLocalOnlySyncFallbackForCurrentLaunch: isUsingLocalOnlySyncFallbackForCurrentLaunch,
             interfaceThemeMode: snapshot.interfaceThemeMode
         )
     }
@@ -391,7 +396,11 @@ enum SettingsScreenPresentationBuilder {
                     SettingsToggleItemPresentation(
                         id: .useICloudSync,
                         title: "Enable iCloud Sync",
-                        subtitle: iCloudSyncPreferenceSubtitle(input.useiCloudSync),
+                        subtitle: iCloudSyncPreferenceSubtitle(
+                            input.useiCloudSync,
+                            isUsingLocalOnlySyncFallbackForCurrentLaunch: input.isUsingLocalOnlySyncFallbackForCurrentLaunch,
+                            syncStatusPresentation: input.syncStatusPresentation
+                        ),
                         isOn: input.useiCloudSync
                     )
                 ),
@@ -399,7 +408,10 @@ enum SettingsScreenPresentationBuilder {
                     SettingsStatusRowItemPresentation(
                         id: .iCloudSyncStatus,
                         title: "Current Status",
-                        subtitle: iCloudSyncStatusSubtitle(input.syncStatusPresentation),
+                        subtitle: iCloudSyncStatusSubtitle(
+                            input.syncStatusPresentation,
+                            isUsingLocalOnlySyncFallbackForCurrentLaunch: input.isUsingLocalOnlySyncFallbackForCurrentLaunch
+                        ),
                         valueTitle: iCloudSyncStatusTitle(input.syncStatusPresentation)
                     )
                 )
@@ -500,7 +512,15 @@ enum SettingsScreenPresentationBuilder {
         }
     }
 
-    private static func iCloudSyncPreferenceSubtitle(_ isEnabled: Bool) -> String {
+    private static func iCloudSyncPreferenceSubtitle(
+        _ isEnabled: Bool,
+        isUsingLocalOnlySyncFallbackForCurrentLaunch: Bool,
+        syncStatusPresentation: SettingsSyncStatusPresentation
+    ) -> String {
+        if isEnabled, isUsingLocalOnlySyncFallbackForCurrentLaunch {
+            return "Saved for the next launch. This session is still using local-only data because \(bootstrapFallbackReason(syncStatusPresentation))."
+        }
+
         if isEnabled {
             return "Applies on next launch. The app will rebuild its sync container and try to use iCloud for supported data."
         }
@@ -539,34 +559,52 @@ enum SettingsScreenPresentationBuilder {
         }
     }
 
-    private static func iCloudSyncStatusSubtitle(_ status: SettingsSyncStatusPresentation) -> String {
+    private static func iCloudSyncStatusSubtitle(
+        _ status: SettingsSyncStatusPresentation,
+        isUsingLocalOnlySyncFallbackForCurrentLaunch: Bool
+    ) -> String {
+        if isUsingLocalOnlySyncFallbackForCurrentLaunch {
+            switch status {
+            case .noAccount:
+                return "Sync is enabled as a saved preference, but this app launch is still using the local-only store because the current device is not signed in to iCloud. Relaunch after signing in so the app can rebuild its sync container."
+            case .restricted:
+                return "Sync is enabled as a saved preference, but this app launch is still using the local-only store because iCloud access is currently restricted on this device. Relaunch after the restriction is removed so the app can rebuild its sync container."
+            case .temporarilyUnavailable:
+                return "Sync is enabled as a saved preference, but this app launch is still using the local-only store because the current iCloud account is temporarily unavailable. Relaunch after iCloud becomes available so the app can rebuild its sync container."
+            case .couldNotDetermine, .statusUnavailable, .checkingAccount:
+                return "Sync is enabled as a saved preference, but this app launch is still using the local-only store because the app could not confirm a usable iCloud account/runtime path during bootstrap. Relaunch after iCloud becomes available so the app can rebuild its sync container."
+            case .disabled, .ready, .syncing, .preparing, .importing, .uploading, .failed:
+                break
+            }
+        }
+
         switch status {
         case .disabled:
-            "The current app session is running without iCloud sync."
+            return "The current app session is running without iCloud sync."
         case .statusUnavailable:
-            "The current app session could not read the live iCloud sync status."
+            return "The current app session could not read the live iCloud sync status."
         case .checkingAccount:
-            "The app is checking the current iCloud account and CloudKit session status."
+            return "The app is checking the current iCloud account and CloudKit session status."
         case .ready:
-            "iCloud sync is available for the Apple ID currently signed in on this device."
+            return "iCloud sync is available for the Apple ID currently signed in on this device."
         case .syncing:
-            "Changes are currently syncing with iCloud."
+            return "Changes are currently syncing with iCloud."
         case .preparing:
-            "The app is preparing the iCloud sync session for supported data."
+            return "The app is preparing the iCloud sync session for supported data."
         case .importing:
-            "Changes from iCloud are currently being applied on this device."
+            return "Changes from iCloud are currently being applied on this device."
         case .uploading:
-            "Changes from this device are currently being uploaded to iCloud."
+            return "Changes from this device are currently being uploaded to iCloud."
         case .noAccount:
-            "Sign in to iCloud with the Apple ID used on this device to enable sync. RSSReader does not require a separate account."
+            return "Sign in to iCloud with the Apple ID used on this device to enable sync. RSSReader does not require a separate account."
         case .restricted:
-            "This device cannot use iCloud right now because account changes or CloudKit access are restricted."
+            return "This device cannot use iCloud right now because account changes or CloudKit access are restricted."
         case .temporarilyUnavailable:
-            "The current iCloud account is temporarily unavailable. Try again later."
+            return "The current iCloud account is temporarily unavailable. Try again later."
         case .couldNotDetermine:
-            "The app could not determine the current iCloud account status. Check the device Apple ID and iCloud availability, then try again."
+            return "The app could not determine the current iCloud account status. Check the device Apple ID and iCloud availability, then try again."
         case .failed(let message):
-            message
+            return message
         }
     }
 
@@ -578,7 +616,28 @@ enum SettingsScreenPresentationBuilder {
         let scopeFooter = syncScope.settingsSectionFooter(readingScenario: readingScenario)
         let accountFooter = "RSSReader uses the Apple ID already signed in to this device for iCloud sync and does not require a separate app account."
         let relaunchFooter = "Changing the sync preference applies on the next app launch because the model container must be rebuilt for the selected sync policy."
+        let fallbackFooter: String
+        if input.isUsingLocalOnlySyncFallbackForCurrentLaunch {
+            fallbackFooter = "The saved sync preference is currently waiting for a later launch that can rebuild the model container with a valid iCloud account/runtime path."
+        } else {
+            fallbackFooter = ""
+        }
 
-        return "\(scopeFooter) \(accountFooter) \(relaunchFooter)"
+        return "\(scopeFooter) \(accountFooter) \(relaunchFooter) \(fallbackFooter)".trimmingCharacters(in: .whitespaces)
+    }
+
+    private static func bootstrapFallbackReason(_ status: SettingsSyncStatusPresentation) -> String {
+        switch status {
+        case .noAccount:
+            "the device is not signed in to iCloud"
+        case .restricted:
+            "iCloud access is currently restricted on this device"
+        case .temporarilyUnavailable:
+            "the current iCloud account is temporarily unavailable"
+        case .couldNotDetermine, .statusUnavailable, .checkingAccount:
+            "the app could not confirm a usable iCloud account/runtime path during bootstrap"
+        case .disabled, .ready, .syncing, .preparing, .importing, .uploading, .failed:
+            "the app is waiting for a later launch to rebuild its sync container"
+        }
     }
 }

@@ -23,12 +23,14 @@ struct SettingsScreenState {
     mutating func applyLoadedSnapshot(
         _ snapshot: AppSettingsSnapshot,
         iCloudSyncStatus: ICloudSyncStatus = .disabled,
-        syncStatusPresentation: SettingsSyncStatusPresentation? = nil
+        syncStatusPresentation: SettingsSyncStatusPresentation? = nil,
+        isUsingLocalOnlySyncFallbackForCurrentLaunch: Bool = false
     ) {
         let input = SettingsScreenInputBuilder.build(
             from: snapshot,
             iCloudSyncStatus: iCloudSyncStatus,
-            syncStatusPresentation: syncStatusPresentation
+            syncStatusPresentation: syncStatusPresentation,
+            isUsingLocalOnlySyncFallbackForCurrentLaunch: isUsingLocalOnlySyncFallbackForCurrentLaunch
         )
         applyLoadedSnapshot(snapshot, input: input)
     }
@@ -84,12 +86,14 @@ struct SettingsScreenState {
     static func previewLoaded(
         snapshot: AppSettingsSnapshot,
         iCloudSyncStatus: ICloudSyncStatus = .disabled,
-        syncStatusPresentation: SettingsSyncStatusPresentation? = nil
+        syncStatusPresentation: SettingsSyncStatusPresentation? = nil,
+        isUsingLocalOnlySyncFallbackForCurrentLaunch: Bool = false
     ) -> SettingsScreenState {
         let input = SettingsScreenInputBuilder.build(
             from: snapshot,
             iCloudSyncStatus: iCloudSyncStatus,
-            syncStatusPresentation: syncStatusPresentation
+            syncStatusPresentation: syncStatusPresentation,
+            isUsingLocalOnlySyncFallbackForCurrentLaunch: isUsingLocalOnlySyncFallbackForCurrentLaunch
         )
         return previewLoaded(snapshot: snapshot, input: input)
     }

@@ -143,6 +143,62 @@ struct SettingsScreenControllerTests {
     }
 
     @Test
+    func settingsScreenControllerExplainsSavedSyncPreferenceWhenCurrentLaunchStayedLocalOnly() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let syncCoordinator = SyncCoordinator()
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            httpClient: harness.httpClient,
+            modelContainer: harness.modelContainer,
+            syncBootstrapContext: AppSyncBootstrapContext(
+                desiredBootPreference: .enabled,
+                desiredSyncBackedCloudKitPolicy: .privateContainer(CloudKitContainerConfiguration.containerIdentifier),
+                modelContainerCloudKitPolicy: .disabled,
+                accountAvailabilityAtBootstrap: .temporarilyUnavailable
+            ),
+            syncCoordinator: syncCoordinator
+        )
+        let service = try #require(dependencies.appSettingsService)
+        _ = try service.saveSettings(
+            AppSettingsSnapshot(useiCloudSync: true),
+            updatedAt: .distantPast
+        )
+        let controller = SettingsScreenController()
+        let appState = AppState()
+
+        controller.loadSettings(dependencies: dependencies, appState: appState)
+
+        let syncSection = try #require(
+            controller.viewState().sections.first(where: { $0.id == .sync })
+        )
+
+        #expect(controller.screenState.iCloudSyncStatus == .statusUnavailable)
+        #expect(controller.screenState.syncStatusPresentation == .temporarilyUnavailable)
+        #expect(controller.screenState.settingsInput.isUsingLocalOnlySyncFallbackForCurrentLaunch)
+        #expect(appState.iCloudSyncStatus == .statusUnavailable)
+        #expect(
+            syncSection.items.first == .toggle(
+                SettingsToggleItemPresentation(
+                    id: .useICloudSync,
+                    title: "Enable iCloud Sync",
+                    subtitle: "Saved for the next launch. This session is still using local-only data because the current iCloud account is temporarily unavailable.",
+                    isOn: true
+                )
+            )
+        )
+        #expect(
+            syncSection.items.last == .statusRow(
+                SettingsStatusRowItemPresentation(
+                    id: .iCloudSyncStatus,
+                    title: "Current Status",
+                    subtitle: "Sync is enabled as a saved preference, but this app launch is still using the local-only store because the current iCloud account is temporarily unavailable. Relaunch after iCloud becomes available so the app can rebuild its sync container.",
+                    valueTitle: "Temporarily Unavailable"
+                )
+            )
+        )
+    }
+
+    @Test
     func settingsScreenControllerPersistsUpdatedDefaultReaderModeThroughSettingsService() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)

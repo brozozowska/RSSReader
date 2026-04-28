@@ -25,6 +25,25 @@ enum AppSyncSettingsChangeBehavior: Equatable, Sendable {
     case requiresAppRelaunch
 }
 
+struct AppSyncBootstrapContext: Equatable, Sendable {
+    let desiredBootPreference: AppSyncBootPreference
+    let desiredSyncBackedCloudKitPolicy: AppPersistenceCloudKitPolicy
+    let modelContainerCloudKitPolicy: AppPersistenceCloudKitPolicy
+    let accountAvailabilityAtBootstrap: ICloudAccountAvailability?
+
+    var isSyncRequested: Bool {
+        desiredBootPreference.usesCloudKit
+    }
+
+    var isUsingCloudKitForCurrentLaunch: Bool {
+        modelContainerCloudKitPolicy.usesCloudKit
+    }
+
+    var isRunningLocalOnlyFallbackForCurrentLaunch: Bool {
+        isSyncRequested && isUsingCloudKitForCurrentLaunch == false
+    }
+}
+
 /// App-level policy for choosing whether sync-backed models should start with CloudKit enabled.
 /// The next roadmap step wires this policy into container construction.
 struct AppSyncEnablementPolicy: Equatable, Sendable {

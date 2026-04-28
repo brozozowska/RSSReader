@@ -39,7 +39,8 @@ final class SettingsScreenController {
             screenState.applyLoadedSnapshot(
                 snapshot,
                 iCloudSyncStatus: resolvedSyncStatus.iCloudSyncStatus,
-                syncStatusPresentation: resolvedSyncStatus
+                syncStatusPresentation: resolvedSyncStatus,
+                isUsingLocalOnlySyncFallbackForCurrentLaunch: dependencies.syncBootstrapContext?.isRunningLocalOnlyFallbackForCurrentLaunch == true
             )
             if let appState, appState.interfaceThemeMode != snapshot.interfaceThemeMode {
                 appState.applyInterfaceThemeMode(snapshot.interfaceThemeMode)
@@ -365,6 +366,13 @@ private extension SettingsScreenController {
             return resolvedStatus
         }
 
+        if let syncBootstrapContext = dependencies.syncBootstrapContext,
+           syncBootstrapContext.isRunningLocalOnlyFallbackForCurrentLaunch {
+            let fallbackStatus = bootstrapFallbackStatusPresentation(for: syncBootstrapContext)
+            appState?.applyICloudSyncStatus(fallbackStatus.iCloudSyncStatus)
+            return fallbackStatus
+        }
+
         if let appState, appState.iCloudSyncStatus != .disabled {
             return SettingsSyncStatusPresentation(iCloudSyncStatus: appState.iCloudSyncStatus)
         }
@@ -416,7 +424,25 @@ private extension SettingsScreenController {
         screenState.applyLoadedSnapshot(
             snapshot,
             iCloudSyncStatus: screenState.iCloudSyncStatus,
-            syncStatusPresentation: screenState.syncStatusPresentation
+            syncStatusPresentation: screenState.syncStatusPresentation,
+            isUsingLocalOnlySyncFallbackForCurrentLaunch: screenState.settingsInput.isUsingLocalOnlySyncFallbackForCurrentLaunch
         )
+    }
+
+    func bootstrapFallbackStatusPresentation(
+        for syncBootstrapContext: AppSyncBootstrapContext
+    ) -> SettingsSyncStatusPresentation {
+        switch syncBootstrapContext.accountAvailabilityAtBootstrap {
+        case .available:
+            return .ready
+        case .noAccount:
+            return .noAccount
+        case .restricted:
+            return .restricted
+        case .temporarilyUnavailable:
+            return .temporarilyUnavailable
+        case .couldNotDetermine, nil:
+            return .couldNotDetermine
+        }
     }
 }

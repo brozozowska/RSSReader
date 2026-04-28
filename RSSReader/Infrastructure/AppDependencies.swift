@@ -40,6 +40,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     public let modelContainer: ModelContainer?
     let modelContainerBootstrapFailureDescription: String?
     let syncBootstrapPreferenceStore: any AppSyncBootstrapPreferenceStoring
+    let syncBootstrapContext: AppSyncBootstrapContext?
     private var hasStartedSyncCoordinatorAppLifetime = false
     private var hasStartedRemoteSyncReloadAppLifetime = false
     private var remoteSyncReloadObservationTask: Task<Void, Never>?
@@ -54,6 +55,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         modelContainer: ModelContainer? = nil,
         modelContainerBootstrapFailureDescription: String? = nil,
         syncBootstrapPreferenceStore: (any AppSyncBootstrapPreferenceStoring)? = nil,
+        syncBootstrapContext: AppSyncBootstrapContext? = nil,
         iCloudAccountAvailabilityService: (any ICloudAccountAvailabilityService)? = nil,
         cloudKitRuntimeEventSource: (any CloudKitRuntimeEventSource)? = nil,
         persistentStoreRemoteChangeSource: (any PersistentStoreRemoteChangeSource)? = nil,
@@ -163,6 +165,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.modelContainer = modelContainer
         self.modelContainerBootstrapFailureDescription = modelContainerBootstrapFailureDescription
         self.syncBootstrapPreferenceStore = syncBootstrapPreferenceStore
+        self.syncBootstrapContext = syncBootstrapContext
         self.feedRefreshService = feedRefreshService
         self.feedRepository = feedRepository
         self.folderRepository = folderRepository
@@ -259,15 +262,21 @@ extension AppDependencies {
             modelPartition: modelPartition,
             logger: logger
         )
+        let desiredBootPreference = syncEnablementPolicy.bootPreference(
+            from: bootstrapSettingsSnapshot,
+            localBootstrapPreference: resolvedSyncBootstrapPreferenceStore.currentBootPreference()
+        )
         let desiredSyncBackedCloudKitPolicy = resolveSyncBackedCloudKitPolicy(
             syncEnablementPolicy: syncEnablementPolicy,
             bootstrapSettingsSnapshot: bootstrapSettingsSnapshot,
-            localBootstrapPreference: resolvedSyncBootstrapPreferenceStore.currentBootPreference()
+            localBootstrapPreference: desiredBootPreference
         )
-        let syncBackedCloudKitPolicy = resolveBootstrapModelContainerCloudKitPolicy(
+        let syncBootstrapContext = resolveSyncBootstrapContext(
+            desiredBootPreference: desiredBootPreference,
             desiredPolicy: desiredSyncBackedCloudKitPolicy,
             logger: logger
         )
+        let syncBackedCloudKitPolicy = syncBootstrapContext.modelContainerCloudKitPolicy
         let modelContainer: ModelContainer?
         let modelContainerBootstrapFailureDescription: String?
         do {
@@ -297,6 +306,7 @@ extension AppDependencies {
             modelContainer: modelContainer,
             modelContainerBootstrapFailureDescription: modelContainerBootstrapFailureDescription,
             syncBootstrapPreferenceStore: resolvedSyncBootstrapPreferenceStore,
+            syncBootstrapContext: syncBootstrapContext,
             syncCoordinator: syncCoordinator
         )
     }
@@ -316,25 +326,59 @@ extension AppDependencies {
 
     static func resolveBootstrapModelContainerCloudKitPolicy(
         desiredPolicy: AppPersistenceCloudKitPolicy,
-        logger: Logging
+        logger: Logging,
+        resolvedAccountStatus: CKAccountStatus? = nil
     ) -> AppPersistenceCloudKitPolicy {
+        resolveSyncBootstrapContext(
+            desiredBootPreference: desiredPolicy.usesCloudKit ? .enabled : .disabled,
+            desiredPolicy: desiredPolicy,
+            logger: logger,
+            resolvedAccountStatus: resolvedAccountStatus
+        ).modelContainerCloudKitPolicy
+    }
+
+    static func resolveSyncBootstrapContext(
+        desiredBootPreference: AppSyncBootPreference,
+        desiredPolicy: AppPersistenceCloudKitPolicy,
+        logger: Logging,
+        resolvedAccountStatus: CKAccountStatus? = nil
+    ) -> AppSyncBootstrapContext {
         guard case .privateContainer(let containerIdentifier) = desiredPolicy else {
-            return desiredPolicy
+            return AppSyncBootstrapContext(
+                desiredBootPreference: desiredBootPreference,
+                desiredSyncBackedCloudKitPolicy: desiredPolicy,
+                modelContainerCloudKitPolicy: desiredPolicy,
+                accountAvailabilityAtBootstrap: nil
+            )
         }
 
         let resolvedContainerIdentifier = containerIdentifier.isEmpty
             ? CloudKitContainerConfiguration.containerIdentifier
             : containerIdentifier
-        let accountStatus = currentCloudKitAccountStatus(for: resolvedContainerIdentifier)
+        let accountStatus = resolvedAccountStatus
+            ?? currentCloudKitAccountStatus(for: resolvedContainerIdentifier)
+        let accountAvailability = DefaultICloudAccountAvailabilityService.mapAccountAvailability(
+            from: accountStatus
+        )
 
         guard accountStatus == .available else {
             logger.info(
                 "Skipped CloudKit-backed model container bootstrap because account status is \(String(describing: accountStatus))"
             )
-            return .disabled
+            return AppSyncBootstrapContext(
+                desiredBootPreference: desiredBootPreference,
+                desiredSyncBackedCloudKitPolicy: desiredPolicy,
+                modelContainerCloudKitPolicy: .disabled,
+                accountAvailabilityAtBootstrap: accountAvailability
+            )
         }
 
-        return desiredPolicy
+        return AppSyncBootstrapContext(
+            desiredBootPreference: desiredBootPreference,
+            desiredSyncBackedCloudKitPolicy: desiredPolicy,
+            modelContainerCloudKitPolicy: desiredPolicy,
+            accountAvailabilityAtBootstrap: accountAvailability
+        )
     }
 
     @MainActor
@@ -579,6 +623,10 @@ extension AppDependencies {
 
     @MainActor
     private func resolveInitialSyncEnablementForCoordinator() -> Bool {
+        if let syncBootstrapContext {
+            return syncBootstrapContext.isUsingCloudKitForCurrentLaunch
+        }
+
         if let localBootstrapPreference = syncBootstrapPreferenceStore.currentBootPreference() {
             return localBootstrapPreference.usesCloudKit
         }

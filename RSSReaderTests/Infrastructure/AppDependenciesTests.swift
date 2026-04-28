@@ -1,3 +1,4 @@
+import CloudKit
 import Foundation
 import SwiftData
 import Testing
@@ -116,6 +117,24 @@ struct AppDependenciesTests {
                 localBootstrapPreference: .disabled
             ) == .disabled
         )
+    }
+
+    @Test
+    func appDependenciesResolveSyncBootstrapContextKeepsDesiredSyncIntentWhenCloudKitBootstrapFallsBackToLocalOnly() {
+        let context = AppDependencies.resolveSyncBootstrapContext(
+            desiredBootPreference: .enabled,
+            desiredPolicy: .privateContainer(CloudKitContainerConfiguration.containerIdentifier),
+            logger: TestLogger(),
+            resolvedAccountStatus: .temporarilyUnavailable
+        )
+
+        #expect(context.desiredBootPreference == .enabled)
+        #expect(context.desiredSyncBackedCloudKitPolicy == .privateContainer(CloudKitContainerConfiguration.containerIdentifier))
+        #expect(context.modelContainerCloudKitPolicy == .disabled)
+        #expect(context.accountAvailabilityAtBootstrap == .temporarilyUnavailable)
+        #expect(context.isSyncRequested)
+        #expect(context.isUsingCloudKitForCurrentLaunch == false)
+        #expect(context.isRunningLocalOnlyFallbackForCurrentLaunch)
     }
 
     @Test
@@ -246,6 +265,48 @@ struct AppDependenciesTests {
         }
 
         await accountAvailabilityService.yield(.restricted)
+        await cloudKitRuntimeEventSource.yield(
+            .started(
+                .setup,
+                CloudKitRuntimeEventContext(
+                    identifier: UUID(),
+                    storeIdentifier: "SyncBackedStore",
+                    startDate: .distantPast,
+                    endDate: nil
+                )
+            )
+        )
+
+        try await expectEventually {
+            syncCoordinator.runtimeState == .disabled
+        }
+    }
+
+    @Test
+    func appDependenciesStartSyncCoordinatorAppLifetimeKeepsRuntimeDisabledWhenBootstrapStayedLocalOnly() async throws {
+        let syncCoordinator = SyncCoordinator()
+        let accountAvailabilityService = TestICloudAccountAvailabilityService(initialAvailability: .available)
+        let cloudKitRuntimeEventSource = TestCloudKitRuntimeEventSource()
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            syncBootstrapContext: AppSyncBootstrapContext(
+                desiredBootPreference: .enabled,
+                desiredSyncBackedCloudKitPolicy: .privateContainer(CloudKitContainerConfiguration.containerIdentifier),
+                modelContainerCloudKitPolicy: .disabled,
+                accountAvailabilityAtBootstrap: .temporarilyUnavailable
+            ),
+            iCloudAccountAvailabilityService: accountAvailabilityService,
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            syncCoordinator: syncCoordinator
+        )
+
+        dependencies.startSyncCoordinatorAppLifetime()
+
+        try await expectEventually {
+            syncCoordinator.runtimeState == .disabled
+        }
+
+        await accountAvailabilityService.yield(.available)
         await cloudKitRuntimeEventSource.yield(
             .started(
                 .setup,
