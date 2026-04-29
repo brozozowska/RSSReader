@@ -5,16 +5,30 @@ protocol AppSyncBootstrapPreferenceStoring {
     func saveBootPreference(_ preference: AppSyncBootPreference)
 }
 
+protocol AppSyncBootstrapPreferenceKeyValueStoring {
+    func string(forKey defaultName: String) -> String?
+    func set(_ value: Any?, forKey defaultName: String)
+}
+
+protocol AppSyncBootstrapPreferenceSynchronizing: AppSyncBootstrapPreferenceKeyValueStoring {
+    @discardableResult
+    func synchronize() -> Bool
+}
+
+extension UserDefaults: AppSyncBootstrapPreferenceKeyValueStoring {}
+
+extension NSUbiquitousKeyValueStore: AppSyncBootstrapPreferenceSynchronizing {}
+
 struct AppSyncBootstrapPreferenceStore: AppSyncBootstrapPreferenceStoring {
     private static let preferenceKey = "app.sync.bootstrapPreference"
 
-    let userDefaults: UserDefaults
-    let ubiquitousStore: NSUbiquitousKeyValueStore
+    let userDefaults: any AppSyncBootstrapPreferenceKeyValueStoring
+    let ubiquitousStore: any AppSyncBootstrapPreferenceSynchronizing
     let logger: Logging
 
     init(
-        userDefaults: UserDefaults = .standard,
-        ubiquitousStore: NSUbiquitousKeyValueStore = .default,
+        userDefaults: any AppSyncBootstrapPreferenceKeyValueStoring = UserDefaults.standard,
+        ubiquitousStore: any AppSyncBootstrapPreferenceSynchronizing = NSUbiquitousKeyValueStore.default,
         logger: Logging = ConsoleLogger()
     ) {
         self.userDefaults = userDefaults
