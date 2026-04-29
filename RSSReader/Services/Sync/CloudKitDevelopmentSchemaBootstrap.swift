@@ -9,13 +9,8 @@ enum CloudKitDevelopmentSchemaBootstrapDecision {
 }
 
 enum CloudKitDevelopmentSchemaBootstrap {
-    private static var didAttemptBootstrapThisLaunch = false
-
     static func bootstrapIfNeeded(logger: Logging) {
 #if DEBUG
-        guard didAttemptBootstrapThisLaunch == false else { return }
-        didAttemptBootstrapThisLaunch = true
-
         switch makeDecision() {
         case .run(let request):
             let accountStatus = CloudKitAccountStatusResolver.currentStatus(

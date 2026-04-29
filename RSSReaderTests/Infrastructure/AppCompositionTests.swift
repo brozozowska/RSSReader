@@ -35,4 +35,33 @@ struct AppCompositionTests {
         #expect(dependencies.syncCoordinator != nil)
         #expect(dependencies.appSettingsService != nil)
     }
+
+    @Test
+    func appCompositionDevelopmentSchemaBootstrapGuardRunsBootstrapOnlyOncePerLaunch() {
+        let logger = RecordingLogger()
+        let bootstrapGuard = AppLaunchBootstrapGuard()
+        var bootstrapRunCount = 0
+
+        AppComposition.runDevelopmentSchemaBootstrapIfNeeded(
+            logger: logger,
+            guard: bootstrapGuard
+        ) { _ in
+            bootstrapRunCount += 1
+        }
+
+        AppComposition.runDevelopmentSchemaBootstrapIfNeeded(
+            logger: logger,
+            guard: bootstrapGuard
+        ) { _ in
+            bootstrapRunCount += 1
+        }
+
+        #expect(bootstrapRunCount == 1)
+        #expect(
+            logger.contains(
+                "Skipped CloudKit development schema bootstrap because app launch guard already attempted it",
+                level: .debug
+            )
+        )
+    }
 }

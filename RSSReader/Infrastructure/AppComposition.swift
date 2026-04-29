@@ -11,6 +11,8 @@ enum AppComposition {
     static let syncBackedModels = persistenceModelPartition.syncBackedModels
     static let localOnlyModels = persistenceModelPartition.localOnlyModels
     static let appModels = persistenceModelPartition.allModels
+    @MainActor
+    static let developmentSchemaBootstrapGuard = AppLaunchBootstrapGuard()
 
     @MainActor
     static func makeAppDependencies(
@@ -22,7 +24,7 @@ enum AppComposition {
         let resolvedSyncEnablementPolicy = syncEnablementPolicy ?? self.syncEnablementPolicy
 
 #if DEBUG
-        CloudKitDevelopmentSchemaBootstrap.bootstrapIfNeeded(logger: logger)
+        runDevelopmentSchemaBootstrapIfNeeded(logger: logger)
 #endif
 
         let syncCoordinator = SyncCoordinator(logger: logger)
@@ -60,6 +62,41 @@ enum AppComposition {
         if appState.iCloudSyncStatus != resolvedStatus {
             appState.applyICloudSyncStatus(resolvedStatus)
         }
+    }
+
+    @MainActor
+    static func runDevelopmentSchemaBootstrapIfNeeded(
+        logger: Logging
+    ) {
+        runDevelopmentSchemaBootstrapIfNeeded(
+            logger: logger,
+            guard: developmentSchemaBootstrapGuard
+        ) { bootstrapLogger in
+            CloudKitDevelopmentSchemaBootstrap.bootstrapIfNeeded(logger: bootstrapLogger)
+        }
+    }
+
+    @MainActor
+    static func runDevelopmentSchemaBootstrapIfNeeded(
+        logger: Logging,
+        guard bootstrapGuard: AppLaunchBootstrapGuard,
+        bootstrap: (Logging) -> Void
+    ) {
+        guard bootstrapGuard.beginAttempt(identifier: "CloudKitDevelopmentSchemaBootstrap") else {
+            logger.debug("Skipped CloudKit development schema bootstrap because app launch guard already attempted it")
+            return
+        }
+
+        bootstrap(logger)
+    }
+}
+
+@MainActor
+final class AppLaunchBootstrapGuard {
+    private var attemptedIdentifiers: Set<String> = []
+
+    func beginAttempt(identifier: String) -> Bool {
+        attemptedIdentifiers.insert(identifier).inserted
     }
 }
 
