@@ -24,4 +24,15 @@ struct AppCompositionTests {
 
         #expect(appState.iCloudSyncStatus == .syncing)
     }
+
+    @Test
+    func appCompositionMakeAppDependenciesUsesUnifiedSwiftDataBootstrapPath() {
+        let dependencies = AppComposition.makeAppDependencies(
+            modelPartition: AppComposition.persistenceModelPartition
+        )
+
+        #expect(dependencies.modelContainer != nil)
+        #expect(dependencies.syncCoordinator != nil)
+        #expect(dependencies.appSettingsService != nil)
+    }
 }

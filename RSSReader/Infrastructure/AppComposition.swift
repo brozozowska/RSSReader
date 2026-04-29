@@ -2,9 +2,9 @@ import SwiftUI
 import SwiftData
 import Observation
 
-/// Сборка корневого дерева приложения с зависимостями и (при наличии) SwiftData контейнером.
-/// Создаёт корневой View c установленными зависимостями.
-/// - Parameter modelPartition: Partition SwiftData моделей. Если `nil` — контейнер не создаётся.
+/// Сборка корневого дерева приложения с app-level зависимостями и SwiftData контейнером.
+/// Для app bootstrap всегда использует единый `makeAppDependencies()` path.
+/// - Parameter modelPartition: Partition SwiftData моделей. Если `nil`, используется `current` partition.
 enum AppComposition {
     static let persistenceModelPartition = AppPersistenceModelPartition.current
     static let syncEnablementPolicy = AppSyncEnablementPolicy.current
@@ -39,8 +39,7 @@ enum AppComposition {
     @MainActor
     @ViewBuilder
     static func makeRoot(modelPartition: AppPersistenceModelPartition? = nil) -> some View {
-        let deps = modelPartition.map { makeAppDependencies(modelPartition: $0) }
-            ?? AppDependencies.makeDefault(syncCoordinator: SyncCoordinator())
+        let deps = makeAppDependencies(modelPartition: modelPartition)
 
         AppRootContainer(dependencies: deps)
     }
