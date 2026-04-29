@@ -138,6 +138,26 @@ struct AppDependenciesTests {
     }
 
     @Test
+    func appDependenciesResolveSyncBootstrapContextGatesCloudKitBootstrapForEachAccountStatus() {
+        for scenario in SyncBootstrapAccountStatusScenario.allCases {
+            let context = AppDependencies.resolveSyncBootstrapContext(
+                desiredBootPreference: .enabled,
+                desiredPolicy: .privateContainer(CloudKitContainerConfiguration.containerIdentifier),
+                logger: TestLogger(),
+                resolvedAccountStatus: scenario.accountStatus
+            )
+
+            #expect(context.desiredBootPreference == .enabled)
+            #expect(context.desiredSyncBackedCloudKitPolicy == .privateContainer(CloudKitContainerConfiguration.containerIdentifier))
+            #expect(context.modelContainerCloudKitPolicy == scenario.expectedModelContainerPolicy)
+            #expect(context.accountAvailabilityAtBootstrap == scenario.expectedAccountAvailability)
+            #expect(context.isSyncRequested)
+            #expect(context.isUsingCloudKitForCurrentLaunch == scenario.expectsCloudKitBootstrap)
+            #expect(context.isRunningLocalOnlyFallbackForCurrentLaunch == scenario.expectsLocalOnlyFallback)
+        }
+    }
+
+    @Test
     func appDependenciesFetchSyncEnablementBootstrapSettingsFromModelContainer() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
@@ -603,6 +623,47 @@ private actor TestPersistentStoreRemoteChangeSource: PersistentStoreRemoteChange
 }
 
 private struct TimedOutError: Error {}
+
+private enum SyncBootstrapAccountStatusScenario: CaseIterable {
+    case available
+    case temporarilyUnavailable
+    case noAccount
+    case restricted
+    case couldNotDetermine
+
+    var accountStatus: CKAccountStatus {
+        switch self {
+        case .available:
+            .available
+        case .temporarilyUnavailable:
+            .temporarilyUnavailable
+        case .noAccount:
+            .noAccount
+        case .restricted:
+            .restricted
+        case .couldNotDetermine:
+            .couldNotDetermine
+        }
+    }
+
+    var expectedAccountAvailability: ICloudAccountAvailability {
+        DefaultICloudAccountAvailabilityService.mapAccountAvailability(from: accountStatus)
+    }
+
+    var expectedModelContainerPolicy: AppPersistenceCloudKitPolicy {
+        expectsCloudKitBootstrap
+            ? .privateContainer(CloudKitContainerConfiguration.containerIdentifier)
+            : .disabled
+    }
+
+    var expectsCloudKitBootstrap: Bool {
+        self == .available
+    }
+
+    var expectsLocalOnlyFallback: Bool {
+        expectsCloudKitBootstrap == false
+    }
+}
 
 private func expectEventually(
     timeoutNanoseconds: UInt64 = 2_000_000_000,

@@ -107,18 +107,7 @@ enum SettingsSyncStatusPresentation: Equatable, Sendable {
         case .idle:
             self = .ready
         case .accountProblem(let availability):
-            switch availability {
-            case .available:
-                self = .ready
-            case .noAccount:
-                self = .noAccount
-            case .restricted:
-                self = .restricted
-            case .temporarilyUnavailable:
-                self = .temporarilyUnavailable
-            case .couldNotDetermine:
-                self = .couldNotDetermine
-            }
+            self.init(accountAvailability: availability)
         case .syncing(let activity):
             switch activity {
             case .setup:
@@ -130,6 +119,21 @@ enum SettingsSyncStatusPresentation: Equatable, Sendable {
             }
         case .failed(let failure):
             self = .failed(failure.resolvedMessage)
+        }
+    }
+
+    init(accountAvailability: ICloudAccountAvailability?) {
+        switch accountAvailability {
+        case .available:
+            self = .ready
+        case .noAccount:
+            self = .noAccount
+        case .restricted:
+            self = .restricted
+        case .temporarilyUnavailable:
+            self = .temporarilyUnavailable
+        case .couldNotDetermine, nil:
+            self = .couldNotDetermine
         }
     }
 

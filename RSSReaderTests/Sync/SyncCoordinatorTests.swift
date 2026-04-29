@@ -43,6 +43,19 @@ struct SyncCoordinatorTests {
     }
 
     @Test
+    func applyAccountAvailabilityMapsEachAvailabilityToExpectedRuntimePhase() {
+        for scenario in SyncCoordinatorAccountAvailabilityScenario.allCases {
+            let coordinator = SyncCoordinator(isSyncEnabled: true)
+
+            coordinator.applyAccountAvailability(scenario.availability)
+
+            #expect(coordinator.runtimeState.phase == scenario.expectedPhase)
+            #expect(coordinator.runtimeState.accountAvailability == scenario.availability)
+            #expect(coordinator.iCloudSyncStatus == scenario.expectedICloudSyncStatus)
+        }
+    }
+
+    @Test
     func applyCloudKitRuntimeEventTransitionsCoordinatorToSyncing() {
         let coordinator = SyncCoordinator(isSyncEnabled: true)
         let context = CloudKitRuntimeEventContext(
@@ -309,6 +322,47 @@ private actor TestCloudKitRuntimeEventSource: CloudKitRuntimeEventSource {
 }
 
 private struct TimedOutError: Error {}
+
+private enum SyncCoordinatorAccountAvailabilityScenario: CaseIterable {
+    case available
+    case noAccount
+    case restricted
+    case temporarilyUnavailable
+    case couldNotDetermine
+
+    var availability: ICloudAccountAvailability {
+        switch self {
+        case .available:
+            .available
+        case .noAccount:
+            .noAccount
+        case .restricted:
+            .restricted
+        case .temporarilyUnavailable:
+            .temporarilyUnavailable
+        case .couldNotDetermine:
+            .couldNotDetermine
+        }
+    }
+
+    var expectedPhase: SyncRuntimePhase {
+        switch availability {
+        case .available:
+            .idle
+        case .noAccount, .restricted, .temporarilyUnavailable, .couldNotDetermine:
+            .accountProblem(availability)
+        }
+    }
+
+    var expectedICloudSyncStatus: ICloudSyncStatus {
+        switch availability {
+        case .available:
+            .idle
+        case .noAccount, .restricted, .temporarilyUnavailable, .couldNotDetermine:
+            .statusUnavailable
+        }
+    }
+}
 
 private func expectEventually(
     timeoutNanoseconds: UInt64 = 2_000_000_000,

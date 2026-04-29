@@ -432,17 +432,6 @@ private extension SettingsScreenController {
     func bootstrapFallbackStatusPresentation(
         for syncBootstrapContext: AppSyncBootstrapContext
     ) -> SettingsSyncStatusPresentation {
-        switch syncBootstrapContext.accountAvailabilityAtBootstrap {
-        case .available:
-            return .ready
-        case .noAccount:
-            return .noAccount
-        case .restricted:
-            return .restricted
-        case .temporarilyUnavailable:
-            return .temporarilyUnavailable
-        case .couldNotDetermine, nil:
-            return .couldNotDetermine
-        }
+        SettingsSyncStatusPresentation(accountAvailability: syncBootstrapContext.accountAvailabilityAtBootstrap)
     }
 }

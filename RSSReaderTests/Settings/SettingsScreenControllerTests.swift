@@ -143,6 +143,34 @@ struct SettingsScreenControllerTests {
     }
 
     @Test
+    func settingsScreenControllerMapsSyncCoordinatorRuntimeStateForEachAccountAvailability() throws {
+        for scenario in SettingsRuntimeAccountAvailabilityScenario.allCases {
+            let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+            let syncCoordinator = SyncCoordinator(isSyncEnabled: true)
+            syncCoordinator.applyAccountAvailability(scenario.availability)
+            let dependencies = AppDependencies(
+                logger: TestLogger(),
+                httpClient: harness.httpClient,
+                modelContainer: harness.modelContainer,
+                syncCoordinator: syncCoordinator
+            )
+            let service = try #require(dependencies.appSettingsService)
+            _ = try service.saveSettings(
+                AppSettingsSnapshot(useiCloudSync: true),
+                updatedAt: .distantPast
+            )
+            let controller = SettingsScreenController()
+            let appState = AppState()
+
+            controller.loadSettings(dependencies: dependencies, appState: appState)
+
+            #expect(controller.screenState.iCloudSyncStatus == scenario.expectedICloudSyncStatus)
+            #expect(controller.screenState.syncStatusPresentation == scenario.expectedPresentation)
+            #expect(appState.iCloudSyncStatus == scenario.expectedICloudSyncStatus)
+        }
+    }
+
+    @Test
     func settingsScreenControllerExplainsSavedSyncPreferenceWhenCurrentLaunchStayedLocalOnly() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let syncCoordinator = SyncCoordinator()
@@ -196,6 +224,40 @@ struct SettingsScreenControllerTests {
                 )
             )
         )
+    }
+
+    @Test
+    func settingsScreenControllerMapsBootstrapFallbackForEachUnavailableAccountAvailability() throws {
+        for scenario in SettingsBootstrapFallbackScenario.allCases {
+            let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+            let syncCoordinator = SyncCoordinator()
+            let dependencies = AppDependencies(
+                logger: TestLogger(),
+                httpClient: harness.httpClient,
+                modelContainer: harness.modelContainer,
+                syncBootstrapContext: AppSyncBootstrapContext(
+                    desiredBootPreference: .enabled,
+                    desiredSyncBackedCloudKitPolicy: .privateContainer(CloudKitContainerConfiguration.containerIdentifier),
+                    modelContainerCloudKitPolicy: .disabled,
+                    accountAvailabilityAtBootstrap: scenario.availability
+                ),
+                syncCoordinator: syncCoordinator
+            )
+            let service = try #require(dependencies.appSettingsService)
+            _ = try service.saveSettings(
+                AppSettingsSnapshot(useiCloudSync: true),
+                updatedAt: .distantPast
+            )
+            let controller = SettingsScreenController()
+            let appState = AppState()
+
+            controller.loadSettings(dependencies: dependencies, appState: appState)
+
+            #expect(controller.screenState.iCloudSyncStatus == .statusUnavailable)
+            #expect(controller.screenState.syncStatusPresentation == scenario.expectedPresentation)
+            #expect(controller.screenState.settingsInput.isUsingLocalOnlySyncFallbackForCurrentLaunch)
+            #expect(appState.iCloudSyncStatus == .statusUnavailable)
+        }
     }
 
     @Test
@@ -437,5 +499,60 @@ struct SettingsScreenControllerTests {
                 actionTitle: "Retry"
             )
         )
+    }
+}
+
+private enum SettingsRuntimeAccountAvailabilityScenario: CaseIterable {
+    case available
+    case noAccount
+    case restricted
+    case temporarilyUnavailable
+    case couldNotDetermine
+
+    var availability: ICloudAccountAvailability {
+        switch self {
+        case .available:
+            .available
+        case .noAccount:
+            .noAccount
+        case .restricted:
+            .restricted
+        case .temporarilyUnavailable:
+            .temporarilyUnavailable
+        case .couldNotDetermine:
+            .couldNotDetermine
+        }
+    }
+
+    var expectedPresentation: SettingsSyncStatusPresentation {
+        SettingsSyncStatusPresentation(accountAvailability: availability)
+    }
+
+    var expectedICloudSyncStatus: ICloudSyncStatus {
+        expectedPresentation.iCloudSyncStatus
+    }
+}
+
+private enum SettingsBootstrapFallbackScenario: CaseIterable {
+    case noAccount
+    case restricted
+    case temporarilyUnavailable
+    case couldNotDetermine
+
+    var availability: ICloudAccountAvailability {
+        switch self {
+        case .noAccount:
+            .noAccount
+        case .restricted:
+            .restricted
+        case .temporarilyUnavailable:
+            .temporarilyUnavailable
+        case .couldNotDetermine:
+            .couldNotDetermine
+        }
+    }
+
+    var expectedPresentation: SettingsSyncStatusPresentation {
+        SettingsSyncStatusPresentation(accountAvailability: availability)
     }
 }
