@@ -1,3 +1,4 @@
+import CloudKit
 import Foundation
 import SwiftData
 import Testing
@@ -101,6 +102,79 @@ struct AppDependenciesTests {
     }
 
     @Test
+    func appDependenciesResolveSyncBackedCloudKitPolicyPrefersLocalBootstrapPreferenceWhenAvailable() {
+        #expect(
+            AppDependencies.resolveSyncBackedCloudKitPolicy(
+                syncEnablementPolicy: .current,
+                bootstrapSettingsSnapshot: AppSettingsSnapshot(useiCloudSync: false),
+                localBootstrapPreference: .enabled
+            ) == .privateContainer(CloudKitContainerConfiguration.containerIdentifier)
+        )
+        #expect(
+            AppDependencies.resolveSyncBackedCloudKitPolicy(
+                syncEnablementPolicy: .current,
+                bootstrapSettingsSnapshot: AppSettingsSnapshot(useiCloudSync: true),
+                localBootstrapPreference: .disabled
+            ) == .disabled
+        )
+    }
+
+    @Test
+    func appDependenciesResolveSyncBootstrapContextKeepsDesiredSyncIntentWhenCloudKitBootstrapFallsBackToLocalOnly() {
+        let context = AppDependencies.resolveSyncBootstrapContext(
+            desiredBootPreference: .enabled,
+            desiredPolicy: .privateContainer(CloudKitContainerConfiguration.containerIdentifier),
+            logger: TestLogger(),
+            resolvedAccountStatus: .temporarilyUnavailable
+        )
+
+        #expect(context.desiredBootPreference == .enabled)
+        #expect(context.desiredSyncBackedCloudKitPolicy == .privateContainer(CloudKitContainerConfiguration.containerIdentifier))
+        #expect(context.modelContainerCloudKitPolicy == .disabled)
+        #expect(context.accountAvailabilityAtBootstrap == .temporarilyUnavailable)
+        #expect(context.isSyncRequested)
+        #expect(context.isUsingCloudKitForCurrentLaunch == false)
+        #expect(context.isRunningLocalOnlyFallbackForCurrentLaunch)
+    }
+
+    @Test
+    func appDependenciesResolveSyncBootstrapContextGatesCloudKitBootstrapForEachAccountStatus() {
+        for scenario in SyncBootstrapAccountStatusScenario.allCases {
+            let context = AppDependencies.resolveSyncBootstrapContext(
+                desiredBootPreference: .enabled,
+                desiredPolicy: .privateContainer(CloudKitContainerConfiguration.containerIdentifier),
+                logger: TestLogger(),
+                resolvedAccountStatus: scenario.accountStatus
+            )
+
+            #expect(context.desiredBootPreference == .enabled)
+            #expect(context.desiredSyncBackedCloudKitPolicy == .privateContainer(CloudKitContainerConfiguration.containerIdentifier))
+            #expect(context.modelContainerCloudKitPolicy == scenario.expectedModelContainerPolicy)
+            #expect(context.accountAvailabilityAtBootstrap == scenario.expectedAccountAvailability)
+            #expect(context.isSyncRequested)
+            #expect(context.isUsingCloudKitForCurrentLaunch == scenario.expectsCloudKitBootstrap)
+            #expect(context.isRunningLocalOnlyFallbackForCurrentLaunch == scenario.expectsLocalOnlyFallback)
+        }
+    }
+
+    @Test
+    func appDependenciesResolveSyncBootstrapContextLogsAccountResolutionAndFallbackSelection() {
+        let logger = RecordingLogger()
+
+        _ = AppDependencies.resolveSyncBootstrapContext(
+            desiredBootPreference: .enabled,
+            desiredPolicy: .privateContainer(CloudKitContainerConfiguration.containerIdentifier),
+            logger: logger,
+            resolvedAccountStatus: .noAccount
+        )
+
+        #expect(logger.contains("Resolved sync bootstrap account status"))
+        #expect(logger.contains("availability=noAccount"))
+        #expect(logger.contains("Skipped CloudKit-backed model container bootstrap because account status is"))
+        #expect(logger.contains("noAccount"))
+    }
+
+    @Test
     func appDependenciesFetchSyncEnablementBootstrapSettingsFromModelContainer() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
@@ -120,6 +194,53 @@ struct AppDependenciesTests {
     }
 
     @Test
+    func appDependenciesBootstrapFailureDescriptionIncludesNSErrorContext() {
+        let underlyingError = NSError(
+            domain: "NSCocoaErrorDomain",
+            code: 134060,
+            userInfo: [
+                NSLocalizedDescriptionKey: "Persistent store failed to load."
+            ]
+        )
+        let topLevelError = NSError(
+            domain: "SwiftData.SwiftDataError",
+            code: 1,
+            userInfo: [
+                NSUnderlyingErrorKey: underlyingError
+            ]
+        )
+
+        let description = AppDependencies.makeModelContainerBootstrapFailureDescription(
+            for: topLevelError,
+            syncBackedCloudKitPolicy: .privateContainer("iCloud.ru.brozozowska.RSSReader")
+        )
+
+        #expect(description.contains("privateContainer(\"iCloud.ru.brozozowska.RSSReader\")"))
+        #expect(description.contains("Error: domain=SwiftData.SwiftDataError code=1"))
+        #expect(description.contains("Underlying error 1: domain=NSCocoaErrorDomain code=134060"))
+        #expect(description.contains("Persistent store failed to load."))
+    }
+
+    @Test
+    func appDependenciesBootstrapFailureDescriptionAppendsPersistentStoreProbeDetails() {
+        let error = NSError(
+            domain: "SwiftData.SwiftDataError",
+            code: 1,
+            userInfo: [:]
+        )
+
+        let description = AppDependencies.makeModelContainerBootstrapFailureDescription(
+            for: error,
+            syncBackedCloudKitPolicy: .privateContainer("iCloud.ru.brozozowska.RSSReader"),
+            persistentStoreProbeFailureDescription: "Error: domain=NSCocoaErrorDomain code=134060 localizedDescription=Persistent store probe failed. userInfo={}"
+        )
+
+        #expect(description.contains("Persistent store probe:"))
+        #expect(description.contains("domain=NSCocoaErrorDomain code=134060"))
+        #expect(description.contains("Persistent store probe failed."))
+    }
+
+    @Test
     func appDependenciesStartSyncCoordinatorAppLifetimeUsesPersistedSyncEnablementAndConnectsRuntimeSources() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let syncCoordinator = SyncCoordinator()
@@ -129,6 +250,7 @@ struct AppDependenciesTests {
             logger: TestLogger(),
             httpClient: harness.httpClient,
             modelContainer: harness.modelContainer,
+            syncBootstrapPreferenceStore: FixedAppSyncBootstrapPreferenceStore(currentPreference: nil),
             iCloudAccountAvailabilityService: accountAvailabilityService,
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             syncCoordinator: syncCoordinator
@@ -169,6 +291,7 @@ struct AppDependenciesTests {
             logger: TestLogger(),
             httpClient: harness.httpClient,
             modelContainer: harness.modelContainer,
+            syncBootstrapPreferenceStore: FixedAppSyncBootstrapPreferenceStore(currentPreference: nil),
             iCloudAccountAvailabilityService: accountAvailabilityService,
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             syncCoordinator: syncCoordinator
@@ -196,6 +319,70 @@ struct AppDependenciesTests {
         try await expectEventually {
             syncCoordinator.runtimeState == .disabled
         }
+    }
+
+    @Test
+    func appDependenciesStartSyncCoordinatorAppLifetimeKeepsRuntimeDisabledWhenBootstrapStayedLocalOnly() async throws {
+        let syncCoordinator = SyncCoordinator()
+        let accountAvailabilityService = TestICloudAccountAvailabilityService(initialAvailability: .available)
+        let cloudKitRuntimeEventSource = TestCloudKitRuntimeEventSource()
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            syncBootstrapContext: AppSyncBootstrapContext(
+                desiredBootPreference: .enabled,
+                desiredSyncBackedCloudKitPolicy: .privateContainer(CloudKitContainerConfiguration.containerIdentifier),
+                modelContainerCloudKitPolicy: .disabled,
+                accountAvailabilityAtBootstrap: .temporarilyUnavailable
+            ),
+            iCloudAccountAvailabilityService: accountAvailabilityService,
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            syncCoordinator: syncCoordinator
+        )
+
+        dependencies.startSyncCoordinatorAppLifetime()
+
+        try await expectEventually {
+            syncCoordinator.runtimeState == .disabled
+        }
+
+        await accountAvailabilityService.yield(.available)
+        await cloudKitRuntimeEventSource.yield(
+            .started(
+                .setup,
+                CloudKitRuntimeEventContext(
+                    identifier: UUID(),
+                    storeIdentifier: "SyncBackedStore",
+                    startDate: .distantPast,
+                    endDate: nil
+                )
+            )
+        )
+
+        try await expectEventually {
+            syncCoordinator.runtimeState == .disabled
+        }
+    }
+
+    @Test
+    func appDependenciesStartSyncCoordinatorAppLifetimeLogsBootstrapEnablementResolution() {
+        let logger = RecordingLogger()
+        let syncCoordinator = SyncCoordinator(logger: logger)
+        let dependencies = AppDependencies(
+            logger: logger,
+            syncBootstrapContext: AppSyncBootstrapContext(
+                desiredBootPreference: .enabled,
+                desiredSyncBackedCloudKitPolicy: .privateContainer(CloudKitContainerConfiguration.containerIdentifier),
+                modelContainerCloudKitPolicy: .disabled,
+                accountAvailabilityAtBootstrap: .temporarilyUnavailable
+            ),
+            syncCoordinator: syncCoordinator
+        )
+
+        dependencies.startSyncCoordinatorAppLifetime()
+
+        #expect(logger.contains("Resolved initial sync enablement from bootstrap context"))
+        #expect(logger.contains("isUsingCloudKitForCurrentLaunch=false"))
+        #expect(logger.contains("Starting SyncCoordinator app lifetime: isSyncEnabled=false"))
     }
 
     @Test
@@ -410,6 +597,53 @@ struct AppDependenciesTests {
         #expect(appState.articleListReloadID == initialArticleListReloadID)
         #expect(appState.articleScreenReloadID == initialArticleScreenReloadID)
     }
+
+    @Test
+    func appDependenciesRemoteSyncReloadLogsCorrelationEvents() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let logger = RecordingLogger()
+        let syncCoordinator = SyncCoordinator(isSyncEnabled: true, logger: logger)
+        syncCoordinator.applyAccountAvailability(.available)
+        let cloudKitRuntimeEventSource = TestCloudKitRuntimeEventSource()
+        let remoteChangeSource = TestPersistentStoreRemoteChangeSource()
+        let dependencies = AppDependencies(
+            logger: logger,
+            httpClient: harness.httpClient,
+            modelContainer: harness.modelContainer,
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            persistentStoreRemoteChangeSource: remoteChangeSource,
+            syncCoordinator: syncCoordinator
+        )
+        let appState = AppState()
+
+        dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+
+        await remoteChangeSource.yield(
+            PersistentStoreRemoteChangeEvent(
+                storeUUID: "SyncBackedStore",
+                storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
+            )
+        )
+        await cloudKitRuntimeEventSource.yield(
+            .finished(
+                .import,
+                CloudKitRuntimeEventContext(
+                    identifier: UUID(),
+                    storeIdentifier: "SyncBackedStore",
+                    startDate: .distantPast,
+                    endDate: .now
+                )
+            )
+        )
+
+        try await expectEventually {
+            logger.contains("Requesting app-level remote sync reload after matching import completion and persistent store remote change")
+        }
+
+        #expect(logger.contains("Starting remote sync reload app lifetime observation"))
+        #expect(logger.contains("Observed persistent store remote change; marked store change pending"))
+        #expect(logger.contains("Observed CloudKit import completion; marked import completion pending"))
+    }
 }
 
 private actor TestICloudAccountAvailabilityService: ICloudAccountAvailabilityService {
@@ -476,7 +710,58 @@ private actor TestPersistentStoreRemoteChangeSource: PersistentStoreRemoteChange
     }
 }
 
+private struct FixedAppSyncBootstrapPreferenceStore: AppSyncBootstrapPreferenceStoring {
+    let currentPreference: AppSyncBootPreference?
+
+    func currentBootPreference() -> AppSyncBootPreference? {
+        currentPreference
+    }
+
+    func saveBootPreference(_ preference: AppSyncBootPreference) {}
+}
+
 private struct TimedOutError: Error {}
+
+private enum SyncBootstrapAccountStatusScenario: CaseIterable {
+    case available
+    case temporarilyUnavailable
+    case noAccount
+    case restricted
+    case couldNotDetermine
+
+    var accountStatus: CKAccountStatus {
+        switch self {
+        case .available:
+            .available
+        case .temporarilyUnavailable:
+            .temporarilyUnavailable
+        case .noAccount:
+            .noAccount
+        case .restricted:
+            .restricted
+        case .couldNotDetermine:
+            .couldNotDetermine
+        }
+    }
+
+    var expectedAccountAvailability: ICloudAccountAvailability {
+        DefaultICloudAccountAvailabilityService.mapAccountAvailability(from: accountStatus)
+    }
+
+    var expectedModelContainerPolicy: AppPersistenceCloudKitPolicy {
+        expectsCloudKitBootstrap
+            ? .privateContainer(CloudKitContainerConfiguration.containerIdentifier)
+            : .disabled
+    }
+
+    var expectsCloudKitBootstrap: Bool {
+        self == .available
+    }
+
+    var expectsLocalOnlyFallback: Bool {
+        expectsCloudKitBootstrap == false
+    }
+}
 
 private func expectEventually(
     timeoutNanoseconds: UInt64 = 2_000_000_000,

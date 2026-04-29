@@ -23,7 +23,9 @@ final class SettingsScreenController {
         screenState.beginLoading()
 
         guard let appSettingsService = dependencies.appSettingsService else {
-            screenState.applyLoadingFailure("Settings are unavailable in the current app environment.")
+            let message = dependencies.modelContainerBootstrapFailureDescription
+                ?? "Settings are unavailable in the current app environment."
+            screenState.applyLoadingFailure(message)
             return
         }
 
@@ -37,7 +39,8 @@ final class SettingsScreenController {
             screenState.applyLoadedSnapshot(
                 snapshot,
                 iCloudSyncStatus: resolvedSyncStatus.iCloudSyncStatus,
-                syncStatusPresentation: resolvedSyncStatus
+                syncStatusPresentation: resolvedSyncStatus,
+                isUsingLocalOnlySyncFallbackForCurrentLaunch: dependencies.syncBootstrapContext?.isRunningLocalOnlyFallbackForCurrentLaunch == true
             )
             if let appState, appState.interfaceThemeMode != snapshot.interfaceThemeMode {
                 appState.applyInterfaceThemeMode(snapshot.interfaceThemeMode)
@@ -210,7 +213,10 @@ private extension SettingsScreenController {
             ),
             dependencies: dependencies,
             unavailableServiceLog: "App settings service is unavailable for iCloud sync preference update",
-            failureLogPrefix: "Failed to update iCloud sync preference"
+            failureLogPrefix: "Failed to update iCloud sync preference",
+            onApplied: { _ in
+                dependencies.syncBootstrapPreferenceStore.saveBootPreference(isOn ? .enabled : .disabled)
+            }
         )
     }
 
@@ -360,6 +366,13 @@ private extension SettingsScreenController {
             return resolvedStatus
         }
 
+        if let syncBootstrapContext = dependencies.syncBootstrapContext,
+           syncBootstrapContext.isRunningLocalOnlyFallbackForCurrentLaunch {
+            let fallbackStatus = bootstrapFallbackStatusPresentation(for: syncBootstrapContext)
+            appState?.applyICloudSyncStatus(fallbackStatus.iCloudSyncStatus)
+            return fallbackStatus
+        }
+
         if let appState, appState.iCloudSyncStatus != .disabled {
             return SettingsSyncStatusPresentation(iCloudSyncStatus: appState.iCloudSyncStatus)
         }
@@ -411,7 +424,14 @@ private extension SettingsScreenController {
         screenState.applyLoadedSnapshot(
             snapshot,
             iCloudSyncStatus: screenState.iCloudSyncStatus,
-            syncStatusPresentation: screenState.syncStatusPresentation
+            syncStatusPresentation: screenState.syncStatusPresentation,
+            isUsingLocalOnlySyncFallbackForCurrentLaunch: screenState.settingsInput.isUsingLocalOnlySyncFallbackForCurrentLaunch
         )
+    }
+
+    func bootstrapFallbackStatusPresentation(
+        for syncBootstrapContext: AppSyncBootstrapContext
+    ) -> SettingsSyncStatusPresentation {
+        SettingsSyncStatusPresentation(accountAvailability: syncBootstrapContext.accountAvailabilityAtBootstrap)
     }
 }

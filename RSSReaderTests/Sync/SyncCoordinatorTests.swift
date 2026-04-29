@@ -43,6 +43,19 @@ struct SyncCoordinatorTests {
     }
 
     @Test
+    func applyAccountAvailabilityMapsEachAvailabilityToExpectedRuntimePhase() {
+        for scenario in SyncCoordinatorAccountAvailabilityScenario.allCases {
+            let coordinator = SyncCoordinator(isSyncEnabled: true)
+
+            coordinator.applyAccountAvailability(scenario.availability)
+
+            #expect(coordinator.runtimeState.phase == scenario.expectedPhase)
+            #expect(coordinator.runtimeState.accountAvailability == scenario.availability)
+            #expect(coordinator.iCloudSyncStatus == scenario.expectedICloudSyncStatus)
+        }
+    }
+
+    @Test
     func applyCloudKitRuntimeEventTransitionsCoordinatorToSyncing() {
         let coordinator = SyncCoordinator(isSyncEnabled: true)
         let context = CloudKitRuntimeEventContext(
@@ -102,6 +115,25 @@ struct SyncCoordinatorTests {
                 == .failed(SyncRuntimeFailure(activity: .export, message: "Export request failed."))
         )
         #expect(coordinator.iCloudSyncStatus == .failed("Export request failed."))
+    }
+
+    @Test
+    func applyCloudKitFailureLogsRuntimeFailureContextAndStateTransition() {
+        let logger = RecordingLogger()
+        let coordinator = SyncCoordinator(isSyncEnabled: true, logger: logger)
+        let context = CloudKitRuntimeEventContext(
+            identifier: UUID(),
+            storeIdentifier: "SyncBackedStore",
+            startDate: .distantPast,
+            endDate: .now
+        )
+
+        coordinator.applyCloudKitRuntimeEvent(.failed(.setup, context, "Setup failed."))
+
+        #expect(logger.contains("SyncCoordinator handling CloudKit runtime failure", level: .error))
+        #expect(logger.contains("storeIdentifier=SyncBackedStore", level: .error))
+        #expect(logger.contains("runtime state changed", level: .info))
+        #expect(logger.contains("failed(activity=setup, message=Setup failed.)", level: .info))
     }
 
     @Test
@@ -309,6 +341,47 @@ private actor TestCloudKitRuntimeEventSource: CloudKitRuntimeEventSource {
 }
 
 private struct TimedOutError: Error {}
+
+private enum SyncCoordinatorAccountAvailabilityScenario: CaseIterable {
+    case available
+    case noAccount
+    case restricted
+    case temporarilyUnavailable
+    case couldNotDetermine
+
+    var availability: ICloudAccountAvailability {
+        switch self {
+        case .available:
+            .available
+        case .noAccount:
+            .noAccount
+        case .restricted:
+            .restricted
+        case .temporarilyUnavailable:
+            .temporarilyUnavailable
+        case .couldNotDetermine:
+            .couldNotDetermine
+        }
+    }
+
+    var expectedPhase: SyncRuntimePhase {
+        switch availability {
+        case .available:
+            .idle
+        case .noAccount, .restricted, .temporarilyUnavailable, .couldNotDetermine:
+            .accountProblem(availability)
+        }
+    }
+
+    var expectedICloudSyncStatus: ICloudSyncStatus {
+        switch availability {
+        case .available:
+            .idle
+        case .noAccount, .restricted, .temporarilyUnavailable, .couldNotDetermine:
+            .statusUnavailable
+        }
+    }
+}
 
 private func expectEventually(
     timeoutNanoseconds: UInt64 = 2_000_000_000,

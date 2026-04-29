@@ -24,34 +24,44 @@ struct DefaultICloudAccountAvailabilityService: ICloudAccountAvailabilityService
     private let accountStatusQuery: any CloudKitAccountStatusQuerying
     private let notificationCenter: NotificationCenter
     private let accountChangedNotification: Notification.Name
+    private let logger: Logging
 
     init(
         container: CKContainer = CKContainer(identifier: CloudKitContainerConfiguration.containerIdentifier),
         notificationCenter: NotificationCenter = .default,
-        accountChangedNotification: Notification.Name = .CKAccountChanged
+        accountChangedNotification: Notification.Name = .CKAccountChanged,
+        logger: Logging = ConsoleLogger()
     ) {
         self.init(
             accountStatusQuery: container,
             notificationCenter: notificationCenter,
-            accountChangedNotification: accountChangedNotification
+            accountChangedNotification: accountChangedNotification,
+            logger: logger
         )
     }
 
     init(
         accountStatusQuery: any CloudKitAccountStatusQuerying,
         notificationCenter: NotificationCenter,
-        accountChangedNotification: Notification.Name
+        accountChangedNotification: Notification.Name,
+        logger: Logging = ConsoleLogger()
     ) {
         self.accountStatusQuery = accountStatusQuery
         self.notificationCenter = notificationCenter
         self.accountChangedNotification = accountChangedNotification
+        self.logger = logger
     }
 
     func currentAvailability() async -> ICloudAccountAvailability {
         do {
             let accountStatus = try await accountStatusQuery.accountStatus()
-            return Self.mapAccountAvailability(from: accountStatus)
+            let availability = Self.mapAccountAvailability(from: accountStatus)
+            logger.info(
+                "Resolved CloudKit account status \(String(describing: accountStatus)) -> iCloud availability \(availability.rawValue)"
+            )
+            return availability
         } catch {
+            logger.error("Failed to resolve CloudKit account status: \(describe(error))")
             return .couldNotDetermine
         }
     }
@@ -63,6 +73,7 @@ struct DefaultICloudAccountAvailabilityService: ICloudAccountAvailabilityService
                 object: nil,
                 queue: nil
             ) { _ in
+                logger.info("Received \(accountChangedNotification.rawValue) notification; requerying CloudKit account status")
                 Task {
                     continuation.yield(await currentAvailability())
                 }
@@ -89,5 +100,10 @@ struct DefaultICloudAccountAvailabilityService: ICloudAccountAvailabilityService
         @unknown default:
             .couldNotDetermine
         }
+    }
+
+    private func describe(_ error: any Error) -> String {
+        let nsError = error as NSError
+        return "domain=\(nsError.domain) code=\(nsError.code) localizedDescription=\(nsError.localizedDescription) userInfo=\(nsError.userInfo)"
     }
 }

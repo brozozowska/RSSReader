@@ -2,30 +2,53 @@ import SwiftUI
 import SwiftData
 import Observation
 
-/// Сборка корневого дерева приложения с зависимостями и (при наличии) SwiftData контейнером.
-/// Создаёт корневой View c установленными зависимостями.
-/// - Parameter modelPartition: Partition SwiftData моделей. Если `nil` — контейнер не создаётся.
+/// Сборка корневого дерева приложения с app-level зависимостями и SwiftData контейнером.
+/// Для app bootstrap всегда использует единый `makeAppDependencies()` path.
+/// - Parameter modelPartition: Partition SwiftData моделей. Если `nil`, используется `current` partition.
 enum AppComposition {
     static let persistenceModelPartition = AppPersistenceModelPartition.current
     static let syncEnablementPolicy = AppSyncEnablementPolicy.current
     static let syncBackedModels = persistenceModelPartition.syncBackedModels
     static let localOnlyModels = persistenceModelPartition.localOnlyModels
     static let appModels = persistenceModelPartition.allModels
+    @MainActor
+    static let developmentSchemaBootstrapGuard = AppLaunchBootstrapGuard()
+
+    @MainActor
+    static func makeAppDependencies(
+        modelPartition: AppPersistenceModelPartition? = nil,
+        syncEnablementPolicy: AppSyncEnablementPolicy? = nil
+    ) -> AppDependencies {
+        let logger = AppDependencies.makeDefaultLogger()
+        let resolvedModelPartition = modelPartition ?? persistenceModelPartition
+        let resolvedSyncEnablementPolicy = syncEnablementPolicy ?? self.syncEnablementPolicy
+
+#if DEBUG
+        runDevelopmentSchemaBootstrapIfNeeded(logger: logger)
+#endif
+
+        let syncCoordinator = SyncCoordinator(logger: logger)
+        let dependencies = AppDependencies.makeWithSwiftData(
+            modelPartition: resolvedModelPartition,
+            syncEnablementPolicy: resolvedSyncEnablementPolicy,
+            syncCoordinator: syncCoordinator,
+            logger: logger
+        )
+        dependencies.startSyncCoordinatorAppLifetime()
+        return dependencies
+    }
 
     @MainActor
     @ViewBuilder
     static func makeRoot(modelPartition: AppPersistenceModelPartition? = nil) -> some View {
-        let syncCoordinator = SyncCoordinator()
-        let deps: AppDependencies = modelPartition.map {
-            AppDependencies.makeWithSwiftData(
-                modelPartition: $0,
-                syncEnablementPolicy: syncEnablementPolicy,
-                syncCoordinator: syncCoordinator
-            )
-        } ?? AppDependencies.makeDefault(syncCoordinator: syncCoordinator)
-        let _ = deps.startSyncCoordinatorAppLifetime()
+        let deps = makeAppDependencies(modelPartition: modelPartition)
 
         AppRootContainer(dependencies: deps)
+    }
+
+    @MainActor
+    static func makeRoot(dependencies: AppDependencies) -> some View {
+        AppRootContainer(dependencies: dependencies)
     }
 
     @MainActor
@@ -40,9 +63,44 @@ enum AppComposition {
             appState.applyICloudSyncStatus(resolvedStatus)
         }
     }
+
+    @MainActor
+    static func runDevelopmentSchemaBootstrapIfNeeded(
+        logger: Logging
+    ) {
+        runDevelopmentSchemaBootstrapIfNeeded(
+            logger: logger,
+            guard: developmentSchemaBootstrapGuard
+        ) { bootstrapLogger in
+            CloudKitDevelopmentSchemaBootstrap.bootstrapIfNeeded(logger: bootstrapLogger)
+        }
+    }
+
+    @MainActor
+    static func runDevelopmentSchemaBootstrapIfNeeded(
+        logger: Logging,
+        guard bootstrapGuard: AppLaunchBootstrapGuard,
+        bootstrap: (Logging) -> Void
+    ) {
+        guard bootstrapGuard.beginAttempt(identifier: "CloudKitDevelopmentSchemaBootstrap") else {
+            logger.debug("Skipped CloudKit development schema bootstrap because app launch guard already attempted it")
+            return
+        }
+
+        bootstrap(logger)
+    }
 }
 
-private struct AppRootContainer: View {
+@MainActor
+final class AppLaunchBootstrapGuard {
+    private var attemptedIdentifiers: Set<String> = []
+
+    func beginAttempt(identifier: String) -> Bool {
+        attemptedIdentifiers.insert(identifier).inserted
+    }
+}
+
+struct AppRootContainer: View {
     let dependencies: AppDependencies
     @State private var appState = AppState()
     @State private var hasRestoredPersistedAppSettings = false

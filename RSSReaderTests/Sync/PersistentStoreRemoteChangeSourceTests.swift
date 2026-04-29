@@ -19,11 +19,7 @@ struct PersistentStoreRemoteChangeSourceTests {
 
         let event = DefaultPersistentStoreRemoteChangeSource.makeEvent(from: notification)
 
-        #expect(
-            event == PersistentStoreRemoteChangeEvent(
-                storeUUID: "SyncBackedStore",
-                storeURL: storeURL
-            )
-        )
+        #expect(event.storeUUID == "SyncBackedStore")
+        #expect(event.storeURL == storeURL)
     }
 }

@@ -3,11 +3,12 @@ import SwiftData
 
 @Model
 final class Folder {
-    var id: UUID
-    var name: String
-    var sortOrder: Int
-    var createdAt: Date
-    var updatedAt: Date
+    var id: UUID = UUID()
+    var name: String = ""
+    var sortOrder: Int = 0
+    var feeds: [Feed]?
+    var createdAt: Date = Date.now
+    var updatedAt: Date = Date.now
 
     init(
         id: UUID = UUID(),

@@ -1,29 +1,27 @@
+import CloudKit
 import CoreData
 import Foundation
 import SwiftData
 
-struct CloudKitDevelopmentSchemaBootstrapRequest {
-    let containerIdentifier: String
-    let storeConfigurationName: String
-    let storeURL: URL
-    let modelTypes: [any PersistentModel.Type]
-}
-
 enum CloudKitDevelopmentSchemaBootstrapDecision {
-    case run(CloudKitDevelopmentSchemaBootstrapRequest)
+    case run(CloudKitStoreBootstrapRequest)
     case skip(String)
 }
 
 enum CloudKitDevelopmentSchemaBootstrap {
-    private static var didAttemptBootstrapThisLaunch = false
-
     static func bootstrapIfNeeded(logger: Logging) {
 #if DEBUG
-        guard didAttemptBootstrapThisLaunch == false else { return }
-        didAttemptBootstrapThisLaunch = true
-
         switch makeDecision() {
         case .run(let request):
+            let accountStatus = CloudKitAccountStatusResolver.currentStatus(
+                for: request.containerIdentifier
+            )
+            guard accountStatus == .available else {
+                logger.info(
+                    "Skipped CloudKit development schema bootstrap because account status is \(String(describing: accountStatus))"
+                )
+                return
+            }
             do {
                 try initializeDevelopmentSchema(using: request, logger: logger)
             } catch {
@@ -36,7 +34,7 @@ enum CloudKitDevelopmentSchemaBootstrap {
     }
 
     static func makeDecision(
-        audit: CloudKitCompatibilityAudit = .appSettingsFeedFolder,
+        audit: CloudKitCompatibilityAudit = .currentSyncBackedModelSet,
         modelPartition: AppPersistenceModelPartition = .current,
         containerIdentifier: String = CloudKitContainerConfiguration.containerIdentifier,
         syncBackedPolicy: AppPersistenceCloudKitPolicy = CloudKitContainerConfiguration.syncBackedDatabasePolicy
@@ -67,7 +65,7 @@ enum CloudKitDevelopmentSchemaBootstrap {
         let syncBackedStore = configurationPlan.syncBackedStore
 
         return .run(
-            CloudKitDevelopmentSchemaBootstrapRequest(
+            CloudKitStoreBootstrapRequest(
                 containerIdentifier: explicitIdentifier.isEmpty ? containerIdentifier : explicitIdentifier,
                 storeConfigurationName: syncBackedStore.name,
                 storeURL: syncBackedStore.modelConfiguration.url,
@@ -77,39 +75,42 @@ enum CloudKitDevelopmentSchemaBootstrap {
     }
 
     private static func initializeDevelopmentSchema(
-        using request: CloudKitDevelopmentSchemaBootstrapRequest,
+        using request: CloudKitStoreBootstrapRequest,
         logger: Logging
     ) throws {
-        guard let managedObjectModel = NSManagedObjectModel.makeManagedObjectModel(for: request.modelTypes) else {
-            throw CloudKitDevelopmentSchemaBootstrapError.couldNotCreateManagedObjectModel
-        }
+        try autoreleasepool {
+            guard let managedObjectModel = NSManagedObjectModel.makeManagedObjectModel(for: request.modelTypes) else {
+                throw CloudKitDevelopmentSchemaBootstrapError.couldNotCreateManagedObjectModel
+            }
 
-        let storeDescription = NSPersistentStoreDescription(url: request.storeURL)
-        storeDescription.configuration = request.storeConfigurationName
-        storeDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
-            containerIdentifier: request.containerIdentifier
-        )
-        storeDescription.shouldAddStoreAsynchronously = false
+            let storeDescription = NSPersistentStoreDescription(url: request.storeURL)
+            storeDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
+                containerIdentifier: request.containerIdentifier
+            )
+            storeDescription.shouldAddStoreAsynchronously = false
 
-        let container = NSPersistentCloudKitContainer(
-            name: request.storeConfigurationName,
-            managedObjectModel: managedObjectModel
-        )
-        container.persistentStoreDescriptions = [storeDescription]
+            let container = NSPersistentCloudKitContainer(
+                name: request.storeConfigurationName,
+                managedObjectModel: managedObjectModel
+            )
+            container.persistentStoreDescriptions = [storeDescription]
 
-        var loadError: Error?
-        container.loadPersistentStores { _, error in
-            loadError = error
-        }
+            var loadError: Error?
+            container.loadPersistentStores { _, error in
+                loadError = error
+            }
 
-        if let loadError {
-            throw loadError
-        }
+            if let loadError {
+                throw loadError
+            }
 
-        try container.initializeCloudKitSchema()
+            try container.initializeCloudKitSchema()
 
-        if let store = container.persistentStoreCoordinator.persistentStores.first {
-            try container.persistentStoreCoordinator.remove(store)
+            if let store = container.persistentStoreCoordinator.persistentStores.first {
+                try container.persistentStoreCoordinator.remove(store)
+            }
+
+            container.persistentStoreDescriptions = []
         }
 
         logger.info(

@@ -49,6 +49,21 @@ struct ICloudAccountAvailabilityServiceTests {
     }
 
     @Test
+    func currentAvailabilityLogsResolvedStatusAndMappedAvailability() async {
+        let logger = RecordingLogger()
+        let service = makeService(
+            results: [.success(.temporarilyUnavailable)],
+            logger: logger
+        )
+
+        _ = await service.currentAvailability()
+
+        #expect(logger.contains("Resolved CloudKit account status"))
+        #expect(logger.contains("temporarilyUnavailable"))
+        #expect(logger.contains("iCloud availability temporarilyUnavailable"))
+    }
+
+    @Test
     func availabilityChangesRequeriesAccountStatusWhenAccountChangedNotificationArrives() async throws {
         let notificationCenter = NotificationCenter()
         let notificationName = Notification.Name("TestCKAccountChanged")
@@ -65,15 +80,37 @@ struct ICloudAccountAvailabilityServiceTests {
         #expect(update == .restricted)
     }
 
+    @Test
+    func availabilityChangesLogAccountChangedRequery() async throws {
+        let notificationCenter = NotificationCenter()
+        let notificationName = Notification.Name("TestCKAccountChanged")
+        let logger = RecordingLogger()
+        let service = makeService(
+            results: [.success(.restricted)],
+            notificationCenter: notificationCenter,
+            notificationName: notificationName,
+            logger: logger
+        )
+        var iterator = service.availabilityChanges().makeAsyncIterator()
+
+        notificationCenter.post(name: notificationName, object: nil)
+
+        _ = try await #require(iterator.next())
+
+        #expect(logger.contains("Received \(notificationName.rawValue) notification; requerying CloudKit account status"))
+    }
+
     private func makeService(
         results: [Result<CKAccountStatus, Error>],
         notificationCenter: NotificationCenter = NotificationCenter(),
-        notificationName: Notification.Name = .CKAccountChanged
+        notificationName: Notification.Name = .CKAccountChanged,
+        logger: Logging = TestLogger()
     ) -> DefaultICloudAccountAvailabilityService {
         DefaultICloudAccountAvailabilityService(
             accountStatusQuery: ScriptedCloudKitAccountStatusQuery(results: results),
             notificationCenter: notificationCenter,
-            accountChangedNotification: notificationName
+            accountChangedNotification: notificationName,
+            logger: logger
         )
     }
 }

@@ -35,7 +35,7 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
     let reports: [CloudKitModelCompatibilityReport]
     let sourceSummary: String
 
-    static let appSettingsFeedFolder = CloudKitCompatibilityAudit(
+    static let currentSyncBackedModelSet = CloudKitCompatibilityAudit(
         reports: [
             CloudKitModelCompatibilityReport(
                 model: .appSettings,
@@ -49,6 +49,34 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                         ],
                         summary: "AppSettings currently relies on singletonKey-based fetch-or-create semantics for global identity.",
                         recommendedFollowUp: "Preserve the singleton invariant explicitly in repository logic once schema-level uniqueness is removed."
+                    )
+                ]
+            ),
+            CloudKitModelCompatibilityReport(
+                model: .articleState,
+                findings: [
+                    CloudKitCompatibilityFinding(
+                        severity: .warning,
+                        rule: .repositoryManagedIdentityInvariant,
+                        affectedPaths: [
+                            "SwiftDataArticleStateRepository.fetchState(feedID:articleExternalID:)",
+                            "SwiftDataArticleStateRepository.fetchOrCreate(feedID:articleExternalID:)",
+                            "SwiftDataArticleStateRepository.fetchCanonicalState(feedID:articleExternalID:removeDuplicates:)",
+                            "SwiftDataArticleStateRepository.shouldApply(_:to:)"
+                        ],
+                        summary: "ArticleState now relies on repository-managed composite identity, duplicate-row repair, and last-write-wins conflict resolution instead of schema-level uniqueness.",
+                        recommendedFollowUp: "Keep composite-key identity repair and updatedAt-based conflict resolution in repository/service logic for the CloudKit-backed model."
+                    ),
+                    CloudKitCompatibilityFinding(
+                        severity: .warning,
+                        rule: .crossStoreRelationship,
+                        affectedPaths: [
+                            "ArticleState.feedID",
+                            "ArticleState.articleExternalID",
+                            "SwiftDataArticleStateRepository.fetchStateSnapshots(for:)"
+                        ],
+                        summary: "ArticleState intentionally references articles through scalar identifiers, which preserves the boundary between sync-backed state and the local article cache.",
+                        recommendedFollowUp: "Do not introduce direct SwiftData relationships from ArticleState to Article when enabling CloudKit."
                     )
                 ]
             ),
@@ -85,7 +113,7 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                 ]
             )
         ],
-        sourceSummary: "Audit based on Apple SwiftData CloudKit documentation: schema-level uniqueness, sync-backed ownership collections, and Feed/Article store coupling have been removed from the sync-backed model set."
+        sourceSummary: "Audit based on Apple SwiftData CloudKit documentation: the current sync-backed model set contains AppSettings, ArticleState, Feed, and Folder, while schema-level uniqueness and direct Article relationships remain outside the CloudKit-backed store."
     )
 
     static let articleStateArticleFeedFetchLog = CloudKitCompatibilityAudit(

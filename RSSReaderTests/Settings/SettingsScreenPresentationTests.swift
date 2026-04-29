@@ -310,4 +310,42 @@ struct SettingsScreenPresentationTests {
             )
         )
     }
+
+    @Test
+    func settingsScreenPresentationBuilderExplainsLocalOnlyFallbackWhenSyncPreferenceIsSavedButBootstrapStayedLocal() throws {
+        let input = SettingsScreenInput(
+            useiCloudSync: true,
+            iCloudSyncStatus: .statusUnavailable,
+            syncStatusPresentation: .temporarilyUnavailable,
+            isUsingLocalOnlySyncFallbackForCurrentLaunch: true
+        )
+
+        let syncSection = try #require(
+            SettingsScreenPresentationBuilder.buildSections(from: input).first(where: { $0.id == .sync })
+        )
+
+        #expect(
+            syncSection.items.first == .toggle(
+                SettingsToggleItemPresentation(
+                    id: .useICloudSync,
+                    title: "Enable iCloud Sync",
+                    subtitle: "Saved for the next launch. This session is still using local-only data because the current iCloud account is temporarily unavailable.",
+                    isOn: true
+                )
+            )
+        )
+        #expect(
+            syncSection.items.last == .statusRow(
+                SettingsStatusRowItemPresentation(
+                    id: .iCloudSyncStatus,
+                    title: "Current Status",
+                    subtitle: "Sync is enabled as a saved preference, but this app launch is still using the local-only store because the current iCloud account is temporarily unavailable. Relaunch after iCloud becomes available so the app can rebuild its sync container.",
+                    valueTitle: "Temporarily Unavailable"
+                )
+            )
+        )
+        #expect(
+            syncSection.footer?.contains("currently waiting for a later launch") == true
+        )
+    }
 }

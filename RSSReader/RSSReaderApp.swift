@@ -2,19 +2,16 @@ import SwiftUI
 
 @main
 struct RSSReaderApp: App {
+    private let dependencies: AppDependencies
+
+    @MainActor
     init() {
-#if DEBUG
-        let logger: Logging = FilteredLogger(
-            minLevel: .debug,
-            base: OSLogger(category: "sync")
-        )
-        CloudKitDevelopmentSchemaBootstrap.bootstrapIfNeeded(logger: logger)
-#endif
+        self.dependencies = AppComposition.makeAppDependencies()
     }
 
     var body: some Scene {
         WindowGroup {
-            AppComposition.makeRoot(modelPartition: AppComposition.persistenceModelPartition)
+            AppComposition.makeRoot(dependencies: dependencies)
         }
     }
 }

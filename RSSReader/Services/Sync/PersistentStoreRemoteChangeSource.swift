@@ -1,7 +1,7 @@
 import CoreData
 import Foundation
 
-struct PersistentStoreRemoteChangeEvent: Equatable, Sendable {
+struct PersistentStoreRemoteChangeEvent: Sendable {
     let storeUUID: String?
     let storeURL: URL?
 }

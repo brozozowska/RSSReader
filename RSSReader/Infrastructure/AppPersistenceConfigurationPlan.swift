@@ -1,6 +1,6 @@
 import SwiftData
 
-enum AppPersistenceCloudKitPolicy: Equatable {
+enum AppPersistenceCloudKitPolicy: Equatable, Sendable {
     case disabled
     case automatic
     case privateContainer(String)
@@ -13,6 +13,15 @@ enum AppPersistenceCloudKitPolicy: Equatable {
             return .automatic
         case .privateContainer(let identifier):
             return .private(identifier)
+        }
+    }
+
+    var usesCloudKit: Bool {
+        switch self {
+        case .disabled:
+            false
+        case .automatic, .privateContainer:
+            true
         }
     }
 }
