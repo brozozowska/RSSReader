@@ -72,6 +72,7 @@ struct SyncRuntimeState: Equatable, Sendable {
 final class SyncCoordinator {
     private(set) var runtimeState: SyncRuntimeState
 
+    private let logger: Logging
     private var isSyncEnabled: Bool
     private var accountAvailability: ICloudAccountAvailability?
     private var activeActivity: CloudKitRuntimeActivity?
@@ -80,7 +81,11 @@ final class SyncCoordinator {
     private var accountAvailabilityObservationTask: Task<Void, Never>?
     private var cloudKitRuntimeEventObservationTask: Task<Void, Never>?
 
-    init(isSyncEnabled: Bool = false) {
+    init(
+        isSyncEnabled: Bool = false,
+        logger: Logging? = nil
+    ) {
+        self.logger = logger ?? ConsoleLogger()
         self.isSyncEnabled = isSyncEnabled
         self.accountAvailability = nil
         self.activeActivity = nil
@@ -104,22 +109,31 @@ final class SyncCoordinator {
     func connectRuntimeSources(
         accountAvailabilityService: any ICloudAccountAvailabilityService,
         cloudKitRuntimeEventSource: any CloudKitRuntimeEventSource
-    ) {
+            ) {
         disconnectRuntimeSources()
         guard isSyncEnabled else {
+            logger.info("Skipped SyncCoordinator runtime source connection because sync is disabled")
             recomputeRuntimeState()
             return
         }
 
+        logger.info("Connecting SyncCoordinator runtime sources")
+
         accountAvailabilityObservationTask = Task { [weak self] in
             let initialAvailability = await accountAvailabilityService.currentAvailability()
             await MainActor.run {
+                self?.logger.info(
+                    "SyncCoordinator received initial iCloud account availability: \(String(describing: initialAvailability))"
+                )
                 self?.applyAccountAvailability(initialAvailability)
             }
 
             for await availability in accountAvailabilityService.availabilityChanges() {
                 guard Task.isCancelled == false else { return }
                 await MainActor.run {
+                    self?.logger.info(
+                        "SyncCoordinator received iCloud account availability update: \(String(describing: availability))"
+                    )
                     self?.applyAccountAvailability(availability)
                 }
             }
@@ -129,6 +143,9 @@ final class SyncCoordinator {
             for await runtimeEvent in cloudKitRuntimeEventSource.events() {
                 guard Task.isCancelled == false else { return }
                 await MainActor.run {
+                    self?.logger.debug(
+                        "SyncCoordinator received CloudKit runtime event: \(Self.describe(runtimeEvent: runtimeEvent))"
+                    )
                     self?.applyCloudKitRuntimeEvent(runtimeEvent)
                 }
             }
@@ -136,6 +153,7 @@ final class SyncCoordinator {
     }
 
     func disconnectRuntimeSources() {
+        logger.debug("Disconnecting SyncCoordinator runtime sources")
         accountAvailabilityObservationTask?.cancel()
         cloudKitRuntimeEventObservationTask?.cancel()
         accountAvailabilityObservationTask = nil
@@ -143,6 +161,7 @@ final class SyncCoordinator {
     }
 
     func applySyncEnablement(isEnabled: Bool) {
+        logger.info("Applying SyncCoordinator sync enablement: isEnabled=\(isEnabled)")
         isSyncEnabled = isEnabled
 
         if isEnabled == false {
@@ -157,11 +176,16 @@ final class SyncCoordinator {
     }
 
     func applyAccountAvailability(_ availability: ICloudAccountAvailability?) {
+        logger.debug("Applying SyncCoordinator account availability: \(String(describing: availability))")
         accountAvailability = availability
         recomputeRuntimeState()
     }
 
     func applyCloudKitRuntimeEvent(_ event: CloudKitRuntimeEvent) {
+        if case .failed = event {
+            logger.error("SyncCoordinator handling CloudKit runtime failure: \(Self.describe(runtimeEvent: event))")
+        }
+
         switch event {
         case .started(let activity, let context):
             activeActivity = activity
@@ -181,11 +205,13 @@ final class SyncCoordinator {
     }
 
     func clearRuntimeFailure() {
+        logger.info("Clearing SyncCoordinator runtime failure")
         lastFailure = nil
         recomputeRuntimeState()
     }
 
     private func recomputeRuntimeState() {
+        let previousRuntimeState = runtimeState
         let phase: SyncRuntimePhase
 
         if isSyncEnabled == false {
@@ -205,12 +231,53 @@ final class SyncCoordinator {
             phase = .statusUnavailable
         }
 
-        runtimeState = SyncRuntimeState(
+        let nextRuntimeState = SyncRuntimeState(
             phase: phase,
             isSyncEnabled: isSyncEnabled,
             accountAvailability: accountAvailability,
             activeActivity: activeActivity,
             lastEventContext: lastEventContext
         )
+
+        runtimeState = nextRuntimeState
+        if previousRuntimeState != nextRuntimeState {
+            logger.info(
+                "SyncCoordinator runtime state changed from \(Self.describe(runtimeState: previousRuntimeState)) to \(Self.describe(runtimeState: nextRuntimeState))"
+            )
+        }
+    }
+}
+
+private extension SyncCoordinator {
+    static func describe(runtimeState: SyncRuntimeState) -> String {
+        "phase=\(describe(phase: runtimeState.phase)) isSyncEnabled=\(runtimeState.isSyncEnabled) accountAvailability=\(String(describing: runtimeState.accountAvailability)) activeActivity=\(String(describing: runtimeState.activeActivity)) storeIdentifier=\(runtimeState.lastEventContext?.storeIdentifier ?? "nil")"
+    }
+
+    static func describe(phase: SyncRuntimePhase) -> String {
+        switch phase {
+        case .disabled:
+            return "disabled"
+        case .statusUnavailable:
+            return "statusUnavailable"
+        case .idle:
+            return "idle"
+        case .accountProblem(let availability):
+            return "accountProblem(\(availability.rawValue))"
+        case .syncing(let activity):
+            return "syncing(\(activity.rawValue))"
+        case .failed(let failure):
+            return "failed(activity=\(failure.activity?.rawValue ?? "nil"), message=\(failure.resolvedMessage))"
+        }
+    }
+
+    static func describe(runtimeEvent: CloudKitRuntimeEvent) -> String {
+        switch runtimeEvent {
+        case .started(let activity, let context):
+            return "started(activity=\(activity.rawValue), storeIdentifier=\(context.storeIdentifier), eventIdentifier=\(context.identifier.uuidString))"
+        case .finished(let activity, let context):
+            return "finished(activity=\(activity.rawValue), storeIdentifier=\(context.storeIdentifier), eventIdentifier=\(context.identifier.uuidString))"
+        case .failed(let activity, let context, let message):
+            return "failed(activity=\(activity.rawValue), storeIdentifier=\(context.storeIdentifier), eventIdentifier=\(context.identifier.uuidString), message=\(message ?? "nil"))"
+        }
     }
 }

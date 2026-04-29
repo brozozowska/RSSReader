@@ -158,6 +158,23 @@ struct AppDependenciesTests {
     }
 
     @Test
+    func appDependenciesResolveSyncBootstrapContextLogsAccountResolutionAndFallbackSelection() {
+        let logger = RecordingLogger()
+
+        _ = AppDependencies.resolveSyncBootstrapContext(
+            desiredBootPreference: .enabled,
+            desiredPolicy: .privateContainer(CloudKitContainerConfiguration.containerIdentifier),
+            logger: logger,
+            resolvedAccountStatus: .noAccount
+        )
+
+        #expect(logger.contains("Resolved sync bootstrap account status"))
+        #expect(logger.contains("availability=noAccount"))
+        #expect(logger.contains("Skipped CloudKit-backed model container bootstrap because account status is"))
+        #expect(logger.contains("noAccount"))
+    }
+
+    @Test
     func appDependenciesFetchSyncEnablementBootstrapSettingsFromModelContainer() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
@@ -233,6 +250,7 @@ struct AppDependenciesTests {
             logger: TestLogger(),
             httpClient: harness.httpClient,
             modelContainer: harness.modelContainer,
+            syncBootstrapPreferenceStore: FixedAppSyncBootstrapPreferenceStore(currentPreference: nil),
             iCloudAccountAvailabilityService: accountAvailabilityService,
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             syncCoordinator: syncCoordinator
@@ -273,6 +291,7 @@ struct AppDependenciesTests {
             logger: TestLogger(),
             httpClient: harness.httpClient,
             modelContainer: harness.modelContainer,
+            syncBootstrapPreferenceStore: FixedAppSyncBootstrapPreferenceStore(currentPreference: nil),
             iCloudAccountAvailabilityService: accountAvailabilityService,
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             syncCoordinator: syncCoordinator
@@ -342,6 +361,28 @@ struct AppDependenciesTests {
         try await expectEventually {
             syncCoordinator.runtimeState == .disabled
         }
+    }
+
+    @Test
+    func appDependenciesStartSyncCoordinatorAppLifetimeLogsBootstrapEnablementResolution() {
+        let logger = RecordingLogger()
+        let syncCoordinator = SyncCoordinator(logger: logger)
+        let dependencies = AppDependencies(
+            logger: logger,
+            syncBootstrapContext: AppSyncBootstrapContext(
+                desiredBootPreference: .enabled,
+                desiredSyncBackedCloudKitPolicy: .privateContainer(CloudKitContainerConfiguration.containerIdentifier),
+                modelContainerCloudKitPolicy: .disabled,
+                accountAvailabilityAtBootstrap: .temporarilyUnavailable
+            ),
+            syncCoordinator: syncCoordinator
+        )
+
+        dependencies.startSyncCoordinatorAppLifetime()
+
+        #expect(logger.contains("Resolved initial sync enablement from bootstrap context"))
+        #expect(logger.contains("isUsingCloudKitForCurrentLaunch=false"))
+        #expect(logger.contains("Starting SyncCoordinator app lifetime: isSyncEnabled=false"))
     }
 
     @Test
@@ -556,6 +597,53 @@ struct AppDependenciesTests {
         #expect(appState.articleListReloadID == initialArticleListReloadID)
         #expect(appState.articleScreenReloadID == initialArticleScreenReloadID)
     }
+
+    @Test
+    func appDependenciesRemoteSyncReloadLogsCorrelationEvents() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let logger = RecordingLogger()
+        let syncCoordinator = SyncCoordinator(isSyncEnabled: true, logger: logger)
+        syncCoordinator.applyAccountAvailability(.available)
+        let cloudKitRuntimeEventSource = TestCloudKitRuntimeEventSource()
+        let remoteChangeSource = TestPersistentStoreRemoteChangeSource()
+        let dependencies = AppDependencies(
+            logger: logger,
+            httpClient: harness.httpClient,
+            modelContainer: harness.modelContainer,
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            persistentStoreRemoteChangeSource: remoteChangeSource,
+            syncCoordinator: syncCoordinator
+        )
+        let appState = AppState()
+
+        dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+
+        await remoteChangeSource.yield(
+            PersistentStoreRemoteChangeEvent(
+                storeUUID: "SyncBackedStore",
+                storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
+            )
+        )
+        await cloudKitRuntimeEventSource.yield(
+            .finished(
+                .import,
+                CloudKitRuntimeEventContext(
+                    identifier: UUID(),
+                    storeIdentifier: "SyncBackedStore",
+                    startDate: .distantPast,
+                    endDate: .now
+                )
+            )
+        )
+
+        try await expectEventually {
+            logger.contains("Requesting app-level remote sync reload after matching import completion and persistent store remote change")
+        }
+
+        #expect(logger.contains("Starting remote sync reload app lifetime observation"))
+        #expect(logger.contains("Observed persistent store remote change; marked store change pending"))
+        #expect(logger.contains("Observed CloudKit import completion; marked import completion pending"))
+    }
 }
 
 private actor TestICloudAccountAvailabilityService: ICloudAccountAvailabilityService {
@@ -620,6 +708,16 @@ private actor TestPersistentStoreRemoteChangeSource: PersistentStoreRemoteChange
     func yield(_ event: PersistentStoreRemoteChangeEvent) {
         continuation.yield(event)
     }
+}
+
+private struct FixedAppSyncBootstrapPreferenceStore: AppSyncBootstrapPreferenceStoring {
+    let currentPreference: AppSyncBootPreference?
+
+    func currentBootPreference() -> AppSyncBootPreference? {
+        currentPreference
+    }
+
+    func saveBootPreference(_ preference: AppSyncBootPreference) {}
 }
 
 private struct TimedOutError: Error {}

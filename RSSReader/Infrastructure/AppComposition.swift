@@ -17,22 +17,20 @@ enum AppComposition {
         modelPartition: AppPersistenceModelPartition? = nil,
         syncEnablementPolicy: AppSyncEnablementPolicy? = nil
     ) -> AppDependencies {
+        let logger = AppDependencies.makeDefaultLogger()
         let resolvedModelPartition = modelPartition ?? persistenceModelPartition
         let resolvedSyncEnablementPolicy = syncEnablementPolicy ?? self.syncEnablementPolicy
 
 #if DEBUG
-        let syncBootstrapLogger: Logging = FilteredLogger(
-            minLevel: .debug,
-            base: OSLogger(category: "sync")
-        )
-        CloudKitDevelopmentSchemaBootstrap.bootstrapIfNeeded(logger: syncBootstrapLogger)
+        CloudKitDevelopmentSchemaBootstrap.bootstrapIfNeeded(logger: logger)
 #endif
 
-        let syncCoordinator = SyncCoordinator()
+        let syncCoordinator = SyncCoordinator(logger: logger)
         let dependencies = AppDependencies.makeWithSwiftData(
             modelPartition: resolvedModelPartition,
             syncEnablementPolicy: resolvedSyncEnablementPolicy,
-            syncCoordinator: syncCoordinator
+            syncCoordinator: syncCoordinator,
+            logger: logger
         )
         dependencies.startSyncCoordinatorAppLifetime()
         return dependencies

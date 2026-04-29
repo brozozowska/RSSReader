@@ -118,6 +118,25 @@ struct SyncCoordinatorTests {
     }
 
     @Test
+    func applyCloudKitFailureLogsRuntimeFailureContextAndStateTransition() {
+        let logger = RecordingLogger()
+        let coordinator = SyncCoordinator(isSyncEnabled: true, logger: logger)
+        let context = CloudKitRuntimeEventContext(
+            identifier: UUID(),
+            storeIdentifier: "SyncBackedStore",
+            startDate: .distantPast,
+            endDate: .now
+        )
+
+        coordinator.applyCloudKitRuntimeEvent(.failed(.setup, context, "Setup failed."))
+
+        #expect(logger.contains("SyncCoordinator handling CloudKit runtime failure", level: .error))
+        #expect(logger.contains("storeIdentifier=SyncBackedStore", level: .error))
+        #expect(logger.contains("runtime state changed", level: .info))
+        #expect(logger.contains("failed(activity=setup, message=Setup failed.)", level: .info))
+    }
+
+    @Test
     func clearRuntimeFailureRestoresPhaseFromLatestAccountAvailability() {
         let coordinator = SyncCoordinator(isSyncEnabled: true)
         let context = CloudKitRuntimeEventContext(
