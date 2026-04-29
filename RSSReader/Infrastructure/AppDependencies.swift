@@ -1,4 +1,3 @@
-import CoreData
 import CloudKit
 import Foundation
 import SwiftUI
@@ -324,19 +323,6 @@ extension AppDependencies {
         )
     }
 
-    static func resolveBootstrapModelContainerCloudKitPolicy(
-        desiredPolicy: AppPersistenceCloudKitPolicy,
-        logger: Logging,
-        resolvedAccountStatus: CKAccountStatus? = nil
-    ) -> AppPersistenceCloudKitPolicy {
-        resolveSyncBootstrapContext(
-            desiredBootPreference: desiredPolicy.usesCloudKit ? .enabled : .disabled,
-            desiredPolicy: desiredPolicy,
-            logger: logger,
-            resolvedAccountStatus: resolvedAccountStatus
-        ).modelContainerCloudKitPolicy
-    }
-
     static func resolveSyncBootstrapContext(
         desiredBootPreference: AppSyncBootPreference,
         desiredPolicy: AppPersistenceCloudKitPolicy,
@@ -356,7 +342,7 @@ extension AppDependencies {
             ? CloudKitContainerConfiguration.containerIdentifier
             : containerIdentifier
         let accountStatus = resolvedAccountStatus
-            ?? currentCloudKitAccountStatus(for: resolvedContainerIdentifier)
+            ?? CloudKitAccountStatusResolver.currentStatus(for: resolvedContainerIdentifier)
         let accountAvailability = DefaultICloudAccountAvailabilityService.mapAccountAvailability(
             from: accountStatus
         )
@@ -417,7 +403,7 @@ extension AppDependencies {
         persistentStoreProbeFailureDescription: String? = nil
     ) -> String {
         let policyDescription = String(describing: syncBackedCloudKitPolicy)
-        let errorDescription = describeBootstrapErrorChain(error).joined(separator: "\n")
+        let errorDescription = CloudKitStoreBootstrapDiagnostics.describeErrorChain(error).joined(separator: "\n")
         let persistentStoreProbeSection: String
         if let persistentStoreProbeFailureDescription {
             persistentStoreProbeSection = "\nPersistent store probe:\n\(persistentStoreProbeFailureDescription)"
@@ -435,117 +421,14 @@ extension AppDependencies {
         modelPartition: AppPersistenceModelPartition,
         syncBackedCloudKitPolicy: AppPersistenceCloudKitPolicy
     ) -> String? {
-        guard case .privateContainer(let containerIdentifier) = syncBackedCloudKitPolicy else {
-            return nil
-        }
-
-        let resolvedContainerIdentifier = containerIdentifier.isEmpty
-            ? CloudKitContainerConfiguration.containerIdentifier
-            : containerIdentifier
-        let accountStatus = currentCloudKitAccountStatus(for: resolvedContainerIdentifier)
-        guard accountStatus == .available else {
-            return "Persistent store probe skipped because CloudKit account status is \(String(describing: accountStatus))."
-        }
-
-        let configurationPlan = makeSwiftDataConfigurationPlan(
+        guard let request = makeSyncBackedStoreBootstrapRequest(
             modelPartition: modelPartition,
-            isStoredInMemoryOnly: false,
             syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
-        )
-        let syncBackedStore = configurationPlan.syncBackedStore
-
-        guard let managedObjectModel = NSManagedObjectModel.makeManagedObjectModel(for: syncBackedStore.modelTypes) else {
-            return "Could not create managed object model for persistent store probe."
-        }
-
-        let storeDescription = NSPersistentStoreDescription(url: syncBackedStore.modelConfiguration.url)
-        storeDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
-            containerIdentifier: resolvedContainerIdentifier
-        )
-        storeDescription.shouldAddStoreAsynchronously = false
-
-        let container = NSPersistentCloudKitContainer(
-            name: syncBackedStore.name,
-            managedObjectModel: managedObjectModel
-        )
-        container.persistentStoreDescriptions = [storeDescription]
-
-        var loadError: Error?
-        container.loadPersistentStores { _, error in
-            loadError = error
-        }
-
-        guard let loadError else {
-            if let store = container.persistentStoreCoordinator.persistentStores.first {
-                try? container.persistentStoreCoordinator.remove(store)
-            }
+        ) else {
             return nil
         }
 
-        return describeBootstrapErrorChain(loadError).joined(separator: "\n")
-    }
-
-    private static func currentCloudKitAccountStatus(for containerIdentifier: String) -> CKAccountStatus {
-        let container = CKContainer(identifier: containerIdentifier)
-        let semaphore = DispatchSemaphore(value: 0)
-        var resolvedStatus: CKAccountStatus = .couldNotDetermine
-
-        container.accountStatus { status, _ in
-            resolvedStatus = status
-            semaphore.signal()
-        }
-
-        _ = semaphore.wait(timeout: .now() + 5)
-        return resolvedStatus
-    }
-
-    private static func describeBootstrapErrorChain(_ error: Error) -> [String] {
-        describeBootstrapErrorChain(error, level: 0)
-    }
-
-    private static func describeBootstrapErrorChain(_ error: Error, level: Int) -> [String] {
-        let nsError = error as NSError
-        let prefix = level == 0 ? "Error" : "Underlying error \(level)"
-        var lines = ["\(prefix): \(describeNSError(nsError))"]
-
-        for underlyingError in extractUnderlyingErrors(from: nsError) {
-            lines.append(contentsOf: describeBootstrapErrorChain(underlyingError, level: level + 1))
-        }
-
-        return lines
-    }
-
-    private static func describeNSError(_ error: NSError) -> String {
-        let userInfoDescription = describeUserInfo(error.userInfo)
-        return "domain=\(error.domain) code=\(error.code) localizedDescription=\(error.localizedDescription) userInfo=\(userInfoDescription)"
-    }
-
-    private static func describeUserInfo(_ userInfo: [String: Any]) -> String {
-        guard userInfo.isEmpty == false else { return "{}" }
-
-        let filteredEntries = userInfo
-            .filter { $0.key != NSUnderlyingErrorKey }
-            .sorted { $0.key < $1.key }
-
-        guard filteredEntries.isEmpty == false else { return "{}" }
-
-        let pairs = filteredEntries.map { key, value in
-            "\(key)=\(String(describing: value))"
-        }
-
-        return "{\(pairs.joined(separator: ", "))}"
-    }
-
-    private static func extractUnderlyingErrors(from error: NSError) -> [Error] {
-        if let underlyingError = error.userInfo[NSUnderlyingErrorKey] as? Error {
-            return [underlyingError]
-        }
-
-        if let underlyingErrors = error.userInfo[NSUnderlyingErrorKey] as? [Error] {
-            return underlyingErrors
-        }
-
-        return []
+        return CloudKitStoreBootstrapDiagnostics.persistentStoreProbeFailureDescription(using: request)
     }
 
     @MainActor
@@ -564,6 +447,32 @@ extension AppDependencies {
             logger.error("Failed to resolve sync enablement bootstrap settings: \(error)")
             return nil
         }
+    }
+
+    private static func makeSyncBackedStoreBootstrapRequest(
+        modelPartition: AppPersistenceModelPartition,
+        syncBackedCloudKitPolicy: AppPersistenceCloudKitPolicy
+    ) -> CloudKitStoreBootstrapRequest? {
+        guard case .privateContainer(let containerIdentifier) = syncBackedCloudKitPolicy else {
+            return nil
+        }
+
+        let resolvedContainerIdentifier = containerIdentifier.isEmpty
+            ? CloudKitContainerConfiguration.containerIdentifier
+            : containerIdentifier
+        let configurationPlan = makeSwiftDataConfigurationPlan(
+            modelPartition: modelPartition,
+            isStoredInMemoryOnly: false,
+            syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
+        )
+        let syncBackedStore = configurationPlan.syncBackedStore
+
+        return CloudKitStoreBootstrapRequest(
+            containerIdentifier: resolvedContainerIdentifier,
+            storeConfigurationName: syncBackedStore.name,
+            storeURL: syncBackedStore.modelConfiguration.url,
+            modelTypes: syncBackedStore.modelTypes
+        )
     }
 }
 

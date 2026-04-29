@@ -3,15 +3,8 @@ import CoreData
 import Foundation
 import SwiftData
 
-struct CloudKitDevelopmentSchemaBootstrapRequest {
-    let containerIdentifier: String
-    let storeConfigurationName: String
-    let storeURL: URL
-    let modelTypes: [any PersistentModel.Type]
-}
-
 enum CloudKitDevelopmentSchemaBootstrapDecision {
-    case run(CloudKitDevelopmentSchemaBootstrapRequest)
+    case run(CloudKitStoreBootstrapRequest)
     case skip(String)
 }
 
@@ -25,7 +18,9 @@ enum CloudKitDevelopmentSchemaBootstrap {
 
         switch makeDecision() {
         case .run(let request):
-            let accountStatus = currentAccountStatus(for: request.containerIdentifier)
+            let accountStatus = CloudKitAccountStatusResolver.currentStatus(
+                for: request.containerIdentifier
+            )
             guard accountStatus == .available else {
                 logger.info(
                     "Skipped CloudKit development schema bootstrap because account status is \(String(describing: accountStatus))"
@@ -75,7 +70,7 @@ enum CloudKitDevelopmentSchemaBootstrap {
         let syncBackedStore = configurationPlan.syncBackedStore
 
         return .run(
-            CloudKitDevelopmentSchemaBootstrapRequest(
+            CloudKitStoreBootstrapRequest(
                 containerIdentifier: explicitIdentifier.isEmpty ? containerIdentifier : explicitIdentifier,
                 storeConfigurationName: syncBackedStore.name,
                 storeURL: syncBackedStore.modelConfiguration.url,
@@ -85,7 +80,7 @@ enum CloudKitDevelopmentSchemaBootstrap {
     }
 
     private static func initializeDevelopmentSchema(
-        using request: CloudKitDevelopmentSchemaBootstrapRequest,
+        using request: CloudKitStoreBootstrapRequest,
         logger: Logging
     ) throws {
         try autoreleasepool {
@@ -126,20 +121,6 @@ enum CloudKitDevelopmentSchemaBootstrap {
         logger.info(
             "Initialized CloudKit development schema for \(request.containerIdentifier) using \(request.storeConfigurationName)"
         )
-    }
-
-    private static func currentAccountStatus(for containerIdentifier: String) -> CKAccountStatus {
-        let container = CKContainer(identifier: containerIdentifier)
-        let semaphore = DispatchSemaphore(value: 0)
-        var resolvedStatus: CKAccountStatus = .couldNotDetermine
-
-        container.accountStatus { status, _ in
-            resolvedStatus = status
-            semaphore.signal()
-        }
-
-        _ = semaphore.wait(timeout: .now() + 5)
-        return resolvedStatus
     }
 }
 

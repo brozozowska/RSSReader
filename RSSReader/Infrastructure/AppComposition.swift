@@ -13,17 +13,36 @@ enum AppComposition {
     static let appModels = persistenceModelPartition.allModels
 
     @MainActor
+    static func makeAppDependencies(
+        modelPartition: AppPersistenceModelPartition? = nil,
+        syncEnablementPolicy: AppSyncEnablementPolicy? = nil
+    ) -> AppDependencies {
+        let resolvedModelPartition = modelPartition ?? persistenceModelPartition
+        let resolvedSyncEnablementPolicy = syncEnablementPolicy ?? self.syncEnablementPolicy
+
+#if DEBUG
+        let syncBootstrapLogger: Logging = FilteredLogger(
+            minLevel: .debug,
+            base: OSLogger(category: "sync")
+        )
+        CloudKitDevelopmentSchemaBootstrap.bootstrapIfNeeded(logger: syncBootstrapLogger)
+#endif
+
+        let syncCoordinator = SyncCoordinator()
+        let dependencies = AppDependencies.makeWithSwiftData(
+            modelPartition: resolvedModelPartition,
+            syncEnablementPolicy: resolvedSyncEnablementPolicy,
+            syncCoordinator: syncCoordinator
+        )
+        dependencies.startSyncCoordinatorAppLifetime()
+        return dependencies
+    }
+
+    @MainActor
     @ViewBuilder
     static func makeRoot(modelPartition: AppPersistenceModelPartition? = nil) -> some View {
-        let syncCoordinator = SyncCoordinator()
-        let deps: AppDependencies = modelPartition.map {
-            AppDependencies.makeWithSwiftData(
-                modelPartition: $0,
-                syncEnablementPolicy: syncEnablementPolicy,
-                syncCoordinator: syncCoordinator
-            )
-        } ?? AppDependencies.makeDefault(syncCoordinator: syncCoordinator)
-        let _ = deps.startSyncCoordinatorAppLifetime()
+        let deps = modelPartition.map { makeAppDependencies(modelPartition: $0) }
+            ?? AppDependencies.makeDefault(syncCoordinator: SyncCoordinator())
 
         AppRootContainer(dependencies: deps)
     }
