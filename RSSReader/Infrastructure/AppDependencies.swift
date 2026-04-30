@@ -523,6 +523,11 @@ extension AppDependencies {
     func startRemoteSyncReloadAppLifetime(using appState: AppState) {
         syncRuntimeOrchestrator.startRemoteSyncReloadAppLifetime(using: appState)
     }
+
+    @MainActor
+    func stopSyncRuntimeAppLifetime() {
+        syncRuntimeOrchestrator.stopAppLifetime()
+    }
 }
 
 extension AppDependencies {

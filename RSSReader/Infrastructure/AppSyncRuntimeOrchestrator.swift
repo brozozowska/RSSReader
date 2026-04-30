@@ -39,6 +39,10 @@ final class AppSyncRuntimeOrchestrator {
         self.appSettingsService = appSettingsService
     }
 
+    deinit {
+        remoteSyncReloadObservationTask?.cancel()
+    }
+
     @MainActor
     func startSyncCoordinatorAppLifetime() {
         guard hasStartedSyncCoordinatorAppLifetime == false else { return }
@@ -64,27 +68,21 @@ final class AppSyncRuntimeOrchestrator {
         let remoteChangeEvents = persistentStoreRemoteChangeSource.events()
 
         remoteSyncReloadObservationTask = Task { [weak self] in
-            guard let self else { return }
-
             await withTaskGroup(of: Void.self) { group in
                 group.addTask { [weak self] in
-                    guard let self else { return }
-
                     for await runtimeEvent in runtimeEvents {
                         guard Task.isCancelled == false else { return }
-                        await MainActor.run {
-                            self.handleRemoteSyncReload(runtimeEvent: runtimeEvent, using: appState)
+                        await MainActor.run { [weak self] in
+                            self?.handleRemoteSyncReload(runtimeEvent: runtimeEvent, using: appState)
                         }
                     }
                 }
 
                 group.addTask { [weak self] in
-                    guard let self else { return }
-
                     for await remoteChangeEvent in remoteChangeEvents {
                         guard Task.isCancelled == false else { return }
-                        await MainActor.run {
-                            self.handleRemoteSyncReload(remoteChangeEvent: remoteChangeEvent, using: appState)
+                        await MainActor.run { [weak self] in
+                            self?.handleRemoteSyncReload(remoteChangeEvent: remoteChangeEvent, using: appState)
                         }
                     }
                 }
@@ -92,6 +90,14 @@ final class AppSyncRuntimeOrchestrator {
                 await group.waitForAll()
             }
         }
+    }
+
+    @MainActor
+    func stopAppLifetime() {
+        logger.info("Stopping app-level sync runtime orchestration")
+        cancelRemoteSyncReloadObservation()
+        syncCoordinator?.disconnectRuntimeSources()
+        hasStartedSyncCoordinatorAppLifetime = false
     }
 
     @MainActor
@@ -221,6 +227,14 @@ final class AppSyncRuntimeOrchestrator {
     private func matchesSyncBackedStore(remoteChangeEvent: PersistentStoreRemoteChangeEvent) -> Bool {
         guard let syncBackedStoreReference else { return false }
         return syncBackedStoreReference.matches(remoteChangeEvent: remoteChangeEvent)
+    }
+
+    private func cancelRemoteSyncReloadObservation() {
+        remoteSyncReloadObservationTask?.cancel()
+        remoteSyncReloadObservationTask = nil
+        hasStartedRemoteSyncReloadAppLifetime = false
+        remoteSyncReloadPendingImportCompletion = false
+        remoteSyncReloadPendingStoreChange = false
     }
 }
 
