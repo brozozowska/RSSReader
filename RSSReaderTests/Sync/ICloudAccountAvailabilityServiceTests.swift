@@ -64,6 +64,25 @@ struct ICloudAccountAvailabilityServiceTests {
     }
 
     @Test
+    func currentAvailabilityLogsFallbackAfterAccountStatusQueryFailure() async {
+        let logger = RecordingLogger()
+        let service = makeService(
+            results: [.failure(TestError.accountStatusFailed)],
+            logger: logger
+        )
+
+        _ = await service.currentAvailability()
+
+        #expect(logger.contains("Failed to resolve CloudKit account status", level: .error))
+        #expect(
+            logger.contains(
+                "Falling back to iCloud availability couldNotDetermine after account status resolution failure",
+                level: .info
+            )
+        )
+    }
+
+    @Test
     func availabilityChangesRequeriesAccountStatusWhenAccountChangedNotificationArrives() async throws {
         let notificationCenter = NotificationCenter()
         let notificationName = Notification.Name("TestCKAccountChanged")

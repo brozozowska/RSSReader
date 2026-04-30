@@ -285,6 +285,9 @@ extension AppDependencies {
         let modelContainer: ModelContainer?
         let modelContainerBootstrapFailureDescription: String?
         do {
+            logger.info(
+                "Starting model container setup: syncBackedPolicy=\(String(describing: syncBackedCloudKitPolicy)) syncBackedStoreIdentifier=\(syncBackedStoreReference.runtimeStoreIdentifier) syncBackedStoreURL=\(syncBackedStoreReference.persistentStoreURL.path)"
+            )
             modelContainer = try makeModelContainer(
                 modelPartition: modelPartition,
                 isStoredInMemoryOnly: false,
@@ -292,7 +295,7 @@ extension AppDependencies {
             )
             modelContainerBootstrapFailureDescription = nil
             logger.info(
-                "Created model container for sync policy \(String(describing: syncBackedCloudKitPolicy))"
+                "Model container setup succeeded: syncBackedPolicy=\(String(describing: syncBackedCloudKitPolicy)) syncBackedStoreIdentifier=\(syncBackedStoreReference.runtimeStoreIdentifier)"
             )
         } catch {
             let persistentStoreProbeFailureDescription = makePersistentStoreProbeFailureDescription(
@@ -300,7 +303,7 @@ extension AppDependencies {
                 syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
             )
             logger.error(
-                "Failed to create model container for sync policy \(String(describing: syncBackedCloudKitPolicy)): \(error)"
+                "Model container setup failed: syncBackedPolicy=\(String(describing: syncBackedCloudKitPolicy)) syncBackedStoreIdentifier=\(syncBackedStoreReference.runtimeStoreIdentifier) error=\(error)"
             )
             modelContainer = nil
             modelContainerBootstrapFailureDescription = makeModelContainerBootstrapFailureDescription(
@@ -340,6 +343,9 @@ extension AppDependencies {
         resolvedAccountStatus: CKAccountStatus? = nil
     ) -> AppSyncBootstrapContext {
         guard case .privateContainer(let containerIdentifier) = desiredPolicy else {
+            logger.info(
+                "Using local-only sync bootstrap path because desired policy does not require CloudKit: desiredBootPreference=\(desiredBootPreference.rawValue) desiredPolicy=\(String(describing: desiredPolicy))"
+            )
             return AppSyncBootstrapContext(
                 desiredBootPreference: desiredBootPreference,
                 desiredSyncBackedCloudKitPolicy: desiredPolicy,
@@ -362,7 +368,7 @@ extension AppDependencies {
 
         guard accountStatus == .available else {
             logger.info(
-                "Skipped CloudKit-backed model container bootstrap because account status is \(String(describing: accountStatus))"
+                "Skipped CloudKit-backed model container bootstrap because account status is \(String(describing: accountStatus)); using local-only fallback for current launch"
             )
             return AppSyncBootstrapContext(
                 desiredBootPreference: desiredBootPreference,
@@ -675,7 +681,9 @@ extension AppDependencies {
 
         remoteSyncReloadPendingImportCompletion = false
         remoteSyncReloadPendingStoreChange = false
-        logger.info("Requesting app-level remote sync reload after matching import completion and persistent store remote change")
+        logger.info(
+            "Requesting app-level remote sync reload after matching import completion and persistent store remote change for sync-backed storeIdentifier=\(syncBackedStoreReference?.runtimeStoreIdentifier ?? "nil")"
+        )
         appState.requestRemoteSyncReload()
     }
 

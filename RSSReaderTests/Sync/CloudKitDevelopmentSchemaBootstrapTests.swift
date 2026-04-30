@@ -1,3 +1,5 @@
+import CloudKit
+import Foundation
 import Testing
 @testable import RSSReader
 
@@ -57,6 +59,51 @@ struct CloudKitDevelopmentSchemaBootstrapTests {
         }
     }
 
+    @Test
+    func cloudKitDevelopmentSchemaBootstrapLogsSkipReasonForUnavailableAccountStatus() {
+        let logger = RecordingLogger()
+        let request = CloudKitStoreBootstrapRequest(
+            containerIdentifier: "iCloud.ru.brozozowska.RSSReader",
+            storeConfigurationName: "SyncBackedStore",
+            storeURL: URL(fileURLWithPath: "/tmp/SyncBackedStore.sqlite"),
+            modelTypes: [AppSettings.self]
+        )
+
+        CloudKitDevelopmentSchemaBootstrap.bootstrapIfNeeded(
+            logger: logger,
+            decision: .run(request),
+            resolveAccountStatus: { _ in .noAccount },
+            initializeSchema: { _, _ in }
+        )
+
+        #expect(logger.contains("Evaluating CloudKit development schema bootstrap request", level: .info))
+        #expect(logger.contains("Skipped CloudKit development schema bootstrap because account status is", level: .info))
+        #expect(logger.contains("noAccount", level: .info))
+    }
+
+    @Test
+    func cloudKitDevelopmentSchemaBootstrapLogsRunAndFailureContext() {
+        let logger = RecordingLogger()
+        let request = CloudKitStoreBootstrapRequest(
+            containerIdentifier: "iCloud.ru.brozozowska.RSSReader",
+            storeConfigurationName: "SyncBackedStore",
+            storeURL: URL(fileURLWithPath: "/tmp/SyncBackedStore.sqlite"),
+            modelTypes: [AppSettings.self]
+        )
+
+        CloudKitDevelopmentSchemaBootstrap.bootstrapIfNeeded(
+            logger: logger,
+            decision: .run(request),
+            resolveAccountStatus: { _ in .available },
+            initializeSchema: { _, _ in throw TestBootstrapError.initializationFailed }
+        )
+
+        #expect(logger.contains("Running CloudKit development schema bootstrap", level: .info))
+        #expect(logger.contains("containerIdentifier=iCloud.ru.brozozowska.RSSReader", level: .info))
+        #expect(logger.contains("Failed to initialize CloudKit development schema", level: .error))
+        #expect(logger.contains("initializationFailed", level: .error))
+    }
+
     private func blockedSyncBackedAudit() -> CloudKitCompatibilityAudit {
         CloudKitCompatibilityAudit(
             reports: [
@@ -79,4 +126,8 @@ struct CloudKitDevelopmentSchemaBootstrapTests {
             sourceSummary: "Blocked test fixture"
         )
     }
+}
+
+private enum TestBootstrapError: Error {
+    case initializationFailed
 }

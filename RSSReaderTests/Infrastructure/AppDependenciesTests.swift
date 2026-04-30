@@ -172,6 +172,21 @@ struct AppDependenciesTests {
         #expect(logger.contains("availability=noAccount"))
         #expect(logger.contains("Skipped CloudKit-backed model container bootstrap because account status is"))
         #expect(logger.contains("noAccount"))
+        #expect(logger.contains("using local-only fallback for current launch"))
+    }
+
+    @Test
+    func appDependenciesResolveSyncBootstrapContextLogsLocalOnlyBootstrapPolicyWithoutCloudKit() {
+        let logger = RecordingLogger()
+
+        _ = AppDependencies.resolveSyncBootstrapContext(
+            desiredBootPreference: .disabled,
+            desiredPolicy: .disabled,
+            logger: logger
+        )
+
+        #expect(logger.contains("Using local-only sync bootstrap path because desired policy does not require CloudKit"))
+        #expect(logger.contains("desiredBootPreference=disabled"))
     }
 
     @Test
@@ -881,12 +896,32 @@ struct AppDependenciesTests {
         )
 
         try await expectEventually {
-            logger.contains("Requesting app-level remote sync reload after matching import completion and persistent store remote change")
+            logger.contains(
+                "Requesting app-level remote sync reload after matching import completion and persistent store remote change for sync-backed storeIdentifier=SyncBackedStore"
+            )
         }
 
         #expect(logger.contains("Starting remote sync reload app lifetime observation"))
         #expect(logger.contains("Observed persistent store remote change; marked store change pending"))
         #expect(logger.contains("Observed CloudKit import completion; marked import completion pending"))
+    }
+
+    @Test
+    func appDependenciesMakeWithSwiftDataLogsModelContainerSetupMarkers() {
+        let logger = RecordingLogger()
+        let syncCoordinator = SyncCoordinator(logger: logger)
+
+        _ = AppDependencies.makeWithSwiftData(
+            modelPartition: .current,
+            syncEnablementPolicy: .current,
+            syncCoordinator: syncCoordinator,
+            syncBootstrapPreferenceStore: FixedAppSyncBootstrapPreferenceStore(currentPreference: .disabled),
+            logger: logger
+        )
+
+        #expect(logger.contains("Starting model container setup"))
+        #expect(logger.contains("syncBackedStoreIdentifier=SyncBackedStore"))
+        #expect(logger.contains("Model container setup succeeded"))
     }
 }
 
