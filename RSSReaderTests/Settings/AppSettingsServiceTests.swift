@@ -122,38 +122,6 @@ struct AppSettingsServiceTests {
     }
 
     @Test
-    func iCloudSyncStatusServiceReadsRuntimeStateFromSyncCoordinator() throws {
-        let syncCoordinator = SyncCoordinator()
-        let service = DefaultICloudSyncStatusService(syncCoordinator: syncCoordinator)
-        let activeContext = CloudKitRuntimeEventContext(
-            identifier: UUID(),
-            storeIdentifier: "SyncBackedStore",
-            startDate: .distantPast,
-            endDate: nil
-        )
-        let failedContext = CloudKitRuntimeEventContext(
-            identifier: UUID(),
-            storeIdentifier: "SyncBackedStore",
-            startDate: .distantPast,
-            endDate: .now
-        )
-
-        #expect(try service.currentStatus() == .disabled)
-
-        syncCoordinator.applySyncEnablement(isEnabled: true)
-        #expect(try service.currentStatus() == .statusUnavailable)
-
-        syncCoordinator.applyAccountAvailability(.available)
-        #expect(try service.currentStatus() == .idle)
-
-        syncCoordinator.applyCloudKitRuntimeEvent(.started(.import, activeContext))
-        #expect(try service.currentStatus() == .syncing)
-
-        syncCoordinator.applyCloudKitRuntimeEvent(.failed(.setup, failedContext, "Setup failed."))
-        #expect(try service.currentStatus() == .failed("Setup failed."))
-    }
-
-    @Test
     func appDependenciesSkipsBackgroundRefreshWhenPreferenceIsManual() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)

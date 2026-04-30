@@ -40,7 +40,6 @@ struct AppDependenciesTests {
         )
 
         #expect(dependencies.syncCoordinator === syncCoordinator)
-        #expect(dependencies.iCloudSyncStatusService != nil)
     }
 
     @Test

@@ -34,7 +34,6 @@ public final class AppDependencies: AppDependenciesProtocol {
     let cloudKitRuntimeEventSource: any CloudKitRuntimeEventSource
     let persistentStoreRemoteChangeSource: any PersistentStoreRemoteChangeSource
     let syncCoordinator: SyncCoordinator?
-    let iCloudSyncStatusService: (any ICloudSyncStatusService)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
     public let modelContainer: ModelContainer?
     let modelContainerBootstrapFailureDescription: String?
@@ -156,10 +155,6 @@ public final class AppDependencies: AppDependenciesProtocol {
         let persistentStoreRemoteChangeSource = persistentStoreRemoteChangeSource ?? DefaultPersistentStoreRemoteChangeSource()
         let syncBootstrapPreferenceStore = syncBootstrapPreferenceStore
             ?? AppSyncBootstrapPreferenceStore(logger: logger)
-        let iCloudSyncStatusService = syncCoordinator.map { syncCoordinator in
-            DefaultICloudSyncStatusService(syncCoordinator: syncCoordinator)
-        }
-
         self.logger = logger
         self.httpClient = httpClient
         self.sourceIconCache = resolvedSourceIconCache
@@ -184,7 +179,6 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.cloudKitRuntimeEventSource = cloudKitRuntimeEventSource
         self.persistentStoreRemoteChangeSource = persistentStoreRemoteChangeSource
         self.syncCoordinator = syncCoordinator
-        self.iCloudSyncStatusService = iCloudSyncStatusService
         self.feedFetchLogRepository = feedFetchLogRepository
         self.feedFetcher = resolvedFeedFetcher
     }
