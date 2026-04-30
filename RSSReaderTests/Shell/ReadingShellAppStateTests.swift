@@ -117,4 +117,30 @@ struct ReadingShellAppStateTests {
         #expect(appState.selectedDetailRoute == .article(articleID))
         #expect(appState.presentedWebViewRoute == nil)
     }
+
+    @Test
+    func readingShellAppStateKeepsRemoteSyncAndBackgroundRefreshReloadTriggersSeparate() {
+        let appState = AppState()
+        let initialSidebarReloadID = appState.sourcesSidebarReloadID
+        let initialArticleListReloadID = appState.articleListReloadID
+        let initialArticleScreenReloadID = appState.articleScreenReloadID
+
+        appState.requestRemoteSyncImportReload()
+
+        #expect(appState.lastContentReloadTrigger == .remoteSyncImport)
+        #expect(appState.sourcesSidebarReloadID != initialSidebarReloadID)
+        #expect(appState.articleListReloadID != initialArticleListReloadID)
+        #expect(appState.articleScreenReloadID != initialArticleScreenReloadID)
+
+        let remoteSyncSidebarReloadID = appState.sourcesSidebarReloadID
+        let remoteSyncArticleListReloadID = appState.articleListReloadID
+        let remoteSyncArticleScreenReloadID = appState.articleScreenReloadID
+
+        appState.requestBackgroundRefreshReload()
+
+        #expect(appState.lastContentReloadTrigger == .backgroundRefresh)
+        #expect(appState.sourcesSidebarReloadID != remoteSyncSidebarReloadID)
+        #expect(appState.articleListReloadID != remoteSyncArticleListReloadID)
+        #expect(appState.articleScreenReloadID != remoteSyncArticleScreenReloadID)
+    }
 }

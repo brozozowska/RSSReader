@@ -487,6 +487,8 @@ struct AppDependenciesTests {
                 && appState.articleListReloadID != initialArticleListReloadID
                 && appState.articleScreenReloadID != initialArticleScreenReloadID
         }
+
+        #expect(appState.lastContentReloadTrigger == .remoteSyncImport)
     }
 
     @Test
@@ -535,6 +537,8 @@ struct AppDependenciesTests {
                 && appState.articleListReloadID != initialArticleListReloadID
                 && appState.articleScreenReloadID != initialArticleScreenReloadID
         }
+
+        #expect(appState.lastContentReloadTrigger == .remoteSyncImport)
     }
 
     @Test

@@ -216,7 +216,7 @@ final class AppSyncRuntimeOrchestrator {
         logger.info(
             "Requesting app-level remote sync reload after matching import completion and persistent store remote change for sync-backed storeIdentifier=\(syncBackedStoreReference?.runtimeStoreIdentifier ?? "nil")"
         )
-        appState.requestRemoteSyncReload()
+        appState.requestRemoteSyncImportReload()
     }
 
     private func matchesSyncBackedStore(runtimeEventContext: CloudKitRuntimeEventContext) -> Bool {
