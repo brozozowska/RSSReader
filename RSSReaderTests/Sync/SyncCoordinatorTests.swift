@@ -137,6 +137,32 @@ struct SyncCoordinatorTests {
     }
 
     @Test
+    func applyCloudKitRuntimeEventLogsActivityStartAndFinish() {
+        let logger = RecordingLogger()
+        let coordinator = SyncCoordinator(isSyncEnabled: true, logger: logger)
+        let startedContext = CloudKitRuntimeEventContext(
+            identifier: UUID(),
+            storeIdentifier: "SyncBackedStore",
+            startDate: .distantPast,
+            endDate: nil
+        )
+        let finishedContext = CloudKitRuntimeEventContext(
+            identifier: startedContext.identifier,
+            storeIdentifier: startedContext.storeIdentifier,
+            startDate: startedContext.startDate,
+            endDate: .now
+        )
+
+        coordinator.applyCloudKitRuntimeEvent(.started(.import, startedContext))
+        coordinator.applyCloudKitRuntimeEvent(.finished(.import, finishedContext))
+
+        #expect(logger.contains("SyncCoordinator handling CloudKit runtime activity start", level: .info))
+        #expect(logger.contains("started(activity=import, storeIdentifier=SyncBackedStore", level: .info))
+        #expect(logger.contains("SyncCoordinator handling CloudKit runtime activity finish", level: .info))
+        #expect(logger.contains("finished(activity=import, storeIdentifier=SyncBackedStore", level: .info))
+    }
+
+    @Test
     func clearRuntimeFailureRestoresPhaseFromLatestAccountAvailability() {
         let coordinator = SyncCoordinator(isSyncEnabled: true)
         let context = CloudKitRuntimeEventContext(

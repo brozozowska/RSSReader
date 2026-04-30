@@ -62,6 +62,7 @@ struct DefaultICloudAccountAvailabilityService: ICloudAccountAvailabilityService
             return availability
         } catch {
             logger.error("Failed to resolve CloudKit account status: \(describe(error))")
+            logger.info("Falling back to iCloud availability couldNotDetermine after account status resolution failure")
             return .couldNotDetermine
         }
     }

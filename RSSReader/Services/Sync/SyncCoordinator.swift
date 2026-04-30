@@ -182,7 +182,12 @@ final class SyncCoordinator {
     }
 
     func applyCloudKitRuntimeEvent(_ event: CloudKitRuntimeEvent) {
-        if case .failed = event {
+        switch event {
+        case .started:
+            logger.info("SyncCoordinator handling CloudKit runtime activity start: \(Self.describe(runtimeEvent: event))")
+        case .finished:
+            logger.info("SyncCoordinator handling CloudKit runtime activity finish: \(Self.describe(runtimeEvent: event))")
+        case .failed:
             logger.error("SyncCoordinator handling CloudKit runtime failure: \(Self.describe(runtimeEvent: event))")
         }
 

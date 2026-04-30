@@ -40,7 +40,6 @@ struct AppDependenciesTests {
         )
 
         #expect(dependencies.syncCoordinator === syncCoordinator)
-        #expect(dependencies.iCloudSyncStatusService != nil)
     }
 
     @Test
@@ -172,6 +171,21 @@ struct AppDependenciesTests {
         #expect(logger.contains("availability=noAccount"))
         #expect(logger.contains("Skipped CloudKit-backed model container bootstrap because account status is"))
         #expect(logger.contains("noAccount"))
+        #expect(logger.contains("using local-only fallback for current launch"))
+    }
+
+    @Test
+    func appDependenciesResolveSyncBootstrapContextLogsLocalOnlyBootstrapPolicyWithoutCloudKit() {
+        let logger = RecordingLogger()
+
+        _ = AppDependencies.resolveSyncBootstrapContext(
+            desiredBootPreference: .disabled,
+            desiredPolicy: .disabled,
+            logger: logger
+        )
+
+        #expect(logger.contains("Using local-only sync bootstrap path because desired policy does not require CloudKit"))
+        #expect(logger.contains("desiredBootPreference=disabled"))
     }
 
     @Test
@@ -386,6 +400,48 @@ struct AppDependenciesTests {
     }
 
     @Test
+    func appDependenciesStopSyncRuntimeAppLifetimeDisconnectsSyncCoordinatorRuntimeSources() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let syncCoordinator = SyncCoordinator()
+        let accountAvailabilityService = TestICloudAccountAvailabilityService(initialAvailability: .available)
+        let cloudKitRuntimeEventSource = TestCloudKitRuntimeEventSource()
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            httpClient: harness.httpClient,
+            modelContainer: harness.modelContainer,
+            syncBootstrapPreferenceStore: FixedAppSyncBootstrapPreferenceStore(currentPreference: .enabled),
+            iCloudAccountAvailabilityService: accountAvailabilityService,
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            syncCoordinator: syncCoordinator
+        )
+
+        dependencies.startSyncCoordinatorAppLifetime()
+
+        try await expectEventually {
+            syncCoordinator.runtimeState.phase == .idle
+        }
+
+        dependencies.stopSyncRuntimeAppLifetime()
+
+        await accountAvailabilityService.yield(.restricted)
+        await cloudKitRuntimeEventSource.yield(
+            .started(
+                .import,
+                CloudKitRuntimeEventContext(
+                    identifier: UUID(),
+                    storeIdentifier: "SyncBackedStore",
+                    startDate: .distantPast,
+                    endDate: nil
+                )
+            )
+        )
+
+        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(syncCoordinator.runtimeState.phase == .idle)
+    }
+
+    @Test
     func appDependenciesStartRemoteSyncReloadAppLifetimeRequestsReloadWhenRemoteChangeAndImportCompletionArrive() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let syncCoordinator = SyncCoordinator(isSyncEnabled: true)
@@ -396,6 +452,7 @@ struct AppDependenciesTests {
             logger: TestLogger(),
             httpClient: harness.httpClient,
             modelContainer: harness.modelContainer,
+            syncBackedStoreReference: testSyncBackedStoreReference(),
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             persistentStoreRemoteChangeSource: remoteChangeSource,
             syncCoordinator: syncCoordinator
@@ -430,6 +487,8 @@ struct AppDependenciesTests {
                 && appState.articleListReloadID != initialArticleListReloadID
                 && appState.articleScreenReloadID != initialArticleScreenReloadID
         }
+
+        #expect(appState.lastContentReloadTrigger == .remoteSyncImport)
     }
 
     @Test
@@ -443,6 +502,7 @@ struct AppDependenciesTests {
             logger: TestLogger(),
             httpClient: harness.httpClient,
             modelContainer: harness.modelContainer,
+            syncBackedStoreReference: testSyncBackedStoreReference(),
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             persistentStoreRemoteChangeSource: remoteChangeSource,
             syncCoordinator: syncCoordinator
@@ -477,6 +537,8 @@ struct AppDependenciesTests {
                 && appState.articleListReloadID != initialArticleListReloadID
                 && appState.articleScreenReloadID != initialArticleScreenReloadID
         }
+
+        #expect(appState.lastContentReloadTrigger == .remoteSyncImport)
     }
 
     @Test
@@ -490,6 +552,7 @@ struct AppDependenciesTests {
             logger: TestLogger(),
             httpClient: harness.httpClient,
             modelContainer: harness.modelContainer,
+            syncBackedStoreReference: testSyncBackedStoreReference(),
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             persistentStoreRemoteChangeSource: remoteChangeSource,
             syncCoordinator: syncCoordinator
@@ -562,6 +625,7 @@ struct AppDependenciesTests {
             logger: TestLogger(),
             httpClient: harness.httpClient,
             modelContainer: harness.modelContainer,
+            syncBackedStoreReference: testSyncBackedStoreReference(),
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             persistentStoreRemoteChangeSource: remoteChangeSource,
             syncCoordinator: syncCoordinator
@@ -599,6 +663,245 @@ struct AppDependenciesTests {
     }
 
     @Test
+    func appDependenciesStartRemoteSyncReloadAppLifetimeDoesNotReloadForMismatchedRemoteChangeStore() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let syncCoordinator = SyncCoordinator(isSyncEnabled: true)
+        syncCoordinator.applyAccountAvailability(.available)
+        let cloudKitRuntimeEventSource = TestCloudKitRuntimeEventSource()
+        let remoteChangeSource = TestPersistentStoreRemoteChangeSource()
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            httpClient: harness.httpClient,
+            modelContainer: harness.modelContainer,
+            syncBackedStoreReference: testSyncBackedStoreReference(),
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            persistentStoreRemoteChangeSource: remoteChangeSource,
+            syncCoordinator: syncCoordinator
+        )
+        let appState = AppState()
+        let initialSidebarReloadID = appState.sourcesSidebarReloadID
+        let initialArticleListReloadID = appState.articleListReloadID
+        let initialArticleScreenReloadID = appState.articleScreenReloadID
+
+        dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+
+        await remoteChangeSource.yield(
+            PersistentStoreRemoteChangeEvent(
+                storeUUID: "LocalOnlyStore",
+                storeURL: URL(string: "file:///tmp/LocalOnlyStore.sqlite")
+            )
+        )
+        await cloudKitRuntimeEventSource.yield(
+            .finished(
+                .import,
+                CloudKitRuntimeEventContext(
+                    identifier: UUID(),
+                    storeIdentifier: "SyncBackedStore",
+                    startDate: .distantPast,
+                    endDate: .now
+                )
+            )
+        )
+
+        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(appState.sourcesSidebarReloadID == initialSidebarReloadID)
+        #expect(appState.articleListReloadID == initialArticleListReloadID)
+        #expect(appState.articleScreenReloadID == initialArticleScreenReloadID)
+    }
+
+    @Test
+    func appDependenciesStartRemoteSyncReloadAppLifetimeDoesNotReloadForMismatchedImportStoreIdentifier() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let syncCoordinator = SyncCoordinator(isSyncEnabled: true)
+        syncCoordinator.applyAccountAvailability(.available)
+        let cloudKitRuntimeEventSource = TestCloudKitRuntimeEventSource()
+        let remoteChangeSource = TestPersistentStoreRemoteChangeSource()
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            httpClient: harness.httpClient,
+            modelContainer: harness.modelContainer,
+            syncBackedStoreReference: testSyncBackedStoreReference(),
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            persistentStoreRemoteChangeSource: remoteChangeSource,
+            syncCoordinator: syncCoordinator
+        )
+        let appState = AppState()
+        let initialSidebarReloadID = appState.sourcesSidebarReloadID
+        let initialArticleListReloadID = appState.articleListReloadID
+        let initialArticleScreenReloadID = appState.articleScreenReloadID
+
+        dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+
+        await remoteChangeSource.yield(
+            PersistentStoreRemoteChangeEvent(
+                storeUUID: "SyncBackedStore",
+                storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
+            )
+        )
+        await cloudKitRuntimeEventSource.yield(
+            .finished(
+                .import,
+                CloudKitRuntimeEventContext(
+                    identifier: UUID(),
+                    storeIdentifier: "LocalOnlyStore",
+                    startDate: .distantPast,
+                    endDate: .now
+                )
+            )
+        )
+
+        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(appState.sourcesSidebarReloadID == initialSidebarReloadID)
+        #expect(appState.articleListReloadID == initialArticleListReloadID)
+        #expect(appState.articleScreenReloadID == initialArticleScreenReloadID)
+    }
+
+    @Test
+    func appDependenciesStartRemoteSyncReloadAppLifetimeDoesNotReloadTwiceForRepeatedImportCompletionWithoutNewRemoteChange() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let syncCoordinator = SyncCoordinator(isSyncEnabled: true)
+        syncCoordinator.applyAccountAvailability(.available)
+        let cloudKitRuntimeEventSource = TestCloudKitRuntimeEventSource()
+        let remoteChangeSource = TestPersistentStoreRemoteChangeSource()
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            httpClient: harness.httpClient,
+            modelContainer: harness.modelContainer,
+            syncBackedStoreReference: testSyncBackedStoreReference(),
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            persistentStoreRemoteChangeSource: remoteChangeSource,
+            syncCoordinator: syncCoordinator
+        )
+        let appState = AppState()
+        let initialSidebarReloadID = appState.sourcesSidebarReloadID
+        let initialArticleListReloadID = appState.articleListReloadID
+        let initialArticleScreenReloadID = appState.articleScreenReloadID
+
+        dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+
+        await remoteChangeSource.yield(
+            PersistentStoreRemoteChangeEvent(
+                storeUUID: "SyncBackedStore",
+                storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
+            )
+        )
+        await cloudKitRuntimeEventSource.yield(
+            .finished(
+                .import,
+                CloudKitRuntimeEventContext(
+                    identifier: UUID(),
+                    storeIdentifier: "SyncBackedStore",
+                    startDate: .distantPast,
+                    endDate: .now
+                )
+            )
+        )
+
+        try await expectEventually {
+            appState.sourcesSidebarReloadID != initialSidebarReloadID
+                && appState.articleListReloadID != initialArticleListReloadID
+                && appState.articleScreenReloadID != initialArticleScreenReloadID
+        }
+
+        let firstSidebarReloadID = appState.sourcesSidebarReloadID
+        let firstArticleListReloadID = appState.articleListReloadID
+        let firstArticleScreenReloadID = appState.articleScreenReloadID
+
+        await cloudKitRuntimeEventSource.yield(
+            .finished(
+                .import,
+                CloudKitRuntimeEventContext(
+                    identifier: UUID(),
+                    storeIdentifier: "SyncBackedStore",
+                    startDate: .distantPast,
+                    endDate: .now
+                )
+            )
+        )
+
+        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(appState.sourcesSidebarReloadID == firstSidebarReloadID)
+        #expect(appState.articleListReloadID == firstArticleListReloadID)
+        #expect(appState.articleScreenReloadID == firstArticleScreenReloadID)
+    }
+
+    @Test
+    func appDependenciesStartRemoteSyncReloadAppLifetimeRequiresFreshRemoteChangeAfterImportCancellation() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let syncCoordinator = SyncCoordinator(isSyncEnabled: true)
+        syncCoordinator.applyAccountAvailability(.available)
+        let cloudKitRuntimeEventSource = TestCloudKitRuntimeEventSource()
+        let remoteChangeSource = TestPersistentStoreRemoteChangeSource()
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            httpClient: harness.httpClient,
+            modelContainer: harness.modelContainer,
+            syncBackedStoreReference: testSyncBackedStoreReference(),
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            persistentStoreRemoteChangeSource: remoteChangeSource,
+            syncCoordinator: syncCoordinator
+        )
+        let appState = AppState()
+        let initialSidebarReloadID = appState.sourcesSidebarReloadID
+        let initialArticleListReloadID = appState.articleListReloadID
+        let initialArticleScreenReloadID = appState.articleScreenReloadID
+
+        dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+
+        await remoteChangeSource.yield(
+            PersistentStoreRemoteChangeEvent(
+                storeUUID: "SyncBackedStore",
+                storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
+            )
+        )
+        await cloudKitRuntimeEventSource.yield(
+            .failed(
+                .import,
+                CloudKitRuntimeEventContext(
+                    identifier: UUID(),
+                    storeIdentifier: "SyncBackedStore",
+                    startDate: .distantPast,
+                    endDate: .now
+                ),
+                "cancelled"
+            )
+        )
+        await cloudKitRuntimeEventSource.yield(
+            .finished(
+                .import,
+                CloudKitRuntimeEventContext(
+                    identifier: UUID(),
+                    storeIdentifier: "SyncBackedStore",
+                    startDate: .distantPast,
+                    endDate: .now
+                )
+            )
+        )
+
+        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(appState.sourcesSidebarReloadID == initialSidebarReloadID)
+        #expect(appState.articleListReloadID == initialArticleListReloadID)
+        #expect(appState.articleScreenReloadID == initialArticleScreenReloadID)
+
+        await remoteChangeSource.yield(
+            PersistentStoreRemoteChangeEvent(
+                storeUUID: "SyncBackedStore",
+                storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
+            )
+        )
+
+        try await expectEventually {
+            appState.sourcesSidebarReloadID != initialSidebarReloadID
+                && appState.articleListReloadID != initialArticleListReloadID
+                && appState.articleScreenReloadID != initialArticleScreenReloadID
+        }
+    }
+
+    @Test
     func appDependenciesRemoteSyncReloadLogsCorrelationEvents() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let logger = RecordingLogger()
@@ -610,6 +913,7 @@ struct AppDependenciesTests {
             logger: logger,
             httpClient: harness.httpClient,
             modelContainer: harness.modelContainer,
+            syncBackedStoreReference: testSyncBackedStoreReference(),
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             persistentStoreRemoteChangeSource: remoteChangeSource,
             syncCoordinator: syncCoordinator
@@ -637,12 +941,81 @@ struct AppDependenciesTests {
         )
 
         try await expectEventually {
-            logger.contains("Requesting app-level remote sync reload after matching import completion and persistent store remote change")
+            logger.contains(
+                "Requesting app-level remote sync reload after matching import completion and persistent store remote change for sync-backed storeIdentifier=SyncBackedStore"
+            )
         }
 
         #expect(logger.contains("Starting remote sync reload app lifetime observation"))
         #expect(logger.contains("Observed persistent store remote change; marked store change pending"))
         #expect(logger.contains("Observed CloudKit import completion; marked import completion pending"))
+    }
+
+    @Test
+    func appDependenciesStopSyncRuntimeAppLifetimeCancelsRemoteReloadObservation() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let syncCoordinator = SyncCoordinator(isSyncEnabled: true)
+        syncCoordinator.applyAccountAvailability(.available)
+        let cloudKitRuntimeEventSource = TestCloudKitRuntimeEventSource()
+        let remoteChangeSource = TestPersistentStoreRemoteChangeSource()
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            httpClient: harness.httpClient,
+            modelContainer: harness.modelContainer,
+            syncBackedStoreReference: testSyncBackedStoreReference(),
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            persistentStoreRemoteChangeSource: remoteChangeSource,
+            syncCoordinator: syncCoordinator
+        )
+        let appState = AppState()
+        let initialSidebarReloadID = appState.sourcesSidebarReloadID
+        let initialArticleListReloadID = appState.articleListReloadID
+        let initialArticleScreenReloadID = appState.articleScreenReloadID
+
+        dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+        dependencies.stopSyncRuntimeAppLifetime()
+
+        await remoteChangeSource.yield(
+            PersistentStoreRemoteChangeEvent(
+                storeUUID: "SyncBackedStore",
+                storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
+            )
+        )
+        await cloudKitRuntimeEventSource.yield(
+            .finished(
+                .import,
+                CloudKitRuntimeEventContext(
+                    identifier: UUID(),
+                    storeIdentifier: "SyncBackedStore",
+                    startDate: .distantPast,
+                    endDate: .now
+                )
+            )
+        )
+
+        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(appState.sourcesSidebarReloadID == initialSidebarReloadID)
+        #expect(appState.articleListReloadID == initialArticleListReloadID)
+        #expect(appState.articleScreenReloadID == initialArticleScreenReloadID)
+    }
+
+    @Test
+    func appDependenciesMakeWithSwiftDataLogsModelContainerSetupMarkers() {
+        let logger = RecordingLogger()
+        let syncCoordinator = SyncCoordinator(logger: logger)
+
+        _ = AppDependencies.makeWithSwiftData(
+            modelPartition: .current,
+            syncEnablementPolicy: .current,
+            syncCoordinator: syncCoordinator,
+            syncBootstrapPreferenceStore: FixedAppSyncBootstrapPreferenceStore(currentPreference: .disabled),
+            logger: logger
+        )
+
+        #expect(logger.contains("Starting model container setup"))
+        #expect(logger.contains("syncBackedStoreIdentifier=SyncBackedStore"))
+        #expect(logger.contains("Model container setup succeeded"))
     }
 }
 
@@ -761,6 +1134,13 @@ private enum SyncBootstrapAccountStatusScenario: CaseIterable {
     var expectsLocalOnlyFallback: Bool {
         expectsCloudKitBootstrap == false
     }
+}
+
+private func testSyncBackedStoreReference() -> SyncBackedStoreReference {
+    SyncBackedStoreReference(
+        runtimeStoreIdentifier: "SyncBackedStore",
+        persistentStoreURL: URL(fileURLWithPath: "/tmp/SyncBackedStore.sqlite")
+    )
 }
 
 private func expectEventually(

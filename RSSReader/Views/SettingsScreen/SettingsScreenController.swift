@@ -377,26 +377,15 @@ private extension SettingsScreenController {
             return SettingsSyncStatusPresentation(iCloudSyncStatus: appState.iCloudSyncStatus)
         }
 
+        if let appState {
+            return SettingsSyncStatusPresentation(iCloudSyncStatus: appState.iCloudSyncStatus)
+        }
+
         if settingsSnapshot.useiCloudSync == false {
-            appState?.applyICloudSyncStatus(.disabled)
             return .disabled
         }
 
-        guard let iCloudSyncStatusService = dependencies.iCloudSyncStatusService else {
-            appState?.applyICloudSyncStatus(.statusUnavailable)
-            return .statusUnavailable
-        }
-
-        do {
-            let resolvedStatus = try iCloudSyncStatusService.currentStatus()
-            appState?.applyICloudSyncStatus(resolvedStatus)
-            return SettingsSyncStatusPresentation(iCloudSyncStatus: resolvedStatus)
-        } catch {
-            dependencies.logger.error("Failed to resolve iCloud sync status: \(error)")
-            let failedStatus = SettingsSyncStatusPresentation.failed("Unable to load iCloud sync status right now.")
-            appState?.applyICloudSyncStatus(failedStatus.iCloudSyncStatus)
-            return failedStatus
-        }
+        return .statusUnavailable
     }
 
     func persistSettingsPatch(

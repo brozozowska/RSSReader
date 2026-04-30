@@ -10,22 +10,46 @@ enum CloudKitDevelopmentSchemaBootstrapDecision {
 
 enum CloudKitDevelopmentSchemaBootstrap {
     static func bootstrapIfNeeded(logger: Logging) {
+        bootstrapIfNeeded(
+            logger: logger,
+            resolveAccountStatus: { containerIdentifier in
+                CloudKitAccountStatusResolver.currentStatus(for: containerIdentifier)
+            },
+            initializeSchema: { request, schemaLogger in
+                try initializeDevelopmentSchema(using: request, logger: schemaLogger)
+            }
+        )
+    }
+
+    static func bootstrapIfNeeded(
+        logger: Logging,
+        decision: CloudKitDevelopmentSchemaBootstrapDecision? = nil,
+        resolveAccountStatus: (String) -> CKAccountStatus,
+        initializeSchema: (CloudKitStoreBootstrapRequest, Logging) throws -> Void
+    ) {
 #if DEBUG
-        switch makeDecision() {
+        switch decision ?? makeDecision() {
         case .run(let request):
-            let accountStatus = CloudKitAccountStatusResolver.currentStatus(
-                for: request.containerIdentifier
+            logger.info(
+                "Evaluating CloudKit development schema bootstrap request: containerIdentifier=\(request.containerIdentifier) storeConfigurationName=\(request.storeConfigurationName) storeURL=\(request.storeURL.path)"
             )
+            let accountStatus = resolveAccountStatus(request.containerIdentifier)
+            let availability = DefaultICloudAccountAvailabilityService.mapAccountAvailability(from: accountStatus)
             guard accountStatus == .available else {
                 logger.info(
-                    "Skipped CloudKit development schema bootstrap because account status is \(String(describing: accountStatus))"
+                    "Skipped CloudKit development schema bootstrap because account status is \(String(describing: accountStatus)) availability=\(availability.rawValue)"
                 )
                 return
             }
             do {
-                try initializeDevelopmentSchema(using: request, logger: logger)
+                logger.info(
+                    "Running CloudKit development schema bootstrap: containerIdentifier=\(request.containerIdentifier) storeConfigurationName=\(request.storeConfigurationName)"
+                )
+                try initializeSchema(request, logger)
             } catch {
-                logger.error("Failed to initialize CloudKit development schema: \(error)")
+                logger.error(
+                    "Failed to initialize CloudKit development schema: containerIdentifier=\(request.containerIdentifier) storeConfigurationName=\(request.storeConfigurationName) error=\(error)"
+                )
             }
         case .skip(let reason):
             logger.info("Skipped CloudKit development schema bootstrap: \(reason)")
@@ -114,7 +138,7 @@ enum CloudKitDevelopmentSchemaBootstrap {
         }
 
         logger.info(
-            "Initialized CloudKit development schema for \(request.containerIdentifier) using \(request.storeConfigurationName)"
+            "Initialized CloudKit development schema for \(request.containerIdentifier) using \(request.storeConfigurationName) at \(request.storeURL.path)"
         )
     }
 }

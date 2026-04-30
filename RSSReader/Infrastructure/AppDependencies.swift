@@ -34,17 +34,13 @@ public final class AppDependencies: AppDependenciesProtocol {
     let cloudKitRuntimeEventSource: any CloudKitRuntimeEventSource
     let persistentStoreRemoteChangeSource: any PersistentStoreRemoteChangeSource
     let syncCoordinator: SyncCoordinator?
-    let iCloudSyncStatusService: (any ICloudSyncStatusService)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
     public let modelContainer: ModelContainer?
     let modelContainerBootstrapFailureDescription: String?
+    let syncBackedStoreReference: SyncBackedStoreReference?
     let syncBootstrapPreferenceStore: any AppSyncBootstrapPreferenceStoring
     let syncBootstrapContext: AppSyncBootstrapContext?
-    private var hasStartedSyncCoordinatorAppLifetime = false
-    private var hasStartedRemoteSyncReloadAppLifetime = false
-    private var remoteSyncReloadObservationTask: Task<Void, Never>?
-    private var remoteSyncReloadPendingImportCompletion = false
-    private var remoteSyncReloadPendingStoreChange = false
+    private let syncRuntimeOrchestrator: AppSyncRuntimeOrchestrator
 
     init(
         logger: Logging,
@@ -53,6 +49,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         sourceIconCache: (any SourceIconCaching)? = nil,
         modelContainer: ModelContainer? = nil,
         modelContainerBootstrapFailureDescription: String? = nil,
+        syncBackedStoreReference: SyncBackedStoreReference? = nil,
         syncBootstrapPreferenceStore: (any AppSyncBootstrapPreferenceStoring)? = nil,
         syncBootstrapContext: AppSyncBootstrapContext? = nil,
         iCloudAccountAvailabilityService: (any ICloudAccountAvailabilityService)? = nil,
@@ -154,15 +151,12 @@ public final class AppDependencies: AppDependenciesProtocol {
         let persistentStoreRemoteChangeSource = persistentStoreRemoteChangeSource ?? DefaultPersistentStoreRemoteChangeSource()
         let syncBootstrapPreferenceStore = syncBootstrapPreferenceStore
             ?? AppSyncBootstrapPreferenceStore(logger: logger)
-        let iCloudSyncStatusService = syncCoordinator.map { syncCoordinator in
-            DefaultICloudSyncStatusService(syncCoordinator: syncCoordinator)
-        }
-
         self.logger = logger
         self.httpClient = httpClient
         self.sourceIconCache = resolvedSourceIconCache
         self.modelContainer = modelContainer
         self.modelContainerBootstrapFailureDescription = modelContainerBootstrapFailureDescription
+        self.syncBackedStoreReference = syncBackedStoreReference
         self.syncBootstrapPreferenceStore = syncBootstrapPreferenceStore
         self.syncBootstrapContext = syncBootstrapContext
         self.feedRefreshService = feedRefreshService
@@ -181,9 +175,19 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.cloudKitRuntimeEventSource = cloudKitRuntimeEventSource
         self.persistentStoreRemoteChangeSource = persistentStoreRemoteChangeSource
         self.syncCoordinator = syncCoordinator
-        self.iCloudSyncStatusService = iCloudSyncStatusService
         self.feedFetchLogRepository = feedFetchLogRepository
         self.feedFetcher = resolvedFeedFetcher
+        self.syncRuntimeOrchestrator = AppSyncRuntimeOrchestrator(
+            logger: logger,
+            syncCoordinator: syncCoordinator,
+            iCloudAccountAvailabilityService: iCloudAccountAvailabilityService,
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            persistentStoreRemoteChangeSource: persistentStoreRemoteChangeSource,
+            syncBackedStoreReference: syncBackedStoreReference,
+            syncBootstrapPreferenceStore: syncBootstrapPreferenceStore,
+            syncBootstrapContext: syncBootstrapContext,
+            appSettingsService: appSettingsService
+        )
     }
 }
 
@@ -275,9 +279,16 @@ extension AppDependencies {
             "Resolved sync bootstrap policy selection: desiredBootPreference=\(desiredBootPreference.rawValue) desiredSyncBackedCloudKitPolicy=\(String(describing: desiredSyncBackedCloudKitPolicy)) effectiveModelContainerCloudKitPolicy=\(String(describing: syncBootstrapContext.modelContainerCloudKitPolicy)) accountAvailabilityAtBootstrap=\(String(describing: syncBootstrapContext.accountAvailabilityAtBootstrap)) localOnlyFallback=\(syncBootstrapContext.isRunningLocalOnlyFallbackForCurrentLaunch)"
         )
         let syncBackedCloudKitPolicy = syncBootstrapContext.modelContainerCloudKitPolicy
+        let syncBackedStoreReference = makeSyncBackedStoreReference(
+            modelPartition: modelPartition,
+            syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
+        )
         let modelContainer: ModelContainer?
         let modelContainerBootstrapFailureDescription: String?
         do {
+            logger.info(
+                "Starting model container setup: syncBackedPolicy=\(String(describing: syncBackedCloudKitPolicy)) syncBackedStoreIdentifier=\(syncBackedStoreReference.runtimeStoreIdentifier) syncBackedStoreURL=\(syncBackedStoreReference.persistentStoreURL.path)"
+            )
             modelContainer = try makeModelContainer(
                 modelPartition: modelPartition,
                 isStoredInMemoryOnly: false,
@@ -285,7 +296,7 @@ extension AppDependencies {
             )
             modelContainerBootstrapFailureDescription = nil
             logger.info(
-                "Created model container for sync policy \(String(describing: syncBackedCloudKitPolicy))"
+                "Model container setup succeeded: syncBackedPolicy=\(String(describing: syncBackedCloudKitPolicy)) syncBackedStoreIdentifier=\(syncBackedStoreReference.runtimeStoreIdentifier)"
             )
         } catch {
             let persistentStoreProbeFailureDescription = makePersistentStoreProbeFailureDescription(
@@ -293,7 +304,7 @@ extension AppDependencies {
                 syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
             )
             logger.error(
-                "Failed to create model container for sync policy \(String(describing: syncBackedCloudKitPolicy)): \(error)"
+                "Model container setup failed: syncBackedPolicy=\(String(describing: syncBackedCloudKitPolicy)) syncBackedStoreIdentifier=\(syncBackedStoreReference.runtimeStoreIdentifier) error=\(error)"
             )
             modelContainer = nil
             modelContainerBootstrapFailureDescription = makeModelContainerBootstrapFailureDescription(
@@ -306,6 +317,7 @@ extension AppDependencies {
             logger: logger,
             modelContainer: modelContainer,
             modelContainerBootstrapFailureDescription: modelContainerBootstrapFailureDescription,
+            syncBackedStoreReference: syncBackedStoreReference,
             syncBootstrapPreferenceStore: resolvedSyncBootstrapPreferenceStore,
             syncBootstrapContext: syncBootstrapContext,
             syncCoordinator: syncCoordinator
@@ -332,6 +344,9 @@ extension AppDependencies {
         resolvedAccountStatus: CKAccountStatus? = nil
     ) -> AppSyncBootstrapContext {
         guard case .privateContainer(let containerIdentifier) = desiredPolicy else {
+            logger.info(
+                "Using local-only sync bootstrap path because desired policy does not require CloudKit: desiredBootPreference=\(desiredBootPreference.rawValue) desiredPolicy=\(String(describing: desiredPolicy))"
+            )
             return AppSyncBootstrapContext(
                 desiredBootPreference: desiredBootPreference,
                 desiredSyncBackedCloudKitPolicy: desiredPolicy,
@@ -354,7 +369,7 @@ extension AppDependencies {
 
         guard accountStatus == .available else {
             logger.info(
-                "Skipped CloudKit-backed model container bootstrap because account status is \(String(describing: accountStatus))"
+                "Skipped CloudKit-backed model container bootstrap because account status is \(String(describing: accountStatus)); using local-only fallback for current launch"
             )
             return AppSyncBootstrapContext(
                 desiredBootPreference: desiredBootPreference,
@@ -479,154 +494,39 @@ extension AppDependencies {
             modelTypes: syncBackedStore.modelTypes
         )
     }
+
+    private static func makeSyncBackedStoreReference(
+        modelPartition: AppPersistenceModelPartition,
+        syncBackedCloudKitPolicy: AppPersistenceCloudKitPolicy
+    ) -> SyncBackedStoreReference {
+        let configurationPlan = makeSwiftDataConfigurationPlan(
+            modelPartition: modelPartition,
+            isStoredInMemoryOnly: false,
+            syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
+        )
+        let syncBackedStore = configurationPlan.syncBackedStore
+
+        return SyncBackedStoreReference(
+            runtimeStoreIdentifier: syncBackedStore.name,
+            persistentStoreURL: syncBackedStore.modelConfiguration.url
+        )
+    }
 }
 
 extension AppDependencies {
     @MainActor
     func startSyncCoordinatorAppLifetime() {
-        guard hasStartedSyncCoordinatorAppLifetime == false else { return }
-        hasStartedSyncCoordinatorAppLifetime = true
-
-        guard let syncCoordinator else { return }
-
-        let isSyncEnabled = resolveInitialSyncEnablementForCoordinator()
-        logger.info("Starting SyncCoordinator app lifetime: isSyncEnabled=\(isSyncEnabled)")
-        syncCoordinator.applySyncEnablement(isEnabled: isSyncEnabled)
-        syncCoordinator.connectRuntimeSources(
-            accountAvailabilityService: iCloudAccountAvailabilityService,
-            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource
-        )
+        syncRuntimeOrchestrator.startSyncCoordinatorAppLifetime()
     }
 
     @MainActor
     func startRemoteSyncReloadAppLifetime(using appState: AppState) {
-        guard hasStartedRemoteSyncReloadAppLifetime == false else { return }
-        hasStartedRemoteSyncReloadAppLifetime = true
-        logger.info("Starting remote sync reload app lifetime observation")
-        let runtimeEvents = cloudKitRuntimeEventSource.events()
-        let remoteChangeEvents = persistentStoreRemoteChangeSource.events()
-
-        remoteSyncReloadObservationTask = Task { [weak self] in
-            guard let self else { return }
-
-            await withTaskGroup(of: Void.self) { group in
-                group.addTask { [weak self] in
-                    guard let self else { return }
-
-                    for await runtimeEvent in runtimeEvents {
-                        guard Task.isCancelled == false else { return }
-                        await MainActor.run {
-                            self.handleRemoteSyncReload(runtimeEvent: runtimeEvent, using: appState)
-                        }
-                    }
-                }
-
-                group.addTask { [weak self] in
-                    guard let self else { return }
-
-                    for await remoteChangeEvent in remoteChangeEvents {
-                        guard Task.isCancelled == false else { return }
-                        await MainActor.run {
-                            self.handleRemoteSyncReload(remoteChangeEvent: remoteChangeEvent, using: appState)
-                        }
-                    }
-                }
-
-                await group.waitForAll()
-            }
-        }
+        syncRuntimeOrchestrator.startRemoteSyncReloadAppLifetime(using: appState)
     }
 
     @MainActor
-    private func resolveInitialSyncEnablementForCoordinator() -> Bool {
-        if let syncBootstrapContext {
-            logger.info(
-                "Resolved initial sync enablement from bootstrap context: isUsingCloudKitForCurrentLaunch=\(syncBootstrapContext.isUsingCloudKitForCurrentLaunch) desiredBootPreference=\(syncBootstrapContext.desiredBootPreference.rawValue)"
-            )
-            return syncBootstrapContext.isUsingCloudKitForCurrentLaunch
-        }
-
-        if let localBootstrapPreference = syncBootstrapPreferenceStore.currentBootPreference() {
-            logger.info(
-                "Resolved initial sync enablement from local bootstrap preference: \(localBootstrapPreference.rawValue)"
-            )
-            return localBootstrapPreference.usesCloudKit
-        }
-
-        guard let appSettingsService else {
-            logger.info("Resolved initial sync enablement with default disabled value because app settings service is unavailable")
-            return false
-        }
-
-        do {
-            let isEnabled = try appSettingsService.fetchSettings().useiCloudSync
-            logger.info("Resolved initial sync enablement from persisted app settings: \(isEnabled)")
-            return isEnabled
-        } catch {
-            logger.error("Failed to resolve initial sync enablement for SyncCoordinator: \(error)")
-            return false
-        }
-    }
-
-    @MainActor
-    private func handleRemoteSyncReload(
-        runtimeEvent: CloudKitRuntimeEvent,
-        using appState: AppState
-    ) {
-        guard syncCoordinator?.runtimeState.isSyncEnabled == true else {
-            logger.debug("Ignored CloudKit runtime event for remote reload correlation because sync is disabled")
-            return
-        }
-
-        switch runtimeEvent {
-        case .started(.import, _):
-            remoteSyncReloadPendingImportCompletion = false
-            logger.info("Observed CloudKit import start; cleared pending remote reload import completion")
-        case .finished(.import, _):
-            remoteSyncReloadPendingImportCompletion = true
-            logger.info("Observed CloudKit import completion; marked import completion pending for remote reload correlation")
-            flushPendingRemoteSyncReloadIfNeeded(using: appState)
-        case .failed(.import, let context, let message):
-            remoteSyncReloadPendingImportCompletion = false
-            remoteSyncReloadPendingStoreChange = false
-            logger.error(
-                "Observed CloudKit import failure; cleared pending remote reload correlation storeIdentifier=\(context.storeIdentifier) message=\(message ?? "nil")"
-            )
-        case .started, .finished, .failed:
-            return
-        }
-    }
-
-    @MainActor
-    private func handleRemoteSyncReload(
-        remoteChangeEvent: PersistentStoreRemoteChangeEvent,
-        using appState: AppState
-    ) {
-        guard syncCoordinator?.runtimeState.isSyncEnabled == true else {
-            logger.debug("Ignored persistent store remote change because sync is disabled")
-            return
-        }
-
-        remoteSyncReloadPendingStoreChange = true
-        logger.info(
-            "Observed persistent store remote change; marked store change pending for remote reload correlation storeUUID=\(remoteChangeEvent.storeUUID ?? "nil") storeURL=\(remoteChangeEvent.storeURL?.absoluteString ?? "nil")"
-        )
-        flushPendingRemoteSyncReloadIfNeeded(using: appState)
-    }
-
-    @MainActor
-    private func flushPendingRemoteSyncReloadIfNeeded(using appState: AppState) {
-        guard remoteSyncReloadPendingImportCompletion, remoteSyncReloadPendingStoreChange else {
-            logger.debug(
-                "Remote sync reload correlation is waiting for pair completion: pendingImportCompletion=\(remoteSyncReloadPendingImportCompletion) pendingStoreChange=\(remoteSyncReloadPendingStoreChange)"
-            )
-            return
-        }
-
-        remoteSyncReloadPendingImportCompletion = false
-        remoteSyncReloadPendingStoreChange = false
-        logger.info("Requesting app-level remote sync reload after matching import completion and persistent store remote change")
-        appState.requestRemoteSyncReload()
+    func stopSyncRuntimeAppLifetime() {
+        syncRuntimeOrchestrator.stopAppLifetime()
     }
 }
 

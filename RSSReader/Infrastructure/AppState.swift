@@ -59,6 +59,11 @@ struct ReadingNavigationState: Hashable, Sendable {
     }
 }
 
+enum AppContentReloadTrigger: Equatable, Sendable {
+    case remoteSyncImport
+    case backgroundRefresh
+}
+
 @Observable
 public final class AppState {
     var readingNavigation = ReadingNavigationState()
@@ -71,6 +76,7 @@ public final class AppState {
     var articleListReloadID = UUID()
     var sourcesSidebarReloadID = UUID()
     var articleScreenReloadID = UUID()
+    var lastContentReloadTrigger: AppContentReloadTrigger?
 
     var selectedSidebarSelection: SidebarSelection? {
         get { readingNavigation.sourceSelection }
@@ -161,7 +167,15 @@ public final class AppState {
         articleScreenReloadID = UUID()
     }
 
-    func requestRemoteSyncReload() {
+    func requestRemoteSyncImportReload() {
+        lastContentReloadTrigger = .remoteSyncImport
+        requestSourcesSidebarReload()
+        requestArticleListReload()
+        requestArticleScreenReload()
+    }
+
+    func requestBackgroundRefreshReload() {
+        lastContentReloadTrigger = .backgroundRefresh
         requestSourcesSidebarReload()
         requestArticleListReload()
         requestArticleScreenReload()

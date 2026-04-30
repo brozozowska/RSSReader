@@ -374,9 +374,13 @@
 - [x] решить судьбу DEBUG-only schema bootstrap guard: либо вынести `CloudKitDevelopmentSchemaBootstrap.didAttemptBootstrapThisLaunch` в явный и тестируемый app-level guard, либо удалить его в пользу более прозрачного orchestration path, чтобы DEBUG bootstrap не зависел от скрытого process-global состояния.
 
 #### Sync Hardening
-- [ ] сузить app-level remote reload correlation до конкретного `sync-backed` store: текущий reload wiring уже требует pair `NSPersistentStoreRemoteChange + finished import`, но пока не сопоставляет store identity между `remote change` и `CloudKit` event context; нужно выпускать reload только для совпавшего sync-backed store и не реагировать на несвязанные или future local-only/store-adjacent notifications;
-- [ ] добавить app-level логирование и диагностику sync-ошибок для container setup, schema/bootstrap failures, account/status resolution, merge issues и runtime sync failures;
-- [ ] провести cleanup / refactor sync-related кода: убрать placeholder-only ветки, выровнять границы между `SyncCoordinator`, status service и shell state, а также удалить временные debug hooks и одноразовые migration helpers, если они больше не нужны.
+- [x] сузить app-level remote reload correlation до конкретного `sync-backed` store: текущий reload wiring уже требует pair `NSPersistentStoreRemoteChange + finished import`, но пока не сопоставляет store identity между `remote change` и `CloudKit` event context; нужно выпускать reload только для совпавшего sync-backed store и не реагировать на несвязанные или future local-only/store-adjacent notifications;
+- [x] покрыть store-scoped remote reload correlation дополнительными integration-тестами: отдельно зафиксировать сценарии mismatched `storeIdentifier` / `storeUUID`, local-only store notifications, повторные import events без нового remote change и stale pending state после failure/cancellation, чтобы reload contract не оставался вероятностным;
+- [x] довести app-level логирование и диагностику sync bootstrap/runtime до полного operational contract: отдельно логировать container setup failures, schema/bootstrap failures, bootstrap fallback reasons, account/status resolution, merge/import/export failures и итоговые reload decisions так, чтобы будущая device validation шла по заранее известным log markers без ad-hoc instrumentation;
+- [x] определить и зафиксировать окончательную projection boundary для runtime sync state: решить, остаётся ли `ICloudSyncStatusService` самостоятельным read-model adapter поверх `SyncCoordinator` или удаляется в пользу прямого app-level runtime source, после чего выровнять чтение sync status между `SyncCoordinator`, `AppState`, `Settings Screen` и shell-level consumers без дублирующих status projections;
+- [x] провести cleanup / refactor app-level sync orchestration после стабилизации runtime contract: сузить обязанности `AppDependencies` вокруг remote reload/bootstrap wiring, убрать одноразовые diagnostic helpers и оставшиеся временные glue-ветки, а также оставить одну понятную композицию между `AppComposition`, `AppDependencies`, `SyncCoordinator` и runtime sources;
+- [x] добавить явный teardown / cancellation path для `AppSyncRuntimeOrchestrator`: убрать текущую lifecycle-зависимость от app-lifetime-only поведения, гарантированно отменять observation tasks для `CloudKitRuntimeEventSource` и `PersistentStoreRemoteChangeSource`, а также исключить retain cycle между orchestrator и `Task`, чтобы previews, test harness и пересборка dependency graph не оставляли висящие sync subscriptions;
+- [x] зафиксировать отдельную app-level boundary между `remote sync reload` и будущим `background refresh reload`: не смешивать `CloudKit import`-driven reload path с foreground/background refresh orchestration, чтобы следующий эпик `Background Refresh` переиспользовал только нужные reload hooks в `AppState`, не размывая текущий sync runtime contract.
 
 ### Background Refresh
 #### Background Refresh Foundation
@@ -400,6 +404,14 @@
 #### Background Refresh Hardening
 - [ ] добавить логирование и диагностику background refresh execution, scheduling decisions и системных отказов запуска;
 - [ ] провести cleanup / refactor background refresh-related кода: выровнять границы между scheduler, `BackgroundRefreshService`, app lifecycle wiring и screen reload helpers, а также убрать временные debug hooks, если они больше не нужны.
+
+### Deferred Validation
+#### Sync Real-Device Validation Kit
+- [ ] собрать явный `validation checklist` для sync-сценариев на паре `simulator + real device`: first launch с `useiCloudSync = off`, first launch с `useiCloudSync = on`, bootstrap fallback при `noAccount` / `temporarilyUnavailable`, включение и выключение sync из `Settings Screen`, remote import после изменений на втором рантайме и повторный launch после уже включённого sync;
+- [ ] для каждого сценария зафиксировать ожидаемый operational contract: `bootstrap path`, `SyncCoordinator.runtimeState`, `AppState.iCloudSyncStatus`, состояние `Settings Screen` и ожидаемые `log markers`, чтобы validation опирался на уже существующую app-level диагностику, а не на ручные догадки;
+- [ ] подготовить минимальный `smoke-test matrix` только для `simulator + real device`: fresh install, existing local-only store и existing sync-backed store на одном iCloud account, чтобы после появления платного Apple Developer аккаунта было понятно, какой минимальный набор прогонов обязателен;
+- [ ] описать prerequisites и reset procedure для deferred sync validation: какой build/configuration использовать, как очищать local store и install state, как подготавливать iCloud account и какие логи собирать при mismatch;
+- [ ] подготовить шаблон фиксации результатов validation pass с полями `scenario`, `environment`, `result`, `observed status transitions`, `observed log markers` и `notes`, чтобы финальная проверка синхронизации документировалась консистентно.
 
 ### Polish
 #### Testing
