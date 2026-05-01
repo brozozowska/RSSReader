@@ -1069,6 +1069,29 @@ extension AppDependencies {
 
         return await backgroundRefreshService.performScheduledRefresh()
     }
+
+    @MainActor
+    @discardableResult
+    func replaceBackgroundRefreshSchedule(
+        using configuration: BackgroundRefreshConfiguration,
+        now: Date = .now
+    ) throws -> BackgroundRefreshScheduleResult {
+        try backgroundRefreshScheduler.replace(using: configuration, now: now)
+    }
+
+    @MainActor
+    @discardableResult
+    func replaceBackgroundRefreshSchedule(
+        now: Date = .now
+    ) throws -> BackgroundRefreshScheduleResult? {
+        guard let backgroundRefreshService else {
+            logger.error("Background refresh service is unavailable for schedule replacement")
+            return nil
+        }
+
+        let configuration = try backgroundRefreshService.loadConfiguration()
+        return try replaceBackgroundRefreshSchedule(using: configuration, now: now)
+    }
 }
 
 private extension AppDependencies {
