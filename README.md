@@ -385,7 +385,7 @@
 ### Background Refresh
 #### Background Refresh Foundation
 - [x] ввести app-level `Background Refresh` identifier contract: выбран постоянный identifier, он добавлен в `Info.plist` через `BGTaskSchedulerPermittedIdentifiers` и зафиксирован как infrastructure-level константа, чтобы `RSSReaderApp`, scheduler и validation использовали один и тот же source of truth;
-- [ ] зарегистрировать app-level entry point в `RSSReaderApp` через SwiftUI `backgroundTask(.appRefresh(...))`, чтобы background launch шёл через явный корневой handler, а не требовал screen-level участия;
+- [x] зарегистрировать app-level entry point в `RSSReaderApp` через SwiftUI `backgroundTask(.appRefresh(...))`, чтобы background launch шёл через явный корневой handler, а не требовал screen-level участия;
 - [ ] выделить отдельный scheduler layer для `BGAppRefreshTaskRequest`: scheduler должен уметь `schedule`, `cancel` и `replace` pending request, а логика `earliestBeginDate` не должна жить внутри `RSSReaderApp`, `RootView` или controller-кода;
 - [ ] связать scheduler policy с текущим `BackgroundRefreshService` contract: `RefreshPreference` уже маппится в `minimumBackgroundRefreshInterval`, теперь это значение должно стать единственным входом для app-level scheduling policy без дублирования интерпретации interval в UI или app shell;
 - [ ] подключить scheduler к app bootstrap: на launch приложение должно читать текущую `BackgroundRefreshConfiguration` и либо ставить следующий request, либо явно очищать pending background work для `manual`;
