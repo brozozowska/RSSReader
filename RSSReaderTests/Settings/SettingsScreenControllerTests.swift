@@ -417,9 +417,17 @@ struct SettingsScreenControllerTests {
     func settingsScreenControllerPersistsUpdatedRefreshIntervalThroughBackgroundRefreshService() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
+        let scheduler = SettingsRecordingBackgroundRefreshScheduler()
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            httpClient: harness.httpClient,
+            feedFetcher: harness.dependencies.feedFetcher,
+            modelContainer: harness.modelContainer,
+            backgroundRefreshScheduler: scheduler
+        )
         let controller = SettingsScreenController()
 
-        controller.loadSettings(dependencies: harness.dependencies)
+        controller.loadSettings(dependencies: dependencies)
         controller.handleItemSelection(.refreshInterval)
 
         #expect(controller.viewState().presentedPicker?.id == .refreshInterval)
@@ -427,13 +435,53 @@ struct SettingsScreenControllerTests {
         controller.handlePickerOptionSelection(
             itemID: .refreshInterval,
             optionID: RefreshPreference.daily.rawValue,
-            dependencies: harness.dependencies
+            dependencies: dependencies
         )
 
         let persistedSettings = try repository.fetchOrCreate()
+        let replacedConfiguration = try #require(scheduler.lastReplacedConfiguration)
         #expect(controller.screenState.settingsSnapshot.refreshIntervalPreference == .daily)
         #expect(controller.viewState().presentedPicker == nil)
         #expect(persistedSettings.refreshIntervalPreference == .daily)
+        #expect(replacedConfiguration.settingsSnapshot.refreshIntervalPreference == .daily)
+        #expect(replacedConfiguration.policy.minimumInterval == TimeInterval(24 * 60 * 60))
+    }
+
+    @Test
+    func settingsScreenControllerCancelsBackgroundRefreshScheduleWhenRefreshPreferenceBecomesManual() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let scheduler = SettingsRecordingBackgroundRefreshScheduler()
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            httpClient: harness.httpClient,
+            feedFetcher: harness.dependencies.feedFetcher,
+            modelContainer: harness.modelContainer,
+            backgroundRefreshScheduler: scheduler
+        )
+        let controller = SettingsScreenController()
+        let appSettingsService = try #require(dependencies.appSettingsService)
+
+        _ = try appSettingsService.saveSettings(
+            AppSettingsSnapshot(refreshIntervalPreference: .hourly),
+            updatedAt: .distantPast
+        )
+
+        controller.loadSettings(dependencies: dependencies)
+        controller.handleItemSelection(.refreshInterval)
+
+        controller.handlePickerOptionSelection(
+            itemID: .refreshInterval,
+            optionID: RefreshPreference.manual.rawValue,
+            dependencies: dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        let replacedConfiguration = try #require(scheduler.lastReplacedConfiguration)
+        #expect(controller.screenState.settingsSnapshot.refreshIntervalPreference == .manual)
+        #expect(persistedSettings.refreshIntervalPreference == .manual)
+        #expect(replacedConfiguration.settingsSnapshot.refreshIntervalPreference == .manual)
+        #expect(replacedConfiguration.policy.minimumInterval == nil)
     }
 
     @Test
@@ -499,6 +547,34 @@ struct SettingsScreenControllerTests {
                 actionTitle: "Retry"
             )
         )
+    }
+}
+
+@MainActor
+private final class SettingsRecordingBackgroundRefreshScheduler: BackgroundRefreshScheduling {
+    private(set) var lastReplacedConfiguration: BackgroundRefreshConfiguration?
+
+    func schedule(
+        using configuration: BackgroundRefreshConfiguration,
+        now: Date
+    ) throws -> BackgroundRefreshSchedulePlan? {
+        lastReplacedConfiguration = configuration
+        return DefaultBackgroundRefreshScheduler.makeSchedulePlan(using: configuration, now: now)
+    }
+
+    func cancel() {}
+
+    func replace(
+        using configuration: BackgroundRefreshConfiguration,
+        now: Date
+    ) throws -> BackgroundRefreshScheduleResult {
+        lastReplacedConfiguration = configuration
+
+        if let plan = DefaultBackgroundRefreshScheduler.makeSchedulePlan(using: configuration, now: now) {
+            return .scheduled(plan)
+        }
+
+        return .cancelled
     }
 }
 

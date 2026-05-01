@@ -348,6 +348,16 @@ private extension SettingsScreenController {
                 selectedPreference,
                 updatedAt: .now
             )
+            do {
+                try dependencies.replaceBackgroundRefreshSchedule(
+                    using: updatedConfiguration,
+                    now: .now
+                )
+            } catch {
+                dependencies.logger.error(
+                    "Failed to replace background refresh schedule after refresh interval update: \(error)"
+                )
+            }
             applyUpdatedSettingsSnapshot(updatedConfiguration.settingsSnapshot)
         } catch {
             dependencies.logger.error("Failed to update refresh interval preference: \(error)")

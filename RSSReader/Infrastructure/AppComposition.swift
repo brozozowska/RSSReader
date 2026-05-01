@@ -35,6 +35,7 @@ enum AppComposition {
             logger: logger
         )
         dependencies.startSyncCoordinatorAppLifetime()
+        scheduleBackgroundRefreshOnLaunch(using: dependencies)
         return dependencies
     }
 
@@ -88,6 +89,15 @@ enum AppComposition {
         }
 
         bootstrap(logger)
+    }
+
+    @MainActor
+    static func scheduleBackgroundRefreshOnLaunch(using dependencies: AppDependencies) {
+        do {
+            _ = try dependencies.replaceBackgroundRefreshSchedule()
+        } catch {
+            dependencies.logger.error("Failed to configure background refresh schedule on app launch: \(error)")
+        }
     }
 }
 

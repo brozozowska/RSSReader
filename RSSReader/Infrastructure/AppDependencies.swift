@@ -30,6 +30,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let appSettingsRepository: (any AppSettingsRepository)?
     let appSettingsService: (any AppSettingsService)?
     let backgroundRefreshService: (any BackgroundRefreshService)?
+    let backgroundRefreshScheduler: any BackgroundRefreshScheduling
     let iCloudAccountAvailabilityService: any ICloudAccountAvailabilityService
     let cloudKitRuntimeEventSource: any CloudKitRuntimeEventSource
     let persistentStoreRemoteChangeSource: any PersistentStoreRemoteChangeSource
@@ -52,6 +53,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         syncBackedStoreReference: SyncBackedStoreReference? = nil,
         syncBootstrapPreferenceStore: (any AppSyncBootstrapPreferenceStoring)? = nil,
         syncBootstrapContext: AppSyncBootstrapContext? = nil,
+        backgroundRefreshScheduler: (any BackgroundRefreshScheduling)? = nil,
         iCloudAccountAvailabilityService: (any ICloudAccountAvailabilityService)? = nil,
         cloudKitRuntimeEventSource: (any CloudKitRuntimeEventSource)? = nil,
         persistentStoreRemoteChangeSource: (any PersistentStoreRemoteChangeSource)? = nil,
@@ -145,6 +147,8 @@ public final class AppDependencies: AppDependenciesProtocol {
                 feedRefreshService: feedRefreshService
             )
         }
+        let backgroundRefreshScheduler = backgroundRefreshScheduler
+            ?? DefaultBackgroundRefreshScheduler(logger: logger)
         let iCloudAccountAvailabilityService = iCloudAccountAvailabilityService
             ?? DefaultICloudAccountAvailabilityService(logger: logger)
         let cloudKitRuntimeEventSource = cloudKitRuntimeEventSource ?? DefaultCloudKitRuntimeEventSource()
@@ -171,6 +175,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.appSettingsRepository = appSettingsRepository
         self.appSettingsService = appSettingsService
         self.backgroundRefreshService = backgroundRefreshService
+        self.backgroundRefreshScheduler = backgroundRefreshScheduler
         self.iCloudAccountAvailabilityService = iCloudAccountAvailabilityService
         self.cloudKitRuntimeEventSource = cloudKitRuntimeEventSource
         self.persistentStoreRemoteChangeSource = persistentStoreRemoteChangeSource
@@ -1063,6 +1068,29 @@ extension AppDependencies {
         }
 
         return await backgroundRefreshService.performScheduledRefresh()
+    }
+
+    @MainActor
+    @discardableResult
+    func replaceBackgroundRefreshSchedule(
+        using configuration: BackgroundRefreshConfiguration,
+        now: Date = .now
+    ) throws -> BackgroundRefreshScheduleResult {
+        try backgroundRefreshScheduler.replace(using: configuration, now: now)
+    }
+
+    @MainActor
+    @discardableResult
+    func replaceBackgroundRefreshSchedule(
+        now: Date = .now
+    ) throws -> BackgroundRefreshScheduleResult? {
+        guard let backgroundRefreshService else {
+            logger.error("Background refresh service is unavailable for schedule replacement")
+            return nil
+        }
+
+        let configuration = try backgroundRefreshService.loadConfiguration()
+        return try replaceBackgroundRefreshSchedule(using: configuration, now: now)
     }
 }
 
