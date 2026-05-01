@@ -390,7 +390,7 @@
 - [x] связать scheduler policy с текущим `BackgroundRefreshService` contract: `RefreshPreference` уже маппится в `minimumBackgroundRefreshInterval`, и это значение стало единственным входом для app-level scheduling policy без дублирования интерпретации interval в UI или app shell;
 - [x] подключить scheduler к app bootstrap: на launch приложение читает текущую `BackgroundRefreshConfiguration` и либо ставит следующий request, либо явно очищает pending background work для `manual`;
 - [x] связать scheduler с изменением `refreshIntervalPreference`: после обновления настройки через `Settings Screen` приложение перепланирует или отменяет pending request без расхождения между persisted `AppSettings`, `BackgroundRefreshService` и `BGTaskScheduler`;
-- [ ] добавить unit/integration tests для scheduler policy и app-level wiring: отдельно покрыть `manual`, automatic intervals, reschedule semantics и cancel path, чтобы execution-этап опирался на уже стабилизированный scheduling contract.
+- [x] добить system prerequisites для `BGAppRefreshTask`: проверены и явно включены `Background Modes` с `fetch`, а также подтверждено, что после перехода на явный `Info.plist` app target не потерял обязательные plist/capability-настройки для background refresh.
 
 #### Background Refresh Execution
 - [ ] подключить системный `background task` к существующему `BackgroundRefreshService`, чтобы фактическое выполнение фонового refresh шло через уже реализованный service layer и `FeedRefreshService.refreshAllActiveFeedsForBackground()`, а не через отдельную app-level refresh ветку;
