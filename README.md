@@ -389,7 +389,7 @@
 - [x] выделить отдельный scheduler layer для `BGAppRefreshTaskRequest`: scheduler умеет `schedule`, `cancel` и `replace` pending request, а логика `earliestBeginDate` не живёт внутри `RSSReaderApp`, `RootView` или controller-кода;
 - [x] связать scheduler policy с текущим `BackgroundRefreshService` contract: `RefreshPreference` уже маппится в `minimumBackgroundRefreshInterval`, и это значение стало единственным входом для app-level scheduling policy без дублирования интерпретации interval в UI или app shell;
 - [x] подключить scheduler к app bootstrap: на launch приложение читает текущую `BackgroundRefreshConfiguration` и либо ставит следующий request, либо явно очищает pending background work для `manual`;
-- [ ] связать scheduler с изменением `refreshIntervalPreference`: после обновления настройки через `Settings Screen` приложение должно перепланировать или отменять pending request без расхождения между persisted `AppSettings`, `BackgroundRefreshService` и `BGTaskScheduler`;
+- [x] связать scheduler с изменением `refreshIntervalPreference`: после обновления настройки через `Settings Screen` приложение перепланирует или отменяет pending request без расхождения между persisted `AppSettings`, `BackgroundRefreshService` и `BGTaskScheduler`;
 - [ ] добавить unit/integration tests для scheduler policy и app-level wiring: отдельно покрыть `manual`, automatic intervals, reschedule semantics и cancel path, чтобы execution-этап опирался на уже стабилизированный scheduling contract.
 
 #### Background Refresh Execution
