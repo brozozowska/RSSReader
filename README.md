@@ -384,32 +384,46 @@
 
 ### Background Refresh
 #### Background Refresh Foundation
-- [ ] зарегистрировать `background task` identifier и app-level entry point в `RSSReaderApp`, чтобы система могла запускать feed refresh в фоне через SwiftUI `backgroundTask`;
-- [ ] выделить отдельный scheduler layer для background refresh requests, чтобы планирование следующего запуска не жило внутри `RSSReaderApp`, `RootView` или screen/controller кода;
-- [ ] связать scheduler с app lifecycle: при запуске приложения и после успешного выполнения background task должен планироваться следующий refresh request консистентно с выбранной policy;
-- [ ] связать scheduler с `refreshIntervalPreference`: при изменении настройки приложение должно перепланировать или отключать фоновые задачи без расхождения между `Settings Screen`, `BackgroundRefreshService` и runtime scheduling.
+- [x] ввести app-level `Background Refresh` identifier contract: выбран постоянный identifier, он добавлен в `Info.plist` через `BGTaskSchedulerPermittedIdentifiers` и зафиксирован как infrastructure-level константа, чтобы `RSSReaderApp`, scheduler и validation использовали один и тот же source of truth;
+- [ ] зарегистрировать app-level entry point в `RSSReaderApp` через SwiftUI `backgroundTask(.appRefresh(...))`, чтобы background launch шёл через явный корневой handler, а не требовал screen-level участия;
+- [ ] выделить отдельный scheduler layer для `BGAppRefreshTaskRequest`: scheduler должен уметь `schedule`, `cancel` и `replace` pending request, а логика `earliestBeginDate` не должна жить внутри `RSSReaderApp`, `RootView` или controller-кода;
+- [ ] связать scheduler policy с текущим `BackgroundRefreshService` contract: `RefreshPreference` уже маппится в `minimumBackgroundRefreshInterval`, теперь это значение должно стать единственным входом для app-level scheduling policy без дублирования интерпретации interval в UI или app shell;
+- [ ] подключить scheduler к app bootstrap: на launch приложение должно читать текущую `BackgroundRefreshConfiguration` и либо ставить следующий request, либо явно очищать pending background work для `manual`;
+- [ ] связать scheduler с изменением `refreshIntervalPreference`: после обновления настройки через `Settings Screen` приложение должно перепланировать или отменять pending request без расхождения между persisted `AppSettings`, `BackgroundRefreshService` и `BGTaskScheduler`;
+- [ ] добавить unit/integration tests для scheduler policy и app-level wiring: отдельно покрыть `manual`, automatic intervals, reschedule semantics и cancel path, чтобы execution-этап опирался на уже стабилизированный scheduling contract.
 
 #### Background Refresh Execution
-- [ ] подключить системный `background task` к существующему `BackgroundRefreshService`, чтобы фактическое выполнение фонового refresh шло через уже реализованный service layer, а не через отдельную app-level orchestration ветку;
-- [ ] корректно завершать `background task` с учётом успешного refresh, partial failure и cancellation, чтобы система получала валидный execution result;
-- [ ] сохранять результат background refresh так, чтобы при следующем foreground/open экраны видели уже обновлённый локальный список `Article` без обязательного ручного refresh;
-- [ ] реализовать app-level reload behavior после успешного background refresh, чтобы `AppState`, shell и screen-level controller flows обновлялись консистентно при возврате приложения на экран;
-- [ ] обработать сценарии отсутствия сети, системных runtime ограничений и других execution failures так, чтобы background refresh не порождал ложный success и не ломал локальное состояние.
+- [ ] подключить системный `background task` к существующему `BackgroundRefreshService`, чтобы фактическое выполнение фонового refresh шло через уже реализованный service layer и `FeedRefreshService.refreshAllActiveFeedsForBackground()`, а не через отдельную app-level refresh ветку;
+- [ ] ввести execution adapter между `BGAppRefreshTask` и `BackgroundRefreshService`: он должен владеть `expirationHandler`, `Task` cancellation и преобразованием service-level результата в системный completion contract;
+- [ ] корректно завершать `background task` через `setTaskCompleted(success:)` с явным правилом для success, partial failure, total failure, skipped manual policy и cancellation, чтобы система не получала ложноположительный execution result;
+- [ ] после любого завершившегося background execution планировать следующий request через тот же scheduler, чтобы runtime не расходился между initial bootstrap path и post-run path;
+- [ ] зафиксировать persistence contract для materialized `Article`: background refresh должен обновлять тот же local-only article cache, который уже используют foreground refresh flows и query services, без отдельной модели или special-case persistence path;
+- [ ] реализовать app-level reload behavior после успешного background refresh: при возврате приложения в foreground `AppState` должен выпускать отдельный `backgroundRefresh` reload trigger, не смешанный с текущим `remoteSyncImport` path;
+- [ ] определить, когда background refresh должен триггерить reload сразу, а когда достаточно только сохранить локальные данные до следующего открытия экрана: это нужно явно закрепить между `AppState`, `AppComposition` и screen controllers, чтобы не получить лишние reload во время неактивного runtime;
+- [ ] обработать сценарии отсутствия сети, системного expiration, disabled `Background App Refresh` и других execution failures так, чтобы background refresh не ломал локальное состояние, не маскировал проблему под success и оставлял понятный scheduling follow-up;
+- [ ] покрыть tests execution orchestration: success, partial failure, cancellation, expiration и skipped-manual policy должны быть проверены отдельно от scheduler tests.
 
 #### Background Refresh Validation
-- [ ] проверить сценарий “обновили источники на iPhone, прочитали часть статей, открыли iPad после background refresh”: iPad должен получить свежие `Article` локально и применить synced `ArticleState`, показав только непрочитанные статьи в `Unread`;
-- [ ] проверить fallback-сценарий без background refresh: после тех же действий на первом устройстве второй девайс должен достигать консистентного состояния через manual refresh;
-- [ ] проверить поведение background refresh при отсутствии сети, временной недоступности системы и отключённой automatic refresh policy.
+- [ ] собрать `validation prerequisites` для `Background Refresh`: зафиксировать, какие capabilities и signing prerequisites нужны для `BGTaskScheduler`, какие log markers должны появляться при registration/schedule/run/expiration и какие runtime состояния (`backgroundRefreshStatus`, Low Power Mode, app refresh toggle) нужно проверить до начала сценариев;
+- [ ] проверить simulator/dev limitations для background validation и явно задокументировать их в roadmap: background task launch через development debugger по документации Apple поддерживается только на реальном устройстве, поэтому simulator не может быть единственным validation environment для этого эпика;
+- [ ] проверить ограничения бесплатного `Apple Developer` / `Personal Team` для полного validation path: `CloudKit` и `Push Notifications` недоступны без платного membership, а значит combined сценарии `sync + background refresh + silent wake` останутся частично заблокированными без `Apple Developer Program`;
+- [ ] если после проверки ограничений подтверждается блокировка на `Personal Team`, считать приоритетной инфраструктурной задачей раннее подключение платного аккаунта разработчика, чтобы снять долг сразу по двум направлениям: `Sync Real-Device Validation Kit` и `Background Refresh` real-device validation;
+- [ ] проверить сценарий “обновили источники на iPhone, прочитали часть статей, открыли iPad после background refresh”: второй девайс должен локально материализовать свежие `Article`, применить synced `ArticleState` и показать только непрочитанные статьи в `Unread`;
+- [ ] проверить fallback-сценарий без background refresh: после тех же действий на первом устройстве второй девайс должен достигать консистентного состояния через manual refresh без расхождения с background materialization contract;
+- [ ] проверить поведение background refresh при отсутствии сети, при системном expiration, при disabled `Background App Refresh`, при Low Power Mode и при `manual` policy;
+- [ ] подготовить минимальный `device validation matrix` для `Background Refresh`: simulator-only smoke check, single real device scheduling check и two-device cross-device scenario с включённым sync, чтобы validation можно было закрывать инкрементально, а не одним большим прогоном.
 
 #### Background Refresh Hardening
-- [ ] добавить логирование и диагностику background refresh execution, scheduling decisions и системных отказов запуска;
-- [ ] провести cleanup / refactor background refresh-related кода: выровнять границы между scheduler, `BackgroundRefreshService`, app lifecycle wiring и screen reload helpers, а также убрать временные debug hooks, если они больше не нужны.
+- [ ] добавить app-level логирование и диагностику background refresh registration, scheduling decisions, pending request replacement, execution start/finish, expiration и системных отказов запуска;
+- [ ] зафиксировать operational markers для future validation: по логам должно быть понятно, зарегистрировался ли handler, был ли поставлен request, почему request был отменён/перепоставлен и как завершился execution run;
+- [ ] провести cleanup / refactor background refresh-related кода: выровнять границы между scheduler, execution adapter, `BackgroundRefreshService`, app lifecycle wiring и screen reload helpers, а также убрать временные debug hooks, если они больше не нужны;
+- [ ] проверить, что app-level reload boundary между `remote sync reload` и `background refresh reload` осталась явной и не деградировала после интеграции scheduler/execution слоя.
 
 ### Deferred Validation
 #### Sync Real-Device Validation Kit
 - [ ] собрать явный `validation checklist` для sync-сценариев на паре `simulator + real device`: first launch с `useiCloudSync = off`, first launch с `useiCloudSync = on`, bootstrap fallback при `noAccount` / `temporarilyUnavailable`, включение и выключение sync из `Settings Screen`, remote import после изменений на втором рантайме и повторный launch после уже включённого sync;
 - [ ] для каждого сценария зафиксировать ожидаемый operational contract: `bootstrap path`, `SyncCoordinator.runtimeState`, `AppState.iCloudSyncStatus`, состояние `Settings Screen` и ожидаемые `log markers`, чтобы validation опирался на уже существующую app-level диагностику, а не на ручные догадки;
-- [ ] подготовить минимальный `smoke-test matrix` только для `simulator + real device`: fresh install, existing local-only store и existing sync-backed store на одном iCloud account, чтобы после появления платного Apple Developer аккаунта было понятно, какой минимальный набор прогонов обязателен;
+- [ ] подготовить минимальный `smoke-test matrix` только для `simulator + real device`: fresh install, existing local-only store и existing sync-backed store на одном iCloud account, чтобы после появления платного `Apple Developer Program` membership было понятно, какой минимальный набор прогонов обязателен;
 - [ ] описать prerequisites и reset procedure для deferred sync validation: какой build/configuration использовать, как очищать local store и install state, как подготавливать iCloud account и какие логи собирать при mismatch;
 - [ ] подготовить шаблон фиксации результатов validation pass с полями `scenario`, `environment`, `result`, `observed status transitions`, `observed log markers` и `notes`, чтобы финальная проверка синхронизации документировалась консистентно.
 

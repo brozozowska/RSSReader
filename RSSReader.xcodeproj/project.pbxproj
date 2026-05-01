@@ -23,9 +23,22 @@
 		4EC805A42F7EB73A004CDFE9 /* RSSReaderTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RSSReaderTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		4E18D0F52FA4C6E8005E0E65 /* Exceptions for "RSSReader" folder in "RSSReader" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 4E5607FC2F69A2DF008008E4 /* RSSReader */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		4E5607FF2F69A2DF008008E4 /* RSSReader */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				4E18D0F52FA4C6E8005E0E65 /* Exceptions for "RSSReader" folder in "RSSReader" target */,
+			);
 			path = RSSReader;
 			sourceTree = "<group>";
 		};
@@ -346,6 +359,7 @@
 				DEVELOPMENT_TEAM = WRCVCVPXY8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RSSReader/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
@@ -380,6 +394,7 @@
 				DEVELOPMENT_TEAM = WRCVCVPXY8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RSSReader/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
