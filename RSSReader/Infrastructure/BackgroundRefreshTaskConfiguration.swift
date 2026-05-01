@@ -1,7 +1,7 @@
 import Foundation
 
 enum BackgroundRefreshTaskConfiguration {
-    static let permittedIdentifiersInfoPlistKey = "BGTaskSchedulerPermittedIdentifiers"
-    static let appRefreshIdentifier = "ru.brozozowska.RSSReader.background-refresh"
-    static let permittedIdentifiers = [appRefreshIdentifier]
+    nonisolated static let permittedIdentifiersInfoPlistKey = "BGTaskSchedulerPermittedIdentifiers"
+    nonisolated static let appRefreshIdentifier = "ru.brozozowska.RSSReader.background-refresh"
+    nonisolated static let permittedIdentifiers = [appRefreshIdentifier]
 }
