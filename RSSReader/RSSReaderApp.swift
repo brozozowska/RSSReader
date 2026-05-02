@@ -1,8 +1,9 @@
 import SwiftUI
 
 @MainActor
-func performBackgroundAppRefresh(using dependencies: AppDependencies) async -> BackgroundFeedRefreshResult? {
-    await dependencies.refreshFeedsForBackground()
+func performBackgroundAppRefresh(using dependencies: AppDependencies) async -> BackgroundRefreshExecutionOutcome {
+    let executionCoordinator = DefaultBackgroundRefreshExecutionCoordinator(dependencies: dependencies)
+    return await executionCoordinator.executeAppRefresh()
 }
 
 @main

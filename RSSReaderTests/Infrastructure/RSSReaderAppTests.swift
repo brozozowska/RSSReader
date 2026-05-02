@@ -28,11 +28,17 @@ struct RSSReaderAppTests {
             backgroundRefreshService: backgroundRefreshService
         )
 
-        let result = await performBackgroundAppRefresh(using: dependencies)
+        let outcome = await performBackgroundAppRefresh(using: dependencies)
 
         #expect(backgroundRefreshService.performScheduledRefreshCallCount == 1)
-        #expect(result?.trigger == .background)
-        #expect(result?.batchResult.results.isEmpty == true)
+        switch outcome {
+        case .finished(let result):
+            #expect(result?.trigger == .background)
+            #expect(result?.batchResult.results.isEmpty == true)
+            #expect(result?.duration == 1)
+        case .cancelled:
+            Issue.record("Expected finished execution outcome")
+        }
     }
 }
 
