@@ -53,6 +53,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         syncBackedStoreReference: SyncBackedStoreReference? = nil,
         syncBootstrapPreferenceStore: (any AppSyncBootstrapPreferenceStoring)? = nil,
         syncBootstrapContext: AppSyncBootstrapContext? = nil,
+        backgroundRefreshService: (any BackgroundRefreshService)? = nil,
         backgroundRefreshScheduler: (any BackgroundRefreshScheduling)? = nil,
         iCloudAccountAvailabilityService: (any ICloudAccountAvailabilityService)? = nil,
         cloudKitRuntimeEventSource: (any CloudKitRuntimeEventSource)? = nil,
@@ -140,7 +141,7 @@ public final class AppDependencies: AppDependenciesProtocol {
                 feedFetchLogRepository: feedFetchLogRepository
             )
         }()
-        let backgroundRefreshService = appSettingsService.map { service in
+        let resolvedBackgroundRefreshService = backgroundRefreshService ?? appSettingsService.map { service in
             DefaultBackgroundRefreshService(
                 logger: logger,
                 appSettingsService: service,
@@ -174,7 +175,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.sourcesSidebarQueryService = sourcesSidebarQueryService
         self.appSettingsRepository = appSettingsRepository
         self.appSettingsService = appSettingsService
-        self.backgroundRefreshService = backgroundRefreshService
+        self.backgroundRefreshService = resolvedBackgroundRefreshService
         self.backgroundRefreshScheduler = backgroundRefreshScheduler
         self.iCloudAccountAvailabilityService = iCloudAccountAvailabilityService
         self.cloudKitRuntimeEventSource = cloudKitRuntimeEventSource
