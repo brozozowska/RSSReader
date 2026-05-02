@@ -52,6 +52,8 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
         }
 
         replaceBackgroundRefreshScheduleAfterExecution()
+        dependencies.backgroundRefreshForegroundHandoffCoordinator
+            .handleBackgroundRefreshExecutionOutcome(outcome)
         return outcome
     }
 

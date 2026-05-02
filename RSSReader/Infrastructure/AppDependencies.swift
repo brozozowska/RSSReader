@@ -30,6 +30,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let appSettingsRepository: (any AppSettingsRepository)?
     let appSettingsService: (any AppSettingsService)?
     let backgroundRefreshService: (any BackgroundRefreshService)?
+    let backgroundRefreshForegroundHandoffCoordinator: any BackgroundRefreshForegroundHandoffCoordinating
     let backgroundRefreshScheduler: any BackgroundRefreshScheduling
     let iCloudAccountAvailabilityService: any ICloudAccountAvailabilityService
     let cloudKitRuntimeEventSource: any CloudKitRuntimeEventSource
@@ -54,6 +55,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         syncBootstrapPreferenceStore: (any AppSyncBootstrapPreferenceStoring)? = nil,
         syncBootstrapContext: AppSyncBootstrapContext? = nil,
         backgroundRefreshService: (any BackgroundRefreshService)? = nil,
+        backgroundRefreshForegroundHandoffCoordinator: (any BackgroundRefreshForegroundHandoffCoordinating)? = nil,
         backgroundRefreshScheduler: (any BackgroundRefreshScheduling)? = nil,
         iCloudAccountAvailabilityService: (any ICloudAccountAvailabilityService)? = nil,
         cloudKitRuntimeEventSource: (any CloudKitRuntimeEventSource)? = nil,
@@ -148,6 +150,8 @@ public final class AppDependencies: AppDependenciesProtocol {
                 feedRefreshService: feedRefreshService
             )
         }
+        let backgroundRefreshForegroundHandoffCoordinator = backgroundRefreshForegroundHandoffCoordinator
+            ?? DefaultBackgroundRefreshForegroundHandoffCoordinator()
         let backgroundRefreshScheduler = backgroundRefreshScheduler
             ?? DefaultBackgroundRefreshScheduler(logger: logger)
         let iCloudAccountAvailabilityService = iCloudAccountAvailabilityService
@@ -176,6 +180,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.appSettingsRepository = appSettingsRepository
         self.appSettingsService = appSettingsService
         self.backgroundRefreshService = resolvedBackgroundRefreshService
+        self.backgroundRefreshForegroundHandoffCoordinator = backgroundRefreshForegroundHandoffCoordinator
         self.backgroundRefreshScheduler = backgroundRefreshScheduler
         self.iCloudAccountAvailabilityService = iCloudAccountAvailabilityService
         self.cloudKitRuntimeEventSource = cloudKitRuntimeEventSource

@@ -594,11 +594,12 @@ struct AppDependenciesTests {
             )
         )
 
-        try await Task.sleep(for: .milliseconds(100))
-
-        #expect(appState.sourcesSidebarReloadID == initialSidebarReloadID)
-        #expect(appState.articleListReloadID == initialArticleListReloadID)
-        #expect(appState.articleScreenReloadID == initialArticleScreenReloadID)
+        try await expectNoReload(
+            sidebarReloadID: initialSidebarReloadID,
+            articleListReloadID: initialArticleListReloadID,
+            articleScreenReloadID: initialArticleScreenReloadID,
+            in: appState
+        )
 
         await remoteChangeSource.yield(
             PersistentStoreRemoteChangeEvent(
@@ -655,11 +656,12 @@ struct AppDependenciesTests {
             )
         )
 
-        try await Task.sleep(for: .milliseconds(100))
-
-        #expect(appState.sourcesSidebarReloadID == initialSidebarReloadID)
-        #expect(appState.articleListReloadID == initialArticleListReloadID)
-        #expect(appState.articleScreenReloadID == initialArticleScreenReloadID)
+        try await expectNoReload(
+            sidebarReloadID: initialSidebarReloadID,
+            articleListReloadID: initialArticleListReloadID,
+            articleScreenReloadID: initialArticleScreenReloadID,
+            in: appState
+        )
     }
 
     @Test
@@ -831,12 +833,13 @@ struct AppDependenciesTests {
     @Test
     func appDependenciesStartRemoteSyncReloadAppLifetimeRequiresFreshRemoteChangeAfterImportCancellation() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let logger = RecordingLogger()
         let syncCoordinator = SyncCoordinator(isSyncEnabled: true)
         syncCoordinator.applyAccountAvailability(.available)
         let cloudKitRuntimeEventSource = TestCloudKitRuntimeEventSource()
         let remoteChangeSource = TestPersistentStoreRemoteChangeSource()
         let dependencies = AppDependencies(
-            logger: TestLogger(),
+            logger: logger,
             httpClient: harness.httpClient,
             modelContainer: harness.modelContainer,
             syncBackedStoreReference: testSyncBackedStoreReference(),
@@ -857,6 +860,12 @@ struct AppDependenciesTests {
                 storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
             )
         )
+        try await expectEventually {
+            logger.contains(
+                "Observed persistent store remote change; marked store change pending",
+                level: .info
+            )
+        }
         await cloudKitRuntimeEventSource.yield(
             .failed(
                 .import,
@@ -881,11 +890,12 @@ struct AppDependenciesTests {
             )
         )
 
-        try await Task.sleep(for: .milliseconds(100))
-
-        #expect(appState.sourcesSidebarReloadID == initialSidebarReloadID)
-        #expect(appState.articleListReloadID == initialArticleListReloadID)
-        #expect(appState.articleScreenReloadID == initialArticleScreenReloadID)
+        try await expectNoReload(
+            sidebarReloadID: initialSidebarReloadID,
+            articleListReloadID: initialArticleListReloadID,
+            articleScreenReloadID: initialArticleScreenReloadID,
+            in: appState
+        )
 
         await remoteChangeSource.yield(
             PersistentStoreRemoteChangeEvent(
@@ -1158,4 +1168,25 @@ private func expectEventually(
     }
 
     throw TimedOutError()
+}
+
+private func expectNoReload(
+    sidebarReloadID: UUID,
+    articleListReloadID: UUID,
+    articleScreenReloadID: UUID,
+    in appState: AppState,
+    durationNanoseconds: UInt64 = 200_000_000
+) async throws {
+    let deadline = ContinuousClock.now + .nanoseconds(Int64(durationNanoseconds))
+
+    while ContinuousClock.now < deadline {
+        let reloadOccurred = await MainActor.run {
+            appState.sourcesSidebarReloadID != sidebarReloadID
+                || appState.articleListReloadID != articleListReloadID
+                || appState.articleScreenReloadID != articleScreenReloadID
+        }
+
+        #expect(reloadOccurred == false)
+        try await Task.sleep(for: .milliseconds(10))
+    }
 }

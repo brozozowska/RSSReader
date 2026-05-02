@@ -99,6 +99,43 @@ enum AppComposition {
             dependencies.logger.error("Failed to configure background refresh schedule on app launch: \(error)")
         }
     }
+
+    @MainActor
+    static func bindBackgroundRefreshForegroundReloadHandler(
+        using dependencies: AppDependencies,
+        appState: AppState
+    ) {
+        dependencies.backgroundRefreshForegroundHandoffCoordinator.bindReloadHandler {
+            appState.requestBackgroundRefreshReload()
+        }
+    }
+
+    @MainActor
+    static func unbindBackgroundRefreshForegroundReloadHandler(using dependencies: AppDependencies) {
+        dependencies.backgroundRefreshForegroundHandoffCoordinator.unbindReloadHandler()
+    }
+
+    @MainActor
+    static func applyBackgroundRefreshForegroundRuntimeState(
+        from scenePhase: ScenePhase,
+        using dependencies: AppDependencies
+    ) {
+        dependencies.backgroundRefreshForegroundHandoffCoordinator.updateRuntimeState(
+            runtimeState(from: scenePhase)
+        )
+    }
+
+    @MainActor
+    static func runtimeState(from scenePhase: ScenePhase) -> AppRuntimeReloadState {
+        switch scenePhase {
+        case .active:
+            .activeForeground
+        case .background, .inactive:
+            .inactiveOrBackground
+        @unknown default:
+            .inactiveOrBackground
+        }
+    }
 }
 
 @MainActor
@@ -112,6 +149,7 @@ final class AppLaunchBootstrapGuard {
 
 struct AppRootContainer: View {
     let dependencies: AppDependencies
+    @Environment(\.scenePhase) private var scenePhase
     @State private var appState = AppState()
     @State private var hasRestoredPersistedAppSettings = false
 
@@ -124,8 +162,22 @@ struct AppRootContainer: View {
                 from: dependencies.syncCoordinator,
                 to: appState
             )
+            AppComposition.bindBackgroundRefreshForegroundReloadHandler(
+                using: dependencies,
+                appState: appState
+            )
+            AppComposition.applyBackgroundRefreshForegroundRuntimeState(
+                from: scenePhase,
+                using: dependencies
+            )
             dependencies.startRemoteSyncReloadAppLifetime(using: appState)
             await restorePersistedAppSettingsIfNeeded()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            AppComposition.applyBackgroundRefreshForegroundRuntimeState(
+                from: newPhase,
+                using: dependencies
+            )
         }
         .onChange(of: runtimeSyncStatus) { _, _ in
             AppComposition.applyCurrentICloudSyncStatus(
@@ -136,6 +188,9 @@ struct AppRootContainer: View {
         .onChange(of: appState.selectedSourcesFilter) { _, newFilter in
             guard hasRestoredPersistedAppSettings else { return }
             persistSourcesFilter(newFilter)
+        }
+        .onDisappear {
+            AppComposition.unbindBackgroundRefreshForegroundReloadHandler(using: dependencies)
         }
     }
 
