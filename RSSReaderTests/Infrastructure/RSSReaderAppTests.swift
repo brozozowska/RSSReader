@@ -32,12 +32,12 @@ struct RSSReaderAppTests {
 
         #expect(backgroundRefreshService.performScheduledRefreshCallCount == 1)
         switch outcome {
-        case .finished(let result):
-            #expect(result?.trigger == .background)
-            #expect(result?.batchResult.results.isEmpty == true)
-            #expect(result?.duration == 1)
-        case .cancelled:
-            Issue.record("Expected finished execution outcome")
+        case .success(let result):
+            #expect(result.trigger == .background)
+            #expect(result.batchResult.results.isEmpty == true)
+            #expect(result.duration == 1)
+        case .partialFailure, .totalFailure, .skippedManual, .failedToStart, .cancelled:
+            Issue.record("Expected success execution outcome")
         }
     }
 }
@@ -64,9 +64,9 @@ private final class BackgroundRefreshServiceSpy: BackgroundRefreshService {
         throw BackgroundRefreshServiceSpyError.unexpectedInvocation
     }
 
-    func performScheduledRefresh() async -> BackgroundFeedRefreshResult? {
+    func performScheduledRefresh() async -> BackgroundRefreshServiceExecutionResult {
         performScheduledRefreshCallCount += 1
-        return result
+        return .executed(result!)
     }
 }
 

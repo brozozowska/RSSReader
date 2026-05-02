@@ -135,7 +135,12 @@ struct AppSettingsServiceTests {
 
         let result = await harness.dependencies.refreshFeedsForBackground()
 
-        #expect(result == nil)
+        switch result {
+        case .skippedManual(let configuration):
+            #expect(configuration.policy.preference == .manual)
+        case .executed, .failedToStart:
+            Issue.record("Expected skipped manual background refresh result")
+        }
     }
 
     @Test
@@ -152,8 +157,13 @@ struct AppSettingsServiceTests {
 
         let result = await harness.dependencies.refreshFeedsForBackground()
 
-        #expect(result?.trigger == .background)
-        #expect(result?.batchResult.results.isEmpty == true)
+        switch result {
+        case .executed(let refreshResult):
+            #expect(refreshResult.trigger == .background)
+            #expect(refreshResult.batchResult.results.isEmpty == true)
+        case .skippedManual, .failedToStart:
+            Issue.record("Expected executed background refresh result")
+        }
     }
 
     @Test

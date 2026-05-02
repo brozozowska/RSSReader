@@ -1062,10 +1062,10 @@ extension AppDependencies {
     }
 
     @MainActor
-    func refreshFeedsForBackground() async -> BackgroundFeedRefreshResult? {
+    func refreshFeedsForBackground() async -> BackgroundRefreshServiceExecutionResult {
         guard let backgroundRefreshService else {
             logger.error("Background refresh service is unavailable")
-            return nil
+            return .failedToStart(.feedRefreshServiceUnavailable)
         }
 
         return await backgroundRefreshService.performScheduledRefresh()
