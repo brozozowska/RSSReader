@@ -1,3 +1,4 @@
+import BackgroundTasks
 import Foundation
 
 enum BackgroundRefreshExecutionOutcome: Sendable {
@@ -49,6 +50,11 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
 
             return mapExecutionOutcome(from: serviceResult)
         } onCancel: {
+            Task { @MainActor [dependencies] in
+                dependencies.logger.info(
+                    "Received background refresh task cancellation; cancelling in-flight refresh task"
+                )
+            }
             refreshTask.cancel()
         }
 
@@ -115,8 +121,9 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
                 )
             }
         } catch {
+            let failureReason = Self.classifyScheduleFailure(error)
             dependencies.logger.error(
-                "Background refresh execution reschedule outcome=failed error=\(error)"
+                "Background refresh execution reschedule outcome=failed reason=\(failureReason) error=\(error)"
             )
         }
     }
@@ -125,15 +132,15 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
         switch outcome {
         case .success(let result):
             dependencies.logger.info(
-                "Completed background refresh execution outcome=success \(Self.makeSummaryLogFields(from: result.summary)) duration=\(result.duration)"
+                "Completed background refresh execution outcome=success \(Self.makeSummaryLogFields(from: result.summary)) \(Self.makeFailureDiagnosticsLogFields(from: result)) duration=\(result.duration)"
             )
         case .partialFailure(let result):
             dependencies.logger.info(
-                "Completed background refresh execution outcome=partialFailure \(Self.makeSummaryLogFields(from: result.summary)) duration=\(result.duration)"
+                "Completed background refresh execution outcome=partialFailure \(Self.makeSummaryLogFields(from: result.summary)) \(Self.makeFailureDiagnosticsLogFields(from: result)) duration=\(result.duration)"
             )
         case .totalFailure(let result):
             dependencies.logger.info(
-                "Completed background refresh execution outcome=totalFailure \(Self.makeSummaryLogFields(from: result.summary)) duration=\(result.duration)"
+                "Completed background refresh execution outcome=totalFailure \(Self.makeSummaryLogFields(from: result.summary)) \(Self.makeFailureDiagnosticsLogFields(from: result)) duration=\(result.duration)"
             )
         case .skippedManual(let configuration):
             dependencies.logger.info(
@@ -146,7 +153,7 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
         case .cancelled(let result):
             if let result {
                 dependencies.logger.info(
-                    "Completed background refresh execution outcome=cancelled partialResultAvailable=true \(Self.makeSummaryLogFields(from: result.summary)) duration=\(result.duration)"
+                    "Completed background refresh execution outcome=cancelled partialResultAvailable=true \(Self.makeSummaryLogFields(from: result.summary)) \(Self.makeFailureDiagnosticsLogFields(from: result)) duration=\(result.duration)"
                 )
             } else {
                 dependencies.logger.info(
@@ -158,6 +165,32 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
 
     private static func makeSummaryLogFields(from summary: FeedRefreshBatchSummary) -> String {
         "totalFeedCount=\(summary.totalFeedCount) fetchedCount=\(summary.fetchedCount) notModifiedCount=\(summary.notModifiedCount) failedCount=\(summary.failedCount) cancelledCount=\(summary.cancelledCount)"
+    }
+
+    private static func makeFailureDiagnosticsLogFields(from result: BackgroundFeedRefreshResult) -> String {
+        let diagnostics = result.failureDiagnostics
+        return "networkFailureCount=\(diagnostics.networkFailureCount) likelyNoConnectivity=\(diagnostics.likelyNoConnectivity)"
+    }
+
+    private static func classifyScheduleFailure(_ error: Error) -> String {
+        let nsError = error as NSError
+        guard nsError.domain == BGTaskScheduler.Error.errorDomain,
+              let code = BGTaskScheduler.Error.Code(rawValue: nsError.code) else {
+            return "unknown"
+        }
+
+        switch code {
+        case .unavailable:
+            return "backgroundRefreshUnavailable"
+        case .notPermitted:
+            return "notPermitted"
+        case .tooManyPendingTaskRequests:
+            return "tooManyPendingTaskRequests"
+        case .immediateRunIneligible:
+            return "immediateRunIneligible"
+        @unknown default:
+            return "unknown"
+        }
     }
 }
 
@@ -180,5 +213,43 @@ private extension BackgroundRefreshServiceExecutionFailure {
         case .feedRefreshServiceUnavailable:
             "feedRefreshServiceUnavailable"
         }
+    }
+}
+
+private extension BackgroundFeedRefreshResult {
+    var failureDiagnostics: BackgroundRefreshFailureDiagnostics {
+        let networkFailureCount = batchResult.failedResults.reduce(into: 0) { partialResult, result in
+            guard let errorDescription = result.errorDescription,
+                  BackgroundRefreshFailureDiagnostics.isLikelyNetworkFailure(errorDescription) else {
+                return
+            }
+
+            partialResult += 1
+        }
+
+        return BackgroundRefreshFailureDiagnostics(
+            failedCount: summary.failedCount,
+            networkFailureCount: networkFailureCount
+        )
+    }
+}
+
+private struct BackgroundRefreshFailureDiagnostics {
+    let failedCount: Int
+    let networkFailureCount: Int
+
+    var likelyNoConnectivity: Bool {
+        failedCount > 0 && networkFailureCount == failedCount
+    }
+
+    static func isLikelyNetworkFailure(_ errorDescription: String) -> Bool {
+        let networkMarkers = [
+            "NSURLErrorDomain Code=-1009",
+            "NSURLErrorDomain Code=-1005",
+            "NSURLErrorDomain Code=-1004",
+            "NSURLErrorDomain Code=-1003"
+        ]
+
+        return networkMarkers.contains { errorDescription.contains($0) }
     }
 }

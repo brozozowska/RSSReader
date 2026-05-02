@@ -401,7 +401,7 @@
 - [x] определить foreground handoff policy после background refresh: явно закреплено, когда достаточно только сохранить локальные данные до следующего открытия экрана, а когда при возврате приложения в foreground `AppState` должен выпускать отдельный `backgroundRefresh` reload trigger без смешения с текущим `remoteSyncImport` path;
 - [x] реализовать app-level foreground reload orchestration для `backgroundRefresh`: после успешного background execution `AppComposition` и `AppState` должны один раз доставить нужный reload trigger в активный runtime и не плодить лишние reload во время неактивного состояния приложения;
 - [x] добавить execution-level logging и diagnostics markers для start, completion, cancellation, skipped-manual policy и reschedule outcome, чтобы `Background Refresh Validation` мог опираться на наблюдаемый runtime contract, а не только на косвенные side effects;
-- [ ] обработать сценарии отсутствия сети, системной cancellation по тайм-бюджету, disabled `Background App Refresh` и других execution failures так, чтобы background refresh не ломал локальное состояние, не маскировал проблему под success и оставлял понятный scheduling follow-up;
+- [x] обработать сценарии отсутствия сети, системной cancellation по тайм-бюджету, disabled `Background App Refresh` и других execution failures так, чтобы background refresh не ломал локальное состояние, не маскировал проблему под success и оставлял понятный scheduling follow-up;
 - [ ] покрыть tests execution orchestration: success, partial failure, total failure, cancellation, skipped-manual policy, post-run reschedule и foreground reload handoff должны быть проверены отдельно от scheduler tests.
 
 #### Background Refresh Validation

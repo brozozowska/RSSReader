@@ -1,3 +1,4 @@
+import BackgroundTasks
 import Foundation
 import Testing
 @testable import RSSReader
@@ -77,6 +78,12 @@ struct BackgroundRefreshExecutionCoordinatorTests {
         #expect(backgroundRefreshService.observedCancellation)
         #expect(scheduler.replaceCallCount == 1)
         #expect(scheduler.lastReplacedConfiguration?.policy.preference == .every6Hours)
+        #expect(
+            logger.contains(
+                "Received background refresh task cancellation; cancelling in-flight refresh task",
+                level: .info
+            )
+        )
         #expect(logger.contains("Completed background refresh execution outcome=cancelled partialResultAvailable=false", level: .info))
         #expect(logger.contains("Background refresh execution reschedule outcome=scheduled", level: .info))
         switch outcome {
@@ -184,14 +191,15 @@ struct BackgroundRefreshExecutionCoordinatorTests {
                         feedID: UUID(),
                         startedAt: .distantPast,
                         finishedAt: .distantPast.addingTimeInterval(4),
-                        errorDescription: "Network error"
+                        errorDescription: "Error Domain=NSURLErrorDomain Code=-1009 \"The Internet connection appears to be offline.\""
                     )
                 ]
             )
         )
+        let logger = RecordingLogger()
         let coordinator = DefaultBackgroundRefreshExecutionCoordinator(
             dependencies: AppDependencies(
-                logger: TestLogger(),
+                logger: logger,
                 backgroundRefreshService: PrecomputedBackgroundRefreshServiceSpy(
                     result: .executed(result),
                     configuration: BackgroundRefreshConfiguration(
@@ -204,6 +212,9 @@ struct BackgroundRefreshExecutionCoordinatorTests {
 
         let outcome = await coordinator.executeAppRefresh()
 
+        #expect(logger.contains("Completed background refresh execution outcome=totalFailure", level: .info))
+        #expect(logger.contains("networkFailureCount=1", level: .info))
+        #expect(logger.contains("likelyNoConnectivity=true", level: .info))
         switch outcome {
         case .totalFailure(let resolvedResult):
             #expect(resolvedResult.summary.totalFeedCount == 1)
@@ -258,7 +269,10 @@ struct BackgroundRefreshExecutionCoordinatorTests {
         )
         let logger = RecordingLogger()
         let scheduler = RecordingBackgroundRefreshScheduler(
-            replaceError: BackgroundRefreshExecutionCoordinatorTestError.unexpectedInvocation
+            replaceError: NSError(
+                domain: BGTaskScheduler.Error.errorDomain,
+                code: BGTaskScheduler.Error.Code.unavailable.rawValue
+            )
         )
         let coordinator = DefaultBackgroundRefreshExecutionCoordinator(
             dependencies: AppDependencies(
@@ -276,7 +290,7 @@ struct BackgroundRefreshExecutionCoordinatorTests {
         #expect(scheduler.replaceCallCount == 1)
         #expect(
             logger.contains(
-                "Background refresh execution reschedule outcome=failed error=",
+                "Background refresh execution reschedule outcome=failed reason=backgroundRefreshUnavailable",
                 level: .error
             )
         )
