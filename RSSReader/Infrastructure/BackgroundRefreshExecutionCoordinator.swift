@@ -38,16 +38,21 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
             await dependencies.refreshFeedsForBackground()
         }
 
-        return await withTaskCancellationHandler {
+        let outcome = await withTaskCancellationHandler {
             let serviceResult = await refreshTask.value
             if Task.isCancelled {
-                return .cancelled(serviceResult.backgroundFeedRefreshResult)
+                return BackgroundRefreshExecutionOutcome.cancelled(
+                    serviceResult.backgroundFeedRefreshResult
+                )
             }
 
             return mapExecutionOutcome(from: serviceResult)
         } onCancel: {
             refreshTask.cancel()
         }
+
+        replaceBackgroundRefreshScheduleAfterExecution()
+        return outcome
     }
 
     private func mapExecutionOutcome(
@@ -84,6 +89,16 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
         }
 
         return .partialFailure(result)
+    }
+
+    private func replaceBackgroundRefreshScheduleAfterExecution() {
+        do {
+            _ = try dependencies.replaceBackgroundRefreshSchedule(now: .now)
+        } catch {
+            dependencies.logger.error(
+                "Failed to replace background refresh schedule after background execution: \(error)"
+            )
+        }
     }
 }
 

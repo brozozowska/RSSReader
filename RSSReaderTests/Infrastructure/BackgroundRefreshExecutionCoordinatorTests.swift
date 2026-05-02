@@ -14,16 +14,27 @@ struct BackgroundRefreshExecutionCoordinatorTests {
                 results: []
             )
         )
-        let backgroundRefreshService = CompletedBackgroundRefreshServiceSpy(result: expectedResult)
+        let configuration = BackgroundRefreshConfiguration(
+            settingsSnapshot: AppSettingsSnapshot(refreshIntervalPreference: .hourly),
+            policy: BackgroundRefreshPolicy(preference: .hourly)
+        )
+        let backgroundRefreshService = CompletedBackgroundRefreshServiceSpy(
+            result: expectedResult,
+            configuration: configuration
+        )
+        let scheduler = RecordingBackgroundRefreshScheduler()
         let dependencies = AppDependencies(
             logger: TestLogger(),
-            backgroundRefreshService: backgroundRefreshService
+            backgroundRefreshService: backgroundRefreshService,
+            backgroundRefreshScheduler: scheduler
         )
         let coordinator = DefaultBackgroundRefreshExecutionCoordinator(dependencies: dependencies)
 
         let outcome = await coordinator.executeAppRefresh()
 
         #expect(backgroundRefreshService.performScheduledRefreshCallCount == 1)
+        #expect(scheduler.replaceCallCount == 1)
+        #expect(scheduler.lastReplacedConfiguration?.policy.preference == .hourly)
         switch outcome {
         case .success(let result):
             #expect(result.trigger == .background)
@@ -35,10 +46,16 @@ struct BackgroundRefreshExecutionCoordinatorTests {
 
     @Test
     func backgroundRefreshExecutionCoordinatorCancelsRefreshTaskWhenParentTaskIsCancelled() async {
-        let backgroundRefreshService = CancellableBackgroundRefreshServiceSpy()
+        let configuration = BackgroundRefreshConfiguration(
+            settingsSnapshot: AppSettingsSnapshot(refreshIntervalPreference: .every6Hours),
+            policy: BackgroundRefreshPolicy(preference: .every6Hours)
+        )
+        let backgroundRefreshService = CancellableBackgroundRefreshServiceSpy(configuration: configuration)
+        let scheduler = RecordingBackgroundRefreshScheduler()
         let dependencies = AppDependencies(
             logger: TestLogger(),
-            backgroundRefreshService: backgroundRefreshService
+            backgroundRefreshService: backgroundRefreshService,
+            backgroundRefreshScheduler: scheduler
         )
         let coordinator = DefaultBackgroundRefreshExecutionCoordinator(dependencies: dependencies)
 
@@ -52,6 +69,8 @@ struct BackgroundRefreshExecutionCoordinatorTests {
 
         #expect(backgroundRefreshService.performScheduledRefreshCallCount == 1)
         #expect(backgroundRefreshService.observedCancellation)
+        #expect(scheduler.replaceCallCount == 1)
+        #expect(scheduler.lastReplacedConfiguration?.policy.preference == .every6Hours)
         switch outcome {
         case .success, .partialFailure, .totalFailure, .skippedManual, .failedToStart:
             Issue.record("Expected cancelled execution outcome")
@@ -66,17 +85,22 @@ struct BackgroundRefreshExecutionCoordinatorTests {
             settingsSnapshot: AppSettingsSnapshot(refreshIntervalPreference: .manual),
             policy: BackgroundRefreshPolicy(preference: .manual)
         )
+        let scheduler = RecordingBackgroundRefreshScheduler()
         let backgroundRefreshService = PrecomputedBackgroundRefreshServiceSpy(
-            result: .skippedManual(configuration)
+            result: .skippedManual(configuration),
+            configuration: configuration
         )
         let dependencies = AppDependencies(
             logger: TestLogger(),
-            backgroundRefreshService: backgroundRefreshService
+            backgroundRefreshService: backgroundRefreshService,
+            backgroundRefreshScheduler: scheduler
         )
         let coordinator = DefaultBackgroundRefreshExecutionCoordinator(dependencies: dependencies)
 
         let outcome = await coordinator.executeAppRefresh()
 
+        #expect(scheduler.replaceCallCount == 1)
+        #expect(scheduler.lastReplacedConfiguration?.policy.preference == .manual)
         switch outcome {
         case .skippedManual(let resolvedConfiguration):
             #expect(resolvedConfiguration.policy.preference == .manual)
@@ -112,7 +136,13 @@ struct BackgroundRefreshExecutionCoordinatorTests {
         let coordinator = DefaultBackgroundRefreshExecutionCoordinator(
             dependencies: AppDependencies(
                 logger: TestLogger(),
-                backgroundRefreshService: PrecomputedBackgroundRefreshServiceSpy(result: .executed(result))
+                backgroundRefreshService: PrecomputedBackgroundRefreshServiceSpy(
+                    result: .executed(result),
+                    configuration: BackgroundRefreshConfiguration(
+                        settingsSnapshot: AppSettingsSnapshot(refreshIntervalPreference: .hourly),
+                        policy: BackgroundRefreshPolicy(preference: .hourly)
+                    )
+                )
             )
         )
 
@@ -146,7 +176,13 @@ struct BackgroundRefreshExecutionCoordinatorTests {
         let coordinator = DefaultBackgroundRefreshExecutionCoordinator(
             dependencies: AppDependencies(
                 logger: TestLogger(),
-                backgroundRefreshService: PrecomputedBackgroundRefreshServiceSpy(result: .executed(result))
+                backgroundRefreshService: PrecomputedBackgroundRefreshServiceSpy(
+                    result: .executed(result),
+                    configuration: BackgroundRefreshConfiguration(
+                        settingsSnapshot: AppSettingsSnapshot(refreshIntervalPreference: .hourly),
+                        policy: BackgroundRefreshPolicy(preference: .hourly)
+                    )
+                )
             )
         )
 
@@ -163,17 +199,26 @@ struct BackgroundRefreshExecutionCoordinatorTests {
 
     @Test
     func backgroundRefreshExecutionCoordinatorReturnsFailedToStartOutcomeForPreparationFailure() async {
+        let configuration = BackgroundRefreshConfiguration(
+            settingsSnapshot: AppSettingsSnapshot(refreshIntervalPreference: .hourly),
+            policy: BackgroundRefreshPolicy(preference: .hourly)
+        )
+        let scheduler = RecordingBackgroundRefreshScheduler()
         let coordinator = DefaultBackgroundRefreshExecutionCoordinator(
             dependencies: AppDependencies(
                 logger: TestLogger(),
                 backgroundRefreshService: PrecomputedBackgroundRefreshServiceSpy(
-                    result: .failedToStart(.configurationLoadFailed)
-                )
+                    result: .failedToStart(.configurationLoadFailed),
+                    configuration: configuration
+                ),
+                backgroundRefreshScheduler: scheduler
             )
         )
 
         let outcome = await coordinator.executeAppRefresh()
 
+        #expect(scheduler.replaceCallCount == 1)
+        #expect(scheduler.lastReplacedConfiguration?.policy.preference == .hourly)
         switch outcome {
         case .failedToStart(let failure):
             #expect(failure == .configurationLoadFailed)
@@ -187,14 +232,18 @@ struct BackgroundRefreshExecutionCoordinatorTests {
 private final class CompletedBackgroundRefreshServiceSpy: BackgroundRefreshService {
     private(set) var performScheduledRefreshCallCount = 0
     private let result: BackgroundFeedRefreshResult?
+    private let configuration: BackgroundRefreshConfiguration
 
-    init(result: BackgroundFeedRefreshResult?) {
+    init(
+        result: BackgroundFeedRefreshResult?,
+        configuration: BackgroundRefreshConfiguration
+    ) {
         self.result = result
+        self.configuration = configuration
     }
 
     func loadConfiguration() throws -> BackgroundRefreshConfiguration {
-        Issue.record("loadConfiguration() should not be used in this test")
-        throw BackgroundRefreshExecutionCoordinatorTestError.unexpectedInvocation
+        configuration
     }
 
     func updatePreference(
@@ -218,14 +267,18 @@ private final class CompletedBackgroundRefreshServiceSpy: BackgroundRefreshServi
 @MainActor
 private final class PrecomputedBackgroundRefreshServiceSpy: BackgroundRefreshService {
     private let result: BackgroundRefreshServiceExecutionResult
+    private let configuration: BackgroundRefreshConfiguration
 
-    init(result: BackgroundRefreshServiceExecutionResult) {
+    init(
+        result: BackgroundRefreshServiceExecutionResult,
+        configuration: BackgroundRefreshConfiguration
+    ) {
         self.result = result
+        self.configuration = configuration
     }
 
     func loadConfiguration() throws -> BackgroundRefreshConfiguration {
-        Issue.record("loadConfiguration() should not be used in this test")
-        throw BackgroundRefreshExecutionCoordinatorTestError.unexpectedInvocation
+        configuration
     }
 
     func updatePreference(
@@ -245,10 +298,14 @@ private final class PrecomputedBackgroundRefreshServiceSpy: BackgroundRefreshSer
 private final class CancellableBackgroundRefreshServiceSpy: BackgroundRefreshService {
     private(set) var performScheduledRefreshCallCount = 0
     private(set) var observedCancellation = false
+    private let configuration: BackgroundRefreshConfiguration
+
+    init(configuration: BackgroundRefreshConfiguration) {
+        self.configuration = configuration
+    }
 
     func loadConfiguration() throws -> BackgroundRefreshConfiguration {
-        Issue.record("loadConfiguration() should not be used in this test")
-        throw BackgroundRefreshExecutionCoordinatorTestError.unexpectedInvocation
+        configuration
     }
 
     func updatePreference(
@@ -277,4 +334,34 @@ private final class CancellableBackgroundRefreshServiceSpy: BackgroundRefreshSer
 
 private enum BackgroundRefreshExecutionCoordinatorTestError: Error {
     case unexpectedInvocation
+}
+
+@MainActor
+private final class RecordingBackgroundRefreshScheduler: BackgroundRefreshScheduling {
+    private(set) var replaceCallCount = 0
+    private(set) var lastReplacedConfiguration: BackgroundRefreshConfiguration?
+
+    func schedule(
+        using configuration: BackgroundRefreshConfiguration,
+        now: Date
+    ) throws -> BackgroundRefreshSchedulePlan? {
+        lastReplacedConfiguration = configuration
+        return DefaultBackgroundRefreshScheduler.makeSchedulePlan(using: configuration, now: now)
+    }
+
+    func cancel() {}
+
+    func replace(
+        using configuration: BackgroundRefreshConfiguration,
+        now: Date
+    ) throws -> BackgroundRefreshScheduleResult {
+        replaceCallCount += 1
+        lastReplacedConfiguration = configuration
+
+        if let plan = DefaultBackgroundRefreshScheduler.makeSchedulePlan(using: configuration, now: now) {
+            return .scheduled(plan)
+        }
+
+        return .cancelled
+    }
 }
