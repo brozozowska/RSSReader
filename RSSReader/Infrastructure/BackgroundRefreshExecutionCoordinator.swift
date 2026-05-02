@@ -34,6 +34,7 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
     }
 
     func executeAppRefresh() async -> BackgroundRefreshExecutionOutcome {
+        dependencies.logger.info("Starting background refresh execution")
         let refreshTask = Task { @MainActor in
             await dependencies.refreshFeedsForBackground()
         }
@@ -51,6 +52,7 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
             refreshTask.cancel()
         }
 
+        logExecutionOutcome(outcome)
         replaceBackgroundRefreshScheduleAfterExecution()
         dependencies.backgroundRefreshForegroundHandoffCoordinator
             .handleBackgroundRefreshExecutionOutcome(outcome)
@@ -95,12 +97,67 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
 
     private func replaceBackgroundRefreshScheduleAfterExecution() {
         do {
-            _ = try dependencies.replaceBackgroundRefreshSchedule(now: .now)
+            guard let result = try dependencies.replaceBackgroundRefreshSchedule(now: .now) else {
+                dependencies.logger.error(
+                    "Background refresh execution reschedule outcome=serviceUnavailable"
+                )
+                return
+            }
+
+            switch result {
+            case .scheduled(let plan):
+                dependencies.logger.info(
+                    "Background refresh execution reschedule outcome=scheduled identifier=\(plan.identifier) earliestBeginDate=\(plan.earliestBeginDate)"
+                )
+            case .cancelled:
+                dependencies.logger.info(
+                    "Background refresh execution reschedule outcome=cancelled"
+                )
+            }
         } catch {
             dependencies.logger.error(
-                "Failed to replace background refresh schedule after background execution: \(error)"
+                "Background refresh execution reschedule outcome=failed error=\(error)"
             )
         }
+    }
+
+    private func logExecutionOutcome(_ outcome: BackgroundRefreshExecutionOutcome) {
+        switch outcome {
+        case .success(let result):
+            dependencies.logger.info(
+                "Completed background refresh execution outcome=success \(Self.makeSummaryLogFields(from: result.summary)) duration=\(result.duration)"
+            )
+        case .partialFailure(let result):
+            dependencies.logger.info(
+                "Completed background refresh execution outcome=partialFailure \(Self.makeSummaryLogFields(from: result.summary)) duration=\(result.duration)"
+            )
+        case .totalFailure(let result):
+            dependencies.logger.info(
+                "Completed background refresh execution outcome=totalFailure \(Self.makeSummaryLogFields(from: result.summary)) duration=\(result.duration)"
+            )
+        case .skippedManual(let configuration):
+            dependencies.logger.info(
+                "Completed background refresh execution outcome=skippedManual refreshIntervalPreference=\(configuration.policy.preference.rawValue)"
+            )
+        case .failedToStart(let failure):
+            dependencies.logger.error(
+                "Completed background refresh execution outcome=failedToStart reason=\(failure.logDescription)"
+            )
+        case .cancelled(let result):
+            if let result {
+                dependencies.logger.info(
+                    "Completed background refresh execution outcome=cancelled partialResultAvailable=true \(Self.makeSummaryLogFields(from: result.summary)) duration=\(result.duration)"
+                )
+            } else {
+                dependencies.logger.info(
+                    "Completed background refresh execution outcome=cancelled partialResultAvailable=false"
+                )
+            }
+        }
+    }
+
+    private static func makeSummaryLogFields(from summary: FeedRefreshBatchSummary) -> String {
+        "totalFeedCount=\(summary.totalFeedCount) fetchedCount=\(summary.fetchedCount) notModifiedCount=\(summary.notModifiedCount) failedCount=\(summary.failedCount) cancelledCount=\(summary.cancelledCount)"
     }
 }
 
@@ -111,6 +168,17 @@ private extension BackgroundRefreshServiceExecutionResult {
             result
         case .skippedManual, .failedToStart:
             nil
+        }
+    }
+}
+
+private extension BackgroundRefreshServiceExecutionFailure {
+    var logDescription: String {
+        switch self {
+        case .configurationLoadFailed:
+            "configurationLoadFailed"
+        case .feedRefreshServiceUnavailable:
+            "feedRefreshServiceUnavailable"
         }
     }
 }

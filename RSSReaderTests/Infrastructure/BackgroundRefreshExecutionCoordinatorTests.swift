@@ -22,9 +22,10 @@ struct BackgroundRefreshExecutionCoordinatorTests {
             result: expectedResult,
             configuration: configuration
         )
+        let logger = RecordingLogger()
         let scheduler = RecordingBackgroundRefreshScheduler()
         let dependencies = AppDependencies(
-            logger: TestLogger(),
+            logger: logger,
             backgroundRefreshService: backgroundRefreshService,
             backgroundRefreshScheduler: scheduler
         )
@@ -35,6 +36,10 @@ struct BackgroundRefreshExecutionCoordinatorTests {
         #expect(backgroundRefreshService.performScheduledRefreshCallCount == 1)
         #expect(scheduler.replaceCallCount == 1)
         #expect(scheduler.lastReplacedConfiguration?.policy.preference == .hourly)
+        #expect(logger.contains("Starting background refresh execution", level: .info))
+        #expect(logger.contains("Completed background refresh execution outcome=success", level: .info))
+        #expect(logger.contains("fetchedCount=0", level: .info))
+        #expect(logger.contains("Background refresh execution reschedule outcome=scheduled", level: .info))
         switch outcome {
         case .success(let result):
             #expect(result.trigger == .background)
@@ -51,9 +56,10 @@ struct BackgroundRefreshExecutionCoordinatorTests {
             policy: BackgroundRefreshPolicy(preference: .every6Hours)
         )
         let backgroundRefreshService = CancellableBackgroundRefreshServiceSpy(configuration: configuration)
+        let logger = RecordingLogger()
         let scheduler = RecordingBackgroundRefreshScheduler()
         let dependencies = AppDependencies(
-            logger: TestLogger(),
+            logger: logger,
             backgroundRefreshService: backgroundRefreshService,
             backgroundRefreshScheduler: scheduler
         )
@@ -71,6 +77,8 @@ struct BackgroundRefreshExecutionCoordinatorTests {
         #expect(backgroundRefreshService.observedCancellation)
         #expect(scheduler.replaceCallCount == 1)
         #expect(scheduler.lastReplacedConfiguration?.policy.preference == .every6Hours)
+        #expect(logger.contains("Completed background refresh execution outcome=cancelled partialResultAvailable=false", level: .info))
+        #expect(logger.contains("Background refresh execution reschedule outcome=scheduled", level: .info))
         switch outcome {
         case .success, .partialFailure, .totalFailure, .skippedManual, .failedToStart:
             Issue.record("Expected cancelled execution outcome")
@@ -85,13 +93,14 @@ struct BackgroundRefreshExecutionCoordinatorTests {
             settingsSnapshot: AppSettingsSnapshot(refreshIntervalPreference: .manual),
             policy: BackgroundRefreshPolicy(preference: .manual)
         )
+        let logger = RecordingLogger()
         let scheduler = RecordingBackgroundRefreshScheduler()
         let backgroundRefreshService = PrecomputedBackgroundRefreshServiceSpy(
             result: .skippedManual(configuration),
             configuration: configuration
         )
         let dependencies = AppDependencies(
-            logger: TestLogger(),
+            logger: logger,
             backgroundRefreshService: backgroundRefreshService,
             backgroundRefreshScheduler: scheduler
         )
@@ -101,6 +110,13 @@ struct BackgroundRefreshExecutionCoordinatorTests {
 
         #expect(scheduler.replaceCallCount == 1)
         #expect(scheduler.lastReplacedConfiguration?.policy.preference == .manual)
+        #expect(
+            logger.contains(
+                "Completed background refresh execution outcome=skippedManual refreshIntervalPreference=manual",
+                level: .info
+            )
+        )
+        #expect(logger.contains("Background refresh execution reschedule outcome=cancelled", level: .info))
         switch outcome {
         case .skippedManual(let resolvedConfiguration):
             #expect(resolvedConfiguration.policy.preference == .manual)
@@ -203,10 +219,11 @@ struct BackgroundRefreshExecutionCoordinatorTests {
             settingsSnapshot: AppSettingsSnapshot(refreshIntervalPreference: .hourly),
             policy: BackgroundRefreshPolicy(preference: .hourly)
         )
+        let logger = RecordingLogger()
         let scheduler = RecordingBackgroundRefreshScheduler()
         let coordinator = DefaultBackgroundRefreshExecutionCoordinator(
             dependencies: AppDependencies(
-                logger: TestLogger(),
+                logger: logger,
                 backgroundRefreshService: PrecomputedBackgroundRefreshServiceSpy(
                     result: .failedToStart(.configurationLoadFailed),
                     configuration: configuration
@@ -219,11 +236,55 @@ struct BackgroundRefreshExecutionCoordinatorTests {
 
         #expect(scheduler.replaceCallCount == 1)
         #expect(scheduler.lastReplacedConfiguration?.policy.preference == .hourly)
+        #expect(
+            logger.contains(
+                "Completed background refresh execution outcome=failedToStart reason=configurationLoadFailed",
+                level: .error
+            )
+        )
         switch outcome {
         case .failedToStart(let failure):
             #expect(failure == .configurationLoadFailed)
         case .success, .partialFailure, .totalFailure, .skippedManual, .cancelled:
             Issue.record("Expected failed-to-start execution outcome")
+        }
+    }
+
+    @Test
+    func backgroundRefreshExecutionCoordinatorLogsRescheduleFailure() async {
+        let configuration = BackgroundRefreshConfiguration(
+            settingsSnapshot: AppSettingsSnapshot(refreshIntervalPreference: .manual),
+            policy: BackgroundRefreshPolicy(preference: .manual)
+        )
+        let logger = RecordingLogger()
+        let scheduler = RecordingBackgroundRefreshScheduler(
+            replaceError: BackgroundRefreshExecutionCoordinatorTestError.unexpectedInvocation
+        )
+        let coordinator = DefaultBackgroundRefreshExecutionCoordinator(
+            dependencies: AppDependencies(
+                logger: logger,
+                backgroundRefreshService: PrecomputedBackgroundRefreshServiceSpy(
+                    result: .skippedManual(configuration),
+                    configuration: configuration
+                ),
+                backgroundRefreshScheduler: scheduler
+            )
+        )
+
+        let outcome = await coordinator.executeAppRefresh()
+
+        #expect(scheduler.replaceCallCount == 1)
+        #expect(
+            logger.contains(
+                "Background refresh execution reschedule outcome=failed error=",
+                level: .error
+            )
+        )
+        switch outcome {
+        case .skippedManual(let resolvedConfiguration):
+            #expect(resolvedConfiguration.policy.preference == .manual)
+        case .success, .partialFailure, .totalFailure, .failedToStart, .cancelled:
+            Issue.record("Expected skipped manual execution outcome")
         }
     }
 }
@@ -340,6 +401,11 @@ private enum BackgroundRefreshExecutionCoordinatorTestError: Error {
 private final class RecordingBackgroundRefreshScheduler: BackgroundRefreshScheduling {
     private(set) var replaceCallCount = 0
     private(set) var lastReplacedConfiguration: BackgroundRefreshConfiguration?
+    private let replaceError: Error?
+
+    init(replaceError: Error? = nil) {
+        self.replaceError = replaceError
+    }
 
     func schedule(
         using configuration: BackgroundRefreshConfiguration,
@@ -357,6 +423,10 @@ private final class RecordingBackgroundRefreshScheduler: BackgroundRefreshSchedu
     ) throws -> BackgroundRefreshScheduleResult {
         replaceCallCount += 1
         lastReplacedConfiguration = configuration
+
+        if let replaceError {
+            throw replaceError
+        }
 
         if let plan = DefaultBackgroundRefreshScheduler.makeSchedulePlan(using: configuration, now: now) {
             return .scheduled(plan)
