@@ -167,6 +167,76 @@ struct AppSettingsServiceTests {
     }
 
     @Test
+    func backgroundRefreshMaterializesArticlesInSharedLocalCacheUsedByQueryServices() async throws {
+        let feedURL = "https://example.com/background-feed.xml"
+        let articleExternalID = "background-article-1"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: [
+                            "Content-Type": "application/rss+xml; charset=utf-8"
+                        ],
+                        body: makeValidRSSFeedXML(
+                            channelTitle: "Background Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Materialized In Shared Cache",
+                            itemLink: "https://example.com/articles/background-1",
+                            itemGUID: articleExternalID,
+                            itemDescription: "Background refresh article",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let articleQueryService = try #require(harness.dependencies.articleQueryService)
+        let feed = Feed(
+            url: feedURL,
+            title: "Background Feed"
+        )
+        try harness.feedRepository.insert(feed)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                refreshIntervalPreference: .hourly,
+                updatedAt: .distantPast
+            )
+        )
+
+        let result = await harness.dependencies.refreshFeedsForBackground()
+
+        let executedResult: BackgroundFeedRefreshResult
+        switch result {
+        case .executed(let refreshResult):
+            executedResult = refreshResult
+        case .skippedManual, .failedToStart:
+            Issue.record("Expected executed background refresh result")
+            return
+        }
+
+        let persistedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        let inboxItems = try articleQueryService.fetchInboxListItems(
+            sortMode: .publishedAtDescending,
+            filter: .all
+        )
+        let visibleItem = try #require(inboxItems.first)
+
+        #expect(executedResult.trigger == .background)
+        #expect(executedResult.summary.totalFeedCount == 1)
+        #expect(executedResult.summary.fetchedCount == 1)
+        #expect(persistedArticles.count == 1)
+        #expect(persistedArticles.first?.title == "Materialized In Shared Cache")
+        #expect(inboxItems.count == 1)
+        #expect(visibleItem.feedID == feed.id)
+        #expect(visibleItem.title == "Materialized In Shared Cache")
+        #expect(visibleItem.articleExternalID == persistedArticles.first?.externalID)
+    }
+
+    @Test
     func appSettingsServiceUpdatesSelectedSourcesFilterRawValueThroughPatch() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
