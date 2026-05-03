@@ -204,7 +204,14 @@ struct CrossDeviceReadingScenarioTests {
         #expect(preRefreshAllItems.isEmpty)
 
         let backgroundResult = await backgroundRefreshService.performScheduledRefresh()
-        let resolvedBackgroundResult = try #require(backgroundResult)
+        let resolvedBackgroundResult: BackgroundFeedRefreshResult
+        switch backgroundResult {
+        case .executed(let result):
+            resolvedBackgroundResult = result
+        case .skippedManual, .failedToStart:
+            Issue.record("Expected executed background refresh result")
+            return
+        }
 
         #expect(resolvedBackgroundResult.trigger == .background)
         #expect(resolvedBackgroundResult.summary.totalFeedCount == 1)

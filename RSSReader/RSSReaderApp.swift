@@ -1,5 +1,11 @@
 import SwiftUI
 
+@MainActor
+func performBackgroundAppRefresh(using dependencies: AppDependencies) async -> BackgroundRefreshExecutionOutcome {
+    let executionCoordinator = DefaultBackgroundRefreshExecutionCoordinator(dependencies: dependencies)
+    return await executionCoordinator.executeAppRefresh()
+}
+
 @main
 struct RSSReaderApp: App {
     static let backgroundAppRefreshIdentifier = BackgroundRefreshTaskConfiguration.appRefreshIdentifier
@@ -16,12 +22,7 @@ struct RSSReaderApp: App {
             AppComposition.makeRoot(dependencies: dependencies)
         }
         .backgroundTask(.appRefresh(Self.backgroundAppRefreshIdentifier)) {
-            await handleBackgroundAppRefresh()
+            _ = await performBackgroundAppRefresh(using: dependencies)
         }
-    }
-
-    @MainActor
-    private func handleBackgroundAppRefresh() async {
-        _ = await dependencies.refreshFeedsForBackground()
     }
 }

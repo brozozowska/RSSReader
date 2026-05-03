@@ -19,6 +19,17 @@ struct BackgroundRefreshConfiguration: Equatable, Sendable {
     let policy: BackgroundRefreshPolicy
 }
 
+enum BackgroundRefreshServiceExecutionFailure: Sendable, Equatable {
+    case configurationLoadFailed
+    case feedRefreshServiceUnavailable
+}
+
+enum BackgroundRefreshServiceExecutionResult: Sendable {
+    case skippedManual(BackgroundRefreshConfiguration)
+    case executed(BackgroundFeedRefreshResult)
+    case failedToStart(BackgroundRefreshServiceExecutionFailure)
+}
+
 @MainActor
 protocol BackgroundRefreshService {
     func loadConfiguration() throws -> BackgroundRefreshConfiguration
@@ -29,7 +40,7 @@ protocol BackgroundRefreshService {
         updatedAt: Date
     ) throws -> BackgroundRefreshConfiguration
 
-    func performScheduledRefresh() async -> BackgroundFeedRefreshResult?
+    func performScheduledRefresh() async -> BackgroundRefreshServiceExecutionResult
 }
 
 @MainActor
@@ -74,26 +85,26 @@ final class DefaultBackgroundRefreshService: BackgroundRefreshService {
         )
     }
 
-    func performScheduledRefresh() async -> BackgroundFeedRefreshResult? {
+    func performScheduledRefresh() async -> BackgroundRefreshServiceExecutionResult {
         let configuration: BackgroundRefreshConfiguration
         do {
             configuration = try loadConfiguration()
         } catch {
             logger.error("Failed to load background refresh configuration: \(error)")
-            return nil
+            return .failedToStart(.configurationLoadFailed)
         }
 
         guard configuration.policy.isAutomaticRefreshEnabled else {
             logger.info("Skipped background refresh because refreshIntervalPreference is manual")
-            return nil
+            return .skippedManual(configuration)
         }
 
         guard let feedRefreshService else {
             logger.error("Feed refresh service is unavailable for background refresh execution")
-            return nil
+            return .failedToStart(.feedRefreshServiceUnavailable)
         }
 
-        return await feedRefreshService.refreshAllActiveFeedsForBackground()
+        return .executed(await feedRefreshService.refreshAllActiveFeedsForBackground())
     }
 }
 

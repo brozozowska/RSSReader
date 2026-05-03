@@ -30,6 +30,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let appSettingsRepository: (any AppSettingsRepository)?
     let appSettingsService: (any AppSettingsService)?
     let backgroundRefreshService: (any BackgroundRefreshService)?
+    let backgroundRefreshForegroundHandoffCoordinator: any BackgroundRefreshForegroundHandoffCoordinating
     let backgroundRefreshScheduler: any BackgroundRefreshScheduling
     let iCloudAccountAvailabilityService: any ICloudAccountAvailabilityService
     let cloudKitRuntimeEventSource: any CloudKitRuntimeEventSource
@@ -53,6 +54,8 @@ public final class AppDependencies: AppDependenciesProtocol {
         syncBackedStoreReference: SyncBackedStoreReference? = nil,
         syncBootstrapPreferenceStore: (any AppSyncBootstrapPreferenceStoring)? = nil,
         syncBootstrapContext: AppSyncBootstrapContext? = nil,
+        backgroundRefreshService: (any BackgroundRefreshService)? = nil,
+        backgroundRefreshForegroundHandoffCoordinator: (any BackgroundRefreshForegroundHandoffCoordinating)? = nil,
         backgroundRefreshScheduler: (any BackgroundRefreshScheduling)? = nil,
         iCloudAccountAvailabilityService: (any ICloudAccountAvailabilityService)? = nil,
         cloudKitRuntimeEventSource: (any CloudKitRuntimeEventSource)? = nil,
@@ -140,13 +143,15 @@ public final class AppDependencies: AppDependenciesProtocol {
                 feedFetchLogRepository: feedFetchLogRepository
             )
         }()
-        let backgroundRefreshService = appSettingsService.map { service in
+        let resolvedBackgroundRefreshService = backgroundRefreshService ?? appSettingsService.map { service in
             DefaultBackgroundRefreshService(
                 logger: logger,
                 appSettingsService: service,
                 feedRefreshService: feedRefreshService
             )
         }
+        let backgroundRefreshForegroundHandoffCoordinator = backgroundRefreshForegroundHandoffCoordinator
+            ?? DefaultBackgroundRefreshForegroundHandoffCoordinator()
         let backgroundRefreshScheduler = backgroundRefreshScheduler
             ?? DefaultBackgroundRefreshScheduler(logger: logger)
         let iCloudAccountAvailabilityService = iCloudAccountAvailabilityService
@@ -174,7 +179,8 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.sourcesSidebarQueryService = sourcesSidebarQueryService
         self.appSettingsRepository = appSettingsRepository
         self.appSettingsService = appSettingsService
-        self.backgroundRefreshService = backgroundRefreshService
+        self.backgroundRefreshService = resolvedBackgroundRefreshService
+        self.backgroundRefreshForegroundHandoffCoordinator = backgroundRefreshForegroundHandoffCoordinator
         self.backgroundRefreshScheduler = backgroundRefreshScheduler
         self.iCloudAccountAvailabilityService = iCloudAccountAvailabilityService
         self.cloudKitRuntimeEventSource = cloudKitRuntimeEventSource
@@ -1061,10 +1067,10 @@ extension AppDependencies {
     }
 
     @MainActor
-    func refreshFeedsForBackground() async -> BackgroundFeedRefreshResult? {
+    func refreshFeedsForBackground() async -> BackgroundRefreshServiceExecutionResult {
         guard let backgroundRefreshService else {
             logger.error("Background refresh service is unavailable")
-            return nil
+            return .failedToStart(.feedRefreshServiceUnavailable)
         }
 
         return await backgroundRefreshService.performScheduledRefresh()
