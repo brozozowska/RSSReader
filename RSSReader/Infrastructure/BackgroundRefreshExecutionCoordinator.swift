@@ -36,6 +36,7 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
 
     func executeAppRefresh() async -> BackgroundRefreshExecutionOutcome {
         dependencies.logger.info("Starting background refresh execution")
+        let cancellationState = BackgroundRefreshCancellationMarkerState()
         let refreshTask = Task { @MainActor in
             await dependencies.refreshFeedsForBackground()
         }
@@ -50,14 +51,11 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
 
             return mapExecutionOutcome(from: serviceResult)
         } onCancel: {
-            Task { @MainActor [dependencies] in
-                dependencies.logger.info(
-                    "Received background refresh task cancellation; cancelling in-flight refresh task"
-                )
-            }
+            cancellationState.markCancellationRequested()
             refreshTask.cancel()
         }
 
+        logCancellationMarkerIfNeeded(cancellationState)
         logExecutionOutcome(outcome)
         replaceBackgroundRefreshScheduleAfterExecution()
         dependencies.backgroundRefreshForegroundHandoffCoordinator
@@ -128,6 +126,15 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
         }
     }
 
+    private func logCancellationMarkerIfNeeded(
+        _ cancellationState: BackgroundRefreshCancellationMarkerState
+    ) {
+        guard cancellationState.consumeCancellationRequested() else { return }
+        dependencies.logger.info(
+            "Received background refresh task cancellation; cancelling in-flight refresh task"
+        )
+    }
+
     private func logExecutionOutcome(_ outcome: BackgroundRefreshExecutionOutcome) {
         switch outcome {
         case .success(let result):
@@ -174,6 +181,27 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
 
     private static func classifyScheduleFailure(_ error: Error) -> String {
         BackgroundRefreshScheduleFailureReason.classify(error).rawValue
+    }
+}
+
+private final class BackgroundRefreshCancellationMarkerState: @unchecked Sendable {
+    private let lock = NSLock()
+    nonisolated(unsafe) private var cancellationRequested = false
+
+    nonisolated
+    func markCancellationRequested() {
+        lock.lock()
+        cancellationRequested = true
+        lock.unlock()
+    }
+
+    nonisolated
+    func consumeCancellationRequested() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        let currentValue = cancellationRequested
+        cancellationRequested = false
+        return currentValue
     }
 }
 

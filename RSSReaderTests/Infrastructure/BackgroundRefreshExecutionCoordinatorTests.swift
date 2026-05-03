@@ -101,7 +101,7 @@ struct BackgroundRefreshExecutionCoordinatorTests {
     }
 
     @Test
-    func backgroundRefreshExecutionCoordinatorCancelsRefreshTaskWhenParentTaskIsCancelled() async {
+    func backgroundRefreshExecutionCoordinatorCancelsRefreshTaskWhenParentTaskIsCancelled() async throws {
         let configuration = BackgroundRefreshConfiguration(
             settingsSnapshot: AppSettingsSnapshot(refreshIntervalPreference: .every6Hours),
             policy: BackgroundRefreshPolicy(preference: .every6Hours)
@@ -136,6 +136,23 @@ struct BackgroundRefreshExecutionCoordinatorTests {
         )
         #expect(logger.contains("Completed background refresh execution outcome=cancelled partialResultAvailable=false", level: .info))
         #expect(logger.contains("Background refresh execution reschedule outcome=scheduled", level: .info))
+        let cancellationMarkerIndex = try #require(
+            logger.entries.firstIndex {
+                $0.level == .info
+                    && $0.message.contains(
+                        "Received background refresh task cancellation; cancelling in-flight refresh task"
+                    )
+            }
+        )
+        let terminalOutcomeMarkerIndex = try #require(
+            logger.entries.firstIndex {
+                $0.level == .info
+                    && $0.message.contains(
+                        "Completed background refresh execution outcome=cancelled partialResultAvailable=false"
+                    )
+            }
+        )
+        #expect(cancellationMarkerIndex < terminalOutcomeMarkerIndex)
         switch outcome {
         case .success, .partialFailure, .totalFailure, .skippedManual, .failedToStart:
             Issue.record("Expected cancelled execution outcome")
