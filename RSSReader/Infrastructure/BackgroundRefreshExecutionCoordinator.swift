@@ -176,7 +176,11 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
 
     private static func makeFailureDiagnosticsLogFields(from result: BackgroundFeedRefreshResult) -> String {
         let diagnostics = result.failureDiagnostics
-        return "networkFailureCount=\(diagnostics.networkFailureCount) likelyNoConnectivity=\(diagnostics.likelyNoConnectivity)"
+        return """
+        networkFailureCount=\(diagnostics.networkFailureCount) \
+        likelyNoConnectivityHeuristic=\(diagnostics.likelyNoConnectivityHeuristic) \
+        connectivityDiagnosticsContract=bestEffort
+        """
     }
 
     private static func classifyScheduleFailure(_ error: Error) -> String {
@@ -249,7 +253,9 @@ private struct BackgroundRefreshFailureDiagnostics {
     let failedCount: Int
     let networkFailureCount: Int
 
-    var likelyNoConnectivity: Bool {
+    // This is a best-effort signal derived from stringly error descriptions.
+    // Validation must not treat it as a typed source of truth for connectivity state.
+    var likelyNoConnectivityHeuristic: Bool {
         failedCount > 0 && networkFailureCount == failedCount
     }
 

@@ -281,7 +281,8 @@ struct BackgroundRefreshExecutionCoordinatorTests {
 
         #expect(logger.contains("Completed background refresh execution outcome=totalFailure", level: .info))
         #expect(logger.contains("networkFailureCount=1", level: .info))
-        #expect(logger.contains("likelyNoConnectivity=true", level: .info))
+        #expect(logger.contains("likelyNoConnectivityHeuristic=true", level: .info))
+        #expect(logger.contains("connectivityDiagnosticsContract=bestEffort", level: .info))
         switch outcome {
         case .totalFailure(let resolvedResult):
             #expect(resolvedResult.summary.totalFeedCount == 1)
