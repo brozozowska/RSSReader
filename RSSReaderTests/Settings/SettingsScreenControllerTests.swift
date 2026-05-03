@@ -1,3 +1,4 @@
+import BackgroundTasks
 import Foundation
 import Testing
 @testable import RSSReader
@@ -485,6 +486,46 @@ struct SettingsScreenControllerTests {
     }
 
     @Test
+    func settingsScreenControllerLogsTypedBackgroundRefreshScheduleFailureAfterRefreshIntervalUpdate() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let logger = RecordingLogger()
+        let scheduler = SettingsRecordingBackgroundRefreshScheduler(
+            replaceError: NSError(
+                domain: BGTaskScheduler.Error.errorDomain,
+                code: BGTaskScheduler.Error.Code.notPermitted.rawValue
+            )
+        )
+        let dependencies = AppDependencies(
+            logger: logger,
+            httpClient: harness.httpClient,
+            feedFetcher: harness.dependencies.feedFetcher,
+            modelContainer: harness.modelContainer,
+            backgroundRefreshScheduler: scheduler
+        )
+        let controller = SettingsScreenController()
+        let repository = try #require(dependencies.appSettingsRepository)
+
+        controller.loadSettings(dependencies: dependencies)
+        controller.handleItemSelection(.refreshInterval)
+        controller.handlePickerOptionSelection(
+            itemID: .refreshInterval,
+            optionID: RefreshPreference.daily.rawValue,
+            dependencies: dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(persistedSettings.refreshIntervalPreference == .daily)
+        #expect(controller.screenState.settingsSnapshot.refreshIntervalPreference == .daily)
+        #expect(
+            logger.contains(
+                "Failed to replace background refresh schedule after refresh interval update",
+                level: .error
+            )
+        )
+        #expect(logger.contains("reason=notPermitted", level: .error))
+    }
+
+    @Test
     func settingsScreenControllerPersistsUpdatedInterfaceThemeModeThroughSettingsService() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
@@ -553,6 +594,11 @@ struct SettingsScreenControllerTests {
 @MainActor
 private final class SettingsRecordingBackgroundRefreshScheduler: BackgroundRefreshScheduling {
     private(set) var lastReplacedConfiguration: BackgroundRefreshConfiguration?
+    private let replaceError: Error?
+
+    init(replaceError: Error? = nil) {
+        self.replaceError = replaceError
+    }
 
     func schedule(
         using configuration: BackgroundRefreshConfiguration,
@@ -569,6 +615,10 @@ private final class SettingsRecordingBackgroundRefreshScheduler: BackgroundRefre
         now: Date
     ) throws -> BackgroundRefreshScheduleResult {
         lastReplacedConfiguration = configuration
+
+        if let replaceError {
+            throw replaceError
+        }
 
         if let plan = DefaultBackgroundRefreshScheduler.makeSchedulePlan(using: configuration, now: now) {
             return .scheduled(plan)

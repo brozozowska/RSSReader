@@ -354,8 +354,9 @@ private extension SettingsScreenController {
                     now: .now
                 )
             } catch {
+                let failureReason = BackgroundRefreshScheduleFailureReason.classify(error).rawValue
                 dependencies.logger.error(
-                    "Failed to replace background refresh schedule after refresh interval update: \(error)"
+                    "Failed to replace background refresh schedule after refresh interval update: reason=\(failureReason) error=\(error)"
                 )
             }
             applyUpdatedSettingsSnapshot(updatedConfiguration.settingsSnapshot)

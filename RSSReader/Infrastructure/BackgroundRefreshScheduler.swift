@@ -11,6 +11,35 @@ enum BackgroundRefreshScheduleResult: Equatable, Sendable {
     case cancelled
 }
 
+enum BackgroundRefreshScheduleFailureReason: String, Sendable {
+    case backgroundRefreshUnavailable
+    case notPermitted
+    case tooManyPendingTaskRequests
+    case immediateRunIneligible
+    case unknown
+
+    static func classify(_ error: Error) -> BackgroundRefreshScheduleFailureReason {
+        let nsError = error as NSError
+        guard nsError.domain == BGTaskScheduler.Error.errorDomain,
+              let code = BGTaskScheduler.Error.Code(rawValue: nsError.code) else {
+            return .unknown
+        }
+
+        return switch code {
+        case .unavailable:
+            BackgroundRefreshScheduleFailureReason.backgroundRefreshUnavailable
+        case .notPermitted:
+            BackgroundRefreshScheduleFailureReason.notPermitted
+        case .tooManyPendingTaskRequests:
+            BackgroundRefreshScheduleFailureReason.tooManyPendingTaskRequests
+        case .immediateRunIneligible:
+            BackgroundRefreshScheduleFailureReason.immediateRunIneligible
+        @unknown default:
+            BackgroundRefreshScheduleFailureReason.unknown
+        }
+    }
+}
+
 protocol BackgroundTaskRequestScheduling {
     func submit(_ taskRequest: BGTaskRequest) throws
     func cancel(taskRequestWithIdentifier identifier: String)

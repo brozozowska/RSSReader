@@ -96,7 +96,10 @@ enum AppComposition {
         do {
             _ = try dependencies.replaceBackgroundRefreshSchedule()
         } catch {
-            dependencies.logger.error("Failed to configure background refresh schedule on app launch: \(error)")
+            let failureReason = BackgroundRefreshScheduleFailureReason.classify(error).rawValue
+            dependencies.logger.error(
+                "Failed to configure background refresh schedule on app launch: reason=\(failureReason) error=\(error)"
+            )
         }
     }
 

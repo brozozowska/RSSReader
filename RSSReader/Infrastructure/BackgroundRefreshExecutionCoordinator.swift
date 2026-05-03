@@ -173,24 +173,7 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
     }
 
     private static func classifyScheduleFailure(_ error: Error) -> String {
-        let nsError = error as NSError
-        guard nsError.domain == BGTaskScheduler.Error.errorDomain,
-              let code = BGTaskScheduler.Error.Code(rawValue: nsError.code) else {
-            return "unknown"
-        }
-
-        switch code {
-        case .unavailable:
-            return "backgroundRefreshUnavailable"
-        case .notPermitted:
-            return "notPermitted"
-        case .tooManyPendingTaskRequests:
-            return "tooManyPendingTaskRequests"
-        case .immediateRunIneligible:
-            return "immediateRunIneligible"
-        @unknown default:
-            return "unknown"
-        }
+        BackgroundRefreshScheduleFailureReason.classify(error).rawValue
     }
 }
 

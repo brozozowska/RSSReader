@@ -1,3 +1,4 @@
+import BackgroundTasks
 import Foundation
 import Testing
 @testable import RSSReader
@@ -56,7 +57,12 @@ struct AppCompositionBackgroundRefreshBootstrapTests {
     @Test
     func appCompositionLogsLaunchSchedulingFailure() throws {
         let logger = RecordingLogger()
-        let scheduler = FailingBackgroundRefreshScheduler()
+        let scheduler = FailingBackgroundRefreshScheduler(
+            error: NSError(
+                domain: BGTaskScheduler.Error.errorDomain,
+                code: BGTaskScheduler.Error.Code.unavailable.rawValue
+            )
+        )
         let dependencies = try makeDependencies(
             logger: logger,
             backgroundRefreshScheduler: scheduler
@@ -70,6 +76,7 @@ struct AppCompositionBackgroundRefreshBootstrapTests {
                 level: .error
             )
         )
+        #expect(logger.contains("reason=backgroundRefreshUnavailable", level: .error))
     }
 
     private func makeDependencies(
@@ -89,13 +96,19 @@ struct AppCompositionBackgroundRefreshBootstrapTests {
 
 @MainActor
 private final class FailingBackgroundRefreshScheduler: BackgroundRefreshScheduling {
+    private let error: Error
+
+    init(error: Error = SchedulerFailure()) {
+        self.error = error
+    }
+
     struct SchedulerFailure: Error {}
 
     func schedule(
         using configuration: BackgroundRefreshConfiguration,
         now: Date
     ) throws -> BackgroundRefreshSchedulePlan? {
-        throw SchedulerFailure()
+        throw error
     }
 
     func cancel() {}
@@ -104,7 +117,7 @@ private final class FailingBackgroundRefreshScheduler: BackgroundRefreshScheduli
         using configuration: BackgroundRefreshConfiguration,
         now: Date
     ) throws -> BackgroundRefreshScheduleResult {
-        throw SchedulerFailure()
+        throw error
     }
 }
 
