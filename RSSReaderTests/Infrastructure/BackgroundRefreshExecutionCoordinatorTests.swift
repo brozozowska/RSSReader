@@ -51,6 +51,56 @@ struct BackgroundRefreshExecutionCoordinatorTests {
     }
 
     @Test
+    func backgroundRefreshExecutionCoordinatorReschedulesBeforeForegroundHandoff() async {
+        let expectedResult = BackgroundFeedRefreshResult(
+            batchResult: FeedRefreshBatchResult(
+                startedAt: .distantPast,
+                finishedAt: .distantPast.addingTimeInterval(5),
+                results: []
+            )
+        )
+        let configuration = BackgroundRefreshConfiguration(
+            settingsSnapshot: AppSettingsSnapshot(refreshIntervalPreference: .hourly),
+            policy: BackgroundRefreshPolicy(preference: .hourly)
+        )
+        let eventRecorder = ExecutionEventRecorder()
+        let scheduler = RecordingBackgroundRefreshScheduler {
+            eventRecorder.record("reschedule")
+        }
+        let handoffCoordinator = RecordingBackgroundRefreshForegroundHandoffCoordinator {
+            eventRecorder.record("handoff")
+        }
+        let coordinator = DefaultBackgroundRefreshExecutionCoordinator(
+            dependencies: AppDependencies(
+                logger: TestLogger(),
+                backgroundRefreshService: CompletedBackgroundRefreshServiceSpy(
+                    result: expectedResult,
+                    configuration: configuration
+                ),
+                backgroundRefreshForegroundHandoffCoordinator: handoffCoordinator,
+                backgroundRefreshScheduler: scheduler
+            )
+        )
+
+        let outcome = await coordinator.executeAppRefresh()
+
+        #expect(eventRecorder.events == ["reschedule", "handoff"])
+        #expect(handoffCoordinator.handleCallCount == 1)
+        switch handoffCoordinator.lastOutcome {
+        case .success(let handedOffResult):
+            #expect(handedOffResult.duration == 5)
+        case .partialFailure, .totalFailure, .skippedManual, .failedToStart, .cancelled, nil:
+            Issue.record("Expected success outcome to be handed off after reschedule")
+        }
+        switch outcome {
+        case .success:
+            break
+        case .partialFailure, .totalFailure, .skippedManual, .failedToStart, .cancelled:
+            Issue.record("Expected success execution outcome")
+        }
+    }
+
+    @Test
     func backgroundRefreshExecutionCoordinatorCancelsRefreshTaskWhenParentTaskIsCancelled() async {
         let configuration = BackgroundRefreshConfiguration(
             settingsSnapshot: AppSettingsSnapshot(refreshIntervalPreference: .every6Hours),
@@ -416,9 +466,14 @@ private final class RecordingBackgroundRefreshScheduler: BackgroundRefreshSchedu
     private(set) var replaceCallCount = 0
     private(set) var lastReplacedConfiguration: BackgroundRefreshConfiguration?
     private let replaceError: Error?
+    private let onReplace: (() -> Void)?
 
-    init(replaceError: Error? = nil) {
+    init(
+        replaceError: Error? = nil,
+        onReplace: (() -> Void)? = nil
+    ) {
         self.replaceError = replaceError
+        self.onReplace = onReplace
     }
 
     func schedule(
@@ -442,10 +497,44 @@ private final class RecordingBackgroundRefreshScheduler: BackgroundRefreshSchedu
             throw replaceError
         }
 
+        onReplace?()
+
         if let plan = DefaultBackgroundRefreshScheduler.makeSchedulePlan(using: configuration, now: now) {
             return .scheduled(plan)
         }
 
         return .cancelled
+    }
+}
+
+@MainActor
+private final class RecordingBackgroundRefreshForegroundHandoffCoordinator: BackgroundRefreshForegroundHandoffCoordinating {
+    private(set) var handleCallCount = 0
+    private(set) var lastOutcome: BackgroundRefreshExecutionOutcome?
+    private let onHandle: (() -> Void)?
+
+    init(onHandle: (() -> Void)? = nil) {
+        self.onHandle = onHandle
+    }
+
+    func bindReloadHandler(_ handler: @escaping @MainActor () -> Void) {}
+
+    func unbindReloadHandler() {}
+
+    func updateRuntimeState(_ runtimeState: AppRuntimeReloadState) {}
+
+    func handleBackgroundRefreshExecutionOutcome(_ outcome: BackgroundRefreshExecutionOutcome) {
+        handleCallCount += 1
+        lastOutcome = outcome
+        onHandle?()
+    }
+}
+
+@MainActor
+private final class ExecutionEventRecorder {
+    private(set) var events: [String] = []
+
+    func record(_ event: String) {
+        events.append(event)
     }
 }
