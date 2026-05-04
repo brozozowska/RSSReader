@@ -90,17 +90,17 @@ final class DefaultBackgroundRefreshService: BackgroundRefreshService {
         do {
             configuration = try loadConfiguration()
         } catch {
-            logger.error("Failed to load background refresh configuration: \(error)")
+            logger.debug("Background refresh service trace outcome=configurationLoadFailed error=\(error)")
             return .failedToStart(.configurationLoadFailed)
         }
 
         guard configuration.policy.isAutomaticRefreshEnabled else {
-            logger.info("Skipped background refresh because refreshIntervalPreference is manual")
+            logger.debug("Background refresh service trace outcome=skippedManual")
             return .skippedManual(configuration)
         }
 
         guard let feedRefreshService else {
-            logger.error("Feed refresh service is unavailable for background refresh execution")
+            logger.debug("Background refresh service trace outcome=feedRefreshServiceUnavailable")
             return .failedToStart(.feedRefreshServiceUnavailable)
         }
 

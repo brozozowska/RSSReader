@@ -977,6 +977,72 @@ struct AppDependenciesTests {
     }
 
     @Test
+    func appLevelReloadBoundaryKeepsRemoteSyncAndBackgroundRefreshTriggersSeparateAfterDiagnosticsCleanup() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let syncCoordinator = SyncCoordinator(isSyncEnabled: true)
+        syncCoordinator.applyAccountAvailability(.available)
+        let cloudKitRuntimeEventSource = TestCloudKitRuntimeEventSource()
+        let remoteChangeSource = TestPersistentStoreRemoteChangeSource()
+        let backgroundRefreshHandoffCoordinator = RecordingBackgroundRefreshForegroundHandoffCoordinator()
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            httpClient: harness.httpClient,
+            modelContainer: harness.modelContainer,
+            syncBackedStoreReference: testSyncBackedStoreReference(),
+            backgroundRefreshForegroundHandoffCoordinator: backgroundRefreshHandoffCoordinator,
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            persistentStoreRemoteChangeSource: remoteChangeSource,
+            syncCoordinator: syncCoordinator
+        )
+        let appState = AppState()
+        let initialSidebarReloadID = appState.sourcesSidebarReloadID
+        let initialArticleListReloadID = appState.articleListReloadID
+        let initialArticleScreenReloadID = appState.articleScreenReloadID
+
+        AppComposition.bindBackgroundRefreshForegroundReloadHandler(
+            using: dependencies,
+            appState: appState
+        )
+        dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+
+        backgroundRefreshHandoffCoordinator.triggerBoundReloadHandler()
+
+        #expect(appState.lastContentReloadTrigger == .backgroundRefresh)
+        #expect(appState.sourcesSidebarReloadID != initialSidebarReloadID)
+        #expect(appState.articleListReloadID != initialArticleListReloadID)
+        #expect(appState.articleScreenReloadID != initialArticleScreenReloadID)
+
+        let backgroundRefreshSidebarReloadID = appState.sourcesSidebarReloadID
+        let backgroundRefreshArticleListReloadID = appState.articleListReloadID
+        let backgroundRefreshArticleScreenReloadID = appState.articleScreenReloadID
+
+        await remoteChangeSource.yield(
+            PersistentStoreRemoteChangeEvent(
+                storeUUID: "SyncBackedStore",
+                storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
+            )
+        )
+        await cloudKitRuntimeEventSource.yield(
+            .finished(
+                .import,
+                CloudKitRuntimeEventContext(
+                    identifier: UUID(),
+                    storeIdentifier: "SyncBackedStore",
+                    startDate: .distantPast,
+                    endDate: .now
+                )
+            )
+        )
+
+        try await expectEventually {
+            appState.lastContentReloadTrigger == .remoteSyncImport
+                && appState.sourcesSidebarReloadID != backgroundRefreshSidebarReloadID
+                && appState.articleListReloadID != backgroundRefreshArticleListReloadID
+                && appState.articleScreenReloadID != backgroundRefreshArticleScreenReloadID
+        }
+    }
+
+    @Test
     func appDependenciesStopSyncRuntimeAppLifetimeCancelsRemoteReloadObservation() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let syncCoordinator = SyncCoordinator(isSyncEnabled: true)
@@ -1067,6 +1133,29 @@ private actor TestICloudAccountAvailabilityService: ICloudAccountAvailabilitySer
 
     func yield(_ availability: ICloudAccountAvailability) {
         continuation.yield(availability)
+    }
+}
+
+@MainActor
+private final class RecordingBackgroundRefreshForegroundHandoffCoordinator:
+    BackgroundRefreshForegroundHandoffCoordinating
+{
+    private var reloadHandler: (@MainActor () -> Void)?
+
+    func bindReloadHandler(_ handler: @escaping @MainActor () -> Void) {
+        reloadHandler = handler
+    }
+
+    func unbindReloadHandler() {
+        reloadHandler = nil
+    }
+
+    func updateRuntimeState(_ runtimeState: AppRuntimeReloadState) {}
+
+    func handleBackgroundRefreshExecutionOutcome(_ outcome: BackgroundRefreshExecutionOutcome) {}
+
+    func triggerBoundReloadHandler() {
+        reloadHandler?()
     }
 }
 

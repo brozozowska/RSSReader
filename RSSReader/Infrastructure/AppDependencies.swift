@@ -535,6 +535,23 @@ extension AppDependencies {
 
 extension AppDependencies {
     @MainActor
+    func reportBackgroundRefreshRegistrationConfigured(
+        identifier: String = BackgroundRefreshTaskConfiguration.appRefreshIdentifier,
+        handlerDescription: String = "SwiftUI.backgroundTask(.appRefresh)"
+    ) {
+        backgroundRefreshValidationDiagnosticsReporter.reportRegistrationConfigured(
+            identifier: identifier,
+            handlerDescription: handlerDescription
+        )
+    }
+
+    @MainActor
+    func executeBackgroundAppRefresh() async -> BackgroundRefreshExecutionOutcome {
+        let executionCoordinator = DefaultBackgroundRefreshExecutionCoordinator(dependencies: self)
+        return await executionCoordinator.executeAppRefresh()
+    }
+
+    @MainActor
     func startSyncCoordinatorAppLifetime() {
         syncRuntimeOrchestrator.startSyncCoordinatorAppLifetime()
     }
@@ -1078,7 +1095,9 @@ extension AppDependencies {
     @MainActor
     func refreshFeedsForBackground() async -> BackgroundRefreshServiceExecutionResult {
         guard let backgroundRefreshService else {
-            logger.error("Background refresh service is unavailable")
+            logger.debug(
+                "Background refresh dependencies trace outcome=serviceUnavailable operation=executeBackgroundAppRefresh"
+            )
             return .failedToStart(.feedRefreshServiceUnavailable)
         }
 
@@ -1096,6 +1115,32 @@ extension AppDependencies {
     }
 
     @MainActor
+    func configureBackgroundRefreshLaunchScheduling(now: Date = .now) {
+        do {
+            reportBackgroundRefreshLaunchScheduling(
+                try replaceBackgroundRefreshSchedule(now: now)
+            )
+        } catch {
+            backgroundRefreshValidationDiagnosticsReporter.reportLaunchScheduling(
+                outcome: .failed,
+                identifier: nil,
+                earliestBeginDate: nil,
+                failureReason: BackgroundRefreshScheduleFailureReason.classify(error)
+            )
+        }
+    }
+
+    @MainActor
+    func reportSkippedDuplicateBackgroundRefreshLaunchSchedulingAttempt() {
+        backgroundRefreshValidationDiagnosticsReporter.reportLaunchScheduling(
+            outcome: .skippedDuplicateLaunchAttempt,
+            identifier: nil,
+            earliestBeginDate: nil,
+            failureReason: nil
+        )
+    }
+
+    @MainActor
     @discardableResult
     func replaceBackgroundRefreshSchedule(
         using configuration: BackgroundRefreshConfiguration,
@@ -1110,7 +1155,9 @@ extension AppDependencies {
         now: Date = .now
     ) throws -> BackgroundRefreshScheduleResult? {
         guard let backgroundRefreshService else {
-            logger.error("Background refresh service is unavailable for schedule replacement")
+            logger.debug(
+                "Background refresh dependencies trace outcome=serviceUnavailable operation=replaceSchedule"
+            )
             return nil
         }
 
@@ -1120,6 +1167,33 @@ extension AppDependencies {
 }
 
 private extension AppDependencies {
+    @MainActor
+    func reportBackgroundRefreshLaunchScheduling(_ result: BackgroundRefreshScheduleResult?) {
+        switch result {
+        case .scheduled(let plan):
+            backgroundRefreshValidationDiagnosticsReporter.reportLaunchScheduling(
+                outcome: .scheduled,
+                identifier: plan.identifier,
+                earliestBeginDate: plan.earliestBeginDate,
+                failureReason: nil
+            )
+        case .cancelled:
+            backgroundRefreshValidationDiagnosticsReporter.reportLaunchScheduling(
+                outcome: .cancelled,
+                identifier: nil,
+                earliestBeginDate: nil,
+                failureReason: nil
+            )
+        case nil:
+            backgroundRefreshValidationDiagnosticsReporter.reportLaunchScheduling(
+                outcome: .unavailable,
+                identifier: nil,
+                earliestBeginDate: nil,
+                failureReason: nil
+            )
+        }
+    }
+
     @MainActor
     func shouldPresentSelectedArticleInWebViewByDefault() -> Bool {
         guard let appSettingsService else {

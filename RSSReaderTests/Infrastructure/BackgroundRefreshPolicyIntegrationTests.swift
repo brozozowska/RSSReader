@@ -71,8 +71,8 @@ struct BackgroundRefreshPolicyIntegrationTests {
         #expect(recordingScheduler.lastReplacedConfiguration == nil)
         #expect(
             logger.contains(
-                "Background refresh service is unavailable for schedule replacement",
-                level: .error
+                "Background refresh dependencies trace outcome=serviceUnavailable operation=replaceSchedule",
+                level: .debug
             )
         )
     }

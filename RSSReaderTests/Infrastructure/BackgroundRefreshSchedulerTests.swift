@@ -63,8 +63,8 @@ struct BackgroundRefreshSchedulerTests {
         #expect(request.earliestBeginDate == now.addingTimeInterval(6 * 60 * 60))
         #expect(
             logger.contains(
-                "Scheduled background app refresh request identifier=\(BackgroundRefreshTaskConfiguration.appRefreshIdentifier)",
-                level: .info
+                "Background refresh scheduler trace outcome=scheduled identifier=\(BackgroundRefreshTaskConfiguration.appRefreshIdentifier)",
+                level: .debug
             )
         )
     }
@@ -91,8 +91,8 @@ struct BackgroundRefreshSchedulerTests {
         #expect(taskScheduler.submittedAppRefreshRequests.isEmpty)
         #expect(
             logger.contains(
-                "Skipped scheduling background app refresh because refreshIntervalPreference is manual",
-                level: .info
+                "Background refresh scheduler trace outcome=skippedManual identifier=\(BackgroundRefreshTaskConfiguration.appRefreshIdentifier)",
+                level: .debug
             )
         )
     }
