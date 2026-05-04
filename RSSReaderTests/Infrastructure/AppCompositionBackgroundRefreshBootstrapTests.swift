@@ -28,6 +28,14 @@ struct AppCompositionBackgroundRefreshBootstrapTests {
         let configuration = try #require(scheduler.lastReplacedConfiguration)
         #expect(configuration.settingsSnapshot.refreshIntervalPreference == .hourly)
         #expect(configuration.policy.minimumInterval == TimeInterval(60 * 60))
+        let diagnostics = try #require(
+            dependencies.currentBackgroundRefreshValidationDiagnostics().scheduling
+        )
+        #expect(diagnostics.trigger == .launchBootstrap)
+        #expect(diagnostics.outcome == .scheduled)
+        #expect(diagnostics.identifier == BackgroundRefreshTaskConfiguration.appRefreshIdentifier)
+        #expect(diagnostics.earliestBeginDate != nil)
+        #expect(diagnostics.failureReason == nil)
     }
 
     @Test
@@ -52,6 +60,14 @@ struct AppCompositionBackgroundRefreshBootstrapTests {
         let configuration = try #require(scheduler.lastReplacedConfiguration)
         #expect(configuration.settingsSnapshot.refreshIntervalPreference == .manual)
         #expect(configuration.policy.minimumInterval == nil)
+        let diagnostics = try #require(
+            dependencies.currentBackgroundRefreshValidationDiagnostics().scheduling
+        )
+        #expect(diagnostics.trigger == .launchBootstrap)
+        #expect(diagnostics.outcome == .cancelled)
+        #expect(diagnostics.identifier == nil)
+        #expect(diagnostics.earliestBeginDate == nil)
+        #expect(diagnostics.failureReason == nil)
     }
 
     @Test
@@ -72,11 +88,11 @@ struct AppCompositionBackgroundRefreshBootstrapTests {
 
         #expect(
             logger.contains(
-                "Failed to configure background refresh schedule on app launch",
+                "Background refresh validation stage=scheduling",
                 level: .error
             )
         )
-        #expect(logger.contains("reason=backgroundRefreshUnavailable", level: .error))
+        #expect(logger.contains("failureReason=backgroundRefreshUnavailable", level: .error))
     }
 
     @Test
@@ -101,8 +117,8 @@ struct AppCompositionBackgroundRefreshBootstrapTests {
         #expect(scheduler.replaceCallCount == 1)
         #expect(
             logger.contains(
-                "Skipped background refresh launch scheduling because app launch guard already attempted it",
-                level: .debug
+                "Background refresh validation stage=scheduling trigger=launchBootstrap outcome=skippedDuplicateLaunchAttempt",
+                level: .info
             )
         )
     }

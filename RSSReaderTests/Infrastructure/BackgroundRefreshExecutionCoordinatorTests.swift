@@ -37,10 +37,10 @@ struct BackgroundRefreshExecutionCoordinatorTests {
         #expect(backgroundRefreshService.performScheduledRefreshCallCount == 1)
         #expect(scheduler.replaceCallCount == 1)
         #expect(scheduler.lastReplacedConfiguration?.policy.preference == .hourly)
-        #expect(logger.contains("Starting background refresh execution", level: .info))
-        #expect(logger.contains("Completed background refresh execution outcome=success", level: .info))
+        #expect(logger.contains("Background refresh validation stage=executionStart outcome=started", level: .info))
+        #expect(logger.contains("Background refresh validation stage=executionCompletion outcome=success", level: .info))
         #expect(logger.contains("fetchedCount=0", level: .info))
-        #expect(logger.contains("Background refresh execution reschedule outcome=scheduled", level: .info))
+        #expect(logger.contains("Background refresh validation stage=postRunReschedule outcome=scheduled", level: .info))
         switch outcome {
         case .success(let result):
             #expect(result.trigger == .background)
@@ -130,17 +130,18 @@ struct BackgroundRefreshExecutionCoordinatorTests {
         #expect(scheduler.lastReplacedConfiguration?.policy.preference == .every6Hours)
         #expect(
             logger.contains(
-                "Received background refresh task cancellation; cancelling in-flight refresh task",
+                "Background refresh validation stage=executionCancellation outcome=receivedSystemCancellation",
                 level: .info
             )
         )
-        #expect(logger.contains("Completed background refresh execution outcome=cancelled partialResultAvailable=false", level: .info))
-        #expect(logger.contains("Background refresh execution reschedule outcome=scheduled", level: .info))
+        #expect(logger.contains("Background refresh validation stage=executionCompletion outcome=cancelled", level: .info))
+        #expect(logger.contains("partialResultAvailable=false", level: .info))
+        #expect(logger.contains("Background refresh validation stage=postRunReschedule outcome=scheduled", level: .info))
         let cancellationMarkerIndex = try #require(
             logger.entries.firstIndex {
                 $0.level == .info
                     && $0.message.contains(
-                        "Received background refresh task cancellation; cancelling in-flight refresh task"
+                        "Background refresh validation stage=executionCancellation outcome=receivedSystemCancellation"
                     )
             }
         )
@@ -148,7 +149,7 @@ struct BackgroundRefreshExecutionCoordinatorTests {
             logger.entries.firstIndex {
                 $0.level == .info
                     && $0.message.contains(
-                        "Completed background refresh execution outcome=cancelled partialResultAvailable=false"
+                        "Background refresh validation stage=executionCompletion outcome=cancelled"
                     )
             }
         )
@@ -186,11 +187,11 @@ struct BackgroundRefreshExecutionCoordinatorTests {
         #expect(scheduler.lastReplacedConfiguration?.policy.preference == .manual)
         #expect(
             logger.contains(
-                "Completed background refresh execution outcome=skippedManual refreshIntervalPreference=manual",
+                "Background refresh validation stage=executionCompletion outcome=skippedManual refreshIntervalPreference=manual",
                 level: .info
             )
         )
-        #expect(logger.contains("Background refresh execution reschedule outcome=cancelled", level: .info))
+        #expect(logger.contains("Background refresh validation stage=postRunReschedule outcome=cancelled", level: .info))
         switch outcome {
         case .skippedManual(let resolvedConfiguration):
             #expect(resolvedConfiguration.policy.preference == .manual)
@@ -279,10 +280,9 @@ struct BackgroundRefreshExecutionCoordinatorTests {
 
         let outcome = await coordinator.executeAppRefresh()
 
-        #expect(logger.contains("Completed background refresh execution outcome=totalFailure", level: .info))
+        #expect(logger.contains("Background refresh validation stage=executionCompletion outcome=totalFailure", level: .info))
         #expect(logger.contains("networkFailureCount=1", level: .info))
         #expect(logger.contains("likelyNoConnectivityHeuristic=true", level: .info))
-        #expect(logger.contains("connectivityDiagnosticsContract=bestEffort", level: .info))
         switch outcome {
         case .totalFailure(let resolvedResult):
             #expect(resolvedResult.summary.totalFeedCount == 1)
@@ -300,24 +300,34 @@ struct BackgroundRefreshExecutionCoordinatorTests {
         )
         let logger = RecordingLogger()
         let scheduler = RecordingBackgroundRefreshScheduler()
+        let dependencies = AppDependencies(
+            logger: logger,
+            backgroundRefreshService: PrecomputedBackgroundRefreshServiceSpy(
+                result: .failedToStart(.configurationLoadFailed),
+                configuration: configuration
+            ),
+            backgroundRefreshScheduler: scheduler
+        )
         let coordinator = DefaultBackgroundRefreshExecutionCoordinator(
-            dependencies: AppDependencies(
-                logger: logger,
-                backgroundRefreshService: PrecomputedBackgroundRefreshServiceSpy(
-                    result: .failedToStart(.configurationLoadFailed),
-                    configuration: configuration
-                ),
-                backgroundRefreshScheduler: scheduler
-            )
+            dependencies: dependencies
         )
 
         let outcome = await coordinator.executeAppRefresh()
 
         #expect(scheduler.replaceCallCount == 1)
         #expect(scheduler.lastReplacedConfiguration?.policy.preference == .hourly)
+        let diagnostics = dependencies.currentBackgroundRefreshValidationDiagnostics().executionCompletion
+        #expect(diagnostics?.kind == .failedToStart)
+        #expect(diagnostics?.failureReason == "configurationLoadFailed")
         #expect(
             logger.contains(
-                "Completed background refresh execution outcome=failedToStart reason=configurationLoadFailed",
+                "Background refresh validation stage=executionCompletion outcome=failedToStart",
+                level: .error
+            )
+        )
+        #expect(
+            logger.contains(
+                "failureReason=configurationLoadFailed",
                 level: .error
             )
         )
@@ -342,23 +352,33 @@ struct BackgroundRefreshExecutionCoordinatorTests {
                 code: BGTaskScheduler.Error.Code.unavailable.rawValue
             )
         )
+        let dependencies = AppDependencies(
+            logger: logger,
+            backgroundRefreshService: PrecomputedBackgroundRefreshServiceSpy(
+                result: .skippedManual(configuration),
+                configuration: configuration
+            ),
+            backgroundRefreshScheduler: scheduler
+        )
         let coordinator = DefaultBackgroundRefreshExecutionCoordinator(
-            dependencies: AppDependencies(
-                logger: logger,
-                backgroundRefreshService: PrecomputedBackgroundRefreshServiceSpy(
-                    result: .skippedManual(configuration),
-                    configuration: configuration
-                ),
-                backgroundRefreshScheduler: scheduler
-            )
+            dependencies: dependencies
         )
 
         let outcome = await coordinator.executeAppRefresh()
 
         #expect(scheduler.replaceCallCount == 1)
+        let diagnostics = dependencies.currentBackgroundRefreshValidationDiagnostics().postRunReschedule
+        #expect(diagnostics?.outcome == .failed)
+        #expect(diagnostics?.failureReason == .backgroundRefreshUnavailable)
         #expect(
             logger.contains(
-                "Background refresh execution reschedule outcome=failed reason=backgroundRefreshUnavailable",
+                "Background refresh validation stage=postRunReschedule outcome=failed",
+                level: .error
+            )
+        )
+        #expect(
+            logger.contains(
+                "failureReason=backgroundRefreshUnavailable",
                 level: .error
             )
         )
