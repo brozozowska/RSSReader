@@ -30,6 +30,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let appSettingsRepository: (any AppSettingsRepository)?
     let appSettingsService: (any AppSettingsService)?
     let backgroundRefreshService: (any BackgroundRefreshService)?
+    let backgroundRefreshRuntimePrerequisitesSource: any BackgroundRefreshRuntimePrerequisitesSnapshotting
     let backgroundRefreshForegroundHandoffCoordinator: any BackgroundRefreshForegroundHandoffCoordinating
     let backgroundRefreshScheduler: any BackgroundRefreshScheduling
     let iCloudAccountAvailabilityService: any ICloudAccountAvailabilityService
@@ -150,6 +151,9 @@ public final class AppDependencies: AppDependenciesProtocol {
                 feedRefreshService: feedRefreshService
             )
         }
+        let backgroundRefreshRuntimePrerequisitesSource = DefaultBackgroundRefreshRuntimePrerequisitesSource(
+            backgroundRefreshService: resolvedBackgroundRefreshService
+        )
         let backgroundRefreshForegroundHandoffCoordinator = backgroundRefreshForegroundHandoffCoordinator
             ?? DefaultBackgroundRefreshForegroundHandoffCoordinator()
         let backgroundRefreshScheduler = backgroundRefreshScheduler
@@ -180,6 +184,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.appSettingsRepository = appSettingsRepository
         self.appSettingsService = appSettingsService
         self.backgroundRefreshService = resolvedBackgroundRefreshService
+        self.backgroundRefreshRuntimePrerequisitesSource = backgroundRefreshRuntimePrerequisitesSource
         self.backgroundRefreshForegroundHandoffCoordinator = backgroundRefreshForegroundHandoffCoordinator
         self.backgroundRefreshScheduler = backgroundRefreshScheduler
         self.iCloudAccountAvailabilityService = iCloudAccountAvailabilityService
@@ -1074,6 +1079,11 @@ extension AppDependencies {
         }
 
         return await backgroundRefreshService.performScheduledRefresh()
+    }
+
+    @MainActor
+    func currentBackgroundRefreshRuntimePrerequisites() -> BackgroundRefreshRuntimePrerequisitesSnapshot {
+        backgroundRefreshRuntimePrerequisitesSource.currentSnapshot()
     }
 
     @MainActor

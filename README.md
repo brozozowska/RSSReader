@@ -409,7 +409,7 @@
 
 #### Background Refresh Validation
 - [x] добавить явный app-level registration marker для `Background Refresh`: `RSSReaderApp` публикует bootstrap marker для `.backgroundTask(.appRefresh(...))` path и identifier contract, а launch scheduling перенесён из `makeAppDependencies()` в guarded app-root startup path, чтобы `BGTaskScheduler.submit` не происходил раньше registration handler;
-- [ ] добавить typed app-level snapshot для `Background Refresh` runtime prerequisites: собрать в одном месте наблюдаемые runtime состояния (`backgroundRefreshStatus`, `Low Power Mode`, app refresh policy / toggle, current scheduling mode), чтобы future validation и diagnostics не опирались на ручную проверку разрозненных условий;
+- [x] добавить typed app-level snapshot для `Background Refresh` runtime prerequisites: введён отдельный infrastructure-level source, который собирает `backgroundRefreshStatus`, `Low Power Mode`, `refreshIntervalPreference` и app-level `schedulingMode`, а `AppDependencies` публикует этот snapshot как единый runtime entry point для future validation и diagnostics;
 - [ ] ввести единый `Background Refresh` validation diagnostics contract: выровнять log markers и app-level status reporting для registration, scheduling, execution start, cancellation / expiration, completion и post-run reschedule так, чтобы каждый этап имел один ожидаемый operational сигнал;
 - [ ] покрыть tests-ами validation observability layer: registration marker, runtime prerequisites snapshot и diagnostics contract должны проверяться отдельно от уже существующих scheduler / execution orchestration tests.
 
