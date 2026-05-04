@@ -18,7 +18,7 @@ struct RSSReaderAppTests {
         let logger = RecordingLogger()
         let dependencies = AppDependencies(logger: logger)
 
-        reportBackgroundRefreshRegistration(using: dependencies)
+        dependencies.reportBackgroundRefreshRegistrationConfigured()
 
         #expect(
             logger.contains(
@@ -65,7 +65,7 @@ struct RSSReaderAppTests {
             backgroundRefreshScheduler: scheduler
         )
 
-        let outcome = await performBackgroundAppRefresh(using: dependencies)
+        let outcome = await dependencies.executeBackgroundAppRefresh()
 
         #expect(backgroundRefreshService.performScheduledRefreshCallCount == 1)
         #expect(backgroundRefreshService.loadConfigurationCallCount == 1)

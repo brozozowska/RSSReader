@@ -1,22 +1,5 @@
 import SwiftUI
 
-@MainActor
-func performBackgroundAppRefresh(using dependencies: AppDependencies) async -> BackgroundRefreshExecutionOutcome {
-    let executionCoordinator = DefaultBackgroundRefreshExecutionCoordinator(dependencies: dependencies)
-    return await executionCoordinator.executeAppRefresh()
-}
-
-@MainActor
-func reportBackgroundRefreshRegistration(
-    using dependencies: AppDependencies,
-    identifier: String = BackgroundRefreshTaskConfiguration.appRefreshIdentifier
-) {
-    dependencies.backgroundRefreshValidationDiagnosticsReporter.reportRegistrationConfigured(
-        identifier: identifier,
-        handlerDescription: "SwiftUI.backgroundTask(.appRefresh)"
-    )
-}
-
 @main
 struct RSSReaderApp: App {
     static let backgroundAppRefreshIdentifier = BackgroundRefreshTaskConfiguration.appRefreshIdentifier
@@ -27,7 +10,7 @@ struct RSSReaderApp: App {
     init() {
         let dependencies = AppComposition.makeAppDependencies()
         self.dependencies = dependencies
-        reportBackgroundRefreshRegistration(using: dependencies)
+        dependencies.reportBackgroundRefreshRegistrationConfigured()
     }
 
     var body: some Scene {
@@ -35,7 +18,7 @@ struct RSSReaderApp: App {
             AppComposition.makeRoot(dependencies: dependencies)
         }
         .backgroundTask(.appRefresh(Self.backgroundAppRefreshIdentifier)) {
-            _ = await performBackgroundAppRefresh(using: dependencies)
+            _ = await dependencies.executeBackgroundAppRefresh()
         }
     }
 }

@@ -414,8 +414,10 @@
 - [x] покрыть tests-ами validation observability layer: добавлен отдельный infrastructure-level suite для registration marker, runtime prerequisites snapshot и diagnostics reporter contract, чтобы observability-поведение проверялось напрямую, а не только как побочный эффект существующих scheduler / execution orchestration tests.
 
 #### Background Refresh Hardening
-- [ ] провести cleanup / refactor background refresh-related кода после введения validation observability: выровнять границы между scheduler, execution adapter, runtime prerequisites source, `BackgroundRefreshService`, app lifecycle wiring и screen reload helpers, а также убрать временные debug hooks, если они больше не нужны;
-- [ ] сузить `Background Refresh` diagnostics surface до устойчивого app-level contract: после добавления observability убрать дублирующие или слишком низкоуровневые markers и убедиться, что app-level reload boundary между `remote sync reload` и `background refresh reload` не деградировала.
+- [x] провести cleanup / refactor background refresh-related кода после введения validation observability: app lifecycle wiring больше не собирает registration / launch scheduling / execution вручную через top-level helpers и legacy app-level markers; `RSSReaderApp` и `AppComposition` делегируют эти app-level входы в `AppDependencies`, где сходятся `BackgroundRefreshService`, execution coordinator, scheduler и validation diagnostics reporter, а временные debug hooks в launch scheduling path удалены;
+- [ ] убрать legacy app-level launch scheduling markers, которые дублируют новый validation reporter: после появления `BackgroundRefreshValidationDiagnosticsReporter` `AppComposition` не должен публиковать второй параллельный app-level contract для launch scheduling failures и duplicate-launch skips;
+- [ ] сузить `Background Refresh` diagnostics surface до устойчивого app-level contract: решить, какие scheduler / service-level logs остаются внутренними technical traces, а какие больше не нужны после введения observability layer, чтобы validation опирался на один канонический набор markers;
+- [ ] после cleanup diagnostics проверить, что app-level reload boundary между `remote sync reload` и `background refresh reload` не деградировала и не замаскирована новыми hardening-правками.
 
 ### Deferred Validation
 #### Sync Real-Device Validation Kit

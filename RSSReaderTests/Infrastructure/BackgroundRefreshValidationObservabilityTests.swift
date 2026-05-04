@@ -11,7 +11,7 @@ struct BackgroundRefreshValidationObservabilityTests {
         let logger = RecordingLogger()
         let dependencies = AppDependencies(logger: logger)
 
-        reportBackgroundRefreshRegistration(using: dependencies)
+        dependencies.reportBackgroundRefreshRegistrationConfigured()
 
         #expect(
             dependencies.currentBackgroundRefreshValidationDiagnostics().registration
