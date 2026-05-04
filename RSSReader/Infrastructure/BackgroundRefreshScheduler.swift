@@ -90,7 +90,9 @@ final class DefaultBackgroundRefreshScheduler: BackgroundRefreshScheduling {
             now: now,
             taskIdentifier: taskIdentifier
         ) else {
-            logger.info("Skipped scheduling background app refresh because refreshIntervalPreference is manual")
+            logger.debug(
+                "Background refresh scheduler trace outcome=skippedManual identifier=\(taskIdentifier)"
+            )
             return nil
         }
 
@@ -99,13 +101,13 @@ final class DefaultBackgroundRefreshScheduler: BackgroundRefreshScheduling {
 
         do {
             try taskScheduler.submit(request)
-            logger.info(
-                "Scheduled background app refresh request identifier=\(plan.identifier) earliestBeginDate=\(plan.earliestBeginDate)"
+            logger.debug(
+                "Background refresh scheduler trace outcome=scheduled identifier=\(plan.identifier) earliestBeginDate=\(plan.earliestBeginDate)"
             )
             return plan
         } catch {
-            logger.error(
-                "Failed to schedule background app refresh request identifier=\(plan.identifier) earliestBeginDate=\(plan.earliestBeginDate) error=\(error)"
+            logger.debug(
+                "Background refresh scheduler trace outcome=failed identifier=\(plan.identifier) earliestBeginDate=\(plan.earliestBeginDate) error=\(error)"
             )
             throw error
         }
@@ -113,7 +115,7 @@ final class DefaultBackgroundRefreshScheduler: BackgroundRefreshScheduling {
 
     func cancel() {
         taskScheduler.cancel(taskRequestWithIdentifier: taskIdentifier)
-        logger.info("Cancelled background app refresh request identifier=\(taskIdentifier)")
+        logger.debug("Background refresh scheduler trace outcome=cancelled identifier=\(taskIdentifier)")
     }
 
     @discardableResult

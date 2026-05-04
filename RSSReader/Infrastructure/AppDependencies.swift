@@ -1095,7 +1095,9 @@ extension AppDependencies {
     @MainActor
     func refreshFeedsForBackground() async -> BackgroundRefreshServiceExecutionResult {
         guard let backgroundRefreshService else {
-            logger.error("Background refresh service is unavailable")
+            logger.debug(
+                "Background refresh dependencies trace outcome=serviceUnavailable operation=executeBackgroundAppRefresh"
+            )
             return .failedToStart(.feedRefreshServiceUnavailable)
         }
 
@@ -1153,7 +1155,9 @@ extension AppDependencies {
         now: Date = .now
     ) throws -> BackgroundRefreshScheduleResult? {
         guard let backgroundRefreshService else {
-            logger.error("Background refresh service is unavailable for schedule replacement")
+            logger.debug(
+                "Background refresh dependencies trace outcome=serviceUnavailable operation=replaceSchedule"
+            )
             return nil
         }
 
