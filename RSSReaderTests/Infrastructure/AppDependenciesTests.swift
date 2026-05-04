@@ -43,6 +43,21 @@ struct AppDependenciesTests {
     }
 
     @Test
+    func appDependenciesExposeBackgroundRefreshRuntimePrerequisitesSnapshot() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            httpClient: harness.httpClient,
+            modelContainer: harness.modelContainer
+        )
+
+        let snapshot = dependencies.currentBackgroundRefreshRuntimePrerequisites()
+
+        #expect(snapshot.refreshIntervalPreference == .manual)
+        #expect(snapshot.schedulingMode == .manual)
+    }
+
+    @Test
     func appDependenciesBuildSwiftDataConfigurationsWithActiveCloudKitOnlyForSyncBackedStore() throws {
         let configurationPlan = AppDependencies.makeSwiftDataConfigurationPlan(
             modelPartition: AppPersistenceModelPartition.current,

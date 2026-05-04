@@ -35,7 +35,7 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
     }
 
     func executeAppRefresh() async -> BackgroundRefreshExecutionOutcome {
-        dependencies.logger.info("Starting background refresh execution")
+        dependencies.backgroundRefreshValidationDiagnosticsReporter.reportExecutionStarted()
         let cancellationState = BackgroundRefreshCancellationMarkerState()
         let refreshTask = Task { @MainActor in
             await dependencies.refreshFeedsForBackground()
@@ -102,26 +102,38 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
     private func replaceBackgroundRefreshScheduleAfterExecution() {
         do {
             guard let result = try dependencies.replaceBackgroundRefreshSchedule(now: .now) else {
-                dependencies.logger.error(
-                    "Background refresh execution reschedule outcome=serviceUnavailable"
+                dependencies.backgroundRefreshValidationDiagnosticsReporter.reportPostRunReschedule(
+                    outcome: .serviceUnavailable,
+                    identifier: nil,
+                    earliestBeginDate: nil,
+                    failureReason: nil
                 )
                 return
             }
 
             switch result {
             case .scheduled(let plan):
-                dependencies.logger.info(
-                    "Background refresh execution reschedule outcome=scheduled identifier=\(plan.identifier) earliestBeginDate=\(plan.earliestBeginDate)"
+                dependencies.backgroundRefreshValidationDiagnosticsReporter.reportPostRunReschedule(
+                    outcome: .scheduled,
+                    identifier: plan.identifier,
+                    earliestBeginDate: plan.earliestBeginDate,
+                    failureReason: nil
                 )
             case .cancelled:
-                dependencies.logger.info(
-                    "Background refresh execution reschedule outcome=cancelled"
+                dependencies.backgroundRefreshValidationDiagnosticsReporter.reportPostRunReschedule(
+                    outcome: .cancelled,
+                    identifier: nil,
+                    earliestBeginDate: nil,
+                    failureReason: nil
                 )
             }
         } catch {
-            let failureReason = Self.classifyScheduleFailure(error)
-            dependencies.logger.error(
-                "Background refresh execution reschedule outcome=failed reason=\(failureReason) error=\(error)"
+            let failureReason = BackgroundRefreshScheduleFailureReason.classify(error)
+            dependencies.backgroundRefreshValidationDiagnosticsReporter.reportPostRunReschedule(
+                outcome: .failed,
+                identifier: nil,
+                earliestBeginDate: nil,
+                failureReason: failureReason
             )
         }
     }
@@ -130,61 +142,117 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
         _ cancellationState: BackgroundRefreshCancellationMarkerState
     ) {
         guard cancellationState.consumeCancellationRequested() else { return }
-        dependencies.logger.info(
-            "Received background refresh task cancellation; cancelling in-flight refresh task"
-        )
+        dependencies.backgroundRefreshValidationDiagnosticsReporter.reportExecutionCancellationReceived()
     }
 
     private func logExecutionOutcome(_ outcome: BackgroundRefreshExecutionOutcome) {
         switch outcome {
         case .success(let result):
-            dependencies.logger.info(
-                "Completed background refresh execution outcome=success \(Self.makeSummaryLogFields(from: result.summary)) \(Self.makeFailureDiagnosticsLogFields(from: result)) duration=\(result.duration)"
+            dependencies.backgroundRefreshValidationDiagnosticsReporter.reportExecutionCompleted(
+                Self.makeExecutionCompletionDiagnostics(
+                    kind: .success,
+                    result: result
+                )
             )
         case .partialFailure(let result):
-            dependencies.logger.info(
-                "Completed background refresh execution outcome=partialFailure \(Self.makeSummaryLogFields(from: result.summary)) \(Self.makeFailureDiagnosticsLogFields(from: result)) duration=\(result.duration)"
+            dependencies.backgroundRefreshValidationDiagnosticsReporter.reportExecutionCompleted(
+                Self.makeExecutionCompletionDiagnostics(
+                    kind: .partialFailure,
+                    result: result
+                )
             )
         case .totalFailure(let result):
-            dependencies.logger.info(
-                "Completed background refresh execution outcome=totalFailure \(Self.makeSummaryLogFields(from: result.summary)) \(Self.makeFailureDiagnosticsLogFields(from: result)) duration=\(result.duration)"
+            dependencies.backgroundRefreshValidationDiagnosticsReporter.reportExecutionCompleted(
+                Self.makeExecutionCompletionDiagnostics(
+                    kind: .totalFailure,
+                    result: result
+                )
             )
         case .skippedManual(let configuration):
-            dependencies.logger.info(
-                "Completed background refresh execution outcome=skippedManual refreshIntervalPreference=\(configuration.policy.preference.rawValue)"
+            dependencies.backgroundRefreshValidationDiagnosticsReporter.reportExecutionCompleted(
+                BackgroundRefreshExecutionCompletionDiagnostics(
+                    kind: .skippedManual,
+                    refreshIntervalPreference: configuration.policy.preference,
+                    partialResultAvailable: nil,
+                    totalFeedCount: nil,
+                    fetchedCount: nil,
+                    notModifiedCount: nil,
+                    failedCount: nil,
+                    cancelledCount: nil,
+                    networkFailureCount: nil,
+                    likelyNoConnectivityHeuristic: nil,
+                    duration: nil,
+                    failureReason: nil
+                )
             )
         case .failedToStart(let failure):
-            dependencies.logger.error(
-                "Completed background refresh execution outcome=failedToStart reason=\(failure.logDescription)"
+            dependencies.backgroundRefreshValidationDiagnosticsReporter.reportExecutionCompleted(
+                BackgroundRefreshExecutionCompletionDiagnostics(
+                    kind: .failedToStart,
+                    refreshIntervalPreference: nil,
+                    partialResultAvailable: nil,
+                    totalFeedCount: nil,
+                    fetchedCount: nil,
+                    notModifiedCount: nil,
+                    failedCount: nil,
+                    cancelledCount: nil,
+                    networkFailureCount: nil,
+                    likelyNoConnectivityHeuristic: nil,
+                    duration: nil,
+                    failureReason: failure.logDescription
+                )
             )
         case .cancelled(let result):
             if let result {
-                dependencies.logger.info(
-                    "Completed background refresh execution outcome=cancelled partialResultAvailable=true \(Self.makeSummaryLogFields(from: result.summary)) \(Self.makeFailureDiagnosticsLogFields(from: result)) duration=\(result.duration)"
+                dependencies.backgroundRefreshValidationDiagnosticsReporter.reportExecutionCompleted(
+                    Self.makeExecutionCompletionDiagnostics(
+                        kind: .cancelled,
+                        result: result,
+                        partialResultAvailable: true
+                    )
                 )
             } else {
-                dependencies.logger.info(
-                    "Completed background refresh execution outcome=cancelled partialResultAvailable=false"
+                dependencies.backgroundRefreshValidationDiagnosticsReporter.reportExecutionCompleted(
+                    BackgroundRefreshExecutionCompletionDiagnostics(
+                        kind: .cancelled,
+                        refreshIntervalPreference: nil,
+                        partialResultAvailable: false,
+                        totalFeedCount: nil,
+                        fetchedCount: nil,
+                        notModifiedCount: nil,
+                        failedCount: nil,
+                        cancelledCount: nil,
+                        networkFailureCount: nil,
+                        likelyNoConnectivityHeuristic: nil,
+                        duration: nil,
+                        failureReason: nil
+                    )
                 )
             }
         }
     }
 
-    private static func makeSummaryLogFields(from summary: FeedRefreshBatchSummary) -> String {
-        "totalFeedCount=\(summary.totalFeedCount) fetchedCount=\(summary.fetchedCount) notModifiedCount=\(summary.notModifiedCount) failedCount=\(summary.failedCount) cancelledCount=\(summary.cancelledCount)"
-    }
-
-    private static func makeFailureDiagnosticsLogFields(from result: BackgroundFeedRefreshResult) -> String {
-        let diagnostics = result.failureDiagnostics
-        return """
-        networkFailureCount=\(diagnostics.networkFailureCount) \
-        likelyNoConnectivityHeuristic=\(diagnostics.likelyNoConnectivityHeuristic) \
-        connectivityDiagnosticsContract=bestEffort
-        """
-    }
-
-    private static func classifyScheduleFailure(_ error: Error) -> String {
-        BackgroundRefreshScheduleFailureReason.classify(error).rawValue
+    private static func makeExecutionCompletionDiagnostics(
+        kind: BackgroundRefreshExecutionCompletionKind,
+        result: BackgroundFeedRefreshResult,
+        partialResultAvailable: Bool? = nil
+    ) -> BackgroundRefreshExecutionCompletionDiagnostics {
+        let summary = result.summary
+        let failureDiagnostics = result.failureDiagnostics
+        return BackgroundRefreshExecutionCompletionDiagnostics(
+            kind: kind,
+            refreshIntervalPreference: nil,
+            partialResultAvailable: partialResultAvailable,
+            totalFeedCount: summary.totalFeedCount,
+            fetchedCount: summary.fetchedCount,
+            notModifiedCount: summary.notModifiedCount,
+            failedCount: summary.failedCount,
+            cancelledCount: summary.cancelledCount,
+            networkFailureCount: failureDiagnostics.networkFailureCount,
+            likelyNoConnectivityHeuristic: failureDiagnostics.likelyNoConnectivityHeuristic,
+            duration: result.duration,
+            failureReason: nil
+        )
     }
 }
 

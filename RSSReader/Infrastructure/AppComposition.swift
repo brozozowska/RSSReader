@@ -13,6 +13,8 @@ enum AppComposition {
     static let appModels = persistenceModelPartition.allModels
     @MainActor
     static let developmentSchemaBootstrapGuard = AppLaunchBootstrapGuard()
+    @MainActor
+    static let backgroundRefreshLaunchSchedulingGuard = AppLaunchBootstrapGuard()
 
     @MainActor
     static func makeAppDependencies(
@@ -35,7 +37,6 @@ enum AppComposition {
             logger: logger
         )
         dependencies.startSyncCoordinatorAppLifetime()
-        scheduleBackgroundRefreshOnLaunch(using: dependencies)
         return dependencies
     }
 
@@ -94,13 +95,73 @@ enum AppComposition {
     @MainActor
     static func scheduleBackgroundRefreshOnLaunch(using dependencies: AppDependencies) {
         do {
-            _ = try dependencies.replaceBackgroundRefreshSchedule()
+            let result = try dependencies.replaceBackgroundRefreshSchedule()
+            switch result {
+            case .scheduled(let plan):
+                dependencies.backgroundRefreshValidationDiagnosticsReporter.reportLaunchScheduling(
+                    outcome: .scheduled,
+                    identifier: plan.identifier,
+                    earliestBeginDate: plan.earliestBeginDate,
+                    failureReason: nil
+                )
+            case .cancelled:
+                dependencies.backgroundRefreshValidationDiagnosticsReporter.reportLaunchScheduling(
+                    outcome: .cancelled,
+                    identifier: nil,
+                    earliestBeginDate: nil,
+                    failureReason: nil
+                )
+            case nil:
+                dependencies.backgroundRefreshValidationDiagnosticsReporter.reportLaunchScheduling(
+                    outcome: .unavailable,
+                    identifier: nil,
+                    earliestBeginDate: nil,
+                    failureReason: nil
+                )
+            }
         } catch {
             let failureReason = BackgroundRefreshScheduleFailureReason.classify(error).rawValue
+            dependencies.backgroundRefreshValidationDiagnosticsReporter.reportLaunchScheduling(
+                outcome: .failed,
+                identifier: nil,
+                earliestBeginDate: nil,
+                failureReason: BackgroundRefreshScheduleFailureReason.classify(error)
+            )
             dependencies.logger.error(
                 "Failed to configure background refresh schedule on app launch: reason=\(failureReason) error=\(error)"
             )
         }
+    }
+
+    @MainActor
+    static func scheduleBackgroundRefreshOnLaunchIfNeeded(
+        using dependencies: AppDependencies
+    ) {
+        scheduleBackgroundRefreshOnLaunchIfNeeded(
+            using: dependencies,
+            guard: backgroundRefreshLaunchSchedulingGuard
+        )
+    }
+
+    @MainActor
+    static func scheduleBackgroundRefreshOnLaunchIfNeeded(
+        using dependencies: AppDependencies,
+        guard bootstrapGuard: AppLaunchBootstrapGuard
+    ) {
+        guard bootstrapGuard.beginAttempt(identifier: "BackgroundRefreshLaunchScheduling") else {
+            dependencies.backgroundRefreshValidationDiagnosticsReporter.reportLaunchScheduling(
+                outcome: .skippedDuplicateLaunchAttempt,
+                identifier: nil,
+                earliestBeginDate: nil,
+                failureReason: nil
+            )
+            dependencies.logger.debug(
+                "Skipped background refresh launch scheduling because app launch guard already attempted it"
+            )
+            return
+        }
+
+        scheduleBackgroundRefreshOnLaunch(using: dependencies)
     }
 
     @MainActor
@@ -161,6 +222,7 @@ struct AppRootContainer: View {
 
         content
         .task {
+            AppComposition.scheduleBackgroundRefreshOnLaunchIfNeeded(using: dependencies)
             AppComposition.applyCurrentICloudSyncStatus(
                 from: dependencies.syncCoordinator,
                 to: appState

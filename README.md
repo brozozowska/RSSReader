@@ -408,20 +408,14 @@
 - [x] отделить heuristic network-failure diagnostics от validation contract: явно зафиксировано в execution contract, что `likelyNoConnectivity` остаётся best-effort marker и не должен использоваться как единственный источник истины в validation сценариях.
 
 #### Background Refresh Validation
-- [ ] собрать `validation prerequisites` для `Background Refresh`: зафиксировать, какие capabilities и signing prerequisites нужны для `BGTaskScheduler`, какие log markers должны появляться при registration/schedule/run/expiration и какие runtime состояния (`backgroundRefreshStatus`, Low Power Mode, app refresh toggle) нужно проверить до начала сценариев;
-- [ ] проверить simulator/dev limitations для background validation и явно задокументировать их в roadmap: background task launch через development debugger по документации Apple поддерживается только на реальном устройстве, поэтому simulator не может быть единственным validation environment для этого эпика;
-- [ ] проверить ограничения бесплатного `Apple Developer` / `Personal Team` для полного validation path: `CloudKit` и `Push Notifications` недоступны без платного membership, а значит combined сценарии `sync + background refresh + silent wake` останутся частично заблокированными без `Apple Developer Program`;
-- [ ] если после проверки ограничений подтверждается блокировка на `Personal Team`, считать приоритетной инфраструктурной задачей раннее подключение платного аккаунта разработчика, чтобы снять долг сразу по двум направлениям: `Sync Real-Device Validation Kit` и `Background Refresh` real-device validation;
-- [ ] проверить сценарий “обновили источники на iPhone, прочитали часть статей, открыли iPad после background refresh”: второй девайс должен локально материализовать свежие `Article`, применить synced `ArticleState` и показать только непрочитанные статьи в `Unread`;
-- [ ] проверить fallback-сценарий без background refresh: после тех же действий на первом устройстве второй девайс должен достигать консистентного состояния через manual refresh без расхождения с background materialization contract;
-- [ ] проверить поведение background refresh при отсутствии сети, при системном expiration, при disabled `Background App Refresh`, при Low Power Mode и при `manual` policy;
-- [ ] подготовить минимальный `device validation matrix` для `Background Refresh`: simulator-only smoke check, single real device scheduling check и two-device cross-device scenario с включённым sync, чтобы validation можно было закрывать инкрементально, а не одним большим прогоном.
+- [x] добавить явный app-level registration marker для `Background Refresh`: `RSSReaderApp` публикует bootstrap marker для `.backgroundTask(.appRefresh(...))` path и identifier contract, а launch scheduling перенесён из `makeAppDependencies()` в guarded app-root startup path, чтобы `BGTaskScheduler.submit` не происходил раньше registration handler;
+- [x] добавить typed app-level snapshot для `Background Refresh` runtime prerequisites: введён отдельный infrastructure-level source, который собирает `backgroundRefreshStatus`, `Low Power Mode`, `refreshIntervalPreference` и app-level `schedulingMode`, а `AppDependencies` публикует этот snapshot как единый runtime entry point для future validation и diagnostics;
+- [x] ввести единый `Background Refresh` validation diagnostics contract: добавлен отдельный app-level diagnostics reporter с typed snapshot по stage-ам (`registration`, `scheduling`, `executionStart`, `executionCancellation`, `executionCompletion`, `postRunReschedule`), а `RSSReaderApp`, `AppComposition` и `BackgroundRefreshExecutionCoordinator` публикуют единые markers с префиксом `Background refresh validation stage=...` вместо разрозненных app-level литералов;
+- [x] покрыть tests-ами validation observability layer: добавлен отдельный infrastructure-level suite для registration marker, runtime prerequisites snapshot и diagnostics reporter contract, чтобы observability-поведение проверялось напрямую, а не только как побочный эффект существующих scheduler / execution orchestration tests.
 
 #### Background Refresh Hardening
-- [ ] добавить app-level логирование и диагностику background refresh registration, scheduling decisions, pending request replacement, execution start/finish, expiration и системных отказов запуска;
-- [ ] зафиксировать operational markers для future validation: по логам должно быть понятно, зарегистрировался ли handler, был ли поставлен request, почему request был отменён/перепоставлен и как завершился execution run;
-- [ ] провести cleanup / refactor background refresh-related кода: выровнять границы между scheduler, execution adapter, `BackgroundRefreshService`, app lifecycle wiring и screen reload helpers, а также убрать временные debug hooks, если они больше не нужны;
-- [ ] проверить, что app-level reload boundary между `remote sync reload` и `background refresh reload` осталась явной и не деградировала после интеграции scheduler/execution слоя.
+- [ ] провести cleanup / refactor background refresh-related кода после введения validation observability: выровнять границы между scheduler, execution adapter, runtime prerequisites source, `BackgroundRefreshService`, app lifecycle wiring и screen reload helpers, а также убрать временные debug hooks, если они больше не нужны;
+- [ ] сузить `Background Refresh` diagnostics surface до устойчивого app-level contract: после добавления observability убрать дублирующие или слишком низкоуровневые markers и убедиться, что app-level reload boundary между `remote sync reload` и `background refresh reload` не деградировала.
 
 ### Deferred Validation
 #### Sync Real-Device Validation Kit
@@ -430,6 +424,17 @@
 - [ ] подготовить минимальный `smoke-test matrix` только для `simulator + real device`: fresh install, existing local-only store и existing sync-backed store на одном iCloud account, чтобы после появления платного `Apple Developer Program` membership было понятно, какой минимальный набор прогонов обязателен;
 - [ ] описать prerequisites и reset procedure для deferred sync validation: какой build/configuration использовать, как очищать local store и install state, как подготавливать iCloud account и какие логи собирать при mismatch;
 - [ ] подготовить шаблон фиксации результатов validation pass с полями `scenario`, `environment`, `result`, `observed status transitions`, `observed log markers` и `notes`, чтобы финальная проверка синхронизации документировалась консистентно.
+
+#### Background Refresh Real-Device Validation Kit
+- [ ] проверить ограничения бесплатного `Apple Developer` / `Personal Team` для полного `Background Refresh` validation path: какие части single-device и combined validation доступны без платного membership, а какие блокируются capability / signing / cloud-инфраструктурой;
+- [ ] если после проверки ограничений подтверждается блокировка на `Personal Team`, считать приоритетной инфраструктурной задачей раннее подключение платного аккаунта разработчика, чтобы снять долг сразу по двум направлениям: `Sync Real-Device Validation Kit` и `Background Refresh` real-device validation;
+- [ ] зафиксировать шаблон `validation pass` для `Background Refresh` с полями `scenario`, `environment`, `preconditions`, `observed log markers`, `observed runtime state`, `result` и `notes`, чтобы device-проверки документировались консистентно;
+- [ ] подготовить минимальный `single-device validation matrix` для `Background Refresh`: simulator-only smoke check, real-device scheduling check и отдельные real-device execution scenarios, чтобы validation можно было закрывать инкрементально, а не одним большим прогоном;
+- [ ] проверить baseline single-device сценарий `automatic refresh`: request планируется на launch, background task стартует через system/dev trigger, execution публикует ожидаемые markers и после run перепланирует следующий request;
+- [ ] проверить failure-oriented single-device сценарии: отсутствие сети, системное cancellation / expiration, disabled `Background App Refresh`, Low Power Mode и `manual` policy не ломают локальное состояние и оставляют ожидаемый scheduling / logging outcome;
+- [ ] подготовить combined `sync + background refresh` validation matrix для двух девайсов: сценарии с background materialization на втором устройстве должны идти отдельным deferred шагом после закрытия single-device validation;
+- [ ] проверить сценарий “обновили источники на iPhone, прочитали часть статей, открыли iPad после background refresh”: второй девайс должен локально материализовать свежие `Article`, применить synced `ArticleState` и показать только непрочитанные статьи в `Unread`;
+- [ ] проверить fallback-сценарий без background refresh: после тех же действий на первом устройстве второй девайс должен достигать консистентного состояния через manual refresh без расхождения с background materialization contract.
 
 ### Polish
 #### Testing

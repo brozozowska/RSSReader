@@ -14,6 +14,34 @@ struct RSSReaderAppTests {
     }
 
     @Test
+    func backgroundRefreshRegistrationLoggingPublishesAppLevelMarkerWithInfrastructureIdentifier() {
+        let logger = RecordingLogger()
+        let dependencies = AppDependencies(logger: logger)
+
+        reportBackgroundRefreshRegistration(using: dependencies)
+
+        #expect(
+            logger.contains(
+                "Background refresh validation stage=registration outcome=configured identifier=\(BackgroundRefreshTaskConfiguration.appRefreshIdentifier)",
+                level: .info
+            )
+        )
+        #expect(
+            logger.contains(
+                "handler=SwiftUI.backgroundTask(.appRefresh)",
+                level: .info
+            )
+        )
+        #expect(
+            dependencies.currentBackgroundRefreshValidationDiagnostics().registration
+                == BackgroundRefreshRegistrationDiagnostics(
+                    identifier: BackgroundRefreshTaskConfiguration.appRefreshIdentifier,
+                    handlerDescription: "SwiftUI.backgroundTask(.appRefresh)"
+                )
+        )
+    }
+
+    @Test
     func performBackgroundAppRefreshDelegatesToBackgroundRefreshServiceThroughAppDependencies() async {
         let expectedResult = BackgroundFeedRefreshResult(
             batchResult: FeedRefreshBatchResult(

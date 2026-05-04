@@ -28,6 +28,14 @@ struct AppCompositionBackgroundRefreshBootstrapTests {
         let configuration = try #require(scheduler.lastReplacedConfiguration)
         #expect(configuration.settingsSnapshot.refreshIntervalPreference == .hourly)
         #expect(configuration.policy.minimumInterval == TimeInterval(60 * 60))
+        let diagnostics = try #require(
+            dependencies.currentBackgroundRefreshValidationDiagnostics().scheduling
+        )
+        #expect(diagnostics.trigger == .launchBootstrap)
+        #expect(diagnostics.outcome == .scheduled)
+        #expect(diagnostics.identifier == BackgroundRefreshTaskConfiguration.appRefreshIdentifier)
+        #expect(diagnostics.earliestBeginDate != nil)
+        #expect(diagnostics.failureReason == nil)
     }
 
     @Test
@@ -52,6 +60,14 @@ struct AppCompositionBackgroundRefreshBootstrapTests {
         let configuration = try #require(scheduler.lastReplacedConfiguration)
         #expect(configuration.settingsSnapshot.refreshIntervalPreference == .manual)
         #expect(configuration.policy.minimumInterval == nil)
+        let diagnostics = try #require(
+            dependencies.currentBackgroundRefreshValidationDiagnostics().scheduling
+        )
+        #expect(diagnostics.trigger == .launchBootstrap)
+        #expect(diagnostics.outcome == .cancelled)
+        #expect(diagnostics.identifier == nil)
+        #expect(diagnostics.earliestBeginDate == nil)
+        #expect(diagnostics.failureReason == nil)
     }
 
     @Test
@@ -72,11 +88,39 @@ struct AppCompositionBackgroundRefreshBootstrapTests {
 
         #expect(
             logger.contains(
-                "Failed to configure background refresh schedule on app launch",
+                "Background refresh validation stage=scheduling",
                 level: .error
             )
         )
-        #expect(logger.contains("reason=backgroundRefreshUnavailable", level: .error))
+        #expect(logger.contains("failureReason=backgroundRefreshUnavailable", level: .error))
+    }
+
+    @Test
+    func appCompositionLaunchSchedulingGuardSchedulesBackgroundRefreshOnlyOncePerLaunch() throws {
+        let logger = RecordingLogger()
+        let scheduler = LaunchRecordingBackgroundRefreshScheduler()
+        let dependencies = try makeDependencies(
+            logger: logger,
+            backgroundRefreshScheduler: scheduler
+        )
+        let bootstrapGuard = AppLaunchBootstrapGuard()
+
+        AppComposition.scheduleBackgroundRefreshOnLaunchIfNeeded(
+            using: dependencies,
+            guard: bootstrapGuard
+        )
+        AppComposition.scheduleBackgroundRefreshOnLaunchIfNeeded(
+            using: dependencies,
+            guard: bootstrapGuard
+        )
+
+        #expect(scheduler.replaceCallCount == 1)
+        #expect(
+            logger.contains(
+                "Background refresh validation stage=scheduling trigger=launchBootstrap outcome=skippedDuplicateLaunchAttempt",
+                level: .info
+            )
+        )
     }
 
     private func makeDependencies(
@@ -123,6 +167,7 @@ private final class FailingBackgroundRefreshScheduler: BackgroundRefreshScheduli
 
 @MainActor
 private final class LaunchRecordingBackgroundRefreshScheduler: BackgroundRefreshScheduling {
+    private(set) var replaceCallCount = 0
     private(set) var lastReplacedConfiguration: BackgroundRefreshConfiguration?
 
     func schedule(
@@ -139,6 +184,7 @@ private final class LaunchRecordingBackgroundRefreshScheduler: BackgroundRefresh
         using configuration: BackgroundRefreshConfiguration,
         now: Date
     ) throws -> BackgroundRefreshScheduleResult {
+        replaceCallCount += 1
         lastReplacedConfiguration = configuration
 
         if let plan = DefaultBackgroundRefreshScheduler.makeSchedulePlan(using: configuration, now: now) {
