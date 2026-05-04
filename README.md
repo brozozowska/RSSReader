@@ -416,7 +416,7 @@
 #### Background Refresh Hardening
 - [x] провести cleanup / refactor background refresh-related кода после введения validation observability: app lifecycle wiring больше не собирает registration / launch scheduling / execution вручную через top-level helpers и legacy app-level markers; `RSSReaderApp` и `AppComposition` делегируют эти app-level входы в `AppDependencies`, где сходятся `BackgroundRefreshService`, execution coordinator, scheduler и validation diagnostics reporter, а временные debug hooks в launch scheduling path удалены;
 - [x] сузить `Background Refresh` diagnostics surface до устойчивого app-level contract: `BackgroundRefreshValidationDiagnosticsReporter` оставлен единственным каноническим набором validation markers, а scheduler / `BackgroundRefreshService` / app-level wrappers вокруг них переведены на `debug`-only internal traces с явными `... trace ...` префиксами, чтобы validation не опирался на второй конкурирующий набор логов;
-- [ ] после cleanup diagnostics проверить, что app-level reload boundary между `remote sync reload` и `background refresh reload` не деградировала и не замаскирована новыми hardening-правками.
+- [x] после cleanup diagnostics проверить, что app-level reload boundary между `remote sync reload` и `background refresh reload` не деградировала и не замаскирована новыми hardening-правками: добавлен сквозной test, который поднимает оба app-level пути на одном `AppState` и подтверждает, что foreground handoff path продолжает выставлять `backgroundRefresh`, а CloudKit / persistent store correlation path продолжает выставлять `remoteSyncImport`, не схлопывая оба reload-сигнала в один flow.
 
 ### Deferred Validation
 #### Sync Real-Device Validation Kit
