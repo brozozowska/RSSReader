@@ -13,6 +13,8 @@ enum AppComposition {
     static let appModels = persistenceModelPartition.allModels
     @MainActor
     static let developmentSchemaBootstrapGuard = AppLaunchBootstrapGuard()
+    @MainActor
+    static let backgroundRefreshLaunchSchedulingGuard = AppLaunchBootstrapGuard()
 
     @MainActor
     static func makeAppDependencies(
@@ -35,7 +37,6 @@ enum AppComposition {
             logger: logger
         )
         dependencies.startSyncCoordinatorAppLifetime()
-        scheduleBackgroundRefreshOnLaunch(using: dependencies)
         return dependencies
     }
 
@@ -104,6 +105,31 @@ enum AppComposition {
     }
 
     @MainActor
+    static func scheduleBackgroundRefreshOnLaunchIfNeeded(
+        using dependencies: AppDependencies
+    ) {
+        scheduleBackgroundRefreshOnLaunchIfNeeded(
+            using: dependencies,
+            guard: backgroundRefreshLaunchSchedulingGuard
+        )
+    }
+
+    @MainActor
+    static func scheduleBackgroundRefreshOnLaunchIfNeeded(
+        using dependencies: AppDependencies,
+        guard bootstrapGuard: AppLaunchBootstrapGuard
+    ) {
+        guard bootstrapGuard.beginAttempt(identifier: "BackgroundRefreshLaunchScheduling") else {
+            dependencies.logger.debug(
+                "Skipped background refresh launch scheduling because app launch guard already attempted it"
+            )
+            return
+        }
+
+        scheduleBackgroundRefreshOnLaunch(using: dependencies)
+    }
+
+    @MainActor
     static func bindBackgroundRefreshForegroundReloadHandler(
         using dependencies: AppDependencies,
         appState: AppState
@@ -161,6 +187,7 @@ struct AppRootContainer: View {
 
         content
         .task {
+            AppComposition.scheduleBackgroundRefreshOnLaunchIfNeeded(using: dependencies)
             AppComposition.applyCurrentICloudSyncStatus(
                 from: dependencies.syncCoordinator,
                 to: appState

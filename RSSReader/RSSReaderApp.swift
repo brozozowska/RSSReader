@@ -6,6 +6,16 @@ func performBackgroundAppRefresh(using dependencies: AppDependencies) async -> B
     return await executionCoordinator.executeAppRefresh()
 }
 
+@MainActor
+func logBackgroundRefreshRegistration(
+    using logger: Logging,
+    identifier: String = BackgroundRefreshTaskConfiguration.appRefreshIdentifier
+) {
+    logger.info(
+        "Configured background refresh app task registration identifier=\(identifier) handler=SwiftUI.backgroundTask(.appRefresh)"
+    )
+}
+
 @main
 struct RSSReaderApp: App {
     static let backgroundAppRefreshIdentifier = BackgroundRefreshTaskConfiguration.appRefreshIdentifier
@@ -14,7 +24,9 @@ struct RSSReaderApp: App {
 
     @MainActor
     init() {
-        self.dependencies = AppComposition.makeAppDependencies()
+        let dependencies = AppComposition.makeAppDependencies()
+        self.dependencies = dependencies
+        logBackgroundRefreshRegistration(using: dependencies.logger)
     }
 
     var body: some Scene {

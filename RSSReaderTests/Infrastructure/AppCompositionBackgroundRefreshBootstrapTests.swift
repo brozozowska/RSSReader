@@ -79,6 +79,34 @@ struct AppCompositionBackgroundRefreshBootstrapTests {
         #expect(logger.contains("reason=backgroundRefreshUnavailable", level: .error))
     }
 
+    @Test
+    func appCompositionLaunchSchedulingGuardSchedulesBackgroundRefreshOnlyOncePerLaunch() throws {
+        let logger = RecordingLogger()
+        let scheduler = LaunchRecordingBackgroundRefreshScheduler()
+        let dependencies = try makeDependencies(
+            logger: logger,
+            backgroundRefreshScheduler: scheduler
+        )
+        let bootstrapGuard = AppLaunchBootstrapGuard()
+
+        AppComposition.scheduleBackgroundRefreshOnLaunchIfNeeded(
+            using: dependencies,
+            guard: bootstrapGuard
+        )
+        AppComposition.scheduleBackgroundRefreshOnLaunchIfNeeded(
+            using: dependencies,
+            guard: bootstrapGuard
+        )
+
+        #expect(scheduler.replaceCallCount == 1)
+        #expect(
+            logger.contains(
+                "Skipped background refresh launch scheduling because app launch guard already attempted it",
+                level: .debug
+            )
+        )
+    }
+
     private func makeDependencies(
         logger: Logging,
         backgroundRefreshScheduler: any BackgroundRefreshScheduling
@@ -123,6 +151,7 @@ private final class FailingBackgroundRefreshScheduler: BackgroundRefreshScheduli
 
 @MainActor
 private final class LaunchRecordingBackgroundRefreshScheduler: BackgroundRefreshScheduling {
+    private(set) var replaceCallCount = 0
     private(set) var lastReplacedConfiguration: BackgroundRefreshConfiguration?
 
     func schedule(
@@ -139,6 +168,7 @@ private final class LaunchRecordingBackgroundRefreshScheduler: BackgroundRefresh
         using configuration: BackgroundRefreshConfiguration,
         now: Date
     ) throws -> BackgroundRefreshScheduleResult {
+        replaceCallCount += 1
         lastReplacedConfiguration = configuration
 
         if let plan = DefaultBackgroundRefreshScheduler.makeSchedulePlan(using: configuration, now: now) {
