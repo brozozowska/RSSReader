@@ -42,6 +42,93 @@ struct SourceManagementServiceTests {
     }
 
     @Test
+    func sourceManagementServiceDiscoversCommonRSSPathFromSiteURL() async throws {
+        let discoveredFeedURL = "https://example.com/rss"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    discoveredFeedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: makeValidRSSFeedXML(
+                            channelTitle: "Discovered Common Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Common Feed Article",
+                            itemLink: "https://example.com/articles/common",
+                            itemGUID: "common-feed-article",
+                            itemDescription: "Common feed description",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+        let service = try #require(harness.dependencies.sourceManagementService)
+
+        let preview = try await service.previewFeed(urlString: "example.com")
+        let requests = await harness.httpClient.recordedRequests()
+
+        #expect(preview.requestedURL == discoveredFeedURL)
+        #expect(preview.resolvedFeedURL == discoveredFeedURL)
+        #expect(preview.title == "Discovered Common Feed")
+        #expect(requests.map(\.url.absoluteString) == [
+            "https://example.com/feed",
+            discoveredFeedURL
+        ])
+    }
+
+    @Test
+    func sourceManagementServiceDiscoversFeedFromHTMLAlternateLink() async throws {
+        let siteURL = "https://example.com"
+        let discoveredFeedURL = "https://example.com/custom-feed.xml"
+        let html = """
+        <!doctype html>
+        <html>
+          <head>
+            <link rel="alternate" type="application/rss+xml" title="RSS" href="/custom-feed.xml">
+          </head>
+          <body>Example</body>
+        </html>
+        """
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    siteURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "text/html; charset=utf-8"],
+                        body: html
+                    ),
+                    discoveredFeedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: makeValidRSSFeedXML(
+                            channelTitle: "HTML Linked Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "HTML Linked Article",
+                            itemLink: "https://example.com/articles/html-linked",
+                            itemGUID: "html-linked-feed-article",
+                            itemDescription: "HTML linked feed description",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+        let service = try #require(harness.dependencies.sourceManagementService)
+
+        let preview = try await service.previewFeed(urlString: "example.com")
+        let requests = await harness.httpClient.recordedRequests().map(\.url.absoluteString)
+
+        #expect(preview.requestedURL == discoveredFeedURL)
+        #expect(preview.resolvedFeedURL == discoveredFeedURL)
+        #expect(preview.title == "HTML Linked Feed")
+        #expect(requests.contains(siteURL))
+        #expect(requests.contains(discoveredFeedURL))
+    }
+
+    @Test
     func sourceManagementServiceCreatesFolderWithNextSortOrder() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let service = try #require(harness.dependencies.sourceManagementService)

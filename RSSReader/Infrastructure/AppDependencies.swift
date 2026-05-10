@@ -125,6 +125,7 @@ public final class AppDependencies: AppDependenciesProtocol {
 
             return DefaultSourceManagementService(
                 logger: logger,
+                httpClient: httpClient,
                 feedFetcher: resolvedFeedFetcher,
                 feedRepository: feedRepository,
                 folderRepository: folderRepository,

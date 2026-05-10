@@ -336,21 +336,8 @@ struct SourceManagementAddFeedState {
             return "Enter a feed URL to continue."
         }
 
-        guard let request = try? FeedRequest(
-            feedID: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
-            urlString: normalizedInput
-        ) else {
-            return "Enter a valid http or https URL."
-        }
-
-        guard let components = URLComponents(
-            url: request.url,
-            resolvingAgainstBaseURL: false
-        ), let scheme = components.scheme?.lowercased(),
-              ["http", "https"].contains(scheme),
-              let host = components.host,
-              host.isEmpty == false else {
-            return "Enter a valid http or https URL."
+        guard (try? SourceManagementFeedDiscoveryPlanner.makePlan(for: normalizedInput)) != nil else {
+            return "Enter a valid site or feed URL."
         }
 
         return nil
@@ -544,7 +531,7 @@ struct SourceManagementAddFeedState {
 
     private func normalizedValidatedURL() -> String? {
         guard validationMessage() == nil else { return nil }
-        return URL(string: normalizedURLInput())?.absoluteString
+        return SourceManagementFeedDiscoveryPlanner.displayURLString(for: normalizedURLInput())
     }
 
     private func previewPresentation() -> SourceManagementAddFeedPreviewPresentation? {

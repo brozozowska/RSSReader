@@ -47,15 +47,26 @@ struct SourceManagementScreenStateTests {
         #expect(initialDestination.validationMessage == "Enter a feed URL to continue.")
         #expect(initialDestination.isPrimaryActionEnabled == false)
 
-        state.updateAddFeedURLInput("example")
+        state.updateAddFeedURLInput("not a url")
 
         guard case .addFeed(let invalidDestination)? = state.derivedViewState().presentedDestination else {
             Issue.record("Expected add-feed destination presentation after invalid URL input")
             return
         }
 
-        #expect(invalidDestination.validationMessage == "Enter a valid http or https URL.")
+        #expect(invalidDestination.validationMessage == "Enter a valid site or feed URL.")
         #expect(invalidDestination.isPrimaryActionEnabled == false)
+
+        state.updateAddFeedURLInput("example.com")
+
+        guard case .addFeed(let siteDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after site URL input")
+            return
+        }
+
+        #expect(siteDestination.validationMessage == nil)
+        #expect(siteDestination.normalizedURL == "https://example.com")
+        #expect(siteDestination.isPrimaryActionEnabled)
 
         state.updateAddFeedURLInput(" https://example.com/feed.xml ")
 

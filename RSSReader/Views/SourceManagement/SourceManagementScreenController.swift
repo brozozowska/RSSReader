@@ -415,6 +415,7 @@ private enum SourceManagementScreenStatusMapper {
         case .duplicateFolderName:
             return "A folder with this name already exists."
         case .invalidFeedURL,
+                .feedDiscoveryFailed,
                 .previewUnavailableForNotModifiedResponse,
                 .duplicateFeed,
                 .feedNotFound,
@@ -430,6 +431,7 @@ private enum SourceManagementScreenStatusMapper {
         case .folderNotFound:
             return "The selected folder no longer exists. Reload the move flow and choose another destination."
         case .invalidFeedURL,
+                .feedDiscoveryFailed,
                 .previewUnavailableForNotModifiedResponse,
                 .duplicateFeed,
                 .emptyFolderName,
@@ -470,6 +472,7 @@ private enum SourceManagementScreenStatusMapper {
                 detail: "The selected folder no longer exists. Choose another destination and try again."
             )
         case .invalidFeedURL,
+                .feedDiscoveryFailed,
                 .previewUnavailableForNotModifiedResponse,
                 .emptyFolderName,
                 .duplicateFolderName,
@@ -520,9 +523,15 @@ private enum SourceManagementScreenStatusMapper {
         switch error {
         case .invalidFeedURL:
             return SourceManagementAddFeedStatusPresentation(
-                title: "Enter a valid feed URL",
+                title: "Enter a valid source address",
                 kind: .failure,
-                detail: "Use a full http or https URL before loading the preview."
+                detail: "Use a website address or a direct RSS / Atom feed URL before loading the preview."
+            )
+        case .feedDiscoveryFailed:
+            return SourceManagementAddFeedStatusPresentation(
+                title: "Feed was not found",
+                kind: .failure,
+                detail: "The app could not find a supported RSS or Atom feed for this address."
             )
         case .previewUnavailableForNotModifiedResponse:
             return SourceManagementAddFeedStatusPresentation(

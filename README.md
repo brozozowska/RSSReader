@@ -422,7 +422,7 @@
 #### Interface Polish
 - [x] `Launch Navigation`: запускать приложение с экраном `Sources`, а не с заранее выбранным `Inbox` / экраном статей; закрепить это в `ReadingNavigationState` и compact-column policy, чтобы первый экран был экраном выбора источников;
 - [x] `Add Feed Input Polish`: сделать placeholder в поле `Feed URL` визуально вторичным и не похожим на активную ссылку;
-- [ ] `Feed Discovery From Site URL`: разрешить ввод короткого адреса сайта вроде `example.com` в `SourceManagement` flow; нормализовать ввод, проверить типовые `http` / `https` варианты, RSS / Atom candidates и HTML autodiscovery, затем показать пользователю найденный feed или понятную ошибку, если источник добавить нельзя;
+- [x] `Feed Discovery From Site URL`: разрешить ввод короткого адреса сайта вроде `example.com` в `SourceManagement` flow; нормализовать ввод, проверить типовые `http` / `https` варианты, RSS / Atom candidates и HTML autodiscovery, затем показать пользователю найденный feed или понятную ошибку, если источник добавить нельзя;
 - [ ] `Sources Toolbar Actions`: разъединить в `SidebarView` действия добавления источника и фильтрации так, чтобы `Add Source` и `Filter Sources` воспринимались как отдельные toolbar controls;
 - [ ] `Reader Adjacent Article Navigation`: добавить переход к следующей и предыдущей статье из `ReaderView` без возврата к списку; свайп вверх должен открывать следующую статью, свайп вниз — предыдущую, если такая статья есть в текущем article-list context;
 - [ ] `In-App Browser Chrome`: пересобрать `WebViewScreenView` со стандартным browser-like интерфейсом вместо кастомной расстановки toolbar-кнопок; кнопки должны вести себя системно и скрываться при прокрутке;
