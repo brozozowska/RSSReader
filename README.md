@@ -418,6 +418,31 @@
 - [x] сузить `Background Refresh` diagnostics surface до устойчивого app-level contract: `BackgroundRefreshValidationDiagnosticsReporter` оставлен единственным каноническим набором validation markers, а scheduler / `BackgroundRefreshService` / app-level wrappers вокруг них переведены на `debug`-only internal traces с явными `... trace ...` префиксами, чтобы validation не опирался на второй конкурирующий набор логов;
 - [x] после cleanup diagnostics проверить, что app-level reload boundary между `remote sync reload` и `background refresh reload` не деградировала и не замаскирована новыми hardening-правками: добавлен сквозной test, который поднимает оба app-level пути на одном `AppState` и подтверждает, что foreground handoff path продолжает выставлять `backgroundRefresh`, а CloudKit / persistent store correlation path продолжает выставлять `remoteSyncImport`, не схлопывая оба reload-сигнала в один flow.
 
+### Polish
+#### Interface Polish
+- [x] `Launch Navigation`: запускать приложение с экраном `Sources`, а не с заранее выбранным `Inbox` / экраном статей; закрепить это в `ReadingNavigationState` и compact-column policy, чтобы первый экран был экраном выбора источников;
+- [ ] `Add Feed Input Polish`: сделать placeholder в поле `Feed URL` визуально вторичным и не похожим на активную ссылку;
+- [ ] `Feed Discovery From Site URL`: разрешить ввод короткого адреса сайта вроде `example.com` в `SourceManagement` flow; нормализовать ввод, проверить типовые `http` / `https` варианты, RSS / Atom candidates и HTML autodiscovery, затем показать пользователю найденный feed или понятную ошибку, если источник добавить нельзя;
+- [ ] `Sources Toolbar Actions`: разъединить в `SidebarView` действия добавления источника и фильтрации так, чтобы `Add Source` и `Filter Sources` воспринимались как отдельные toolbar controls;
+- [ ] `Reader Adjacent Article Navigation`: добавить переход к следующей и предыдущей статье из `ReaderView` без возврата к списку; свайп вверх должен открывать следующую статью, свайп вниз — предыдущую, если такая статья есть в текущем article-list context;
+- [ ] `In-App Browser Chrome`: пересобрать `WebViewScreenView` со стандартным browser-like интерфейсом вместо кастомной расстановки toolbar-кнопок; кнопки должны вести себя системно и скрываться при прокрутке;
+- [ ] `In-App Browser Link Navigation`: оставить переходы по ссылкам внутри текущего in-app browser flow, чтобы tap по ссылке в `WKWebView` не открывал отдельное окно внешнего браузера;
+- [ ] `In-App Browser Title`: изменить заголовок `WebViewScreen` так, чтобы в navigation title показывалось короткое имя страницы или домен, а не полный URL;
+- [ ] `Settings Navigation Polish`: заменить `confirmationDialog` для picker-настроек на консистентный drill-down flow по аналогии с добавлением источника / папки;
+- [ ] `Settings Information Architecture`: перегруппировать `SettingsScreen` так, чтобы наиболее важные настройки были выше, а одиночная настройка `Appearance` не оставалась в отдельной группе `Advanced`;
+- [ ] `Settings Value Layout`: привести отображение selected values в ячейках настроек к единому виду, чтобы значения не прыгали между правой частью строки и нижней строкой в зависимости от ширины текста;
+- [ ] `Swipe Actions Dark Theme`: исправить цвета swipe actions для `Unread` / `Read` и `Starred` в `ArticleListContentView`, чтобы в тёмной теме фон и символы оставались контрастными;
+
+#### Testing
+- [ ] unit tests для normalizer;
+- [ ] unit tests для date parsing;
+- [ ] unit tests для external ID generation;
+- [ ] unit tests для deduplication;
+- [ ] unit tests для article state transitions;
+- [ ] integration tests для refresh pipeline;
+- [ ] UI tests для add feed flow;
+- [ ] UI tests для read/unread flow.
+
 ### Deferred Validation
 #### Sync Real-Device Validation Kit
 - [ ] собрать явный `validation checklist` для sync-сценариев на паре `simulator + real device`: first launch с `useiCloudSync = off`, first launch с `useiCloudSync = on`, bootstrap fallback при `noAccount` / `temporarilyUnavailable`, включение и выключение sync из `Settings Screen`, remote import после изменений на втором рантайме и повторный launch после уже включённого sync;
@@ -437,22 +462,8 @@
 - [ ] проверить сценарий “обновили источники на iPhone, прочитали часть статей, открыли iPad после background refresh”: второй девайс должен локально материализовать свежие `Article`, применить synced `ArticleState` и показать только непрочитанные статьи в `Unread`;
 - [ ] проверить fallback-сценарий без background refresh: после тех же действий на первом устройстве второй девайс должен достигать консистентного состояния через manual refresh без расхождения с background materialization contract.
 
-### Polish
-#### Testing
-- [ ] unit tests для normalizer;
-- [ ] unit tests для date parsing;
-- [ ] unit tests для external ID generation;
-- [ ] unit tests для deduplication;
-- [ ] unit tests для article state transitions;
-- [ ] integration tests для refresh pipeline;
-- [ ] UI tests для add feed flow;
-- [ ] UI tests для read/unread flow.
-
-#### Polish / Release Prep
-- [ ] улучшить launch/empty/loading states;
-- [ ] улучшить сообщения об ошибках;
-- [ ] проверить accessibility labels;
-- [ ] проверить performance на длинных списках;
+### Release Prep
+#### App Store Preparation
 - [ ] подготовить app icons;
 - [ ] подготовить screenshots;
 - [ ] подготовить privacy notes;

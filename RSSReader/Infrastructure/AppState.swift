@@ -29,7 +29,7 @@ enum ReadingDetailRoute: Hashable, Sendable {
 }
 
 struct ReadingNavigationState: Hashable, Sendable {
-    var sourceSelection: SourceSelection? = .inbox
+    var sourceSelection: SourceSelection? = nil
     var articleSelection: UUID? = nil
     var detailRoute: ReadingDetailRoute = .none
 

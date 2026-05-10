@@ -6,6 +6,21 @@ import Testing
 @MainActor
 struct ReadingShellNavigationTests {
     @Test
+    func readingShellInitialAppStateStartsOnSourcesInCompactNavigation() {
+        let appState = AppState()
+
+        #expect(appState.selectedSidebarSelection == nil)
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
+        #expect(
+            ReadingShellCompactNavigationState.preferredCompactColumn(
+                sourceSelection: appState.selectedSidebarSelection,
+                articleSelection: appState.selectedArticleID
+            ) == .sidebar
+        )
+    }
+
+    @Test
     func readingShellNavigationStateBuildsDetailDestinationsForNoneAndArticleRoutes() {
         let articleID = UUID()
 
