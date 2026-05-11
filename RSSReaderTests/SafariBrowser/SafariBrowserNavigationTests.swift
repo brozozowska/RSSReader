@@ -4,7 +4,7 @@ import Testing
 
 @Suite("Safari Browser / Navigation")
 @MainActor
-struct WebViewScreenNavigationTests {
+struct SafariBrowserNavigationTests {
     @Test
     func safariBrowserNavigationDismissRestoresArticleDetailRoute() {
         let appState = AppState()

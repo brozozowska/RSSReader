@@ -1,20 +1,17 @@
 import SafariServices
 import SwiftUI
 
-struct WebViewScreenView: View {
+struct SafariBrowserView: View {
     let route: ArticleSafariRoute
-    let closeWebView: () -> Void
-    let previewScreenState: WebViewScreenState?
+    let dismissSafari: () -> Void
     private let safariPresentationConfiguration: ArticleSafariPresentationConfiguration = .standard
 
     init(
         route: ArticleSafariRoute,
-        closeWebView: @escaping () -> Void,
-        previewScreenState: WebViewScreenState? = nil
+        dismissSafari: @escaping () -> Void
     ) {
         self.route = route
-        self.closeWebView = closeWebView
-        self.previewScreenState = previewScreenState
+        self.dismissSafari = dismissSafari
     }
 
     var body: some View {
@@ -22,11 +19,11 @@ struct WebViewScreenView: View {
             ArticleSafariViewController(
                 route: route,
                 presentationConfiguration: safariPresentationConfiguration,
-                onDismiss: closeWebView
+                onDismiss: dismissSafari
             )
             .ignoresSafeArea()
         } else {
-            SafariUnsupportedURLView(closeWebView: closeWebView)
+            SafariUnsupportedURLView(dismissSafari: dismissSafari)
         }
     }
 }
@@ -82,7 +79,7 @@ private struct ArticleSafariViewController: UIViewControllerRepresentable {
 }
 
 private struct SafariUnsupportedURLView: View {
-    let closeWebView: () -> Void
+    let dismissSafari: () -> Void
 
     var body: some View {
         NavigationStack {
@@ -93,7 +90,7 @@ private struct SafariUnsupportedURLView: View {
             )
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Close", action: closeWebView)
+                    Button("Close", action: dismissSafari)
                 }
             }
         }

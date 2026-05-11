@@ -67,9 +67,9 @@ struct RootView: View {
         }
         .fullScreenCover(isPresented: safariPresentationBinding) {
             if let route = appState.presentedSafariRoute {
-                WebViewScreenView(
+                SafariBrowserView(
                     route: route,
-                    closeWebView: { appState.dismissPresentedSafari() }
+                    dismissSafari: { appState.dismissPresentedSafari() }
                 )
             }
         }
