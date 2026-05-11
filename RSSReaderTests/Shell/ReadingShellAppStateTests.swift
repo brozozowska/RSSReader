@@ -103,6 +103,20 @@ struct ReadingShellAppStateTests {
     }
 
     @Test
+    func readingShellRejectsUnsupportedArticleSafariRoutes() {
+        let appState = AppState()
+        let articleID = UUID()
+        let unsupportedURL = URL(string: "mailto:hello@example.com")!
+
+        let didPresentSafari = appState.presentSafari(articleID: articleID, url: unsupportedURL)
+
+        #expect(didPresentSafari == false)
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
+        #expect(appState.presentedSafariRoute == nil)
+    }
+
+    @Test
     func readingShellClosingArticleSafariRestoresArticleDetailRoute() {
         let appState = AppState()
         let articleID = UUID()

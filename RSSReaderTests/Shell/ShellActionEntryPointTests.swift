@@ -35,6 +35,48 @@ struct ShellActionEntryPointTests {
     }
 
     @Test
+    func shellActionEntryPointsSkipUnsupportedArticleSafariURLs() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feeds = try harness.insertFeeds(urls: ["https://example.com/shell-unsupported-safari.xml"])
+        let feed = try #require(feeds.first)
+        let articleModel = try harness.insertArticle(
+            feed: feed,
+            externalID: "shell-unsupported-safari-article",
+            url: "https://example.com/articles/unsupported-safari",
+            title: "Shell Unsupported Safari Article"
+        )
+        articleModel.canonicalURL = "mailto:hello@example.com"
+        try harness.saveModelContext()
+        let readerArticle = try harness.dependencies.articleQueryService?.fetchReaderArticle(id: articleModel.id)
+        let article = try #require(readerArticle)
+
+        let didOpenSafari = harness.dependencies.openArticleInSafari(article, using: appState)
+
+        #expect(didOpenSafari == false)
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
+        #expect(appState.presentedSafariRoute == nil)
+    }
+
+    @Test
+    func shellActionEntryPointsSkipUnsupportedBodyLinkSafariURLs() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let articleID = UUID()
+
+        harness.dependencies.openArticleBodyLink(
+            URL(string: "mailto:hello@example.com")!,
+            articleID: articleID,
+            using: appState
+        )
+
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
+        #expect(appState.presentedSafariRoute == nil)
+    }
+
+    @Test
     func shellActionEntryPointsSelectArticleOpensSafariWhenDefaultReaderModeIsBrowser() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()

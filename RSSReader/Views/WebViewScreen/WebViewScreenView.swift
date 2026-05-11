@@ -17,7 +17,7 @@ struct WebViewScreenView: View {
     }
 
     var body: some View {
-        if route.url.isSupportedArticleSafariURL {
+        if ArticleSafariRoute.canOpen(route.url) {
             ArticleSafariViewController(
                 route: route,
                 dismissButtonStyle: .close,
@@ -88,18 +88,5 @@ private struct SafariUnsupportedURLView: View {
                 }
             }
         }
-    }
-}
-
-private extension URL {
-    var isSupportedArticleSafariURL: Bool {
-        guard let scheme else {
-            return false
-        }
-        let normalizedScheme = scheme.lowercased()
-        guard normalizedScheme == "http" || normalizedScheme == "https" else {
-            return false
-        }
-        return host?.isEmpty == false
     }
 }

@@ -619,7 +619,10 @@ extension AppDependencies {
                 return
             }
 
-            openArticleInSafari(article, using: appState)
+            guard openArticleInSafari(article, using: appState) else {
+                appState.selectedArticleID = articleID
+                return
+            }
         } catch {
             logger.error("Failed to apply default reader mode policy for article \(articleID): \(error)")
             appState.selectedArticleID = articleID
@@ -632,18 +635,27 @@ extension AppDependencies {
     }
 
     @MainActor
-    func openArticleInSafari(_ article: ReaderArticleDTO, using appState: AppState) {
+    @discardableResult
+    func openArticleInSafari(_ article: ReaderArticleDTO, using appState: AppState) -> Bool {
         guard let url = URL(string: article.canonicalURL ?? article.articleURL) else {
             logger.error("Skipped opening article in Safari because URL is invalid for article \(article.id)")
-            return
+            return false
         }
 
-        appState.presentSafari(articleID: article.id, url: url)
+        guard appState.presentSafari(articleID: article.id, url: url) else {
+            logger.error("Skipped opening article in Safari because URL is unsupported for article \(article.id)")
+            return false
+        }
+
+        return true
     }
 
     @MainActor
     func openArticleBodyLink(_ url: URL, articleID: UUID, using appState: AppState) {
-        appState.presentSafari(articleID: articleID, url: url)
+        guard appState.presentSafari(articleID: articleID, url: url) else {
+            logger.error("Skipped opening article body link in Safari because URL is unsupported for article \(articleID)")
+            return
+        }
     }
 
     @MainActor

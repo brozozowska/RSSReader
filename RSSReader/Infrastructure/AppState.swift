@@ -20,6 +20,17 @@ typealias SidebarSelection = SourceSelection
 struct ArticleSafariRoute: Hashable, Sendable {
     let articleID: UUID
     let url: URL
+
+    static func canOpen(_ url: URL) -> Bool {
+        guard let scheme = url.scheme else {
+            return false
+        }
+        let normalizedScheme = scheme.lowercased()
+        guard normalizedScheme == "http" || normalizedScheme == "https" else {
+            return false
+        }
+        return url.host?.isEmpty == false
+    }
 }
 
 enum ReadingDetailRoute: Hashable, Sendable {
@@ -49,7 +60,12 @@ struct ReadingNavigationState: Hashable, Sendable {
         detailRoute = articleID.map(ReadingDetailRoute.article) ?? .none
     }
 
-    mutating func presentSafari(articleID: UUID, url: URL) {
+    @discardableResult
+    mutating func presentSafari(articleID: UUID, url: URL) -> Bool {
+        guard ArticleSafariRoute.canOpen(url) else {
+            return false
+        }
+
         articleSelection = articleID
         detailRoute = .safari(
             ArticleSafariRoute(
@@ -57,6 +73,7 @@ struct ReadingNavigationState: Hashable, Sendable {
                 url: url
             )
         )
+        return true
     }
 
     mutating func dismissSafari() {
@@ -121,7 +138,8 @@ public final class AppState {
         return route
     }
 
-    func presentSafari(articleID: UUID, url: URL) {
+    @discardableResult
+    func presentSafari(articleID: UUID, url: URL) -> Bool {
         readingNavigation.presentSafari(articleID: articleID, url: url)
     }
 
