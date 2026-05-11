@@ -216,7 +216,7 @@ struct ArticleScreenControllerTests {
     }
 
     @Test
-    func articleScreenControllerOpensCurrentArticleInAppLevelWebViewRoute() async throws {
+    func articleScreenControllerOpensCurrentArticleInAppLevelSafariRoute() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
         let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)

@@ -601,7 +601,7 @@ extension AppDependencies {
             return
         }
 
-        guard shouldPresentSelectedArticleInWebViewByDefault() else {
+        guard shouldPresentSelectedArticleInSafariByDefault() else {
             appState.selectedArticleID = articleID
             return
         }
@@ -614,12 +614,12 @@ extension AppDependencies {
 
         do {
             guard let article = try articleQueryService.fetchReaderArticle(id: articleID) else {
-                logger.error("Skipped default web view presentation because article \(articleID) was not found")
+                logger.error("Skipped default Safari presentation because article \(articleID) was not found")
                 appState.selectedArticleID = articleID
                 return
             }
 
-            openArticleInWebView(article, using: appState)
+            openArticleInSafari(article, using: appState)
         } catch {
             logger.error("Failed to apply default reader mode policy for article \(articleID): \(error)")
             appState.selectedArticleID = articleID
@@ -632,9 +632,9 @@ extension AppDependencies {
     }
 
     @MainActor
-    func openArticleInWebView(_ article: ReaderArticleDTO, using appState: AppState) {
+    func openArticleInSafari(_ article: ReaderArticleDTO, using appState: AppState) {
         guard let url = URL(string: article.canonicalURL ?? article.articleURL) else {
-            logger.error("Skipped opening article in web view because URL is invalid for article \(article.id)")
+            logger.error("Skipped opening article in Safari because URL is invalid for article \(article.id)")
             return
         }
 
@@ -647,7 +647,7 @@ extension AppDependencies {
     }
 
     @MainActor
-    func closePresentedArticleWebView(using appState: AppState) {
+    func closePresentedArticleSafari(using appState: AppState) {
         appState.dismissPresentedSafari()
     }
 
@@ -1196,7 +1196,7 @@ private extension AppDependencies {
     }
 
     @MainActor
-    func shouldPresentSelectedArticleInWebViewByDefault() -> Bool {
+    func shouldPresentSelectedArticleInSafariByDefault() -> Bool {
         guard let appSettingsService else {
             return false
         }

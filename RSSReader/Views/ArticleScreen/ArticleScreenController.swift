@@ -116,7 +116,7 @@ final class ArticleScreenController {
         guard let article = screenState.article else { return }
         switch articleSourceLinkOpeningPolicy(dependencies: dependencies) {
         case .inAppBrowser:
-            dependencies.openArticleInWebView(article, using: appState)
+            dependencies.openArticleInSafari(article, using: appState)
         case .externalBrowser:
             guard let url = ArticleScreenShareURLResolver.resolveShareURL(article: article) else {
                 return

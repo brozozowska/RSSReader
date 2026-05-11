@@ -23,12 +23,12 @@ struct ShellActionEntryPointTests {
         let article = try #require(readerArticle)
 
         harness.dependencies.selectArticle(id: article.id, using: appState)
-        harness.dependencies.openArticleInWebView(article, using: appState)
+        harness.dependencies.openArticleInSafari(article, using: appState)
 
         #expect(appState.selectedDetailRoute == .safari(ArticleSafariRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!)))
         #expect(appState.presentedSafariRoute == ArticleSafariRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!))
 
-        harness.dependencies.closePresentedArticleWebView(using: appState)
+        harness.dependencies.closePresentedArticleSafari(using: appState)
 
         #expect(appState.selectedDetailRoute == .article(article.id))
         #expect(appState.presentedSafariRoute == nil)
