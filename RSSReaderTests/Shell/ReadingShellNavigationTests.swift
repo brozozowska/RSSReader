@@ -45,17 +45,17 @@ struct ReadingShellNavigationTests {
     }
 
     @Test
-    func readingShellNavigationStateBuildsWebViewDestinationForWebViewRoute() {
-        let route = ArticleWebViewRoute(
+    func readingShellNavigationStateBuildsSafariDestinationForSafariRoute() {
+        let route = ArticleSafariRoute(
             articleID: UUID(),
             url: URL(string: "https://example.com/web-shell-destination")!
         )
 
         #expect(
             ReadingShellDetailNavigationState.detailDestination(
-                route: .webView(route),
+                route: .safari(route),
                 selectedArticleID: route.articleID
-            ) == .webView(route)
+            ) == .safari(route)
         )
     }
 

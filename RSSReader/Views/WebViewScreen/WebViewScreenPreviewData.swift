@@ -58,7 +58,7 @@ private struct WebViewScreenPreviewContainer: View {
 // MARK: - Preview Data
 
 private enum WebViewScreenPreviewData {
-    static let route = ArticleWebViewRoute(
+    static let route = ArticleSafariRoute(
         articleID: UUID(),
         url: URL(string: "https://example.com")!
     )

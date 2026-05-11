@@ -21,13 +21,13 @@ struct WebViewScreenView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.appThemeVariant) private var appThemeVariant
 
-    let route: ArticleWebViewRoute
+    let route: ArticleSafariRoute
     let closeWebView: () -> Void
     let previewScreenState: WebViewScreenState?
     @State private var controller: WebViewScreenController
 
     init(
-        route: ArticleWebViewRoute,
+        route: ArticleSafariRoute,
         closeWebView: @escaping () -> Void,
         previewScreenState: WebViewScreenState? = nil
     ) {

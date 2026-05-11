@@ -2,7 +2,7 @@ import Foundation
 
 @MainActor
 struct WebViewScreenState {
-    let route: ArticleWebViewRoute
+    let route: ArticleSafariRoute
     private(set) var phase: WebViewScreenPhase = .initialLoading
     private(set) var currentPageURL: URL?
     private(set) var pageTitle: String?
@@ -11,7 +11,7 @@ struct WebViewScreenState {
     private(set) var toolbar: WebViewScreenToolbarState
     private(set) var bottomActions: WebViewScreenBottomActionsState
 
-    init(route: ArticleWebViewRoute) {
+    init(route: ArticleSafariRoute) {
         self.route = route
         let canLoadInitialURL = route.url.isSupportedArticleWebViewURL
         self.currentPageURL = canLoadInitialURL ? route.url : nil
@@ -114,7 +114,7 @@ private extension WebViewScreenState {
 
 extension WebViewScreenState {
     static func previewLoading(
-        route: ArticleWebViewRoute,
+        route: ArticleSafariRoute,
         progress: Double = 0.35
     ) -> WebViewScreenState {
         var state = WebViewScreenState(route: route)
@@ -124,7 +124,7 @@ extension WebViewScreenState {
     }
 
     static func previewLoaded(
-        route: ArticleWebViewRoute,
+        route: ArticleSafariRoute,
         title: String? = nil
     ) -> WebViewScreenState {
         var state = WebViewScreenState(route: route)
@@ -134,7 +134,7 @@ extension WebViewScreenState {
     }
 
     static func previewFailed(
-        route: ArticleWebViewRoute,
+        route: ArticleSafariRoute,
         message: String,
         title: String? = nil
     ) -> WebViewScreenState {

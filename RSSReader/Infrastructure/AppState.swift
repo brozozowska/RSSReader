@@ -17,7 +17,7 @@ enum SourcesFilter: String, Hashable, Sendable, CaseIterable {
 
 typealias SidebarSelection = SourceSelection
 
-struct ArticleWebViewRoute: Hashable, Sendable {
+struct ArticleSafariRoute: Hashable, Sendable {
     let articleID: UUID
     let url: URL
 }
@@ -25,7 +25,7 @@ struct ArticleWebViewRoute: Hashable, Sendable {
 enum ReadingDetailRoute: Hashable, Sendable {
     case none
     case article(UUID)
-    case webView(ArticleWebViewRoute)
+    case safari(ArticleSafariRoute)
 }
 
 enum ReaderAdjacentArticleNavigationDirection: Sendable {
@@ -49,17 +49,17 @@ struct ReadingNavigationState: Hashable, Sendable {
         detailRoute = articleID.map(ReadingDetailRoute.article) ?? .none
     }
 
-    mutating func presentWebView(articleID: UUID, url: URL) {
+    mutating func presentSafari(articleID: UUID, url: URL) {
         articleSelection = articleID
-        detailRoute = .webView(
-            ArticleWebViewRoute(
+        detailRoute = .safari(
+            ArticleSafariRoute(
                 articleID: articleID,
                 url: url
             )
         )
     }
 
-    mutating func dismissWebView() {
+    mutating func dismissSafari() {
         detailRoute = articleSelection.map(ReadingDetailRoute.article) ?? .none
     }
 }
@@ -114,19 +114,19 @@ public final class AppState {
         readingNavigation.detailRoute
     }
 
-    var presentedWebViewRoute: ArticleWebViewRoute? {
-        guard case .webView(let route) = readingNavigation.detailRoute else {
+    var presentedSafariRoute: ArticleSafariRoute? {
+        guard case .safari(let route) = readingNavigation.detailRoute else {
             return nil
         }
         return route
     }
 
-    func presentWebView(articleID: UUID, url: URL) {
-        readingNavigation.presentWebView(articleID: articleID, url: url)
+    func presentSafari(articleID: UUID, url: URL) {
+        readingNavigation.presentSafari(articleID: articleID, url: url)
     }
 
-    func dismissPresentedWebView() {
-        readingNavigation.dismissWebView()
+    func dismissPresentedSafari() {
+        readingNavigation.dismissSafari()
     }
 
     func presentSettingsScreen() {

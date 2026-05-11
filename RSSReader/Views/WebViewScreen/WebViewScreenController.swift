@@ -7,7 +7,7 @@ final class WebViewScreenController {
     var screenState: WebViewScreenState
 
     init(
-        route: ArticleWebViewRoute,
+        route: ArticleSafariRoute,
         previewScreenState: WebViewScreenState? = nil
     ) {
         self.screenState = previewScreenState ?? WebViewScreenState(route: route)

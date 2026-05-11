@@ -6,7 +6,7 @@ import Testing
 @MainActor
 struct ShellActionEntryPointTests {
     @Test
-    func shellActionEntryPointsOpenAndCloseArticleWebViewViaDependencies() throws {
+    func shellActionEntryPointsOpenAndCloseArticleSafariRouteViaDependencies() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
         let feeds = try harness.insertFeeds(urls: ["https://example.com/shell-web.xml"])
@@ -25,17 +25,17 @@ struct ShellActionEntryPointTests {
         harness.dependencies.selectArticle(id: article.id, using: appState)
         harness.dependencies.openArticleInWebView(article, using: appState)
 
-        #expect(appState.selectedDetailRoute == .webView(ArticleWebViewRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!)))
-        #expect(appState.presentedWebViewRoute == ArticleWebViewRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!))
+        #expect(appState.selectedDetailRoute == .safari(ArticleSafariRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!)))
+        #expect(appState.presentedSafariRoute == ArticleSafariRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!))
 
         harness.dependencies.closePresentedArticleWebView(using: appState)
 
         #expect(appState.selectedDetailRoute == .article(article.id))
-        #expect(appState.presentedWebViewRoute == nil)
+        #expect(appState.presentedSafariRoute == nil)
     }
 
     @Test
-    func shellActionEntryPointsSelectArticleOpensWebViewWhenDefaultReaderModeIsBrowser() throws {
+    func shellActionEntryPointsSelectArticleOpensSafariWhenDefaultReaderModeIsBrowser() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
         let feeds = try harness.insertFeeds(urls: ["https://example.com/default-reader-mode.xml"])
@@ -56,15 +56,15 @@ struct ShellActionEntryPointTests {
 
         #expect(appState.selectedArticleID == articleModel.id)
         #expect(
-            appState.selectedDetailRoute == .webView(
-                ArticleWebViewRoute(
+            appState.selectedDetailRoute == .safari(
+                ArticleSafariRoute(
                     articleID: articleModel.id,
                     url: URL(string: "https://example.com/articles/browser-mode/canonical")!
                 )
             )
         )
         #expect(
-            appState.presentedWebViewRoute == ArticleWebViewRoute(
+            appState.presentedSafariRoute == ArticleSafariRoute(
                 articleID: articleModel.id,
                 url: URL(string: "https://example.com/articles/browser-mode/canonical")!
             )

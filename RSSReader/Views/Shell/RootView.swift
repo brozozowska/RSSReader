@@ -63,10 +63,10 @@ struct RootView: View {
                     ),
                     navigateBackToArticles: { appState.selectedArticleID = nil }
                 )
-            case .webView(let route):
+            case .safari(let route):
                 WebViewScreenView(
                     route: route,
-                    closeWebView: { appState.dismissPresentedWebView() }
+                    closeWebView: { appState.dismissPresentedSafari() }
                 )
             }
         }

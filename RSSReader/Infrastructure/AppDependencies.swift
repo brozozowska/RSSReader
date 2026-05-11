@@ -638,17 +638,17 @@ extension AppDependencies {
             return
         }
 
-        appState.presentWebView(articleID: article.id, url: url)
+        appState.presentSafari(articleID: article.id, url: url)
     }
 
     @MainActor
     func openArticleBodyLink(_ url: URL, articleID: UUID, using appState: AppState) {
-        appState.presentWebView(articleID: articleID, url: url)
+        appState.presentSafari(articleID: articleID, url: url)
     }
 
     @MainActor
     func closePresentedArticleWebView(using appState: AppState) {
-        appState.dismissPresentedWebView()
+        appState.dismissPresentedSafari()
     }
 
     @MainActor

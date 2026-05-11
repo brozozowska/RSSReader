@@ -14,7 +14,7 @@ struct ReadingShellAppStateTests {
 
         appState.selectReadingSource(.feed(feedID))
         appState.selectedArticleID = articleID
-        appState.presentWebView(articleID: articleID, url: URL(string: "https://example.com/article")!)
+        appState.presentSafari(articleID: articleID, url: URL(string: "https://example.com/article")!)
 
         let reloadIDBeforeSwitch = appState.articleListReloadID
 
@@ -23,7 +23,7 @@ struct ReadingShellAppStateTests {
         #expect(appState.selectedSidebarSelection == .inbox)
         #expect(appState.selectedArticleID == nil)
         #expect(appState.selectedDetailRoute == .none)
-        #expect(appState.presentedWebViewRoute == nil)
+        #expect(appState.presentedSafariRoute == nil)
         #expect(reloadIDBeforeSwitch != initialReloadID)
         #expect(appState.articleListReloadID != reloadIDBeforeSwitch)
     }
@@ -63,7 +63,7 @@ struct ReadingShellAppStateTests {
         #expect(appState.selectedSidebarSelection == .feed(feedID))
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))
-        #expect(appState.presentedWebViewRoute == nil)
+        #expect(appState.presentedSafariRoute == nil)
         #expect(appState.articleListReloadID == reloadIDBeforeFilterSwitch)
     }
 
@@ -75,7 +75,7 @@ struct ReadingShellAppStateTests {
 
         appState.selectSourcesFilter(.unread)
         appState.selectedArticleID = articleID
-        appState.presentWebView(articleID: articleID, url: webURL)
+        appState.presentSafari(articleID: articleID, url: webURL)
 
         let reloadIDBeforeReapplyingFilter = appState.articleListReloadID
 
@@ -83,39 +83,39 @@ struct ReadingShellAppStateTests {
 
         #expect(appState.selectedSourcesFilter == .unread)
         #expect(appState.selectedArticleID == articleID)
-        #expect(appState.selectedDetailRoute == .webView(ArticleWebViewRoute(articleID: articleID, url: webURL)))
-        #expect(appState.presentedWebViewRoute == ArticleWebViewRoute(articleID: articleID, url: webURL))
+        #expect(appState.selectedDetailRoute == .safari(ArticleSafariRoute(articleID: articleID, url: webURL)))
+        #expect(appState.presentedSafariRoute == ArticleSafariRoute(articleID: articleID, url: webURL))
         #expect(appState.articleListReloadID == reloadIDBeforeReapplyingFilter)
     }
 
     @Test
-    func readingShellOpenArticleWebViewSetsPresentedRouteAndPreservesArticleContext() {
+    func readingShellOpenArticleSafariSetsPresentedRouteAndPreservesArticleContext() {
         let appState = AppState()
         let articleID = UUID()
         let webURL = URL(string: "https://example.com/webview-article")!
 
         appState.selectedArticleID = articleID
-        appState.presentWebView(articleID: articleID, url: webURL)
+        appState.presentSafari(articleID: articleID, url: webURL)
 
         #expect(appState.selectedArticleID == articleID)
-        #expect(appState.selectedDetailRoute == .webView(ArticleWebViewRoute(articleID: articleID, url: webURL)))
-        #expect(appState.presentedWebViewRoute == ArticleWebViewRoute(articleID: articleID, url: webURL))
+        #expect(appState.selectedDetailRoute == .safari(ArticleSafariRoute(articleID: articleID, url: webURL)))
+        #expect(appState.presentedSafariRoute == ArticleSafariRoute(articleID: articleID, url: webURL))
     }
 
     @Test
-    func readingShellClosingArticleWebViewRestoresArticleDetailRoute() {
+    func readingShellClosingArticleSafariRestoresArticleDetailRoute() {
         let appState = AppState()
         let articleID = UUID()
         let webURL = URL(string: "https://example.com/webview-close")!
 
         appState.selectedArticleID = articleID
-        appState.presentWebView(articleID: articleID, url: webURL)
+        appState.presentSafari(articleID: articleID, url: webURL)
 
-        appState.dismissPresentedWebView()
+        appState.dismissPresentedSafari()
 
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))
-        #expect(appState.presentedWebViewRoute == nil)
+        #expect(appState.presentedSafariRoute == nil)
     }
 
     @Test

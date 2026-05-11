@@ -248,15 +248,15 @@ struct ArticleScreenControllerTests {
         )
 
         #expect(
-            appState.selectedDetailRoute == .webView(
-                ArticleWebViewRoute(
+            appState.selectedDetailRoute == .safari(
+                ArticleSafariRoute(
                     articleID: articleModel.id,
                     url: URL(string: "https://example.com/articles/article-screen-open-web/canonical")!
                 )
             )
         )
         #expect(
-            appState.presentedWebViewRoute == ArticleWebViewRoute(
+            appState.presentedSafariRoute == ArticleSafariRoute(
                 articleID: articleModel.id,
                 url: URL(string: "https://example.com/articles/article-screen-open-web/canonical")!
             )
@@ -298,11 +298,11 @@ struct ArticleScreenControllerTests {
 
         #expect(externallyOpenedURL == URL(string: "https://example.com/articles/article-screen-open-external/canonical")!)
         #expect(appState.selectedDetailRoute == .none)
-        #expect(appState.presentedWebViewRoute == nil)
+        #expect(appState.presentedSafariRoute == nil)
     }
 
     @Test
-    func articleScreenControllerHandlesTappedBodyLinkThroughAppLevelWebViewRoute() async throws {
+    func articleScreenControllerHandlesTappedBodyLinkThroughAppLevelSafariRoute() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
         let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
@@ -335,15 +335,15 @@ struct ArticleScreenControllerTests {
         )
 
         #expect(
-            appState.selectedDetailRoute == .webView(
-                ArticleWebViewRoute(
+            appState.selectedDetailRoute == .safari(
+                ArticleSafariRoute(
                     articleID: articleModel.id,
                     url: tappedURL
                 )
             )
         )
         #expect(
-            appState.presentedWebViewRoute == ArticleWebViewRoute(
+            appState.presentedSafariRoute == ArticleSafariRoute(
                 articleID: articleModel.id,
                 url: tappedURL
             )
@@ -386,6 +386,6 @@ struct ArticleScreenControllerTests {
 
         #expect(externallyOpenedURL == tappedURL)
         #expect(appState.selectedDetailRoute == .none)
-        #expect(appState.presentedWebViewRoute == nil)
+        #expect(appState.presentedSafariRoute == nil)
     }
 }

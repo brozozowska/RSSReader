@@ -7,7 +7,7 @@ import Testing
 struct WebViewScreenStateTests {
     @Test
     func webViewScreenStateBuildsInitialDerivedStateFromRoute() {
-        let route = ArticleWebViewRoute(
+        let route = ArticleSafariRoute(
             articleID: UUID(),
             url: URL(string: "https://example.com/articles/webview-state")!
         )
@@ -32,7 +32,7 @@ struct WebViewScreenStateTests {
 
     @Test
     func webViewScreenStateTracksTitleLoadingProgressAndFailureIndependentlyFromView() {
-        let route = ArticleWebViewRoute(
+        let route = ArticleSafariRoute(
             articleID: UUID(),
             url: URL(string: "https://example.com/articles/webview-state-progress")!
         )
@@ -70,7 +70,7 @@ struct WebViewScreenStateTests {
 
     @Test
     func webViewScreenStateSwitchesShareAndBrowserActionsToCurrentPageURL() {
-        let route = ArticleWebViewRoute(
+        let route = ArticleSafariRoute(
             articleID: UUID(),
             url: URL(string: "https://example.com/articles/original")!
         )
@@ -96,7 +96,7 @@ struct WebViewScreenStateTests {
 
     @Test
     func webViewScreenStateIncrementsReloadRevisionOnlyForSupportedURLs() {
-        let supportedRoute = ArticleWebViewRoute(
+        let supportedRoute = ArticleSafariRoute(
             articleID: UUID(),
             url: URL(string: "https://example.com/articles/webview-reload")!
         )
@@ -106,7 +106,7 @@ struct WebViewScreenStateTests {
 
         #expect(supportedState.derivedViewState().reloadRevision == 1)
 
-        let unsupportedRoute = ArticleWebViewRoute(
+        let unsupportedRoute = ArticleSafariRoute(
             articleID: UUID(),
             url: URL(string: "mailto:hello@example.com")!
         )
@@ -119,7 +119,7 @@ struct WebViewScreenStateTests {
 
     @Test
     func webViewScreenStateStartsInFailurePhaseForUnsupportedInitialURL() {
-        let route = ArticleWebViewRoute(
+        let route = ArticleSafariRoute(
             articleID: UUID(),
             url: URL(string: "mailto:hello@example.com")!
         )
