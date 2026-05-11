@@ -431,10 +431,10 @@
 - [x] `Safari Unsupported URL Handling`: сохранить app-level проверку `http` / `https` URL до показа `SFSafariViewController`, чтобы unsupported article links не приводили к пустому browser presentation;
 - [x] `Safari Browser Tests`: закрепить shell / article-screen tests вокруг `SFSafariViewController` presentation, dismiss flow, source article opening и body link opening после замены кастомного `WKWebView`;
 - [x] `Remove WKWebView Browser Surface`: удалить устаревшие `WebViewScreenState`, `WebViewScreenController`, кастомный `WKWebView` bridge, preview/loading/reload/open-external toolbar state и связанные tests, если они больше не используются после перехода на `SFSafariViewController`;
+- [x] `Swipe Actions Dark Theme`: исправить цвета swipe actions для `Unread` / `Read` и `Starred` в `ArticleListContentView`, чтобы в тёмной теме фон и символы оставались контрастными;
 - [ ] `Settings Navigation Polish`: заменить `confirmationDialog` для picker-настроек на консистентный drill-down flow по аналогии с добавлением источника / папки;
 - [ ] `Settings Information Architecture`: перегруппировать `SettingsScreen` так, чтобы наиболее важные настройки были выше, а одиночная настройка `Appearance` не оставалась в отдельной группе `Advanced`;
 - [ ] `Settings Value Layout`: привести отображение selected values в ячейках настроек к единому виду, чтобы значения не прыгали между правой частью строки и нижней строкой в зависимости от ширины текста;
-- [ ] `Swipe Actions Dark Theme`: исправить цвета swipe actions для `Unread` / `Read` и `Starred` в `ArticleListContentView`, чтобы в тёмной теме фон и символы оставались контрастными;
 
 #### Testing
 - [ ] unit tests для normalizer;
