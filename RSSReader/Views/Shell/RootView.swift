@@ -63,7 +63,10 @@ struct RootView: View {
                     ),
                     navigateBackToArticles: { appState.selectedArticleID = nil }
                 )
-            case .safari(let route):
+            }
+        }
+        .fullScreenCover(isPresented: safariPresentationBinding) {
+            if let route = appState.presentedSafariRoute {
                 WebViewScreenView(
                     route: route,
                     closeWebView: { appState.dismissPresentedSafari() }
@@ -114,6 +117,17 @@ struct RootView: View {
                     appState.presentSourceManagementScreen()
                 } else {
                     appState.dismissSourceManagementScreen()
+                }
+            }
+        )
+    }
+
+    private var safariPresentationBinding: Binding<Bool> {
+        Binding(
+            get: { appState.presentedSafariRoute != nil },
+            set: { isPresented in
+                if isPresented == false {
+                    appState.dismissPresentedSafari()
                 }
             }
         )

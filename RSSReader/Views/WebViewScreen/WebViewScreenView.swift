@@ -1,30 +1,10 @@
+import SafariServices
 import SwiftUI
-import WebKit
-
-// MARK: - Navigation State
-
-enum WebViewScreenNavigationState {
-    static func shouldCloseOnDrag(
-        startLocationX: CGFloat,
-        translation: CGSize
-    ) -> Bool {
-        CompactBackNavigationPolicy.shouldNavigateBackOnDrag(
-            startLocationX: startLocationX,
-            translation: translation
-        )
-    }
-}
-
-// MARK: - Screen View
 
 struct WebViewScreenView: View {
-    @Environment(\.openURL) private var openURL
-    @Environment(\.appThemeVariant) private var appThemeVariant
-
     let route: ArticleSafariRoute
     let closeWebView: () -> Void
     let previewScreenState: WebViewScreenState?
-    @State private var controller: WebViewScreenController
 
     init(
         route: ArticleSafariRoute,
@@ -34,359 +14,92 @@ struct WebViewScreenView: View {
         self.route = route
         self.closeWebView = closeWebView
         self.previewScreenState = previewScreenState
-        self._controller = State(
-            initialValue: WebViewScreenController(
+    }
+
+    var body: some View {
+        if route.url.isSupportedArticleSafariURL {
+            ArticleSafariViewController(
                 route: route,
-                previewScreenState: previewScreenState
-            )
-        )
-    }
-
-    var body: some View {
-        let viewState = controller.screenState.derivedViewState()
-
-        ZStack {
-            contentSurface(viewState)
-            overlaySurface(viewState)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(appThemeVariant.primaryBackground)
-        .ignoresSafeArea(edges: [.top, .bottom])
-        .toolbarTitleDisplayMode(.inline)
-        .navigationTitle(viewState.navigationTitle)
-        .toolbar {
-            topBarTrailingItem(viewState)
-            bottomBarItems(viewState)
-        }
-        .simultaneousGesture(closeGesture)
-    }
-
-    // MARK: Content
-
-    @ViewBuilder
-    private func contentSurface(_ viewState: WebViewScreenDerivedViewState) -> some View {
-        if previewScreenState == nil, viewState.showsWebViewContent {
-            ArticleWebView(
-                url: viewState.initialURL,
-                reloadRevision: viewState.reloadRevision,
-                onNavigationStarted: controller.handleNavigationStarted,
-                onLoadingProgressChanged: controller.handleLoadingProgressChanged,
-                onPageTitleChanged: controller.handlePageTitleChanged,
-                onCurrentPageURLChanged: controller.handleCurrentPageURLChanged,
-                onNavigationFinished: controller.handleNavigationFinished,
-                onNavigationFailed: controller.handleNavigationFailed
-            )
-        } else if viewState.primaryLoadingState == nil, viewState.placeholder == nil {
-            WebViewScreenPreviewSurface(url: viewState.initialURL)
-        }
-    }
-
-    @ViewBuilder
-    private func overlaySurface(_ viewState: WebViewScreenDerivedViewState) -> some View {
-        if let primaryLoadingState = viewState.primaryLoadingState {
-            WebViewScreenPrimaryLoadingView(state: primaryLoadingState)
-        } else if let placeholder = viewState.placeholder {
-            WebViewScreenFailureOverlay(placeholder: placeholder)
-        }
-    }
-
-    // MARK: Toolbar
-
-    @ToolbarContentBuilder
-    private func topBarTrailingItem(_ viewState: WebViewScreenDerivedViewState) -> some ToolbarContent {
-        if viewState.showsShareAction {
-            ToolbarItem(placement: .topBarTrailing) {
-                WebViewScreenShareToolbarButton(toolbar: viewState.toolbar)
-            }
-        }
-    }
-
-    @ToolbarContentBuilder
-    private func bottomBarItems(_ viewState: WebViewScreenDerivedViewState) -> some ToolbarContent {
-        if viewState.showsBottomActions {
-            ToolbarItem(placement: .bottomBar) {
-                WebViewScreenRefreshButton(
-                    bottomActions: viewState.bottomActions,
-                    refreshPage: controller.handleReloadRequested
-                )
-            }
-
-            ToolbarSpacer(placement: .bottomBar)
-
-            ToolbarItem(placement: .bottomBar) {
-                WebViewScreenOpenExternalBrowserButton(
-                    bottomActions: viewState.bottomActions,
-                    openURL: openURL
-                )
-            }
-        }
-    }
-
-    // MARK: Gesture
-
-    private var closeGesture: some Gesture {
-        DragGesture(minimumDistance: 20)
-            .onEnded { value in
-                guard WebViewScreenNavigationState.shouldCloseOnDrag(
-                    startLocationX: value.startLocation.x,
-                    translation: value.translation
-                ) else {
-                    return
-                }
-
-                closeWebView()
-            }
-    }
-}
-
-// MARK: - Toolbar Items
-
-private struct WebViewScreenShareToolbarButton: View {
-    let toolbar: WebViewScreenToolbarState
-
-    var body: some View {
-        Group {
-            if let shareURL = toolbar.shareURL {
-                ShareLink(item: shareURL) {
-                    Image(systemName: "square.and.arrow.up")
-                }
-            } else {
-                Image(systemName: "square.and.arrow.up")
-            }
-        }
-        .accessibilityLabel("Share Page")
-        .disabled(toolbar.isShareEnabled == false)
-    }
-}
-
-private struct WebViewScreenRefreshButton: View {
-    let bottomActions: WebViewScreenBottomActionsState
-    let refreshPage: () -> Void
-
-    var body: some View {
-        Button(action: refreshPage) {
-            Image(systemName: "arrow.clockwise")
-        }
-        .disabled(bottomActions.isRefreshEnabled == false)
-        .accessibilityLabel("Reload Page")
-    }
-}
-
-private struct WebViewScreenOpenExternalBrowserButton: View {
-    let bottomActions: WebViewScreenBottomActionsState
-    let openURL: OpenURLAction
-
-    var body: some View {
-        Button(action: openExternalBrowser) {
-            Image(systemName: "safari")
-        }
-        .disabled(bottomActions.isOpenExternalBrowserEnabled == false)
-        .accessibilityLabel("Open in External Browser")
-    }
-
-    private func openExternalBrowser() {
-        guard let url = bottomActions.openExternalBrowserURL else {
-            return
-        }
-        openURL(url)
-    }
-}
-
-// MARK: - Preview Surface
-
-private struct WebViewScreenPreviewSurface: View {
-    @Environment(\.appThemeVariant) private var appThemeVariant
-    let url: URL
-
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: appThemeVariant.previewGradientColors,
-                startPoint: .top,
-                endPoint: .bottom
+                dismissButtonStyle: .close,
+                barCollapsingEnabled: true,
+                onDismiss: closeWebView
             )
             .ignoresSafeArea()
-
-            VStack(alignment: .leading, spacing: 14) {
-                Text(url.absoluteString)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(appThemeVariant.tertiaryBackground)
-                    .frame(height: 18)
-
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(appThemeVariant.tertiaryBackground)
-                    .frame(height: 18)
-                    .frame(maxWidth: 240)
-
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(appThemeVariant.secondaryBackground)
-                    .frame(height: 220)
-
-                ForEach(0..<4, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(appThemeVariant.tertiaryBackground)
-                        .frame(height: 14)
-                        .frame(maxWidth: index == 3 ? 220 : .infinity)
-                }
-            }
-            .padding(20)
+        } else {
+            SafariUnsupportedURLView(closeWebView: closeWebView)
         }
     }
 }
 
-// MARK: - Screen State Overlays
-
-private struct WebViewScreenPrimaryLoadingView: View {
-    let state: WebViewScreenPrimaryLoadingState
-
-    var body: some View {
-        ScreenLoadingView(title: state.title)
-    }
-}
-
-private struct WebViewScreenFailureOverlay: View {
-    let placeholder: WebViewScreenPlaceholderState
-
-    var body: some View {
-        ZStack {
-            Rectangle()
-                .fill(.background.opacity(0.94))
-                .ignoresSafeArea()
-
-            ScreenPlaceholderView(
-                title: placeholder.title,
-                systemImage: placeholder.systemImage,
-                description: placeholder.description
-            )
-        }
-        .transition(.opacity)
-    }
-}
-
-// MARK: - WKWebView Bridge
-
-private struct ArticleWebView: UIViewRepresentable {
-    let url: URL
-    let reloadRevision: Int
-    let onNavigationStarted: () -> Void
-    let onLoadingProgressChanged: (Double) -> Void
-    let onPageTitleChanged: (String?) -> Void
-    let onCurrentPageURLChanged: (URL?) -> Void
-    let onNavigationFinished: () -> Void
-    let onNavigationFailed: (Error) -> Void
+private struct ArticleSafariViewController: UIViewControllerRepresentable {
+    let route: ArticleSafariRoute
+    let dismissButtonStyle: SFSafariViewController.DismissButtonStyle
+    let barCollapsingEnabled: Bool
+    let onDismiss: () -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(
-            onNavigationStarted: onNavigationStarted,
-            onLoadingProgressChanged: onLoadingProgressChanged,
-            onPageTitleChanged: onPageTitleChanged,
-            onCurrentPageURLChanged: onCurrentPageURLChanged,
-            onNavigationFinished: onNavigationFinished,
-            onNavigationFailed: onNavigationFailed
+        Coordinator(onDismiss: onDismiss)
+    }
+
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        let configuration = SFSafariViewController.Configuration()
+        configuration.barCollapsingEnabled = barCollapsingEnabled
+
+        let safariViewController = SFSafariViewController(
+            url: route.url,
+            configuration: configuration
         )
+        safariViewController.dismissButtonStyle = dismissButtonStyle
+        safariViewController.delegate = context.coordinator
+        return safariViewController
     }
 
-    func makeUIView(context: Context) -> WKWebView {
-        let webView = WKWebView(frame: .zero)
-        // Reserve left-edge drags for dismissing the web detail back to the article screen.
-        webView.allowsBackForwardNavigationGestures = false
-        webView.navigationDelegate = context.coordinator
-        context.coordinator.attachObservers(to: webView)
-        context.coordinator.lastReloadRevision = reloadRevision
-        webView.load(URLRequest(url: url))
-        return webView
-    }
+    func updateUIViewController(
+        _ safariViewController: SFSafariViewController,
+        context: Context
+    ) {}
 
-    func updateUIView(_ webView: WKWebView, context: Context) {
-        if webView.url != url {
-            webView.load(URLRequest(url: url))
-            context.coordinator.lastReloadRevision = reloadRevision
-            return
+    final class Coordinator: NSObject, SFSafariViewControllerDelegate {
+        private let onDismiss: () -> Void
+
+        init(onDismiss: @escaping () -> Void) {
+            self.onDismiss = onDismiss
         }
 
-        if context.coordinator.lastReloadRevision != reloadRevision {
-            context.coordinator.lastReloadRevision = reloadRevision
-            if webView.url == nil {
-                webView.load(URLRequest(url: url))
-            } else {
-                webView.reload()
-            }
+        func safariViewControllerDidFinish(_ controller: SFSafariViewController) {
+            onDismiss()
         }
     }
+}
 
-    final class Coordinator: NSObject, WKNavigationDelegate {
-        private let onNavigationStarted: () -> Void
-        private let onLoadingProgressChanged: (Double) -> Void
-        private let onPageTitleChanged: (String?) -> Void
-        private let onCurrentPageURLChanged: (URL?) -> Void
-        private let onNavigationFinished: () -> Void
-        private let onNavigationFailed: (Error) -> Void
-        private var estimatedProgressObservation: NSKeyValueObservation?
-        private var titleObservation: NSKeyValueObservation?
-        private var urlObservation: NSKeyValueObservation?
-        var lastReloadRevision: Int = 0
+private struct SafariUnsupportedURLView: View {
+    let closeWebView: () -> Void
 
-        init(
-            onNavigationStarted: @escaping () -> Void,
-            onLoadingProgressChanged: @escaping (Double) -> Void,
-            onPageTitleChanged: @escaping (String?) -> Void,
-            onCurrentPageURLChanged: @escaping (URL?) -> Void,
-            onNavigationFinished: @escaping () -> Void,
-            onNavigationFailed: @escaping (Error) -> Void
-        ) {
-            self.onNavigationStarted = onNavigationStarted
-            self.onLoadingProgressChanged = onLoadingProgressChanged
-            self.onPageTitleChanged = onPageTitleChanged
-            self.onCurrentPageURLChanged = onCurrentPageURLChanged
-            self.onNavigationFinished = onNavigationFinished
-            self.onNavigationFailed = onNavigationFailed
-        }
-
-        // Keep screen-level state in sync with `WKWebView` without leaking UIKit concerns into SwiftUI view code.
-        func attachObservers(to webView: WKWebView) {
-            estimatedProgressObservation = webView.observe(\.estimatedProgress, options: [.initial, .new]) { [weak self] webView, _ in
-                self?.onLoadingProgressChanged(webView.estimatedProgress)
-            }
-            titleObservation = webView.observe(\.title, options: [.initial, .new]) { [weak self] webView, _ in
-                self?.onPageTitleChanged(webView.title)
-            }
-            urlObservation = webView.observe(\.url, options: [.new]) { [weak self] webView, _ in
-                self?.onCurrentPageURLChanged(webView.url)
+    var body: some View {
+        NavigationStack {
+            ScreenPlaceholderView(
+                title: "Cannot Open Link",
+                systemImage: "exclamationmark.triangle",
+                description: "This article link can't be opened in the in-app browser."
+            )
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Close", action: closeWebView)
+                }
             }
         }
+    }
+}
 
-        func webView(
-            _ webView: WKWebView,
-            didStartProvisionalNavigation navigation: WKNavigation!
-        ) {
-            onNavigationStarted()
+private extension URL {
+    var isSupportedArticleSafariURL: Bool {
+        guard let scheme else {
+            return false
         }
-
-        func webView(
-            _ webView: WKWebView,
-            didFinish navigation: WKNavigation!
-        ) {
-            onNavigationFinished()
+        let normalizedScheme = scheme.lowercased()
+        guard normalizedScheme == "http" || normalizedScheme == "https" else {
+            return false
         }
-
-        func webView(
-            _ webView: WKWebView,
-            didFail navigation: WKNavigation!,
-            withError error: Error
-        ) {
-            onNavigationFailed(error)
-        }
-
-        func webView(
-            _ webView: WKWebView,
-            didFailProvisionalNavigation navigation: WKNavigation!,
-            withError error: Error
-        ) {
-            onNavigationFailed(error)
-        }
+        return host?.isEmpty == false
     }
 }

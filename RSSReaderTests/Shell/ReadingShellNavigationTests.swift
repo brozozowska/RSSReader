@@ -45,7 +45,7 @@ struct ReadingShellNavigationTests {
     }
 
     @Test
-    func readingShellNavigationStateBuildsSafariDestinationForSafariRoute() {
+    func readingShellNavigationStateKeepsArticleDestinationBehindSafariRoute() {
         let route = ArticleSafariRoute(
             articleID: UUID(),
             url: URL(string: "https://example.com/web-shell-destination")!
@@ -55,7 +55,7 @@ struct ReadingShellNavigationTests {
             ReadingShellDetailNavigationState.detailDestination(
                 route: .safari(route),
                 selectedArticleID: route.articleID
-            ) == .safari(route)
+            ) == .article(route.articleID)
         )
     }
 
