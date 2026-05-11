@@ -87,8 +87,13 @@ struct SidebarView: View {
                 subtitleView(toolbarState: viewState.toolbarState)
             }
 
-            ToolbarItemGroup(placement: .topBarTrailing) {
+            ToolbarItem(placement: .topBarTrailing) {
                 addSourceButton
+            }
+
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
+
+            ToolbarItem(placement: .topBarTrailing) {
                 sourcesFilterMenu
             }
         }
