@@ -48,4 +48,28 @@ struct ArticleScreenNavigationTests {
             ) == false
         )
     }
+
+    @Test
+    func articleScreenNavigationStateRecognizesVerticalAdjacentArticleSwipes() {
+        #expect(
+            ArticleScreenNavigationState.adjacentArticleNavigationDirection(
+                translation: CGSize(width: 12, height: -140)
+            ) == .next
+        )
+        #expect(
+            ArticleScreenNavigationState.adjacentArticleNavigationDirection(
+                translation: CGSize(width: 12, height: 140)
+            ) == .previous
+        )
+        #expect(
+            ArticleScreenNavigationState.adjacentArticleNavigationDirection(
+                translation: CGSize(width: 12, height: -80)
+            ) == nil
+        )
+        #expect(
+            ArticleScreenNavigationState.adjacentArticleNavigationDirection(
+                translation: CGSize(width: 120, height: -140)
+            ) == nil
+        )
+    }
 }

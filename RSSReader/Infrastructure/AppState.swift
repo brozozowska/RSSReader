@@ -28,6 +28,11 @@ enum ReadingDetailRoute: Hashable, Sendable {
     case webView(ArticleWebViewRoute)
 }
 
+enum ReaderAdjacentArticleNavigationDirection: Sendable {
+    case previous
+    case next
+}
+
 struct ReadingNavigationState: Hashable, Sendable {
     var sourceSelection: SourceSelection? = nil
     var articleSelection: UUID? = nil
@@ -73,6 +78,7 @@ public final class AppState {
     var isPresentingSettingsScreen = false
     var isPresentingSourceManagementScreen = false
     var sourceManagementLaunchContext: SourceManagementScreenLaunchContext = .entry
+    var articleNavigationContextIDs: [UUID] = []
     var articleListReloadID = UUID()
     var sourcesSidebarReloadID = UUID()
     var articleScreenReloadID = UUID()
@@ -186,7 +192,35 @@ public final class AppState {
         guard previousSourceSelection != sourceSelection else { return }
 
         readingNavigation.selectSource(sourceSelection)
+        articleNavigationContextIDs = []
         requestArticleListReload()
+    }
+
+    func updateArticleNavigationContext(_ articleIDs: [UUID]) {
+        articleNavigationContextIDs = articleIDs
+    }
+
+    @discardableResult
+    func selectAdjacentArticle(_ direction: ReaderAdjacentArticleNavigationDirection) -> Bool {
+        guard let selectedArticleID,
+              let currentIndex = articleNavigationContextIDs.firstIndex(of: selectedArticleID) else {
+            return false
+        }
+
+        let targetIndex: Int
+        switch direction {
+        case .previous:
+            targetIndex = currentIndex - 1
+        case .next:
+            targetIndex = currentIndex + 1
+        }
+
+        guard articleNavigationContextIDs.indices.contains(targetIndex) else {
+            return false
+        }
+
+        self.selectedArticleID = articleNavigationContextIDs[targetIndex]
+        return true
     }
 
     public init() {}

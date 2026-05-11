@@ -110,9 +110,9 @@ struct ArticleListView: View {
             await loadArticles()
         }
         .onChange(of: searchText) { _, _ in
-            selection = stabilizedSelection(
-                availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
-            )
+            let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+            selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+            syncArticleNavigationContext(visibleArticleIDs)
         }
         .simultaneousGesture(backNavigationGesture)
     }
@@ -131,9 +131,9 @@ struct ArticleListView: View {
             dependencies: dependencies
         )
 
-        selection = stabilizedSelection(
-            availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
-        )
+        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
     }
 
     // MARK: Selection
@@ -146,6 +146,11 @@ struct ArticleListView: View {
             return nil
         }
         return availableArticleIDs.first
+    }
+
+    private func syncArticleNavigationContext(_ visibleArticleIDs: [UUID]) {
+        guard isPreviewMode == false else { return }
+        appState.updateArticleNavigationContext(visibleArticleIDs)
     }
 
     // MARK: Confirmation
@@ -170,9 +175,9 @@ struct ArticleListView: View {
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
-        selection = stabilizedSelection(
-            availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
-        )
+        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
     }
 
     // MARK: Bulk Actions
@@ -186,9 +191,9 @@ struct ArticleListView: View {
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
-        selection = stabilizedSelection(
-            availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
-        )
+        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
     }
 
     // MARK: Row Actions
@@ -202,9 +207,9 @@ struct ArticleListView: View {
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
-        selection = stabilizedSelection(
-            availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
-        )
+        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
     }
 
     @MainActor
@@ -216,9 +221,9 @@ struct ArticleListView: View {
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
-        selection = stabilizedSelection(
-            availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
-        )
+        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
     }
 
     // MARK: Toolbar

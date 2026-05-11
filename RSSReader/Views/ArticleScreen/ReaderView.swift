@@ -18,6 +18,7 @@ struct ReaderView: View {
     let navigateBackToArticles: () -> Void
     let previewScreenState: ArticleScreenState?
     @State private var controller = ArticleScreenController()
+    @State private var adjacentArticleTransitionDirection: ReaderAdjacentArticleNavigationDirection?
 
     init(
         articleID: UUID?,
@@ -37,48 +38,13 @@ struct ReaderView: View {
     var body: some View {
         let viewState = controller.screenState.derivedViewState()
 
-        Group {
-            if let content = viewState.content {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        if let publishedAtText = content.header.publishedAtText {
-                            Text(publishedAtText)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Text(content.header.title)
-                            .font(.title2.weight(.semibold))
-
-                        if let author = content.header.author {
-                            Text(author)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        if let feedTitle = content.header.feedTitle {
-                            Text(feedTitle)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        ForEach(Array(content.body.blocks.enumerated()), id: \.offset) { _, block in
-                            bodyBlockView(block)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                }
-            } else if let primaryLoadingState = viewState.primaryLoadingState {
-                ScreenLoadingView(title: primaryLoadingState.title)
-            } else if let placeholder = viewState.placeholder {
-                ScreenPlaceholderView(
-                    title: placeholder.title,
-                    systemImage: placeholder.systemImage,
-                    description: placeholder.description
-                )
-            }
+        ZStack {
+            contentSurface(viewState)
+                .id(articleID)
+                .transition(articleTransition)
         }
+        .animation(.snappy(duration: 0.28), value: articleID)
+        .clipped()
         .background(appThemeVariant.primaryBackground.ignoresSafeArea())
         .toolbarTitleDisplayMode(.inline)
         .navigationTitle("")
@@ -132,8 +98,74 @@ struct ReaderView: View {
         .task(id: ArticleScreenLoadContext(articleID: articleID, reloadID: reloadID)) {
             guard previewScreenState == nil else { return }
             await controller.load(articleID: articleID, dependencies: dependencies)
+            adjacentArticleTransitionDirection = nil
         }
         .simultaneousGesture(backNavigationGesture)
+        .simultaneousGesture(adjacentArticleNavigationGesture)
+    }
+
+    @ViewBuilder
+    private func contentSurface(_ viewState: ArticleScreenDerivedViewState) -> some View {
+        Group {
+            if let content = viewState.content {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        if let publishedAtText = content.header.publishedAtText {
+                            Text(publishedAtText)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Text(content.header.title)
+                            .font(.title2.weight(.semibold))
+
+                        if let author = content.header.author {
+                            Text(author)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        if let feedTitle = content.header.feedTitle {
+                            Text(feedTitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        ForEach(Array(content.body.blocks.enumerated()), id: \.offset) { _, block in
+                            bodyBlockView(block)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                }
+            } else if let primaryLoadingState = viewState.primaryLoadingState {
+                ScreenLoadingView(title: primaryLoadingState.title)
+            } else if let placeholder = viewState.placeholder {
+                ScreenPlaceholderView(
+                    title: placeholder.title,
+                    systemImage: placeholder.systemImage,
+                    description: placeholder.description
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var articleTransition: AnyTransition {
+        switch adjacentArticleTransitionDirection {
+        case .next:
+            .asymmetric(
+                insertion: .move(edge: .bottom).combined(with: .opacity),
+                removal: .move(edge: .top).combined(with: .opacity)
+            )
+        case .previous:
+            .asymmetric(
+                insertion: .move(edge: .top).combined(with: .opacity),
+                removal: .move(edge: .bottom).combined(with: .opacity)
+            )
+        case .none:
+            .opacity
+        }
     }
 
     private var backNavigationGesture: some Gesture {
@@ -147,6 +179,29 @@ struct ReaderView: View {
                     return
                 }
                 navigateBackToArticles()
+            }
+    }
+
+    private var adjacentArticleNavigationGesture: some Gesture {
+        DragGesture(minimumDistance: 50)
+            .onEnded { value in
+                guard previewScreenState == nil else { return }
+                guard let direction = ArticleScreenNavigationState.adjacentArticleNavigationDirection(
+                    translation: value.translation
+                ) else {
+                    return
+                }
+
+                adjacentArticleTransitionDirection = direction
+
+                var didSelectAdjacentArticle = false
+                withAnimation(.snappy(duration: 0.28)) {
+                    didSelectAdjacentArticle = appState.selectAdjacentArticle(direction)
+                }
+
+                if didSelectAdjacentArticle == false {
+                    adjacentArticleTransitionDirection = nil
+                }
             }
     }
 

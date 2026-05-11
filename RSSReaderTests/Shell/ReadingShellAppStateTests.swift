@@ -119,6 +119,42 @@ struct ReadingShellAppStateTests {
     }
 
     @Test
+    func readingShellSelectsAdjacentArticlesFromCurrentListContext() {
+        let appState = AppState()
+        let firstArticleID = UUID()
+        let secondArticleID = UUID()
+        let thirdArticleID = UUID()
+
+        appState.updateArticleNavigationContext([
+            firstArticleID,
+            secondArticleID,
+            thirdArticleID
+        ])
+        appState.selectedArticleID = secondArticleID
+
+        #expect(appState.selectAdjacentArticle(.next))
+        #expect(appState.selectedArticleID == thirdArticleID)
+        #expect(appState.selectedDetailRoute == .article(thirdArticleID))
+
+        #expect(appState.selectAdjacentArticle(.next) == false)
+        #expect(appState.selectedArticleID == thirdArticleID)
+
+        #expect(appState.selectAdjacentArticle(.previous))
+        #expect(appState.selectedArticleID == secondArticleID)
+        #expect(appState.selectedDetailRoute == .article(secondArticleID))
+    }
+
+    @Test
+    func readingShellSourceSwitchClearsArticleNavigationContext() {
+        let appState = AppState()
+
+        appState.updateArticleNavigationContext([UUID(), UUID()])
+        appState.selectReadingSource(.unread)
+
+        #expect(appState.articleNavigationContextIDs.isEmpty)
+    }
+
+    @Test
     func readingShellAppStateKeepsRemoteSyncAndBackgroundRefreshReloadTriggersSeparate() {
         let appState = AppState()
         let initialSidebarReloadID = appState.sourcesSidebarReloadID

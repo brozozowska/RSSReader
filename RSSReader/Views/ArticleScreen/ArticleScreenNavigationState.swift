@@ -20,4 +20,19 @@ enum ArticleScreenNavigationState {
             translation: translation
         )
     }
+
+    static func adjacentArticleNavigationDirection(
+        translation: CGSize
+    ) -> ReaderAdjacentArticleNavigationDirection? {
+        let verticalDistance = translation.height
+        let horizontalDistance = abs(translation.width)
+        let absoluteVerticalDistance = abs(verticalDistance)
+
+        guard absoluteVerticalDistance >= 120,
+              absoluteVerticalDistance > horizontalDistance * 1.5 else {
+            return nil
+        }
+
+        return verticalDistance < 0 ? .next : .previous
+    }
 }
