@@ -114,6 +114,31 @@ struct ShellActionEntryPointTests {
     }
 
     @Test
+    func shellActionEntryPointsSelectArticleFallsBackToReaderWhenDefaultSafariURLIsUnsupported() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feeds = try harness.insertFeeds(urls: ["https://example.com/default-reader-unsupported-safari.xml"])
+        let feed = try #require(feeds.first)
+        let articleModel = try harness.insertArticle(
+            feed: feed,
+            externalID: "default-unsupported-safari-article",
+            url: "https://example.com/articles/default-unsupported-safari",
+            title: "Default Unsupported Safari Article"
+        )
+        articleModel.canonicalURL = "mailto:hello@example.com"
+        try harness.dependencies.appSettingsRepository?.update(
+            AppSettingsUpdate(defaultReaderMode: .browser)
+        )
+        try harness.saveModelContext()
+
+        harness.dependencies.selectArticle(id: articleModel.id, using: appState)
+
+        #expect(appState.selectedArticleID == articleModel.id)
+        #expect(appState.selectedDetailRoute == .article(articleModel.id))
+        #expect(appState.presentedSafariRoute == nil)
+    }
+
+    @Test
     func shellActionEntryPointsRefreshCurrentSourceTriggersReloadAfterFeedRefresh() async throws {
         let client = ScriptedHTTPClient(
             responsesByURL: [

@@ -1,37 +1,21 @@
-import SwiftUI
+import Foundation
 import Testing
 @testable import RSSReader
 
-@Suite("WebView Screen / Navigation")
+@Suite("Safari Browser / Navigation")
 @MainActor
 struct WebViewScreenNavigationTests {
     @Test
-    func webViewScreenNavigationStateClosesOnLeftEdgeHorizontalDrag() {
-        #expect(
-            WebViewScreenNavigationState.shouldCloseOnDrag(
-                startLocationX: 12,
-                translation: CGSize(width: 96, height: 10)
-            )
-        )
-    }
+    func safariBrowserNavigationDismissRestoresArticleDetailRoute() {
+        let appState = AppState()
+        let articleID = UUID()
+        let articleURL = URL(string: "https://example.com/articles/safari-navigation")!
 
-    @Test
-    func webViewScreenNavigationStateIgnoresDragsAwayFromLeftEdge() {
-        #expect(
-            WebViewScreenNavigationState.shouldCloseOnDrag(
-                startLocationX: 48,
-                translation: CGSize(width: 96, height: 8)
-            ) == false
-        )
-    }
+        appState.presentSafari(articleID: articleID, url: articleURL)
+        appState.dismissPresentedSafari()
 
-    @Test
-    func webViewScreenNavigationStateIgnoresMostlyVerticalDrags() {
-        #expect(
-            WebViewScreenNavigationState.shouldCloseOnDrag(
-                startLocationX: 10,
-                translation: CGSize(width: 96, height: 64)
-            ) == false
-        )
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .article(articleID))
+        #expect(appState.presentedSafariRoute == nil)
     }
 }

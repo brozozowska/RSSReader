@@ -5,6 +5,7 @@ struct WebViewScreenView: View {
     let route: ArticleSafariRoute
     let closeWebView: () -> Void
     let previewScreenState: WebViewScreenState?
+    private let safariPresentationConfiguration: ArticleSafariPresentationConfiguration = .standard
 
     init(
         route: ArticleSafariRoute,
@@ -20,8 +21,7 @@ struct WebViewScreenView: View {
         if ArticleSafariRoute.canOpen(route.url) {
             ArticleSafariViewController(
                 route: route,
-                dismissButtonStyle: .close,
-                barCollapsingEnabled: true,
+                presentationConfiguration: safariPresentationConfiguration,
                 onDismiss: closeWebView
             )
             .ignoresSafeArea()
@@ -31,10 +31,19 @@ struct WebViewScreenView: View {
     }
 }
 
-private struct ArticleSafariViewController: UIViewControllerRepresentable {
-    let route: ArticleSafariRoute
+struct ArticleSafariPresentationConfiguration: Equatable {
     let dismissButtonStyle: SFSafariViewController.DismissButtonStyle
     let barCollapsingEnabled: Bool
+
+    static let standard = ArticleSafariPresentationConfiguration(
+        dismissButtonStyle: .close,
+        barCollapsingEnabled: true
+    )
+}
+
+private struct ArticleSafariViewController: UIViewControllerRepresentable {
+    let route: ArticleSafariRoute
+    let presentationConfiguration: ArticleSafariPresentationConfiguration
     let onDismiss: () -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -43,13 +52,13 @@ private struct ArticleSafariViewController: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> SFSafariViewController {
         let configuration = SFSafariViewController.Configuration()
-        configuration.barCollapsingEnabled = barCollapsingEnabled
+        configuration.barCollapsingEnabled = presentationConfiguration.barCollapsingEnabled
 
         let safariViewController = SFSafariViewController(
             url: route.url,
             configuration: configuration
         )
-        safariViewController.dismissButtonStyle = dismissButtonStyle
+        safariViewController.dismissButtonStyle = presentationConfiguration.dismissButtonStyle
         safariViewController.delegate = context.coordinator
         return safariViewController
     }
