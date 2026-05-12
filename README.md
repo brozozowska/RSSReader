@@ -434,7 +434,8 @@
 - [x] `Swipe Actions Dark Theme`: исправить цвета swipe actions для `Unread` / `Read` и `Starred` в `ArticleListContentView`, чтобы в тёмной теме фон и символы оставались контрастными;
 - [x] `Settings Picker Menus`: заменить `confirmationDialog` для picker-настроек на inline `Menu` внутри строки настройки, чтобы короткие списки опций открывались рядом с выбранной настройкой без отдельного modal / drill-down flow;
 - [x] `Settings Information Architecture`: перегруппировать `SettingsScreen` в четыре группы `Appearance`, `Reading`, `Article List` и `Updates & Sync`, поднять app-level оформление выше, оставить reading/list настройки рядом с основным flow и объединить background refresh с iCloud sync вместо отдельного `Advanced`;
-- [x] `Settings Value Control Layout`: привести picker-ячейки `SettingsScreen` к iOS Settings-like layout: убрать inline-описания из picker-строк в section footers, показывать короткие selected values справа, длинные selected values второй строкой под названием настройки и открывать `Menu` только из value-control с `chevron.up.chevron.down`.
+- [x] `Settings Value Control Layout`: привести picker-ячейки `SettingsScreen` к iOS Settings-like layout: убрать inline-описания из picker-строк в section footers, показывать короткие selected values справа, длинные selected values второй строкой под названием настройки, открывать `Menu` только из value-control с `chevron.up.chevron.down`;
+- [x] Синхронизировать `SettingsScreen` / `SourceManagementScreen` modal presentation с текущим `AppThemeApplicationPolicy`, чтобы системные `List`-ячейки и кастомный фон не расходились после смены темы.
 
 #### Testing
 - [ ] unit tests для normalizer;

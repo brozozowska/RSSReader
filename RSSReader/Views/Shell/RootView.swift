@@ -74,15 +74,25 @@ struct RootView: View {
             }
         }
         .sheet(isPresented: settingsPresentationBinding) {
-            SettingsScreenView(
-                dismiss: { dependencies.dismissSettings(using: appState) }
-            )
+            AppThemePresentationScope(
+                interfaceThemeMode: appState.interfaceThemeMode,
+                systemColorScheme: systemColorScheme
+            ) {
+                SettingsScreenView(
+                    dismiss: { dependencies.dismissSettings(using: appState) }
+                )
+            }
         }
         .sheet(isPresented: sourceManagementPresentationBinding) {
-            SourceManagementScreenView(
-                dismiss: { dependencies.dismissSourceManagement(using: appState) },
-                launchContext: appState.sourceManagementLaunchContext
-            )
+            AppThemePresentationScope(
+                interfaceThemeMode: appState.interfaceThemeMode,
+                systemColorScheme: systemColorScheme
+            ) {
+                SourceManagementScreenView(
+                    dismiss: { dependencies.dismissSourceManagement(using: appState) },
+                    launchContext: appState.sourceManagementLaunchContext
+                )
+            }
         }
         .preferredColorScheme(themeApplicationPolicy.preferredColorScheme)
         .environment(\.appThemeVariant, themeApplicationPolicy.resolvedTheme)
@@ -138,5 +148,24 @@ struct RootView: View {
             sourceSelection: appState.selectedSidebarSelection,
             articleSelection: appState.selectedArticleID
         )
+    }
+}
+
+private struct AppThemePresentationScope<Content: View>: View {
+    let interfaceThemeMode: InterfaceThemeMode
+    let systemColorScheme: ColorScheme
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        let themeApplicationPolicy = AppThemeApplicationPolicy(
+            interfaceThemeMode: interfaceThemeMode,
+            systemColorScheme: systemColorScheme
+        )
+
+        content()
+            .preferredColorScheme(themeApplicationPolicy.preferredColorScheme)
+            .environment(\.colorScheme, themeApplicationPolicy.resolvedColorScheme)
+            .environment(\.appThemeVariant, themeApplicationPolicy.resolvedTheme)
+            .background(themeApplicationPolicy.resolvedTheme.primaryBackground.ignoresSafeArea())
     }
 }
