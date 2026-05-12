@@ -7,14 +7,18 @@ import Testing
 @MainActor
 struct SettingsScreenControllerTests {
     @Test
-    func settingsScreenControllerDoesNotTreatSyncStatusRowAsInteractiveItem() {
+    func settingsScreenControllerIgnoresPickerSelectionForSyncStatusRow() {
         let controller = SettingsScreenController(
             previewScreenState: .previewLoaded(snapshot: AppSettingsSnapshot())
         )
 
-        controller.handleItemSelection(.iCloudSyncStatus)
+        controller.handlePickerOptionSelection(
+            itemID: .iCloudSyncStatus,
+            optionID: "unsupported",
+            dependencies: .makeDefault()
+        )
 
-        #expect(controller.viewState().presentedPicker == nil)
+        #expect(controller.screenState.settingsSnapshot == AppSettingsSnapshot())
     }
 
     @Test
@@ -268,10 +272,6 @@ struct SettingsScreenControllerTests {
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: harness.dependencies)
-        controller.handleItemSelection(.defaultReaderMode)
-
-        #expect(controller.viewState().presentedPicker?.id == .defaultReaderMode)
-
         controller.handlePickerOptionSelection(
             itemID: .defaultReaderMode,
             optionID: ReaderMode.browser.rawValue,
@@ -280,7 +280,6 @@ struct SettingsScreenControllerTests {
 
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.defaultReaderMode == .browser)
-        #expect(controller.viewState().presentedPicker == nil)
         #expect(persistedSettings.defaultReaderMode == .browser)
     }
 
@@ -291,10 +290,6 @@ struct SettingsScreenControllerTests {
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: harness.dependencies)
-        controller.handleItemSelection(.articleSortMode)
-
-        #expect(controller.viewState().presentedPicker?.id == .articleSortMode)
-
         controller.handlePickerOptionSelection(
             itemID: .articleSortMode,
             optionID: ArticleListSortOrder.oldestFirst.rawValue,
@@ -303,7 +298,6 @@ struct SettingsScreenControllerTests {
 
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.sortMode == .publishedAtAscending)
-        #expect(controller.viewState().presentedPicker == nil)
         #expect(persistedSettings.sortMode == .publishedAtAscending)
     }
 
@@ -375,10 +369,6 @@ struct SettingsScreenControllerTests {
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: harness.dependencies)
-        controller.handleItemSelection(.articleBodyLinkOpeningPolicy)
-
-        #expect(controller.viewState().presentedPicker?.id == .articleBodyLinkOpeningPolicy)
-
         controller.handlePickerOptionSelection(
             itemID: .articleBodyLinkOpeningPolicy,
             optionID: ArticleBodyLinkOpeningPolicy.externalBrowser.rawValue,
@@ -387,7 +377,6 @@ struct SettingsScreenControllerTests {
 
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.articleBodyLinkOpeningPolicy == .externalBrowser)
-        #expect(controller.viewState().presentedPicker == nil)
         #expect(persistedSettings.articleBodyLinkOpeningPolicy == .externalBrowser)
     }
 
@@ -398,10 +387,6 @@ struct SettingsScreenControllerTests {
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: harness.dependencies)
-        controller.handleItemSelection(.articleSourceLinkOpeningPolicy)
-
-        #expect(controller.viewState().presentedPicker?.id == .articleSourceLinkOpeningPolicy)
-
         controller.handlePickerOptionSelection(
             itemID: .articleSourceLinkOpeningPolicy,
             optionID: ArticleSourceLinkOpeningPolicy.externalBrowser.rawValue,
@@ -410,7 +395,6 @@ struct SettingsScreenControllerTests {
 
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.articleSourceLinkOpeningPolicy == .externalBrowser)
-        #expect(controller.viewState().presentedPicker == nil)
         #expect(persistedSettings.articleSourceLinkOpeningPolicy == .externalBrowser)
     }
 
@@ -429,10 +413,6 @@ struct SettingsScreenControllerTests {
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: dependencies)
-        controller.handleItemSelection(.refreshInterval)
-
-        #expect(controller.viewState().presentedPicker?.id == .refreshInterval)
-
         controller.handlePickerOptionSelection(
             itemID: .refreshInterval,
             optionID: RefreshPreference.daily.rawValue,
@@ -442,7 +422,6 @@ struct SettingsScreenControllerTests {
         let persistedSettings = try repository.fetchOrCreate()
         let replacedConfiguration = try #require(scheduler.lastReplacedConfiguration)
         #expect(controller.screenState.settingsSnapshot.refreshIntervalPreference == .daily)
-        #expect(controller.viewState().presentedPicker == nil)
         #expect(persistedSettings.refreshIntervalPreference == .daily)
         #expect(replacedConfiguration.settingsSnapshot.refreshIntervalPreference == .daily)
         #expect(replacedConfiguration.policy.minimumInterval == TimeInterval(24 * 60 * 60))
@@ -469,8 +448,6 @@ struct SettingsScreenControllerTests {
         )
 
         controller.loadSettings(dependencies: dependencies)
-        controller.handleItemSelection(.refreshInterval)
-
         controller.handlePickerOptionSelection(
             itemID: .refreshInterval,
             optionID: RefreshPreference.manual.rawValue,
@@ -506,7 +483,6 @@ struct SettingsScreenControllerTests {
         let repository = try #require(dependencies.appSettingsRepository)
 
         controller.loadSettings(dependencies: dependencies)
-        controller.handleItemSelection(.refreshInterval)
         controller.handlePickerOptionSelection(
             itemID: .refreshInterval,
             optionID: RefreshPreference.daily.rawValue,
@@ -533,10 +509,6 @@ struct SettingsScreenControllerTests {
         let appState = AppState()
 
         controller.loadSettings(dependencies: harness.dependencies, appState: appState)
-        controller.handleItemSelection(.appearance)
-
-        #expect(controller.viewState().presentedPicker?.id == .appearance)
-
         controller.handlePickerOptionSelection(
             itemID: .appearance,
             optionID: InterfaceThemeMode.black.rawValue,
@@ -546,7 +518,6 @@ struct SettingsScreenControllerTests {
 
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.interfaceThemeMode == .black)
-        #expect(controller.viewState().presentedPicker == nil)
         #expect(persistedSettings.interfaceThemeMode == .black)
         #expect(appState.interfaceThemeMode == .black)
     }

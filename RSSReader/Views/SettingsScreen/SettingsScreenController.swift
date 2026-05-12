@@ -58,27 +58,6 @@ final class SettingsScreenController {
         loadSettings(dependencies: dependencies, appState: appState)
     }
 
-    func handleItemSelection(_ itemID: SettingsScreenItemID) {
-        switch itemID {
-        case .defaultReaderMode,
-                .articleSourceLinkOpeningPolicy,
-                .articleSortMode,
-                .articleBodyLinkOpeningPolicy,
-                .appearance,
-                .refreshInterval:
-            screenState.presentPicker(for: itemID)
-        case .markAsReadOnOpen,
-                .askBeforeMarkingAllAsRead,
-                .useICloudSync,
-                .iCloudSyncStatus:
-            return
-        }
-    }
-
-    func dismissPresentedPicker() {
-        screenState.dismissPresentedPicker()
-    }
-
     func handlePickerOptionSelection(
         itemID: SettingsScreenItemID,
         optionID: String,
@@ -145,7 +124,6 @@ private extension SettingsScreenController {
         }
 
         guard screenState.settingsSnapshot.defaultReaderMode != selectedMode else {
-            screenState.dismissPresentedPicker()
             return
         }
 
@@ -231,7 +209,6 @@ private extension SettingsScreenController {
 
         let selectedSortMode = selectedOrder.sortMode
         guard screenState.settingsSnapshot.sortMode != selectedSortMode else {
-            screenState.dismissPresentedPicker()
             return
         }
 
@@ -256,7 +233,6 @@ private extension SettingsScreenController {
         }
 
         guard screenState.settingsSnapshot.articleBodyLinkOpeningPolicy != selectedPolicy else {
-            screenState.dismissPresentedPicker()
             return
         }
 
@@ -281,7 +257,6 @@ private extension SettingsScreenController {
         }
 
         guard screenState.settingsSnapshot.articleSourceLinkOpeningPolicy != selectedPolicy else {
-            screenState.dismissPresentedPicker()
             return
         }
 
@@ -307,7 +282,6 @@ private extension SettingsScreenController {
         }
 
         guard screenState.settingsSnapshot.interfaceThemeMode != selectedMode else {
-            screenState.dismissPresentedPicker()
             return
         }
 
@@ -334,7 +308,6 @@ private extension SettingsScreenController {
         }
 
         guard screenState.settingsSnapshot.refreshIntervalPreference != selectedPreference else {
-            screenState.dismissPresentedPicker()
             return
         }
 

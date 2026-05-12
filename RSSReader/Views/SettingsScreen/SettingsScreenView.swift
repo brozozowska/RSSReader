@@ -3,10 +3,8 @@ import SwiftUI
 struct SettingsScreenActionHandlers {
     let dismiss: () -> Void
     let retryLoad: () -> Void
-    let selectItem: (SettingsScreenItemID) -> Void
     let selectPickerOption: (SettingsScreenItemID, String) -> Void
     let toggleItem: (SettingsScreenItemID, Bool) -> Void
-    let dismissPicker: () -> Void
 }
 
 struct SettingsScreenView: View {
@@ -41,27 +39,6 @@ struct SettingsScreenView: View {
                     guard controller.isPreviewMode == false else { return }
                     controller.loadSettings(dependencies: dependencies, appState: appState)
                 }
-                .confirmationDialog(
-                    viewState.presentedPicker?.title ?? "",
-                    isPresented: presentedPickerBinding,
-                    titleVisibility: .visible
-                ) {
-                    if let picker = viewState.presentedPicker {
-                        ForEach(picker.options) { option in
-                            Button(optionTitle(option)) {
-                                actionHandlers.selectPickerOption(picker.id, option.id)
-                            }
-                        }
-                    }
-
-                    Button("Cancel", role: .cancel) {
-                        actionHandlers.dismissPicker()
-                    }
-                } message: {
-                    if let subtitle = viewState.presentedPicker?.subtitle, subtitle.isEmpty == false {
-                        Text(subtitle)
-                    }
-                }
         }
     }
 
@@ -70,9 +47,6 @@ struct SettingsScreenView: View {
             dismiss: dismiss,
             retryLoad: {
                 controller.retryLoadingSettings(dependencies: dependencies, appState: appState)
-            },        
-            selectItem: { itemID in
-                controller.handleItemSelection(itemID)
             },
             selectPickerOption: { itemID, optionID in
                 controller.handlePickerOptionSelection(
@@ -88,19 +62,6 @@ struct SettingsScreenView: View {
                     isOn: isOn,
                     dependencies: dependencies
                 )
-            },
-            dismissPicker: {
-                controller.dismissPresentedPicker()
-            }
-        )
-    }
-
-    private var presentedPickerBinding: Binding<Bool> {
-        Binding(
-            get: { controller.screenState.presentedPicker != nil },
-            set: { isPresented in
-                guard isPresented == false else { return }
-                controller.dismissPresentedPicker()
             }
         )
     }
@@ -149,12 +110,26 @@ struct SettingsScreenView: View {
                 )
             }
         case .picker(let pickerItem):
-            Button {
-                actionHandlers.selectItem(pickerItem.id)
+            Menu {
+                ForEach(pickerItem.options) { option in
+                    Button {
+                        actionHandlers.selectPickerOption(pickerItem.id, option.id)
+                    } label: {
+                        if option.isSelected {
+                            Label(option.title, systemImage: "checkmark")
+                        } else {
+                            Text(option.title)
+                        }
+                    }
+                }
             } label: {
                 LabeledContent {
-                    Text(pickerItem.selectedValueTitle)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        Text(pickerItem.selectedValueTitle)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .imageScale(.small)
+                    }
+                    .foregroundStyle(.secondary)
                 } label: {
                     itemLabel(
                         title: pickerItem.title,
@@ -187,10 +162,6 @@ struct SettingsScreenView: View {
                     .foregroundStyle(.secondary)
             }
         }
-    }
-
-    private func optionTitle(_ option: SettingsPickerOptionPresentation) -> String {
-        option.isSelected ? "\(option.title) (Current)" : option.title
     }
 
     private func toggleBinding(for item: SettingsToggleItemPresentation) -> Binding<Bool> {

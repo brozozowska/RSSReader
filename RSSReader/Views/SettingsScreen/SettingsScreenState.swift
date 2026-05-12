@@ -13,11 +13,9 @@ struct SettingsScreenState {
     private(set) var iCloudSyncStatus: ICloudSyncStatus = .disabled
     private(set) var syncStatusPresentation: SettingsSyncStatusPresentation = .disabled
     private(set) var sections: [SettingsScreenSectionPresentation] = []
-    private(set) var presentedPicker: SettingsPickerItemPresentation? = nil
 
     mutating func beginLoading() {
         phase = .loading
-        presentedPicker = nil
     }
 
     mutating func applyLoadedSnapshot(
@@ -45,29 +43,18 @@ struct SettingsScreenState {
         syncStatusPresentation = input.syncStatusPresentation
         sections = SettingsScreenPresentationBuilder.buildSections(from: input)
         phase = .loaded
-        presentedPicker = nil
     }
 
     mutating func applyLoadingFailure(_ message: String) {
         sections = []
         phase = .failed(message)
-        presentedPicker = nil
-    }
-
-    mutating func presentPicker(for itemID: SettingsScreenItemID) {
-        presentedPicker = pickerItem(for: itemID)
-    }
-
-    mutating func dismissPresentedPicker() {
-        presentedPicker = nil
     }
 
     func derivedViewState() -> SettingsScreenViewState {
         SettingsScreenViewState(
             sections: sections,
             primaryLoadingState: primaryLoadingState,
-            placeholder: placeholder,
-            presentedPicker: presentedPicker
+            placeholder: placeholder
         )
     }
 
@@ -128,17 +115,5 @@ private extension SettingsScreenState {
             description: message,
             actionTitle: "Retry"
         )
-    }
-
-    func pickerItem(for itemID: SettingsScreenItemID) -> SettingsPickerItemPresentation? {
-        sections
-            .flatMap(\.items)
-            .first { $0.id == itemID }
-            .flatMap { item in
-                guard case .picker(let pickerItem) = item else {
-                    return nil
-                }
-                return pickerItem
-            }
     }
 }

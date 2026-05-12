@@ -29,16 +29,25 @@ struct SettingsScreenStateTests {
     }
 
     @Test
-    func settingsScreenStatePresentsDefaultReaderModePickerFromLoadedSections() {
-        var state = SettingsScreenState.previewLoaded(
+    func settingsScreenStateKeepsDefaultReaderModePickerInLoadedSections() throws {
+        let state = SettingsScreenState.previewLoaded(
             snapshot: AppSettingsSnapshot(defaultReaderMode: .reader)
         )
 
-        state.presentPicker(for: .defaultReaderMode)
+        let readingSection = try #require(
+            state.derivedViewState().sections.first(where: { $0.id == .reading })
+        )
+        let pickerItem = try #require(
+            readingSection.items.compactMap { item -> SettingsPickerItemPresentation? in
+                guard case .picker(let pickerItem) = item, pickerItem.id == .defaultReaderMode else {
+                    return nil
+                }
+                return pickerItem
+            }
+            .first
+        )
 
-        let presentedPicker = state.derivedViewState().presentedPicker
-        #expect(presentedPicker?.id == .defaultReaderMode)
-        #expect(presentedPicker?.selectedValueTitle == "Reader Mode")
-        #expect(presentedPicker?.options.count == ReaderMode.allCases.count)
+        #expect(pickerItem.selectedValueTitle == "Reader Mode")
+        #expect(pickerItem.options.count == ReaderMode.allCases.count)
     }
 }
