@@ -89,7 +89,7 @@ struct SettingsScreenControllerTests {
                 SettingsToggleItemPresentation(
                     id: .useICloudSync,
                     title: "Enable iCloud Sync",
-                    subtitle: "Applies on next launch. The app will rebuild its sync container and try to use iCloud for supported data.",
+                    subtitle: "Applies on next launch. Supported data will sync through iCloud when available.",
                     isOn: true
                 )
             )
@@ -140,7 +140,7 @@ struct SettingsScreenControllerTests {
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
                     title: "Current Status",
-                    subtitle: "Sign in to iCloud with the Apple ID used on this device to enable sync. RSSReader does not require a separate account.",
+                    subtitle: "Sign in to iCloud with the Apple ID used on this device to enable sync.",
                     valueTitle: "Sign In Required"
                 )
             )
@@ -214,7 +214,7 @@ struct SettingsScreenControllerTests {
                 SettingsToggleItemPresentation(
                     id: .useICloudSync,
                     title: "Enable iCloud Sync",
-                    subtitle: "Saved for the next launch. This session is still using local-only data because the current iCloud account is temporarily unavailable.",
+                    subtitle: "Saved for the next launch. This session keeps using local data because the current iCloud account is temporarily unavailable.",
                     isOn: true
                 )
             )
@@ -224,7 +224,7 @@ struct SettingsScreenControllerTests {
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
                     title: "Current Status",
-                    subtitle: "Sync is enabled as a saved preference, but this app launch is still using the local-only store because the current iCloud account is temporarily unavailable. Relaunch after iCloud becomes available so the app can rebuild its sync container.",
+                    subtitle: "Sync is enabled, but this launch cannot use iCloud because the current account is temporarily unavailable. Relaunch after iCloud becomes available.",
                     valueTitle: "Temporarily Unavailable"
                 )
             )

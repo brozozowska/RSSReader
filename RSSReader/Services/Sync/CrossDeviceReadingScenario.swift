@@ -44,6 +44,6 @@ struct CrossDeviceReadingScenario: Equatable, Sendable {
     }
 
     var settingsSectionFooter: String {
-        "Feeds, folders, and reading state should sync across devices. Articles stay local to each device and appear after manual or background refresh, without a separate app sign-in."
+        "Feeds, folders, and reading state sync across devices. Articles stay on each device and appear after manual or background refresh."
     }
 }

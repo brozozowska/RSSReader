@@ -267,13 +267,13 @@ enum SettingsScreenPresentationBuilder {
         SettingsScreenSectionPresentation(
             id: .appearance,
             title: "Appearance",
-            footer: "Appearance is applied at the app level so the selected interface mode immediately affects the shell and screen surfaces.",
+            footer: "Choose how the app renders its interface. The selected mode applies immediately.",
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .appearance,
-                        title: "Appearance",
-                        subtitle: "Choose between automatic light/dark handling, automatic light/black, or fixed appearance modes.",
+                        title: "Theme",
+                        subtitle: nil,
                         selectedValueTitle: interfaceThemeModeTitle(input.interfaceThemeMode),
                         options: InterfaceThemeMode.allCases.map { mode in
                             SettingsPickerOptionPresentation(
@@ -292,13 +292,13 @@ enum SettingsScreenPresentationBuilder {
         SettingsScreenSectionPresentation(
             id: .reading,
             title: "Reading",
-            footer: "These preferences control how an article opens and how quickly it leaves the unread state.",
+            footer: "Choose where articles open, where links inside articles open, and whether opening an article should immediately mark it as read.",
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .defaultReaderMode,
-                        title: "Default Reader",
-                        subtitle: "Choose how articles open by default.",
+                        title: "Open Articles",
+                        subtitle: nil,
                         selectedValueTitle: readerModeTitle(input.defaultReaderMode),
                         options: ReaderMode.allCases.map { mode in
                             SettingsPickerOptionPresentation(
@@ -312,8 +312,8 @@ enum SettingsScreenPresentationBuilder {
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .articleBodyLinkOpeningPolicy,
-                        title: "Article Links",
-                        subtitle: "Choose how links inside article text should open.",
+                        title: "Links in Articles",
+                        subtitle: nil,
                         selectedValueTitle: articleBodyLinkOpeningPolicyTitle(input.articleBodyLinkOpeningPolicy),
                         options: ArticleBodyLinkOpeningPolicy.allCases.map { policy in
                             SettingsPickerOptionPresentation(
@@ -327,8 +327,8 @@ enum SettingsScreenPresentationBuilder {
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .articleSourceLinkOpeningPolicy,
-                        title: "Source Article",
-                        subtitle: "Choose how the toolbar action opens the original article URL.",
+                        title: "Original Article Link",
+                        subtitle: nil,
                         selectedValueTitle: articleSourceLinkOpeningPolicyTitle(input.articleSourceLinkOpeningPolicy),
                         options: ArticleSourceLinkOpeningPolicy.allCases.map { policy in
                             SettingsPickerOptionPresentation(
@@ -355,13 +355,13 @@ enum SettingsScreenPresentationBuilder {
         SettingsScreenSectionPresentation(
             id: .articleList,
             title: "Article List",
-            footer: "Ordering and bulk mark-as-read confirmation are configurable here.",
+            footer: "Choose how article lists are ordered and whether bulk mark-as-read actions ask for confirmation.",
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .articleSortMode,
                         title: "Sort Articles",
-                        subtitle: "Choose how unread and article lists are ordered.",
+                        subtitle: nil,
                         selectedValueTitle: articleListSortOrderTitle(input.articleListSortOrder),
                         options: ArticleListSortOrder.allCases.map { order in
                             SettingsPickerOptionPresentation(
@@ -397,7 +397,7 @@ enum SettingsScreenPresentationBuilder {
                     SettingsPickerItemPresentation(
                         id: .refreshInterval,
                         title: "Background Refresh",
-                        subtitle: "Choose how often feeds should refresh when background refresh is available.",
+                        subtitle: nil,
                         selectedValueTitle: refreshPreferenceTitle(input.refreshIntervalPreference),
                         options: RefreshPreference.allCases.map { preference in
                             SettingsPickerOptionPresentation(
@@ -509,11 +509,11 @@ enum SettingsScreenPresentationBuilder {
         syncStatusPresentation: SettingsSyncStatusPresentation
     ) -> String {
         if isEnabled, isUsingLocalOnlySyncFallbackForCurrentLaunch {
-            return "Saved for the next launch. This session is still using local-only data because \(bootstrapFallbackReason(syncStatusPresentation))."
+            return "Saved for the next launch. This session keeps using local data because \(bootstrapFallbackReason(syncStatusPresentation))."
         }
 
         if isEnabled {
-            return "Applies on next launch. The app will rebuild its sync container and try to use iCloud for supported data."
+            return "Applies on next launch. Supported data will sync through iCloud when available."
         }
 
         return "Applies on next launch. Supported sync data will stay only on this device until iCloud sync is enabled again."
@@ -557,13 +557,13 @@ enum SettingsScreenPresentationBuilder {
         if isUsingLocalOnlySyncFallbackForCurrentLaunch {
             switch status {
             case .noAccount:
-                return "Sync is enabled as a saved preference, but this app launch is still using the local-only store because the current device is not signed in to iCloud. Relaunch after signing in so the app can rebuild its sync container."
+                return "Sync is enabled, but this launch cannot use iCloud because the device is not signed in. Relaunch after signing in."
             case .restricted:
-                return "Sync is enabled as a saved preference, but this app launch is still using the local-only store because iCloud access is currently restricted on this device. Relaunch after the restriction is removed so the app can rebuild its sync container."
+                return "Sync is enabled, but this launch cannot use iCloud because access is restricted on this device. Relaunch after the restriction is removed."
             case .temporarilyUnavailable:
-                return "Sync is enabled as a saved preference, but this app launch is still using the local-only store because the current iCloud account is temporarily unavailable. Relaunch after iCloud becomes available so the app can rebuild its sync container."
+                return "Sync is enabled, but this launch cannot use iCloud because the current account is temporarily unavailable. Relaunch after iCloud becomes available."
             case .couldNotDetermine, .statusUnavailable, .checkingAccount:
-                return "Sync is enabled as a saved preference, but this app launch is still using the local-only store because the app could not confirm a usable iCloud account/runtime path during bootstrap. Relaunch after iCloud becomes available so the app can rebuild its sync container."
+                return "Sync is enabled, but this launch could not confirm iCloud availability. Relaunch after iCloud becomes available."
             case .disabled, .ready, .syncing, .preparing, .importing, .uploading, .failed:
                 break
             }
@@ -571,7 +571,7 @@ enum SettingsScreenPresentationBuilder {
 
         switch status {
         case .disabled:
-            return "The current app session is running without iCloud sync."
+            return "iCloud sync is off."
         case .statusUnavailable:
             return "The current app session could not read the live iCloud sync status."
         case .checkingAccount:
@@ -587,7 +587,7 @@ enum SettingsScreenPresentationBuilder {
         case .uploading:
             return "Changes from this device are currently being uploaded to iCloud."
         case .noAccount:
-            return "Sign in to iCloud with the Apple ID used on this device to enable sync. RSSReader does not require a separate account."
+            return "Sign in to iCloud with the Apple ID used on this device to enable sync."
         case .restricted:
             return "This device cannot use iCloud right now because account changes or CloudKit access are restricted."
         case .temporarilyUnavailable:
@@ -605,11 +605,11 @@ enum SettingsScreenPresentationBuilder {
         readingScenario: CrossDeviceReadingScenario
     ) -> String {
         let scopeFooter = syncScope.settingsSectionFooter(readingScenario: readingScenario)
-        let accountFooter = "RSSReader uses the Apple ID already signed in to this device for iCloud sync and does not require a separate app account."
-        let relaunchFooter = "Changing the sync preference applies on the next app launch because the model container must be rebuilt for the selected sync policy."
+        let accountFooter = "iCloud sync uses the Apple ID signed in on this device."
+        let relaunchFooter = "Changing the sync preference applies on the next app launch."
         let fallbackFooter: String
         if input.isUsingLocalOnlySyncFallbackForCurrentLaunch {
-            fallbackFooter = "The saved sync preference is currently waiting for a later launch that can rebuild the model container with a valid iCloud account/runtime path."
+            fallbackFooter = "Sync will try again on the next launch when iCloud is available."
         } else {
             fallbackFooter = ""
         }
@@ -626,9 +626,9 @@ enum SettingsScreenPresentationBuilder {
         case .temporarilyUnavailable:
             "the current iCloud account is temporarily unavailable"
         case .couldNotDetermine, .statusUnavailable, .checkingAccount:
-            "the app could not confirm a usable iCloud account/runtime path during bootstrap"
+            "iCloud availability could not be confirmed"
         case .disabled, .ready, .syncing, .preparing, .importing, .uploading, .failed:
-            "the app is waiting for a later launch to rebuild its sync container"
+            "iCloud is not available for this launch"
         }
     }
 }

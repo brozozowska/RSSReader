@@ -56,6 +56,6 @@ struct CloudKitSyncScope: Equatable, Sendable {
 
     func settingsSectionFooter(readingScenario: CrossDeviceReadingScenario) -> String {
         let readingStateCopy = readingScenario.settingsSectionFooter
-        return "\(readingStateCopy) App settings should also sync through CloudKit, while fetch logs remain local-only debug storage."
+        return "\(readingStateCopy) Settings sync through iCloud too."
     }
 }

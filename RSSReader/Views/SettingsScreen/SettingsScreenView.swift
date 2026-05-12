@@ -110,34 +110,7 @@ struct SettingsScreenView: View {
                 )
             }
         case .picker(let pickerItem):
-            Menu {
-                ForEach(pickerItem.options) { option in
-                    Button {
-                        actionHandlers.selectPickerOption(pickerItem.id, option.id)
-                    } label: {
-                        if option.isSelected {
-                            Label(option.title, systemImage: "checkmark")
-                        } else {
-                            Text(option.title)
-                        }
-                    }
-                }
-            } label: {
-                LabeledContent {
-                    HStack(spacing: 4) {
-                        Text(pickerItem.selectedValueTitle)
-                        Image(systemName: "chevron.up.chevron.down")
-                            .imageScale(.small)
-                    }
-                    .foregroundStyle(.secondary)
-                } label: {
-                    itemLabel(
-                        title: pickerItem.title,
-                        subtitle: pickerItem.subtitle
-                    )
-                }
-            }
-            .buttonStyle(.plain)
+            pickerRow(pickerItem)
         case .statusRow(let statusItem):
             LabeledContent {
                 Text(statusItem.valueTitle)
@@ -149,6 +122,85 @@ struct SettingsScreenView: View {
                 )
             }
         }
+    }
+
+    @ViewBuilder
+    private func pickerRow(_ pickerItem: SettingsPickerItemPresentation) -> some View {
+        ViewThatFits(in: .horizontal) {
+            trailingPickerRow(pickerItem)
+            secondaryLinePickerRow(pickerItem)
+        }
+    }
+
+    private func trailingPickerRow(_ pickerItem: SettingsPickerItemPresentation) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text(pickerItem.title)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .foregroundStyle(.primary)
+
+            Spacer(minLength: 8)
+
+            pickerValueControl(for: pickerItem, lineLimit: 1)
+                .fixedSize(horizontal: true, vertical: false)
+        }
+    }
+
+    private func secondaryLinePickerRow(_ pickerItem: SettingsPickerItemPresentation) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(pickerItem.title)
+                .foregroundStyle(.primary)
+
+            pickerValueControl(for: pickerItem, lineLimit: 1)
+        }
+    }
+
+    private func pickerValueControl(
+        for pickerItem: SettingsPickerItemPresentation,
+        lineLimit: Int?
+    ) -> some View {
+        visiblePickerValue(for: pickerItem, lineLimit: lineLimit)
+            .overlay {
+                pickerMenuHitTarget(for: pickerItem)
+            }
+            .contentShape(Rectangle())
+    }
+
+    private func visiblePickerValue(
+        for pickerItem: SettingsPickerItemPresentation,
+        lineLimit: Int?
+    ) -> some View {
+        HStack(spacing: 4) {
+            Text(pickerItem.selectedValueTitle)
+                .lineLimit(lineLimit)
+                .truncationMode(.tail)
+                .multilineTextAlignment(.trailing)
+
+            Image(systemName: "chevron.up.chevron.down")
+                .imageScale(.small)
+        }
+        .foregroundStyle(.secondary)
+    }
+
+    private func pickerMenuHitTarget(for pickerItem: SettingsPickerItemPresentation) -> some View {
+        Menu {
+            ForEach(pickerItem.options) { option in
+                Button {
+                    actionHandlers.selectPickerOption(pickerItem.id, option.id)
+                } label: {
+                    if option.isSelected {
+                        Label(option.title, systemImage: "checkmark")
+                    } else {
+                        Text(option.title)
+                    }
+                }
+            }
+        } label: {
+            Color.clear
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(pickerItem.title))
+        .accessibilityValue(Text(pickerItem.selectedValueTitle))
     }
 
     private func itemLabel(title: String, subtitle: String?) -> some View {

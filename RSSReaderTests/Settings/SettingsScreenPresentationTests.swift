@@ -38,8 +38,8 @@ struct SettingsScreenPresentationTests {
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .appearance,
-                        title: "Appearance",
-                        subtitle: "Choose between automatic light/dark handling, automatic light/black, or fixed appearance modes.",
+                        title: "Theme",
+                        subtitle: nil,
                         selectedValueTitle: "Black",
                         options: [
                             SettingsPickerOptionPresentation(id: "automaticLightDark", title: "Automatic Light/Dark", isSelected: false),
@@ -56,8 +56,8 @@ struct SettingsScreenPresentationTests {
             readingItems[0] == .picker(
                 SettingsPickerItemPresentation(
                     id: .defaultReaderMode,
-                    title: "Default Reader",
-                    subtitle: "Choose how articles open by default.",
+                    title: "Open Articles",
+                    subtitle: nil,
                     selectedValueTitle: "In-App Browser",
                     options: [
                         SettingsPickerOptionPresentation(id: "embedded", title: "Embedded Reader", isSelected: false),
@@ -71,8 +71,8 @@ struct SettingsScreenPresentationTests {
             readingItems[1] == .picker(
                 SettingsPickerItemPresentation(
                     id: .articleBodyLinkOpeningPolicy,
-                    title: "Article Links",
-                    subtitle: "Choose how links inside article text should open.",
+                    title: "Links in Articles",
+                    subtitle: nil,
                     selectedValueTitle: "External Browser",
                     options: [
                         SettingsPickerOptionPresentation(id: "inAppBrowser", title: "In-App Browser", isSelected: false),
@@ -85,8 +85,8 @@ struct SettingsScreenPresentationTests {
             readingItems[2] == .picker(
                 SettingsPickerItemPresentation(
                     id: .articleSourceLinkOpeningPolicy,
-                    title: "Source Article",
-                    subtitle: "Choose how the toolbar action opens the original article URL.",
+                    title: "Original Article Link",
+                    subtitle: nil,
                     selectedValueTitle: "External Browser",
                     options: [
                         SettingsPickerOptionPresentation(id: "inAppBrowser", title: "In-App Browser", isSelected: false),
@@ -111,7 +111,7 @@ struct SettingsScreenPresentationTests {
                     SettingsPickerItemPresentation(
                         id: .articleSortMode,
                         title: "Sort Articles",
-                        subtitle: "Choose how unread and article lists are ordered.",
+                        subtitle: nil,
                         selectedValueTitle: "Newest First",
                         options: [
                             SettingsPickerOptionPresentation(id: "newestFirst", title: "Newest First", isSelected: true),
@@ -135,7 +135,7 @@ struct SettingsScreenPresentationTests {
                     SettingsPickerItemPresentation(
                         id: .refreshInterval,
                         title: "Background Refresh",
-                        subtitle: "Choose how often feeds should refresh when background refresh is available.",
+                        subtitle: nil,
                         selectedValueTitle: "Daily",
                         options: [
                             SettingsPickerOptionPresentation(id: "manual", title: "Manual", isSelected: false),
@@ -154,7 +154,7 @@ struct SettingsScreenPresentationTests {
                     SettingsToggleItemPresentation(
                         id: .useICloudSync,
                         title: "Enable iCloud Sync",
-                        subtitle: "Applies on next launch. The app will rebuild its sync container and try to use iCloud for supported data.",
+                        subtitle: "Applies on next launch. Supported data will sync through iCloud when available.",
                         isOn: true
                     )
                 ),
@@ -242,12 +242,12 @@ struct SettingsScreenPresentationTests {
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
                     title: "Current Status",
-                    subtitle: "Sign in to iCloud with the Apple ID used on this device to enable sync. RSSReader does not require a separate account.",
+                    subtitle: "Sign in to iCloud with the Apple ID used on this device to enable sync.",
                     valueTitle: "Sign In Required"
                 )
             )
         )
-        #expect(syncSection.footer?.contains("does not require a separate app account") == true)
+        #expect(syncSection.footer?.contains("iCloud sync uses the Apple ID signed in on this device.") == true)
     }
 
     @Test
@@ -328,7 +328,7 @@ struct SettingsScreenPresentationTests {
                 SettingsToggleItemPresentation(
                     id: .useICloudSync,
                     title: "Enable iCloud Sync",
-                    subtitle: "Saved for the next launch. This session is still using local-only data because the current iCloud account is temporarily unavailable.",
+                    subtitle: "Saved for the next launch. This session keeps using local data because the current iCloud account is temporarily unavailable.",
                     isOn: true
                 )
             )
@@ -338,13 +338,13 @@ struct SettingsScreenPresentationTests {
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
                     title: "Current Status",
-                    subtitle: "Sync is enabled as a saved preference, but this app launch is still using the local-only store because the current iCloud account is temporarily unavailable. Relaunch after iCloud becomes available so the app can rebuild its sync container.",
+                    subtitle: "Sync is enabled, but this launch cannot use iCloud because the current account is temporarily unavailable. Relaunch after iCloud becomes available.",
                     valueTitle: "Temporarily Unavailable"
                 )
             )
         )
         #expect(
-            syncSection.footer?.contains("currently waiting for a later launch") == true
+            syncSection.footer?.contains("Sync will try again on the next launch when iCloud is available.") == true
         )
     }
 }
