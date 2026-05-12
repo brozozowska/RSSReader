@@ -26,14 +26,32 @@ struct SettingsScreenPresentationTests {
 
         let sections = SettingsScreenPresentationBuilder.buildSections(from: input)
 
-        #expect(sections.map(\.id) == [.reading, .articleList, .refresh, .sync, .advanced])
+        #expect(sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync])
 
-        let readingItems = sections[0].items
-        let articleListItems = sections[1].items
-        let refreshItems = sections[2].items
-        let syncItems = sections[3].items
-        let advancedItems = sections[4].items
+        let appearanceItems = sections[0].items
+        let readingItems = sections[1].items
+        let articleListItems = sections[2].items
+        let updatesAndSyncItems = sections[3].items
 
+        #expect(
+            appearanceItems == [
+                .picker(
+                    SettingsPickerItemPresentation(
+                        id: .appearance,
+                        title: "Appearance",
+                        subtitle: "Choose between automatic light/dark handling, automatic light/black, or fixed appearance modes.",
+                        selectedValueTitle: "Black",
+                        options: [
+                            SettingsPickerOptionPresentation(id: "automaticLightDark", title: "Automatic Light/Dark", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "automaticLightBlack", title: "Automatic Light/Black", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "light", title: "Light", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "dark", title: "Dark", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "black", title: "Black", isSelected: true)
+                        ]
+                    )
+                )
+            ]
+        )
         #expect(
             readingItems[0] == .picker(
                 SettingsPickerItemPresentation(
@@ -50,17 +68,7 @@ struct SettingsScreenPresentationTests {
             )
         )
         #expect(
-            readingItems[1] == .toggle(
-                SettingsToggleItemPresentation(
-                    id: .markAsReadOnOpen,
-                    title: "Mark Read on Open",
-                    subtitle: "Automatically mark an article as read when it is opened.",
-                    isOn: false
-                )
-            )
-        )
-        #expect(
-            readingItems[2] == .picker(
+            readingItems[1] == .picker(
                 SettingsPickerItemPresentation(
                     id: .articleBodyLinkOpeningPolicy,
                     title: "Article Links",
@@ -74,7 +82,7 @@ struct SettingsScreenPresentationTests {
             )
         )
         #expect(
-            readingItems[3] == .picker(
+            readingItems[2] == .picker(
                 SettingsPickerItemPresentation(
                     id: .articleSourceLinkOpeningPolicy,
                     title: "Source Article",
@@ -84,6 +92,16 @@ struct SettingsScreenPresentationTests {
                         SettingsPickerOptionPresentation(id: "inAppBrowser", title: "In-App Browser", isSelected: false),
                         SettingsPickerOptionPresentation(id: "externalBrowser", title: "External Browser", isSelected: true)
                     ]
+                )
+            )
+        )
+        #expect(
+            readingItems[3] == .toggle(
+                SettingsToggleItemPresentation(
+                    id: .markAsReadOnOpen,
+                    title: "Mark Read on Open",
+                    subtitle: "Automatically mark an article as read when it is opened.",
+                    isOn: false
                 )
             )
         )
@@ -112,7 +130,7 @@ struct SettingsScreenPresentationTests {
             ]
         )
         #expect(
-            refreshItems.contains(
+            updatesAndSyncItems.contains(
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .refreshInterval,
@@ -131,7 +149,7 @@ struct SettingsScreenPresentationTests {
             )
         )
         #expect(
-            syncItems == [
+            Array(updatesAndSyncItems.suffix(2)) == [
                 .toggle(
                     SettingsToggleItemPresentation(
                         id: .useICloudSync,
@@ -146,25 +164,6 @@ struct SettingsScreenPresentationTests {
                         title: "Current Status",
                         subtitle: "The current app session could not read the live iCloud sync status.",
                         valueTitle: "Status Unavailable"
-                    )
-                )
-            ]
-        )
-        #expect(
-            advancedItems == [
-                .picker(
-                    SettingsPickerItemPresentation(
-                        id: .appearance,
-                        title: "Appearance",
-                        subtitle: "Choose between automatic light/dark handling, automatic light/black, or fixed appearance modes.",
-                        selectedValueTitle: "Black",
-                        options: [
-                            SettingsPickerOptionPresentation(id: "automaticLightDark", title: "Automatic Light/Dark", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "automaticLightBlack", title: "Automatic Light/Black", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "light", title: "Light", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "dark", title: "Dark", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "black", title: "Black", isSelected: true)
-                        ]
                     )
                 )
             ]
@@ -234,7 +233,7 @@ struct SettingsScreenPresentationTests {
         )
 
         let syncSection = try #require(
-            SettingsScreenPresentationBuilder.buildSections(from: input).first(where: { $0.id == .sync })
+            SettingsScreenPresentationBuilder.buildSections(from: input).first(where: { $0.id == .updatesAndSync })
         )
         let statusRow = try #require(syncSection.items.last)
 
@@ -270,13 +269,13 @@ struct SettingsScreenPresentationTests {
         )
 
         let restrictedSection = try #require(
-            SettingsScreenPresentationBuilder.buildSections(from: restrictedInput).first(where: { $0.id == .sync })
+            SettingsScreenPresentationBuilder.buildSections(from: restrictedInput).first(where: { $0.id == .updatesAndSync })
         )
         let temporarilyUnavailableSection = try #require(
-            SettingsScreenPresentationBuilder.buildSections(from: temporarilyUnavailableInput).first(where: { $0.id == .sync })
+            SettingsScreenPresentationBuilder.buildSections(from: temporarilyUnavailableInput).first(where: { $0.id == .updatesAndSync })
         )
         let couldNotDetermineSection = try #require(
-            SettingsScreenPresentationBuilder.buildSections(from: couldNotDetermineInput).first(where: { $0.id == .sync })
+            SettingsScreenPresentationBuilder.buildSections(from: couldNotDetermineInput).first(where: { $0.id == .updatesAndSync })
         )
 
         #expect(
@@ -321,11 +320,11 @@ struct SettingsScreenPresentationTests {
         )
 
         let syncSection = try #require(
-            SettingsScreenPresentationBuilder.buildSections(from: input).first(where: { $0.id == .sync })
+            SettingsScreenPresentationBuilder.buildSections(from: input).first(where: { $0.id == .updatesAndSync })
         )
 
         #expect(
-            syncSection.items.first == .toggle(
+            syncSection.items.dropFirst().first == .toggle(
                 SettingsToggleItemPresentation(
                     id: .useICloudSync,
                     title: "Enable iCloud Sync",

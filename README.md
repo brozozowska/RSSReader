@@ -433,7 +433,7 @@
 - [x] `Remove WKWebView Browser Surface`: удалить устаревшие `WebViewScreenState`, `WebViewScreenController`, кастомный `WKWebView` bridge, preview/loading/reload/open-external toolbar state и связанные tests, если они больше не используются после перехода на `SFSafariViewController`;
 - [x] `Swipe Actions Dark Theme`: исправить цвета swipe actions для `Unread` / `Read` и `Starred` в `ArticleListContentView`, чтобы в тёмной теме фон и символы оставались контрастными;
 - [x] `Settings Picker Menus`: заменить `confirmationDialog` для picker-настроек на inline `Menu` внутри строки настройки, чтобы короткие списки опций открывались рядом с выбранной настройкой без отдельного modal / drill-down flow;
-- [ ] `Settings Information Architecture`: перегруппировать `SettingsScreen` так, чтобы наиболее важные настройки были выше, а одиночная настройка `Appearance` не оставалась в отдельной группе `Advanced`;
+- [x] `Settings Information Architecture`: перегруппировать `SettingsScreen` в четыре группы `Appearance`, `Reading`, `Article List` и `Updates & Sync`, поднять app-level оформление выше, оставить reading/list настройки рядом с основным flow и объединить background refresh с iCloud sync вместо отдельного `Advanced`;
 - [ ] `Settings Value Control Layout`: разделить picker-ячейки `SettingsScreen` на статичную label-часть (`title` / `subtitle`) и отдельный value-control справа, чтобы `Menu` открывался только из selected value, а названия настроек и selected values не меняли расположение и не пропадали при открытии меню;
 
 #### Testing

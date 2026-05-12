@@ -1,11 +1,10 @@
 import Foundation
 
 enum SettingsScreenSectionID: String, Hashable, Identifiable, Sendable {
+    case appearance
     case reading
     case articleList
-    case refresh
-    case sync
-    case advanced
+    case updatesAndSync
 
     var id: String { rawValue }
 }
@@ -257,12 +256,36 @@ enum SettingsScreenInputBuilder {
 enum SettingsScreenPresentationBuilder {
     static func buildSections(from input: SettingsScreenInput) -> [SettingsScreenSectionPresentation] {
         [
+            appearanceSection(from: input),
             readingSection(from: input),
             articleListSection(from: input),
-            refreshSection(from: input),
-            syncSection(from: input),
-            advancedSection(from: input)
+            updatesAndSyncSection(from: input)
         ]
+    }
+
+    private static func appearanceSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
+        SettingsScreenSectionPresentation(
+            id: .appearance,
+            title: "Appearance",
+            footer: "Appearance is applied at the app level so the selected interface mode immediately affects the shell and screen surfaces.",
+            items: [
+                .picker(
+                    SettingsPickerItemPresentation(
+                        id: .appearance,
+                        title: "Appearance",
+                        subtitle: "Choose between automatic light/dark handling, automatic light/black, or fixed appearance modes.",
+                        selectedValueTitle: interfaceThemeModeTitle(input.interfaceThemeMode),
+                        options: InterfaceThemeMode.allCases.map { mode in
+                            SettingsPickerOptionPresentation(
+                                id: mode.rawValue,
+                                title: interfaceThemeModeTitle(mode),
+                                isSelected: input.interfaceThemeMode == mode
+                            )
+                        }
+                    )
+                )
+            ]
+        )
     }
 
     private static func readingSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
@@ -284,14 +307,6 @@ enum SettingsScreenPresentationBuilder {
                                 isSelected: input.defaultReaderMode == mode
                             )
                         }
-                    )
-                ),
-                .toggle(
-                    SettingsToggleItemPresentation(
-                        id: .markAsReadOnOpen,
-                        title: "Mark Read on Open",
-                        subtitle: "Automatically mark an article as read when it is opened.",
-                        isOn: input.markAsReadOnOpen
                     )
                 ),
                 .picker(
@@ -322,6 +337,14 @@ enum SettingsScreenPresentationBuilder {
                                 isSelected: input.articleSourceLinkOpeningPolicy == policy
                             )
                         }
+                    )
+                ),
+                .toggle(
+                    SettingsToggleItemPresentation(
+                        id: .markAsReadOnOpen,
+                        title: "Mark Read on Open",
+                        subtitle: "Automatically mark an article as read when it is opened.",
+                        isOn: input.markAsReadOnOpen
                     )
                 )
             ]
@@ -361,11 +384,14 @@ enum SettingsScreenPresentationBuilder {
         )
     }
 
-    private static func refreshSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
-        SettingsScreenSectionPresentation(
-            id: .refresh,
-            title: "Refresh",
-            footer: "Manual disables scheduled background refresh, while automatic intervals are now interpreted through BackgroundRefreshService.",
+    private static func updatesAndSyncSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
+        let readingScenario = CrossDeviceReadingScenario.current
+        let syncScope = CloudKitSyncScope.current
+
+        return SettingsScreenSectionPresentation(
+            id: .updatesAndSync,
+            title: "Updates & Sync",
+            footer: updatesAndSyncSectionFooter(input: input, syncScope: syncScope, readingScenario: readingScenario),
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
@@ -381,20 +407,7 @@ enum SettingsScreenPresentationBuilder {
                             )
                         }
                     )
-                )
-            ]
-        )
-    }
-
-    private static func syncSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
-        let readingScenario = CrossDeviceReadingScenario.current
-        let syncScope = CloudKitSyncScope.current
-
-        return SettingsScreenSectionPresentation(
-            id: .sync,
-            title: "Sync",
-            footer: syncSectionFooter(input: input, syncScope: syncScope, readingScenario: readingScenario),
-            items: [
+                ),
                 .toggle(
                     SettingsToggleItemPresentation(
                         id: .useICloudSync,
@@ -416,31 +429,6 @@ enum SettingsScreenPresentationBuilder {
                             isUsingLocalOnlySyncFallbackForCurrentLaunch: input.isUsingLocalOnlySyncFallbackForCurrentLaunch
                         ),
                         valueTitle: iCloudSyncStatusTitle(input.syncStatusPresentation)
-                    )
-                )
-            ]
-        )
-    }
-
-    private static func advancedSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
-        SettingsScreenSectionPresentation(
-            id: .advanced,
-            title: "Advanced",
-            footer: "Appearance is applied at the app level so the selected interface mode immediately affects the shell and screen surfaces.",
-            items: [
-                .picker(
-                    SettingsPickerItemPresentation(
-                        id: .appearance,
-                        title: "Appearance",
-                        subtitle: "Choose between automatic light/dark handling, automatic light/black, or fixed appearance modes.",
-                        selectedValueTitle: interfaceThemeModeTitle(input.interfaceThemeMode),
-                        options: InterfaceThemeMode.allCases.map { mode in
-                            SettingsPickerOptionPresentation(
-                                id: mode.rawValue,
-                                title: interfaceThemeModeTitle(mode),
-                                isSelected: input.interfaceThemeMode == mode
-                            )
-                        }
                     )
                 )
             ]
@@ -611,7 +599,7 @@ enum SettingsScreenPresentationBuilder {
         }
     }
 
-    private static func syncSectionFooter(
+    private static func updatesAndSyncSectionFooter(
         input: SettingsScreenInput,
         syncScope: CloudKitSyncScope,
         readingScenario: CrossDeviceReadingScenario

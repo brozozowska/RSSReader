@@ -25,19 +25,19 @@ struct CloudKitSyncScopeTests {
     }
 
     @Test
-    func syncSectionFooterCombinesReadingScenarioAndCloudKitScope() throws {
+    func updatesAndSyncSectionFooterCombinesReadingScenarioAndCloudKitScope() throws {
         let sections = SettingsScreenPresentationBuilder.buildSections(
             from: SettingsScreenInputBuilder.build(
                 from: AppSettingsSnapshot(useiCloudSync: true),
                 iCloudSyncStatus: .statusUnavailable
             )
         )
-        let syncSection = try #require(sections.first { $0.id == .sync })
+        let updatesAndSyncSection = try #require(sections.first { $0.id == .updatesAndSync })
         let expectedFooter = CloudKitSyncScope.current.settingsSectionFooter(
             readingScenario: CrossDeviceReadingScenario.current
         ) + " RSSReader uses the Apple ID already signed in to this device for iCloud sync and does not require a separate app account. Changing the sync preference applies on the next app launch because the model container must be rebuilt for the selected sync policy."
 
-        #expect(syncSection.footer == expectedFooter)
+        #expect(updatesAndSyncSection.footer == expectedFooter)
     }
 
     @Test

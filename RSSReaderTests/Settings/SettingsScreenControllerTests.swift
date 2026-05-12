@@ -77,9 +77,9 @@ struct SettingsScreenControllerTests {
         controller.loadSettings(dependencies: harness.dependencies, appState: appState)
 
         let syncSection = try #require(
-            controller.viewState().sections.first(where: { $0.id == .sync })
+            controller.viewState().sections.first(where: { $0.id == .updatesAndSync })
         )
-        let syncToggle = try #require(syncSection.items.first)
+        let syncToggle = try #require(syncSection.items.dropFirst().first)
         let syncStatusItem = try #require(syncSection.items.last)
 
         #expect(controller.screenState.iCloudSyncStatus == .syncing)
@@ -128,7 +128,7 @@ struct SettingsScreenControllerTests {
         controller.loadSettings(dependencies: dependencies, appState: appState)
 
         let syncSection = try #require(
-            controller.viewState().sections.first(where: { $0.id == .sync })
+            controller.viewState().sections.first(where: { $0.id == .updatesAndSync })
         )
         let syncStatusItem = try #require(syncSection.items.last)
 
@@ -202,7 +202,7 @@ struct SettingsScreenControllerTests {
         controller.loadSettings(dependencies: dependencies, appState: appState)
 
         let syncSection = try #require(
-            controller.viewState().sections.first(where: { $0.id == .sync })
+            controller.viewState().sections.first(where: { $0.id == .updatesAndSync })
         )
 
         #expect(controller.screenState.iCloudSyncStatus == .statusUnavailable)
@@ -210,7 +210,7 @@ struct SettingsScreenControllerTests {
         #expect(controller.screenState.settingsInput.isUsingLocalOnlySyncFallbackForCurrentLaunch)
         #expect(appState.iCloudSyncStatus == .statusUnavailable)
         #expect(
-            syncSection.items.first == .toggle(
+            syncSection.items.dropFirst().first == .toggle(
                 SettingsToggleItemPresentation(
                     id: .useICloudSync,
                     title: "Enable iCloud Sync",
