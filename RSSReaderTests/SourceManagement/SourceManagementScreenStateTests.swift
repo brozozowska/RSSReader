@@ -17,7 +17,7 @@ struct SourceManagementScreenStateTests {
     }
 
     @Test
-    func sourceManagementScreenStateBuildsAddFeedPresentationWithPreviewAndConfirmationState() {
+    func sourceManagementScreenStateBuildsAddFeedPresentationWithPreviewAndSingleSaveState() {
         var state = SourceManagementScreenState.makePreviewFixture()
         let newsFolderID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
         let techFolderID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
@@ -92,16 +92,19 @@ struct SourceManagementScreenStateTests {
             rejectedEntryCount: 0,
             existingFeedID: nil
         )
-        let requestURL = state.beginAddFeedPreviewLoading()
-        state.applyLoadedAddFeedPreview(preview, requestURL: requestURL ?? "")
+        let previewCommand = state.beginAddFeedPreviewLoading()
+        if let previewCommand {
+            state.applyLoadedAddFeedPreview(preview, command: previewCommand)
+        }
 
         guard case .addFeed(let previewDestination)? = state.derivedViewState().presentedDestination else {
             Issue.record("Expected add-feed destination presentation after preview loading")
             return
         }
 
-        #expect(previewDestination.primaryActionTitle == "Confirm Feed")
+        #expect(previewDestination.primaryActionTitle == "Add Feed")
         #expect(previewDestination.isPrimaryActionEnabled)
+        #expect(previewDestination.isConfirmationActionEnabled)
         #expect(previewDestination.preview?.title == "Example Feed")
         #expect(previewDestination.preview?.kindTitle == "RSS")
         #expect(previewDestination.placementOptions.map(\.title) == ["Ungrouped", "News", "Tech"])
@@ -109,19 +112,6 @@ struct SourceManagementScreenStateTests {
         #expect(previewDestination.createFolderActionTitle == "Create New Folder")
 
         state.selectAddFeedFolderPlacement(.folder(techFolderID))
-
-        state.confirmAddFeedPreview()
-
-        guard case .addFeed(let confirmedDestination)? = state.derivedViewState().presentedDestination else {
-            Issue.record("Expected add-feed destination presentation after confirmation")
-            return
-        }
-
-        #expect(confirmedDestination.primaryActionTitle == "Add Feed")
-        #expect(confirmedDestination.isPrimaryActionEnabled)
-        #expect(confirmedDestination.status?.kind == .success)
-        #expect(confirmedDestination.placementOptions.last?.isSelected == true)
-        #expect(confirmedDestination.status?.detail?.contains("Tech") == true)
 
         let createCommand = state.beginAddFeedCreation()
         #expect(createCommand?.folderPlacement == .folder(techFolderID))
@@ -143,6 +133,142 @@ struct SourceManagementScreenStateTests {
         #expect(createdDestination.primaryActionTitle == "Feed Added")
         #expect(createdDestination.isPrimaryActionEnabled == false)
         #expect(createdDestination.status?.title == "Feed added")
+    }
+
+    @Test
+    func sourceManagementScreenStateIgnoresStaleAddFeedPreviewCompletion() {
+        var state = SourceManagementScreenState.makePreviewFixture()
+        state.presentScenario(.addFeed)
+        state.updateAddFeedURLInput("example.com/feed.xml")
+
+        guard let activeCommand = state.beginAddFeedPreviewLoading() else {
+            Issue.record("Expected first preview command")
+            return
+        }
+
+        let secondCommand = state.beginAddFeedPreviewLoading()
+        #expect(secondCommand == nil)
+
+        let staleCommand = SourceManagementAddFeedPreviewCommand(
+            requestID: UUID(),
+            urlString: activeCommand.urlString
+        )
+        state.applyAddFeedPreviewFailure(
+            SourceManagementAddFeedStatusPresentation(
+                title: "Preview could not be loaded",
+                kind: .failure,
+                detail: "Unable to check this source right now."
+            ),
+            command: staleCommand
+        )
+
+        guard case .addFeed(let loadingDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination after stale completion")
+            return
+        }
+
+        #expect(loadingDestination.isLoadingPreview)
+        #expect(loadingDestination.status == nil)
+        #expect(loadingDestination.preview == nil)
+    }
+
+    @Test
+    func sourceManagementScreenStateKeepsAddFeedPreviewLoadingForRepeatedURLBindingSet() {
+        var state = SourceManagementScreenState.makePreviewFixture()
+        state.presentScenario(.addFeed)
+        state.updateAddFeedURLInput("example.com/feed.xml")
+
+        guard let activeCommand = state.beginAddFeedPreviewLoading() else {
+            Issue.record("Expected preview command")
+            return
+        }
+
+        state.updateAddFeedURLInput("example.com/feed.xml")
+
+        guard case .addFeed(let loadingDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination after repeated URL binding set")
+            return
+        }
+
+        #expect(loadingDestination.isLoadingPreview)
+        #expect(loadingDestination.preview == nil)
+        #expect(loadingDestination.status == nil)
+
+        let preview = SourceManagementFeedPreview(
+            requestedURL: activeCommand.urlString,
+            resolvedFeedURL: activeCommand.urlString,
+            title: "Example Feed",
+            subtitle: nil,
+            siteURL: "https://example.com/",
+            iconURL: nil,
+            language: "en",
+            kind: .rss,
+            parserAnomalyCount: 0,
+            rejectedEntryCount: 0,
+            existingFeedID: nil
+        )
+        state.applyLoadedAddFeedPreview(preview, command: activeCommand)
+
+        guard case .addFeed(let loadedDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination after preview completion")
+            return
+        }
+
+        #expect(loadedDestination.preview?.title == "Example Feed")
+        #expect(loadedDestination.isConfirmationActionEnabled)
+    }
+
+    @Test
+    func sourceManagementScreenStateStartsNewAddFeedPreviewLoadingAfterFailureAndURLChange() {
+        var state = SourceManagementScreenState.makePreviewFixture()
+        state.presentScenario(.addFeed)
+        state.updateAddFeedURLInput("thecode.")
+
+        guard let failedCommand = state.beginAddFeedPreviewLoading() else {
+            Issue.record("Expected failed preview command")
+            return
+        }
+
+        state.applyAddFeedPreviewFailure(
+            SourceManagementAddFeedStatusPresentation(
+                title: "Feed was not found",
+                kind: .failure,
+                detail: "The app could not find a supported RSS or Atom feed for this address."
+            ),
+            command: failedCommand
+        )
+
+        guard case .addFeed(let failureDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination after preview failure")
+            return
+        }
+
+        #expect(failureDestination.status?.kind == .failure)
+        #expect(failureDestination.isLoadingPreview == false)
+
+        state.updateAddFeedURLInput("thecode.media")
+
+        guard case .addFeed(let retryReadyDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination after URL change")
+            return
+        }
+
+        #expect(retryReadyDestination.status == nil)
+        #expect(retryReadyDestination.isPrimaryActionEnabled)
+
+        guard state.beginAddFeedPreviewLoading() != nil else {
+            Issue.record("Expected retry preview command")
+            return
+        }
+
+        guard case .addFeed(let retryLoadingDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination during retry preview loading")
+            return
+        }
+
+        #expect(retryLoadingDestination.isLoadingPreview)
+        #expect(retryLoadingDestination.preview == nil)
+        #expect(retryLoadingDestination.status == nil)
     }
 
     @Test

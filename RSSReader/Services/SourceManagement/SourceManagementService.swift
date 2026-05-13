@@ -439,7 +439,11 @@ final class DefaultSourceManagementService: SourceManagementService {
 
     private func previewFeed(at feedURL: URL) async throws -> SourceManagementFeedPreview {
         let normalizedURL = feedURL.absoluteString
-        let request = FeedRequest(feedID: UUID(), url: feedURL)
+        let request = FeedRequest(
+            feedID: UUID(),
+            url: feedURL,
+            timeoutInterval: Self.previewRequestTimeoutInterval
+        )
         let fetchResult = try await feedFetcher.fetch(request)
         guard case .fetched(let response) = fetchResult else {
             logger.error("Skipped source management preview because fetch returned not-modified for \(normalizedURL)")
@@ -476,7 +480,8 @@ final class DefaultSourceManagementService: SourceManagementService {
                     headers: [
                         "Accept": "text/html, application/xhtml+xml;q=0.9, */*;q=0.1",
                         "User-Agent": "RSSReader/0 (Feed Discovery)"
-                    ]
+                    ],
+                    timeoutInterval: Self.previewRequestTimeoutInterval
                 )
             )
             guard (200...299).contains(response.statusCode),
@@ -492,6 +497,8 @@ final class DefaultSourceManagementService: SourceManagementService {
             return []
         }
     }
+
+    private static let previewRequestTimeoutInterval: TimeInterval = 8
 
     func createFolder(_ command: SourceManagementCreateFolderCommand) throws -> SourceManagementFolderSummary {
         let normalizedName = try normalizedFolderName(command.name)

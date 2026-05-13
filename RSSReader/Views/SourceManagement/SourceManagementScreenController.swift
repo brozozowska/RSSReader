@@ -1,6 +1,8 @@
 import Foundation
 import Observation
 
+private struct SourceManagementPreviewTimeoutError: Error {}
+
 @MainActor
 @Observable
 final class SourceManagementScreenController {
@@ -95,11 +97,6 @@ final class SourceManagementScreenController {
         dependencies: AppDependencies,
         appState: AppState? = nil
     ) async {
-        if screenState.addFeedCanConfirmPreview() {
-            screenState.confirmAddFeedPreview()
-            return
-        }
-
         if let updateCommand = screenState.beginAddFeedUpdate() {
             await performAddFeedUpdate(
                 updateCommand,
@@ -118,9 +115,9 @@ final class SourceManagementScreenController {
             return
         }
 
-        guard let requestURL = screenState.beginAddFeedPreviewLoading() else { return }
+        guard let previewCommand = screenState.beginAddFeedPreviewLoading() else { return }
         await performAddFeedPreview(
-            requestURL: requestURL,
+            command: previewCommand,
             dependencies: dependencies
         )
     }
@@ -288,27 +285,60 @@ private extension SourceManagementScreenController {
     }
 
     func performAddFeedPreview(
-        requestURL: String,
+        command: SourceManagementAddFeedPreviewCommand,
         dependencies: AppDependencies
     ) async {
         guard let sourceManagementService = dependencies.sourceManagementService else {
             dependencies.logger.error("Source management service is unavailable for feed preview")
             screenState.applyAddFeedPreviewFailure(
                 SourceManagementScreenStatusMapper.addFeedPreviewUnavailableStatus(),
-                requestURL: requestURL
+                command: command
             )
             return
         }
 
         do {
-            let preview = try await sourceManagementService.previewFeed(urlString: requestURL)
-            screenState.applyLoadedAddFeedPreview(preview, requestURL: requestURL)
+            let preview = try await withAddFeedPreviewTimeout(seconds: 10) {
+                try await sourceManagementService.previewFeed(urlString: command.urlString)
+            }
+            screenState.applyLoadedAddFeedPreview(preview, command: command)
+        } catch is SourceManagementPreviewTimeoutError {
+            dependencies.logger.error("Timed out while previewing feed through source management flow")
+            screenState.applyAddFeedPreviewFailure(
+                SourceManagementScreenStatusMapper.addFeedPreviewFailureStatus(
+                    for: .feedDiscoveryFailed(command.urlString)
+                ),
+                command: command
+            )
         } catch {
             dependencies.logger.error("Failed to preview feed through source management flow: \(error)")
             screenState.applyAddFeedPreviewFailure(
                 SourceManagementScreenStatusMapper.addFeedPreviewFailureStatus(for: error),
-                requestURL: requestURL
+                command: command
             )
+        }
+    }
+
+    func withAddFeedPreviewTimeout<T>(
+        seconds: UInt64,
+        operation: @escaping () async throws -> T
+    ) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            defer { group.cancelAll() }
+
+            group.addTask {
+                try await operation()
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: seconds * 1_000_000_000)
+                throw SourceManagementPreviewTimeoutError()
+            }
+
+            guard let result = try await group.next() else {
+                throw SourceManagementPreviewTimeoutError()
+            }
+            group.cancelAll()
+            return result
         }
     }
 

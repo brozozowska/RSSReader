@@ -107,10 +107,13 @@ private struct SourceManagementScreenNavigator {
         Binding(
             get: { controller.screenState.presentedDestination },
             set: { destination in
-                if let destination {
-                    selectScenario(destination.id)
-                } else {
+                guard let destination else {
                     controller.dismissPresentedScenario()
+                    return
+                }
+
+                if controller.screenState.presentedDestination?.id != destination.id {
+                    selectScenario(destination.id)
                 }
             }
         )
@@ -290,16 +293,26 @@ private struct SourceManagementAddFeedView: View {
                 Text("Use a website address or a direct RSS / Atom feed link.")
             }
 
-            if let normalizedURL = presentation.normalizedURL {
-                Section("Address to Check") {
-                    Text(normalizedURL)
-                        .textSelection(.enabled)
+            if presentation.isLoadingPreview {
+                Section {
+                    SourceManagementCheckingSourceView()
+                } header: {
+                    Text("Source Preview")
                 }
-            }
-
-            if let preview = presentation.preview {
+            } else if let preview = presentation.preview {
                 Section("Source Preview") {
                     SourceManagementAddFeedPreviewCard(preview: preview)
+                }
+            } else if let status = presentation.status,
+                      status.kind == .failure {
+                Section {
+                    SourceManagementFeedbackCard(
+                        feedback: .init(status: status)
+                    )
+                } header: {
+                    Text("Source Preview")
+                } footer: {
+                    Text("Try a different website address or a direct RSS / Atom feed link.")
                 }
             }
 
@@ -328,11 +341,25 @@ private struct SourceManagementAddFeedView: View {
                 }
             }
 
-            if let status = presentation.status {
+            if let status = presentation.status,
+               status.kind != .failure || presentation.preview != nil {
                 Section {
                     SourceManagementFeedbackCard(
                         feedback: .init(status: status)
                     )
+                }
+            }
+
+            if presentation.isLoadingPreview == false,
+               presentation.preview == nil,
+               presentation.status?.kind != .failure {
+                Section {
+                    Button(action: handlePrimaryAction) {
+                        Text("Preview Feed")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(presentation.isPrimaryActionEnabled == false)
                 }
             }
         }
@@ -343,10 +370,50 @@ private struct SourceManagementAddFeedView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button(presentation.primaryActionTitle, action: handlePrimaryAction)
-                    .disabled(presentation.isPrimaryActionEnabled == false)
+                Button(action: handlePrimaryAction) {
+                    Image(systemName: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.accentColor)
+                .accessibilityLabel(presentation.primaryActionTitle)
+                .disabled(presentation.isConfirmationActionEnabled == false)
             }
         }
+    }
+}
+
+private struct SourceManagementCheckingSourceView: View {
+    var body: some View {
+        HStack {
+            Spacer()
+            HStack(spacing: 8) {
+                SourceManagementActivityIndicator()
+                    .frame(width: 18, height: 18)
+
+                Text("Checking Source...")
+            }
+            .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct SourceManagementActivityIndicator: View {
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            Circle()
+                .trim(from: 0.0, to: 0.72)
+                .stroke(
+                    Color.secondary,
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round)
+                )
+                .rotationEffect(rotation(for: timeline.date))
+        }
+    }
+
+    private func rotation(for date: Date) -> Angle {
+        .degrees(date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1) * 360)
     }
 }
 

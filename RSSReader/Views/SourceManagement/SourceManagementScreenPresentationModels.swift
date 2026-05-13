@@ -91,6 +91,7 @@ struct SourceManagementAddFeedPresentation: Hashable, Sendable {
     let normalizedURL: String?
     let primaryActionTitle: String
     let isPrimaryActionEnabled: Bool
+    let isConfirmationActionEnabled: Bool
     let isLoadingPreview: Bool
     let preview: SourceManagementAddFeedPreviewPresentation?
     let placementTitle: String

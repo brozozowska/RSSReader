@@ -164,7 +164,6 @@ private enum SourceManagementScreenPreviewFactory {
         var state = makeAddFeedState(
             urlInput: samplePreview().requestedURL,
             preview: samplePreview(),
-            isConfirmed: true,
             folders: folders,
             selectedPlacement: .folder(SampleIDs.researchFolderID)
         )
@@ -271,7 +270,6 @@ private enum SourceManagementScreenPreviewFactory {
     static func makeAddFeedState(
         urlInput: String = "",
         preview: SourceManagementFeedPreview? = nil,
-        isConfirmed: Bool = false,
         failureMessage: String? = nil,
         folders: [SourceManagementFolderSummary] = [],
         selectedPlacement: SourceManagementFolderPlacement = .ungrouped
@@ -281,21 +279,18 @@ private enum SourceManagementScreenPreviewFactory {
         state.applyAddFeedFolderContext(folders: folders)
         state.selectAddFeedFolderPlacement(selectedPlacement)
         if let preview {
-            let requestURL = preview.requestedURL
-            _ = state.beginAddFeedPreviewLoading()
-            state.applyLoadedAddFeedPreview(preview, requestURL: requestURL)
-            if isConfirmed {
-                state.confirmAddFeedPreview()
+            if let previewCommand = state.beginAddFeedPreviewLoading() {
+                state.applyLoadedAddFeedPreview(preview, command: previewCommand)
             }
         } else if let failureMessage {
-            let requestURL = state.beginAddFeedPreviewLoading()
+            let previewCommand = state.beginAddFeedPreviewLoading()
             state.applyAddFeedPreviewFailure(
                 SourceManagementAddFeedStatusPresentation(
                     title: "Preview could not be loaded",
                     kind: .failure,
                     detail: failureMessage
                 ),
-                requestURL: requestURL
+                command: previewCommand
             )
         }
         state.presentScenario(.addFeed)

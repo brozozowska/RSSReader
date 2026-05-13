@@ -42,21 +42,12 @@ struct SourceManagementScreenControllerTests {
         #expect(destination.preview?.title == "Controller Preview Feed")
         #expect(destination.preview?.siteURL == "https://example.com/")
         #expect(destination.preview?.kindTitle == "RSS")
-        #expect(destination.primaryActionTitle == "Confirm Feed")
+        #expect(destination.primaryActionTitle == "Add Feed")
         #expect(destination.isPrimaryActionEnabled)
+        #expect(destination.isConfirmationActionEnabled)
 
         let recordedRequests = await harness.httpClient.recordedRequests()
         #expect(recordedRequests.map(\.url.absoluteString) == [feedURL])
-
-        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
-
-        guard case .addFeed(let confirmedDestination)? = controller.viewState().presentedDestination else {
-            Issue.record("Expected add-feed destination presentation after preview confirmation")
-            return
-        }
-
-        #expect(confirmedDestination.primaryActionTitle == "Add Feed")
-        #expect(confirmedDestination.status?.kind == .success)
     }
 
     @Test
@@ -89,7 +80,6 @@ struct SourceManagementScreenControllerTests {
         controller.handleAddFeedURLChange(" \(feedURL) ")
         await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
         controller.handleAddFeedFolderPlacementSelection(.folder(folder.id))
-        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
         await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
 
         guard case .addFeed(let createdDestination)? = controller.viewState().presentedDestination else {
@@ -140,7 +130,6 @@ struct SourceManagementScreenControllerTests {
         harness.dependencies.showSourceManagement(using: appState)
         controller.handleScenarioSelection(.addFeed, dependencies: harness.dependencies)
         controller.handleAddFeedURLChange(feedURL)
-        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
         await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
         await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
 
@@ -208,7 +197,6 @@ struct SourceManagementScreenControllerTests {
 
         controller.handleAddFeedURLChange(updatedURL)
         controller.handleAddFeedFolderPlacementSelection(.folder(updatedFolder.id))
-        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
         await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
         await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
 
@@ -334,7 +322,7 @@ struct SourceManagementScreenControllerTests {
         #expect(destination.status?.title == "Network error while loading preview")
         #expect(destination.status?.detail == "Check the internet connection and try again.")
         #expect(destination.primaryActionTitle == "Preview Feed")
-        #expect(destination.isPrimaryActionEnabled)
+        #expect(destination.isPrimaryActionEnabled == false)
     }
 
     @Test
@@ -367,7 +355,7 @@ struct SourceManagementScreenControllerTests {
         #expect(destination.status?.title == "Source is not a supported feed")
         #expect(destination.status?.detail == "The address responded with text/html; charset=utf-8, not a supported RSS or Atom feed.")
         #expect(destination.primaryActionTitle == "Preview Feed")
-        #expect(destination.isPrimaryActionEnabled)
+        #expect(destination.isPrimaryActionEnabled == false)
     }
 
     @Test

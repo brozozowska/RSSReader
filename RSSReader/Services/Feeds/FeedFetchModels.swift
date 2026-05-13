@@ -42,24 +42,28 @@ public struct FeedRequest: Sendable {
     public let url: URL
     public let ifNoneMatch: String?
     public let ifModifiedSince: String?
+    public let timeoutInterval: TimeInterval
 
     public init(
         feedID: UUID,
         url: URL,
         ifNoneMatch: String? = nil,
-        ifModifiedSince: String? = nil
+        ifModifiedSince: String? = nil,
+        timeoutInterval: TimeInterval = 30
     ) {
         self.feedID = feedID
         self.url = url
         self.ifNoneMatch = Self.normalizeHeaderValue(ifNoneMatch)
         self.ifModifiedSince = Self.normalizeHeaderValue(ifModifiedSince)
+        self.timeoutInterval = timeoutInterval
     }
 
     public init(
         feedID: UUID,
         urlString: String,
         ifNoneMatch: String? = nil,
-        ifModifiedSince: String? = nil
+        ifModifiedSince: String? = nil,
+        timeoutInterval: TimeInterval = 30
     ) throws {
         guard let url = URL(string: urlString) else {
             throw FeedRequestError.invalidURL(urlString)
@@ -69,7 +73,8 @@ public struct FeedRequest: Sendable {
             feedID: feedID,
             url: url,
             ifNoneMatch: ifNoneMatch,
-            ifModifiedSince: ifModifiedSince
+            ifModifiedSince: ifModifiedSince,
+            timeoutInterval: timeoutInterval
         )
     }
 
@@ -100,7 +105,11 @@ public struct FeedRequest: Sendable {
     }
 
     public var httpRequest: HTTPRequest {
-        HTTPRequest(url: url, headers: headers)
+        HTTPRequest(
+            url: url,
+            headers: headers,
+            timeoutInterval: timeoutInterval
+        )
     }
 
     public var hasConditionalHeaders: Bool {
