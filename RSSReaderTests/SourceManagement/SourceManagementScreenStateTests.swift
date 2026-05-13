@@ -10,7 +10,7 @@ struct SourceManagementScreenStateTests {
         let state = SourceManagementScreenState.makePreviewFixture()
         let viewState = state.derivedViewState()
 
-        #expect(viewState.summary.title == "Choose the source task you want to start.")
+        #expect(viewState.summary.title == "Manage sources and folders.")
         #expect(viewState.sections.map(\.id) == [.startNew, .organizeExisting])
         #expect(viewState.sections.first?.items.map(\.id) == [.addFeed, .createFolder])
         #expect(viewState.sections.last?.items.map(\.id) == [.moveSource])
@@ -172,7 +172,7 @@ struct SourceManagementScreenStateTests {
         }
 
         #expect(initialDestination.existingFolders.map(\.name) == ["News", "Tech"])
-        #expect(initialDestination.placementDescription.contains("#3"))
+        #expect(initialDestination.placementDescription == "This folder will be added after 2 existing folders.")
         #expect(initialDestination.isPrimaryActionEnabled == false)
 
         state.updateCreateFolderNameInput("News")

@@ -332,7 +332,7 @@ struct SourceManagementScreenControllerTests {
         #expect(destination.preview == nil)
         #expect(destination.status?.kind == .failure)
         #expect(destination.status?.title == "Network error while loading preview")
-        #expect(destination.status?.detail == "Check the internet connection and try loading the preview again.")
+        #expect(destination.status?.detail == "Check the internet connection and try again.")
         #expect(destination.primaryActionTitle == "Preview Feed")
         #expect(destination.isPrimaryActionEnabled)
     }
@@ -365,7 +365,7 @@ struct SourceManagementScreenControllerTests {
         #expect(destination.preview == nil)
         #expect(destination.status?.kind == .failure)
         #expect(destination.status?.title == "Source is not a supported feed")
-        #expect(destination.status?.detail == "The URL responded with text/html; charset=utf-8, not a supported RSS or Atom feed.")
+        #expect(destination.status?.detail == "The address responded with text/html; charset=utf-8, not a supported RSS or Atom feed.")
         #expect(destination.primaryActionTitle == "Preview Feed")
         #expect(destination.isPrimaryActionEnabled)
     }
@@ -542,7 +542,7 @@ struct SourceManagementScreenControllerTests {
 
         #expect(createdDestination.nameInput.isEmpty)
         #expect(createdDestination.existingFolders.map(\.name) == ["News", "Research"])
-        #expect(createdDestination.placementDescription.contains("#3"))
+        #expect(createdDestination.placementDescription == "This folder will be added after 2 existing folders.")
         #expect(createdDestination.feedback?.kind == .success)
 
         let folders = try harness.folderRepository.fetchAllFolders()
@@ -575,7 +575,7 @@ struct SourceManagementScreenControllerTests {
         #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCreation)
         #expect(appState.articleListReloadID == articleReloadIDBeforeCreation)
         #expect(createdDestination.feedback?.title == "Folder created")
-        #expect(createdDestination.feedback?.detail?.contains("now appears") == true)
+        #expect(createdDestination.feedback?.detail == "\"Research\" is ready for sources.")
         #expect(try harness.folderRepository.fetchFolder(name: "Research") != nil)
     }
 }

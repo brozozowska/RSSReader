@@ -143,7 +143,7 @@ final class SourceManagementScreenController {
             let unavailableMessage = "Source management service is unavailable for source moves."
             dependencies.logger.error(unavailableMessage)
             screenState.applyMoveSourceFailure(
-                "Source moves are unavailable in the current app environment."
+                "Source moves are unavailable right now."
             )
             return
         }
@@ -181,8 +181,8 @@ final class SourceManagementScreenController {
                     ? "Folder editing is unavailable"
                     : "Folder creation is unavailable",
                 message: screenState.isEditingCreateFolder()
-                    ? "Folder editing is unavailable in the current app environment."
-                    : "Folder creation is unavailable in the current app environment."
+                    ? "Folder editing is unavailable right now."
+                    : "Folder creation is unavailable right now."
             )
             return
         }
@@ -489,9 +489,9 @@ private enum SourceManagementScreenStatusMapper {
 
     static func addFeedPreviewUnavailableStatus() -> SourceManagementAddFeedStatusPresentation {
         SourceManagementAddFeedStatusPresentation(
-            title: "Feed preview is unavailable",
+            title: "Source preview is unavailable",
             kind: .failure,
-            detail: "Feed preview is unavailable in the current app environment."
+            detail: "The app cannot check this source right now."
         )
     }
 
@@ -513,7 +513,7 @@ private enum SourceManagementScreenStatusMapper {
         return SourceManagementAddFeedStatusPresentation(
             title: "Preview could not be loaded",
             kind: .failure,
-            detail: "Unable to load the feed preview right now. Try again."
+            detail: "Unable to check this source right now. Try again."
         )
     }
 
@@ -525,7 +525,7 @@ private enum SourceManagementScreenStatusMapper {
             return SourceManagementAddFeedStatusPresentation(
                 title: "Enter a valid source address",
                 kind: .failure,
-                detail: "Use a website address or a direct RSS / Atom feed URL before loading the preview."
+                detail: "Use a website address or a direct RSS / Atom feed link."
             )
         case .feedDiscoveryFailed:
             return SourceManagementAddFeedStatusPresentation(
@@ -535,9 +535,9 @@ private enum SourceManagementScreenStatusMapper {
             )
         case .previewUnavailableForNotModifiedResponse:
             return SourceManagementAddFeedStatusPresentation(
-                title: "Preview metadata is unavailable",
+                title: "Source could not be checked",
                 kind: .failure,
-                detail: "The source returned a not-modified response, so the app could not inspect the feed contents."
+                detail: "The source did not send enough information to review it right now."
             )
         case .duplicateFeed,
                 .emptyFolderName,
@@ -547,7 +547,7 @@ private enum SourceManagementScreenStatusMapper {
             return SourceManagementAddFeedStatusPresentation(
                 title: "Preview could not be loaded",
                 kind: .failure,
-                detail: "Unable to load the feed preview right now. Try again."
+                detail: "Unable to check this source right now. Try again."
             )
         }
     }
@@ -566,14 +566,14 @@ private enum SourceManagementScreenStatusMapper {
             return SourceManagementAddFeedStatusPresentation(
                 title: "Preview could not be loaded",
                 kind: .failure,
-                detail: "The server returned HTTP \(statusCode) instead of usable feed metadata."
+                detail: "The server returned HTTP \(statusCode), so the app could not read this source."
             )
         case .unsupportedContentType(let contentType):
             let detail: String
             if let contentType, contentType.isEmpty == false {
-                detail = "The URL responded with \(contentType), not a supported RSS or Atom feed."
+                detail = "The address responded with \(contentType), not a supported RSS or Atom feed."
             } else {
-                detail = "The URL responded, but it did not advertise a supported RSS or Atom content type."
+                detail = "The address responded, but it does not look like a supported RSS or Atom feed."
             }
             return SourceManagementAddFeedStatusPresentation(
                 title: "Source is not a supported feed",
@@ -591,31 +591,31 @@ private enum SourceManagementScreenStatusMapper {
             return SourceManagementAddFeedStatusPresentation(
                 title: "Source is not a supported feed",
                 kind: .failure,
-                detail: "The URL responded, but the document was empty."
+                detail: "The address responded, but there was no feed content to read."
             )
         case .malformedXML:
             return SourceManagementAddFeedStatusPresentation(
                 title: "Source is not a supported feed",
                 kind: .failure,
-                detail: "The URL responded, but the document could not be parsed as RSS or Atom."
+                detail: "The address responded, but the app could not read it as RSS or Atom."
             )
         case .unsupportedFeedKind:
             return SourceManagementAddFeedStatusPresentation(
                 title: "Source is not a supported feed",
                 kind: .failure,
-                detail: "The URL responded, but it did not contain a supported RSS or Atom feed."
+                detail: "The address responded, but it did not contain a supported RSS or Atom feed."
             )
-        case .missingRSSElement(let elementName):
+        case .missingRSSElement:
             return SourceManagementAddFeedStatusPresentation(
                 title: "Source is not a supported feed",
                 kind: .failure,
-                detail: "The RSS document is missing the required \(elementName) element."
+                detail: "The RSS feed is missing information the app needs before adding it."
             )
-        case .missingAtomElement(let elementName):
+        case .missingAtomElement:
             return SourceManagementAddFeedStatusPresentation(
                 title: "Source is not a supported feed",
                 kind: .failure,
-                detail: "The Atom document is missing the required \(elementName) element."
+                detail: "The Atom feed is missing information the app needs before adding it."
             )
         }
     }
@@ -625,19 +625,19 @@ private enum SourceManagementScreenStatusMapper {
         case .timedOut:
             return "The request timed out before the feed preview could be loaded."
         case .cannotFindHost, .dnsLookupFailed:
-            return "The host name could not be resolved for this feed URL."
+            return "The host name could not be found for this source."
         case .cannotConnectToHost, .resourceUnavailable:
-            return "The app could not connect to the server for this feed URL."
+            return "The app could not connect to this source."
         case .networkConnectionLost:
-            return "The network connection was lost while loading the feed preview."
+            return "The network connection was lost while checking this source."
         case .notConnectedToInternet:
-            return "Check the internet connection and try loading the preview again."
+            return "Check the internet connection and try again."
         case .internationalRoamingOff, .callIsActive, .dataNotAllowed:
-            return "The current network settings are blocking the feed preview request."
+            return "The current network settings are blocking this request."
         case .invalidResponse:
-            return "The server returned an invalid response for this feed preview request."
+            return "The server returned a response the app could not read."
         case .unknown:
-            return "The preview request failed for an unknown network reason."
+            return "The source could not be checked for an unknown network reason."
         }
     }
 }

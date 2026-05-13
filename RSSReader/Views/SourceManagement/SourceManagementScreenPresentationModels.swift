@@ -198,8 +198,8 @@ struct SourceManagementScreenViewState: Equatable, Sendable {
 enum SourceManagementScreenPresentationBuilder {
     static func buildSummary() -> SourceManagementScreenSummaryPresentation {
         SourceManagementScreenSummaryPresentation(
-            title: "Choose the source task you want to start.",
-            description: "Source Management now opens with separate paths for adding feeds, creating folders, and organizing existing sources."
+            title: "Manage sources and folders.",
+            description: "Add new feeds, create folders, or move existing sources when your reading list needs a different structure."
         )
     }
 
@@ -207,20 +207,20 @@ enum SourceManagementScreenPresentationBuilder {
         [
             SourceManagementScreenSectionPresentation(
                 id: .startNew,
-                title: "Start Something New",
-                footer: "Adding a feed and creating a folder stay separate, so URL preview and folder creation do not collapse into one mixed form.",
+                title: "Add",
+                footer: "Start with a feed address, or create a folder first if you already know how you want to organize sources.",
                 items: [
                     item(
                         id: .addFeed,
                         title: "Add Feed",
-                        subtitle: "Paste a feed URL, preview the source, and choose where it should live before saving.",
+                        subtitle: "Find a feed, review its details, and choose where it belongs.",
                         systemImageName: "dot.radiowaves.left.and.right",
                         badgeTitle: "New Feed"
                     ),
                     item(
                         id: .createFolder,
                         title: "Create Folder",
-                        subtitle: "Create a folder first when you want to organize feeds before adding or moving them.",
+                        subtitle: "Group related sources under a folder name that is easy to scan.",
                         systemImageName: "folder.badge.plus",
                         badgeTitle: "New Folder"
                     )
@@ -228,13 +228,13 @@ enum SourceManagementScreenPresentationBuilder {
             ),
             SourceManagementScreenSectionPresentation(
                 id: .organizeExisting,
-                title: "Organize Existing Sources",
-                footer: "Folder assignment and move actions are presented as their own flow instead of being hidden inside the initial add-source path.",
+                title: "Organize",
+                footer: "Move saved feeds between folders without adding them again.",
                 items: [
                     item(
                         id: .moveSource,
                         title: "Move Sources",
-                        subtitle: "Move existing feeds between folders or return them to the Ungrouped area without repeating the add flow.",
+                        subtitle: "Change where an existing feed appears in your source list.",
                         systemImageName: "arrow.left.arrow.right.circle",
                         badgeTitle: "Existing Sources"
                     )

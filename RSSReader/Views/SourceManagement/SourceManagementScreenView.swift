@@ -287,18 +287,18 @@ private struct SourceManagementAddFeedView: View {
             } header: {
                 Text("Feed URL")
             } footer: {
-                Text("The URL is validated locally before any network preview starts.")
+                Text("Use a website address or a direct RSS / Atom feed link.")
             }
 
             if let normalizedURL = presentation.normalizedURL {
-                Section("Normalized URL") {
+                Section("Address to Check") {
                     Text(normalizedURL)
                         .textSelection(.enabled)
                 }
             }
 
             if let preview = presentation.preview {
-                Section("Preview Metadata") {
+                Section("Source Preview") {
                     SourceManagementAddFeedPreviewCard(preview: preview)
                 }
             }
@@ -324,7 +324,7 @@ private struct SourceManagementAddFeedView: View {
                 Section {
                     Button(createFolderActionTitle, action: startCreateFolder)
                 } footer: {
-                    Text("Create a new folder first when the destination you need does not exist yet.")
+                    Text("Create a folder now if this source should live in a new group.")
                 }
             }
 
@@ -384,20 +384,16 @@ private struct SourceManagementAddFeedPreviewCard: View {
             Text(preview.title)
                 .font(.body.weight(.semibold))
 
-            LabeledContent("Kind", value: preview.kindTitle)
+            LabeledContent("Feed Type", value: preview.kindTitle)
 
             if let subtitle = preview.subtitle {
-                LabeledContent("Subtitle", value: subtitle)
+                LabeledContent("Description", value: subtitle)
             }
 
-            LabeledContent("Resolved Feed URL", value: preview.resolvedFeedURL)
+            LabeledContent("Feed Address", value: preview.resolvedFeedURL)
 
             if let siteURL = preview.siteURL {
-                LabeledContent("Site URL", value: siteURL)
-            }
-
-            if let iconURL = preview.iconURL {
-                LabeledContent("Icon URL", value: iconURL)
+                LabeledContent("Website", value: siteURL)
             }
 
             if let existingFeedNotice = preview.existingFeedNotice {
@@ -455,13 +451,13 @@ private struct SourceManagementCreateFolderView: View {
             } header: {
                 Text("Folder Name")
             } footer: {
-                Text("Folder names stay unique within the current sidebar grouping.")
+                Text("Use a name that is easy to recognize in the source list.")
             }
 
             Section {
                 Text(presentation.placementDescription)
             } header: {
-                Text("Sidebar Placement")
+                Text("Folder Order")
             }
 
             if let emptyStateTitle = presentation.emptyStateTitle,
@@ -485,7 +481,7 @@ private struct SourceManagementCreateFolderView: View {
                                 Text(folder.name)
                                     .font(.body.weight(.semibold))
 
-                                Text("Sidebar position #\(folder.sortOrder + 1)")
+                                Text("Position #\(folder.sortOrder + 1)")
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                             }

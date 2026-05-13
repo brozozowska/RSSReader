@@ -500,10 +500,10 @@ struct SourceManagementAddFeedState {
 
         return SourceManagementAddFeedPresentation(
             title: isEditing ? "Edit Feed" : "Add Feed",
-            summaryTitle: isEditing ? "Feed Details" : "Feed Setup",
+            summaryTitle: isEditing ? "Source Details" : "New Source",
             summaryDescription: isEditing
-                ? "Update the source URL or destination folder, then load a fresh preview before saving the changes."
-                : "Preview the feed metadata before you commit to adding this source.",
+                ? "Change the feed address or move the source to another folder."
+                : "Enter a website or feed address. The app will look for a readable feed before you add it.",
             urlInput: urlInput,
             urlPrompt: "Feed URL",
             validationMessage: validationMessage,
@@ -547,7 +547,7 @@ struct SourceManagementAddFeedState {
             existingFeedNotice: hasDuplicateConflict
                 ? "This source already exists in the library."
                 : nil,
-            diagnosticsSummary: diagnosticsSummary(preview: preview)
+            diagnosticsSummary: nil
         )
     }
 
@@ -566,11 +566,11 @@ struct SourceManagementAddFeedState {
 
         guard preview != nil, isPreviewConfirmed else { return nil }
         return SourceManagementAddFeedStatusPresentation(
-            title: "Preview confirmed",
+            title: "Source ready",
             kind: .success,
             detail: isEditing
-                ? "The updated feed metadata is confirmed and ready to save in \(selectedPlacementTitle())."
-                : "The feed metadata is confirmed and ready for the feed-creation step in \(selectedPlacementTitle())."
+                ? "Save the source when you are ready to keep these changes in \(selectedPlacementTitle())."
+                : "Add the source when you are ready to save it in \(selectedPlacementTitle())."
         )
     }
 
@@ -583,18 +583,18 @@ struct SourceManagementAddFeedState {
 
         if preview == nil {
             if isEditing {
-                return "The current destination is preselected. Load a fresh preview before saving the updated source."
+                return "The current folder is preselected. Review the source before saving changes."
             }
-            return "Preview the feed first, then choose whether the source should stay ungrouped or land in a folder."
+            return "Review the source first, then choose whether it should stay ungrouped or live in a folder."
         }
 
         if availableFolders.isEmpty {
-            return "No folders are available yet. The source can stay ungrouped until you create a folder in Source Management."
+            return "No folders are available yet. You can keep the source ungrouped or create a folder."
         }
 
         return isEditing
-            ? "Choose where the existing source should live once the updated feed details are saved."
-            : "Choose where the source should live once the feed-creation step saves it."
+            ? "Choose where this source should appear after saving."
+            : "Choose where this source should appear after adding it."
     }
 
     private func placementOptions() -> [SourceManagementFolderPlacementOptionPresentation] {
@@ -639,14 +639,6 @@ struct SourceManagementAddFeedState {
         case .folder(let folderID):
             return availableFolders.first(where: { $0.id == folderID })?.name ?? "Selected Folder"
         }
-    }
-
-    private func diagnosticsSummary(preview: SourceManagementFeedPreview) -> String? {
-        let anomalyCount = preview.parserAnomalyCount
-        let rejectedCount = preview.rejectedEntryCount
-        guard anomalyCount > 0 || rejectedCount > 0 else { return nil }
-
-        return "Parser anomalies: \(anomalyCount). Rejected entries: \(rejectedCount)."
     }
 
     private func kindTitle(_ kind: FeedKind) -> String {
@@ -760,7 +752,7 @@ struct SourceManagementMoveSourceState {
         return SourceManagementMoveSourcePresentation(
             title: "Move Sources",
             summaryTitle: "Source Organization",
-            summaryDescription: "Select an existing feed and move it between folders or return it to the ungrouped area.",
+            summaryDescription: "Choose a saved feed and move it to the folder where it belongs.",
             feeds: feeds.map { feed in
                 SourceManagementMoveSourceFeedPresentation(
                     id: feed.id,
@@ -772,7 +764,7 @@ struct SourceManagementMoveSourceState {
             },
             emptyStateTitle: feeds.isEmpty ? "No existing feeds yet" : nil,
             emptyStateDescription: feeds.isEmpty
-                ? "Add and save a source first, then return here to reorganize it."
+                ? "Add a source first, then return here to move it between folders."
                 : nil,
             placementTitle: "Target Folder",
             placementDescription: placementDescription(for: selectedFeedTitle),
@@ -804,7 +796,7 @@ struct SourceManagementMoveSourceState {
             SourceManagementFolderPlacementOptionPresentation(
                 placement: .ungrouped,
                 title: "Ungrouped",
-                subtitle: "Return the source to the default ungrouped area.",
+                subtitle: "Keep the source outside folders.",
                 isSelected: selectedPlacement == .ungrouped
             )
         ] + folders.map { folder in
@@ -821,10 +813,10 @@ struct SourceManagementMoveSourceState {
 
     private func placementDescription(for selectedFeedTitle: String?) -> String {
         guard let selectedFeedTitle else {
-            return "Select a feed first, then choose the target folder or the ungrouped destination."
+            return "Select a feed first, then choose where it should appear."
         }
 
-        return "Choose where \(selectedFeedTitle) should live after the move completes."
+        return "Choose where \(selectedFeedTitle) should appear after the move."
     }
 
     func selectedFeed() -> SourceManagementFeedSummary? {
@@ -983,8 +975,8 @@ struct SourceManagementCreateFolderState {
             kind: .success,
             title: wasEditing ? "Folder updated" : "Folder created",
             detail: wasEditing
-                ? "\"\(folder.name)\" keeps sidebar position #\(folder.sortOrder + 1)."
-                : "\"\(folder.name)\" now appears as sidebar folder #\(folder.sortOrder + 1)."
+                ? "\"\(folder.name)\" has been renamed."
+                : "\"\(folder.name)\" is ready for sources."
         )
     }
 
@@ -1011,17 +1003,17 @@ struct SourceManagementCreateFolderState {
 
         return SourceManagementCreateFolderPresentation(
             title: isEditing ? "Edit Folder" : "Create Folder",
-            summaryTitle: isEditing ? "Folder Details" : "Folder Setup",
+            summaryTitle: isEditing ? "Folder Name" : "New Folder",
             summaryDescription: isEditing
-                ? "Rename the existing folder while keeping the current sidebar grouping intact."
-                : "Create a reusable folder first when you want sidebar grouping to exist before any feed is assigned to it.",
+                ? "Rename this folder. Sources inside it stay in the same place."
+                : "Create a folder for sources you want to keep together.",
             nameInput: nameInput,
             namePrompt: "Folder Name",
             validationMessage: validationMessage,
             existingFolders: existingFolderPresentations,
             emptyStateTitle: existingFolders.isEmpty ? "No folders yet" : nil,
             emptyStateDescription: existingFolders.isEmpty
-                ? "Create the first folder and it will appear in the sidebar as soon as the save step finishes."
+                ? "Create the first folder, then add or move sources into it."
                 : nil,
             placementDescription: placementDescription(for: nextSortOrder),
             primaryActionTitle: isSubmitting
@@ -1035,7 +1027,7 @@ struct SourceManagementCreateFolderState {
 
     func validationMessage() -> String? {
         guard isServiceAvailable else {
-            return "Folder creation is unavailable in the current app environment."
+            return "Folder creation is unavailable right now."
         }
 
         let normalizedValue = normalizedName()
@@ -1063,15 +1055,15 @@ struct SourceManagementCreateFolderState {
             .map { $0 + 1 } ?? 0
     }
 
-    private func placementDescription(for sortOrder: Int) -> String {
+    private func placementDescription(for _: Int) -> String {
         if let editingFolder {
-            return "\"\(editingFolder.name)\" keeps sidebar position #\(editingFolder.sortOrder + 1)."
+            return "\"\(editingFolder.name)\" keeps its current order."
         }
 
         if existingFolders.isEmpty {
-            return "This folder will become the first sidebar group."
+            return "This will be the first folder."
         }
 
-        return "The next compatible sidebar position is #\(sortOrder + 1), after \(existingFolders.count) existing folders."
+        return "This folder will be added after \(existingFolders.count) existing folders."
     }
 }
