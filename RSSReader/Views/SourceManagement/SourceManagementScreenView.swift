@@ -61,7 +61,10 @@ struct SourceManagementScreenView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done", action: navigator.dismiss)
+                    Button(action: navigator.dismiss) {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("Close Add Source")
                 }
             }
             .navigationDestination(item: navigator.presentedDestinationBinding) { destination in
@@ -578,8 +581,13 @@ private struct SourceManagementCreateFolderView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button(presentation.primaryActionTitle, action: submit)
-                    .disabled(presentation.isPrimaryActionEnabled == false)
+                Button(action: submit) {
+                    Image(systemName: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.accentColor)
+                .accessibilityLabel(presentation.primaryActionTitle)
+                .disabled(presentation.isPrimaryActionEnabled == false)
             }
         }
     }
@@ -662,8 +670,13 @@ private struct SourceManagementMoveSourceView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button(presentation.primaryActionTitle, action: submit)
-                    .disabled(presentation.isPrimaryActionEnabled == false)
+                Button(action: submit) {
+                    Image(systemName: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.accentColor)
+                .accessibilityLabel(presentation.primaryActionTitle)
+                .disabled(presentation.isPrimaryActionEnabled == false)
             }
         }
     }
