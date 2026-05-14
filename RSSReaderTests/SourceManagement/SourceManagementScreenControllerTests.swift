@@ -101,7 +101,7 @@ struct SourceManagementScreenControllerTests {
     }
 
     @Test
-    func sourceManagementScreenControllerCreatesFeedRefreshesItAndDismissesSourceManagementFlow() async throws {
+    func sourceManagementScreenControllerCreatesFeedRefreshesItDismissesAndStaysOnSources() async throws {
         let feedURL = "https://example.com/create-and-refresh.xml"
         let responseStep = ScriptedHTTPClient.Step.response(
             statusCode: 200,
@@ -138,8 +138,8 @@ struct SourceManagementScreenControllerTests {
         let requests = await harness.httpClient.recordedRequests()
 
         #expect(appState.isPresentingSourceManagementScreen == false)
-        #expect(appState.selectedSidebarSelection == .feed(persistedFeed.id))
-        #expect(appState.articleListReloadID != articleReloadIDBeforeCreation)
+        #expect(appState.selectedSidebarSelection == nil)
+        #expect(appState.articleListReloadID == articleReloadIDBeforeCreation)
         #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCreation)
         #expect(persistedFeed.lastFetchedAt != nil)
         #expect(persistedFeed.lastSuccessfulFetchAt != nil)
@@ -204,7 +204,7 @@ struct SourceManagementScreenControllerTests {
         let requests = await harness.httpClient.recordedRequests()
 
         #expect(appState.isPresentingSourceManagementScreen == false)
-        #expect(appState.selectedSidebarSelection == .feed(feed.id))
+        #expect(appState.selectedSidebarSelection == nil)
         #expect(persistedFeed.url == updatedURL)
         #expect(persistedFeed.title == "Updated Feed Title")
         #expect(persistedFeed.folder?.id == originalFolder.id)

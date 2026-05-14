@@ -900,7 +900,11 @@ extension AppDependencies {
     }
 
     @MainActor
-    func finishSavingFeed(id feedID: UUID, using appState: AppState) async -> FeedRefreshResult? {
+    func finishSavingFeed(
+        id feedID: UUID,
+        using appState: AppState,
+        selectsSavedFeed: Bool = true
+    ) async -> FeedRefreshResult? {
         let result: FeedRefreshResult?
         if let feedRefreshService {
             result = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
@@ -910,7 +914,11 @@ extension AppDependencies {
         }
 
         appState.requestSourcesSidebarReload()
-        showFeed(id: feedID, using: appState)
+        if selectsSavedFeed {
+            showFeed(id: feedID, using: appState)
+        } else {
+            appState.selectReadingSource(nil)
+        }
         dismissSourceManagement(using: appState)
         return result
     }
@@ -957,10 +965,15 @@ extension AppDependencies {
     @MainActor
     func completeSourceManagementFeedSave(
         id feedID: UUID,
-        using appState: AppState?
+        using appState: AppState?,
+        selectsSavedFeed: Bool
     ) async -> FeedRefreshResult? {
         guard let appState else { return nil }
-        return await finishSavingFeed(id: feedID, using: appState)
+        return await finishSavingFeed(
+            id: feedID,
+            using: appState,
+            selectsSavedFeed: selectsSavedFeed
+        )
     }
 
     @MainActor

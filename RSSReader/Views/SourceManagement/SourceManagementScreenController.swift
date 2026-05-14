@@ -228,7 +228,8 @@ private extension SourceManagementScreenController {
             screenState.applyCreatedAddFeed(updatedFeed)
             _ = await dependencies.completeSourceManagementFeedSave(
                 id: updatedFeed.id,
-                using: appState
+                using: appState,
+                selectsSavedFeed: false
             )
         } catch let error as SourceManagementServiceError {
             dependencies.logger.error("Failed to update feed through source management flow: \(error)")
@@ -268,7 +269,8 @@ private extension SourceManagementScreenController {
             screenState.applyCreatedAddFeed(createdFeed)
             _ = await dependencies.completeSourceManagementFeedSave(
                 id: createdFeed.id,
-                using: appState
+                using: appState,
+                selectsSavedFeed: false
             )
         } catch let error as SourceManagementServiceError {
             dependencies.logger.error("Failed to create feed through source management flow: \(error)")
