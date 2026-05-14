@@ -26,7 +26,8 @@ struct SourceManagementScreenView: View {
             controller: controller,
             dependencies: dependencies,
             appState: appState,
-            dismiss: dismiss
+            dismiss: dismiss,
+            showsDirectLaunchCloseControl: launchContext.opensDirectDestination
         )
 
         NavigationStack {
@@ -61,10 +62,10 @@ struct SourceManagementScreenView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(action: navigator.dismiss) {
-                        Image(systemName: "xmark")
-                    }
-                    .accessibilityLabel("Close Add Source")
+                    SourceManagementCloseButton(
+                        accessibilityLabel: "Close Add Source",
+                        action: navigator.dismiss
+                    )
                 }
             }
             .navigationDestination(item: navigator.presentedDestinationBinding) { destination in
@@ -94,6 +95,7 @@ private struct SourceManagementScreenNavigator {
     let dependencies: AppDependencies
     let appState: AppState
     let dismiss: () -> Void
+    let showsDirectLaunchCloseControl: Bool
 
     func handleLaunchContext(_ launchContext: SourceManagementScreenLaunchContext) {
         controller.handleLaunchContext(launchContext, dependencies: dependencies)
@@ -131,6 +133,7 @@ private struct SourceManagementScreenNavigator {
             SourceManagementAddFeedView(
                 presentation: addFeed,
                 urlBinding: addFeedURLBinding,
+                showsCloseControl: showsDirectLaunchCloseControl,
                 selectPlacement: { placement in
                     controller.handleAddFeedFolderPlacementSelection(placement)
                 },
@@ -144,22 +147,26 @@ private struct SourceManagementScreenNavigator {
                             appState: appState
                         )
                     }
-                }
+                },
+                dismiss: dismiss
             )
         case .createFolder(let createFolder):
             SourceManagementCreateFolderView(
                 presentation: createFolder,
                 nameBinding: createFolderNameBinding,
+                showsCloseControl: showsDirectLaunchCloseControl,
                 submit: {
                     controller.submitCreateFolder(
                         dependencies: dependencies,
                         appState: appState
                     )
-                }
+                },
+                dismiss: dismiss
             )
         case .moveSource(let moveSource):
             SourceManagementMoveSourceView(
                 presentation: moveSource,
+                showsCloseControl: showsDirectLaunchCloseControl,
                 selectFeed: { feedID in
                     controller.handleMoveSourceFeedSelection(feedID)
                 },
@@ -171,7 +178,8 @@ private struct SourceManagementScreenNavigator {
                         dependencies: dependencies,
                         appState: appState
                     )
-                }
+                },
+                dismiss: dismiss
             )
         }
     }
@@ -206,6 +214,18 @@ private struct SourceManagementScreenNavigator {
                 controller.handleCreateFolderNameChange(value)
             }
         )
+    }
+}
+
+private struct SourceManagementCloseButton: View {
+    let accessibilityLabel: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+        }
+        .accessibilityLabel(accessibilityLabel)
     }
 }
 
@@ -254,9 +274,11 @@ private struct SourceManagementAddFeedView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     let presentation: SourceManagementAddFeedPresentation
     let urlBinding: Binding<String>
+    let showsCloseControl: Bool
     let selectPlacement: (SourceManagementFolderPlacement) -> Void
     let startCreateFolder: () -> Void
     let handlePrimaryAction: () -> Void
+    let dismiss: () -> Void
 
     var body: some View {
         List {
@@ -371,7 +393,17 @@ private struct SourceManagementAddFeedView: View {
         .background(appThemeVariant.primaryBackground)
         .navigationTitle(presentation.title)
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(showsCloseControl)
         .toolbar {
+            if showsCloseControl {
+                ToolbarItem(placement: .cancellationAction) {
+                    SourceManagementCloseButton(
+                        accessibilityLabel: "Close \(presentation.title)",
+                        action: dismiss
+                    )
+                }
+            }
+
             ToolbarItem(placement: .confirmationAction) {
                 Button(action: handlePrimaryAction) {
                     Image(systemName: "checkmark")
@@ -486,7 +518,9 @@ private struct SourceManagementCreateFolderView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     let presentation: SourceManagementCreateFolderPresentation
     let nameBinding: Binding<String>
+    let showsCloseControl: Bool
     let submit: () -> Void
+    let dismiss: () -> Void
 
     var body: some View {
         List {
@@ -579,7 +613,17 @@ private struct SourceManagementCreateFolderView: View {
         .background(appThemeVariant.primaryBackground)
         .navigationTitle(presentation.title)
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(showsCloseControl)
         .toolbar {
+            if showsCloseControl {
+                ToolbarItem(placement: .cancellationAction) {
+                    SourceManagementCloseButton(
+                        accessibilityLabel: "Close \(presentation.title)",
+                        action: dismiss
+                    )
+                }
+            }
+
             ToolbarItem(placement: .confirmationAction) {
                 Button(action: submit) {
                     Image(systemName: "checkmark")
@@ -596,9 +640,11 @@ private struct SourceManagementCreateFolderView: View {
 private struct SourceManagementMoveSourceView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     let presentation: SourceManagementMoveSourcePresentation
+    let showsCloseControl: Bool
     let selectFeed: (UUID) -> Void
     let selectPlacement: (SourceManagementFolderPlacement) -> Void
     let submit: () -> Void
+    let dismiss: () -> Void
 
     var body: some View {
         List {
@@ -668,7 +714,17 @@ private struct SourceManagementMoveSourceView: View {
         .background(appThemeVariant.primaryBackground)
         .navigationTitle(presentation.title)
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(showsCloseControl)
         .toolbar {
+            if showsCloseControl {
+                ToolbarItem(placement: .cancellationAction) {
+                    SourceManagementCloseButton(
+                        accessibilityLabel: "Close \(presentation.title)",
+                        action: dismiss
+                    )
+                }
+            }
+
             ToolbarItem(placement: .confirmationAction) {
                 Button(action: submit) {
                     Image(systemName: "checkmark")

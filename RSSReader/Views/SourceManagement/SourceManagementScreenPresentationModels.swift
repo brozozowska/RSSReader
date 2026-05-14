@@ -5,6 +5,15 @@ enum SourceManagementScreenLaunchContext: Hashable, Sendable {
     case editFeed(UUID)
     case editFolder(UUID)
     case organizeFeed(UUID)
+
+    var opensDirectDestination: Bool {
+        switch self {
+        case .entry:
+            return false
+        case .editFeed, .editFolder, .organizeFeed:
+            return true
+        }
+    }
 }
 
 enum SourceManagementScenarioID: String, CaseIterable, Hashable, Identifiable, Sendable {
