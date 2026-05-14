@@ -473,6 +473,12 @@ private struct SourceManagementFolderPlacementRow: View {
             }
 
             Spacer()
+
+            if let trailingValue = option.trailingValue {
+                Text(trailingValue)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.vertical, 4)
     }
@@ -558,12 +564,6 @@ private struct SourceManagementCreateFolderView: View {
                 Text("Use a name that is easy to recognize in the source list.")
             }
 
-            Section {
-                Text(presentation.placementDescription)
-            } header: {
-                Text("Folder Order")
-            }
-
             if let emptyStateTitle = presentation.emptyStateTitle,
                let emptyStateDescription = presentation.emptyStateDescription {
                 Section {
@@ -578,17 +578,11 @@ private struct SourceManagementCreateFolderView: View {
                     .padding(.vertical, 4)
                 }
             } else if presentation.existingFolders.isEmpty == false {
-                Section("Existing Folders") {
+                Section {
                     ForEach(presentation.existingFolders) { folder in
                         HStack(alignment: .firstTextBaseline) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(folder.name)
-                                    .font(.body.weight(.semibold))
-
-                                Text("Position #\(folder.sortOrder + 1)")
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
+                            Text(folder.name)
+                                .font(.body.weight(.semibold))
 
                             Spacer()
 
@@ -597,6 +591,8 @@ private struct SourceManagementCreateFolderView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                } header: {
+                    Text("Existing Folders")
                 }
             }
 
@@ -696,8 +692,6 @@ private struct SourceManagementMoveSourceView: View {
                     }
                 } header: {
                     Text(presentation.placementTitle)
-                } footer: {
-                    Text(presentation.placementDescription)
                 }
             }
 

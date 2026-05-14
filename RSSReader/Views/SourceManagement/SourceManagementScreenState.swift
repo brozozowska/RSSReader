@@ -611,6 +611,7 @@ struct SourceManagementAddFeedState {
                 placement: .ungrouped,
                 title: "Ungrouped",
                 subtitle: "Keep the source outside any folder.",
+                trailingValue: nil,
                 isSelected: selectedFolderPlacement == .ungrouped
             )
         ] + availableFolders.map { folder in
@@ -620,6 +621,7 @@ struct SourceManagementAddFeedState {
                 subtitle: folder.feedCount == 1
                     ? "1 existing feed"
                     : "\(folder.feedCount) existing feeds",
+                trailingValue: nil,
                 isSelected: selectedFolderPlacement == .folder(folder.id)
             )
         }
@@ -752,14 +754,13 @@ struct SourceManagementMoveSourceState {
     }
 
     func derivedPresentation() -> SourceManagementMoveSourcePresentation {
-        let selectedFeedTitle = selectedFeed().map(\.title)
         let canSubmit = selectedFeedID != nil
             && currentPlacement(for: selectedFeedID) != nil
             && currentPlacement(for: selectedFeedID) != selectedPlacement
             && isSubmitting == false
 
         return SourceManagementMoveSourcePresentation(
-            title: "Move Sources",
+            title: "Move Source",
             summaryTitle: "Source Organization",
             summaryDescription: "Choose a saved feed and move it to the folder where it belongs.",
             feeds: feeds.map { feed in
@@ -776,7 +777,7 @@ struct SourceManagementMoveSourceState {
                 ? "Add a source first, then return here to move it between folders."
                 : nil,
             placementTitle: "Target Folder",
-            placementDescription: placementDescription(for: selectedFeedTitle),
+            placementDescription: "",
             placementOptions: placementOptions(),
             primaryActionTitle: isSubmitting ? "Moving..." : "Move Source",
             isPrimaryActionEnabled: canSubmit,
@@ -805,27 +806,27 @@ struct SourceManagementMoveSourceState {
             SourceManagementFolderPlacementOptionPresentation(
                 placement: .ungrouped,
                 title: "Ungrouped",
-                subtitle: "Keep the source outside folders.",
+                subtitle: nil,
+                trailingValue: feedCountTitle(ungroupedFeedCount()),
                 isSelected: selectedPlacement == .ungrouped
             )
         ] + folders.map { folder in
             SourceManagementFolderPlacementOptionPresentation(
                 placement: .folder(folder.id),
                 title: folder.name,
-                subtitle: folder.feedCount == 1
-                    ? "1 feed currently in this folder"
-                    : "\(folder.feedCount) feeds currently in this folder",
+                subtitle: nil,
+                trailingValue: feedCountTitle(folder.feedCount),
                 isSelected: selectedPlacement == .folder(folder.id)
             )
         }
     }
 
-    private func placementDescription(for selectedFeedTitle: String?) -> String {
-        guard let selectedFeedTitle else {
-            return "Select a feed first, then choose where it should appear."
-        }
+    private func ungroupedFeedCount() -> Int {
+        feeds.filter { $0.folderID == nil }.count
+    }
 
-        return "Choose where \(selectedFeedTitle) should appear after the move."
+    private func feedCountTitle(_ count: Int) -> String {
+        count == 1 ? "1 feed" : "\(count) feeds"
     }
 
     func selectedFeed() -> SourceManagementFeedSummary? {
@@ -1000,7 +1001,6 @@ struct SourceManagementCreateFolderState {
 
     func derivedPresentation() -> SourceManagementCreateFolderPresentation {
         let validationMessage = validationMessage()
-        let nextSortOrder = self.nextSortOrder()
         let existingFolderPresentations = existingFolders.map { folder in
             SourceManagementCreateFolderExistingFolderPresentation(
                 id: folder.id,
@@ -1024,7 +1024,7 @@ struct SourceManagementCreateFolderState {
             emptyStateDescription: existingFolders.isEmpty
                 ? "Create the first folder, then add or move sources into it."
                 : nil,
-            placementDescription: placementDescription(for: nextSortOrder),
+            placementDescription: placementDescription(for: nextSortOrder()),
             primaryActionTitle: isSubmitting
                 ? (isEditing ? "Saving Folder..." : "Creating Folder...")
                 : (isEditing ? "Save Folder" : "Create Folder"),

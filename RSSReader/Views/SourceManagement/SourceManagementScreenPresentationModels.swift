@@ -78,6 +78,7 @@ struct SourceManagementFolderPlacementOptionPresentation: Identifiable, Hashable
     let placement: SourceManagementFolderPlacement
     let title: String
     let subtitle: String?
+    let trailingValue: String?
     let isSelected: Bool
 
     var id: String {
@@ -244,7 +245,7 @@ enum SourceManagementScreenPresentationBuilder {
                 items: [
                     item(
                         id: .moveSource,
-                        title: "Move Sources",
+                        title: "Move Source",
                         subtitle: "Change where an existing feed appears in your source list.",
                         systemImageName: "arrow.left.arrow.right.circle",
                         badgeTitle: "Existing Sources"
