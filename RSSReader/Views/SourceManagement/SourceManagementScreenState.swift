@@ -170,9 +170,14 @@ struct SourceManagementScreenState {
 
     mutating func applyMoveSourceContext(
         feeds: [SourceManagementFeedSummary],
-        folders: [SourceManagementFolderSummary]
+        folders: [SourceManagementFolderSummary],
+        selectedFeedID: UUID? = nil
     ) {
-        moveSourceState.applyContext(feeds: feeds, folders: folders)
+        moveSourceState.applyContext(
+            feeds: feeds,
+            folders: folders,
+            selectedFeedID: selectedFeedID
+        )
         refreshPresentedDestination()
     }
 
@@ -675,12 +680,17 @@ struct SourceManagementMoveSourceState {
 
     mutating func applyContext(
         feeds: [SourceManagementFeedSummary],
-        folders: [SourceManagementFolderSummary]
+        folders: [SourceManagementFolderSummary],
+        selectedFeedID preferredSelectedFeedID: UUID? = nil
     ) {
         self.feeds = feeds.sorted(by: feedSortComparator)
         self.folders = folders.sorted(by: folderSortComparator)
 
-        if let selectedFeedID,
+        if let preferredSelectedFeedID,
+           self.feeds.contains(where: { $0.id == preferredSelectedFeedID }) {
+            selectedFeedID = preferredSelectedFeedID
+            selectedPlacement = currentPlacement(for: preferredSelectedFeedID) ?? .ungrouped
+        } else if let selectedFeedID,
            self.feeds.contains(where: { $0.id == selectedFeedID }) {
             selectedPlacement = currentPlacement(for: selectedFeedID) ?? .ungrouped
         } else {

@@ -264,6 +264,10 @@ struct SidebarView: View {
             selection = row.selection
         }
         .contextMenu {
+            Button("Organize...") {
+                dependencies.showFeedOrganizer(id: row.id, using: appState)
+            }
+
             Button("Edit...") {
                 dependencies.showFeedEditor(id: row.id, using: appState)
             }

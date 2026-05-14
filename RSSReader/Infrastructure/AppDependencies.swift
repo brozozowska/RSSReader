@@ -687,6 +687,11 @@ extension AppDependencies {
     }
 
     @MainActor
+    func showFeedOrganizer(id feedID: UUID, using appState: AppState) {
+        appState.presentSourceManagementScreen(launchContext: .organizeFeed(feedID))
+    }
+
+    @MainActor
     func showFolderEditor(named folderName: String, using appState: AppState) {
         guard let folderRepository else {
             logger.error("Folder repository is unavailable for folder editing")
@@ -811,6 +816,7 @@ extension AppDependencies {
 
     @MainActor
     func loadSourceManagementMoveSourceContext(
+        selectedFeedID: UUID? = nil,
         into screenState: inout SourceManagementScreenState
     ) {
         guard let sourceManagementService else {
@@ -825,7 +831,11 @@ extension AppDependencies {
         do {
             let feeds = try sourceManagementService.fetchFeeds()
             let folders = try sourceManagementService.fetchFolders()
-            screenState.applyMoveSourceContext(feeds: feeds, folders: folders)
+            screenState.applyMoveSourceContext(
+                feeds: feeds,
+                folders: folders,
+                selectedFeedID: selectedFeedID
+            )
         } catch {
             logger.error("Failed to load move-source context for source management screen: \(error)")
             screenState.applyMoveSourceContext(feeds: [], folders: [])

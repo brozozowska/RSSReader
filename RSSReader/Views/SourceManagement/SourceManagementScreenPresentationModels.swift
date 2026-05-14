@@ -4,6 +4,7 @@ enum SourceManagementScreenLaunchContext: Hashable, Sendable {
     case entry
     case editFeed(UUID)
     case editFolder(UUID)
+    case organizeFeed(UUID)
 }
 
 enum SourceManagementScenarioID: String, CaseIterable, Hashable, Identifiable, Sendable {

@@ -40,6 +40,12 @@ final class SourceManagementScreenController {
                 into: &screenState
             )
             screenState.presentScenario(.createFolder)
+        case .organizeFeed(let feedID):
+            dependencies.loadSourceManagementMoveSourceContext(
+                selectedFeedID: feedID,
+                into: &screenState
+            )
+            screenState.presentScenario(.moveSource)
         }
     }
 

@@ -247,6 +247,48 @@ struct SourceManagementScreenControllerTests {
     }
 
     @Test
+    func sourceManagementScreenControllerOrganizesFeedFromSidebarLaunchContextWithoutPreview() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let newsFolder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
+        let techFolder = try harness.folderRepository.insert(Folder(name: "Tech", sortOrder: 1))
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: "https://example.com/organize-me.xml",
+                title: "Organize Me",
+                kind: .rss,
+                folder: newsFolder
+            )
+        )
+        let controller = SourceManagementScreenController()
+        let sidebarReloadIDBeforeMove = appState.sourcesSidebarReloadID
+
+        harness.dependencies.showFeedOrganizer(id: feed.id, using: appState)
+        controller.handleLaunchContext(.organizeFeed(feed.id), dependencies: harness.dependencies)
+
+        guard case .moveSource(let initialDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected move-source destination presentation for feed organizer launch context")
+            return
+        }
+
+        #expect(appState.sourceManagementLaunchContext == .organizeFeed(feed.id))
+        #expect(initialDestination.feeds.first(where: { $0.id == feed.id })?.isSelected == true)
+        #expect(initialDestination.placementOptions.first(where: { $0.title == "News" })?.isSelected == true)
+        #expect(initialDestination.isPrimaryActionEnabled == false)
+
+        controller.handleMoveSourcePlacementSelection(.folder(techFolder.id))
+        controller.submitMoveSource(dependencies: harness.dependencies, appState: appState)
+
+        let persistedFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
+        let requests = await harness.httpClient.recordedRequests()
+
+        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeMove)
+        #expect(persistedFeed.folder?.id == techFolder.id)
+        #expect(requests.isEmpty)
+    }
+
+    @Test
     func sourceManagementScreenControllerShowsDuplicateFeedWarningWhenPreviewMatchesExistingSource() async throws {
         let feedURL = "https://example.com/existing-feed.xml"
         let harness = try TestHarness.make(
