@@ -136,6 +136,71 @@ struct SourceManagementScreenStateTests {
     }
 
     @Test
+    func sourceManagementScreenStateHidesFolderPlacementWhenEditingFeed() {
+        var state = SourceManagementScreenState.makePreviewFixture()
+        let newsFolderID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let techFolderID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        state.applyAddFeedEditContext(
+            feed: SourceManagementFeedSummary(
+                id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
+                url: "https://example.com/original.xml",
+                title: "Original Feed",
+                folderID: newsFolderID,
+                folderName: "News"
+            ),
+            folders: [
+                SourceManagementFolderSummary(
+                    id: newsFolderID,
+                    name: "News",
+                    sortOrder: 0,
+                    feedCount: 1
+                ),
+                SourceManagementFolderSummary(
+                    id: techFolderID,
+                    name: "Tech",
+                    sortOrder: 1,
+                    feedCount: 0
+                )
+            ]
+        )
+        state.presentScenario(.addFeed)
+
+        guard case .addFeed(let editDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation for feed editing")
+            return
+        }
+
+        #expect(editDestination.title == "Edit Feed")
+        #expect(editDestination.placementOptions.isEmpty)
+        #expect(editDestination.createFolderActionTitle == nil)
+
+        state.updateAddFeedURLInput("https://example.com/updated.xml")
+        guard let previewCommand = state.beginAddFeedPreviewLoading() else {
+            Issue.record("Expected preview command for edited feed URL")
+            return
+        }
+        state.applyLoadedAddFeedPreview(
+            SourceManagementFeedPreview(
+                requestedURL: previewCommand.urlString,
+                resolvedFeedURL: previewCommand.urlString,
+                title: "Updated Feed",
+                subtitle: nil,
+                siteURL: "https://example.com/",
+                iconURL: nil,
+                language: "en",
+                kind: .rss,
+                parserAnomalyCount: 0,
+                rejectedEntryCount: 0,
+                existingFeedID: nil
+            ),
+            command: previewCommand
+        )
+
+        let updateCommand = state.beginAddFeedUpdate()
+        #expect(updateCommand?.folderPlacement == .folder(newsFolderID))
+    }
+
+    @Test
     func sourceManagementScreenStateIgnoresStaleAddFeedPreviewCompletion() {
         var state = SourceManagementScreenState.makePreviewFixture()
         state.presentScenario(.addFeed)

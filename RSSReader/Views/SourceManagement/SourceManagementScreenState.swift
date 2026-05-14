@@ -505,7 +505,7 @@ struct SourceManagementAddFeedState {
             title: isEditing ? "Edit Feed" : "Add Feed",
             summaryTitle: isEditing ? "Source Details" : "New Source",
             summaryDescription: isEditing
-                ? "Change the feed address or move the source to another folder."
+                ? "Change the feed address when the source has moved to a new URL."
                 : "Enter a website or feed address. The app will look for a readable feed before you add it.",
             urlInput: urlInput,
             urlPrompt: "Feed URL",
@@ -598,6 +598,7 @@ struct SourceManagementAddFeedState {
         guard createdFeed == nil,
               isCreatingFeed == false,
               hasDuplicateConflict == false,
+              isEditing == false,
               preview != nil || isEditing else { return [] }
 
         return [
@@ -623,6 +624,7 @@ struct SourceManagementAddFeedState {
         guard createdFeed == nil,
               isCreatingFeed == false,
               hasDuplicateConflict == false,
+              isEditing == false,
               preview != nil || isEditing else {
             return nil
         }

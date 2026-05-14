@@ -170,7 +170,6 @@ struct SourceManagementScreenControllerTests {
             httpClient: ScriptedHTTPClient(steps: [previewStep, previewStep])
         )
         let originalFolder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
-        let updatedFolder = try harness.folderRepository.insert(Folder(name: "Tech", sortOrder: 1))
         let feed = try harness.feedRepository.insert(
             Feed(
                 url: initialURL,
@@ -193,10 +192,10 @@ struct SourceManagementScreenControllerTests {
 
         #expect(initialDestination.title == "Edit Feed")
         #expect(initialDestination.urlInput == initialURL)
-        #expect(initialDestination.placementOptions.first(where: { $0.title == "News" })?.isSelected == true)
+        #expect(initialDestination.placementOptions.isEmpty)
+        #expect(initialDestination.createFolderActionTitle == nil)
 
         controller.handleAddFeedURLChange(updatedURL)
-        controller.handleAddFeedFolderPlacementSelection(.folder(updatedFolder.id))
         await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
         await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
 
@@ -208,7 +207,7 @@ struct SourceManagementScreenControllerTests {
         #expect(appState.selectedSidebarSelection == .feed(feed.id))
         #expect(persistedFeed.url == updatedURL)
         #expect(persistedFeed.title == "Updated Feed Title")
-        #expect(persistedFeed.folder?.id == updatedFolder.id)
+        #expect(persistedFeed.folder?.id == originalFolder.id)
         #expect(persistedFeed.lastSuccessfulFetchAt != nil)
         #expect(articles.count == 1)
         #expect(articles.first?.title == "Updated Feed Article")
