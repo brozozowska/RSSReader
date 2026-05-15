@@ -134,7 +134,8 @@ struct TestHarness {
             logger: TestLogger(),
             httpClient: httpClient,
             feedFetcher: feedFetcher,
-            modelContainer: modelContainer
+            modelContainer: modelContainer,
+            tracksFeedSaveRefreshTasks: true
         )
 
         let feedRepository = SwiftDataFeedRepository(modelContext: modelContext)

@@ -12,6 +12,37 @@ public protocol AppDependenciesProtocol {
     var modelContainer: ModelContainer? { get }
 }
 
+private final class AppDependencyTaskStore: @unchecked Sendable {
+    private let lock = NSLock()
+    private var tasks: [Task<Void, Never>] = []
+
+    func append(_ task: Task<Void, Never>) {
+        lock.lock()
+        tasks.append(task)
+        lock.unlock()
+    }
+
+    func waitForAll() async {
+        while true {
+            let currentTasks = takeTasks()
+
+            guard currentTasks.isEmpty == false else { return }
+
+            for task in currentTasks {
+                await task.value
+            }
+        }
+    }
+
+    private func takeTasks() -> [Task<Void, Never>] {
+        lock.lock()
+        let currentTasks = tasks
+        tasks.removeAll()
+        lock.unlock()
+        return currentTasks
+    }
+}
+
 public final class AppDependencies: AppDependenciesProtocol {
     
     public let logger: Logging
@@ -45,6 +76,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let syncBootstrapPreferenceStore: any AppSyncBootstrapPreferenceStoring
     let syncBootstrapContext: AppSyncBootstrapContext?
     private let syncRuntimeOrchestrator: AppSyncRuntimeOrchestrator
+    private let feedSaveRefreshTaskStore: AppDependencyTaskStore?
 
     init(
         logger: Logging,
@@ -62,7 +94,8 @@ public final class AppDependencies: AppDependenciesProtocol {
         iCloudAccountAvailabilityService: (any ICloudAccountAvailabilityService)? = nil,
         cloudKitRuntimeEventSource: (any CloudKitRuntimeEventSource)? = nil,
         persistentStoreRemoteChangeSource: (any PersistentStoreRemoteChangeSource)? = nil,
-        syncCoordinator: SyncCoordinator? = nil
+        syncCoordinator: SyncCoordinator? = nil,
+        tracksFeedSaveRefreshTasks: Bool = false
     ) {
         let feedRepository = modelContainer.map { container in
             SwiftDataFeedRepository(modelContext: container.mainContext)
@@ -201,6 +234,9 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.syncCoordinator = syncCoordinator
         self.feedFetchLogRepository = feedFetchLogRepository
         self.feedFetcher = resolvedFeedFetcher
+        self.feedSaveRefreshTaskStore = tracksFeedSaveRefreshTasks
+            ? AppDependencyTaskStore()
+            : nil
         self.syncRuntimeOrchestrator = AppSyncRuntimeOrchestrator(
             logger: logger,
             syncCoordinator: syncCoordinator,
@@ -905,14 +941,6 @@ extension AppDependencies {
         using appState: AppState,
         selectsSavedFeed: Bool = true
     ) async -> FeedRefreshResult? {
-        let result: FeedRefreshResult?
-        if let feedRefreshService {
-            result = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
-        } else {
-            logger.error("Feed refresh service is unavailable for source save completion")
-            result = nil
-        }
-
         appState.requestSourcesSidebarReload()
         if selectsSavedFeed {
             showFeed(id: feedID, using: appState)
@@ -920,7 +948,30 @@ extension AppDependencies {
             appState.selectReadingSource(nil)
         }
         dismissSourceManagement(using: appState)
-        return result
+        scheduleInitialRefreshAfterSavingFeed(id: feedID, using: appState)
+        return nil
+    }
+
+    @MainActor
+    private func scheduleInitialRefreshAfterSavingFeed(
+        id feedID: UUID,
+        using appState: AppState
+    ) {
+        guard let feedRefreshService else {
+            logger.error("Feed refresh service is unavailable for source save completion")
+            return
+        }
+
+        let task = Task { @MainActor in
+            _ = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
+            appState.requestSourcesSidebarReload()
+            appState.requestArticleListReload()
+        }
+        feedSaveRefreshTaskStore?.append(task)
+    }
+
+    func waitForScheduledFeedSaveRefreshes() async {
+        await feedSaveRefreshTaskStore?.waitForAll()
     }
 
     @MainActor
@@ -1051,7 +1102,16 @@ extension AppDependencies {
 
     @MainActor
     func refreshAfterAddingFeed(id feedID: UUID, using appState: AppState) async -> FeedRefreshResult? {
-        await finishSavingFeed(id: feedID, using: appState)
+        guard let feedRefreshService else {
+            logger.error("Feed refresh service is unavailable for source save completion")
+            return nil
+        }
+
+        let result = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
+        appState.requestSourcesSidebarReload()
+        showFeed(id: feedID, using: appState)
+        dismissSourceManagement(using: appState)
+        return result
     }
 
     @MainActor
