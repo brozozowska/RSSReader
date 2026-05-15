@@ -5,6 +5,7 @@ struct SourceManagementScreenView: View {
     @Environment(\.appDependencies) private var dependencies
     @Environment(AppState.self) private var appState
     @State private var controller: SourceManagementScreenController
+    @State private var destinationPath: [SourceManagementScenarioID] = []
     let dismiss: () -> Void
     let launchContext: SourceManagementScreenLaunchContext
 
@@ -27,10 +28,11 @@ struct SourceManagementScreenView: View {
             dependencies: dependencies,
             appState: appState,
             dismiss: dismiss,
-            showsDirectLaunchCloseControl: launchContext.opensDirectDestination
+            showsDirectLaunchCloseControl: launchContext.opensDirectDestination,
+            destinationPath: $destinationPath
         )
 
-        NavigationStack {
+        NavigationStack(path: destinationPathBinding) {
             List {
                 Section {
                     summarySection(viewState.summary)
@@ -68,13 +70,31 @@ struct SourceManagementScreenView: View {
                     )
                 }
             }
-            .navigationDestination(item: navigator.presentedDestinationBinding) { destination in
-                navigator.destinationView(for: destination)
+            .navigationDestination(for: SourceManagementScenarioID.self) { scenarioID in
+                navigator.destinationView(for: scenarioID)
             }
             .task(id: launchContext) {
                 navigator.handleLaunchContext(launchContext)
             }
         }
+    }
+
+    private var destinationPathBinding: Binding<[SourceManagementScenarioID]> {
+        Binding(
+            get: { destinationPath },
+            set: { newPath in
+                let oldPath = destinationPath
+                destinationPath = newPath
+
+                if newPath.count < oldPath.count {
+                    controller.dismissPresentedScenario()
+                }
+
+                if let activeScenario = newPath.last {
+                    controller.screenState.presentScenario(activeScenario)
+                }
+            }
+        )
     }
 
     private func summarySection(_ summary: SourceManagementScreenSummaryPresentation) -> some View {
@@ -96,9 +116,20 @@ private struct SourceManagementScreenNavigator {
     let appState: AppState
     let dismiss: () -> Void
     let showsDirectLaunchCloseControl: Bool
+    @Binding var destinationPath: [SourceManagementScenarioID]
 
     func handleLaunchContext(_ launchContext: SourceManagementScreenLaunchContext) {
         controller.handleLaunchContext(launchContext, dependencies: dependencies)
+        switch launchContext {
+        case .entry:
+            return
+        case .editFeed:
+            destinationPath = [.addFeed]
+        case .editFolder:
+            destinationPath = [.createFolder]
+        case .organizeFeed:
+            destinationPath = [.moveSource]
+        }
     }
 
     func selectScenario(_ scenarioID: SourceManagementScenarioID) {
@@ -106,28 +137,33 @@ private struct SourceManagementScreenNavigator {
             scenarioID,
             dependencies: dependencies
         )
+        destinationPath = [scenarioID]
     }
 
-    var presentedDestinationBinding: Binding<SourceManagementScreenDestinationPresentation?> {
-        Binding(
-            get: { controller.screenState.presentedDestination },
-            set: { destination in
-                guard let destination else {
-                    controller.dismissPresentedScenario()
-                    return
-                }
+    func startCreateFolderFromAddFeed() {
+        controller.startCreateFolderFromAddFeed(dependencies: dependencies)
+        destinationPath.append(.createFolder)
+    }
 
-                if controller.screenState.presentedDestination?.id != destination.id {
-                    selectScenario(destination.id)
-                }
-            }
+    func submitCreateFolder() {
+        let wasNestedAddFeedFolderCreation = destinationPath == [.addFeed, .createFolder]
+        controller.submitCreateFolder(
+            dependencies: dependencies,
+            appState: appState
         )
+
+        if wasNestedAddFeedFolderCreation,
+           controller.screenState.presentedDestination?.id == .addFeed {
+            destinationPath = [.addFeed]
+        }
     }
 
     @ViewBuilder
     func destinationView(
-        for destination: SourceManagementScreenDestinationPresentation
+        for scenarioID: SourceManagementScenarioID
     ) -> some View {
+        let destination = controller.screenState.destinationPresentation(for: scenarioID)
+
         switch destination {
         case .addFeed(let addFeed):
             SourceManagementAddFeedView(
@@ -138,7 +174,7 @@ private struct SourceManagementScreenNavigator {
                     controller.handleAddFeedFolderPlacementSelection(placement)
                 },
                 startCreateFolder: {
-                    controller.startCreateFolderFromAddFeed(dependencies: dependencies)
+                    startCreateFolderFromAddFeed()
                 },
                 handlePrimaryAction: {
                     Task {
@@ -156,10 +192,7 @@ private struct SourceManagementScreenNavigator {
                 nameBinding: createFolderNameBinding,
                 showsCloseControl: showsDirectLaunchCloseControl,
                 submit: {
-                    controller.submitCreateFolder(
-                        dependencies: dependencies,
-                        appState: appState
-                    )
+                    submitCreateFolder()
                 },
                 dismiss: dismiss
             )
@@ -186,14 +219,7 @@ private struct SourceManagementScreenNavigator {
 
     private var addFeedURLBinding: Binding<String> {
         Binding(
-            get: {
-                switch controller.viewState().presentedDestination {
-                case .addFeed(let presentation):
-                    return presentation.urlInput
-                case .moveSource, .createFolder, .none:
-                    return ""
-                }
-            },
+            get: { controller.screenState.addFeedURLInput() },
             set: { value in
                 controller.handleAddFeedURLChange(value)
             }
@@ -202,14 +228,7 @@ private struct SourceManagementScreenNavigator {
 
     private var createFolderNameBinding: Binding<String> {
         Binding(
-            get: {
-                switch controller.viewState().presentedDestination {
-                case .addFeed, .moveSource, .none:
-                    return ""
-                case .createFolder(let presentation):
-                    return presentation.nameInput
-                }
-            },
+            get: { controller.screenState.createFolderNameInput() },
             set: { value in
                 controller.handleCreateFolderNameChange(value)
             }

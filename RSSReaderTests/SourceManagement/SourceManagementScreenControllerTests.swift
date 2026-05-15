@@ -503,6 +503,18 @@ struct SourceManagementScreenControllerTests {
 
         controller.handleScenarioSelection(.addFeed, dependencies: harness.dependencies)
         controller.handleAddFeedURLChange(feedURL)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+
+        guard case .addFeed(let previewBeforeFolderDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after loading preview")
+            return
+        }
+
+        #expect(previewBeforeFolderDestination.urlInput == feedURL)
+        #expect(previewBeforeFolderDestination.primaryActionTitle == "Add Feed")
+        #expect(previewBeforeFolderDestination.isConfirmationActionEnabled)
+        #expect(previewBeforeFolderDestination.preview?.title == "Example Feed")
+
         controller.startCreateFolderFromAddFeed(dependencies: harness.dependencies)
 
         guard case .createFolder(let createFolderDestination)? = controller.viewState().presentedDestination else {
@@ -521,18 +533,56 @@ struct SourceManagementScreenControllerTests {
         }
 
         #expect(addFeedDestination.urlInput == feedURL)
-        #expect(addFeedDestination.primaryActionTitle == "Preview Feed")
-        #expect(addFeedDestination.placementOptions.isEmpty)
+        #expect(addFeedDestination.primaryActionTitle == "Add Feed")
+        #expect(addFeedDestination.isConfirmationActionEnabled)
+        #expect(addFeedDestination.preview?.title == "Example Feed")
+        #expect(addFeedDestination.placementOptions.map(\.title) == ["Ungrouped", "News", "Research"])
+        #expect(addFeedDestination.placementOptions.last?.isSelected == true)
+    }
 
+    @Test
+    func sourceManagementScreenControllerRestoresPreviewedAddFeedAfterBackingOutOfNestedFolderCreation() async throws {
+        let feedURL = "https://example.com/feed.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: makeValidRSSFeedXML(
+                            channelTitle: "Example Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Example Article",
+                            itemLink: "https://example.com/articles/example",
+                            itemGUID: "example-article",
+                            itemDescription: "Example description",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+        let newsFolder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
+        let controller = SourceManagementScreenController()
+
+        controller.handleScenarioSelection(.addFeed, dependencies: harness.dependencies)
+        controller.handleAddFeedURLChange(feedURL)
         await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+        controller.handleAddFeedFolderPlacementSelection(.folder(newsFolder.id))
+        controller.startCreateFolderFromAddFeed(dependencies: harness.dependencies)
+        controller.dismissPresentedScenario()
 
-        guard case .addFeed(let previewDestination)? = controller.viewState().presentedDestination else {
-            Issue.record("Expected add-feed destination presentation after loading preview")
+        guard case .addFeed(let addFeedDestination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination after backing out of nested folder creation")
             return
         }
 
-        #expect(previewDestination.placementOptions.map(\.title) == ["Ungrouped", "News", "Research"])
-        #expect(previewDestination.placementOptions.last?.isSelected == true)
+        #expect(addFeedDestination.urlInput == feedURL)
+        #expect(addFeedDestination.primaryActionTitle == "Add Feed")
+        #expect(addFeedDestination.isConfirmationActionEnabled)
+        #expect(addFeedDestination.preview?.title == "Example Feed")
+        #expect(addFeedDestination.placementOptions.first(where: { $0.title == "News" })?.isSelected == true)
     }
 
     @Test

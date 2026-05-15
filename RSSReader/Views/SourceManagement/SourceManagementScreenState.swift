@@ -14,14 +14,7 @@ struct SourceManagementScreenState {
     private(set) var createFolderState = SourceManagementCreateFolderState()
 
     mutating func presentScenario(_ scenarioID: SourceManagementScenarioID) {
-        switch scenarioID {
-        case .addFeed:
-            presentedDestination = .addFeed(addFeedState.derivedPresentation())
-        case .createFolder:
-            presentedDestination = .createFolder(createFolderState.derivedPresentation())
-        case .moveSource:
-            presentedDestination = .moveSource(moveSourceState.derivedPresentation())
-        }
+        presentedDestination = destinationPresentation(for: scenarioID)
     }
 
     mutating func dismissPresentedScenario() {
@@ -35,6 +28,10 @@ struct SourceManagementScreenState {
 
     func addFeedValidationMessage() -> String? {
         addFeedState.validationMessage()
+    }
+
+    func addFeedURLInput() -> String {
+        addFeedState.urlInput
     }
 
     mutating func beginAddFeedPreviewLoading() -> SourceManagementAddFeedPreviewCommand? {
@@ -244,6 +241,19 @@ struct SourceManagementScreenState {
             sections: sections,
             presentedDestination: presentedDestination
         )
+    }
+
+    func destinationPresentation(
+        for scenarioID: SourceManagementScenarioID
+    ) -> SourceManagementScreenDestinationPresentation {
+        switch scenarioID {
+        case .addFeed:
+            return .addFeed(addFeedState.derivedPresentation())
+        case .createFolder:
+            return .createFolder(createFolderState.derivedPresentation())
+        case .moveSource:
+            return .moveSource(moveSourceState.derivedPresentation())
+        }
     }
 
     private mutating func refreshPresentedDestination() {

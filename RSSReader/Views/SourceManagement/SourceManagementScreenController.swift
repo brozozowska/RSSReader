@@ -76,6 +76,14 @@ final class SourceManagementScreenController {
     }
 
     func dismissPresentedScenario() {
+        if scenarioToRestoreAfterCreateFolder == .addFeed,
+           screenState.presentedDestination?.id == .createFolder {
+            scenarioToRestoreAfterCreateFolder = nil
+            screenState.resetCreateFolderForEntry()
+            screenState.presentScenario(.addFeed)
+            return
+        }
+
         screenState.dismissPresentedScenario()
     }
 
