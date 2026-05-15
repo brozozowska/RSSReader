@@ -128,6 +128,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         }
         let sourcesSidebarQueryService: (any SourcesSidebarQueryService)? = {
             guard let feedRepository,
+                  let folderRepository,
                   let articleStateRepository,
                   let articleQueryService else {
                 return nil
@@ -135,6 +136,7 @@ public final class AppDependencies: AppDependenciesProtocol {
 
             return DefaultSourcesSidebarQueryService(
                 feedRepository: feedRepository,
+                folderRepository: folderRepository,
                 articleStateRepository: articleStateRepository,
                 articleQueryService: articleQueryService
             )

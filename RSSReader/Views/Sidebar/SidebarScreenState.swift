@@ -1,6 +1,7 @@
 import Foundation
 
 struct SidebarScreenState {
+    private(set) var folders: [FolderSidebarItem] = []
     private(set) var feeds: [FeedSidebarItem] = []
     private(set) var unreadSmartCount = 0
     private(set) var starredSmartCount = 0
@@ -34,11 +35,12 @@ struct SidebarScreenState {
         _ snapshot: SourcesSidebarSnapshotDTO,
         refreshedAt: Date?
     ) {
+        folders = snapshot.folders
         feeds = snapshot.feeds
         unreadSmartCount = snapshot.unreadSmartCount
         starredSmartCount = snapshot.starredSmartCount
         starredFeedIDs = snapshot.starredFeedIDs
-        phase = snapshot.feeds.isEmpty ? .empty : .loaded
+        phase = snapshot.feeds.isEmpty && snapshot.folders.isEmpty ? .empty : .loaded
 
         if let refreshedAt {
             refreshStatus = .idle(lastUpdatedAt: refreshedAt)
@@ -46,6 +48,7 @@ struct SidebarScreenState {
     }
 
     mutating func applyLoadingFailure(_ message: String) {
+        folders = []
         feeds = []
         unreadSmartCount = 0
         starredSmartCount = 0
@@ -63,7 +66,10 @@ struct SidebarScreenState {
             filter: filter,
             starredFeedIDs: starredFeedIDs
         )
-        let folderGroups = FolderSidebarGroup.groups(from: visibleFeeds)
+        let folderGroups = FolderSidebarGroup.groups(
+            from: folders,
+            feeds: visibleFeeds
+        )
         let smartCount = SidebarCountPresentation.smartCount(
             for: filter,
             unreadSmartCount: unreadSmartCount,
@@ -73,6 +79,7 @@ struct SidebarScreenState {
             var rows: [SidebarFolderSectionRowState] = [
                 .folder(
                     SidebarFolderRowState(
+                        folderID: group.folderID,
                         name: group.name,
                         count: SidebarCountPresentation.folderCount(for: group, filter: filter),
                         isExpanded: expandedFolderNames.contains(group.name),

@@ -8,6 +8,7 @@ struct SourcesSidebarQueryServiceTests {
     @Test
     func sourcesSidebarQuerySnapshotAggregatesUnreadAndStarredStateForFeeds() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let emptyFolder = try harness.folderRepository.insert(Folder(name: "Empty", sortOrder: 0))
         let feeds = try harness.insertFeeds(
             urls: [
                 "https://example.com/sidebar-feed-one.xml",
@@ -44,6 +45,8 @@ struct SourcesSidebarQueryServiceTests {
         let snapshot = try harness.dependencies.sourcesSidebarQueryService?.fetchSnapshot()
         let resolvedSnapshot = try #require(snapshot)
 
+        #expect(resolvedSnapshot.folders.map(\.id) == [emptyFolder.id])
+        #expect(resolvedSnapshot.folders.map(\.name) == ["Empty"])
         #expect(resolvedSnapshot.feeds.map(\.id) == feeds.map(\.id))
         #expect(resolvedSnapshot.feeds.map(\.unreadCount) == [1, 1])
         #expect(resolvedSnapshot.feeds.map(\.starredCount) == [0, 1])

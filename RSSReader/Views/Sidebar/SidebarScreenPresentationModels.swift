@@ -68,12 +68,13 @@ struct SidebarFeedRowState: Identifiable, Equatable {
 }
 
 struct SidebarFolderRowState: Identifiable, Equatable {
+    let folderID: UUID?
     let name: String
     let count: Int
     let isExpanded: Bool
     let selection: SidebarSelection
 
-    var id: String { name }
+    var id: String { folderID?.uuidString ?? name }
 }
 
 enum SidebarFolderSectionRowState: Identifiable, Equatable {
@@ -205,27 +206,69 @@ enum SidebarSelectionBehavior {
 }
 
 struct FolderSidebarGroup: Identifiable {
+    let folderID: UUID?
     let name: String
+    let sortOrder: Int
     let feeds: [FeedSidebarItem]
 
-    var id: String { name }
+    var id: String { folderID?.uuidString ?? name }
     var unreadCount: Int { feeds.reduce(0) { $0 + $1.unreadCount } }
     var starredCount: Int { feeds.reduce(0) { $0 + $1.starredCount } }
 
-    static func groups(from feeds: [FeedSidebarItem]) -> [FolderSidebarGroup] {
+    init(
+        folderID: UUID? = nil,
+        name: String,
+        sortOrder: Int = Int.max,
+        feeds: [FeedSidebarItem]
+    ) {
+        self.folderID = folderID
+        self.name = name
+        self.sortOrder = sortOrder
+        self.feeds = feeds
+    }
+
+    static func groups(
+        from folders: [FolderSidebarItem],
+        feeds: [FeedSidebarItem]
+    ) -> [FolderSidebarGroup] {
         let groupedFeeds = Dictionary(
             grouping: feeds.filter { $0.folderName != nil },
             by: { $0.folderName ?? "" }
         )
 
-        let groups = groupedFeeds.map { name, feeds in
-            FolderSidebarGroup(
+        var representedFolderNames = Set<String>()
+        var groups = folders.map { folder in
+            representedFolderNames.insert(folder.name)
+            return FolderSidebarGroup(
+                folderID: folder.id,
+                name: folder.name,
+                sortOrder: folder.sortOrder,
+                feeds: groupedFeeds[folder.name, default: []].sorted {
+                    $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+                }
+            )
+        }
+
+        let orphanGroups = groupedFeeds.compactMap { name, feeds -> FolderSidebarGroup? in
+            guard representedFolderNames.contains(name) == false else { return nil }
+            return FolderSidebarGroup(
                 name: name,
                 feeds: feeds.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
             )
         }
 
-        return groups.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        groups.append(contentsOf: orphanGroups)
+
+        return groups.sorted { lhs, rhs in
+            if lhs.sortOrder == rhs.sortOrder {
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            }
+            return lhs.sortOrder < rhs.sortOrder
+        }
+    }
+
+    static func groups(from feeds: [FeedSidebarItem]) -> [FolderSidebarGroup] {
+        groups(from: [], feeds: feeds)
     }
 }
 

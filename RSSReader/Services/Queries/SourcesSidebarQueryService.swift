@@ -8,21 +8,25 @@ protocol SourcesSidebarQueryService {
 @MainActor
 final class DefaultSourcesSidebarQueryService: SourcesSidebarQueryService {
     private let feedRepository: any FeedRepository
+    private let folderRepository: any FolderRepository
     private let articleStateRepository: any ArticleStateRepository
     private let articleQueryService: any ArticleQueryService
 
     init(
         feedRepository: any FeedRepository,
+        folderRepository: any FolderRepository,
         articleStateRepository: any ArticleStateRepository,
         articleQueryService: any ArticleQueryService
     ) {
         self.feedRepository = feedRepository
+        self.folderRepository = folderRepository
         self.articleStateRepository = articleStateRepository
         self.articleQueryService = articleQueryService
     }
 
     func fetchSnapshot() throws -> SourcesSidebarSnapshotDTO {
         let baseFeeds = try feedRepository.fetchSidebarItems()
+        let folders = try folderRepository.fetchAllFolders().map(FolderSidebarItem.init(folder:))
         let unreadCounts = try articleStateRepository.fetchUnreadCounts(feedIDs: baseFeeds.map(\.id))
         let starredCountsByFeedID = try fetchStarredCountsByFeedID()
         let feeds = baseFeeds.map { feed in
@@ -33,6 +37,7 @@ final class DefaultSourcesSidebarQueryService: SourcesSidebarQueryService {
         }
 
         return SourcesSidebarSnapshotDTO(
+            folders: folders,
             feeds: feeds,
             unreadSmartCount: feeds.reduce(0) { $0 + $1.unreadCount },
             starredSmartCount: feeds.reduce(0) { $0 + $1.starredCount },

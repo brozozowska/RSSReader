@@ -72,4 +72,46 @@ struct SidebarScreenStateTests {
         #expect(feedRow.title == "The Verge")
         #expect(feedRow.isIndented)
     }
+
+    @Test
+    func sidebarScreenStateShowsEmptyFoldersFromSnapshot() {
+        let emptyFolderID = UUID()
+        let snapshot = SourcesSidebarSnapshotDTO(
+            folders: [
+                FolderSidebarItem(
+                    id: emptyFolderID,
+                    name: "Empty",
+                    sortOrder: 0
+                )
+            ],
+            feeds: [],
+            unreadSmartCount: 0,
+            starredSmartCount: 0,
+            starredFeedIDs: []
+        )
+        let state = SidebarScreenState.previewLoaded(snapshot: snapshot)
+
+        let viewState = state.derivedViewState(
+            filter: .allItems,
+            expandedFolderNames: ["Empty"],
+            iCloudSyncStatus: .disabled
+        )
+
+        #expect(state.phase == .loaded)
+        #expect(viewState.placeholder == nil)
+        #expect(viewState.shouldDisableScrolling == false)
+        #expect(viewState.smartRows.isEmpty)
+        #expect(viewState.folderRows.count == 1)
+        #expect(viewState.ungroupedFeedRows.isEmpty)
+
+        guard case .folder(let folderRow)? = viewState.folderRows.first else {
+            Issue.record("Expected empty folder row in SidebarScreenDerivedViewState")
+            return
+        }
+
+        #expect(folderRow.folderID == emptyFolderID)
+        #expect(folderRow.name == "Empty")
+        #expect(folderRow.count == 0)
+        #expect(folderRow.isExpanded)
+    }
 }

@@ -89,7 +89,10 @@ final class SidebarScreenController {
             filter: filter,
             starredFeedIDs: screenState.starredFeedIDs
         )
-        let folderGroups = FolderSidebarGroup.groups(from: visibleFeeds)
+        let folderGroups = FolderSidebarGroup.groups(
+            from: screenState.folders,
+            feeds: visibleFeeds
+        )
 
         return SidebarSelectionBehavior.resolvedSelection(
             currentSelection: currentSelection,
@@ -106,7 +109,12 @@ final class SidebarScreenController {
             starredFeedIDs: screenState.starredFeedIDs
         )
 
-        return Set(FolderSidebarGroup.groups(from: visibleFeeds).map(\.name))
+        return Set(
+            FolderSidebarGroup.groups(
+                from: screenState.folders,
+                feeds: visibleFeeds
+            ).map(\.name)
+        )
     }
 
     func toggleFolderExpansion(named folderName: String) {
