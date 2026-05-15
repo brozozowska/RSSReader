@@ -376,6 +376,16 @@ struct SourceManagementScreenStateTests {
         #expect(duplicateDestination.validationMessage == "A folder with this name already exists.")
         #expect(duplicateDestination.isPrimaryActionEnabled == false)
 
+        state.updateCreateFolderNameInput(" tEcH ")
+
+        guard case .createFolder(let caseDuplicateDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected create-folder destination presentation after case-insensitive duplicate input")
+            return
+        }
+
+        #expect(caseDuplicateDestination.validationMessage == "A folder with this name already exists.")
+        #expect(caseDuplicateDestination.isPrimaryActionEnabled == false)
+
         state.updateCreateFolderNameInput("Research")
 
         guard case .createFolder(let validDestination)? = state.derivedViewState().presentedDestination else {

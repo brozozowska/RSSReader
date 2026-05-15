@@ -52,12 +52,9 @@ final class SwiftDataFolderRepository: FolderRepository, SwiftDataRepositoryCont
 
     func fetchFolder(name: String) throws -> Folder? {
         guard let normalizedName = normalizedIdentifier(name) else { return nil }
-        let descriptor = FetchDescriptor<Folder>(
-            predicate: #Predicate<Folder> { folder in
-                folder.name == normalizedName
-            }
-        )
-        return try fetchFirst(descriptor)
+        return try fetchAllFolders().first { folder in
+            folder.name.compare(normalizedName, options: [.caseInsensitive]) == .orderedSame
+        }
     }
 
     func fetchAllFolders() throws -> [Folder] {

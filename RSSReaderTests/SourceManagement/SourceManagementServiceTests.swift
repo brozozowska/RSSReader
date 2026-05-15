@@ -149,6 +149,37 @@ struct SourceManagementServiceTests {
     }
 
     @Test
+    func sourceManagementServiceRejectsCaseInsensitiveDuplicateFolderNames() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let service = try #require(harness.dependencies.sourceManagementService)
+
+        let techFolder = try service.createFolder(SourceManagementCreateFolderCommand(name: "Tech"))
+        let newsFolder = try service.createFolder(SourceManagementCreateFolderCommand(name: "News"))
+
+        #expect(throws: SourceManagementServiceError.duplicateFolderName("TeCh")) {
+            _ = try service.createFolder(SourceManagementCreateFolderCommand(name: " TeCh "))
+        }
+
+        #expect(throws: SourceManagementServiceError.duplicateFolderName("teCH")) {
+            _ = try service.updateFolder(
+                SourceManagementUpdateFolderCommand(
+                    folderID: newsFolder.id,
+                    name: " teCH "
+                )
+            )
+        }
+
+        let renamedSameFolder = try service.updateFolder(
+            SourceManagementUpdateFolderCommand(
+                folderID: techFolder.id,
+                name: "TECH"
+            )
+        )
+
+        #expect(renamedSameFolder.name == "TECH")
+    }
+
+    @Test
     func sourceManagementServiceCreatesAndMovesFeedWithoutScreenLevelPersistenceAccess() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let service = try #require(harness.dependencies.sourceManagementService)

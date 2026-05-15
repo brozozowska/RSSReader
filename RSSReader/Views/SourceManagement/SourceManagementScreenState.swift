@@ -1054,8 +1054,9 @@ struct SourceManagementCreateFolderState {
             return "Enter a folder name to continue."
         }
 
-        if existingFolders.contains(where: {
-            $0.name == normalizedValue && $0.id != editingFolder?.id
+        if existingFolders.contains(where: { folder in
+            folder.id != editingFolder?.id
+                && folder.name.compare(normalizedValue, options: [.caseInsensitive]) == .orderedSame
         }) {
             return "A folder with this name already exists."
         }

@@ -15,10 +15,12 @@ struct FolderRepositoryTests {
 
         let folders = try repository.fetchAllFolders()
         let techFolder = try repository.fetchFolder(name: "Tech")
+        let lowercaseTechFolder = try repository.fetchFolder(name: " tech ")
 
         #expect(folders.map(\.name) == ["News", "Tech", "Archive"])
         #expect(folders.map(\.sortOrder) == [0, 1, 2])
         #expect(techFolder?.sortOrder == 1)
+        #expect(lowercaseTechFolder?.id == techFolder?.id)
     }
 
     @Test
@@ -29,6 +31,10 @@ struct FolderRepositoryTests {
 
         #expect(throws: RepositoryInvariantViolation.duplicateFolderName("News")) {
             _ = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 1))
+        }
+
+        #expect(throws: RepositoryInvariantViolation.duplicateFolderName("NeWs")) {
+            _ = try harness.folderRepository.insert(Folder(name: " NeWs ", sortOrder: 2))
         }
     }
 
@@ -42,6 +48,13 @@ struct FolderRepositoryTests {
             _ = try harness.folderRepository.update(
                 folderID: firstFolder.id,
                 with: FolderDetailsUpdate(name: secondFolder.name)
+            )
+        }
+
+        #expect(throws: RepositoryInvariantViolation.duplicateFolderName("tEcH")) {
+            _ = try harness.folderRepository.update(
+                folderID: firstFolder.id,
+                with: FolderDetailsUpdate(name: " tEcH ")
             )
         }
     }
