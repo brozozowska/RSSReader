@@ -83,7 +83,7 @@ struct FeedSidebarItem: Sendable, Identifiable {
 
     init(feed: Feed, unreadCount: Int = 0, starredCount: Int = 0) {
         self.id = feed.id
-        self.title = feed.title
+        self.title = feed.displayTitle
         self.iconURL = feed.iconURL
         self.folderName = feed.folder?.name
         self.unreadCount = unreadCount
@@ -138,6 +138,8 @@ struct FeedDetailsUpdate: Sendable {
     var url: String? = nil
     var siteURL: String? = nil
     var title: String? = nil
+    var displayTitleOverride: String? = nil
+    var clearsDisplayTitleOverride = false
     var subtitle: String? = nil
     var iconURL: String? = nil
     var language: String? = nil
@@ -384,6 +386,12 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
 
         if let title = update.title, title.isEmpty == false {
             feed.title = title
+        }
+
+        if update.clearsDisplayTitleOverride {
+            feed.displayTitleOverride = nil
+        } else if let displayTitleOverride = update.displayTitleOverride {
+            feed.displayTitleOverride = displayTitleOverride
         }
 
         if let subtitle = update.subtitle {

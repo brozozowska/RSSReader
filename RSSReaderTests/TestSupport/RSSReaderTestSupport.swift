@@ -202,7 +202,7 @@ struct TestHarness {
     ) throws -> Article {
         let article = Article(
             feedID: feed.id,
-            feedTitle: feed.title,
+            feedTitle: feed.displayTitle,
             feedSiteURL: feed.siteURL,
             feedFolderName: feed.folder?.name,
             externalID: externalID,

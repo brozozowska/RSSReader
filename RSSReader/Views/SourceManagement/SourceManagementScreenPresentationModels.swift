@@ -98,6 +98,10 @@ struct SourceManagementAddFeedPresentation: Hashable, Sendable {
     let summaryDescription: String
     let urlInput: String
     let urlPrompt: String
+    let displayNameInput: String
+    let displayNamePrompt: String
+    let displayNameFooter: String
+    let showsDisplayNameInput: Bool
     let validationMessage: String?
     let normalizedURL: String?
     let primaryActionTitle: String

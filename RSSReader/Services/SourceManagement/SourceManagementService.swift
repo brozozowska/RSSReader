@@ -5,6 +5,7 @@ enum SourceManagementServiceError: Error, Equatable {
     case feedDiscoveryFailed(String)
     case previewUnavailableForNotModifiedResponse
     case duplicateFeed(String)
+    case duplicateFeedDisplayName(String)
     case emptyFolderName
     case duplicateFolderName(String)
     case feedNotFound(UUID)
@@ -27,8 +28,28 @@ struct SourceManagementFeedSummary: Identifiable, Equatable, Sendable {
     let id: UUID
     let url: String
     let title: String
+    let metadataTitle: String
+    let displayTitleOverride: String?
     let folderID: UUID?
     let folderName: String?
+
+    init(
+        id: UUID,
+        url: String,
+        title: String,
+        metadataTitle: String? = nil,
+        displayTitleOverride: String? = nil,
+        folderID: UUID?,
+        folderName: String?
+    ) {
+        self.id = id
+        self.url = url
+        self.title = title
+        self.metadataTitle = metadataTitle ?? title
+        self.displayTitleOverride = displayTitleOverride
+        self.folderID = folderID
+        self.folderName = folderName
+    }
 }
 
 struct SourceManagementFeedPreview: Equatable, Sendable {
@@ -262,15 +283,18 @@ struct SourceManagementCreateFolderCommand: Equatable, Sendable {
 
 struct SourceManagementCreateFeedCommand: Equatable, Sendable {
     let preview: SourceManagementFeedPreview
+    let displayTitleOverride: String?
     let folderPlacement: SourceManagementFolderPlacement
     let createdAt: Date
 
     init(
         preview: SourceManagementFeedPreview,
+        displayTitleOverride: String? = nil,
         folderPlacement: SourceManagementFolderPlacement,
         createdAt: Date = .now
     ) {
         self.preview = preview
+        self.displayTitleOverride = displayTitleOverride
         self.folderPlacement = folderPlacement
         self.createdAt = createdAt
     }
@@ -294,18 +318,21 @@ struct SourceManagementMoveFeedCommand: Equatable, Sendable {
 
 struct SourceManagementUpdateFeedCommand: Equatable, Sendable {
     let feedID: UUID
-    let preview: SourceManagementFeedPreview
+    let preview: SourceManagementFeedPreview?
+    let displayTitleOverride: String?
     let folderPlacement: SourceManagementFolderPlacement
     let updatedAt: Date
 
     init(
         feedID: UUID,
-        preview: SourceManagementFeedPreview,
+        preview: SourceManagementFeedPreview? = nil,
+        displayTitleOverride: String? = nil,
         folderPlacement: SourceManagementFolderPlacement,
         updatedAt: Date = .now
     ) {
         self.feedID = feedID
         self.preview = preview
+        self.displayTitleOverride = displayTitleOverride
         self.folderPlacement = folderPlacement
         self.updatedAt = updatedAt
     }
@@ -601,11 +628,14 @@ final class DefaultSourceManagementService: SourceManagementService {
         }
 
         let folder = try resolveFolder(for: command.folderPlacement)
+        let displayTitle = normalizedDisplayTitle(command.displayTitleOverride) ?? command.preview.title
+        try ensureUniqueFeedDisplayTitle(displayTitle)
         let feed = try feedRepository.insert(
             Feed(
                 url: command.preview.resolvedFeedURL,
                 siteURL: command.preview.siteURL,
                 title: command.preview.title,
+                displayTitleOverride: normalizedDisplayTitle(command.displayTitleOverride),
                 subtitle: command.preview.subtitle,
                 iconURL: command.preview.iconURL,
                 language: command.preview.language,
@@ -620,32 +650,38 @@ final class DefaultSourceManagementService: SourceManagementService {
     }
 
     func updateFeed(_ command: SourceManagementUpdateFeedCommand) throws -> SourceManagementFeedSummary {
-        guard try feedRepository.fetchMetadata(for: command.feedID) != nil else {
+        guard let currentFeed = try feedRepository.fetchFeed(id: command.feedID) else {
             logger.error("Skipped feed update because feed was not found: \(command.feedID.uuidString)")
             throw SourceManagementServiceError.feedNotFound(command.feedID)
         }
 
-        if let duplicateFeed = try existingFeed(
-            resolvedFeedURL: command.preview.resolvedFeedURL,
-            requestedURL: command.preview.requestedURL
-        ), duplicateFeed.id != command.feedID {
-            logger.error("Skipped feed update because another feed already uses URL: \(command.preview.resolvedFeedURL)")
-            throw SourceManagementServiceError.duplicateFeed(command.preview.resolvedFeedURL)
+        if let preview = command.preview,
+           let duplicateFeed = try existingFeed(
+            resolvedFeedURL: preview.resolvedFeedURL,
+            requestedURL: preview.requestedURL
+           ), duplicateFeed.id != command.feedID {
+            logger.error("Skipped feed update because another feed already uses URL: \(preview.resolvedFeedURL)")
+            throw SourceManagementServiceError.duplicateFeed(preview.resolvedFeedURL)
         }
 
         let folder = try resolveFolder(for: command.folderPlacement)
+        let displayTitleOverride = normalizedDisplayTitle(command.displayTitleOverride)
+        let metadataTitle = command.preview?.title ?? currentFeed.title
+        try ensureUniqueFeedDisplayTitle(displayTitleOverride ?? metadataTitle, excluding: command.feedID)
 
         do {
             let updatedFeed = try feedRepository.updateDetails(
                 for: command.feedID,
                 with: FeedDetailsUpdate(
-                    url: command.preview.resolvedFeedURL,
-                    siteURL: command.preview.siteURL,
-                    title: command.preview.title,
-                    subtitle: command.preview.subtitle,
-                    iconURL: command.preview.iconURL,
-                    language: command.preview.language,
-                    kind: command.preview.kind,
+                    url: command.preview?.resolvedFeedURL,
+                    siteURL: command.preview?.siteURL,
+                    title: command.preview?.title,
+                    displayTitleOverride: displayTitleOverride,
+                    clearsDisplayTitleOverride: displayTitleOverride == nil,
+                    subtitle: command.preview?.subtitle,
+                    iconURL: command.preview?.iconURL,
+                    language: command.preview?.language,
+                    kind: command.preview?.kind,
                     updatedAt: command.updatedAt
                 ),
                 saveAfterOperation: false
@@ -732,6 +768,30 @@ private extension DefaultSourceManagementService {
         return normalizedValue.isEmpty ? nil : normalizedValue
     }
 
+    func normalizedDisplayTitle(_ value: String?) -> String? {
+        normalizedNonEmptyString(value)
+    }
+
+    func ensureUniqueFeedDisplayTitle(_ title: String, excluding feedID: UUID? = nil) throws {
+        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalizedTitle.isEmpty == false else { return }
+
+        let duplicate = try feedRepository.fetchAllFeeds().first { feed in
+            if let feedID, feed.id == feedID {
+                return false
+            }
+
+            return feed.displayTitle
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .compare(normalizedTitle, options: [.caseInsensitive]) == .orderedSame
+        }
+
+        if duplicate != nil {
+            logger.error("Skipped feed save because another feed already uses display name: \(normalizedTitle)")
+            throw SourceManagementServiceError.duplicateFeedDisplayName(normalizedTitle)
+        }
+    }
+
     func existingFeed(resolvedFeedURL: String, requestedURL: String) throws -> Feed? {
         if let feed = try feedRepository.fetchFeed(url: resolvedFeedURL) {
             return feed
@@ -770,7 +830,9 @@ private extension DefaultSourceManagementService {
         SourceManagementFeedSummary(
             id: feed.id,
             url: feed.url,
-            title: feed.title,
+            title: feed.displayTitle,
+            metadataTitle: feed.title,
+            displayTitleOverride: feed.displayTitleOverride,
             folderID: feed.folder?.id,
             folderName: feed.folder?.name
         )

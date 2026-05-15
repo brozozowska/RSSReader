@@ -79,8 +79,8 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         var updatedCount = 0
 
         for article in articles {
-            if article.feedTitle != feed.title {
-                article.feedTitle = feed.title
+            if article.feedTitle != feed.displayTitle {
+                article.feedTitle = feed.displayTitle
                 updatedCount += 1
             }
 
@@ -258,7 +258,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
 
         let article = Article(
             feedID: feed.id,
-            feedTitle: feed.title,
+            feedTitle: feed.displayTitle,
             feedSiteURL: feed.siteURL,
             feedFolderName: feed.folder?.name,
             externalID: payload.externalID,

@@ -170,6 +170,7 @@ private struct SourceManagementScreenNavigator {
             SourceManagementAddFeedView(
                 presentation: addFeed,
                 urlBinding: addFeedURLBinding,
+                displayNameBinding: addFeedDisplayNameBinding,
                 showsCloseControl: showsDirectLaunchCloseControl,
                 selectPlacement: { placement in
                     controller.handleAddFeedFolderPlacementSelection(placement)
@@ -182,6 +183,13 @@ private struct SourceManagementScreenNavigator {
                         await controller.handleAddFeedPrimaryAction(
                             dependencies: dependencies,
                             appState: appState
+                        )
+                    }
+                },
+                handlePreviewAction: {
+                    Task {
+                        await controller.handleAddFeedPreviewAction(
+                            dependencies: dependencies
                         )
                     }
                 },
@@ -223,6 +231,15 @@ private struct SourceManagementScreenNavigator {
             get: { controller.screenState.addFeedURLInput() },
             set: { value in
                 controller.handleAddFeedURLChange(value)
+            }
+        )
+    }
+
+    private var addFeedDisplayNameBinding: Binding<String> {
+        Binding(
+            get: { controller.screenState.addFeedDisplayNameInput() },
+            set: { value in
+                controller.handleAddFeedDisplayNameChange(value)
             }
         )
     }
@@ -294,10 +311,12 @@ private struct SourceManagementAddFeedView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     let presentation: SourceManagementAddFeedPresentation
     let urlBinding: Binding<String>
+    let displayNameBinding: Binding<String>
     let showsCloseControl: Bool
     let selectPlacement: (SourceManagementFolderPlacement) -> Void
     let startCreateFolder: () -> Void
     let handlePrimaryAction: () -> Void
+    let handlePreviewAction: () -> Void
     let dismiss: () -> Void
 
     var body: some View {
@@ -325,7 +344,7 @@ private struct SourceManagementAddFeedView: View {
                 .keyboardType(.URL)
                 .textContentType(.URL)
                 .submitLabel(.done)
-                .onSubmit(handlePrimaryAction)
+                .onSubmit(handlePreviewAction)
 
                 if let validationMessage = presentation.validationMessage {
                     Text(validationMessage)
@@ -336,6 +355,24 @@ private struct SourceManagementAddFeedView: View {
                 Text("Feed URL")
             } footer: {
                 Text("Use a website address or a direct RSS / Atom feed link.")
+            }
+
+            if presentation.showsDisplayNameInput {
+                Section {
+                    TextField(
+                        presentation.displayNamePrompt,
+                        text: displayNameBinding,
+                        prompt: Text("Source name")
+                    )
+                    .textInputAutocapitalization(.sentences)
+                    .autocorrectionDisabled()
+                    .submitLabel(.done)
+                    .onSubmit(handlePrimaryAction)
+                } header: {
+                    Text("Display Name")
+                } footer: {
+                    Text(presentation.displayNameFooter)
+                }
             }
 
             if presentation.isLoadingPreview {
@@ -399,12 +436,12 @@ private struct SourceManagementAddFeedView: View {
                presentation.preview == nil,
                presentation.status?.kind != .failure {
                 Section {
-                    Button(action: handlePrimaryAction) {
+                    Button(action: handlePreviewAction) {
                         Text("Preview Feed")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(presentation.isPrimaryActionEnabled == false)
+                    .disabled(presentation.validationMessage != nil)
                 }
             }
         }
@@ -517,10 +554,6 @@ private struct SourceManagementAddFeedPreviewCard: View {
             }
 
             LabeledContent("Feed Address", value: preview.resolvedFeedURL)
-
-            if let siteURL = preview.siteURL {
-                LabeledContent("Website", value: siteURL)
-            }
 
             if let existingFeedNotice = preview.existingFeedNotice {
                 Text(existingFeedNotice)

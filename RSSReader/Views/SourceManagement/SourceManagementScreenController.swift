@@ -95,6 +95,10 @@ final class SourceManagementScreenController {
         screenState.updateAddFeedURLInput(value)
     }
 
+    func handleAddFeedDisplayNameChange(_ value: String) {
+        screenState.updateAddFeedDisplayNameInput(value)
+    }
+
     func handleAddFeedFolderPlacementSelection(
         _ placement: SourceManagementFolderPlacement
     ) {
@@ -111,6 +115,15 @@ final class SourceManagementScreenController {
         dependencies: AppDependencies,
         appState: AppState? = nil
     ) async {
+        if screenState.shouldPreviewAddFeedBeforeSaving() {
+            guard let previewCommand = screenState.beginAddFeedPreviewLoading() else { return }
+            await performAddFeedPreview(
+                command: previewCommand,
+                dependencies: dependencies
+            )
+            return
+        }
+
         if let updateCommand = screenState.beginAddFeedUpdate() {
             await performAddFeedUpdate(
                 updateCommand,
@@ -129,6 +142,14 @@ final class SourceManagementScreenController {
             return
         }
 
+        guard let previewCommand = screenState.beginAddFeedPreviewLoading() else { return }
+        await performAddFeedPreview(
+            command: previewCommand,
+            dependencies: dependencies
+        )
+    }
+
+    func handleAddFeedPreviewAction(dependencies: AppDependencies) async {
         guard let previewCommand = screenState.beginAddFeedPreviewLoading() else { return }
         await performAddFeedPreview(
             command: previewCommand,
@@ -464,6 +485,7 @@ private enum SourceManagementScreenStatusMapper {
                 .feedDiscoveryFailed,
                 .previewUnavailableForNotModifiedResponse,
                 .duplicateFeed,
+                .duplicateFeedDisplayName,
                 .feedNotFound,
                 .folderNotFound:
             return "Unable to create the folder right now. Try again."
@@ -480,6 +502,7 @@ private enum SourceManagementScreenStatusMapper {
                 .feedDiscoveryFailed,
                 .previewUnavailableForNotModifiedResponse,
                 .duplicateFeed,
+                .duplicateFeedDisplayName,
                 .emptyFolderName,
                 .duplicateFolderName:
             return "Unable to move the source right now. Try again."
@@ -510,6 +533,12 @@ private enum SourceManagementScreenStatusMapper {
                 detail: isEditing
                     ? "Another source already uses this normalized URL. Change the feed URL and try again."
                     : "Another source with the same normalized URL was saved before this create step finished."
+            )
+        case .duplicateFeedDisplayName:
+            return SourceManagementAddFeedStatusPresentation(
+                title: "This display name is already in use",
+                kind: .warning,
+                detail: "Choose a different source name before saving."
             )
         case .folderNotFound:
             return SourceManagementAddFeedStatusPresentation(
@@ -586,6 +615,7 @@ private enum SourceManagementScreenStatusMapper {
                 detail: "The source did not send enough information to review it right now."
             )
         case .duplicateFeed,
+                .duplicateFeedDisplayName,
                 .emptyFolderName,
                 .duplicateFolderName,
                 .feedNotFound,

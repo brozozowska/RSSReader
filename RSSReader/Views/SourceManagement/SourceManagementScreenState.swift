@@ -26,6 +26,11 @@ struct SourceManagementScreenState {
         refreshPresentedDestination()
     }
 
+    mutating func updateAddFeedDisplayNameInput(_ value: String) {
+        addFeedState.updateDisplayNameInput(value)
+        refreshPresentedDestination()
+    }
+
     func addFeedValidationMessage() -> String? {
         addFeedState.validationMessage()
     }
@@ -34,10 +39,18 @@ struct SourceManagementScreenState {
         addFeedState.urlInput
     }
 
+    func addFeedDisplayNameInput() -> String {
+        addFeedState.displayNameInput
+    }
+
     mutating func beginAddFeedPreviewLoading() -> SourceManagementAddFeedPreviewCommand? {
         let requestURL = addFeedState.beginPreviewLoading()
         refreshPresentedDestination()
         return requestURL
+    }
+
+    func shouldPreviewAddFeedBeforeSaving() -> Bool {
+        addFeedState.shouldPreviewBeforeSaving()
     }
 
     mutating func applyLoadedAddFeedPreview(
@@ -264,6 +277,7 @@ struct SourceManagementScreenState {
 
 struct SourceManagementAddFeedState {
     private(set) var urlInput = ""
+    private(set) var displayNameInput = ""
     private(set) var isLoadingPreview = false
     private(set) var isCreatingFeed = false
     private(set) var activePreviewRequestURL: String? = nil
@@ -283,6 +297,9 @@ struct SourceManagementAddFeedState {
         guard value != urlInput else { return }
 
         urlInput = value
+        if isEditing == false {
+            displayNameInput = ""
+        }
         isLoadingPreview = false
         isCreatingFeed = false
         activePreviewRequestURL = nil
@@ -290,6 +307,15 @@ struct SourceManagementAddFeedState {
         preview = nil
         createdFeed = nil
         previewStatus = nil
+    }
+
+    mutating func updateDisplayNameInput(_ value: String) {
+        guard value != displayNameInput else { return }
+
+        displayNameInput = value
+        if createdFeed != nil {
+            createdFeed = nil
+        }
     }
 
     mutating func applyAvailableFolders(_ folders: [SourceManagementFolderSummary]) {
@@ -303,6 +329,7 @@ struct SourceManagementAddFeedState {
     mutating func applyEditingFeed(_ feed: SourceManagementFeedSummary) {
         editingFeed = feed
         urlInput = feed.url
+        displayNameInput = feed.title
         isLoadingPreview = false
         isCreatingFeed = false
         activePreviewRequestURL = nil
@@ -320,6 +347,7 @@ struct SourceManagementAddFeedState {
 
     mutating func resetForEntry() {
         urlInput = ""
+        displayNameInput = ""
         isLoadingPreview = false
         isCreatingFeed = false
         activePreviewRequestURL = nil
@@ -366,12 +394,25 @@ struct SourceManagementAddFeedState {
     }
 
     func canUpdateFeed() -> Bool {
-        preview != nil
+        (preview != nil || canUpdateDisplayNameWithoutPreview())
             && editingFeed != nil
             && hasDuplicateConflict == false
             && isLoadingPreview == false
             && isCreatingFeed == false
             && createdFeed == nil
+    }
+
+    func shouldPreviewBeforeSaving() -> Bool {
+        guard let editingFeed else { return false }
+        guard let normalizedURL = normalizedValidatedURL() else { return false }
+        guard normalizedURL != editingFeed.url else { return false }
+
+        if let preview {
+            return preview.requestedURL != normalizedURL
+                && preview.resolvedFeedURL != normalizedURL
+        }
+
+        return true
     }
 
     mutating func beginPreviewLoading() -> SourceManagementAddFeedPreviewCommand? {
@@ -405,6 +446,9 @@ struct SourceManagementAddFeedState {
         }
 
         self.preview = preview
+        if isEditing == false {
+            displayNameInput = preview.title
+        }
         isLoadingPreview = false
         isCreatingFeed = false
         activePreviewRequestURL = nil
@@ -441,12 +485,13 @@ struct SourceManagementAddFeedState {
 
         return SourceManagementCreateFeedCommand(
             preview: preview,
+            displayTitleOverride: displayTitleOverride(metadataTitle: preview.title),
             folderPlacement: selectedFolderPlacement
         )
     }
 
     mutating func beginFeedUpdate() -> SourceManagementUpdateFeedCommand? {
-        guard canUpdateFeed(), let preview, let editingFeed else { return nil }
+        guard canUpdateFeed(), let editingFeed else { return nil }
 
         isCreatingFeed = true
         previewStatus = nil
@@ -454,6 +499,9 @@ struct SourceManagementAddFeedState {
         return SourceManagementUpdateFeedCommand(
             feedID: editingFeed.id,
             preview: preview,
+            displayTitleOverride: displayTitleOverride(
+                metadataTitle: preview?.title ?? editingFeed.metadataTitle
+            ),
             folderPlacement: selectedFolderPlacement
         )
     }
@@ -498,6 +546,9 @@ struct SourceManagementAddFeedState {
         } else if previewStatus?.kind == .failure {
             primaryActionTitle = "Preview Feed"
             isPrimaryActionEnabled = false
+        } else if canUpdateDisplayNameWithoutPreview() {
+            primaryActionTitle = "Save Changes"
+            isPrimaryActionEnabled = true
         } else if preview != nil {
             if hasDuplicateConflict {
                 primaryActionTitle = "Already Added"
@@ -510,7 +561,7 @@ struct SourceManagementAddFeedState {
             primaryActionTitle = "Preview Feed"
             isPrimaryActionEnabled = validationMessage == nil
         }
-        let isConfirmationActionEnabled = preview != nil
+        let isConfirmationActionEnabled = (preview != nil || canUpdateDisplayNameWithoutPreview())
             && hasDuplicateConflict == false
             && isLoadingPreview == false
             && isCreatingFeed == false
@@ -520,10 +571,14 @@ struct SourceManagementAddFeedState {
             title: isEditing ? "Edit Feed" : "Add Feed",
             summaryTitle: isEditing ? "Source Details" : "New Source",
             summaryDescription: isEditing
-                ? "Change the feed address when the source has moved to a new URL."
+                ? "Change the display name, or preview a new feed address when the source has moved."
                 : "Enter a website or feed address. The app will look for a readable feed before you add it.",
             urlInput: urlInput,
             urlPrompt: "Feed URL",
+            displayNameInput: displayNameInput,
+            displayNamePrompt: "Display Name",
+            displayNameFooter: displayNameFooter(),
+            showsDisplayNameInput: showsDisplayNameInput(),
             validationMessage: validationMessage,
             normalizedURL: normalizedURL,
             primaryActionTitle: primaryActionTitle,
@@ -548,9 +603,36 @@ struct SourceManagementAddFeedState {
         urlInput.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private func normalizedDisplayNameInput() -> String {
+        displayNameInput.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private func normalizedValidatedURL() -> String? {
         guard validationMessage() == nil else { return nil }
         return SourceManagementFeedDiscoveryPlanner.displayURLString(for: normalizedURLInput())
+    }
+
+    private func displayTitleOverride(metadataTitle: String) -> String? {
+        let displayName = normalizedDisplayNameInput()
+        guard displayName.isEmpty == false,
+              displayName != metadataTitle else {
+            return nil
+        }
+        return displayName
+    }
+
+    private func displayNameFooter() -> String {
+        if isEditing {
+            return "Set the name shown for this source in Sources and article lists."
+        }
+        return "Leave the feed title unchanged, or choose a custom name for this source."
+    }
+
+    private func canUpdateDisplayNameWithoutPreview() -> Bool {
+        guard let editingFeed else { return false }
+        guard preview == nil else { return false }
+        guard normalizedValidatedURL() == editingFeed.url else { return false }
+        return normalizedDisplayNameInput() != editingFeed.title
     }
 
     private func previewPresentation() -> SourceManagementAddFeedPreviewPresentation? {
@@ -568,6 +650,11 @@ struct SourceManagementAddFeedState {
                 : nil,
             diagnosticsSummary: nil
         )
+    }
+
+    private func showsDisplayNameInput() -> Bool {
+        guard createdFeed == nil else { return false }
+        return preview != nil || isEditing
     }
 
     private func statusPresentation() -> SourceManagementAddFeedStatusPresentation? {

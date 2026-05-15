@@ -201,6 +201,38 @@ struct SourceManagementScreenStateTests {
     }
 
     @Test
+    func sourceManagementScreenStateRequiresPreviewBeforeSavingChangedEditFeedURL() {
+        var state = SourceManagementScreenState.makePreviewFixture()
+        state.applyAddFeedEditContext(
+            feed: SourceManagementFeedSummary(
+                id: UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!,
+                url: "https://example.com/original.xml",
+                title: "Original Feed",
+                folderID: nil,
+                folderName: nil
+            ),
+            folders: []
+        )
+        state.presentScenario(.addFeed)
+
+        state.updateAddFeedDisplayNameInput("Renamed Feed")
+        let displayNameOnlyCommand = state.beginAddFeedUpdate()
+        #expect(displayNameOnlyCommand?.preview == nil)
+
+        state.updateAddFeedURLInput("https://example.com/changed.xml")
+
+        #expect(state.shouldPreviewAddFeedBeforeSaving())
+        #expect(state.beginAddFeedUpdate() == nil)
+
+        guard let previewCommand = state.beginAddFeedPreviewLoading() else {
+            Issue.record("Expected preview command for changed edit URL")
+            return
+        }
+
+        #expect(previewCommand.urlString == "https://example.com/changed.xml")
+    }
+
+    @Test
     func sourceManagementScreenStateIgnoresStaleAddFeedPreviewCompletion() {
         var state = SourceManagementScreenState.makePreviewFixture()
         state.presentScenario(.addFeed)

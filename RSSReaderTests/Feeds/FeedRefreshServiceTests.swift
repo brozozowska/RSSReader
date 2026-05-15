@@ -488,6 +488,7 @@ struct FeedRefreshServiceTests {
 
         let feed = try #require(try harness.insertFeeds(urls: [feedURL]).first)
         feed.title = "Stale Feed Title"
+        feed.displayTitleOverride = "Custom Display Name"
         feed.siteURL = "https://example.com/old/"
         feed.language = "en"
         feed.kind = .unknown
@@ -508,6 +509,8 @@ struct FeedRefreshServiceTests {
 
         let refreshedFeed = try #require(try harness.fetchFeed(id: feed.id))
         #expect(refreshedFeed.title == "Reconciled Feed Title")
+        #expect(refreshedFeed.displayTitleOverride == "Custom Display Name")
+        #expect(refreshedFeed.displayTitle == "Custom Display Name")
         #expect(refreshedFeed.siteURL == "https://example.com/reconciled/")
         #expect(refreshedFeed.language == "fr")
         #expect(refreshedFeed.kind == .rss)
@@ -517,10 +520,12 @@ struct FeedRefreshServiceTests {
 
         let obsoleteArticle = try #require(articles.first { $0.externalID == "obsolete-article" })
         #expect(obsoleteArticle.isDeletedAtSource == true)
+        #expect(obsoleteArticle.feedTitle == "Custom Display Name")
 
         let currentArticle = try #require(articles.first { $0.guid == "current-article" })
         #expect(currentArticle.isDeletedAtSource == false)
         #expect(currentArticle.title == "Current Article")
+        #expect(currentArticle.feedTitle == "Custom Display Name")
     }
 
     @Test
