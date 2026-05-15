@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SourceManagementScreenView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
@@ -453,21 +454,19 @@ private struct SourceManagementCheckingSourceView: View {
     }
 }
 
-private struct SourceManagementActivityIndicator: View {
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-            Circle()
-                .trim(from: 0.0, to: 0.72)
-                .stroke(
-                    Color.secondary,
-                    style: StrokeStyle(lineWidth: 2, lineCap: .round)
-                )
-                .rotationEffect(rotation(for: timeline.date))
-        }
+private struct SourceManagementActivityIndicator: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIActivityIndicatorView {
+        let view = UIActivityIndicatorView(style: .medium)
+        view.color = .secondaryLabel
+        view.hidesWhenStopped = false
+        view.startAnimating()
+        return view
     }
 
-    private func rotation(for date: Date) -> Angle {
-        .degrees(date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1) * 360)
+    func updateUIView(_ uiView: UIActivityIndicatorView, context: Context) {
+        if uiView.isAnimating == false {
+            uiView.startAnimating()
+        }
     }
 }
 
