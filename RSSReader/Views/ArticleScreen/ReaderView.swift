@@ -19,6 +19,7 @@ struct ReaderView: View {
     let previewScreenState: ArticleScreenState?
     @State private var controller = ArticleScreenController()
     @State private var adjacentArticleTransitionDirection: ReaderAdjacentArticleNavigationDirection?
+    @State private var pendingAdjacentArticleOverscrollDirection: ReaderAdjacentArticleNavigationDirection?
 
     init(
         articleID: UUID?,
@@ -99,9 +100,9 @@ struct ReaderView: View {
             guard previewScreenState == nil else { return }
             await controller.load(articleID: articleID, dependencies: dependencies)
             adjacentArticleTransitionDirection = nil
+            pendingAdjacentArticleOverscrollDirection = nil
         }
         .simultaneousGesture(backNavigationGesture)
-        .simultaneousGesture(adjacentArticleNavigationGesture)
     }
 
     @ViewBuilder
@@ -137,6 +138,20 @@ struct ReaderView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
+                }
+                .onScrollGeometryChange(for: ReaderArticleScrollGeometry.self) { geometry in
+                    ReaderArticleScrollGeometry(
+                        contentOffsetY: geometry.contentOffset.y,
+                        contentHeight: geometry.contentSize.height,
+                        containerHeight: geometry.containerSize.height,
+                        topInset: geometry.contentInsets.top,
+                        bottomInset: geometry.contentInsets.bottom
+                    )
+                } action: { _, newGeometry in
+                    handleArticleScrollGeometryChange(newGeometry)
+                }
+                .onScrollPhaseChange { oldPhase, newPhase, _ in
+                    handleArticleScrollPhaseChange(oldPhase: oldPhase, newPhase: newPhase)
                 }
             } else if let primaryLoadingState = viewState.primaryLoadingState {
                 ScreenLoadingView(title: primaryLoadingState.title)
@@ -182,27 +197,28 @@ struct ReaderView: View {
             }
     }
 
-    private var adjacentArticleNavigationGesture: some Gesture {
-        DragGesture(minimumDistance: 50)
-            .onEnded { value in
-                guard previewScreenState == nil else { return }
-                guard let direction = ArticleScreenNavigationState.adjacentArticleNavigationDirection(
-                    translation: value.translation
-                ) else {
-                    return
-                }
+    private func handleArticleScrollGeometryChange(_ scrollGeometry: ReaderArticleScrollGeometry) {
+        guard previewScreenState == nil else { return }
+        pendingAdjacentArticleOverscrollDirection = ArticleScreenNavigationState.adjacentArticleOverscrollDirection(
+            scrollGeometry: scrollGeometry
+        )
+    }
 
-                adjacentArticleTransitionDirection = direction
+    private func handleArticleScrollPhaseChange(oldPhase: ScrollPhase, newPhase: ScrollPhase) {
+        guard previewScreenState == nil else { return }
+        guard oldPhase == .interacting, newPhase != .interacting else { return }
+        guard let direction = pendingAdjacentArticleOverscrollDirection else { return }
+        pendingAdjacentArticleOverscrollDirection = nil
+        adjacentArticleTransitionDirection = direction
 
-                var didSelectAdjacentArticle = false
-                withAnimation(.snappy(duration: 0.28)) {
-                    didSelectAdjacentArticle = appState.selectAdjacentArticle(direction)
-                }
+        var didSelectAdjacentArticle = false
+        withAnimation(.snappy(duration: 0.28)) {
+            didSelectAdjacentArticle = appState.selectAdjacentArticle(direction)
+        }
 
-                if didSelectAdjacentArticle == false {
-                    adjacentArticleTransitionDirection = nil
-                }
-            }
+        if didSelectAdjacentArticle == false {
+            adjacentArticleTransitionDirection = nil
+        }
     }
 
     private var actionHandlers: ArticleScreenActionHandlers {

@@ -72,4 +72,73 @@ struct ArticleScreenNavigationTests {
             ) == nil
         )
     }
+
+    @Test
+    func articleScreenNavigationStateRequiresBottomOverscrollForNextArticleSwipe() {
+        #expect(
+            ArticleScreenNavigationState.adjacentArticleOverscrollDirection(
+                scrollGeometry: ReaderArticleScrollGeometry(
+                    contentOffsetY: 500,
+                    contentHeight: 1_400,
+                    containerHeight: 700
+                )
+            ) == nil
+        )
+
+        #expect(
+            ArticleScreenNavigationState.adjacentArticleOverscrollDirection(
+                scrollGeometry: ReaderArticleScrollGeometry(
+                    contentOffsetY: 724,
+                    contentHeight: 1_400,
+                    containerHeight: 700
+                )
+            ) == .next
+        )
+    }
+
+    @Test
+    func articleScreenNavigationStateRequiresTopOverscrollForPreviousArticleSwipe() {
+        #expect(
+            ArticleScreenNavigationState.adjacentArticleOverscrollDirection(
+                scrollGeometry: ReaderArticleScrollGeometry(
+                    contentOffsetY: 100,
+                    contentHeight: 1_400,
+                    containerHeight: 700
+                )
+            ) == nil
+        )
+
+        #expect(
+            ArticleScreenNavigationState.adjacentArticleOverscrollDirection(
+                scrollGeometry: ReaderArticleScrollGeometry(
+                    contentOffsetY: -24,
+                    contentHeight: 1_400,
+                    containerHeight: 700
+                )
+            ) == .previous
+        )
+    }
+
+    @Test
+    func articleScreenNavigationStateIgnoresShortOverscrollPulls() {
+        #expect(
+            ArticleScreenNavigationState.adjacentArticleOverscrollDirection(
+                scrollGeometry: ReaderArticleScrollGeometry(
+                    contentOffsetY: 720,
+                    contentHeight: 1_400,
+                    containerHeight: 700
+                )
+            ) == nil
+        )
+
+        #expect(
+            ArticleScreenNavigationState.adjacentArticleOverscrollDirection(
+                scrollGeometry: ReaderArticleScrollGeometry(
+                    contentOffsetY: -20,
+                    contentHeight: 1_400,
+                    containerHeight: 700
+                )
+            ) == nil
+        )
+    }
 }
