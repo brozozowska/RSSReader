@@ -37,7 +37,7 @@ struct ReaderView: View {
     }
 
     var body: some View {
-        let viewState = controller.screenState.derivedViewState()
+        let viewState = controller.screenState.derivedViewState(selectedArticleID: articleID)
 
         ZStack {
             contentSurface(viewState)
@@ -83,6 +83,26 @@ struct ReaderView: View {
                         Image(systemName: bottomActions.starSystemImage)
                     }
                     .accessibilityLabel(bottomActions.starTitle)
+                }
+
+                ToolbarSpacer(placement: .bottomBar)
+
+                ToolbarItem(placement: .bottomBar) {
+                    Button(action: handleNextArticleTap) {
+                        Image(systemName: "chevron.down")
+                    }
+                    .disabled(appState.adjacentArticleID(.next) == nil)
+                    .accessibilityLabel("Next Article")
+                }
+
+                ToolbarSpacer(placement: .bottomBar)
+
+                ToolbarItem(placement: .bottomBar) {
+                    Button(action: handlePreviousArticleTap) {
+                        Image(systemName: "chevron.up")
+                    }
+                    .disabled(appState.adjacentArticleID(.previous) == nil)
+                    .accessibilityLabel("Previous Article")
                 }
 
                 ToolbarSpacer(placement: .bottomBar)
@@ -199,16 +219,28 @@ struct ReaderView: View {
 
     private func handleArticleScrollGeometryChange(_ scrollGeometry: ReaderArticleScrollGeometry) {
         guard previewScreenState == nil else { return }
-        pendingAdjacentArticleOverscrollDirection = ArticleScreenNavigationState.adjacentArticleOverscrollDirection(
+        guard let direction = ArticleScreenNavigationState.adjacentArticleOverscrollDirection(
             scrollGeometry: scrollGeometry
-        )
+        ) else {
+            return
+        }
+        pendingAdjacentArticleOverscrollDirection = direction
     }
 
     private func handleArticleScrollPhaseChange(oldPhase: ScrollPhase, newPhase: ScrollPhase) {
         guard previewScreenState == nil else { return }
+        if newPhase == .tracking || newPhase == .interacting {
+            pendingAdjacentArticleOverscrollDirection = nil
+            return
+        }
+
         guard oldPhase == .interacting, newPhase != .interacting else { return }
         guard let direction = pendingAdjacentArticleOverscrollDirection else { return }
         pendingAdjacentArticleOverscrollDirection = nil
+        navigateToAdjacentArticle(direction)
+    }
+
+    private func navigateToAdjacentArticle(_ direction: ReaderAdjacentArticleNavigationDirection) {
         adjacentArticleTransitionDirection = direction
 
         var didSelectAdjacentArticle = false
@@ -270,6 +302,16 @@ struct ReaderView: View {
     @MainActor
     private func handleOpenSourceArticleTap() {
         actionHandlers.openSourceArticle()
+    }
+
+    @MainActor
+    private func handlePreviousArticleTap() {
+        navigateToAdjacentArticle(.previous)
+    }
+
+    @MainActor
+    private func handleNextArticleTap() {
+        navigateToAdjacentArticle(.next)
     }
 
     @ViewBuilder

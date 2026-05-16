@@ -62,6 +62,20 @@ struct ArticleScreenStateTests {
     }
 
     @Test
+    func articleScreenStateHidesStaleContentForDifferentSelectedArticleID() {
+        var state = ArticleScreenState()
+        let article = makeReaderArticleDTO(title: "Stale Article")
+
+        state.applyLoadedArticle(article)
+        let viewState = state.derivedViewState(selectedArticleID: UUID())
+
+        #expect(viewState.content == nil)
+        #expect(viewState.primaryLoadingState?.title == "Loading Article")
+        #expect(viewState.toolbarActions.showsShareAction == false)
+        #expect(viewState.toolbarActions.showsBottomActions == false)
+    }
+
+    @Test
     func articleScreenToolbarActionsExposeShareURLOnlyWhenArticleHasValidURL() {
         var loadedState = ArticleScreenState()
         loadedState.applyLoadedArticle(

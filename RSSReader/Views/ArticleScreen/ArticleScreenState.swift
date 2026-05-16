@@ -89,13 +89,22 @@ struct ArticleScreenState {
         updateToolbarActions()
     }
 
-    func derivedViewState() -> ArticleScreenDerivedViewState {
-        ArticleScreenDerivedViewState(
-            primaryLoadingState: primaryLoadingState,
+    func derivedViewState(selectedArticleID: UUID?) -> ArticleScreenDerivedViewState {
+        let resolvedArticle = article?.id == selectedArticleID ? article : nil
+        let showsStaleArticle = article != nil && resolvedArticle == nil && selectedArticleID != nil
+        let resolvedPrimaryLoadingState = primaryLoadingState
+            ?? (showsStaleArticle ? ArticleScreenPrimaryLoadingState(title: "Loading Article") : nil)
+
+        return ArticleScreenDerivedViewState(
+            primaryLoadingState: resolvedPrimaryLoadingState,
             placeholder: placeholder,
-            content: article.map(ArticleScreenContentState.init(article:)),
-            toolbarActions: toolbarActions
+            content: resolvedArticle.map(ArticleScreenContentState.init(article:)),
+            toolbarActions: ArticleScreenToolbarActionsState(article: resolvedArticle)
         )
+    }
+
+    func derivedViewState() -> ArticleScreenDerivedViewState {
+        derivedViewState(selectedArticleID: articleID)
     }
 
     private mutating func updateToolbarActions() {

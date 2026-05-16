@@ -124,7 +124,7 @@ public final class AppState {
 
     public var selectedArticleID: UUID? {
         get { readingNavigation.articleSelection }
-        set { readingNavigation.selectArticle(newValue) }
+        set { selectArticle(newValue) }
     }
 
     var selectedDetailRoute: ReadingDetailRoute {
@@ -171,6 +171,17 @@ public final class AppState {
         selectedSourcesFilter = filter
     }
 
+    func selectArticle(_ articleID: UUID?) {
+        let previousArticleID = readingNavigation.articleSelection
+        readingNavigation.selectArticle(articleID)
+
+        guard previousArticleID != articleID else {
+            return
+        }
+
+        requestArticleScreenReload()
+    }
+
     func applyInterfaceThemeMode(_ mode: InterfaceThemeMode) {
         interfaceThemeMode = mode
     }
@@ -215,30 +226,47 @@ public final class AppState {
     }
 
     func updateArticleNavigationContext(_ articleIDs: [UUID]) {
-        articleNavigationContextIDs = articleIDs
+        var seenArticleIDs = Set<UUID>()
+        articleNavigationContextIDs = articleIDs.filter { articleID in
+            seenArticleIDs.insert(articleID).inserted
+        }
     }
 
     @discardableResult
     func selectAdjacentArticle(_ direction: ReaderAdjacentArticleNavigationDirection) -> Bool {
+        guard let targetArticleID = adjacentArticleID(direction) else {
+            return false
+        }
+
+        selectArticle(targetArticleID)
+        return true
+    }
+
+    func adjacentArticleID(_ direction: ReaderAdjacentArticleNavigationDirection) -> UUID? {
         guard let selectedArticleID,
               let currentIndex = articleNavigationContextIDs.firstIndex(of: selectedArticleID) else {
-            return false
+            return nil
         }
 
-        let targetIndex: Int
+        let step: Int
         switch direction {
         case .previous:
-            targetIndex = currentIndex - 1
+            step = -1
         case .next:
-            targetIndex = currentIndex + 1
+            step = 1
         }
 
-        guard articleNavigationContextIDs.indices.contains(targetIndex) else {
-            return false
+        var targetIndex = currentIndex + step
+        while articleNavigationContextIDs.indices.contains(targetIndex) {
+            let targetArticleID = articleNavigationContextIDs[targetIndex]
+            if targetArticleID != selectedArticleID {
+                return targetArticleID
+            }
+
+            targetIndex += step
         }
 
-        self.selectedArticleID = articleNavigationContextIDs[targetIndex]
-        return true
+        return nil
     }
 
     public init() {}

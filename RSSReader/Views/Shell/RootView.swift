@@ -63,6 +63,7 @@ struct RootView: View {
                     ),
                     navigateBackToArticles: { appState.selectedArticleID = nil }
                 )
+                .id(articleID)
             }
         }
         .fullScreenCover(isPresented: safariPresentationBinding) {

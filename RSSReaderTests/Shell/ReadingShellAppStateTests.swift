@@ -48,6 +48,37 @@ struct ReadingShellAppStateTests {
     }
 
     @Test
+    func readingShellSelectingDifferentArticleTriggersArticleScreenReload() {
+        let appState = AppState()
+        let firstArticleID = UUID()
+        let secondArticleID = UUID()
+
+        appState.selectedArticleID = firstArticleID
+        let reloadIDBeforeSelectingSecondArticle = appState.articleScreenReloadID
+
+        appState.selectedArticleID = secondArticleID
+
+        #expect(appState.selectedArticleID == secondArticleID)
+        #expect(appState.selectedDetailRoute == .article(secondArticleID))
+        #expect(appState.articleScreenReloadID != reloadIDBeforeSelectingSecondArticle)
+    }
+
+    @Test
+    func readingShellSelectingSameArticleDoesNotTriggerArticleScreenReload() {
+        let appState = AppState()
+        let articleID = UUID()
+
+        appState.selectedArticleID = articleID
+        let reloadIDBeforeReselectingArticle = appState.articleScreenReloadID
+
+        appState.selectedArticleID = articleID
+
+        #expect(appState.selectedArticleID == articleID)
+        #expect(appState.selectedDetailRoute == .article(articleID))
+        #expect(appState.articleScreenReloadID == reloadIDBeforeReselectingArticle)
+    }
+
+    @Test
     func readingShellSourcesFilterSwitchUpdatesActiveFilterWithoutBreakingNavigationContext() {
         let appState = AppState()
         let feedID = UUID()
@@ -145,17 +176,68 @@ struct ReadingShellAppStateTests {
             thirdArticleID
         ])
         appState.selectedArticleID = secondArticleID
+        let initialArticleScreenReloadID = appState.articleScreenReloadID
+
+        #expect(appState.adjacentArticleID(.next) == thirdArticleID)
+        #expect(appState.adjacentArticleID(.previous) == firstArticleID)
 
         #expect(appState.selectAdjacentArticle(.next))
         #expect(appState.selectedArticleID == thirdArticleID)
         #expect(appState.selectedDetailRoute == .article(thirdArticleID))
+        #expect(appState.articleScreenReloadID != initialArticleScreenReloadID)
 
+        #expect(appState.adjacentArticleID(.next) == nil)
+        #expect(appState.adjacentArticleID(.previous) == secondArticleID)
         #expect(appState.selectAdjacentArticle(.next) == false)
         #expect(appState.selectedArticleID == thirdArticleID)
 
         #expect(appState.selectAdjacentArticle(.previous))
         #expect(appState.selectedArticleID == secondArticleID)
         #expect(appState.selectedDetailRoute == .article(secondArticleID))
+    }
+
+    @Test
+    func readingShellDeduplicatesAdjacentArticleNavigationContext() {
+        let appState = AppState()
+        let firstArticleID = UUID()
+        let secondArticleID = UUID()
+        let thirdArticleID = UUID()
+
+        appState.updateArticleNavigationContext([
+            firstArticleID,
+            secondArticleID,
+            secondArticleID,
+            thirdArticleID,
+            firstArticleID
+        ])
+        appState.selectedArticleID = secondArticleID
+
+        #expect(appState.articleNavigationContextIDs == [
+            firstArticleID,
+            secondArticleID,
+            thirdArticleID
+        ])
+        #expect(appState.selectAdjacentArticle(.next))
+        #expect(appState.selectedArticleID == thirdArticleID)
+        #expect(appState.selectedDetailRoute == .article(thirdArticleID))
+    }
+
+    @Test
+    func readingShellSkipsDuplicateCurrentArticleIDsWhenSelectingAdjacentArticle() {
+        let appState = AppState()
+        let articleID = UUID()
+        let nextArticleID = UUID()
+
+        appState.articleNavigationContextIDs = [
+            articleID,
+            articleID,
+            nextArticleID
+        ]
+        appState.selectedArticleID = articleID
+
+        #expect(appState.selectAdjacentArticle(.next))
+        #expect(appState.selectedArticleID == nextArticleID)
+        #expect(appState.selectedDetailRoute == .article(nextArticleID))
     }
 
     @Test
