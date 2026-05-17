@@ -1,7 +1,8 @@
 import SwiftUI
 
 enum ArticleScreenNavigationState {
-    private static let adjacentArticleOverscrollDistance: CGFloat = 24
+    private static let previousArticleOverscrollThresholdFraction: CGFloat = 0.1
+    private static let nextArticleOverscrollThresholdFraction: CGFloat = 0.1
 
     static func showsBackButton(
         horizontalSizeClass: UserInterfaceSizeClass?,
@@ -23,29 +24,31 @@ enum ArticleScreenNavigationState {
         )
     }
 
-    static func adjacentArticleNavigationDirection(
-        translation: CGSize
-    ) -> ReaderAdjacentArticleNavigationDirection? {
-        let verticalDistance = translation.height
-        let horizontalDistance = abs(translation.width)
-        let absoluteVerticalDistance = abs(verticalDistance)
-
-        guard absoluteVerticalDistance >= 120,
-              absoluteVerticalDistance > horizontalDistance * 1.5 else {
-            return nil
-        }
-
-        return verticalDistance < 0 ? .next : .previous
-    }
-
-    static func adjacentArticleOverscrollDirection(
+    static func adjacentArticleOverscrollState(
         scrollGeometry: ReaderArticleScrollGeometry
-    ) -> ReaderAdjacentArticleNavigationDirection? {
-        if scrollGeometry.bottomOverscrollDistance >= adjacentArticleOverscrollDistance {
+    ) -> ReaderArticleOverscrollNavigationState {
+        let previousThreshold = max(1, scrollGeometry.containerHeight * previousArticleOverscrollThresholdFraction)
+        let nextThreshold = max(1, scrollGeometry.containerHeight * nextArticleOverscrollThresholdFraction)
+        let previousProgress = min(scrollGeometry.topOverscrollDistance / previousThreshold, 1)
+        let nextProgress = min(scrollGeometry.bottomOverscrollDistance / nextThreshold, 1)
+
+        return ReaderArticleOverscrollNavigationState(
+            previousProgress: previousProgress,
+            nextProgress: nextProgress
+        )
+    }
+}
+
+struct ReaderArticleOverscrollNavigationState: Equatable {
+    var previousProgress: CGFloat = 0
+    var nextProgress: CGFloat = 0
+
+    var readyDirection: ReaderAdjacentArticleNavigationDirection? {
+        if nextProgress >= 1 {
             return .next
         }
 
-        if scrollGeometry.topOverscrollDistance >= adjacentArticleOverscrollDistance {
+        if previousProgress >= 1 {
             return .previous
         }
 
@@ -54,39 +57,46 @@ enum ArticleScreenNavigationState {
 }
 
 struct ReaderArticleScrollGeometry: Equatable {
-    var contentOffsetY: CGFloat
     var contentHeight: CGFloat
     var containerHeight: CGFloat
-    var topInset: CGFloat
-    var bottomInset: CGFloat
+    var contentOffsetY: CGFloat
+    var contentInsetTop: CGFloat
+    var contentInsetBottom: CGFloat
+    var boundsMaxY: CGFloat
 
     init(
-        contentOffsetY: CGFloat = 0,
         contentHeight: CGFloat = 0,
         containerHeight: CGFloat = 0,
-        topInset: CGFloat = 0,
-        bottomInset: CGFloat = 0
+        contentOffsetY: CGFloat = 0,
+        contentInsetTop: CGFloat = 0,
+        contentInsetBottom: CGFloat = 0,
+        boundsMaxY: CGFloat = 0
     ) {
-        self.contentOffsetY = contentOffsetY
         self.contentHeight = contentHeight
         self.containerHeight = containerHeight
-        self.topInset = topInset
-        self.bottomInset = bottomInset
+        self.contentOffsetY = contentOffsetY
+        self.contentInsetTop = contentInsetTop
+        self.contentInsetBottom = contentInsetBottom
+        self.boundsMaxY = boundsMaxY
     }
 
     var topOverscrollDistance: CGFloat {
-        max(0, topBoundaryOffsetY - contentOffsetY)
+        max(0, -(contentOffsetY + contentInsetTop))
     }
 
     var bottomOverscrollDistance: CGFloat {
-        max(0, contentOffsetY - bottomBoundaryOffsetY)
+        guard isVerticallyScrollable else {
+            return max(0, contentOffsetY + contentInsetTop)
+        }
+
+        return max(0, boundsMaxY - bottomOverscrollBoundaryY)
     }
 
-    private var topBoundaryOffsetY: CGFloat {
-        topInset
+    private var isVerticallyScrollable: Bool {
+        contentHeight > containerHeight
     }
 
-    private var bottomBoundaryOffsetY: CGFloat {
-        max(topBoundaryOffsetY, contentHeight + bottomInset - containerHeight)
+    private var bottomOverscrollBoundaryY: CGFloat {
+        max(contentHeight - contentInsetBottom, containerHeight)
     }
 }

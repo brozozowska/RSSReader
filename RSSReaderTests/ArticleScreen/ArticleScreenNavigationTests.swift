@@ -50,95 +50,139 @@ struct ArticleScreenNavigationTests {
     }
 
     @Test
-    func articleScreenNavigationStateRecognizesVerticalAdjacentArticleSwipes() {
-        #expect(
-            ArticleScreenNavigationState.adjacentArticleNavigationDirection(
-                translation: CGSize(width: 12, height: -140)
-            ) == .next
+    func articleScreenNavigationStateReportsBottomOverscrollProgressForNextArticle() {
+        let shortPullState = ArticleScreenNavigationState.adjacentArticleOverscrollState(
+            scrollGeometry: ReaderArticleScrollGeometry(
+                contentHeight: 1_400,
+                containerHeight: 700,
+                boundsMaxY: 1_435
+            )
         )
-        #expect(
-            ArticleScreenNavigationState.adjacentArticleNavigationDirection(
-                translation: CGSize(width: 12, height: 140)
-            ) == .previous
+
+        #expect(shortPullState.nextProgress == 0.5)
+        #expect(shortPullState.previousProgress == 0)
+        #expect(shortPullState.readyDirection == nil)
+
+        let readyState = ArticleScreenNavigationState.adjacentArticleOverscrollState(
+            scrollGeometry: ReaderArticleScrollGeometry(
+                contentHeight: 1_400,
+                containerHeight: 700,
+                boundsMaxY: 1_470
+            )
         )
-        #expect(
-            ArticleScreenNavigationState.adjacentArticleNavigationDirection(
-                translation: CGSize(width: 12, height: -80)
-            ) == nil
-        )
-        #expect(
-            ArticleScreenNavigationState.adjacentArticleNavigationDirection(
-                translation: CGSize(width: 120, height: -140)
-            ) == nil
-        )
+
+        #expect(readyState.nextProgress == 1)
+        #expect(readyState.readyDirection == .next)
     }
 
     @Test
-    func articleScreenNavigationStateRequiresBottomOverscrollForNextArticleSwipe() {
-        #expect(
-            ArticleScreenNavigationState.adjacentArticleOverscrollDirection(
-                scrollGeometry: ReaderArticleScrollGeometry(
-                    contentOffsetY: 500,
-                    contentHeight: 1_400,
-                    containerHeight: 700
-                )
-            ) == nil
+    func articleScreenNavigationStateStartsBottomOverscrollAtInsetAdjustedBoundary() {
+        let restingState = ArticleScreenNavigationState.adjacentArticleOverscrollState(
+            scrollGeometry: ReaderArticleScrollGeometry(
+                contentHeight: 1_400,
+                containerHeight: 700,
+                contentInsetBottom: 96,
+                boundsMaxY: 1_304
+            )
         )
 
-        #expect(
-            ArticleScreenNavigationState.adjacentArticleOverscrollDirection(
-                scrollGeometry: ReaderArticleScrollGeometry(
-                    contentOffsetY: 724,
-                    contentHeight: 1_400,
-                    containerHeight: 700
-                )
-            ) == .next
+        #expect(restingState.nextProgress == 0)
+        #expect(restingState.readyDirection == nil)
+
+        let pullState = ArticleScreenNavigationState.adjacentArticleOverscrollState(
+            scrollGeometry: ReaderArticleScrollGeometry(
+                contentHeight: 1_400,
+                containerHeight: 700,
+                contentInsetBottom: 96,
+                boundsMaxY: 1_339
+            )
         )
+
+        #expect(pullState.nextProgress == 0.5)
+        #expect(pullState.readyDirection == nil)
     }
 
     @Test
-    func articleScreenNavigationStateRequiresTopOverscrollForPreviousArticleSwipe() {
-        #expect(
-            ArticleScreenNavigationState.adjacentArticleOverscrollDirection(
-                scrollGeometry: ReaderArticleScrollGeometry(
-                    contentOffsetY: 100,
-                    contentHeight: 1_400,
-                    containerHeight: 700
-                )
-            ) == nil
+    func articleScreenNavigationStateReportsTopOverscrollProgressForPreviousArticle() {
+        let restingState = ArticleScreenNavigationState.adjacentArticleOverscrollState(
+            scrollGeometry: ReaderArticleScrollGeometry(
+                contentHeight: 1_400,
+                containerHeight: 700,
+                contentOffsetY: -16,
+                contentInsetTop: 16
+            )
         )
 
-        #expect(
-            ArticleScreenNavigationState.adjacentArticleOverscrollDirection(
-                scrollGeometry: ReaderArticleScrollGeometry(
-                    contentOffsetY: -24,
-                    contentHeight: 1_400,
-                    containerHeight: 700
-                )
-            ) == .previous
+        #expect(restingState.previousProgress == 0)
+        #expect(restingState.nextProgress == 0)
+        #expect(restingState.readyDirection == nil)
+
+        let shortPullState = ArticleScreenNavigationState.adjacentArticleOverscrollState(
+            scrollGeometry: ReaderArticleScrollGeometry(
+                contentHeight: 1_400,
+                containerHeight: 700,
+                contentOffsetY: -51,
+                contentInsetTop: 16
+            )
         )
+
+        #expect(shortPullState.previousProgress == 0.5)
+        #expect(shortPullState.nextProgress == 0)
+        #expect(shortPullState.readyDirection == nil)
+
+        let readyState = ArticleScreenNavigationState.adjacentArticleOverscrollState(
+            scrollGeometry: ReaderArticleScrollGeometry(
+                contentHeight: 1_400,
+                containerHeight: 700,
+                contentOffsetY: -86,
+                contentInsetTop: 16
+            )
+        )
+
+        #expect(readyState.previousProgress == 1)
+        #expect(readyState.readyDirection == .previous)
     }
 
     @Test
-    func articleScreenNavigationStateIgnoresShortOverscrollPulls() {
-        #expect(
-            ArticleScreenNavigationState.adjacentArticleOverscrollDirection(
-                scrollGeometry: ReaderArticleScrollGeometry(
-                    contentOffsetY: 720,
-                    contentHeight: 1_400,
-                    containerHeight: 700
-                )
-            ) == nil
+    func articleScreenNavigationStateReportsBottomOverscrollForNonScrollableContentFromRestingOffset() {
+        let restingState = ArticleScreenNavigationState.adjacentArticleOverscrollState(
+            scrollGeometry: ReaderArticleScrollGeometry(
+                contentHeight: 320,
+                containerHeight: 700,
+                contentOffsetY: -16,
+                contentInsetTop: 16,
+                boundsMaxY: 700
+            )
         )
 
-        #expect(
-            ArticleScreenNavigationState.adjacentArticleOverscrollDirection(
-                scrollGeometry: ReaderArticleScrollGeometry(
-                    contentOffsetY: -20,
-                    contentHeight: 1_400,
-                    containerHeight: 700
-                )
-            ) == nil
+        #expect(restingState.previousProgress == 0)
+        #expect(restingState.nextProgress == 0)
+        #expect(restingState.readyDirection == nil)
+
+        let shortPullState = ArticleScreenNavigationState.adjacentArticleOverscrollState(
+            scrollGeometry: ReaderArticleScrollGeometry(
+                contentHeight: 320,
+                containerHeight: 700,
+                contentOffsetY: 19,
+                contentInsetTop: 16,
+                boundsMaxY: 700
+            )
         )
+
+        #expect(shortPullState.nextProgress == 0.5)
+        #expect(shortPullState.readyDirection == nil)
+
+        let readyState = ArticleScreenNavigationState.adjacentArticleOverscrollState(
+            scrollGeometry: ReaderArticleScrollGeometry(
+                contentHeight: 320,
+                containerHeight: 700,
+                contentOffsetY: 54,
+                contentInsetTop: 16,
+                boundsMaxY: 700
+            )
+        )
+
+        #expect(readyState.nextProgress == 1)
+        #expect(readyState.readyDirection == .next)
     }
 }

@@ -20,6 +20,7 @@ struct ReaderView: View {
     @State private var controller = ArticleScreenController()
     @State private var adjacentArticleTransitionDirection: ReaderAdjacentArticleNavigationDirection?
     @State private var pendingAdjacentArticleOverscrollDirection: ReaderAdjacentArticleNavigationDirection?
+    @State private var adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
 
     init(
         articleID: UUID?,
@@ -43,6 +44,22 @@ struct ReaderView: View {
             contentSurface(viewState)
                 .id(articleID)
                 .transition(articleTransition)
+        }
+        .overlay(alignment: .top) {
+            adjacentArticleOverscrollIndicator(
+                systemImage: "chevron.up",
+                progress: adjacentArticleOverscrollState.previousProgress,
+                isReady: adjacentArticleOverscrollState.previousProgress >= 1
+            )
+            .padding(.top, 12)
+        }
+        .overlay(alignment: .bottom) {
+            adjacentArticleOverscrollIndicator(
+                systemImage: "chevron.down",
+                progress: adjacentArticleOverscrollState.nextProgress,
+                isReady: adjacentArticleOverscrollState.nextProgress >= 1
+            )
+            .padding(.bottom, 12)
         }
         .animation(.snappy(duration: 0.28), value: articleID)
         .clipped()
@@ -121,6 +138,7 @@ struct ReaderView: View {
             await controller.load(articleID: articleID, dependencies: dependencies)
             adjacentArticleTransitionDirection = nil
             pendingAdjacentArticleOverscrollDirection = nil
+            adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
         }
         .simultaneousGesture(backNavigationGesture)
     }
@@ -161,11 +179,12 @@ struct ReaderView: View {
                 }
                 .onScrollGeometryChange(for: ReaderArticleScrollGeometry.self) { geometry in
                     ReaderArticleScrollGeometry(
-                        contentOffsetY: geometry.contentOffset.y,
                         contentHeight: geometry.contentSize.height,
                         containerHeight: geometry.containerSize.height,
-                        topInset: geometry.contentInsets.top,
-                        bottomInset: geometry.contentInsets.bottom
+                        contentOffsetY: geometry.contentOffset.y,
+                        contentInsetTop: geometry.contentInsets.top,
+                        contentInsetBottom: geometry.contentInsets.bottom,
+                        boundsMaxY: geometry.bounds.maxY
                     )
                 } action: { _, newGeometry in
                     handleArticleScrollGeometryChange(newGeometry)
@@ -219,25 +238,35 @@ struct ReaderView: View {
 
     private func handleArticleScrollGeometryChange(_ scrollGeometry: ReaderArticleScrollGeometry) {
         guard previewScreenState == nil else { return }
-        guard let direction = ArticleScreenNavigationState.adjacentArticleOverscrollDirection(
+        let overscrollState = ArticleScreenNavigationState.adjacentArticleOverscrollState(
             scrollGeometry: scrollGeometry
-        ) else {
-            return
-        }
-        pendingAdjacentArticleOverscrollDirection = direction
+        )
+        adjacentArticleOverscrollState = effectiveAdjacentArticleOverscrollState(overscrollState)
+        pendingAdjacentArticleOverscrollDirection = adjacentArticleOverscrollState.readyDirection
     }
 
     private func handleArticleScrollPhaseChange(oldPhase: ScrollPhase, newPhase: ScrollPhase) {
         guard previewScreenState == nil else { return }
         if newPhase == .tracking || newPhase == .interacting {
             pendingAdjacentArticleOverscrollDirection = nil
+            adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
             return
         }
 
         guard oldPhase == .interacting, newPhase != .interacting else { return }
         guard let direction = pendingAdjacentArticleOverscrollDirection else { return }
         pendingAdjacentArticleOverscrollDirection = nil
+        adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
         navigateToAdjacentArticle(direction)
+    }
+
+    private func effectiveAdjacentArticleOverscrollState(
+        _ overscrollState: ReaderArticleOverscrollNavigationState
+    ) -> ReaderArticleOverscrollNavigationState {
+        ReaderArticleOverscrollNavigationState(
+            previousProgress: appState.adjacentArticleID(.previous) == nil ? 0 : overscrollState.previousProgress,
+            nextProgress: appState.adjacentArticleID(.next) == nil ? 0 : overscrollState.nextProgress
+        )
     }
 
     private func navigateToAdjacentArticle(_ direction: ReaderAdjacentArticleNavigationDirection) {
@@ -312,6 +341,29 @@ struct ReaderView: View {
     @MainActor
     private func handleNextArticleTap() {
         navigateToAdjacentArticle(.next)
+    }
+
+    @ViewBuilder
+    private func adjacentArticleOverscrollIndicator(
+        systemImage: String,
+        progress: CGFloat,
+        isReady: Bool
+    ) -> some View {
+        if progress > 0 {
+            Image(systemName: isReady ? systemImage : "minus")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(isReady ? .primary : .secondary)
+                .contentTransition(
+                    .symbolEffect(
+                        .replace.magic(fallback: .downUp.byLayer),
+                        options: .nonRepeating
+                    )
+                )
+                .scaleEffect(0.4 + 0.6 * progress)
+                .opacity(0.25 + 0.75 * progress)
+                .animation(.snappy(duration: 0.18), value: isReady)
+                .accessibilityHidden(true)
+        }
     }
 
     @ViewBuilder
