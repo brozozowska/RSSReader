@@ -47,34 +47,47 @@ struct ReaderView: View {
             preservesStaleContent: preservesStaleContent
         )
         let contentTransitionID = viewState.content?.articleID ?? currentArticleID
+        let chromeUnderlayEdges: Edge.Set = viewState.content == nil ? [] : [.top, .bottom]
 
-        ZStack {
-            contentSurface(viewState)
+        GeometryReader { geometryProxy in
+            ZStack {
+                contentSurface(
+                    viewState,
+                    contentSafeAreaInsets: geometryProxy.safeAreaInsets
+                )
                 .id(contentTransitionID)
                 .transition(articleTransition)
-        }
-        .overlay(alignment: .top) {
-            adjacentArticleOverscrollIndicator(
-                systemImage: "chevron.up",
-                progress: adjacentArticleOverscrollState.previousProgress,
-                isReady: adjacentArticleOverscrollState.previousProgress >= 1
-            )
-            .padding(.top, 12)
-        }
-        .overlay(alignment: .bottom) {
-            adjacentArticleOverscrollIndicator(
-                systemImage: "chevron.down",
-                progress: adjacentArticleOverscrollState.nextProgress,
-                isReady: adjacentArticleOverscrollState.nextProgress >= 1
-            )
-            .padding(.bottom, 12)
+            }
+            .overlay(alignment: .top) {
+                adjacentArticleOverscrollIndicator(
+                    systemImage: "chevron.up",
+                    progress: adjacentArticleOverscrollState.previousProgress,
+                    isReady: adjacentArticleOverscrollState.previousProgress >= 1
+                )
+                .padding(
+                    .top,
+                    geometryProxy.safeAreaInsets.top + ReaderChromeUnderlayLayout.indicatorChromeSpacing
+                )
+            }
+            .overlay(alignment: .bottom) {
+                adjacentArticleOverscrollIndicator(
+                    systemImage: "chevron.down",
+                    progress: adjacentArticleOverscrollState.nextProgress,
+                    isReady: adjacentArticleOverscrollState.nextProgress >= 1
+                )
+                .padding(
+                    .bottom,
+                    geometryProxy.safeAreaInsets.bottom + ReaderChromeUnderlayLayout.indicatorChromeSpacing
+                )
+            }
+            .clipped()
+            .ignoresSafeArea(.container, edges: chromeUnderlayEdges)
         }
         .animation(.snappy(duration: 0.28), value: contentTransitionID)
         .sensoryFeedback(
             .impact(flexibility: .solid, intensity: 0.75),
             trigger: adjacentArticleOverscrollReadyHapticTrigger
         )
-        .clipped()
         .background(appThemeVariant.primaryBackground.ignoresSafeArea())
         .toolbarTitleDisplayMode(.inline)
         .navigationTitle("")
@@ -164,39 +177,19 @@ struct ReaderView: View {
     }
 
     @ViewBuilder
-    private func contentSurface(_ viewState: ArticleScreenDerivedViewState) -> some View {
+    private func contentSurface(
+        _ viewState: ArticleScreenDerivedViewState,
+        contentSafeAreaInsets: EdgeInsets
+    ) -> some View {
         Group {
             if let content = viewState.content {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        if let publishedAtText = content.header.publishedAtText {
-                            Text(publishedAtText)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Text(content.header.title)
-                            .font(.title2.weight(.semibold))
-
-                        if let author = content.header.author {
-                            Text(author)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        if let feedTitle = content.header.feedTitle {
-                            Text(feedTitle)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        ForEach(Array(content.body.blocks.enumerated()), id: \.offset) { _, block in
-                            bodyBlockView(block)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
+                    articleContent(content)
+                        .padding(.horizontal, ReaderChromeUnderlayLayout.contentMargin)
+                        .padding(.top, contentSafeAreaInsets.top + ReaderChromeUnderlayLayout.contentMargin)
+                        .padding(.bottom, contentSafeAreaInsets.bottom + ReaderChromeUnderlayLayout.contentMargin)
                 }
+                .ignoresSafeArea(.container, edges: [.top, .bottom])
                 .onScrollGeometryChange(for: ReaderArticleScrollGeometry.self) { geometry in
                     ReaderArticleScrollGeometry(
                         contentHeight: geometry.contentSize.height,
@@ -223,6 +216,37 @@ struct ReaderView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private func articleContent(_ content: ArticleScreenContentState) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let publishedAtText = content.header.publishedAtText {
+                Text(publishedAtText)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(content.header.title)
+                .font(.title2.weight(.semibold))
+
+            if let author = content.header.author {
+                Text(author)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let feedTitle = content.header.feedTitle {
+                Text(feedTitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            ForEach(Array(content.body.blocks.enumerated()), id: \.offset) { _, block in
+                bodyBlockView(block)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var articleTransition: AnyTransition {
@@ -412,7 +436,7 @@ struct ReaderView: View {
         progress: CGFloat,
         isReady: Bool
     ) -> some View {
-        if progress > 0 {
+        if progress >= ReaderChromeUnderlayLayout.indicatorVisibilityThreshold {
             Image(systemName: isReady ? systemImage : "minus")
                 .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(isReady ? .primary : .secondary)
@@ -479,4 +503,10 @@ struct ReaderView: View {
 private struct ArticleScreenLoadContext: Hashable {
     let articleID: UUID?
     let reloadID: UUID
+}
+
+private enum ReaderChromeUnderlayLayout {
+    static let contentMargin: CGFloat = 16
+    static let indicatorChromeSpacing: CGFloat = 12
+    static let indicatorVisibilityThreshold: CGFloat = 0.18
 }
