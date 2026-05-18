@@ -21,6 +21,8 @@ struct ReaderView: View {
     @State private var adjacentArticleTransitionDirection: ReaderAdjacentArticleNavigationDirection?
     @State private var pendingAdjacentArticleOverscrollDirection: ReaderAdjacentArticleNavigationDirection?
     @State private var adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
+    @State private var adjacentArticleOverscrollReadyHapticTrigger = 0
+    @State private var hasTriggeredAdjacentArticleOverscrollReadyHaptic = false
 
     init(
         articleID: UUID?,
@@ -68,6 +70,10 @@ struct ReaderView: View {
             .padding(.bottom, 12)
         }
         .animation(.snappy(duration: 0.28), value: contentTransitionID)
+        .sensoryFeedback(
+            .impact(flexibility: .solid, intensity: 0.75),
+            trigger: adjacentArticleOverscrollReadyHapticTrigger
+        )
         .clipped()
         .background(appThemeVariant.primaryBackground.ignoresSafeArea())
         .toolbarTitleDisplayMode(.inline)
@@ -255,7 +261,19 @@ struct ReaderView: View {
         let overscrollState = ArticleScreenNavigationState.adjacentArticleOverscrollState(
             scrollGeometry: scrollGeometry
         )
-        adjacentArticleOverscrollState = effectiveAdjacentArticleOverscrollState(overscrollState)
+        let previousOverscrollState = adjacentArticleOverscrollState
+        let newOverscrollState = effectiveAdjacentArticleOverscrollState(overscrollState)
+
+        if ArticleScreenNavigationState.shouldTriggerAdjacentArticleOverscrollReadyHaptic(
+            previousState: previousOverscrollState,
+            newState: newOverscrollState,
+            hasTriggeredInCurrentGesture: hasTriggeredAdjacentArticleOverscrollReadyHaptic
+        ) {
+            adjacentArticleOverscrollReadyHapticTrigger += 1
+            hasTriggeredAdjacentArticleOverscrollReadyHaptic = true
+        }
+
+        adjacentArticleOverscrollState = newOverscrollState
         pendingAdjacentArticleOverscrollDirection = adjacentArticleOverscrollState.readyDirection
     }
 
@@ -264,6 +282,7 @@ struct ReaderView: View {
         if newPhase == .tracking || newPhase == .interacting {
             pendingAdjacentArticleOverscrollDirection = nil
             adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
+            hasTriggeredAdjacentArticleOverscrollReadyHaptic = false
             return
         }
 

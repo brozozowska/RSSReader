@@ -185,4 +185,47 @@ struct ArticleScreenNavigationTests {
         #expect(readyState.nextProgress == 1)
         #expect(readyState.readyDirection == .next)
     }
+
+    @Test
+    func articleScreenNavigationStateTriggersBoundaryHapticOnlyWhenOverscrollBecomesReady() {
+        let restingState = ReaderArticleOverscrollNavigationState()
+        let minusIndicatorState = ReaderArticleOverscrollNavigationState(nextProgress: 0.5)
+        let readyState = ReaderArticleOverscrollNavigationState(nextProgress: 1)
+
+        #expect(
+            ArticleScreenNavigationState.shouldTriggerAdjacentArticleOverscrollReadyHaptic(
+                previousState: restingState,
+                newState: minusIndicatorState,
+                hasTriggeredInCurrentGesture: false
+            ) == false
+        )
+        #expect(
+            ArticleScreenNavigationState.shouldTriggerAdjacentArticleOverscrollReadyHaptic(
+                previousState: minusIndicatorState,
+                newState: readyState,
+                hasTriggeredInCurrentGesture: false
+            )
+        )
+    }
+
+    @Test
+    func articleScreenNavigationStateDoesNotRepeatBoundaryHapticDuringSamePullGesture() {
+        let readyState = ReaderArticleOverscrollNavigationState(previousProgress: 1)
+        let reducedPullState = ReaderArticleOverscrollNavigationState(previousProgress: 0.75)
+
+        #expect(
+            ArticleScreenNavigationState.shouldTriggerAdjacentArticleOverscrollReadyHaptic(
+                previousState: readyState,
+                newState: readyState,
+                hasTriggeredInCurrentGesture: false
+            ) == false
+        )
+        #expect(
+            ArticleScreenNavigationState.shouldTriggerAdjacentArticleOverscrollReadyHaptic(
+                previousState: reducedPullState,
+                newState: readyState,
+                hasTriggeredInCurrentGesture: true
+            ) == false
+        )
+    }
 }

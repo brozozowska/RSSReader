@@ -37,6 +37,16 @@ enum ArticleScreenNavigationState {
             nextProgress: nextProgress
         )
     }
+
+    static func shouldTriggerAdjacentArticleOverscrollReadyHaptic(
+        previousState: ReaderArticleOverscrollNavigationState,
+        newState: ReaderArticleOverscrollNavigationState,
+        hasTriggeredInCurrentGesture: Bool
+    ) -> Bool {
+        guard hasTriggeredInCurrentGesture == false else { return false }
+
+        return previousState.readyDirection == nil && newState.readyDirection != nil
+    }
 }
 
 struct ReaderArticleOverscrollNavigationState: Equatable {
