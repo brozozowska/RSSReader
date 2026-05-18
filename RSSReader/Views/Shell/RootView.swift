@@ -40,6 +40,7 @@ struct RootView: View {
                 previewScreenState: nil,
                 selection: articleSelection
             )
+            .id(appState.selectedSidebarSelection)
         } detail: {
             switch detailDestination {
             case .none:
@@ -63,7 +64,7 @@ struct RootView: View {
                     ),
                     navigateBackToArticles: { appState.selectedArticleID = nil }
                 )
-                .id(articleID)
+                .id(appState.selectedSidebarSelection)
             }
         }
         .fullScreenCover(isPresented: safariPresentationBinding) {

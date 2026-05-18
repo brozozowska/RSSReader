@@ -10,8 +10,15 @@ final class ArticleScreenController {
         self.screenState = previewScreenState ?? ArticleScreenState()
     }
 
-    func load(articleID: UUID?, dependencies: AppDependencies) async {
-        screenState.beginLoading(articleID: articleID)
+    func load(
+        articleID: UUID?,
+        dependencies: AppDependencies,
+        preservesCurrentArticleDuringLoading: Bool = false
+    ) async {
+        screenState.beginLoading(
+            articleID: articleID,
+            preservesCurrentArticle: preservesCurrentArticleDuringLoading
+        )
 
         guard let articleID else {
             return

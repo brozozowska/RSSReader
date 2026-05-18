@@ -67,10 +67,12 @@ struct ArticleScreenBodyContentState: Equatable {
 
 @MainActor
 struct ArticleScreenContentState: Equatable {
+    let articleID: UUID
     let header: ArticleScreenHeaderState
     let body: ArticleScreenBodyContentState
 
     init(article: ReaderArticleDTO) {
+        self.articleID = article.id
         self.header = ArticleScreenHeaderState(article: article)
         self.body = ArticleScreenContentRenderer.renderBody(for: article)
     }

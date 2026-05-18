@@ -76,6 +76,27 @@ struct ArticleScreenStateTests {
     }
 
     @Test
+    func articleScreenStateCanPreserveStaleContentForAdjacentTransition() {
+        var state = ArticleScreenState()
+        let article = makeReaderArticleDTO(title: "Transition Source Article")
+
+        state.applyLoadedArticle(article)
+        state.beginLoading(
+            articleID: UUID(),
+            preservesCurrentArticle: true
+        )
+        let viewState = state.derivedViewState(
+            selectedArticleID: UUID(),
+            preservesStaleContent: true
+        )
+
+        #expect(viewState.content?.articleID == article.id)
+        #expect(viewState.content?.header.title == "Transition Source Article")
+        #expect(viewState.primaryLoadingState == nil)
+        #expect(viewState.toolbarActions.showsBottomActions)
+    }
+
+    @Test
     func articleScreenToolbarActionsExposeShareURLOnlyWhenArticleHasValidURL() {
         var loadedState = ArticleScreenState()
         loadedState.applyLoadedArticle(

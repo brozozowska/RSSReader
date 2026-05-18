@@ -251,6 +251,64 @@ struct ReadingShellAppStateTests {
     }
 
     @Test
+    func readingShellRejectsStaleAdjacentArticleNavigationContextFromPreviousSource() {
+        let appState = AppState()
+        let previousFeedID = UUID()
+        let currentFeedID = UUID()
+        let firstArticleID = UUID()
+        let secondArticleID = UUID()
+
+        appState.selectReadingSource(.feed(currentFeedID))
+        appState.selectedArticleID = firstArticleID
+
+        appState.updateArticleNavigationContext(
+            [firstArticleID, secondArticleID],
+            sourceSelection: .feed(previousFeedID),
+            sourcesFilter: .allItems
+        )
+
+        #expect(appState.adjacentArticleID(.next) == nil)
+        #expect(appState.selectAdjacentArticle(.next) == false)
+
+        appState.updateArticleNavigationContext(
+            [firstArticleID, secondArticleID],
+            sourceSelection: .feed(currentFeedID),
+            sourcesFilter: .allItems
+        )
+
+        #expect(appState.adjacentArticleID(.next) == secondArticleID)
+    }
+
+    @Test
+    func readingShellRejectsStaleAdjacentArticleNavigationContextFromPreviousSourcesFilter() {
+        let appState = AppState()
+        let feedID = UUID()
+        let firstArticleID = UUID()
+        let secondArticleID = UUID()
+
+        appState.selectReadingSource(.feed(feedID))
+        appState.selectSourcesFilter(.unread)
+        appState.selectedArticleID = firstArticleID
+
+        appState.updateArticleNavigationContext(
+            [firstArticleID, secondArticleID],
+            sourceSelection: .feed(feedID),
+            sourcesFilter: .allItems
+        )
+
+        #expect(appState.adjacentArticleID(.next) == nil)
+        #expect(appState.selectAdjacentArticle(.next) == false)
+
+        appState.updateArticleNavigationContext(
+            [firstArticleID, secondArticleID],
+            sourceSelection: .feed(feedID),
+            sourcesFilter: .unread
+        )
+
+        #expect(appState.adjacentArticleID(.next) == secondArticleID)
+    }
+
+    @Test
     func readingShellAppStateKeepsRemoteSyncAndBackgroundRefreshReloadTriggersSeparate() {
         let appState = AppState()
         let initialSidebarReloadID = appState.sourcesSidebarReloadID

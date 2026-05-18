@@ -121,15 +121,19 @@ struct ArticleListView: View {
 
     @MainActor
     private func loadArticles() async {
-        if controller.shouldResetArticleSelection(for: selectedSidebarSelection) {
-            selection = nil
-        }
+        let loadingSidebarSelection = selectedSidebarSelection
+        let loadingSourcesFilter = selectedSourcesFilter
 
         await controller.load(
-            selection: selectedSidebarSelection,
-            sourcesFilter: selectedSourcesFilter,
+            selection: loadingSidebarSelection,
+            sourcesFilter: loadingSourcesFilter,
             dependencies: dependencies
         )
+
+        guard loadingSidebarSelection == appState.selectedSidebarSelection,
+              loadingSourcesFilter == appState.selectedSourcesFilter else {
+            return
+        }
 
         let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
@@ -150,7 +154,11 @@ struct ArticleListView: View {
 
     private func syncArticleNavigationContext(_ visibleArticleIDs: [UUID]) {
         guard isPreviewMode == false else { return }
-        appState.updateArticleNavigationContext(visibleArticleIDs)
+        appState.updateArticleNavigationContext(
+            visibleArticleIDs,
+            sourceSelection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter
+        )
     }
 
     // MARK: Confirmation

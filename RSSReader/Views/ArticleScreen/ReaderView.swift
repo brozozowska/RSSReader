@@ -38,11 +38,17 @@ struct ReaderView: View {
     }
 
     var body: some View {
-        let viewState = controller.screenState.derivedViewState(selectedArticleID: articleID)
+        let currentArticleID = resolvedArticleID
+        let preservesStaleContent = adjacentArticleTransitionDirection != nil
+        let viewState = controller.screenState.derivedViewState(
+            selectedArticleID: currentArticleID,
+            preservesStaleContent: preservesStaleContent
+        )
+        let contentTransitionID = viewState.content?.articleID ?? currentArticleID
 
         ZStack {
             contentSurface(viewState)
-                .id(articleID)
+                .id(contentTransitionID)
                 .transition(articleTransition)
         }
         .overlay(alignment: .top) {
@@ -61,7 +67,7 @@ struct ReaderView: View {
             )
             .padding(.bottom, 12)
         }
-        .animation(.snappy(duration: 0.28), value: articleID)
+        .animation(.snappy(duration: 0.28), value: contentTransitionID)
         .clipped()
         .background(appThemeVariant.primaryBackground.ignoresSafeArea())
         .toolbarTitleDisplayMode(.inline)
@@ -133,14 +139,22 @@ struct ReaderView: View {
                 }
             }
         }
-        .task(id: ArticleScreenLoadContext(articleID: articleID, reloadID: reloadID)) {
+        .task(id: ArticleScreenLoadContext(articleID: currentArticleID, reloadID: reloadID)) {
             guard previewScreenState == nil else { return }
-            await controller.load(articleID: articleID, dependencies: dependencies)
-            adjacentArticleTransitionDirection = nil
+            await controller.load(
+                articleID: currentArticleID,
+                dependencies: dependencies,
+                preservesCurrentArticleDuringLoading: adjacentArticleTransitionDirection != nil
+            )
             pendingAdjacentArticleOverscrollDirection = nil
             adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
+            await resetAdjacentArticleTransitionDirectionAfterAnimation()
         }
         .simultaneousGesture(backNavigationGesture)
+    }
+
+    private var resolvedArticleID: UUID? {
+        previewScreenState == nil ? appState.selectedArticleID : articleID
     }
 
     @ViewBuilder
@@ -279,7 +293,37 @@ struct ReaderView: View {
 
         if didSelectAdjacentArticle == false {
             adjacentArticleTransitionDirection = nil
+            return
         }
+
+        Task {
+            await loadCurrentArticleAfterAdjacentNavigationIfNeeded()
+        }
+    }
+
+    @MainActor
+    private func loadCurrentArticleAfterAdjacentNavigationIfNeeded() async {
+        try? await Task.sleep(for: .milliseconds(80))
+        let currentArticleID = resolvedArticleID
+        guard controller.screenState.article?.id != currentArticleID else {
+            await resetAdjacentArticleTransitionDirectionAfterAnimation()
+            return
+        }
+
+        await controller.load(
+            articleID: currentArticleID,
+            dependencies: dependencies,
+            preservesCurrentArticleDuringLoading: true
+        )
+        pendingAdjacentArticleOverscrollDirection = nil
+        adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
+        await resetAdjacentArticleTransitionDirectionAfterAnimation()
+    }
+
+    private func resetAdjacentArticleTransitionDirectionAfterAnimation() async {
+        guard adjacentArticleTransitionDirection != nil else { return }
+        try? await Task.sleep(for: .milliseconds(320))
+        adjacentArticleTransitionDirection = nil
     }
 
     private var actionHandlers: ArticleScreenActionHandlers {

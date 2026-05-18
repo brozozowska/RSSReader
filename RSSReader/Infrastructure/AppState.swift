@@ -96,6 +96,8 @@ public final class AppState {
     var isPresentingSourceManagementScreen = false
     var sourceManagementLaunchContext: SourceManagementScreenLaunchContext = .entry
     var articleNavigationContextIDs: [UUID] = []
+    private var articleNavigationContextSourceSelection: SidebarSelection?
+    private var articleNavigationContextSourcesFilter: SourcesFilter = .allItems
     var articleListReloadID = UUID()
     var sourcesSidebarReloadID = UUID()
     var articleScreenReloadID = UUID()
@@ -221,15 +223,35 @@ public final class AppState {
         guard previousSourceSelection != sourceSelection else { return }
 
         readingNavigation.selectSource(sourceSelection)
-        articleNavigationContextIDs = []
+        clearArticleNavigationContext()
         requestArticleListReload()
     }
 
     func updateArticleNavigationContext(_ articleIDs: [UUID]) {
+        updateArticleNavigationContext(
+            articleIDs,
+            sourceSelection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter
+        )
+    }
+
+    func updateArticleNavigationContext(
+        _ articleIDs: [UUID],
+        sourceSelection: SidebarSelection?,
+        sourcesFilter: SourcesFilter
+    ) {
         var seenArticleIDs = Set<UUID>()
+        articleNavigationContextSourceSelection = sourceSelection
+        articleNavigationContextSourcesFilter = sourcesFilter
         articleNavigationContextIDs = articleIDs.filter { articleID in
             seenArticleIDs.insert(articleID).inserted
         }
+    }
+
+    private func clearArticleNavigationContext() {
+        articleNavigationContextIDs = []
+        articleNavigationContextSourceSelection = selectedSidebarSelection
+        articleNavigationContextSourcesFilter = selectedSourcesFilter
     }
 
     @discardableResult
@@ -243,6 +265,11 @@ public final class AppState {
     }
 
     func adjacentArticleID(_ direction: ReaderAdjacentArticleNavigationDirection) -> UUID? {
+        guard articleNavigationContextSourceSelection == selectedSidebarSelection,
+              articleNavigationContextSourcesFilter == selectedSourcesFilter else {
+            return nil
+        }
+
         guard let selectedArticleID,
               let currentIndex = articleNavigationContextIDs.firstIndex(of: selectedArticleID) else {
             return nil

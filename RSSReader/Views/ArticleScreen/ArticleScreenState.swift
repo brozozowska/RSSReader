@@ -44,7 +44,10 @@ struct ArticleScreenState {
         return message
     }
 
-    mutating func beginLoading(articleID: UUID?) {
+    mutating func beginLoading(
+        articleID: UUID?,
+        preservesCurrentArticle: Bool = false
+    ) {
         self.articleID = articleID
 
         guard articleID != nil else {
@@ -54,7 +57,9 @@ struct ArticleScreenState {
             return
         }
 
-        article = nil
+        if preservesCurrentArticle == false {
+            article = nil
+        }
         phase = .loading
         updateToolbarActions()
     }
@@ -89,8 +94,12 @@ struct ArticleScreenState {
         updateToolbarActions()
     }
 
-    func derivedViewState(selectedArticleID: UUID?) -> ArticleScreenDerivedViewState {
-        let resolvedArticle = article?.id == selectedArticleID ? article : nil
+    func derivedViewState(
+        selectedArticleID: UUID?,
+        preservesStaleContent: Bool = false
+    ) -> ArticleScreenDerivedViewState {
+        let isSelectedArticleLoaded = article?.id == selectedArticleID
+        let resolvedArticle = isSelectedArticleLoaded || preservesStaleContent ? article : nil
         let showsStaleArticle = article != nil && resolvedArticle == nil && selectedArticleID != nil
         let resolvedPrimaryLoadingState = primaryLoadingState
             ?? (showsStaleArticle ? ArticleScreenPrimaryLoadingState(title: "Loading Article") : nil)

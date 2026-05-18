@@ -6,6 +6,7 @@ import Observation
 final class ArticlesScreenController {
     var screenState: ArticlesScreenState
     private var lastLoadedSourceSelection: SidebarSelection?
+    private var loadGeneration = 0
 
     init(previewScreenState: ArticlesScreenState? = nil) {
         self.screenState = previewScreenState ?? ArticlesScreenState()
@@ -21,6 +22,8 @@ final class ArticlesScreenController {
         sourcesFilter: SourcesFilter,
         dependencies: AppDependencies
     ) async {
+        loadGeneration += 1
+        let currentLoadGeneration = loadGeneration
         let sourceSelectionChanged = shouldResetArticleSelection(for: selection)
         let navigationTitle = resolveNavigationTitle(
             selection: selection,
@@ -38,7 +41,9 @@ final class ArticlesScreenController {
         )
 
         defer {
-            lastLoadedSourceSelection = selection
+            if currentLoadGeneration == loadGeneration {
+                lastLoadedSourceSelection = selection
+            }
         }
 
         guard let articleQueryService = dependencies.articleQueryService else {
@@ -62,6 +67,7 @@ final class ArticlesScreenController {
                 articleQueryService: articleQueryService
             )
 
+            guard currentLoadGeneration == loadGeneration else { return }
             screenState.applyLoadedArticles(
                 loadedArticles,
                 selection: selection,
@@ -72,6 +78,7 @@ final class ArticlesScreenController {
                 )
             )
         } catch {
+            guard currentLoadGeneration == loadGeneration else { return }
             dependencies.logger.error("Failed to load article list for selection \(String(describing: selection)): \(error)")
             screenState.applyLoadingFailure(
                 error.localizedDescription,
