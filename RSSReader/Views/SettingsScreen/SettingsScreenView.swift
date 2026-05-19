@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsScreenActionHandlers {
     let dismiss: () -> Void
+    let applyChanges: () -> Void
     let retryLoad: () -> Void
     let selectPickerOption: (SettingsScreenItemID, String) -> Void
     let toggleItem: (SettingsScreenItemID, Bool) -> Void
@@ -31,7 +32,20 @@ struct SettingsScreenView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("Done", action: actionHandlers.dismiss)
+                        Button(action: actionHandlers.dismiss) {
+                            Image(systemName: "xmark")
+                        }
+                        .accessibilityLabel("Close Settings")
+                    }
+
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(action: actionHandlers.applyChanges) {
+                            Image(systemName: "checkmark")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color.accentColor)
+                        .disabled(viewState.canApplyChanges == false)
+                        .accessibilityLabel("Apply Settings")
                     }
                 }
                 .background(appThemeVariant.primaryBackground)
@@ -45,6 +59,15 @@ struct SettingsScreenView: View {
     private var actionHandlers: SettingsScreenActionHandlers {
         SettingsScreenActionHandlers(
             dismiss: dismiss,
+            applyChanges: {
+                let didApplyChanges = controller.applySettingsChanges(
+                    dependencies: dependencies,
+                    appState: appState
+                )
+                if didApplyChanges {
+                    dismiss()
+                }
+            },
             retryLoad: {
                 controller.retryLoadingSettings(dependencies: dependencies, appState: appState)
             },

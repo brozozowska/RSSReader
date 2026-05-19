@@ -45,6 +45,13 @@ struct SettingsScreenState {
         phase = .loaded
     }
 
+    mutating func applyDraftInput(_ input: SettingsScreenInput) {
+        settingsInput = input
+        iCloudSyncStatus = input.iCloudSyncStatus
+        syncStatusPresentation = input.syncStatusPresentation
+        sections = SettingsScreenPresentationBuilder.buildSections(from: input)
+    }
+
     mutating func applyLoadingFailure(_ message: String) {
         sections = []
         phase = .failed(message)
@@ -54,8 +61,13 @@ struct SettingsScreenState {
         SettingsScreenViewState(
             sections: sections,
             primaryLoadingState: primaryLoadingState,
-            placeholder: placeholder
+            placeholder: placeholder,
+            canApplyChanges: canApplyChanges
         )
+    }
+
+    func pendingSettingsSnapshot() -> AppSettingsSnapshot {
+        draftSnapshot
     }
 
     static func previewLoading() -> SettingsScreenState {
@@ -96,6 +108,27 @@ struct SettingsScreenState {
 }
 
 private extension SettingsScreenState {
+    var canApplyChanges: Bool {
+        guard phase == .loaded else { return false }
+        return draftSnapshot != settingsSnapshot
+    }
+
+    var draftSnapshot: AppSettingsSnapshot {
+        AppSettingsSnapshot(
+            defaultReaderMode: settingsInput.defaultReaderMode,
+            selectedSourcesFilterRawValue: settingsSnapshot.selectedSourcesFilterRawValue,
+            refreshIntervalPreference: settingsInput.refreshIntervalPreference,
+            useiCloudSync: settingsInput.useiCloudSync,
+            markAsReadOnOpen: settingsInput.markAsReadOnOpen,
+            askBeforeMarkingAllAsRead: settingsInput.askBeforeMarkingAllAsRead,
+            sortMode: settingsInput.articleListSortOrder.sortMode,
+            articleBodyLinkOpeningPolicy: settingsInput.articleBodyLinkOpeningPolicy,
+            articleSourceLinkOpeningPolicy: settingsInput.articleSourceLinkOpeningPolicy,
+            readerAdjacentNavigationControlsMode: settingsInput.readerAdjacentNavigationControlsMode,
+            interfaceThemeMode: settingsInput.interfaceThemeMode
+        )
+    }
+
     var primaryLoadingState: SettingsScreenPrimaryLoadingState? {
         guard phase == .loading else {
             return nil

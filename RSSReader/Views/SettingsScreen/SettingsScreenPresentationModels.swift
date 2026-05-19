@@ -172,6 +172,7 @@ struct SettingsScreenViewState: Equatable, Sendable {
     let sections: [SettingsScreenSectionPresentation]
     let primaryLoadingState: SettingsScreenPrimaryLoadingState?
     let placeholder: SettingsScreenPlaceholderState?
+    let canApplyChanges: Bool
 }
 
 struct SettingsScreenPrimaryLoadingState: Equatable, Sendable {

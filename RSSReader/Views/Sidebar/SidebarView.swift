@@ -166,7 +166,7 @@ struct SidebarView: View {
                 dependencies.showSettings(using: appState)
             }
         } label: {
-            Image(systemName: "ellipsis")
+            Image(systemName: "gearshape")
         }
         .accessibilityLabel("Sidebar Actions")
     }

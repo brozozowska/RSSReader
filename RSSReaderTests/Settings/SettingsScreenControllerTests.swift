@@ -280,6 +280,10 @@ struct SettingsScreenControllerTests {
             dependencies: harness.dependencies
         )
 
+        let settingsBeforeApply = try repository.fetchOrCreate()
+        #expect(controller.viewState().canApplyChanges)
+        #expect(settingsBeforeApply.defaultReaderMode == .embedded)
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.defaultReaderMode == .browser)
         #expect(persistedSettings.defaultReaderMode == .browser)
@@ -298,6 +302,7 @@ struct SettingsScreenControllerTests {
             dependencies: harness.dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.sortMode == .publishedAtAscending)
         #expect(persistedSettings.sortMode == .publishedAtAscending)
@@ -318,6 +323,7 @@ struct SettingsScreenControllerTests {
             dependencies: harness.dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.markAsReadOnOpen == false)
         #expect(persistedSettings.markAsReadOnOpen == false)
@@ -338,6 +344,7 @@ struct SettingsScreenControllerTests {
             dependencies: harness.dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead == false)
         #expect(persistedSettings.askBeforeMarkingAllAsRead == false)
@@ -358,6 +365,7 @@ struct SettingsScreenControllerTests {
             dependencies: harness.dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.useiCloudSync)
         #expect(persistedSettings.useiCloudSync)
@@ -377,6 +385,7 @@ struct SettingsScreenControllerTests {
             dependencies: harness.dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(persistedSettings.articleBodyLinkOpeningPolicy == .externalBrowser)
@@ -395,6 +404,7 @@ struct SettingsScreenControllerTests {
             dependencies: harness.dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.articleSourceLinkOpeningPolicy == .externalBrowser)
         #expect(persistedSettings.articleSourceLinkOpeningPolicy == .externalBrowser)
@@ -413,6 +423,7 @@ struct SettingsScreenControllerTests {
             dependencies: harness.dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.readerAdjacentNavigationControlsMode == .swipesOnly)
         #expect(persistedSettings.readerAdjacentNavigationControlsMode == .swipesOnly)
@@ -439,6 +450,7 @@ struct SettingsScreenControllerTests {
             dependencies: dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         let replacedConfiguration = try #require(scheduler.lastReplacedConfiguration)
         #expect(controller.screenState.settingsSnapshot.refreshIntervalPreference == .daily)
@@ -474,6 +486,7 @@ struct SettingsScreenControllerTests {
             dependencies: dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         let replacedConfiguration = try #require(scheduler.lastReplacedConfiguration)
         #expect(controller.screenState.settingsSnapshot.refreshIntervalPreference == .manual)
@@ -509,12 +522,13 @@ struct SettingsScreenControllerTests {
             dependencies: dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(persistedSettings.refreshIntervalPreference == .daily)
         #expect(controller.screenState.settingsSnapshot.refreshIntervalPreference == .daily)
         #expect(
             logger.contains(
-                "Failed to replace background refresh schedule after refresh interval update",
+                "Failed to replace background refresh schedule after applying settings changes",
                 level: .error
             )
         )
@@ -536,6 +550,8 @@ struct SettingsScreenControllerTests {
             appState: appState
         )
 
+        #expect(appState.interfaceThemeMode == .automaticLightDark)
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies, appState: appState))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.interfaceThemeMode == .black)
         #expect(persistedSettings.interfaceThemeMode == .black)
