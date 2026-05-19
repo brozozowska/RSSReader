@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import RSSReader
 
@@ -34,6 +35,18 @@ struct AppCompositionTests {
         #expect(dependencies.modelContainer != nil)
         #expect(dependencies.syncCoordinator != nil)
         #expect(dependencies.appSettingsService != nil)
+    }
+
+    @Test
+    func appCompositionArticleImageURLCacheConfigurationUsesBoundedMemoryAndDiskCache() {
+        let configuration = AppURLCacheConfiguration.articleImageLoading
+        let cache = configuration.makeURLCache()
+
+        #expect(configuration.memoryCapacity == 50 * 1024 * 1024)
+        #expect(configuration.diskCapacity == 200 * 1024 * 1024)
+        #expect(configuration.diskPath == "RSSReaderArticleImageURLCache")
+        #expect(cache.memoryCapacity == configuration.memoryCapacity)
+        #expect(cache.diskCapacity == configuration.diskCapacity)
     }
 
     @Test
