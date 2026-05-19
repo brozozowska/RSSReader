@@ -29,6 +29,32 @@ struct ArticlesScreenControllerTests {
         #expect(controller.screenState.articles.first?.title == "Controller Load")
     }
 
+    @Test
+    func articlesScreenControllerUsesFeedDisplayTitleOverrideForNavigationTitle() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = Feed(
+            url: "https://example.com/display-title.xml",
+            title: "XML Feed Title",
+            displayTitleOverride: "My Feed"
+        )
+        try harness.feedRepository.insert(feed)
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "display-title-article",
+            url: "https://example.com/articles/display-title",
+            title: "Display Title Article"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.navigationTitle == "My Feed")
+    }
+
     func articlesScreenControllerPresentsRefreshFailureFromBatchRefreshResult() async throws {
         let client = ScriptedHTTPClient(
             responsesByURL: [

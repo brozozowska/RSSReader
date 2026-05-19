@@ -114,7 +114,7 @@ final class ArticlesScreenController {
     ) -> String {
         let selectedFeedTitle: String?
         if case .feed(let feedID) = selection {
-            selectedFeedTitle = try? dependencies.feedRepository?.fetchFeed(id: feedID)?.title
+            selectedFeedTitle = try? dependencies.feedRepository?.fetchFeed(id: feedID)?.displayTitle
         } else {
             selectedFeedTitle = nil
         }
@@ -137,14 +137,14 @@ final class ArticlesScreenController {
 
     private func loadSortMode(dependencies: AppDependencies) -> ArticleSortMode {
         guard let appSettingsService = dependencies.appSettingsService else {
-            return .publishedAtDescending
+            return .publishedAtAscending
         }
 
         do {
             return try appSettingsService.fetchSettings().sortMode
         } catch {
             dependencies.logger.error("Failed to load app settings for article sort mode: \(error)")
-            return .publishedAtDescending
+            return .publishedAtAscending
         }
     }
 

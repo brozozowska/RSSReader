@@ -20,7 +20,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         useiCloudSync: Bool = false,
         markAsReadOnOpen: Bool = true,
         askBeforeMarkingAllAsRead: Bool = true,
-        sortMode: ArticleSortMode = .publishedAtDescending,
+        sortMode: ArticleSortMode = .publishedAtAscending,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
         readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls,

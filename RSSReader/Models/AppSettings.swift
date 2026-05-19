@@ -13,7 +13,7 @@ final class AppSettings {
     var useiCloudSync: Bool = false
     var markAsReadOnOpen: Bool = true
     var askBeforeMarkingAllAsRead: Bool = true
-    var sortMode: ArticleSortMode = ArticleSortMode.publishedAtDescending
+    var sortMode: ArticleSortMode = ArticleSortMode.publishedAtAscending
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = ArticleBodyLinkOpeningPolicy.inAppBrowser
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = ArticleSourceLinkOpeningPolicy.inAppBrowser
     var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = ReaderAdjacentNavigationControlsMode.swipesAndToolbarControls
@@ -30,7 +30,7 @@ final class AppSettings {
         useiCloudSync: Bool = false,
         markAsReadOnOpen: Bool = true,
         askBeforeMarkingAllAsRead: Bool = true,
-        sortMode: ArticleSortMode = .publishedAtDescending,
+        sortMode: ArticleSortMode = .publishedAtAscending,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
         readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls,

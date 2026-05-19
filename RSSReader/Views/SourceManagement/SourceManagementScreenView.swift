@@ -337,7 +337,7 @@ private struct SourceManagementAddFeedView: View {
                 TextField(
                     presentation.urlPrompt,
                     text: urlBinding,
-                    prompt: Text("example.com/feed.xml")
+                    prompt: Text("example.com")
                 )
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()

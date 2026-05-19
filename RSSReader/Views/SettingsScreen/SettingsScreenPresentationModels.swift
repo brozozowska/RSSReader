@@ -46,7 +46,7 @@ struct SettingsScreenInput: Equatable, Sendable {
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
         readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls,
-        articleListSortOrder: ArticleListSortOrder = .newestFirst,
+        articleListSortOrder: ArticleListSortOrder = .oldestFirst,
         askBeforeMarkingAllAsRead: Bool = true,
         refreshIntervalPreference: RefreshPreference = .manual,
         useiCloudSync: Bool = false,
