@@ -19,6 +19,7 @@ enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
     case useICloudSync
     case iCloudSyncStatus
     case articleBodyLinkOpeningPolicy
+    case readerAdjacentNavigationControlsMode
     case appearance
 
     var id: String { rawValue }
@@ -29,6 +30,7 @@ struct SettingsScreenInput: Equatable, Sendable {
     var markAsReadOnOpen: Bool
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
+    var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode
     var articleListSortOrder: ArticleListSortOrder
     var askBeforeMarkingAllAsRead: Bool
     var refreshIntervalPreference: RefreshPreference
@@ -43,6 +45,7 @@ struct SettingsScreenInput: Equatable, Sendable {
         markAsReadOnOpen: Bool = true,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
+        readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls,
         articleListSortOrder: ArticleListSortOrder = .newestFirst,
         askBeforeMarkingAllAsRead: Bool = true,
         refreshIntervalPreference: RefreshPreference = .manual,
@@ -56,6 +59,7 @@ struct SettingsScreenInput: Equatable, Sendable {
         self.markAsReadOnOpen = markAsReadOnOpen
         self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
+        self.readerAdjacentNavigationControlsMode = readerAdjacentNavigationControlsMode
         self.articleListSortOrder = articleListSortOrder
         self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         self.refreshIntervalPreference = refreshIntervalPreference
@@ -241,6 +245,7 @@ enum SettingsScreenInputBuilder {
             markAsReadOnOpen: snapshot.markAsReadOnOpen,
             articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
             articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
+            readerAdjacentNavigationControlsMode: snapshot.readerAdjacentNavigationControlsMode,
             articleListSortOrder: ArticleListSortOrder(sortMode: snapshot.sortMode),
             askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
             refreshIntervalPreference: snapshot.refreshIntervalPreference,
@@ -292,7 +297,7 @@ enum SettingsScreenPresentationBuilder {
         SettingsScreenSectionPresentation(
             id: .reading,
             title: "Reading",
-            footer: "Choose where articles open, where links inside articles open, and whether opening an article should immediately mark it as read.",
+            footer: "Choose where articles open, how adjacent article controls appear, where links inside articles open, and whether opening an article should immediately mark it as read.",
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
@@ -335,6 +340,21 @@ enum SettingsScreenPresentationBuilder {
                                 id: policy.rawValue,
                                 title: articleSourceLinkOpeningPolicyTitle(policy),
                                 isSelected: input.articleSourceLinkOpeningPolicy == policy
+                            )
+                        }
+                    )
+                ),
+                .picker(
+                    SettingsPickerItemPresentation(
+                        id: .readerAdjacentNavigationControlsMode,
+                        title: "Adjacent Navigation",
+                        subtitle: nil,
+                        selectedValueTitle: readerAdjacentNavigationControlsModeTitle(input.readerAdjacentNavigationControlsMode),
+                        options: ReaderAdjacentNavigationControlsMode.allCases.map { mode in
+                            SettingsPickerOptionPresentation(
+                                id: mode.rawValue,
+                                title: readerAdjacentNavigationControlsModeTitle(mode),
+                                isSelected: input.readerAdjacentNavigationControlsMode == mode
                             )
                         }
                     )
@@ -485,6 +505,15 @@ enum SettingsScreenPresentationBuilder {
             "In-App Browser"
         case .externalBrowser:
             "External Browser"
+        }
+    }
+
+    private static func readerAdjacentNavigationControlsModeTitle(_ mode: ReaderAdjacentNavigationControlsMode) -> String {
+        switch mode {
+        case .swipesOnly:
+            "Swipes Only"
+        case .swipesAndToolbarControls:
+            "Swipes and Buttons"
         }
     }
 

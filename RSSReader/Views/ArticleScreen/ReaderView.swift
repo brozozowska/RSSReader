@@ -18,6 +18,7 @@ struct ReaderView: View {
     let navigateBackToArticles: () -> Void
     let previewScreenState: ArticleScreenState?
     @State private var controller = ArticleScreenController()
+    @State private var adjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls
     @State private var adjacentArticleTransitionDirection: ReaderAdjacentArticleNavigationDirection?
     @State private var pendingAdjacentArticleOverscrollDirection: ReaderAdjacentArticleNavigationDirection?
     @State private var adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
@@ -129,25 +130,27 @@ struct ReaderView: View {
 
                 ToolbarSpacer(placement: .bottomBar)
 
-                ToolbarItem(placement: .bottomBar) {
-                    Button(action: handleNextArticleTap) {
-                        Image(systemName: "chevron.down")
+                if adjacentNavigationControlsMode == .swipesAndToolbarControls {
+                    ToolbarItem(placement: .bottomBar) {
+                        Button(action: handleNextArticleTap) {
+                            Image(systemName: "chevron.down")
+                        }
+                        .disabled(appState.adjacentArticleID(.next) == nil)
+                        .accessibilityLabel("Next Article")
                     }
-                    .disabled(appState.adjacentArticleID(.next) == nil)
-                    .accessibilityLabel("Next Article")
-                }
 
-                ToolbarSpacer(placement: .bottomBar)
+                    ToolbarSpacer(placement: .bottomBar)
 
-                ToolbarItem(placement: .bottomBar) {
-                    Button(action: handlePreviousArticleTap) {
-                        Image(systemName: "chevron.up")
+                    ToolbarItem(placement: .bottomBar) {
+                        Button(action: handlePreviousArticleTap) {
+                            Image(systemName: "chevron.up")
+                        }
+                        .disabled(appState.adjacentArticleID(.previous) == nil)
+                        .accessibilityLabel("Previous Article")
                     }
-                    .disabled(appState.adjacentArticleID(.previous) == nil)
-                    .accessibilityLabel("Previous Article")
-                }
 
-                ToolbarSpacer(placement: .bottomBar)
+                    ToolbarSpacer(placement: .bottomBar)
+                }
 
                 ToolbarItem(placement: .bottomBar) {
                     Button(action: handleOpenSourceArticleTap) {
@@ -160,6 +163,7 @@ struct ReaderView: View {
         }
         .task(id: ArticleScreenLoadContext(articleID: currentArticleID, reloadID: reloadID)) {
             guard previewScreenState == nil else { return }
+            loadReaderAdjacentNavigationControlsMode()
             await controller.load(
                 articleID: currentArticleID,
                 dependencies: dependencies,
@@ -169,11 +173,29 @@ struct ReaderView: View {
             adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
             await resetAdjacentArticleTransitionDirectionAfterAnimation()
         }
+        .onChange(of: appState.isPresentingSettingsScreen) { _, isPresentingSettingsScreen in
+            guard previewScreenState == nil, isPresentingSettingsScreen == false else { return }
+            loadReaderAdjacentNavigationControlsMode()
+        }
         .simultaneousGesture(backNavigationGesture)
     }
 
     private var resolvedArticleID: UUID? {
         previewScreenState == nil ? appState.selectedArticleID : articleID
+    }
+
+    private func loadReaderAdjacentNavigationControlsMode() {
+        guard let appSettingsService = dependencies.appSettingsService else {
+            adjacentNavigationControlsMode = .swipesAndToolbarControls
+            return
+        }
+
+        do {
+            adjacentNavigationControlsMode = try appSettingsService.fetchSettings().readerAdjacentNavigationControlsMode
+        } catch {
+            dependencies.logger.error("Failed to load reader adjacent navigation controls mode: \(error)")
+            adjacentNavigationControlsMode = .swipesAndToolbarControls
+        }
     }
 
     @ViewBuilder

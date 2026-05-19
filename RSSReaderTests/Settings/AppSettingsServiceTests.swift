@@ -22,6 +22,7 @@ struct AppSettingsServiceTests {
                 sortMode: .publishedAtAscending,
                 articleBodyLinkOpeningPolicy: .externalBrowser,
                 articleSourceLinkOpeningPolicy: .externalBrowser,
+                readerAdjacentNavigationControlsMode: .swipesOnly,
                 interfaceThemeMode: .black,
                 updatedAt: .distantPast
             )
@@ -40,6 +41,7 @@ struct AppSettingsServiceTests {
                 sortMode: .publishedAtAscending,
                 articleBodyLinkOpeningPolicy: .externalBrowser,
                 articleSourceLinkOpeningPolicy: .externalBrowser,
+                readerAdjacentNavigationControlsMode: .swipesOnly,
                 interfaceThemeMode: .black
             )
         )
@@ -60,6 +62,7 @@ struct AppSettingsServiceTests {
             sortMode: .publishedAtDescending,
             articleBodyLinkOpeningPolicy: .externalBrowser,
             articleSourceLinkOpeningPolicy: .externalBrowser,
+            readerAdjacentNavigationControlsMode: .swipesOnly,
             interfaceThemeMode: .black
         )
 
@@ -79,6 +82,7 @@ struct AppSettingsServiceTests {
         #expect(persistedSettings.sortMode == .publishedAtDescending)
         #expect(persistedSettings.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(persistedSettings.articleSourceLinkOpeningPolicy == .externalBrowser)
+        #expect(persistedSettings.readerAdjacentNavigationControlsMode == .swipesOnly)
         #expect(persistedSettings.interfaceThemeMode == .black)
     }
 

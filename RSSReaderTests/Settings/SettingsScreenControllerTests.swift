@@ -36,6 +36,7 @@ struct SettingsScreenControllerTests {
                 sortMode: .publishedAtDescending,
                 articleBodyLinkOpeningPolicy: .externalBrowser,
                 articleSourceLinkOpeningPolicy: .externalBrowser,
+                readerAdjacentNavigationControlsMode: .swipesOnly,
                 interfaceThemeMode: .black
             ),
             updatedAt: .distantPast
@@ -54,6 +55,7 @@ struct SettingsScreenControllerTests {
         #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead == false)
         #expect(controller.screenState.settingsSnapshot.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(controller.screenState.settingsSnapshot.articleSourceLinkOpeningPolicy == .externalBrowser)
+        #expect(controller.screenState.settingsSnapshot.readerAdjacentNavigationControlsMode == .swipesOnly)
         #expect(controller.screenState.settingsSnapshot.interfaceThemeMode == .black)
         #expect(controller.screenState.iCloudSyncStatus == .disabled)
         #expect(appState.interfaceThemeMode == .black)
@@ -396,6 +398,24 @@ struct SettingsScreenControllerTests {
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.articleSourceLinkOpeningPolicy == .externalBrowser)
         #expect(persistedSettings.articleSourceLinkOpeningPolicy == .externalBrowser)
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedReaderAdjacentNavigationControlsModeThroughSettingsService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+        controller.handlePickerOptionSelection(
+            itemID: .readerAdjacentNavigationControlsMode,
+            optionID: ReaderAdjacentNavigationControlsMode.swipesOnly.rawValue,
+            dependencies: harness.dependencies
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.readerAdjacentNavigationControlsMode == .swipesOnly)
+        #expect(persistedSettings.readerAdjacentNavigationControlsMode == .swipesOnly)
     }
 
     @Test

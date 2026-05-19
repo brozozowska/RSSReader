@@ -58,6 +58,11 @@ enum ArticleSourceLinkOpeningPolicy: String, Codable, CaseIterable, Sendable {
     case externalBrowser
 }
 
+enum ReaderAdjacentNavigationControlsMode: String, Codable, CaseIterable, Sendable {
+    case swipesOnly
+    case swipesAndToolbarControls
+}
+
 enum InterfaceThemeMode: String, Codable, CaseIterable, Sendable {
     case automaticLightDark
     case automaticLightBlack

@@ -16,6 +16,7 @@ final class AppSettings {
     var sortMode: ArticleSortMode = ArticleSortMode.publishedAtDescending
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = ArticleBodyLinkOpeningPolicy.inAppBrowser
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = ArticleSourceLinkOpeningPolicy.inAppBrowser
+    var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = ReaderAdjacentNavigationControlsMode.swipesAndToolbarControls
     var interfaceThemeMode: InterfaceThemeMode = InterfaceThemeMode.automaticLightDark
     var createdAt: Date = Date.now
     var updatedAt: Date = Date.now
@@ -32,6 +33,7 @@ final class AppSettings {
         sortMode: ArticleSortMode = .publishedAtDescending,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
+        readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls,
         interfaceThemeMode: InterfaceThemeMode = .automaticLightDark,
         createdAt: Date = .now,
         updatedAt: Date = .now
@@ -47,6 +49,7 @@ final class AppSettings {
         self.sortMode = sortMode
         self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
+        self.readerAdjacentNavigationControlsMode = readerAdjacentNavigationControlsMode
         self.interfaceThemeMode = interfaceThemeMode
         self.createdAt = createdAt
         self.updatedAt = updatedAt

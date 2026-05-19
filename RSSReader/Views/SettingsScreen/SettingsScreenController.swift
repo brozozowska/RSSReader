@@ -73,6 +73,8 @@ final class SettingsScreenController {
             updateArticleSortMode(optionID: optionID, dependencies: dependencies)
         case .articleBodyLinkOpeningPolicy:
             updateArticleBodyLinkOpeningPolicy(optionID: optionID, dependencies: dependencies)
+        case .readerAdjacentNavigationControlsMode:
+            updateReaderAdjacentNavigationControlsMode(optionID: optionID, dependencies: dependencies)
         case .refreshInterval:
             updateRefreshIntervalPreference(optionID: optionID, dependencies: dependencies)
         case .appearance:
@@ -105,6 +107,7 @@ final class SettingsScreenController {
                 .articleSourceLinkOpeningPolicy,
                 .articleSortMode,
                 .articleBodyLinkOpeningPolicy,
+                .readerAdjacentNavigationControlsMode,
                 .refreshInterval,
                 .iCloudSyncStatus,
                 .appearance:
@@ -268,6 +271,30 @@ private extension SettingsScreenController {
             dependencies: dependencies,
             unavailableServiceLog: "App settings service is unavailable for article source link opening policy update",
             failureLogPrefix: "Failed to update article source link opening policy"
+        )
+    }
+
+    func updateReaderAdjacentNavigationControlsMode(
+        optionID: String,
+        dependencies: AppDependencies
+    ) {
+        guard let selectedMode = ReaderAdjacentNavigationControlsMode(rawValue: optionID) else {
+            dependencies.logger.error("Skipped reader adjacent navigation controls mode update because option is invalid: \(optionID)")
+            return
+        }
+
+        guard screenState.settingsSnapshot.readerAdjacentNavigationControlsMode != selectedMode else {
+            return
+        }
+
+        persistSettingsPatch(
+            AppSettingsPatch(
+                readerAdjacentNavigationControlsMode: selectedMode,
+                updatedAt: .now
+            ),
+            dependencies: dependencies,
+            unavailableServiceLog: "App settings service is unavailable for reader adjacent navigation controls mode update",
+            failureLogPrefix: "Failed to update reader adjacent navigation controls mode"
         )
     }
 

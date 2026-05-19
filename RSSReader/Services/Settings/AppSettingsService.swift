@@ -10,6 +10,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var sortMode: ArticleSortMode
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
+    var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode
     var interfaceThemeMode: InterfaceThemeMode
 
     init(
@@ -22,6 +23,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         sortMode: ArticleSortMode = .publishedAtDescending,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
+        readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls,
         interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
     ) {
         self.defaultReaderMode = defaultReaderMode
@@ -33,6 +35,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         self.sortMode = sortMode
         self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
+        self.readerAdjacentNavigationControlsMode = readerAdjacentNavigationControlsMode
         self.interfaceThemeMode = interfaceThemeMode
     }
 
@@ -47,6 +50,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
             sortMode: settings.sortMode,
             articleBodyLinkOpeningPolicy: settings.articleBodyLinkOpeningPolicy,
             articleSourceLinkOpeningPolicy: settings.articleSourceLinkOpeningPolicy,
+            readerAdjacentNavigationControlsMode: settings.readerAdjacentNavigationControlsMode,
             interfaceThemeMode: settings.interfaceThemeMode
         )
     }
@@ -62,6 +66,7 @@ struct AppSettingsPatch: Sendable {
     var sortMode: ArticleSortMode? = nil
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
+    var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode? = nil
     var interfaceThemeMode: InterfaceThemeMode? = nil
     var updatedAt: Date = .now
 }
@@ -108,6 +113,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 sortMode: snapshot.sortMode,
                 articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
                 articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
+                readerAdjacentNavigationControlsMode: snapshot.readerAdjacentNavigationControlsMode,
                 interfaceThemeMode: snapshot.interfaceThemeMode,
                 updatedAt: updatedAt
             )
@@ -128,6 +134,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 sortMode: patch.sortMode,
                 articleBodyLinkOpeningPolicy: patch.articleBodyLinkOpeningPolicy,
                 articleSourceLinkOpeningPolicy: patch.articleSourceLinkOpeningPolicy,
+                readerAdjacentNavigationControlsMode: patch.readerAdjacentNavigationControlsMode,
                 interfaceThemeMode: patch.interfaceThemeMode,
                 updatedAt: patch.updatedAt
             )

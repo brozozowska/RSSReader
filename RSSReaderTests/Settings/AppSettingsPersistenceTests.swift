@@ -51,6 +51,7 @@ struct AppSettingsPersistenceTests {
         #expect(settings.askBeforeMarkingAllAsRead)
         #expect(settings.articleBodyLinkOpeningPolicy == .inAppBrowser)
         #expect(settings.articleSourceLinkOpeningPolicy == .inAppBrowser)
+        #expect(settings.readerAdjacentNavigationControlsMode == .swipesAndToolbarControls)
         #expect(settings.interfaceThemeMode == .automaticLightDark)
     }
 
@@ -120,6 +121,23 @@ struct AppSettingsPersistenceTests {
         let settings = try repository.fetchOrCreate()
 
         #expect(settings.articleSourceLinkOpeningPolicy == .externalBrowser)
+    }
+
+    @Test
+    func appSettingsRepositoryPersistsReaderAdjacentNavigationControlsMode() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                readerAdjacentNavigationControlsMode: .swipesOnly,
+                updatedAt: .distantPast
+            )
+        )
+
+        let settings = try repository.fetchOrCreate()
+
+        #expect(settings.readerAdjacentNavigationControlsMode == .swipesOnly)
     }
 
     @Test

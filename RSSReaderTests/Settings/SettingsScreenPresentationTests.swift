@@ -17,6 +17,7 @@ struct SettingsScreenPresentationTests {
             sortMode: .publishedAtDescending,
             articleBodyLinkOpeningPolicy: .externalBrowser,
             articleSourceLinkOpeningPolicy: .externalBrowser,
+            readerAdjacentNavigationControlsMode: .swipesOnly,
             interfaceThemeMode: .black
         )
         let input = SettingsScreenInputBuilder.build(
@@ -96,7 +97,21 @@ struct SettingsScreenPresentationTests {
             )
         )
         #expect(
-            readingItems[3] == .toggle(
+            readingItems[3] == .picker(
+                SettingsPickerItemPresentation(
+                    id: .readerAdjacentNavigationControlsMode,
+                    title: "Adjacent Navigation",
+                    subtitle: nil,
+                    selectedValueTitle: "Swipes Only",
+                    options: [
+                        SettingsPickerOptionPresentation(id: "swipesOnly", title: "Swipes Only", isSelected: true),
+                        SettingsPickerOptionPresentation(id: "swipesAndToolbarControls", title: "Swipes and Buttons", isSelected: false)
+                    ]
+                )
+            )
+        )
+        #expect(
+            readingItems[4] == .toggle(
                 SettingsToggleItemPresentation(
                     id: .markAsReadOnOpen,
                     title: "Mark Read on Open",
@@ -203,6 +218,7 @@ struct SettingsScreenPresentationTests {
             sortMode: .publishedAtAscending,
             articleBodyLinkOpeningPolicy: .externalBrowser,
             articleSourceLinkOpeningPolicy: .externalBrowser,
+            readerAdjacentNavigationControlsMode: .swipesOnly,
             interfaceThemeMode: .black
         )
 
@@ -215,6 +231,7 @@ struct SettingsScreenPresentationTests {
         #expect(input.markAsReadOnOpen == false)
         #expect(input.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(input.articleSourceLinkOpeningPolicy == .externalBrowser)
+        #expect(input.readerAdjacentNavigationControlsMode == .swipesOnly)
         #expect(input.articleListSortOrder == .oldestFirst)
         #expect(input.askBeforeMarkingAllAsRead == false)
         #expect(input.refreshIntervalPreference == .every6Hours)

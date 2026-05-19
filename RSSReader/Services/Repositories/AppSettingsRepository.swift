@@ -11,6 +11,7 @@ struct AppSettingsUpdate: Sendable {
     var sortMode: ArticleSortMode? = nil
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
+    var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode? = nil
     var interfaceThemeMode: InterfaceThemeMode? = nil
     var updatedAt: Date = .now
 }
@@ -88,6 +89,10 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
 
         if let articleSourceLinkOpeningPolicy = update.articleSourceLinkOpeningPolicy {
             settings.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
+        }
+
+        if let readerAdjacentNavigationControlsMode = update.readerAdjacentNavigationControlsMode {
+            settings.readerAdjacentNavigationControlsMode = readerAdjacentNavigationControlsMode
         }
 
         if let interfaceThemeMode = update.interfaceThemeMode {
