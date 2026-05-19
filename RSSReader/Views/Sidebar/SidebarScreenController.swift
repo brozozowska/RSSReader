@@ -91,7 +91,8 @@ final class SidebarScreenController {
         )
         let folderGroups = FolderSidebarGroup.groups(
             from: screenState.folders,
-            feeds: visibleFeeds
+            feeds: visibleFeeds,
+            filter: filter
         )
 
         return SidebarSelectionBehavior.resolvedSelection(
@@ -112,7 +113,8 @@ final class SidebarScreenController {
         return Set(
             FolderSidebarGroup.groups(
                 from: screenState.folders,
-                feeds: visibleFeeds
+                feeds: visibleFeeds,
+                filter: filter
             ).map(\.name)
         )
     }

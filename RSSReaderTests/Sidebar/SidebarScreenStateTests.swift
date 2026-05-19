@@ -114,4 +114,101 @@ struct SidebarScreenStateTests {
         #expect(folderRow.count == 0)
         #expect(folderRow.isExpanded)
     }
+
+    @Test
+    func sidebarScreenStateHidesEmptyFoldersWhenUnreadFilterIsActive() {
+        let emptyFolderID = UUID()
+        let snapshot = SourcesSidebarSnapshotDTO(
+            folders: [
+                FolderSidebarItem(
+                    id: emptyFolderID,
+                    name: "Empty",
+                    sortOrder: 0
+                )
+            ],
+            feeds: [],
+            unreadSmartCount: 0,
+            starredSmartCount: 0,
+            starredFeedIDs: []
+        )
+        let state = SidebarScreenState.previewLoaded(snapshot: snapshot)
+
+        let viewState = state.derivedViewState(
+            filter: .unread,
+            expandedFolderNames: ["Empty"],
+            iCloudSyncStatus: .disabled
+        )
+
+        #expect(state.phase == .loaded)
+        #expect(viewState.folderRows.isEmpty)
+    }
+
+    @Test
+    func sidebarScreenStateHidesFoldersWithoutVisibleStarredFeedsWhenStarredFilterIsActive() {
+        let emptyFolderID = UUID()
+        let folder = Folder(name: "Tech")
+        let visibleFeedID = UUID()
+        let hiddenFeedID = UUID()
+        let visibleFeed = FeedSidebarItem(
+            feed: Feed(
+                id: visibleFeedID,
+                url: "https://example.com/visible.xml",
+                title: "Visible",
+                folder: folder
+            ),
+            unreadCount: 0,
+            starredCount: 2
+        )
+        let hiddenFeed = FeedSidebarItem(
+            feed: Feed(
+                id: hiddenFeedID,
+                url: "https://example.com/hidden.xml",
+                title: "Hidden",
+                folder: folder
+            ),
+            unreadCount: 1,
+            starredCount: 0
+        )
+        let snapshot = SourcesSidebarSnapshotDTO(
+            folders: [
+                FolderSidebarItem(
+                    id: emptyFolderID,
+                    name: "Empty",
+                    sortOrder: 0
+                ),
+                FolderSidebarItem(
+                    id: folder.id,
+                    name: folder.name,
+                    sortOrder: 1
+                )
+            ],
+            feeds: [visibleFeed, hiddenFeed],
+            unreadSmartCount: 1,
+            starredSmartCount: 2,
+            starredFeedIDs: [visibleFeedID]
+        )
+        let state = SidebarScreenState.previewLoaded(snapshot: snapshot)
+
+        let viewState = state.derivedViewState(
+            filter: .starred,
+            expandedFolderNames: ["Tech"],
+            iCloudSyncStatus: .disabled
+        )
+
+        #expect(viewState.folderRows.count == 2)
+
+        guard case .folder(let folderRow)? = viewState.folderRows.first else {
+            Issue.record("Expected visible folder row")
+            return
+        }
+        guard case .feed(let feedRow)? = viewState.folderRows.last else {
+            Issue.record("Expected nested visible feed row")
+            return
+        }
+
+        #expect(folderRow.name == "Tech")
+        #expect(folderRow.count == 2)
+        #expect(feedRow.id == visibleFeedID)
+        #expect(feedRow.title == "Visible")
+    }
 }

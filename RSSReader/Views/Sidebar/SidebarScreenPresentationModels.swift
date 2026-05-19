@@ -229,7 +229,8 @@ struct FolderSidebarGroup: Identifiable {
 
     static func groups(
         from folders: [FolderSidebarItem],
-        feeds: [FeedSidebarItem]
+        feeds: [FeedSidebarItem],
+        filter: SourcesFilter = .allItems
     ) -> [FolderSidebarGroup] {
         let groupedFeeds = Dictionary(
             grouping: feeds.filter { $0.folderName != nil },
@@ -237,15 +238,20 @@ struct FolderSidebarGroup: Identifiable {
         )
 
         var representedFolderNames = Set<String>()
-        var groups = folders.map { folder in
+        var groups = folders.compactMap { folder -> FolderSidebarGroup? in
+            let folderFeeds = groupedFeeds[folder.name, default: []].sorted {
+                $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+            }
+            guard filter == .allItems || folderFeeds.isEmpty == false else {
+                return nil
+            }
+
             representedFolderNames.insert(folder.name)
             return FolderSidebarGroup(
                 folderID: folder.id,
                 name: folder.name,
                 sortOrder: folder.sortOrder,
-                feeds: groupedFeeds[folder.name, default: []].sorted {
-                    $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
-                }
+                feeds: folderFeeds
             )
         }
 

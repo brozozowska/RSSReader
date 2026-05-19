@@ -68,7 +68,8 @@ struct SidebarScreenState {
         )
         let folderGroups = FolderSidebarGroup.groups(
             from: folders,
-            feeds: visibleFeeds
+            feeds: visibleFeeds,
+            filter: filter
         )
         let smartCount = SidebarCountPresentation.smartCount(
             for: filter,
