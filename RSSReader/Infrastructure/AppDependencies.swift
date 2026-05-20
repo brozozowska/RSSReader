@@ -56,6 +56,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let articleRepository: (any ArticleRepository)?
     let articleStateService: ArticleStateService?
     let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)?
+    let persistenceBoundedGrowthCleanupService: (any PersistenceBoundedGrowthCleanupServicing)?
     let articleQueryService: (any ArticleQueryService)?
     let sourcesSidebarQueryService: (any SourcesSidebarQueryService)?
     let articleStateRepository: (any ArticleStateRepository)?
@@ -162,6 +163,18 @@ public final class AppDependencies: AppDependenciesProtocol {
         let feedFetchLogRepository = modelContainer.map { container in
             SwiftDataFeedFetchLogRepository(modelContext: container.mainContext)
         }
+        let persistenceBoundedGrowthCleanupService: (any PersistenceBoundedGrowthCleanupServicing)? = {
+            guard let articleRepository, let articleStateRepository, let feedFetchLogRepository else {
+                return nil
+            }
+
+            return PersistenceBoundedGrowthCleanupService(
+                logger: logger,
+                articleRepository: articleRepository,
+                articleStateRepository: articleStateRepository,
+                feedFetchLogRepository: feedFetchLogRepository
+            )
+        }()
         let resolvedFeedFetcher = feedFetcher ?? Self.makeFeedFetcher(
             httpClient: httpClient
         )
@@ -234,6 +247,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.articleRepository = articleRepository
         self.articleStateService = articleStateService
         self.articleRetentionCleanupService = articleRetentionCleanupService
+        self.persistenceBoundedGrowthCleanupService = persistenceBoundedGrowthCleanupService
         self.articleStateRepository = articleStateRepository
         self.articleQueryService = articleQueryService
         self.sourcesSidebarQueryService = sourcesSidebarQueryService
@@ -1221,7 +1235,11 @@ extension AppDependencies {
             return .failedToStart(.feedRefreshServiceUnavailable)
         }
 
-        return await backgroundRefreshService.performScheduledRefresh()
+        let result = await backgroundRefreshService.performScheduledRefresh()
+        if case .executed = result {
+            cleanupPersistenceBoundedGrowth()
+        }
+        return result
     }
 
     @MainActor
@@ -1236,7 +1254,9 @@ extension AppDependencies {
         }
 
         do {
-            return try articleRetentionCleanupService.cleanupArchivedArticles(policy: policy, now: now)
+            let result = try articleRetentionCleanupService.cleanupArchivedArticles(policy: policy, now: now)
+            cleanupPersistenceBoundedGrowth(now: now)
+            return result
         } catch {
             logger.error("Failed to clean up archived articles: \(error)")
             return nil
@@ -1269,9 +1289,27 @@ extension AppDependencies {
         }
 
         do {
-            return try articleRetentionCleanupService.purgeArchivedArticles()
+            let result = try articleRetentionCleanupService.purgeArchivedArticles()
+            cleanupPersistenceBoundedGrowth()
+            return result
         } catch {
             logger.error("Failed to purge archived articles: \(error)")
+            return nil
+        }
+    }
+
+    @MainActor
+    @discardableResult
+    func cleanupPersistenceBoundedGrowth(now: Date = .now) -> PersistenceBoundedGrowthCleanupResult? {
+        guard let persistenceBoundedGrowthCleanupService else {
+            logger.debug("Persistence bounded growth cleanup service is unavailable")
+            return nil
+        }
+
+        do {
+            return try persistenceBoundedGrowthCleanupService.cleanupBoundedGrowth(now: now)
+        } catch {
+            logger.error("Failed to clean up bounded persistence growth: \(error)")
             return nil
         }
     }

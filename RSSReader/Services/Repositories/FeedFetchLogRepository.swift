@@ -18,6 +18,7 @@ protocol FeedFetchLogRepository {
     @discardableResult
     func insert(_ logs: [FeedFetchLog]) throws -> [FeedFetchLog]
 
+    func deleteLogs(olderThan cutoffDate: Date, saveAfterOperation: Bool) throws -> Int
     func save() throws
 }
 
@@ -82,6 +83,25 @@ final class SwiftDataFeedFetchLogRepository: FeedFetchLogRepository, SwiftDataRe
         }
         try saveIfNeeded()
         return logs
+    }
+
+    func deleteLogs(olderThan cutoffDate: Date, saveAfterOperation: Bool = true) throws -> Int {
+        let descriptor = FetchDescriptor<FeedFetchLog>(
+            predicate: #Predicate<FeedFetchLog> { log in
+                log.createdAt < cutoffDate
+            }
+        )
+        let logs = try modelContext.fetch(descriptor)
+
+        for log in logs {
+            modelContext.delete(log)
+        }
+
+        if saveAfterOperation {
+            try saveIfNeeded()
+        }
+
+        return logs.count
     }
 
     func save() throws {

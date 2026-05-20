@@ -10,6 +10,7 @@ protocol ArticleRepository {
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article]
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
     func fetchArchivedArticles() throws -> [Article]
+    func fetchArticleStateIdentities() throws -> Set<ArticleStateIdentity>
     func reconcileArticles(
         feedID: UUID,
         keepingExternalIDs: Set<String>,
@@ -159,6 +160,19 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             }
         )
         return try modelContext.fetch(descriptor)
+    }
+
+    func fetchArticleStateIdentities() throws -> Set<ArticleStateIdentity> {
+        let descriptor = FetchDescriptor<Article>()
+        let articles = try modelContext.fetch(descriptor)
+        return Set(
+            articles.map { article in
+                ArticleStateIdentity(
+                    feedID: article.feedID,
+                    articleExternalID: article.externalID
+                )
+            }
+        )
     }
 
     @discardableResult
