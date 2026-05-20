@@ -2,6 +2,7 @@ import Foundation
 
 enum CrossDeviceSyncReplicatedValue: String, CaseIterable, Hashable, Sendable {
     case sourceStructure
+    case articlePayload
     case articleState
 }
 
@@ -18,6 +19,7 @@ struct CrossDeviceReadingScenario: Equatable, Sendable {
     static let current = CrossDeviceReadingScenario(
         replicatedValues: [
             .sourceStructure,
+            .articlePayload,
             .articleState
         ],
         articleMaterializationTriggers: [
@@ -35,7 +37,15 @@ struct CrossDeviceReadingScenario: Equatable, Sendable {
         replicatedValues.contains(.articleState)
     }
 
+    var syncsArticlePayload: Bool {
+        replicatedValues.contains(.articlePayload)
+    }
+
     var usesLocalArticleCache: Bool {
+        false
+    }
+
+    var keepsArticleImagesLocalOnly: Bool {
         true
     }
 
@@ -44,6 +54,6 @@ struct CrossDeviceReadingScenario: Equatable, Sendable {
     }
 
     var settingsSectionFooter: String {
-        "Feeds, folders, and reading state sync across devices. Articles stay on each device and appear after manual or background refresh."
+        "Feeds, folders, articles, and reading state sync across devices. Article images stay cached on each device."
     }
 }

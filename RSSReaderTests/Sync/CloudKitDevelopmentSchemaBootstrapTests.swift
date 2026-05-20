@@ -38,6 +38,7 @@ struct CloudKitDevelopmentSchemaBootstrapTests {
                     == [
                         String(reflecting: AppSettings.self),
                         String(reflecting: ArticleState.self),
+                        String(reflecting: Article.self),
                         String(reflecting: Feed.self),
                         String(reflecting: Folder.self)
                     ]

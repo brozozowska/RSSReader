@@ -20,6 +20,10 @@ struct AppPersistenceModelPartition {
                 persistentModelType: ArticleState.self
             ),
             AppPersistenceModelDescriptor(
+                scopeModel: .article,
+                persistentModelType: Article.self
+            ),
+            AppPersistenceModelDescriptor(
                 scopeModel: .feed,
                 persistentModelType: Feed.self
             ),
@@ -29,10 +33,6 @@ struct AppPersistenceModelPartition {
             )
         ],
         localOnlyEntries: [
-            AppPersistenceModelDescriptor(
-                scopeModel: .article,
-                persistentModelType: Article.self
-            ),
             AppPersistenceModelDescriptor(
                 scopeModel: .feedFetchLog,
                 persistentModelType: FeedFetchLog.self

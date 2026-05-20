@@ -18,10 +18,10 @@ struct CloudKitSyncScope: Equatable, Sendable {
             .feed,
             .folder,
             .articleState,
+            .article,
             .appSettings
         ],
         localOnlyModels: [
-            .article,
             .feedFetchLog
         ]
     )
@@ -40,6 +40,10 @@ struct CloudKitSyncScope: Equatable, Sendable {
 
     var syncsReadingState: Bool {
         syncs(.articleState)
+    }
+
+    var syncsArticlePayload: Bool {
+        syncs(.article)
     }
 
     var syncsAppSettings: Bool {

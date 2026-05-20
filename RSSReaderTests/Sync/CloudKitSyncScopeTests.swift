@@ -9,18 +9,19 @@ struct CloudKitSyncScopeTests {
     func cloudKitSyncScopeDeclaresSyncBackedAndLocalOnlyModels() {
         let scope = CloudKitSyncScope.current
 
-        #expect(scope.syncBackedModels == [.feed, .folder, .articleState, .appSettings])
-        #expect(scope.localOnlyModels == [.article, .feedFetchLog])
+        #expect(scope.syncBackedModels == [.feed, .folder, .articleState, .article, .appSettings])
+        #expect(scope.localOnlyModels == [.feedFetchLog])
         #expect(scope.syncs(.feed))
         #expect(scope.syncs(.folder))
         #expect(scope.syncs(.articleState))
+        #expect(scope.syncs(.article))
         #expect(scope.syncs(.appSettings))
-        #expect(scope.storesLocallyOnly(.article))
         #expect(scope.storesLocallyOnly(.feedFetchLog))
         #expect(scope.syncsSourceStructure)
         #expect(scope.syncsReadingState)
+        #expect(scope.syncsArticlePayload)
         #expect(scope.syncsAppSettings)
-        #expect(scope.keepsArticlesLocalOnly)
+        #expect(scope.keepsArticlesLocalOnly == false)
         #expect(scope.keepsFeedFetchLogsLocalOnly)
     }
 

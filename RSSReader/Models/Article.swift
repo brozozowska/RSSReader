@@ -3,19 +3,18 @@ import SwiftData
 
 @Model
 final class Article {
-    #Unique<Article>([\.feedID, \.externalID])
     #Index<Article>([\.publishedAt])
 
-    @Attribute(.unique) var id: UUID
-    var feedID: UUID
-    var feedTitle: String
+    var id: UUID = UUID()
+    var feedID: UUID = UUID()
+    var feedTitle: String = ""
     var feedSiteURL: String?
     var feedFolderName: String?
-    var externalID: String
+    var externalID: String = ""
     var guid: String?
-    var url: String
+    var url: String = ""
     var canonicalURL: String?
-    var title: String
+    var title: String = ""
     var summary: String?
     var contentHTML: String?
     var contentText: String?
@@ -23,11 +22,11 @@ final class Article {
     var publishedAt: Date?
     var updatedAtSource: Date?
     var imageURL: String?
-    var isDeletedAtSource: Bool
+    var isDeletedAtSource: Bool = false
     var archivedAt: Date?
-    var fetchedAt: Date
-    var createdAt: Date
-    var updatedAt: Date
+    var fetchedAt: Date = Date.now
+    var createdAt: Date = Date.now
+    var updatedAt: Date = Date.now
 
     init(
         id: UUID = UUID(),

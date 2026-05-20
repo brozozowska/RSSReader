@@ -10,14 +10,16 @@ struct CrossDeviceReadingScenarioTests {
         let scenario = CrossDeviceReadingScenario.current
 
         #expect(scenario.syncsSourceStructure)
+        #expect(scenario.syncsArticlePayload)
         #expect(scenario.syncsArticleState)
-        #expect(scenario.usesLocalArticleCache)
+        #expect(scenario.usesLocalArticleCache == false)
+        #expect(scenario.keepsArticleImagesLocalOnly)
         #expect(scenario.requiresAppAuthorization == false)
         #expect(scenario.materializesArticles(after: .manualRefresh))
         #expect(scenario.materializesArticles(after: .backgroundRefresh))
         #expect(
             scenario.settingsSectionFooter
-                == "Feeds, folders, and reading state sync across devices. Articles stay on each device and appear after manual or background refresh."
+                == "Feeds, folders, articles, and reading state sync across devices. Article images stay cached on each device."
         )
     }
 

@@ -75,8 +75,38 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                             "ArticleState.articleExternalID",
                             "SwiftDataArticleStateRepository.fetchStateSnapshots(for:)"
                         ],
-                        summary: "ArticleState intentionally references articles through scalar identifiers, which preserves the boundary between sync-backed state and the local article cache.",
-                        recommendedFollowUp: "Do not introduce direct SwiftData relationships from ArticleState to Article when enabling CloudKit."
+                        summary: "ArticleState intentionally references articles through scalar identifiers instead of a direct SwiftData relationship, which keeps CloudKit relationship ordering out of reading-state conflict handling.",
+                        recommendedFollowUp: "Keep ArticleState identity and conflict resolution scalar even though Article now lives in the sync-backed store."
+                    )
+                ]
+            ),
+            CloudKitModelCompatibilityReport(
+                model: .article,
+                findings: [
+                    CloudKitCompatibilityFinding(
+                        severity: .warning,
+                        rule: .repositoryManagedIdentityInvariant,
+                        affectedPaths: [
+                            "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
+                            "SwiftDataArticleRepository.upsert(_:into:saveAfterOperation:)",
+                            "DeduplicationService"
+                        ],
+                        summary: "Article now syncs through CloudKit without schema-level unique constraints, so feedID and externalID identity remains repository-managed.",
+                        recommendedFollowUp: "Keep article deduplication in DeduplicationService and ArticleRepository because CloudKit does not enforce SwiftData unique constraints."
+                    ),
+                    CloudKitCompatibilityFinding(
+                        severity: .warning,
+                        rule: .repositoryManagedIdentityInvariant,
+                        affectedPaths: [
+                            "Article.feedID",
+                            "Article.feedTitle",
+                            "Article.feedSiteURL",
+                            "Article.feedFolderName",
+                            "SwiftDataArticleRepository.refreshFeedProjection(for:saveAfterOperation:)",
+                            "FeedDeletionService.delete(_:in:)"
+                        ],
+                        summary: "Article carries a scalar feed projection that must stay in sync with Feed updates and explicit cleanup paths in repository/service logic.",
+                        recommendedFollowUp: "Preserve explicit feed-projection refresh and feedID-based cleanup while Article is synchronized as payload data."
                     )
                 ]
             ),
@@ -113,7 +143,7 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                 ]
             )
         ],
-        sourceSummary: "Audit based on Apple SwiftData CloudKit documentation: the current sync-backed model set contains AppSettings, ArticleState, Feed, and Folder, while schema-level uniqueness and direct Article relationships remain outside the CloudKit-backed store."
+        sourceSummary: "Audit based on Apple SwiftData CloudKit documentation: the current sync-backed model set contains AppSettings, Article, ArticleState, Feed, and Folder; Article avoids schema-level uniqueness and direct relationships so CloudKit can synchronize article payload data."
     )
 
     static let articleStateArticleFeedFetchLog = CloudKitCompatibilityAudit(
@@ -141,8 +171,8 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                             "ArticleState.articleExternalID",
                             "SwiftDataArticleStateRepository.fetchStateSnapshots(for:)"
                         ],
-                        summary: "ArticleState intentionally references articles through scalar identifiers, which preserves the boundary between sync-backed state and the local article cache.",
-                        recommendedFollowUp: "Do not introduce direct SwiftData relationships from ArticleState to Article when enabling CloudKit."
+                        summary: "ArticleState intentionally references articles through scalar identifiers instead of a direct SwiftData relationship, which keeps CloudKit relationship ordering out of reading-state conflict handling.",
+                        recommendedFollowUp: "Keep ArticleState identity and conflict resolution scalar even though Article now lives in the sync-backed store."
                     )
                 ]
             ),
@@ -151,24 +181,14 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                 findings: [
                     CloudKitCompatibilityFinding(
                         severity: .warning,
-                        rule: .unsupportedUniqueConstraint,
+                        rule: .repositoryManagedIdentityInvariant,
                         affectedPaths: [
-                            "Article.id",
-                            "Article.#Unique(feedID, externalID)"
+                            "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
+                            "SwiftDataArticleRepository.upsert(_:into:saveAfterOperation:)",
+                            "DeduplicationService"
                         ],
-                        summary: "Article still uses local-only uniqueness over feedID and externalID, which is acceptable only while the article cache remains outside the CloudKit-backed store.",
-                        recommendedFollowUp: "Keep article deduplication in ArticleRepository and DeduplicationService unless Article ever becomes part of a sync-backed schema."
-                    ),
-                    CloudKitCompatibilityFinding(
-                        severity: .blocker,
-                        rule: .localOnlyStoreBoundary,
-                        affectedPaths: [
-                            "Article",
-                            "SwiftDataArticleRepository",
-                            "FeedRefreshService"
-                        ],
-                        summary: "Article is the local materialized cache produced by refresh flows and should not be synchronized through CloudKit.",
-                        recommendedFollowUp: "Keep Article in the local-only store and materialize it from manual/background refresh on each device."
+                        summary: "Article now syncs through CloudKit without schema-level unique constraints, so feedID and externalID identity remains repository-managed.",
+                        recommendedFollowUp: "Keep article deduplication in DeduplicationService and ArticleRepository because CloudKit does not enforce SwiftData unique constraints."
                     ),
                     CloudKitCompatibilityFinding(
                         severity: .warning,
@@ -181,8 +201,8 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                             "SwiftDataArticleRepository.refreshFeedProjection(for:saveAfterOperation:)",
                             "FeedDeletionService.delete(_:in:)"
                         ],
-                        summary: "Article now carries a scalar feed projection that must stay in sync with Feed updates and explicit cleanup paths in repository/service logic.",
-                        recommendedFollowUp: "Preserve explicit feed-projection refresh and feedID-based cleanup while Article remains a local-only cache model."
+                        summary: "Article carries a scalar feed projection that must stay in sync with Feed updates and explicit cleanup paths in repository/service logic.",
+                        recommendedFollowUp: "Preserve explicit feed-projection refresh and feedID-based cleanup while Article is synchronized as payload data."
                     )
                 ]
             ),
@@ -222,7 +242,7 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                 ]
             )
         ],
-        sourceSummary: "Audit based on Apple SwiftData CloudKit documentation: ArticleState uniqueness has been migrated into repository logic, while Article and FeedFetchLog remain local-only/cache-oriented models outside the CloudKit-backed store."
+        sourceSummary: "Audit based on Apple SwiftData CloudKit documentation: Article and ArticleState identity are repository-managed in the sync-backed store, while FeedFetchLog remains local-only operational telemetry."
     )
 
     func report(for model: CloudKitSyncScopeModel) -> CloudKitModelCompatibilityReport? {

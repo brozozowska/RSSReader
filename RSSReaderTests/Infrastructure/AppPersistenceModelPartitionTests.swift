@@ -15,16 +15,16 @@ struct AppPersistenceModelPartitionTests {
     }
 
     @Test
-    func persistenceModelPartitionKeepsArticleAndFeedFetchLogLocalOnly() {
+    func persistenceModelPartitionSyncsArticleAndKeepsFeedFetchLogLocalOnly() {
         let partition = AppPersistenceModelPartition.current
 
         #expect(
             modelTypeNames(partition.localOnlyModels)
-                == modelTypeNames([Article.self, FeedFetchLog.self])
+                == modelTypeNames([FeedFetchLog.self])
         )
         #expect(
             modelTypeNames(partition.syncBackedModels)
-                == modelTypeNames([AppSettings.self, ArticleState.self, Feed.self, Folder.self])
+                == modelTypeNames([AppSettings.self, ArticleState.self, Article.self, Feed.self, Folder.self])
         )
     }
 
@@ -46,11 +46,11 @@ struct AppPersistenceModelPartitionTests {
 
         #expect(
             modelTypeNames(plan.syncBackedStore.modelTypes)
-                == modelTypeNames([AppSettings.self, ArticleState.self, Feed.self, Folder.self])
+                == modelTypeNames([AppSettings.self, ArticleState.self, Article.self, Feed.self, Folder.self])
         )
         #expect(
             modelTypeNames(plan.localOnlyStore.modelTypes)
-                == modelTypeNames([Article.self, FeedFetchLog.self])
+                == modelTypeNames([FeedFetchLog.self])
         )
         #expect(plan.syncBackedStore.cloudKitPolicy == .disabled)
         #expect(plan.localOnlyStore.cloudKitPolicy == .disabled)
