@@ -198,7 +198,8 @@ struct TestHarness {
         guid: String? = nil,
         url: String,
         title: String,
-        isDeletedAtSource: Bool = false
+        isDeletedAtSource: Bool = false,
+        archivedAt: Date? = nil
     ) throws -> Article {
         let article = Article(
             feedID: feed.id,
@@ -209,7 +210,8 @@ struct TestHarness {
             guid: guid,
             url: url,
             title: title,
-            isDeletedAtSource: isDeletedAtSource
+            isDeletedAtSource: isDeletedAtSource,
+            archivedAt: archivedAt
         )
         modelContainer.mainContext.insert(article)
         try modelContainer.mainContext.save()

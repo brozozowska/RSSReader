@@ -14,12 +14,14 @@ struct ArticleUpsertPayload: Sendable {
     let updatedAtSource: Date?
     let imageURL: String?
     let isDeletedAtSource: Bool
+    let archivedAt: Date?
     let fetchedAt: Date
 
     init?(
         entry: ParsedFeedEntryDTO,
         fetchedAt: Date = .now,
-        isDeletedAtSource: Bool = false
+        isDeletedAtSource: Bool = false,
+        archivedAt: Date? = nil
     ) {
         guard
             let externalID = entry.externalID,
@@ -42,6 +44,7 @@ struct ArticleUpsertPayload: Sendable {
         self.updatedAtSource = FeedNormalizationService.parseUpdatedAt(for: entry)
         self.imageURL = entry.imageURL
         self.isDeletedAtSource = isDeletedAtSource
+        self.archivedAt = archivedAt
         self.fetchedAt = fetchedAt
     }
 }

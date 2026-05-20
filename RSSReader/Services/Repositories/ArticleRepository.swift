@@ -210,10 +210,11 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
 
         for article in articles {
             let shouldKeep = normalizedExternalIDs.contains(article.externalID)
-            let newDeletedAtSource = shouldKeep == false
+            let newArchivedAt = shouldKeep ? nil : (article.archivedAt ?? fetchedAt)
 
-            if article.isDeletedAtSource != newDeletedAtSource {
-                article.isDeletedAtSource = newDeletedAtSource
+            if article.archivedAt != newArchivedAt || article.isDeletedAtSource {
+                article.isDeletedAtSource = false
+                article.archivedAt = newArchivedAt
                 article.fetchedAt = fetchedAt
                 article.updatedAt = .now
                 reconciledCount += 1
@@ -239,6 +240,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         article.updatedAtSource = payload.updatedAtSource
         article.imageURL = payload.imageURL
         article.isDeletedAtSource = payload.isDeletedAtSource
+        article.archivedAt = payload.archivedAt
         article.fetchedAt = payload.fetchedAt
         article.updatedAt = .now
     }
@@ -274,6 +276,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             updatedAtSource: payload.updatedAtSource,
             imageURL: payload.imageURL,
             isDeletedAtSource: payload.isDeletedAtSource,
+            archivedAt: payload.archivedAt,
             fetchedAt: payload.fetchedAt
         )
 
