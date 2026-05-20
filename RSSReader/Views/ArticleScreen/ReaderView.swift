@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ArticleScreenActionHandlers {
     let toggleReadStatus: () -> Void
@@ -487,38 +488,130 @@ struct ReaderView: View {
                     return .handled
                 })
         case .image(let url):
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .empty:
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(.quaternary.opacity(0.4))
-                        ProgressView()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 220)
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                case .failure:
-                    ContentUnavailableView(
-                        "Image Unavailable",
-                        systemImage: "photo",
-                        description: Text("The article image could not be loaded.")
-                    )
-                @unknown default:
-                    EmptyView()
-                }
-            }
+            CachedArticleImageView(url: url)
+                .id(url)
         case .fallbackNotice(let message):
             Text(message)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)
         }
+    }
+}
+
+struct CachedArticleImageView: View {
+    let url: URL
+    @State private var phase: CachedArticleImagePhase
+
+    @MainActor
+    init(url: URL) {
+        self.init(url: url, cache: ArticleImageMemoryCache.shared)
+    }
+
+    @MainActor
+    init(url: URL, cache: ArticleImageMemoryCache) {
+        self.url = url
+
+        if let cachedImage = cache.image(for: url) {
+            self._phase = State(initialValue: .success(cachedImage))
+        } else {
+            self._phase = State(initialValue: .empty)
+        }
+    }
+
+    var body: some View {
+        content
+            .task(id: url) {
+                await loadImage()
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch phase {
+        case .empty, .loading:
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.quaternary.opacity(0.4))
+                ProgressView()
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 220)
+        case .success(let image):
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        case .failure:
+            ContentUnavailableView(
+                "Image Unavailable",
+                systemImage: "photo",
+                description: Text("The article image could not be loaded.")
+            )
+        }
+    }
+
+    @MainActor
+    private func loadImage() async {
+        let cache = ArticleImageMemoryCache.shared
+
+        if let cachedImage = cache.image(for: url) {
+            phase = .success(cachedImage)
+            return
+        }
+
+        phase = .loading
+
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            try Task.checkCancellation()
+
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode),
+                  let image = UIImage(data: data) else {
+                phase = .failure
+                return
+            }
+
+            cache.insert(image, for: url, cost: data.count)
+            phase = .success(image)
+        } catch is CancellationError {
+            return
+        } catch {
+            phase = .failure
+        }
+    }
+}
+
+enum CachedArticleImagePhase {
+    case empty
+    case loading
+    case success(UIImage)
+    case failure
+}
+
+@MainActor
+final class ArticleImageMemoryCache {
+    static let shared = ArticleImageMemoryCache()
+
+    private let storage = NSCache<NSURL, UIImage>()
+
+    init(countLimit: Int = 256, totalCostLimit: Int = 80 * 1024 * 1024) {
+        storage.countLimit = countLimit
+        storage.totalCostLimit = totalCostLimit
+    }
+
+    func image(for url: URL) -> UIImage? {
+        storage.object(forKey: url as NSURL)
+    }
+
+    func insert(_ image: UIImage, for url: URL, cost: Int = 0) {
+        storage.setObject(image, forKey: url as NSURL, cost: cost)
+    }
+
+    func removeAllImages() {
+        storage.removeAllObjects()
     }
 }
 

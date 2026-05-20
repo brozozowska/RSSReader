@@ -559,12 +559,13 @@ struct AppDependenciesTests {
     @Test
     func appDependenciesStartRemoteSyncReloadAppLifetimeRequiresFreshRemoteChangeAfterImportFailure() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let logger = RecordingLogger()
         let syncCoordinator = SyncCoordinator(isSyncEnabled: true)
         syncCoordinator.applyAccountAvailability(.available)
         let cloudKitRuntimeEventSource = TestCloudKitRuntimeEventSource()
         let remoteChangeSource = TestPersistentStoreRemoteChangeSource()
         let dependencies = AppDependencies(
-            logger: TestLogger(),
+            logger: logger,
             httpClient: harness.httpClient,
             modelContainer: harness.modelContainer,
             syncBackedStoreReference: testSyncBackedStoreReference(),
@@ -585,6 +586,12 @@ struct AppDependenciesTests {
                 storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
             )
         )
+        try await expectEventually {
+            logger.contains(
+                "Observed persistent store remote change; marked store change pending",
+                level: .info
+            )
+        }
         await cloudKitRuntimeEventSource.yield(
             .failed(
                 .import,
@@ -597,6 +604,12 @@ struct AppDependenciesTests {
                 "Import failed."
             )
         )
+        try await expectEventually {
+            logger.contains(
+                "Observed CloudKit import failure; cleared pending remote reload correlation",
+                level: .error
+            )
+        }
         await cloudKitRuntimeEventSource.yield(
             .finished(
                 .import,

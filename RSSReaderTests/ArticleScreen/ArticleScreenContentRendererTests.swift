@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import UIKit
 @testable import RSSReader
 
 @Suite("Article Screen / Content Rendering")
@@ -212,5 +213,38 @@ struct ArticleScreenContentRendererTests {
         #expect(extractedContent.source == .fullTextExtracted)
         #expect(extractedContent.readerMode == .fullText)
         #expect(extractedContent.blocks == [.paragraph(.plainText("Extracted full text paragraph."))])
+    }
+
+    @Test
+    func articleImageMemoryCacheStoresDecodedImagesByURL() throws {
+        let cache = ArticleImageMemoryCache(countLimit: 2, totalCostLimit: 1_024)
+        let imageURL = URL(string: "https://example.com/article-image.png")!
+        let otherURL = URL(string: "https://example.com/other-image.png")!
+        let image = makeTestImage()
+
+        cache.insert(image, for: imageURL, cost: 16)
+        let cachedImage = try #require(cache.image(for: imageURL))
+
+        #expect(cachedImage === image)
+        #expect(cache.image(for: otherURL) == nil)
+    }
+
+    @Test
+    func articleImageMemoryCacheCanBeCleared() {
+        let cache = ArticleImageMemoryCache(countLimit: 2, totalCostLimit: 1_024)
+        let imageURL = URL(string: "https://example.com/article-image.png")!
+
+        cache.insert(makeTestImage(), for: imageURL, cost: 16)
+        cache.removeAllImages()
+
+        #expect(cache.image(for: imageURL) == nil)
+    }
+
+    private func makeTestImage() -> UIImage {
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 1, height: 1))
+        return renderer.image { context in
+            UIColor.red.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 1, height: 1))
+        }
     }
 }
