@@ -10,6 +10,7 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
     let author: String?
     let publishedAt: Date?
     let fetchedAt: Date
+    let archivedAt: Date?
     let isRead: Bool
     let isStarred: Bool
     let isHidden: Bool
@@ -24,6 +25,7 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
         author: String?,
         publishedAt: Date?,
         fetchedAt: Date,
+        archivedAt: Date? = nil,
         isRead: Bool,
         isStarred: Bool,
         isHidden: Bool
@@ -37,6 +39,7 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
         self.author = author
         self.publishedAt = publishedAt
         self.fetchedAt = fetchedAt
+        self.archivedAt = archivedAt
         self.isRead = isRead
         self.isStarred = isStarred
         self.isHidden = isHidden
@@ -52,6 +55,7 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
         self.author = article.author
         self.publishedAt = article.publishedAt
         self.fetchedAt = article.fetchedAt
+        self.archivedAt = article.archivedAt
         self.isRead = state?.isRead ?? false
         self.isStarred = state?.isStarred ?? false
         self.isHidden = state?.isHidden ?? false
@@ -67,6 +71,7 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
         self.author = article.author
         self.publishedAt = article.publishedAt
         self.fetchedAt = article.fetchedAt
+        self.archivedAt = article.archivedAt
         self.isRead = state?.isRead ?? false
         self.isStarred = state?.isStarred ?? false
         self.isHidden = state?.isHidden ?? false

@@ -25,6 +25,27 @@ struct ArticleScreenControllerTests {
     }
 
     @Test
+    func articleScreenControllerLoadsArchivedReaderArticleWithArchiveMetadata() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-archive.xml"]).first)
+        let archivedAt = try #require(Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1)))
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-archive",
+            url: "https://example.com/articles/article-screen-archive",
+            title: "Article Screen Archive",
+            archivedAt: archivedAt
+        )
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: article.id, dependencies: harness.dependencies)
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.article?.title == "Article Screen Archive")
+        #expect(controller.screenState.article?.archivedAt == archivedAt)
+    }
+
+    @Test
     func articleScreenControllerMarksArticleAsReadOnOpenWhenSettingIsEnabled() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)

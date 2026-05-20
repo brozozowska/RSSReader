@@ -130,11 +130,7 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
         let normalizedFeedIDs = Set(feedIDs)
         guard normalizedFeedIDs.isEmpty == false else { return [:] }
 
-        let articleDescriptor = FetchDescriptor<Article>(
-            predicate: #Predicate<Article> { article in
-                article.isDeletedAtSource == false
-            }
-        )
+        let articleDescriptor = FetchDescriptor<Article>()
         let articles = try modelContext.fetch(articleDescriptor)
 
         let relevantArticles = articles.filter { normalizedFeedIDs.contains($0.feedID) }

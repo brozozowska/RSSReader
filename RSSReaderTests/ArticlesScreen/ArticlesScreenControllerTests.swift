@@ -30,6 +30,39 @@ struct ArticlesScreenControllerTests {
     }
 
     @Test
+    func articlesScreenControllerLoadsArchivedAndLegacyDeletedArticlesForCurrentSelection() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-archive.xml"]).first)
+        let archivedAt = try #require(Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1)))
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "controller-archived-article",
+            url: "https://example.com/articles/controller-archived",
+            title: "Controller Archived",
+            archivedAt: archivedAt
+        )
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "controller-legacy-deleted-article",
+            url: "https://example.com/articles/controller-legacy-deleted",
+            title: "Controller Legacy Deleted",
+            isDeletedAtSource: true
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.count == 2)
+        #expect(controller.screenState.articles.contains { $0.title == "Controller Archived" && $0.archivedAt == archivedAt })
+        #expect(controller.screenState.articles.contains { $0.title == "Controller Legacy Deleted" })
+    }
+
+    @Test
     func articlesScreenControllerUsesFeedDisplayTitleOverrideForNavigationTitle() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = Feed(

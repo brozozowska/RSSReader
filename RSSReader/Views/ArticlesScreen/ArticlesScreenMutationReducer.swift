@@ -120,6 +120,7 @@ extension ArticleListItemDTO {
             author: author,
             publishedAt: publishedAt,
             fetchedAt: fetchedAt,
+            archivedAt: archivedAt,
             isRead: isRead,
             isStarred: isStarred,
             isHidden: isHidden

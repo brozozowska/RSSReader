@@ -132,7 +132,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article] {
         let descriptor = FetchDescriptor<Article>(
             predicate: #Predicate<Article> { article in
-                article.feedID == feedID && article.isDeletedAtSource == false
+                article.feedID == feedID
             },
             sortBy: sortDescriptors(for: sortMode)
         )
@@ -141,9 +141,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
 
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article] {
         let descriptor = FetchDescriptor<Article>(
-            predicate: #Predicate<Article> { article in
-                article.isDeletedAtSource == false
-            },
             sortBy: sortDescriptors(for: sortMode)
         )
         return try modelContext.fetch(descriptor)

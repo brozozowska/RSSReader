@@ -16,6 +16,7 @@ struct ReaderArticleDTO: Sendable, Identifiable {
     let articleURL: String
     let canonicalURL: String?
     let imageURL: String?
+    let archivedAt: Date?
     let isRead: Bool
     let isStarred: Bool
     let isHidden: Bool
@@ -36,6 +37,7 @@ struct ReaderArticleDTO: Sendable, Identifiable {
         articleURL: String,
         canonicalURL: String?,
         imageURL: String?,
+        archivedAt: Date? = nil,
         isRead: Bool,
         isStarred: Bool,
         isHidden: Bool
@@ -55,6 +57,7 @@ struct ReaderArticleDTO: Sendable, Identifiable {
         self.articleURL = articleURL
         self.canonicalURL = canonicalURL
         self.imageURL = imageURL
+        self.archivedAt = archivedAt
         self.isRead = isRead
         self.isStarred = isStarred
         self.isHidden = isHidden
@@ -76,6 +79,7 @@ struct ReaderArticleDTO: Sendable, Identifiable {
         self.articleURL = article.url
         self.canonicalURL = article.canonicalURL
         self.imageURL = article.imageURL
+        self.archivedAt = article.archivedAt
         self.isRead = state?.isRead ?? false
         self.isStarred = state?.isStarred ?? false
         self.isHidden = state?.isHidden ?? false
@@ -97,6 +101,7 @@ struct ReaderArticleDTO: Sendable, Identifiable {
         self.articleURL = article.url
         self.canonicalURL = article.canonicalURL
         self.imageURL = article.imageURL
+        self.archivedAt = article.archivedAt
         self.isRead = state?.isRead ?? false
         self.isStarred = state?.isStarred ?? false
         self.isHidden = state?.isHidden ?? false
@@ -123,6 +128,7 @@ struct ReaderArticleDTO: Sendable, Identifiable {
             articleURL: articleURL,
             canonicalURL: canonicalURL,
             imageURL: imageURL,
+            archivedAt: archivedAt,
             isRead: isRead ?? self.isRead,
             isStarred: isStarred ?? self.isStarred,
             isHidden: isHidden ?? self.isHidden
