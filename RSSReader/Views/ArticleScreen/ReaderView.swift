@@ -605,6 +605,7 @@ final class ArticleImageMemoryCache {
     static let shared = ArticleImageMemoryCache()
 
     private let storage = NSCache<NSURL, UIImage>()
+    private var storedURLs: Set<URL> = []
 
     init(countLimit: Int = 256, totalCostLimit: Int = 80 * 1024 * 1024) {
         storage.countLimit = countLimit
@@ -612,15 +613,26 @@ final class ArticleImageMemoryCache {
     }
 
     func image(for url: URL) -> UIImage? {
-        storage.object(forKey: url as NSURL)
+        guard let image = storage.object(forKey: url as NSURL) else {
+            storedURLs.remove(url)
+            return nil
+        }
+
+        return image
     }
 
     func insert(_ image: UIImage, for url: URL, cost: Int = 0) {
         storage.setObject(image, forKey: url as NSURL, cost: cost)
+        storedURLs.insert(url)
+    }
+
+    var hasImages: Bool {
+        storedURLs.isEmpty == false
     }
 
     func removeAllImages() {
         storage.removeAllObjects()
+        storedURLs.removeAll()
     }
 }
 

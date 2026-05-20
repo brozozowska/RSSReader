@@ -12,6 +12,7 @@ struct SettingsScreenState {
     private(set) var settingsInput = SettingsScreenInput()
     private(set) var iCloudSyncStatus: ICloudSyncStatus = .disabled
     private(set) var syncStatusPresentation: SettingsSyncStatusPresentation = .disabled
+    private(set) var hasArticleImageCache = false
     private(set) var sections: [SettingsScreenSectionPresentation] = []
 
     mutating func beginLoading() {
@@ -41,7 +42,10 @@ struct SettingsScreenState {
         settingsInput = input
         iCloudSyncStatus = input.iCloudSyncStatus
         syncStatusPresentation = input.syncStatusPresentation
-        sections = SettingsScreenPresentationBuilder.buildSections(from: input)
+        sections = SettingsScreenPresentationBuilder.buildSections(
+            from: input,
+            hasArticleImageCache: hasArticleImageCache
+        )
         phase = .loaded
     }
 
@@ -49,7 +53,18 @@ struct SettingsScreenState {
         settingsInput = input
         iCloudSyncStatus = input.iCloudSyncStatus
         syncStatusPresentation = input.syncStatusPresentation
-        sections = SettingsScreenPresentationBuilder.buildSections(from: input)
+        sections = SettingsScreenPresentationBuilder.buildSections(
+            from: input,
+            hasArticleImageCache: hasArticleImageCache
+        )
+    }
+
+    mutating func applyArticleImageCacheAvailability(_ hasCache: Bool) {
+        hasArticleImageCache = hasCache
+        sections = SettingsScreenPresentationBuilder.buildSections(
+            from: settingsInput,
+            hasArticleImageCache: hasArticleImageCache
+        )
     }
 
     mutating func applyLoadingFailure(_ message: String) {

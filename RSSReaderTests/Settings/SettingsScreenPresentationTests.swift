@@ -27,12 +27,13 @@ struct SettingsScreenPresentationTests {
 
         let sections = SettingsScreenPresentationBuilder.buildSections(from: input)
 
-        #expect(sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync])
+        #expect(sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .storage])
 
         let appearanceItems = sections[0].items
         let readingItems = sections[1].items
         let articleListItems = sections[2].items
         let updatesAndSyncItems = sections[3].items
+        let storageItems = sections[4].items
 
         #expect(
             appearanceItems == [
@@ -183,6 +184,44 @@ struct SettingsScreenPresentationTests {
                 )
             ]
         )
+        #expect(
+            storageItems == [
+                .button(
+                    SettingsButtonItemPresentation(
+                        id: .clearArticleImageCache,
+                        title: "Clear Article Image Cache",
+                        subtitle: "Remove article images saved on this device.",
+                        systemImage: "trash",
+                        role: .destructive,
+                        isEnabled: false
+                    )
+                )
+            ]
+        )
+    }
+
+    @Test
+    func settingsScreenPresentationBuilderEnablesArticleImageCacheResetWhenCacheExists() throws {
+        let sections = SettingsScreenPresentationBuilder.buildSections(
+            from: SettingsScreenInputBuilder.build(from: AppSettingsSnapshot()),
+            hasArticleImageCache: true
+        )
+        let storageSection = try #require(sections.first(where: { $0.id == .storage }))
+
+        #expect(
+            storageSection.items == [
+                .button(
+                    SettingsButtonItemPresentation(
+                        id: .clearArticleImageCache,
+                        title: "Clear Article Image Cache",
+                        subtitle: "Remove article images saved on this device.",
+                        systemImage: "trash",
+                        role: .destructive,
+                        isEnabled: true
+                    )
+                )
+            ]
+        )
     }
 
     @Test
@@ -202,6 +241,10 @@ struct SettingsScreenPresentationTests {
         })
         #expect(items.contains { item in
             if case .statusRow = item { return true }
+            return false
+        })
+        #expect(items.contains { item in
+            if case .button = item { return true }
             return false
         })
     }

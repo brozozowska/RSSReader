@@ -56,6 +56,10 @@ actor ArticleImageDiskCache {
         }
     }
 
+    func isEmpty() throws -> Bool {
+        try cacheEntries().isEmpty
+    }
+
     private static func defaultDirectoryURL(fileManager: FileManager) -> URL {
         let cachesDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         return cachesDirectory.appendingPathComponent("RSSReaderArticleImages", isDirectory: true)

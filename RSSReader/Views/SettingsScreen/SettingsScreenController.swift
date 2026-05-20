@@ -58,6 +58,17 @@ final class SettingsScreenController {
         loadSettings(dependencies: dependencies, appState: appState)
     }
 
+    func refreshArticleImageCacheAvailability(dependencies: AppDependencies) async {
+        do {
+            let hasDiskCache = try await ArticleImageDiskCache.shared.isEmpty() == false
+            let hasMemoryCache = ArticleImageMemoryCache.shared.hasImages
+            screenState.applyArticleImageCacheAvailability(hasDiskCache || hasMemoryCache)
+        } catch {
+            dependencies.logger.error("Failed to inspect article image cache: \(error)")
+            screenState.applyArticleImageCacheAvailability(ArticleImageMemoryCache.shared.hasImages)
+        }
+    }
+
     func handlePickerOptionSelection(
         itemID: SettingsScreenItemID,
         optionID: String,
@@ -86,7 +97,8 @@ final class SettingsScreenController {
         case .markAsReadOnOpen,
                 .askBeforeMarkingAllAsRead,
                 .useICloudSync,
-                .iCloudSyncStatus:
+                .iCloudSyncStatus,
+                .clearArticleImageCache:
             return
         }
     }
@@ -110,6 +122,29 @@ final class SettingsScreenController {
                 .readerAdjacentNavigationControlsMode,
                 .refreshInterval,
                 .iCloudSyncStatus,
+                .appearance,
+                .clearArticleImageCache:
+            return
+        }
+    }
+
+    func handleButtonTap(
+        itemID: SettingsScreenItemID,
+        dependencies: AppDependencies
+    ) async {
+        switch itemID {
+        case .clearArticleImageCache:
+            await clearArticleImageCache(dependencies: dependencies)
+        case .defaultReaderMode,
+                .markAsReadOnOpen,
+                .articleSourceLinkOpeningPolicy,
+                .articleSortMode,
+                .askBeforeMarkingAllAsRead,
+                .refreshInterval,
+                .useICloudSync,
+                .iCloudSyncStatus,
+                .articleBodyLinkOpeningPolicy,
+                .readerAdjacentNavigationControlsMode,
                 .appearance:
             return
         }
@@ -153,6 +188,20 @@ final class SettingsScreenController {
 }
 
 private extension SettingsScreenController {
+    func clearArticleImageCache(dependencies: AppDependencies) async {
+        ArticleImageMemoryCache.shared.removeAllImages()
+        URLCache.shared.removeAllCachedResponses()
+
+        do {
+            try await ArticleImageDiskCache.shared.removeAll()
+            screenState.applyArticleImageCacheAvailability(false)
+            dependencies.logger.info("Cleared article image cache")
+        } catch {
+            dependencies.logger.error("Failed to clear article image disk cache: \(error)")
+            await refreshArticleImageCacheAvailability(dependencies: dependencies)
+        }
+    }
+
     func updateDefaultReaderMode(
         optionID: String,
         dependencies: AppDependencies

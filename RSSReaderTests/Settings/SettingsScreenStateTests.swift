@@ -22,10 +22,11 @@ struct SettingsScreenStateTests {
 
         #expect(viewState.primaryLoadingState == nil)
         #expect(viewState.placeholder == nil)
-        #expect(viewState.sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync])
+        #expect(viewState.sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .storage])
         #expect(state.settingsInput.defaultReaderMode == .browser)
         #expect(state.settingsInput.articleListSortOrder == .oldestFirst)
         #expect(state.settingsInput.iCloudSyncStatus == .disabled)
+        #expect(state.hasArticleImageCache == false)
     }
 
     @Test

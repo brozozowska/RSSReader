@@ -5,6 +5,7 @@ enum SettingsScreenSectionID: String, Hashable, Identifiable, Sendable {
     case reading
     case articleList
     case updatesAndSync
+    case storage
 
     var id: String { rawValue }
 }
@@ -21,6 +22,7 @@ enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
     case articleBodyLinkOpeningPolicy
     case readerAdjacentNavigationControlsMode
     case appearance
+    case clearArticleImageCache
 
     var id: String { rawValue }
 }
@@ -190,6 +192,7 @@ enum SettingsScreenItemPresentation: Identifiable, Equatable, Sendable {
     case toggle(SettingsToggleItemPresentation)
     case picker(SettingsPickerItemPresentation)
     case statusRow(SettingsStatusRowItemPresentation)
+    case button(SettingsButtonItemPresentation)
 
     var id: SettingsScreenItemID {
         switch self {
@@ -198,6 +201,8 @@ enum SettingsScreenItemPresentation: Identifiable, Equatable, Sendable {
         case .picker(let item):
             item.id
         case .statusRow(let item):
+            item.id
+        case .button(let item):
             item.id
         }
     }
@@ -231,6 +236,20 @@ struct SettingsStatusRowItemPresentation: Equatable, Sendable {
     let valueTitle: String
 }
 
+struct SettingsButtonItemPresentation: Equatable, Sendable {
+    let id: SettingsScreenItemID
+    let title: String
+    let subtitle: String?
+    let systemImage: String
+    let role: SettingsButtonItemRole
+    let isEnabled: Bool
+}
+
+enum SettingsButtonItemRole: Equatable, Sendable {
+    case normal
+    case destructive
+}
+
 enum SettingsScreenInputBuilder {
     static func build(
         from snapshot: AppSettingsSnapshot,
@@ -260,12 +279,16 @@ enum SettingsScreenInputBuilder {
 }
 
 enum SettingsScreenPresentationBuilder {
-    static func buildSections(from input: SettingsScreenInput) -> [SettingsScreenSectionPresentation] {
+    static func buildSections(
+        from input: SettingsScreenInput,
+        hasArticleImageCache: Bool = false
+    ) -> [SettingsScreenSectionPresentation] {
         [
             appearanceSection(from: input),
             readingSection(from: input),
             articleListSection(from: input),
-            updatesAndSyncSection(from: input)
+            updatesAndSyncSection(from: input),
+            storageSection(hasArticleImageCache: hasArticleImageCache)
         ]
     }
 
@@ -450,6 +473,26 @@ enum SettingsScreenPresentationBuilder {
                             isUsingLocalOnlySyncFallbackForCurrentLaunch: input.isUsingLocalOnlySyncFallbackForCurrentLaunch
                         ),
                         valueTitle: iCloudSyncStatusTitle(input.syncStatusPresentation)
+                    )
+                )
+            ]
+        )
+    }
+
+    private static func storageSection(hasArticleImageCache: Bool) -> SettingsScreenSectionPresentation {
+        SettingsScreenSectionPresentation(
+            id: .storage,
+            title: "Storage",
+            footer: nil,
+            items: [
+                .button(
+                    SettingsButtonItemPresentation(
+                        id: .clearArticleImageCache,
+                        title: "Clear Article Image Cache",
+                        subtitle: "Remove article images saved on this device.",
+                        systemImage: "trash",
+                        role: .destructive,
+                        isEnabled: hasArticleImageCache
                     )
                 )
             ]

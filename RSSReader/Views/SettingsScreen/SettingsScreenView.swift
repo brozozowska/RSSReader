@@ -4,6 +4,7 @@ struct SettingsScreenActionHandlers {
     let dismiss: () -> Void
     let applyChanges: () -> Void
     let retryLoad: () -> Void
+    let tapButton: (SettingsScreenItemID) -> Void
     let selectPickerOption: (SettingsScreenItemID, String) -> Void
     let toggleItem: (SettingsScreenItemID, Bool) -> Void
 }
@@ -13,6 +14,7 @@ struct SettingsScreenView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     @Environment(AppState.self) private var appState
     @State private var controller: SettingsScreenController
+    @State private var isArticleImageCacheResetConfirmationPresented = false
     let dismiss: () -> Void
 
     init(
@@ -52,6 +54,18 @@ struct SettingsScreenView: View {
                 .task {
                     guard controller.isPreviewMode == false else { return }
                     controller.loadSettings(dependencies: dependencies, appState: appState)
+                    await controller.refreshArticleImageCacheAvailability(dependencies: dependencies)
+                }
+                .alert(
+                    "Clear article image cache?",
+                    isPresented: $isArticleImageCacheResetConfirmationPresented
+                ) {
+                    Button("Clear Cache", role: .destructive) {
+                        actionHandlers.tapButton(.clearArticleImageCache)
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This removes article images saved on this device. Images can be downloaded again when articles are opened.")
                 }
         }
     }
@@ -70,6 +84,14 @@ struct SettingsScreenView: View {
             },
             retryLoad: {
                 controller.retryLoadingSettings(dependencies: dependencies, appState: appState)
+            },
+            tapButton: { itemID in
+                Task {
+                    await controller.handleButtonTap(
+                        itemID: itemID,
+                        dependencies: dependencies
+                    )
+                }
             },
             selectPickerOption: { itemID, optionID in
                 controller.handlePickerOptionSelection(
@@ -144,6 +166,40 @@ struct SettingsScreenView: View {
                     subtitle: statusItem.subtitle
                 )
             }
+        case .button(let buttonItem):
+            Button(role: buttonItem.role.buttonRole) {
+                handleButtonTap(buttonItem)
+            } label: {
+                Label {
+                    itemLabel(
+                        title: buttonItem.title,
+                        subtitle: buttonItem.subtitle
+                    )
+                } icon: {
+                    Image(systemName: buttonItem.systemImage)
+                }
+            }
+            .disabled(buttonItem.isEnabled == false)
+            .foregroundStyle(buttonItem.foregroundStyle)
+        }
+    }
+
+    private func handleButtonTap(_ buttonItem: SettingsButtonItemPresentation) {
+        switch buttonItem.id {
+        case .clearArticleImageCache:
+            isArticleImageCacheResetConfirmationPresented = true
+        case .defaultReaderMode,
+                .markAsReadOnOpen,
+                .articleSourceLinkOpeningPolicy,
+                .articleSortMode,
+                .askBeforeMarkingAllAsRead,
+                .refreshInterval,
+                .useICloudSync,
+                .iCloudSyncStatus,
+                .articleBodyLinkOpeningPolicy,
+                .readerAdjacentNavigationControlsMode,
+                .appearance:
+            actionHandlers.tapButton(buttonItem.id)
         }
     }
 
@@ -246,5 +302,29 @@ struct SettingsScreenView: View {
                 actionHandlers.toggleItem(item.id, newValue)
             }
         )
+    }
+}
+
+private extension SettingsButtonItemPresentation {
+    var foregroundStyle: Color {
+        guard isEnabled else { return .secondary }
+
+        switch role {
+        case .normal:
+            return .accentColor
+        case .destructive:
+            return .red
+        }
+    }
+}
+
+private extension SettingsButtonItemRole {
+    var buttonRole: ButtonRole? {
+        switch self {
+        case .normal:
+            nil
+        case .destructive:
+            .destructive
+        }
     }
 }
