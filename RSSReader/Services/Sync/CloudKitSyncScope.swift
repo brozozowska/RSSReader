@@ -50,10 +50,6 @@ struct CloudKitSyncScope: Equatable, Sendable {
         syncs(.appSettings)
     }
 
-    var keepsArticlesLocalOnly: Bool {
-        storesLocallyOnly(.article)
-    }
-
     var keepsFeedFetchLogsLocalOnly: Bool {
         storesLocallyOnly(.feedFetchLog)
     }

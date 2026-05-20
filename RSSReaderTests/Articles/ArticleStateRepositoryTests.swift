@@ -87,7 +87,7 @@ struct ArticleStateRepositoryTests {
     }
 
     @Test
-    func articleStateRepositoryCountsArchivedAndLegacyDeletedArticlesAsUnread() throws {
+    func articleStateRepositoryCountsArchivedArticlesAsUnread() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/state-counts.xml"]).first)
         _ = try harness.insertArticle(
@@ -97,16 +97,8 @@ struct ArticleStateRepositoryTests {
             title: "Archived Unread Article",
             archivedAt: .distantPast
         )
-        _ = try harness.insertArticle(
-            feed: feed,
-            externalID: "legacy-deleted-unread-article",
-            url: "https://example.com/state-counts/articles/legacy-deleted",
-            title: "Legacy Deleted Unread Article",
-            isDeletedAtSource: true
-        )
-
         let unreadCounts = try harness.articleStateRepository.fetchUnreadCounts(feedIDs: [feed.id])
 
-        #expect(unreadCounts[feed.id] == 2)
+        #expect(unreadCounts[feed.id] == 1)
     }
 }

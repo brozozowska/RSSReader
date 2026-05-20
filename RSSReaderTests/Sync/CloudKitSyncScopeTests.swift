@@ -21,7 +21,6 @@ struct CloudKitSyncScopeTests {
         #expect(scope.syncsReadingState)
         #expect(scope.syncsArticlePayload)
         #expect(scope.syncsAppSettings)
-        #expect(scope.keepsArticlesLocalOnly == false)
         #expect(scope.keepsFeedFetchLogsLocalOnly)
     }
 

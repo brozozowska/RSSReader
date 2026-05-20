@@ -114,7 +114,7 @@ struct CloudKitDevelopmentSchemaBootstrapTests {
                     findings: [
                         CloudKitCompatibilityFinding(
                             severity: .blocker,
-                            rule: .crossStoreRelationship,
+                            rule: .deleteRuleStoreCoupling,
                             affectedPaths: ["Feed", "Article.feed"],
                             summary: "Test fixture",
                             recommendedFollowUp: "Test fixture"

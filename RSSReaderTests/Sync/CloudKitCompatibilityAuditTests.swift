@@ -159,7 +159,7 @@ struct CloudKitCompatibilityAuditTests {
         )
         #expect(
             articleStateReport.findings.contains {
-                $0.rule == .crossStoreRelationship
+                $0.rule == .repositoryManagedIdentityInvariant
                     && $0.affectedPaths == [
                         "ArticleState.feedID",
                         "ArticleState.articleExternalID",

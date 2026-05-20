@@ -6,14 +6,8 @@ enum CrossDeviceSyncReplicatedValue: String, CaseIterable, Hashable, Sendable {
     case articleState
 }
 
-enum CrossDeviceArticleMaterializationTrigger: String, CaseIterable, Hashable, Sendable {
-    case manualRefresh
-    case backgroundRefresh
-}
-
 struct CrossDeviceReadingScenario: Equatable, Sendable {
     let replicatedValues: Set<CrossDeviceSyncReplicatedValue>
-    let articleMaterializationTriggers: Set<CrossDeviceArticleMaterializationTrigger>
     let requiresAppAuthorization: Bool
 
     static let current = CrossDeviceReadingScenario(
@@ -21,10 +15,6 @@ struct CrossDeviceReadingScenario: Equatable, Sendable {
             .sourceStructure,
             .articlePayload,
             .articleState
-        ],
-        articleMaterializationTriggers: [
-            .manualRefresh,
-            .backgroundRefresh
         ],
         requiresAppAuthorization: false
     )
@@ -41,16 +31,8 @@ struct CrossDeviceReadingScenario: Equatable, Sendable {
         replicatedValues.contains(.articlePayload)
     }
 
-    var usesLocalArticleCache: Bool {
-        false
-    }
-
     var keepsArticleImagesLocalOnly: Bool {
         true
-    }
-
-    func materializesArticles(after trigger: CrossDeviceArticleMaterializationTrigger) -> Bool {
-        articleMaterializationTriggers.contains(trigger)
     }
 
     var settingsSectionFooter: String {

@@ -30,7 +30,7 @@ struct ArticlesScreenControllerTests {
     }
 
     @Test
-    func articlesScreenControllerLoadsArchivedAndLegacyDeletedArticlesForCurrentSelection() async throws {
+    func articlesScreenControllerLoadsArchivedAndCurrentArticlesForCurrentSelection() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-archive.xml"]).first)
         let archivedAt = try #require(Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1)))
@@ -43,10 +43,9 @@ struct ArticlesScreenControllerTests {
         )
         _ = try harness.insertArticle(
             feed: feed,
-            externalID: "controller-legacy-deleted-article",
-            url: "https://example.com/articles/controller-legacy-deleted",
-            title: "Controller Legacy Deleted",
-            isDeletedAtSource: true
+            externalID: "controller-current-article",
+            url: "https://example.com/articles/controller-current",
+            title: "Controller Current"
         )
         let controller = ArticlesScreenController()
 
@@ -59,7 +58,7 @@ struct ArticlesScreenControllerTests {
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.articles.count == 2)
         #expect(controller.screenState.articles.contains { $0.title == "Controller Archived" && $0.archivedAt == archivedAt })
-        #expect(controller.screenState.articles.contains { $0.title == "Controller Legacy Deleted" })
+        #expect(controller.screenState.articles.contains { $0.title == "Controller Current" && $0.archivedAt == nil })
     }
 
     @Test

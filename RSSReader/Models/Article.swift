@@ -22,7 +22,6 @@ final class Article {
     var publishedAt: Date?
     var updatedAtSource: Date?
     var imageURL: String?
-    var isDeletedAtSource: Bool = false
     var archivedAt: Date?
     var fetchedAt: Date = Date.now
     var createdAt: Date = Date.now
@@ -46,7 +45,6 @@ final class Article {
         publishedAt: Date? = nil,
         updatedAtSource: Date? = nil,
         imageURL: String? = nil,
-        isDeletedAtSource: Bool = false,
         archivedAt: Date? = nil,
         fetchedAt: Date = .now,
         createdAt: Date = .now,
@@ -69,7 +67,6 @@ final class Article {
         self.publishedAt = publishedAt
         self.updatedAtSource = updatedAtSource
         self.imageURL = imageURL
-        self.isDeletedAtSource = isDeletedAtSource
         self.archivedAt = archivedAt
         self.fetchedAt = fetchedAt
         self.createdAt = createdAt

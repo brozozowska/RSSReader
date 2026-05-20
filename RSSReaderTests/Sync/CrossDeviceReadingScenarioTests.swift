@@ -12,11 +12,8 @@ struct CrossDeviceReadingScenarioTests {
         #expect(scenario.syncsSourceStructure)
         #expect(scenario.syncsArticlePayload)
         #expect(scenario.syncsArticleState)
-        #expect(scenario.usesLocalArticleCache == false)
         #expect(scenario.keepsArticleImagesLocalOnly)
         #expect(scenario.requiresAppAuthorization == false)
-        #expect(scenario.materializesArticles(after: .manualRefresh))
-        #expect(scenario.materializesArticles(after: .backgroundRefresh))
         #expect(
             scenario.settingsSectionFooter
                 == "Feeds, folders, articles, and reading state sync across devices. Article images stay cached on each device."

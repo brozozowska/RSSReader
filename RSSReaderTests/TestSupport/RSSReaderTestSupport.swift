@@ -198,7 +198,6 @@ struct TestHarness {
         guid: String? = nil,
         url: String,
         title: String,
-        isDeletedAtSource: Bool = false,
         archivedAt: Date? = nil
     ) throws -> Article {
         let article = Article(
@@ -210,7 +209,6 @@ struct TestHarness {
             guid: guid,
             url: url,
             title: title,
-            isDeletedAtSource: isDeletedAtSource,
             archivedAt: archivedAt
         )
         modelContainer.mainContext.insert(article)

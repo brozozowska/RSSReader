@@ -7,8 +7,6 @@ enum CloudKitCompatibilitySeverity: String, Hashable, Sendable {
 
 enum CloudKitCompatibilityRule: String, Hashable, Sendable {
     case unsupportedUniqueConstraint
-    case nonOptionalRelationship
-    case crossStoreRelationship
     case localOnlyStoreBoundary
     case deleteRuleStoreCoupling
     case repositoryManagedIdentityInvariant
@@ -69,13 +67,13 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                     ),
                     CloudKitCompatibilityFinding(
                         severity: .warning,
-                        rule: .crossStoreRelationship,
+                        rule: .repositoryManagedIdentityInvariant,
                         affectedPaths: [
                             "ArticleState.feedID",
                             "ArticleState.articleExternalID",
                             "SwiftDataArticleStateRepository.fetchStateSnapshots(for:)"
                         ],
-                        summary: "ArticleState intentionally references articles through scalar identifiers instead of a direct SwiftData relationship, which keeps CloudKit relationship ordering out of reading-state conflict handling.",
+                        summary: "ArticleState intentionally references articles through scalar identifiers instead of a direct SwiftData relationship, which keeps relationship ordering out of reading-state conflict handling.",
                         recommendedFollowUp: "Keep ArticleState identity and conflict resolution scalar even though Article now lives in the sync-backed store."
                     )
                 ]
@@ -165,13 +163,13 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                     ),
                     CloudKitCompatibilityFinding(
                         severity: .warning,
-                        rule: .crossStoreRelationship,
+                        rule: .repositoryManagedIdentityInvariant,
                         affectedPaths: [
                             "ArticleState.feedID",
                             "ArticleState.articleExternalID",
                             "SwiftDataArticleStateRepository.fetchStateSnapshots(for:)"
                         ],
-                        summary: "ArticleState intentionally references articles through scalar identifiers instead of a direct SwiftData relationship, which keeps CloudKit relationship ordering out of reading-state conflict handling.",
+                        summary: "ArticleState intentionally references articles through scalar identifiers instead of a direct SwiftData relationship, which keeps relationship ordering out of reading-state conflict handling.",
                         recommendedFollowUp: "Keep ArticleState identity and conflict resolution scalar even though Article now lives in the sync-backed store."
                     )
                 ]
