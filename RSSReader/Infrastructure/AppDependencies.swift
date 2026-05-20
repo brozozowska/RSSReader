@@ -55,6 +55,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let sourceManagementService: (any SourceManagementService)?
     let articleRepository: (any ArticleRepository)?
     let articleStateService: ArticleStateService?
+    let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)?
     let articleQueryService: (any ArticleQueryService)?
     let sourcesSidebarQueryService: (any SourcesSidebarQueryService)?
     let articleStateRepository: (any ArticleStateRepository)?
@@ -126,6 +127,17 @@ public final class AppDependencies: AppDependenciesProtocol {
                 articleStateRepository: repository
             )
         }
+        let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)? = {
+            guard let articleRepository, let articleStateRepository else {
+                return nil
+            }
+
+            return ArticleRetentionCleanupService(
+                logger: logger,
+                articleRepository: articleRepository,
+                articleStateRepository: articleStateRepository
+            )
+        }()
         let sourcesSidebarQueryService: (any SourcesSidebarQueryService)? = {
             guard let feedRepository,
                   let folderRepository,
@@ -188,7 +200,8 @@ public final class AppDependencies: AppDependenciesProtocol {
             DefaultBackgroundRefreshService(
                 logger: logger,
                 appSettingsService: service,
-                feedRefreshService: feedRefreshService
+                feedRefreshService: feedRefreshService,
+                articleRetentionCleanupService: articleRetentionCleanupService
             )
         }
         let backgroundRefreshRuntimePrerequisitesSource = DefaultBackgroundRefreshRuntimePrerequisitesSource(
@@ -220,6 +233,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.sourceManagementService = sourceManagementService
         self.articleRepository = articleRepository
         self.articleStateService = articleStateService
+        self.articleRetentionCleanupService = articleRetentionCleanupService
         self.articleStateRepository = articleStateRepository
         self.articleQueryService = articleQueryService
         self.sourcesSidebarQueryService = sourcesSidebarQueryService
@@ -1099,7 +1113,9 @@ extension AppDependencies {
             return nil
         }
 
-        return await feedRefreshService.refresh(feedID: feedID)
+        let result = await feedRefreshService.refresh(feedID: feedID)
+        cleanupArchivedArticlesUsingCurrentSettings()
+        return result
     }
 
     @MainActor
@@ -1110,6 +1126,7 @@ extension AppDependencies {
         }
 
         let result = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
+        cleanupArchivedArticlesUsingCurrentSettings()
         appState.requestSourcesSidebarReload()
         showFeed(id: feedID, using: appState)
         dismissSourceManagement(using: appState)
@@ -1133,7 +1150,9 @@ extension AppDependencies {
             return nil
         }
 
-        return await feedRefreshService.refreshAllActiveFeeds()
+        let result = await feedRefreshService.refreshAllActiveFeeds()
+        cleanupArchivedArticlesUsingCurrentSettings()
+        return result
     }
 
     @MainActor
@@ -1203,6 +1222,42 @@ extension AppDependencies {
         }
 
         return await backgroundRefreshService.performScheduledRefresh()
+    }
+
+    @MainActor
+    @discardableResult
+    func cleanupArchivedArticles(
+        policy: ArticleRetentionPolicy,
+        now: Date = .now
+    ) -> ArticleRetentionCleanupResult? {
+        guard let articleRetentionCleanupService else {
+            logger.debug("Article retention cleanup service is unavailable")
+            return nil
+        }
+
+        do {
+            return try articleRetentionCleanupService.cleanupArchivedArticles(policy: policy, now: now)
+        } catch {
+            logger.error("Failed to clean up archived articles: \(error)")
+            return nil
+        }
+    }
+
+    @MainActor
+    @discardableResult
+    func cleanupArchivedArticlesUsingCurrentSettings(now: Date = .now) -> ArticleRetentionCleanupResult? {
+        guard let appSettingsService else {
+            logger.debug("App settings service is unavailable for article retention cleanup")
+            return nil
+        }
+
+        do {
+            let settings = try appSettingsService.fetchSettings()
+            return cleanupArchivedArticles(policy: settings.articleRetentionPolicy, now: now)
+        } catch {
+            logger.error("Failed to load article retention settings for cleanup: \(error)")
+            return nil
+        }
     }
 
     @MainActor
@@ -1330,7 +1385,9 @@ private extension AppDependencies {
             let folderFeedIDs = try feedRepository.fetchActiveFeeds()
                 .filter { $0.folder?.name == folderName }
                 .map(\.id)
-            return await feedRefreshService.refreshFeeds(folderFeedIDs)
+            let result = await feedRefreshService.refreshFeeds(folderFeedIDs)
+            cleanupArchivedArticlesUsingCurrentSettings()
+            return result
         } catch {
             logger.error("Failed to load folder feeds for refresh: \(error)")
             return nil

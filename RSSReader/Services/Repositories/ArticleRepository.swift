@@ -9,6 +9,7 @@ protocol ArticleRepository {
     func fetchArticles(feedID: UUID) throws -> [Article]
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article]
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
+    func fetchArchivedArticles() throws -> [Article]
     func reconcileArticles(
         feedID: UUID,
         keepingExternalIDs: Set<String>,
@@ -39,6 +40,7 @@ protocol ArticleRepository {
 
     func save() throws
     func delete(_ article: Article) throws
+    func delete(_ articles: [Article], saveAfterOperation: Bool) throws
 }
 
 extension ArticleRepository {
@@ -63,6 +65,10 @@ extension ArticleRepository {
     @discardableResult
     func upsert(_ payloads: [ArticleUpsertPayload], into feed: Feed) throws -> [Article] {
         try upsert(payloads, into: feed, saveAfterOperation: true)
+    }
+
+    func delete(_ articles: [Article]) throws {
+        try delete(articles, saveAfterOperation: true)
     }
 }
 
@@ -146,6 +152,15 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         return try modelContext.fetch(descriptor)
     }
 
+    func fetchArchivedArticles() throws -> [Article] {
+        let descriptor = FetchDescriptor<Article>(
+            predicate: #Predicate<Article> { article in
+                article.archivedAt != nil
+            }
+        )
+        return try modelContext.fetch(descriptor)
+    }
+
     @discardableResult
     func upsert(_ entry: ParsedFeedEntryDTO, into feed: Feed, fetchedAt: Date = .now) throws -> Article? {
         guard let payload = ArticleUpsertPayload(entry: entry, fetchedAt: fetchedAt) else {
@@ -193,6 +208,18 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     func delete(_ article: Article) throws {
         modelContext.delete(article)
         try saveIfNeeded()
+    }
+
+    func delete(_ articles: [Article], saveAfterOperation: Bool = true) throws {
+        guard articles.isEmpty == false else { return }
+
+        for article in articles {
+            modelContext.delete(article)
+        }
+
+        if saveAfterOperation {
+            try saveIfNeeded()
+        }
     }
 
     func reconcileArticles(

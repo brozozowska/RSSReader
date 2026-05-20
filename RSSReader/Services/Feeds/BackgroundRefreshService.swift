@@ -48,15 +48,18 @@ final class DefaultBackgroundRefreshService: BackgroundRefreshService {
     private let logger: Logging
     private let appSettingsService: any AppSettingsService
     private let feedRefreshService: (any FeedRefreshCoordinating)?
+    private let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)?
 
     init(
         logger: Logging,
         appSettingsService: any AppSettingsService,
-        feedRefreshService: (any FeedRefreshCoordinating)?
+        feedRefreshService: (any FeedRefreshCoordinating)?,
+        articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)? = nil
     ) {
         self.logger = logger
         self.appSettingsService = appSettingsService
         self.feedRefreshService = feedRefreshService
+        self.articleRetentionCleanupService = articleRetentionCleanupService
     }
 
     func loadConfiguration() throws -> BackgroundRefreshConfiguration {
@@ -104,7 +107,21 @@ final class DefaultBackgroundRefreshService: BackgroundRefreshService {
             return .failedToStart(.feedRefreshServiceUnavailable)
         }
 
-        return .executed(await feedRefreshService.refreshAllActiveFeedsForBackground())
+        let refreshResult = await feedRefreshService.refreshAllActiveFeedsForBackground()
+        cleanupArchivedArticles(policy: configuration.settingsSnapshot.articleRetentionPolicy)
+        return .executed(refreshResult)
+    }
+
+    private func cleanupArchivedArticles(policy: ArticleRetentionPolicy) {
+        guard let articleRetentionCleanupService else {
+            return
+        }
+
+        do {
+            try articleRetentionCleanupService.cleanupArchivedArticles(policy: policy, now: .now)
+        } catch {
+            logger.error("Failed to clean up archived articles after background refresh: \(error)")
+        }
     }
 }
 

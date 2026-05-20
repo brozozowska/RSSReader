@@ -279,4 +279,38 @@ struct AppSettingsServiceTests {
         #expect(updatedSnapshot.articleRetentionPolicy == .oneMonth)
         #expect(persistedSettings.articleRetentionPolicy == .oneMonth)
     }
+
+    @Test
+    func applyingArticleRetentionSettingRunsCleanup() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/settings-retention.xml"]).first)
+        let now = Date()
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "settings-retention-expired",
+            url: "https://example.com/articles/settings-retention-expired",
+            title: "Settings Retention Expired",
+            archivedAt: now.addingTimeInterval(-(8 * 24 * 60 * 60))
+        )
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(
+                articleRetentionPolicy: .oneMonth,
+                updatedAt: .distantPast
+            )
+        )
+        controller.loadSettings(dependencies: harness.dependencies)
+
+        controller.handlePickerOptionSelection(
+            itemID: .articleRetentionPolicy,
+            optionID: ArticleRetentionPolicy.currentFeedOnly.rawValue,
+            dependencies: harness.dependencies
+        )
+        let didApplyChanges = controller.applySettingsChanges(dependencies: harness.dependencies)
+        let remainingArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+
+        #expect(didApplyChanges)
+        #expect(remainingArticles.isEmpty)
+    }
 }

@@ -440,6 +440,17 @@ private extension SettingsScreenController {
             appState?.applyInterfaceThemeMode(updatedSnapshot.interfaceThemeMode)
         }
 
+        if previousSnapshot.articleRetentionPolicy != updatedSnapshot.articleRetentionPolicy {
+            let cleanupResult = dependencies.cleanupArchivedArticles(
+                policy: updatedSnapshot.articleRetentionPolicy,
+                now: .now
+            )
+            if cleanupResult?.deletedCount ?? 0 > 0 {
+                appState?.requestSourcesSidebarReload()
+                appState?.requestArticleListReload()
+            }
+        }
+
         guard previousSnapshot.refreshIntervalPreference != updatedSnapshot.refreshIntervalPreference else {
             return
         }
