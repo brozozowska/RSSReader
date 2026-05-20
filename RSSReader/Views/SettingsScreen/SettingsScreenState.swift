@@ -137,6 +137,7 @@ private extension SettingsScreenState {
             markAsReadOnOpen: settingsInput.markAsReadOnOpen,
             askBeforeMarkingAllAsRead: settingsInput.askBeforeMarkingAllAsRead,
             sortMode: settingsInput.articleListSortOrder.sortMode,
+            articleRetentionPolicy: settingsInput.articleRetentionPolicy,
             articleBodyLinkOpeningPolicy: settingsInput.articleBodyLinkOpeningPolicy,
             articleSourceLinkOpeningPolicy: settingsInput.articleSourceLinkOpeningPolicy,
             readerAdjacentNavigationControlsMode: settingsInput.readerAdjacentNavigationControlsMode,

@@ -192,6 +192,7 @@ struct SettingsScreenView: View {
                 .markAsReadOnOpen,
                 .articleSourceLinkOpeningPolicy,
                 .articleSortMode,
+                .articleRetentionPolicy,
                 .askBeforeMarkingAllAsRead,
                 .refreshInterval,
                 .useICloudSync,

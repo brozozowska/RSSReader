@@ -15,6 +15,7 @@ struct SettingsScreenPresentationTests {
             markAsReadOnOpen: false,
             askBeforeMarkingAllAsRead: false,
             sortMode: .publishedAtDescending,
+            articleRetentionPolicy: .twoWeeks,
             articleBodyLinkOpeningPolicy: .externalBrowser,
             articleSourceLinkOpeningPolicy: .externalBrowser,
             readerAdjacentNavigationControlsMode: .swipesOnly,
@@ -141,6 +142,21 @@ struct SettingsScreenPresentationTests {
                         title: "Ask Before Marking All Read",
                         subtitle: "Show a confirmation before marking all visible articles as read.",
                         isOn: false
+                    )
+                ),
+                .picker(
+                    SettingsPickerItemPresentation(
+                        id: .articleRetentionPolicy,
+                        title: "Keep Archived Articles",
+                        subtitle: nil,
+                        selectedValueTitle: "2 Weeks",
+                        options: [
+                            SettingsPickerOptionPresentation(id: "currentFeedOnly", title: "None", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "twoDays", title: "2 Days", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "oneWeek", title: "1 Week", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "twoWeeks", title: "2 Weeks", isSelected: true),
+                            SettingsPickerOptionPresentation(id: "oneMonth", title: "1 Month", isSelected: false)
+                        ]
                     )
                 )
             ]

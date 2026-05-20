@@ -8,6 +8,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var markAsReadOnOpen: Bool
     var askBeforeMarkingAllAsRead: Bool
     var sortMode: ArticleSortMode
+    var articleRetentionPolicy: ArticleRetentionPolicy
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
     var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode
@@ -21,6 +22,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         markAsReadOnOpen: Bool = true,
         askBeforeMarkingAllAsRead: Bool = true,
         sortMode: ArticleSortMode = .publishedAtAscending,
+        articleRetentionPolicy: ArticleRetentionPolicy = .oneWeek,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
         readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls,
@@ -33,6 +35,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         self.markAsReadOnOpen = markAsReadOnOpen
         self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         self.sortMode = sortMode
+        self.articleRetentionPolicy = articleRetentionPolicy
         self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
         self.readerAdjacentNavigationControlsMode = readerAdjacentNavigationControlsMode
@@ -48,6 +51,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
             markAsReadOnOpen: settings.markAsReadOnOpen,
             askBeforeMarkingAllAsRead: settings.askBeforeMarkingAllAsRead,
             sortMode: settings.sortMode,
+            articleRetentionPolicy: settings.articleRetentionPolicy,
             articleBodyLinkOpeningPolicy: settings.articleBodyLinkOpeningPolicy,
             articleSourceLinkOpeningPolicy: settings.articleSourceLinkOpeningPolicy,
             readerAdjacentNavigationControlsMode: settings.readerAdjacentNavigationControlsMode,
@@ -64,6 +68,7 @@ struct AppSettingsPatch: Sendable {
     var markAsReadOnOpen: Bool? = nil
     var askBeforeMarkingAllAsRead: Bool? = nil
     var sortMode: ArticleSortMode? = nil
+    var articleRetentionPolicy: ArticleRetentionPolicy? = nil
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
     var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode? = nil
@@ -111,6 +116,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 markAsReadOnOpen: snapshot.markAsReadOnOpen,
                 askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
                 sortMode: snapshot.sortMode,
+                articleRetentionPolicy: snapshot.articleRetentionPolicy,
                 articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
                 articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
                 readerAdjacentNavigationControlsMode: snapshot.readerAdjacentNavigationControlsMode,
@@ -132,6 +138,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 markAsReadOnOpen: patch.markAsReadOnOpen,
                 askBeforeMarkingAllAsRead: patch.askBeforeMarkingAllAsRead,
                 sortMode: patch.sortMode,
+                articleRetentionPolicy: patch.articleRetentionPolicy,
                 articleBodyLinkOpeningPolicy: patch.articleBodyLinkOpeningPolicy,
                 articleSourceLinkOpeningPolicy: patch.articleSourceLinkOpeningPolicy,
                 readerAdjacentNavigationControlsMode: patch.readerAdjacentNavigationControlsMode,

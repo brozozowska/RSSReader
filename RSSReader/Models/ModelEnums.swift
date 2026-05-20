@@ -25,6 +25,14 @@ enum ArticleSortMode: String, Codable, CaseIterable, Sendable {
     case publishedAtAscending
 }
 
+enum ArticleRetentionPolicy: String, Codable, CaseIterable, Sendable {
+    case currentFeedOnly
+    case twoDays
+    case oneWeek
+    case twoWeeks
+    case oneMonth
+}
+
 enum ArticleListSortOrder: String, CaseIterable, Sendable {
     case newestFirst
     case oldestFirst

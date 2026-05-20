@@ -82,6 +82,8 @@ final class SettingsScreenController {
             updateArticleSourceLinkOpeningPolicy(optionID: optionID, dependencies: dependencies)
         case .articleSortMode:
             updateArticleSortMode(optionID: optionID, dependencies: dependencies)
+        case .articleRetentionPolicy:
+            updateArticleRetentionPolicy(optionID: optionID, dependencies: dependencies)
         case .articleBodyLinkOpeningPolicy:
             updateArticleBodyLinkOpeningPolicy(optionID: optionID, dependencies: dependencies)
         case .readerAdjacentNavigationControlsMode:
@@ -118,6 +120,7 @@ final class SettingsScreenController {
         case .defaultReaderMode,
                 .articleSourceLinkOpeningPolicy,
                 .articleSortMode,
+                .articleRetentionPolicy,
                 .articleBodyLinkOpeningPolicy,
                 .readerAdjacentNavigationControlsMode,
                 .refreshInterval,
@@ -139,6 +142,7 @@ final class SettingsScreenController {
                 .markAsReadOnOpen,
                 .articleSourceLinkOpeningPolicy,
                 .articleSortMode,
+                .articleRetentionPolicy,
                 .askBeforeMarkingAllAsRead,
                 .refreshInterval,
                 .useICloudSync,
@@ -274,6 +278,24 @@ private extension SettingsScreenController {
 
         var input = screenState.settingsInput
         input.articleListSortOrder = selectedOrder
+        screenState.applyDraftInput(input)
+    }
+
+    func updateArticleRetentionPolicy(
+        optionID: String,
+        dependencies: AppDependencies
+    ) {
+        guard let selectedPolicy = ArticleRetentionPolicy(rawValue: optionID) else {
+            dependencies.logger.error("Skipped article retention policy update because option is invalid: \(optionID)")
+            return
+        }
+
+        guard screenState.settingsInput.articleRetentionPolicy != selectedPolicy else {
+            return
+        }
+
+        var input = screenState.settingsInput
+        input.articleRetentionPolicy = selectedPolicy
         screenState.applyDraftInput(input)
     }
 

@@ -13,7 +13,8 @@ struct SettingsScreenStateTests {
             refreshIntervalPreference: .hourly,
             useiCloudSync: true,
             markAsReadOnOpen: false,
-            sortMode: .publishedAtAscending
+            sortMode: .publishedAtAscending,
+            articleRetentionPolicy: .twoDays
         )
         var state = SettingsScreenState()
 
@@ -25,6 +26,7 @@ struct SettingsScreenStateTests {
         #expect(viewState.sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .storage])
         #expect(state.settingsInput.defaultReaderMode == .browser)
         #expect(state.settingsInput.articleListSortOrder == .oldestFirst)
+        #expect(state.settingsInput.articleRetentionPolicy == .twoDays)
         #expect(state.settingsInput.iCloudSyncStatus == .disabled)
         #expect(state.hasArticleImageCache == false)
     }
@@ -50,5 +52,31 @@ struct SettingsScreenStateTests {
 
         #expect(pickerItem.selectedValueTitle == "Reader Mode")
         #expect(pickerItem.options.count == ReaderMode.allCases.count)
+    }
+
+    @Test
+    func settingsScreenStateShowsArticleRetentionPickerWithUserFacingExplanation() throws {
+        let state = SettingsScreenState.previewLoaded(
+            snapshot: AppSettingsSnapshot(articleRetentionPolicy: .oneWeek)
+        )
+
+        let articleListSection = try #require(
+            state.derivedViewState().sections.first(where: { $0.id == .articleList })
+        )
+        let pickerItem = try #require(
+            articleListSection.items.compactMap { item -> SettingsPickerItemPresentation? in
+                guard case .picker(let pickerItem) = item, pickerItem.id == .articleRetentionPolicy else {
+                    return nil
+                }
+                return pickerItem
+            }
+            .first
+        )
+
+        #expect(pickerItem.title == "Keep Archived Articles")
+        #expect(pickerItem.selectedValueTitle == "1 Week")
+        #expect(pickerItem.options.map(\.title) == ["None", "2 Days", "1 Week", "2 Weeks", "1 Month"])
+        #expect(articleListSection.items.last?.id == .articleRetentionPolicy)
+        #expect(articleListSection.footer == "\"None\" removes an article from the list when it disappears from its feed. Other options keep the article for the selected time after it disappears.")
     }
 }

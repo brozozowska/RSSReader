@@ -14,6 +14,7 @@ final class AppSettings {
     var markAsReadOnOpen: Bool = true
     var askBeforeMarkingAllAsRead: Bool = true
     var sortMode: ArticleSortMode = ArticleSortMode.publishedAtAscending
+    var articleRetentionPolicy: ArticleRetentionPolicy = ArticleRetentionPolicy.oneWeek
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = ArticleBodyLinkOpeningPolicy.inAppBrowser
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = ArticleSourceLinkOpeningPolicy.inAppBrowser
     var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = ReaderAdjacentNavigationControlsMode.swipesAndToolbarControls
@@ -31,6 +32,7 @@ final class AppSettings {
         markAsReadOnOpen: Bool = true,
         askBeforeMarkingAllAsRead: Bool = true,
         sortMode: ArticleSortMode = .publishedAtAscending,
+        articleRetentionPolicy: ArticleRetentionPolicy = .oneWeek,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
         readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls,
@@ -47,6 +49,7 @@ final class AppSettings {
         self.markAsReadOnOpen = markAsReadOnOpen
         self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         self.sortMode = sortMode
+        self.articleRetentionPolicy = articleRetentionPolicy
         self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
         self.readerAdjacentNavigationControlsMode = readerAdjacentNavigationControlsMode

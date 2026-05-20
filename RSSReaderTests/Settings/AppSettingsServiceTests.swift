@@ -20,6 +20,7 @@ struct AppSettingsServiceTests {
                 markAsReadOnOpen: false,
                 askBeforeMarkingAllAsRead: false,
                 sortMode: .publishedAtAscending,
+                articleRetentionPolicy: .oneWeek,
                 articleBodyLinkOpeningPolicy: .externalBrowser,
                 articleSourceLinkOpeningPolicy: .externalBrowser,
                 readerAdjacentNavigationControlsMode: .swipesOnly,
@@ -39,6 +40,7 @@ struct AppSettingsServiceTests {
                 markAsReadOnOpen: false,
                 askBeforeMarkingAllAsRead: false,
                 sortMode: .publishedAtAscending,
+                articleRetentionPolicy: .oneWeek,
                 articleBodyLinkOpeningPolicy: .externalBrowser,
                 articleSourceLinkOpeningPolicy: .externalBrowser,
                 readerAdjacentNavigationControlsMode: .swipesOnly,
@@ -60,6 +62,7 @@ struct AppSettingsServiceTests {
             markAsReadOnOpen: false,
             askBeforeMarkingAllAsRead: false,
             sortMode: .publishedAtDescending,
+            articleRetentionPolicy: .twoWeeks,
             articleBodyLinkOpeningPolicy: .externalBrowser,
             articleSourceLinkOpeningPolicy: .externalBrowser,
             readerAdjacentNavigationControlsMode: .swipesOnly,
@@ -80,6 +83,7 @@ struct AppSettingsServiceTests {
         #expect(persistedSettings.markAsReadOnOpen == false)
         #expect(persistedSettings.askBeforeMarkingAllAsRead == false)
         #expect(persistedSettings.sortMode == .publishedAtDescending)
+        #expect(persistedSettings.articleRetentionPolicy == .twoWeeks)
         #expect(persistedSettings.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(persistedSettings.articleSourceLinkOpeningPolicy == .externalBrowser)
         #expect(persistedSettings.readerAdjacentNavigationControlsMode == .swipesOnly)
@@ -256,5 +260,23 @@ struct AppSettingsServiceTests {
 
         #expect(updatedSnapshot.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
         #expect(persistedSettings.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
+    }
+
+    @Test
+    func appSettingsServiceUpdatesArticleRetentionPolicyThroughPatch() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let service = try #require(harness.dependencies.appSettingsService)
+
+        let updatedSnapshot = try service.updateSettings(
+            AppSettingsPatch(
+                articleRetentionPolicy: .oneMonth,
+                updatedAt: .distantPast
+            )
+        )
+        let persistedSettings = try repository.fetchOrCreate()
+
+        #expect(updatedSnapshot.articleRetentionPolicy == .oneMonth)
+        #expect(persistedSettings.articleRetentionPolicy == .oneMonth)
     }
 }

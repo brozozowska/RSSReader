@@ -15,6 +15,7 @@ enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
     case markAsReadOnOpen
     case articleSourceLinkOpeningPolicy
     case articleSortMode
+    case articleRetentionPolicy
     case askBeforeMarkingAllAsRead
     case refreshInterval
     case useICloudSync
@@ -34,6 +35,7 @@ struct SettingsScreenInput: Equatable, Sendable {
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
     var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode
     var articleListSortOrder: ArticleListSortOrder
+    var articleRetentionPolicy: ArticleRetentionPolicy
     var askBeforeMarkingAllAsRead: Bool
     var refreshIntervalPreference: RefreshPreference
     var useiCloudSync: Bool
@@ -49,6 +51,7 @@ struct SettingsScreenInput: Equatable, Sendable {
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
         readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls,
         articleListSortOrder: ArticleListSortOrder = .oldestFirst,
+        articleRetentionPolicy: ArticleRetentionPolicy = .oneWeek,
         askBeforeMarkingAllAsRead: Bool = true,
         refreshIntervalPreference: RefreshPreference = .manual,
         useiCloudSync: Bool = false,
@@ -63,6 +66,7 @@ struct SettingsScreenInput: Equatable, Sendable {
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
         self.readerAdjacentNavigationControlsMode = readerAdjacentNavigationControlsMode
         self.articleListSortOrder = articleListSortOrder
+        self.articleRetentionPolicy = articleRetentionPolicy
         self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         self.refreshIntervalPreference = refreshIntervalPreference
         self.useiCloudSync = useiCloudSync
@@ -267,6 +271,7 @@ enum SettingsScreenInputBuilder {
             articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
             readerAdjacentNavigationControlsMode: snapshot.readerAdjacentNavigationControlsMode,
             articleListSortOrder: ArticleListSortOrder(sortMode: snapshot.sortMode),
+            articleRetentionPolicy: snapshot.articleRetentionPolicy,
             askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
             refreshIntervalPreference: snapshot.refreshIntervalPreference,
             useiCloudSync: snapshot.useiCloudSync,
@@ -399,7 +404,7 @@ enum SettingsScreenPresentationBuilder {
         SettingsScreenSectionPresentation(
             id: .articleList,
             title: "Article List",
-            footer: "Choose how article lists are ordered and whether bulk mark-as-read actions ask for confirmation.",
+            footer: "\"None\" removes an article from the list when it disappears from its feed. Other options keep the article for the selected time after it disappears.",
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
@@ -422,6 +427,21 @@ enum SettingsScreenPresentationBuilder {
                         title: "Ask Before Marking All Read",
                         subtitle: "Show a confirmation before marking all visible articles as read.",
                         isOn: input.askBeforeMarkingAllAsRead
+                    )
+                ),
+                .picker(
+                    SettingsPickerItemPresentation(
+                        id: .articleRetentionPolicy,
+                        title: "Keep Archived Articles",
+                        subtitle: nil,
+                        selectedValueTitle: articleRetentionPolicyTitle(input.articleRetentionPolicy),
+                        options: ArticleRetentionPolicy.allCases.map { policy in
+                            SettingsPickerOptionPresentation(
+                                id: policy.rawValue,
+                                title: articleRetentionPolicyTitle(policy),
+                                isSelected: input.articleRetentionPolicy == policy
+                            )
+                        }
                     )
                 )
             ]
@@ -516,6 +536,21 @@ enum SettingsScreenPresentationBuilder {
             "Newest First"
         case .oldestFirst:
             "Oldest First"
+        }
+    }
+
+    private static func articleRetentionPolicyTitle(_ policy: ArticleRetentionPolicy) -> String {
+        switch policy {
+        case .currentFeedOnly:
+            "None"
+        case .twoDays:
+            "2 Days"
+        case .oneWeek:
+            "1 Week"
+        case .twoWeeks:
+            "2 Weeks"
+        case .oneMonth:
+            "1 Month"
         }
     }
 
