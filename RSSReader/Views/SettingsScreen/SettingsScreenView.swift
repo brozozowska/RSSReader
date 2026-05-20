@@ -14,6 +14,7 @@ struct SettingsScreenView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     @Environment(AppState.self) private var appState
     @State private var controller: SettingsScreenController
+    @State private var isArchivedArticlesPurgeConfirmationPresented = false
     @State private var isArticleImageCacheResetConfirmationPresented = false
     let dismiss: () -> Void
 
@@ -54,7 +55,19 @@ struct SettingsScreenView: View {
                 .task {
                     guard controller.isPreviewMode == false else { return }
                     controller.loadSettings(dependencies: dependencies, appState: appState)
+                    controller.refreshArchivedArticlesAvailability(dependencies: dependencies)
                     await controller.refreshArticleImageCacheAvailability(dependencies: dependencies)
+                }
+                .alert(
+                    "Clear archived articles?",
+                    isPresented: $isArchivedArticlesPurgeConfirmationPresented
+                ) {
+                    Button("Clear Articles", role: .destructive) {
+                        actionHandlers.tapButton(.purgeArchivedArticles)
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This removes archived articles from this device and iCloud. Starred articles, current articles, and saved article images are not affected.")
                 }
                 .alert(
                     "Clear article image cache?",
@@ -89,7 +102,8 @@ struct SettingsScreenView: View {
                 Task {
                     await controller.handleButtonTap(
                         itemID: itemID,
-                        dependencies: dependencies
+                        dependencies: dependencies,
+                        appState: appState
                     )
                 }
             },
@@ -186,6 +200,8 @@ struct SettingsScreenView: View {
 
     private func handleButtonTap(_ buttonItem: SettingsButtonItemPresentation) {
         switch buttonItem.id {
+        case .purgeArchivedArticles:
+            isArchivedArticlesPurgeConfirmationPresented = true
         case .clearArticleImageCache:
             isArticleImageCacheResetConfirmationPresented = true
         case .defaultReaderMode,

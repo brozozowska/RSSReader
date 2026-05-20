@@ -23,6 +23,7 @@ enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
     case articleBodyLinkOpeningPolicy
     case readerAdjacentNavigationControlsMode
     case appearance
+    case purgeArchivedArticles
     case clearArticleImageCache
 
     var id: String { rawValue }
@@ -286,14 +287,18 @@ enum SettingsScreenInputBuilder {
 enum SettingsScreenPresentationBuilder {
     static func buildSections(
         from input: SettingsScreenInput,
-        hasArticleImageCache: Bool = false
+        hasArticleImageCache: Bool = false,
+        hasArchivedArticles: Bool = false
     ) -> [SettingsScreenSectionPresentation] {
         [
             appearanceSection(from: input),
             readingSection(from: input),
             articleListSection(from: input),
             updatesAndSyncSection(from: input),
-            storageSection(hasArticleImageCache: hasArticleImageCache)
+            storageSection(
+                hasArticleImageCache: hasArticleImageCache,
+                hasArchivedArticles: hasArchivedArticles
+            )
         ]
     }
 
@@ -499,7 +504,10 @@ enum SettingsScreenPresentationBuilder {
         )
     }
 
-    private static func storageSection(hasArticleImageCache: Bool) -> SettingsScreenSectionPresentation {
+    private static func storageSection(
+        hasArticleImageCache: Bool,
+        hasArchivedArticles: Bool
+    ) -> SettingsScreenSectionPresentation {
         SettingsScreenSectionPresentation(
             id: .storage,
             title: "Storage",
@@ -507,10 +515,20 @@ enum SettingsScreenPresentationBuilder {
             items: [
                 .button(
                     SettingsButtonItemPresentation(
+                        id: .purgeArchivedArticles,
+                        title: "Clear Archived Articles",
+                        subtitle: "Remove archived articles except starred ones from this device and iCloud.",
+                        systemImage: "archivebox",
+                        role: .destructive,
+                        isEnabled: hasArchivedArticles
+                    )
+                ),
+                .button(
+                    SettingsButtonItemPresentation(
                         id: .clearArticleImageCache,
                         title: "Clear Article Image Cache",
                         subtitle: "Remove article images saved on this device.",
-                        systemImage: "trash",
+                        systemImage: "photo.stack",
                         role: .destructive,
                         isEnabled: hasArticleImageCache
                     )

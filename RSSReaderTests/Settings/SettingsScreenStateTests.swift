@@ -29,6 +29,7 @@ struct SettingsScreenStateTests {
         #expect(state.settingsInput.articleRetentionPolicy == .twoDays)
         #expect(state.settingsInput.iCloudSyncStatus == .disabled)
         #expect(state.hasArticleImageCache == false)
+        #expect(state.hasArchivedArticles == false)
     }
 
     @Test

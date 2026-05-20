@@ -69,6 +69,16 @@ final class SettingsScreenController {
         }
     }
 
+    func refreshArchivedArticlesAvailability(dependencies: AppDependencies) {
+        do {
+            let hasArchivedArticles = try dependencies.articleRepository?.fetchArchivedArticles().isEmpty == false
+            screenState.applyArchivedArticlesAvailability(hasArchivedArticles)
+        } catch {
+            dependencies.logger.error("Failed to inspect archived articles: \(error)")
+            screenState.applyArchivedArticlesAvailability(false)
+        }
+    }
+
     func handlePickerOptionSelection(
         itemID: SettingsScreenItemID,
         optionID: String,
@@ -100,6 +110,7 @@ final class SettingsScreenController {
                 .askBeforeMarkingAllAsRead,
                 .useICloudSync,
                 .iCloudSyncStatus,
+                .purgeArchivedArticles,
                 .clearArticleImageCache:
             return
         }
@@ -126,6 +137,7 @@ final class SettingsScreenController {
                 .refreshInterval,
                 .iCloudSyncStatus,
                 .appearance,
+                .purgeArchivedArticles,
                 .clearArticleImageCache:
             return
         }
@@ -133,9 +145,12 @@ final class SettingsScreenController {
 
     func handleButtonTap(
         itemID: SettingsScreenItemID,
-        dependencies: AppDependencies
+        dependencies: AppDependencies,
+        appState: AppState? = nil
     ) async {
         switch itemID {
+        case .purgeArchivedArticles:
+            purgeArchivedArticles(dependencies: dependencies, appState: appState)
         case .clearArticleImageCache:
             await clearArticleImageCache(dependencies: dependencies)
         case .defaultReaderMode,
@@ -203,6 +218,22 @@ private extension SettingsScreenController {
         } catch {
             dependencies.logger.error("Failed to clear article image disk cache: \(error)")
             await refreshArticleImageCacheAvailability(dependencies: dependencies)
+        }
+    }
+
+    func purgeArchivedArticles(
+        dependencies: AppDependencies,
+        appState: AppState?
+    ) {
+        guard let result = dependencies.purgeArchivedArticles() else {
+            refreshArchivedArticlesAvailability(dependencies: dependencies)
+            return
+        }
+
+        screenState.applyArchivedArticlesAvailability(false)
+        if result.deletedCount > 0 {
+            appState?.requestSourcesSidebarReload()
+            appState?.requestArticleListReload()
         }
     }
 

@@ -13,6 +13,7 @@ struct SettingsScreenState {
     private(set) var iCloudSyncStatus: ICloudSyncStatus = .disabled
     private(set) var syncStatusPresentation: SettingsSyncStatusPresentation = .disabled
     private(set) var hasArticleImageCache = false
+    private(set) var hasArchivedArticles = false
     private(set) var sections: [SettingsScreenSectionPresentation] = []
 
     mutating func beginLoading() {
@@ -44,7 +45,8 @@ struct SettingsScreenState {
         syncStatusPresentation = input.syncStatusPresentation
         sections = SettingsScreenPresentationBuilder.buildSections(
             from: input,
-            hasArticleImageCache: hasArticleImageCache
+            hasArticleImageCache: hasArticleImageCache,
+            hasArchivedArticles: hasArchivedArticles
         )
         phase = .loaded
     }
@@ -55,7 +57,8 @@ struct SettingsScreenState {
         syncStatusPresentation = input.syncStatusPresentation
         sections = SettingsScreenPresentationBuilder.buildSections(
             from: input,
-            hasArticleImageCache: hasArticleImageCache
+            hasArticleImageCache: hasArticleImageCache,
+            hasArchivedArticles: hasArchivedArticles
         )
     }
 
@@ -63,7 +66,17 @@ struct SettingsScreenState {
         hasArticleImageCache = hasCache
         sections = SettingsScreenPresentationBuilder.buildSections(
             from: settingsInput,
-            hasArticleImageCache: hasArticleImageCache
+            hasArticleImageCache: hasArticleImageCache,
+            hasArchivedArticles: hasArchivedArticles
+        )
+    }
+
+    mutating func applyArchivedArticlesAvailability(_ hasArchivedArticles: Bool) {
+        self.hasArchivedArticles = hasArchivedArticles
+        sections = SettingsScreenPresentationBuilder.buildSections(
+            from: settingsInput,
+            hasArticleImageCache: hasArticleImageCache,
+            hasArchivedArticles: self.hasArchivedArticles
         )
     }
 

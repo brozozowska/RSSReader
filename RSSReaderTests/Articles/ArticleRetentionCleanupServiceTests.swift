@@ -83,6 +83,58 @@ struct ArticleRetentionCleanupServiceTests {
     }
 
     @Test
+    func purgeDeletesUnstarredArchivedArticlesAndRetainsStarredAndCurrentArticles() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/archive-purge.xml"]).first)
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let currentArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "current",
+            url: "https://example.com/articles/current",
+            title: "Current"
+        )
+        let starredArchivedArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "starred-archived",
+            url: "https://example.com/articles/starred-archived",
+            title: "Starred Archived",
+            archivedAt: now
+        )
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "archived",
+            url: "https://example.com/articles/archived",
+            title: "Archived",
+            archivedAt: now
+        )
+        _ = try harness.articleStateRepository.upsert(
+            feedID: starredArchivedArticle.feedID,
+            articleExternalID: starredArchivedArticle.externalID,
+            update: ArticleStateUpsert(
+                isStarred: true,
+                starredAt: now,
+                updatedAt: now
+            )
+        )
+        let service = ArticleRetentionCleanupService(
+            logger: TestLogger(),
+            articleRepository: harness.articleRepository,
+            articleStateRepository: harness.articleStateRepository
+        )
+
+        let result = try service.purgeArchivedArticles()
+        let remainingArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+
+        #expect(result.inspectedArchivedCount == 2)
+        #expect(result.deletedCount == 1)
+        #expect(result.retainedStarredCount == 1)
+
+        let remainingArticleIDs = remainingArticles.map(\.id)
+        let expectedArticleIDs = [currentArticle.id, starredArchivedArticle.id]
+        #expect(Set(remainingArticleIDs) == Set(expectedArticleIDs))
+    }
+
+    @Test
     func manualRefreshRunsArticleRetentionCleanup() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)

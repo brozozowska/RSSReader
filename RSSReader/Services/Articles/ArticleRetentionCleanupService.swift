@@ -8,6 +8,12 @@ struct ArticleRetentionCleanupResult: Equatable, Sendable {
     let cutoffDate: Date
 }
 
+struct ArticleArchivePurgeResult: Equatable, Sendable {
+    let inspectedArchivedCount: Int
+    let deletedCount: Int
+    let retainedStarredCount: Int
+}
+
 @MainActor
 protocol ArticleRetentionCleanupServicing {
     @discardableResult
@@ -15,6 +21,9 @@ protocol ArticleRetentionCleanupServicing {
         policy: ArticleRetentionPolicy,
         now: Date
     ) throws -> ArticleRetentionCleanupResult
+
+    @discardableResult
+    func purgeArchivedArticles() throws -> ArticleArchivePurgeResult
 }
 
 @MainActor
@@ -69,6 +78,36 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
         )
         logger.info(
             "Article retention cleanup finished policy=\(policy.rawValue) inspected=\(result.inspectedArchivedCount) deleted=\(result.deletedCount) retainedStarred=\(result.retainedStarredCount)"
+        )
+        return result
+    }
+
+    @discardableResult
+    func purgeArchivedArticles() throws -> ArticleArchivePurgeResult {
+        let archivedArticles = try articleRepository.fetchArchivedArticles()
+        let stateByCompositeKey = try articleStateRepository.fetchStateSnapshots(for: archivedArticles)
+        var articlesToDelete: [Article] = []
+        var retainedStarredCount = 0
+
+        for article in archivedArticles {
+            let state = stateByCompositeKey[articleCompositeKey(for: article)]
+            if state?.isStarred == true {
+                retainedStarredCount += 1
+                continue
+            }
+
+            articlesToDelete.append(article)
+        }
+
+        try articleRepository.delete(articlesToDelete, saveAfterOperation: true)
+
+        let result = ArticleArchivePurgeResult(
+            inspectedArchivedCount: archivedArticles.count,
+            deletedCount: articlesToDelete.count,
+            retainedStarredCount: retainedStarredCount
+        )
+        logger.info(
+            "Article archive purge finished inspected=\(result.inspectedArchivedCount) deleted=\(result.deletedCount) retainedStarred=\(result.retainedStarredCount)"
         )
         return result
     }

@@ -1261,6 +1261,22 @@ extension AppDependencies {
     }
 
     @MainActor
+    @discardableResult
+    func purgeArchivedArticles() -> ArticleArchivePurgeResult? {
+        guard let articleRetentionCleanupService else {
+            logger.debug("Article retention cleanup service is unavailable for article archive purge")
+            return nil
+        }
+
+        do {
+            return try articleRetentionCleanupService.purgeArchivedArticles()
+        } catch {
+            logger.error("Failed to purge archived articles: \(error)")
+            return nil
+        }
+    }
+
+    @MainActor
     func currentBackgroundRefreshRuntimePrerequisites() -> BackgroundRefreshRuntimePrerequisitesSnapshot {
         backgroundRefreshRuntimePrerequisitesSource.currentSnapshot()
     }

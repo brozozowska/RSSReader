@@ -204,10 +204,20 @@ struct SettingsScreenPresentationTests {
             storageItems == [
                 .button(
                     SettingsButtonItemPresentation(
+                        id: .purgeArchivedArticles,
+                        title: "Clear Archived Articles",
+                        subtitle: "Remove archived articles except starred ones from this device and iCloud.",
+                        systemImage: "archivebox",
+                        role: .destructive,
+                        isEnabled: false
+                    )
+                ),
+                .button(
+                    SettingsButtonItemPresentation(
                         id: .clearArticleImageCache,
                         title: "Clear Article Image Cache",
                         subtitle: "Remove article images saved on this device.",
-                        systemImage: "trash",
+                        systemImage: "photo.stack",
                         role: .destructive,
                         isEnabled: false
                     )
@@ -228,15 +238,47 @@ struct SettingsScreenPresentationTests {
             storageSection.items == [
                 .button(
                     SettingsButtonItemPresentation(
+                        id: .purgeArchivedArticles,
+                        title: "Clear Archived Articles",
+                        subtitle: "Remove archived articles except starred ones from this device and iCloud.",
+                        systemImage: "archivebox",
+                        role: .destructive,
+                        isEnabled: false
+                    )
+                ),
+                .button(
+                    SettingsButtonItemPresentation(
                         id: .clearArticleImageCache,
                         title: "Clear Article Image Cache",
                         subtitle: "Remove article images saved on this device.",
-                        systemImage: "trash",
+                        systemImage: "photo.stack",
                         role: .destructive,
                         isEnabled: true
                     )
                 )
             ]
+        )
+    }
+
+    @Test
+    func settingsScreenPresentationBuilderEnablesArchivedArticlePurgeWhenArchivedArticlesExist() throws {
+        let sections = SettingsScreenPresentationBuilder.buildSections(
+            from: SettingsScreenInputBuilder.build(from: AppSettingsSnapshot()),
+            hasArchivedArticles: true
+        )
+        let storageSection = try #require(sections.first(where: { $0.id == .storage }))
+
+        #expect(
+            storageSection.items.first == .button(
+                SettingsButtonItemPresentation(
+                    id: .purgeArchivedArticles,
+                    title: "Clear Archived Articles",
+                    subtitle: "Remove archived articles except starred ones from this device and iCloud.",
+                    systemImage: "archivebox",
+                    role: .destructive,
+                    isEnabled: true
+                )
+            )
         )
     }
 
