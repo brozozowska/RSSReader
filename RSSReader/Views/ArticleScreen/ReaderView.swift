@@ -554,9 +554,10 @@ struct CachedArticleImageView: View {
 
     @MainActor
     private func loadImage() async {
-        let cache = ArticleImageMemoryCache.shared
+        let memoryCache = ArticleImageMemoryCache.shared
+        let diskCache = ArticleImageDiskCache.shared
 
-        if let cachedImage = cache.image(for: url) {
+        if let cachedImage = memoryCache.image(for: url) {
             phase = .success(cachedImage)
             return
         }
@@ -564,6 +565,13 @@ struct CachedArticleImageView: View {
         phase = .loading
 
         do {
+            if let cachedData = try? await diskCache.data(for: url),
+               let diskImage = UIImage(data: cachedData) {
+                memoryCache.insert(diskImage, for: url, cost: cachedData.count)
+                phase = .success(diskImage)
+                return
+            }
+
             let (data, response) = try await URLSession.shared.data(from: url)
             try Task.checkCancellation()
 
@@ -574,7 +582,8 @@ struct CachedArticleImageView: View {
                 return
             }
 
-            cache.insert(image, for: url, cost: data.count)
+            try? await diskCache.insert(data, for: url)
+            memoryCache.insert(image, for: url, cost: data.count)
             phase = .success(image)
         } catch is CancellationError {
             return
