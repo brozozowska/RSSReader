@@ -8,6 +8,7 @@ struct AppSettingsUpdate: Sendable {
     var useiCloudSync: Bool? = nil
     var markAsReadOnOpen: Bool? = nil
     var askBeforeMarkingAllAsRead: Bool? = nil
+    var showUnreadCountBadge: Bool? = nil
     var sortMode: ArticleSortMode? = nil
     var articleRetentionPolicy: ArticleRetentionPolicy? = nil
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
@@ -78,6 +79,10 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
 
         if let askBeforeMarkingAllAsRead = update.askBeforeMarkingAllAsRead {
             settings.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
+        }
+
+        if let showUnreadCountBadge = update.showUnreadCountBadge {
+            settings.showUnreadCountBadge = showUnreadCountBadge
         }
 
         if let sortMode = update.sortMode {

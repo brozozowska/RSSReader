@@ -5,6 +5,7 @@ enum SettingsScreenSectionID: String, Hashable, Identifiable, Sendable {
     case reading
     case articleList
     case updatesAndSync
+    case notifications
     case storage
 
     var id: String { rawValue }
@@ -20,6 +21,7 @@ enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
     case refreshInterval
     case useICloudSync
     case iCloudSyncStatus
+    case showUnreadCountBadge
     case articleBodyLinkOpeningPolicy
     case readerAdjacentNavigationControlsMode
     case appearance
@@ -39,6 +41,7 @@ struct SettingsScreenInput: Equatable, Sendable {
     var articleRetentionPolicy: ArticleRetentionPolicy
     var askBeforeMarkingAllAsRead: Bool
     var refreshIntervalPreference: RefreshPreference
+    var showUnreadCountBadge: Bool
     var useiCloudSync: Bool
     var iCloudSyncStatus: ICloudSyncStatus
     var syncStatusPresentation: SettingsSyncStatusPresentation
@@ -55,6 +58,7 @@ struct SettingsScreenInput: Equatable, Sendable {
         articleRetentionPolicy: ArticleRetentionPolicy = .oneWeek,
         askBeforeMarkingAllAsRead: Bool = true,
         refreshIntervalPreference: RefreshPreference = .manual,
+        showUnreadCountBadge: Bool = false,
         useiCloudSync: Bool = false,
         iCloudSyncStatus: ICloudSyncStatus = .disabled,
         syncStatusPresentation: SettingsSyncStatusPresentation = .disabled,
@@ -70,6 +74,7 @@ struct SettingsScreenInput: Equatable, Sendable {
         self.articleRetentionPolicy = articleRetentionPolicy
         self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         self.refreshIntervalPreference = refreshIntervalPreference
+        self.showUnreadCountBadge = showUnreadCountBadge
         self.useiCloudSync = useiCloudSync
         self.iCloudSyncStatus = iCloudSyncStatus
         self.syncStatusPresentation = syncStatusPresentation
@@ -275,6 +280,7 @@ enum SettingsScreenInputBuilder {
             articleRetentionPolicy: snapshot.articleRetentionPolicy,
             askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
             refreshIntervalPreference: snapshot.refreshIntervalPreference,
+            showUnreadCountBadge: snapshot.showUnreadCountBadge,
             useiCloudSync: snapshot.useiCloudSync,
             iCloudSyncStatus: resolvedSyncStatusPresentation.iCloudSyncStatus,
             syncStatusPresentation: resolvedSyncStatusPresentation,
@@ -295,6 +301,7 @@ enum SettingsScreenPresentationBuilder {
             readingSection(from: input),
             articleListSection(from: input),
             updatesAndSyncSection(from: input),
+            notificationsSection(from: input),
             storageSection(
                 hasArticleImageCache: hasArticleImageCache,
                 hasArchivedArticles: hasArchivedArticles
@@ -498,6 +505,24 @@ enum SettingsScreenPresentationBuilder {
                             isUsingLocalOnlySyncFallbackForCurrentLaunch: input.isUsingLocalOnlySyncFallbackForCurrentLaunch
                         ),
                         valueTitle: iCloudSyncStatusTitle(input.syncStatusPresentation)
+                    )
+                )
+            ]
+        )
+    }
+
+    private static func notificationsSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
+        SettingsScreenSectionPresentation(
+            id: .notifications,
+            title: "Notifications",
+            footer: "App does not send notifications. iOS still requires notification permission to show a badge on the app icon.",
+            items: [
+                .toggle(
+                    SettingsToggleItemPresentation(
+                        id: .showUnreadCountBadge,
+                        title: "App Icon Badge",
+                        subtitle: "Show the unread article count on the app icon.",
+                        isOn: input.showUnreadCountBadge
                     )
                 )
             ]

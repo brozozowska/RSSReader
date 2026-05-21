@@ -54,6 +54,7 @@ struct AppSettingsPersistenceTests {
         #expect(settings.articleSourceLinkOpeningPolicy == .inAppBrowser)
         #expect(settings.readerAdjacentNavigationControlsMode == .swipesAndToolbarControls)
         #expect(settings.interfaceThemeMode == .automaticLightDark)
+        #expect(settings.showUnreadCountBadge == false)
     }
 
     @Test
@@ -156,6 +157,23 @@ struct AppSettingsPersistenceTests {
         let settings = try repository.fetchOrCreate()
 
         #expect(settings.interfaceThemeMode == .black)
+    }
+
+    @Test
+    func appSettingsRepositoryPersistsUnreadCountBadgePreference() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                showUnreadCountBadge: true,
+                updatedAt: .distantPast
+            )
+        )
+
+        let settings = try repository.fetchOrCreate()
+
+        #expect(settings.showUnreadCountBadge)
     }
 
     @Test

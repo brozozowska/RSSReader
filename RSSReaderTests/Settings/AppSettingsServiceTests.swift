@@ -19,6 +19,7 @@ struct AppSettingsServiceTests {
                 useiCloudSync: true,
                 markAsReadOnOpen: false,
                 askBeforeMarkingAllAsRead: false,
+                showUnreadCountBadge: true,
                 sortMode: .publishedAtAscending,
                 articleRetentionPolicy: .oneWeek,
                 articleBodyLinkOpeningPolicy: .externalBrowser,
@@ -39,6 +40,7 @@ struct AppSettingsServiceTests {
                 useiCloudSync: true,
                 markAsReadOnOpen: false,
                 askBeforeMarkingAllAsRead: false,
+                showUnreadCountBadge: true,
                 sortMode: .publishedAtAscending,
                 articleRetentionPolicy: .oneWeek,
                 articleBodyLinkOpeningPolicy: .externalBrowser,
@@ -61,6 +63,7 @@ struct AppSettingsServiceTests {
             useiCloudSync: true,
             markAsReadOnOpen: false,
             askBeforeMarkingAllAsRead: false,
+            showUnreadCountBadge: true,
             sortMode: .publishedAtDescending,
             articleRetentionPolicy: .twoWeeks,
             articleBodyLinkOpeningPolicy: .externalBrowser,
@@ -82,6 +85,7 @@ struct AppSettingsServiceTests {
         #expect(persistedSettings.useiCloudSync)
         #expect(persistedSettings.markAsReadOnOpen == false)
         #expect(persistedSettings.askBeforeMarkingAllAsRead == false)
+        #expect(persistedSettings.showUnreadCountBadge)
         #expect(persistedSettings.sortMode == .publishedAtDescending)
         #expect(persistedSettings.articleRetentionPolicy == .twoWeeks)
         #expect(persistedSettings.articleBodyLinkOpeningPolicy == .externalBrowser)

@@ -23,7 +23,7 @@ struct SettingsScreenStateTests {
 
         #expect(viewState.primaryLoadingState == nil)
         #expect(viewState.placeholder == nil)
-        #expect(viewState.sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .storage])
+        #expect(viewState.sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .notifications, .storage])
         #expect(state.settingsInput.defaultReaderMode == .browser)
         #expect(state.settingsInput.articleListSortOrder == .oldestFirst)
         #expect(state.settingsInput.articleRetentionPolicy == .twoDays)

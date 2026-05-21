@@ -113,6 +113,12 @@ public final class AppDependencies: AppDependenciesProtocol {
         let articleStateRepository = modelContainer.map { container in
             SwiftDataArticleStateRepository(modelContext: container.mainContext)
         }
+        let appSettingsRepository = modelContainer.map { container in
+            SwiftDataAppSettingsRepository(modelContext: container.mainContext)
+        }
+        let appSettingsService = appSettingsRepository.map { repository in
+            DefaultAppSettingsService(repository: repository)
+        }
         let articleQueryService: (any ArticleQueryService)? = {
             guard let articleRepository,
                   let articleStateRepository else {
@@ -125,14 +131,15 @@ public final class AppDependencies: AppDependenciesProtocol {
             )
         }()
         let resolvedUnreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = unreadAppIconBadgeService ?? {
-            guard let feedRepository, let articleStateRepository else {
+            guard let feedRepository, let articleStateRepository, let appSettingsService else {
                 return nil
             }
 
             return UnreadAppIconBadgeService(
                 logger: logger,
                 feedRepository: feedRepository,
-                articleStateRepository: articleStateRepository
+                articleStateRepository: articleStateRepository,
+                appSettingsService: appSettingsService
             )
         }()
         let articleStateService = articleStateRepository.map { repository in
@@ -168,12 +175,6 @@ public final class AppDependencies: AppDependenciesProtocol {
                 articleQueryService: articleQueryService
             )
         }()
-        let appSettingsRepository = modelContainer.map { container in
-            SwiftDataAppSettingsRepository(modelContext: container.mainContext)
-        }
-        let appSettingsService = appSettingsRepository.map { repository in
-            DefaultAppSettingsService(repository: repository)
-        }
         let feedFetchLogRepository = modelContainer.map { container in
             SwiftDataFeedFetchLogRepository(modelContext: container.mainContext)
         }
@@ -1343,6 +1344,18 @@ extension AppDependencies {
         }
 
         await unreadAppIconBadgeService.refreshBadgeCount()
+    }
+
+    @MainActor
+    func applyUnreadAppIconBadgePreference(isEnabled: Bool) {
+        guard let unreadAppIconBadgeService else {
+            logger.debug("Unread app icon badge service is unavailable")
+            return
+        }
+
+        Task { @MainActor in
+            await unreadAppIconBadgeService.applyBadgePreference(isEnabled: isEnabled)
+        }
     }
 
     @MainActor

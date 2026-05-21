@@ -7,6 +7,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var useiCloudSync: Bool
     var markAsReadOnOpen: Bool
     var askBeforeMarkingAllAsRead: Bool
+    var showUnreadCountBadge: Bool
     var sortMode: ArticleSortMode
     var articleRetentionPolicy: ArticleRetentionPolicy
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
@@ -21,6 +22,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         useiCloudSync: Bool = false,
         markAsReadOnOpen: Bool = true,
         askBeforeMarkingAllAsRead: Bool = true,
+        showUnreadCountBadge: Bool = false,
         sortMode: ArticleSortMode = .publishedAtAscending,
         articleRetentionPolicy: ArticleRetentionPolicy = .oneWeek,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
@@ -34,6 +36,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         self.useiCloudSync = useiCloudSync
         self.markAsReadOnOpen = markAsReadOnOpen
         self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
+        self.showUnreadCountBadge = showUnreadCountBadge
         self.sortMode = sortMode
         self.articleRetentionPolicy = articleRetentionPolicy
         self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
@@ -50,6 +53,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
             useiCloudSync: settings.useiCloudSync,
             markAsReadOnOpen: settings.markAsReadOnOpen,
             askBeforeMarkingAllAsRead: settings.askBeforeMarkingAllAsRead,
+            showUnreadCountBadge: settings.showUnreadCountBadge,
             sortMode: settings.sortMode,
             articleRetentionPolicy: settings.articleRetentionPolicy,
             articleBodyLinkOpeningPolicy: settings.articleBodyLinkOpeningPolicy,
@@ -67,6 +71,7 @@ struct AppSettingsPatch: Sendable {
     var useiCloudSync: Bool? = nil
     var markAsReadOnOpen: Bool? = nil
     var askBeforeMarkingAllAsRead: Bool? = nil
+    var showUnreadCountBadge: Bool? = nil
     var sortMode: ArticleSortMode? = nil
     var articleRetentionPolicy: ArticleRetentionPolicy? = nil
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
@@ -115,6 +120,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 useiCloudSync: snapshot.useiCloudSync,
                 markAsReadOnOpen: snapshot.markAsReadOnOpen,
                 askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
+                showUnreadCountBadge: snapshot.showUnreadCountBadge,
                 sortMode: snapshot.sortMode,
                 articleRetentionPolicy: snapshot.articleRetentionPolicy,
                 articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
@@ -137,6 +143,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 useiCloudSync: patch.useiCloudSync,
                 markAsReadOnOpen: patch.markAsReadOnOpen,
                 askBeforeMarkingAllAsRead: patch.askBeforeMarkingAllAsRead,
+                showUnreadCountBadge: patch.showUnreadCountBadge,
                 sortMode: patch.sortMode,
                 articleRetentionPolicy: patch.articleRetentionPolicy,
                 articleBodyLinkOpeningPolicy: patch.articleBodyLinkOpeningPolicy,

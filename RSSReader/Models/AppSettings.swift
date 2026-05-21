@@ -13,6 +13,7 @@ final class AppSettings {
     var useiCloudSync: Bool = false
     var markAsReadOnOpen: Bool = true
     var askBeforeMarkingAllAsRead: Bool = true
+    var showUnreadCountBadge: Bool = false
     var sortMode: ArticleSortMode = ArticleSortMode.publishedAtAscending
     var articleRetentionPolicy: ArticleRetentionPolicy = ArticleRetentionPolicy.oneWeek
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = ArticleBodyLinkOpeningPolicy.inAppBrowser
@@ -31,6 +32,7 @@ final class AppSettings {
         useiCloudSync: Bool = false,
         markAsReadOnOpen: Bool = true,
         askBeforeMarkingAllAsRead: Bool = true,
+        showUnreadCountBadge: Bool = false,
         sortMode: ArticleSortMode = .publishedAtAscending,
         articleRetentionPolicy: ArticleRetentionPolicy = .oneWeek,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
@@ -48,6 +50,7 @@ final class AppSettings {
         self.useiCloudSync = useiCloudSync
         self.markAsReadOnOpen = markAsReadOnOpen
         self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
+        self.showUnreadCountBadge = showUnreadCountBadge
         self.sortMode = sortMode
         self.articleRetentionPolicy = articleRetentionPolicy
         self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy

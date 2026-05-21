@@ -14,6 +14,7 @@ struct SettingsScreenPresentationTests {
             useiCloudSync: true,
             markAsReadOnOpen: false,
             askBeforeMarkingAllAsRead: false,
+            showUnreadCountBadge: true,
             sortMode: .publishedAtDescending,
             articleRetentionPolicy: .twoWeeks,
             articleBodyLinkOpeningPolicy: .externalBrowser,
@@ -28,13 +29,14 @@ struct SettingsScreenPresentationTests {
 
         let sections = SettingsScreenPresentationBuilder.buildSections(from: input)
 
-        #expect(sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .storage])
+        #expect(sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .notifications, .storage])
 
         let appearanceItems = sections[0].items
         let readingItems = sections[1].items
         let articleListItems = sections[2].items
         let updatesAndSyncItems = sections[3].items
-        let storageItems = sections[4].items
+        let notificationsItems = sections[4].items
+        let storageItems = sections[5].items
 
         #expect(
             appearanceItems == [
@@ -197,6 +199,18 @@ struct SettingsScreenPresentationTests {
                         title: "Current Status",
                         subtitle: "The current app session could not read the live iCloud sync status.",
                         valueTitle: "Status Unavailable"
+                    )
+                )
+            ]
+        )
+        #expect(
+            notificationsItems == [
+                .toggle(
+                    SettingsToggleItemPresentation(
+                        id: .showUnreadCountBadge,
+                        title: "App Icon Badge",
+                        subtitle: "Show the unread article count on the app icon.",
+                        isOn: true
                     )
                 )
             ]

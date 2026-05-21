@@ -108,6 +108,7 @@ final class SettingsScreenController {
             )
         case .markAsReadOnOpen,
                 .askBeforeMarkingAllAsRead,
+                .showUnreadCountBadge,
                 .useICloudSync,
                 .iCloudSyncStatus,
                 .purgeArchivedArticles,
@@ -128,6 +129,8 @@ final class SettingsScreenController {
             updateAskBeforeMarkingAllAsRead(isOn: isOn, dependencies: dependencies)
         case .useICloudSync:
             updateUseICloudSync(isOn: isOn, dependencies: dependencies)
+        case .showUnreadCountBadge:
+            updateShowUnreadCountBadge(isOn: isOn, dependencies: dependencies)
         case .defaultReaderMode,
                 .articleSourceLinkOpeningPolicy,
                 .articleSortMode,
@@ -159,6 +162,7 @@ final class SettingsScreenController {
                 .articleSortMode,
                 .articleRetentionPolicy,
                 .askBeforeMarkingAllAsRead,
+                .showUnreadCountBadge,
                 .refreshInterval,
                 .useICloudSync,
                 .iCloudSyncStatus,
@@ -291,6 +295,19 @@ private extension SettingsScreenController {
 
         var input = screenState.settingsInput
         input.useiCloudSync = isOn
+        screenState.applyDraftInput(input)
+    }
+
+    func updateShowUnreadCountBadge(
+        isOn: Bool,
+        dependencies: AppDependencies
+    ) {
+        guard screenState.settingsInput.showUnreadCountBadge != isOn else {
+            return
+        }
+
+        var input = screenState.settingsInput
+        input.showUnreadCountBadge = isOn
         screenState.applyDraftInput(input)
     }
 
@@ -480,6 +497,10 @@ private extension SettingsScreenController {
                 appState?.requestSourcesSidebarReload()
                 appState?.requestArticleListReload()
             }
+        }
+
+        if previousSnapshot.showUnreadCountBadge != updatedSnapshot.showUnreadCountBadge {
+            dependencies.applyUnreadAppIconBadgePreference(isEnabled: updatedSnapshot.showUnreadCountBadge)
         }
 
         guard previousSnapshot.refreshIntervalPreference != updatedSnapshot.refreshIntervalPreference else {

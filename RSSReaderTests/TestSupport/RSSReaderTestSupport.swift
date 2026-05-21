@@ -231,6 +231,7 @@ struct TestLogger: Logging {
 
 final class NoOpUnreadAppIconBadgeService: UnreadAppIconBadgeServicing {
     func refreshBadgeCount() async {}
+    func applyBadgePreference(isEnabled: Bool) async {}
 }
 
 final class RecordingLogger: Logging {

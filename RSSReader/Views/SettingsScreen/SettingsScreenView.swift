@@ -206,6 +206,7 @@ struct SettingsScreenView: View {
             isArticleImageCacheResetConfirmationPresented = true
         case .defaultReaderMode,
                 .markAsReadOnOpen,
+                .showUnreadCountBadge,
                 .articleSourceLinkOpeningPolicy,
                 .articleSortMode,
                 .articleRetentionPolicy,

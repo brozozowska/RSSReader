@@ -149,6 +149,7 @@ private extension SettingsScreenState {
             useiCloudSync: settingsInput.useiCloudSync,
             markAsReadOnOpen: settingsInput.markAsReadOnOpen,
             askBeforeMarkingAllAsRead: settingsInput.askBeforeMarkingAllAsRead,
+            showUnreadCountBadge: settingsInput.showUnreadCountBadge,
             sortMode: settingsInput.articleListSortOrder.sortMode,
             articleRetentionPolicy: settingsInput.articleRetentionPolicy,
             articleBodyLinkOpeningPolicy: settingsInput.articleBodyLinkOpeningPolicy,
