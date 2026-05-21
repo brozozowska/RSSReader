@@ -224,6 +224,7 @@ struct AppRootContainer: View {
             )
             dependencies.startRemoteSyncReloadAppLifetime(using: appState)
             await restorePersistedAppSettingsIfNeeded()
+            await dependencies.refreshUnreadAppIconBadgeCount()
         }
         .onChange(of: scenePhase) { _, newPhase in
             AppComposition.applyBackgroundRefreshForegroundRuntimeState(

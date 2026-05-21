@@ -135,6 +135,7 @@ struct TestHarness {
             httpClient: httpClient,
             feedFetcher: feedFetcher,
             modelContainer: modelContainer,
+            unreadAppIconBadgeService: NoOpUnreadAppIconBadgeService(),
             tracksFeedSaveRefreshTasks: true
         )
 
@@ -226,6 +227,10 @@ struct TestLogger: Logging {
     func debug(_ message: @autoclosure () -> String) {}
     func info(_ message: @autoclosure () -> String) {}
     func error(_ message: @autoclosure () -> String) {}
+}
+
+final class NoOpUnreadAppIconBadgeService: UnreadAppIconBadgeServicing {
+    func refreshBadgeCount() async {}
 }
 
 final class RecordingLogger: Logging {

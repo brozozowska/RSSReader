@@ -55,6 +55,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let sourceManagementService: (any SourceManagementService)?
     let articleRepository: (any ArticleRepository)?
     let articleStateService: ArticleStateService?
+    let unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)?
     let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)?
     let persistenceBoundedGrowthCleanupService: (any PersistenceBoundedGrowthCleanupServicing)?
     let articleQueryService: (any ArticleQueryService)?
@@ -97,6 +98,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         cloudKitRuntimeEventSource: (any CloudKitRuntimeEventSource)? = nil,
         persistentStoreRemoteChangeSource: (any PersistentStoreRemoteChangeSource)? = nil,
         syncCoordinator: SyncCoordinator? = nil,
+        unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = nil,
         tracksFeedSaveRefreshTasks: Bool = false
     ) {
         let feedRepository = modelContainer.map { container in
@@ -122,10 +124,22 @@ public final class AppDependencies: AppDependenciesProtocol {
                 articleStateRepository: articleStateRepository
             )
         }()
+        let resolvedUnreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = unreadAppIconBadgeService ?? {
+            guard let feedRepository, let articleStateRepository else {
+                return nil
+            }
+
+            return UnreadAppIconBadgeService(
+                logger: logger,
+                feedRepository: feedRepository,
+                articleStateRepository: articleStateRepository
+            )
+        }()
         let articleStateService = articleStateRepository.map { repository in
             ArticleStateService(
                 logger: logger,
-                articleStateRepository: repository
+                articleStateRepository: repository,
+                unreadAppIconBadgeService: resolvedUnreadAppIconBadgeService
             )
         }
         let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)? = {
@@ -246,6 +260,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.sourceManagementService = sourceManagementService
         self.articleRepository = articleRepository
         self.articleStateService = articleStateService
+        self.unreadAppIconBadgeService = resolvedUnreadAppIconBadgeService
         self.articleRetentionCleanupService = articleRetentionCleanupService
         self.persistenceBoundedGrowthCleanupService = persistenceBoundedGrowthCleanupService
         self.articleStateRepository = articleStateRepository
@@ -994,6 +1009,7 @@ extension AppDependencies {
 
         let task = Task { @MainActor in
             _ = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
+            await refreshUnreadAppIconBadgeCount()
             appState.requestSourcesSidebarReload()
             appState.requestArticleListReload()
         }
@@ -1087,6 +1103,7 @@ extension AppDependencies {
         do {
             try sourceManagementService.deleteFeed(id: feedID)
             finishUnsubscribingFeed(id: feedID, using: appState)
+            scheduleUnreadAppIconBadgeRefresh()
         } catch {
             logger.error("Failed to unsubscribe feed \(feedID): \(error)")
         }
@@ -1129,6 +1146,7 @@ extension AppDependencies {
 
         let result = await feedRefreshService.refresh(feedID: feedID)
         cleanupArchivedArticlesUsingCurrentSettings()
+        await refreshUnreadAppIconBadgeCount()
         return result
     }
 
@@ -1141,6 +1159,7 @@ extension AppDependencies {
 
         let result = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
         cleanupArchivedArticlesUsingCurrentSettings()
+        await refreshUnreadAppIconBadgeCount()
         appState.requestSourcesSidebarReload()
         showFeed(id: feedID, using: appState)
         dismissSourceManagement(using: appState)
@@ -1166,6 +1185,7 @@ extension AppDependencies {
 
         let result = await feedRefreshService.refreshAllActiveFeeds()
         cleanupArchivedArticlesUsingCurrentSettings()
+        await refreshUnreadAppIconBadgeCount()
         return result
     }
 
@@ -1238,6 +1258,7 @@ extension AppDependencies {
         let result = await backgroundRefreshService.performScheduledRefresh()
         if case .executed = result {
             cleanupPersistenceBoundedGrowth()
+            await refreshUnreadAppIconBadgeCount()
         }
         return result
     }
@@ -1312,6 +1333,16 @@ extension AppDependencies {
             logger.error("Failed to clean up bounded persistence growth: \(error)")
             return nil
         }
+    }
+
+    @MainActor
+    func refreshUnreadAppIconBadgeCount() async {
+        guard let unreadAppIconBadgeService else {
+            logger.debug("Unread app icon badge service is unavailable")
+            return
+        }
+
+        await unreadAppIconBadgeService.refreshBadgeCount()
     }
 
     @MainActor
@@ -1441,10 +1472,18 @@ private extension AppDependencies {
                 .map(\.id)
             let result = await feedRefreshService.refreshFeeds(folderFeedIDs)
             cleanupArchivedArticlesUsingCurrentSettings()
+            await refreshUnreadAppIconBadgeCount()
             return result
         } catch {
             logger.error("Failed to load folder feeds for refresh: \(error)")
             return nil
+        }
+    }
+
+    @MainActor
+    func scheduleUnreadAppIconBadgeRefresh() {
+        Task { @MainActor in
+            await refreshUnreadAppIconBadgeCount()
         }
     }
 }
