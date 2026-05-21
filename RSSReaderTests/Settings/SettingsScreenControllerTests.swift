@@ -419,14 +419,14 @@ struct SettingsScreenControllerTests {
         controller.loadSettings(dependencies: harness.dependencies)
         controller.handlePickerOptionSelection(
             itemID: .readerAdjacentNavigationControlsMode,
-            optionID: ReaderAdjacentNavigationControlsMode.swipesOnly.rawValue,
+            optionID: ReaderAdjacentNavigationControlsMode.toolbarControlsOnly.rawValue,
             dependencies: harness.dependencies
         )
 
         #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
-        #expect(controller.screenState.settingsSnapshot.readerAdjacentNavigationControlsMode == .swipesOnly)
-        #expect(persistedSettings.readerAdjacentNavigationControlsMode == .swipesOnly)
+        #expect(controller.screenState.settingsSnapshot.readerAdjacentNavigationControlsMode == .toolbarControlsOnly)
+        #expect(persistedSettings.readerAdjacentNavigationControlsMode == .toolbarControlsOnly)
     }
 
     @Test

@@ -607,10 +607,12 @@ enum SettingsScreenPresentationBuilder {
 
     private static func readerAdjacentNavigationControlsModeTitle(_ mode: ReaderAdjacentNavigationControlsMode) -> String {
         switch mode {
+        case .toolbarControlsOnly:
+            "Buttons"
         case .swipesOnly:
-            "Swipes Only"
+            "Swipes"
         case .swipesAndToolbarControls:
-            "Swipes and Buttons"
+            "Both"
         }
     }
 

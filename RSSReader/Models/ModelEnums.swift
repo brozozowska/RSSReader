@@ -67,6 +67,7 @@ enum ArticleSourceLinkOpeningPolicy: String, Codable, CaseIterable, Sendable {
 }
 
 enum ReaderAdjacentNavigationControlsMode: String, Codable, CaseIterable, Sendable {
+    case toolbarControlsOnly
     case swipesOnly
     case swipesAndToolbarControls
 }

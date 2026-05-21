@@ -131,7 +131,7 @@ struct ReaderView: View {
 
                 ToolbarSpacer(placement: .bottomBar)
 
-                if adjacentNavigationControlsMode == .swipesAndToolbarControls {
+                if adjacentNavigationControlsMode.showsToolbarControls {
                     ToolbarItem(placement: .bottomBar) {
                         Button(action: handleNextArticleTap) {
                             Image(systemName: "chevron.down")
@@ -305,6 +305,12 @@ struct ReaderView: View {
 
     private func handleArticleScrollGeometryChange(_ scrollGeometry: ReaderArticleScrollGeometry) {
         guard previewScreenState == nil else { return }
+        guard adjacentNavigationControlsMode.allowsAdjacentArticleSwipes else {
+            adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
+            pendingAdjacentArticleOverscrollDirection = nil
+            return
+        }
+
         let overscrollState = ArticleScreenNavigationState.adjacentArticleOverscrollState(
             scrollGeometry: scrollGeometry
         )
@@ -326,6 +332,12 @@ struct ReaderView: View {
 
     private func handleArticleScrollPhaseChange(oldPhase: ScrollPhase, newPhase: ScrollPhase) {
         guard previewScreenState == nil else { return }
+        guard adjacentNavigationControlsMode.allowsAdjacentArticleSwipes else {
+            pendingAdjacentArticleOverscrollDirection = nil
+            adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
+            return
+        }
+
         if newPhase == .tracking || newPhase == .interacting {
             pendingAdjacentArticleOverscrollDirection = nil
             adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
@@ -639,6 +651,26 @@ final class ArticleImageMemoryCache {
 private struct ArticleScreenLoadContext: Hashable {
     let articleID: UUID?
     let reloadID: UUID
+}
+
+private extension ReaderAdjacentNavigationControlsMode {
+    var showsToolbarControls: Bool {
+        switch self {
+        case .toolbarControlsOnly, .swipesAndToolbarControls:
+            true
+        case .swipesOnly:
+            false
+        }
+    }
+
+    var allowsAdjacentArticleSwipes: Bool {
+        switch self {
+        case .swipesOnly, .swipesAndToolbarControls:
+            true
+        case .toolbarControlsOnly:
+            false
+        }
+    }
 }
 
 private enum ReaderChromeUnderlayLayout {

@@ -104,10 +104,11 @@ struct SettingsScreenPresentationTests {
                     id: .readerAdjacentNavigationControlsMode,
                     title: "Adjacent Navigation",
                     subtitle: nil,
-                    selectedValueTitle: "Swipes Only",
+                    selectedValueTitle: "Swipes",
                     options: [
-                        SettingsPickerOptionPresentation(id: "swipesOnly", title: "Swipes Only", isSelected: true),
-                        SettingsPickerOptionPresentation(id: "swipesAndToolbarControls", title: "Swipes and Buttons", isSelected: false)
+                        SettingsPickerOptionPresentation(id: "toolbarControlsOnly", title: "Buttons", isSelected: false),
+                        SettingsPickerOptionPresentation(id: "swipesOnly", title: "Swipes", isSelected: true),
+                        SettingsPickerOptionPresentation(id: "swipesAndToolbarControls", title: "Both", isSelected: false)
                     ]
                 )
             )

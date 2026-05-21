@@ -131,14 +131,14 @@ struct AppSettingsPersistenceTests {
 
         _ = try repository.update(
             AppSettingsUpdate(
-                readerAdjacentNavigationControlsMode: .swipesOnly,
+                readerAdjacentNavigationControlsMode: .toolbarControlsOnly,
                 updatedAt: .distantPast
             )
         )
 
         let settings = try repository.fetchOrCreate()
 
-        #expect(settings.readerAdjacentNavigationControlsMode == .swipesOnly)
+        #expect(settings.readerAdjacentNavigationControlsMode == .toolbarControlsOnly)
     }
 
     @Test
