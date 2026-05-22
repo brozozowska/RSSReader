@@ -8,7 +8,6 @@ enum FeedKind: String, Codable, CaseIterable, Sendable {
 
 enum ReaderMode: String, Codable, CaseIterable, Sendable {
     case embedded
-    case reader
     case browser
 }
 

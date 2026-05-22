@@ -338,7 +338,7 @@ enum SettingsScreenPresentationBuilder {
         SettingsScreenSectionPresentation(
             id: .reading,
             title: "Reading",
-            footer: "Choose where articles open, how adjacent article controls appear, where links inside articles open, and whether opening an article should immediately mark it as read.",
+            footer: "Choose whether articles from the list open in the feed reader or the in-app browser. Open Original Article controls the source web page; Open Article Links controls links inside article text.",
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
@@ -357,23 +357,8 @@ enum SettingsScreenPresentationBuilder {
                 ),
                 .picker(
                     SettingsPickerItemPresentation(
-                        id: .articleBodyLinkOpeningPolicy,
-                        title: "Links in Articles",
-                        subtitle: nil,
-                        selectedValueTitle: articleBodyLinkOpeningPolicyTitle(input.articleBodyLinkOpeningPolicy),
-                        options: ArticleBodyLinkOpeningPolicy.allCases.map { policy in
-                            SettingsPickerOptionPresentation(
-                                id: policy.rawValue,
-                                title: articleBodyLinkOpeningPolicyTitle(policy),
-                                isSelected: input.articleBodyLinkOpeningPolicy == policy
-                            )
-                        }
-                    )
-                ),
-                .picker(
-                    SettingsPickerItemPresentation(
                         id: .articleSourceLinkOpeningPolicy,
-                        title: "Original Article Link",
+                        title: "Open Original Article",
                         subtitle: nil,
                         selectedValueTitle: articleSourceLinkOpeningPolicyTitle(input.articleSourceLinkOpeningPolicy),
                         options: ArticleSourceLinkOpeningPolicy.allCases.map { policy in
@@ -381,6 +366,21 @@ enum SettingsScreenPresentationBuilder {
                                 id: policy.rawValue,
                                 title: articleSourceLinkOpeningPolicyTitle(policy),
                                 isSelected: input.articleSourceLinkOpeningPolicy == policy
+                            )
+                        }
+                    )
+                ),
+                .picker(
+                    SettingsPickerItemPresentation(
+                        id: .articleBodyLinkOpeningPolicy,
+                        title: "Open Article Links",
+                        subtitle: nil,
+                        selectedValueTitle: articleBodyLinkOpeningPolicyTitle(input.articleBodyLinkOpeningPolicy),
+                        options: ArticleBodyLinkOpeningPolicy.allCases.map { policy in
+                            SettingsPickerOptionPresentation(
+                                id: policy.rawValue,
+                                title: articleBodyLinkOpeningPolicyTitle(policy),
+                                isSelected: input.articleBodyLinkOpeningPolicy == policy
                             )
                         }
                     )
@@ -565,9 +565,7 @@ enum SettingsScreenPresentationBuilder {
     private static func readerModeTitle(_ mode: ReaderMode) -> String {
         switch mode {
         case .embedded:
-            "Embedded Reader"
-        case .reader:
-            "Reader Mode"
+            "Feed Reader"
         case .browser:
             "In-App Browser"
         }

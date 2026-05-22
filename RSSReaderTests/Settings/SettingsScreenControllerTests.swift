@@ -27,7 +27,7 @@ struct SettingsScreenControllerTests {
         let service = try #require(harness.dependencies.appSettingsService)
         _ = try service.saveSettings(
             AppSettingsSnapshot(
-                defaultReaderMode: .reader,
+                defaultReaderMode: .embedded,
                 selectedSourcesFilterRawValue: SourcesFilter.unread.rawValue,
                 refreshIntervalPreference: .every15Minutes,
                 useiCloudSync: false,
@@ -50,7 +50,7 @@ struct SettingsScreenControllerTests {
         #expect(viewState.primaryLoadingState == nil)
         #expect(viewState.placeholder == nil)
         #expect(viewState.sections.isEmpty == false)
-        #expect(controller.screenState.settingsSnapshot.defaultReaderMode == .reader)
+        #expect(controller.screenState.settingsSnapshot.defaultReaderMode == .embedded)
         #expect(controller.screenState.settingsSnapshot.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
         #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead == false)
         #expect(controller.screenState.settingsSnapshot.articleBodyLinkOpeningPolicy == .externalBrowser)

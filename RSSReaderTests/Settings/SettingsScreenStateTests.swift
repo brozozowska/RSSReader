@@ -35,7 +35,7 @@ struct SettingsScreenStateTests {
     @Test
     func settingsScreenStateKeepsDefaultReaderModePickerInLoadedSections() throws {
         let state = SettingsScreenState.previewLoaded(
-            snapshot: AppSettingsSnapshot(defaultReaderMode: .reader)
+            snapshot: AppSettingsSnapshot(defaultReaderMode: .embedded)
         )
 
         let readingSection = try #require(
@@ -51,7 +51,7 @@ struct SettingsScreenStateTests {
             .first
         )
 
-        #expect(pickerItem.selectedValueTitle == "Reader Mode")
+        #expect(pickerItem.selectedValueTitle == "Feed Reader")
         #expect(pickerItem.options.count == ReaderMode.allCases.count)
     }
 

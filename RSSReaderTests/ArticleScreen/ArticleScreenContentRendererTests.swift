@@ -199,20 +199,6 @@ struct ArticleScreenContentRendererTests {
             ]
         )
         #expect(content.body.source == .empty)
-        #expect(content.body.readerMode == .embedded)
-    }
-
-    @Test
-    func articleScreenBodyContentStateDefinesFutureFullTextExtensionPoint() {
-        let extractedContent = ArticleScreenBodyContentState.extractedFullText(
-            blocks: [
-                .paragraph(.plainText("Extracted full text paragraph."))
-            ]
-        )
-
-        #expect(extractedContent.source == .fullTextExtracted)
-        #expect(extractedContent.readerMode == .fullText)
-        #expect(extractedContent.blocks == [.paragraph(.plainText("Extracted full text paragraph."))])
     }
 
     @Test

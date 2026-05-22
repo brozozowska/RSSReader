@@ -65,8 +65,7 @@ struct SettingsScreenPresentationTests {
                     subtitle: nil,
                     selectedValueTitle: "In-App Browser",
                     options: [
-                        SettingsPickerOptionPresentation(id: "embedded", title: "Embedded Reader", isSelected: false),
-                        SettingsPickerOptionPresentation(id: "reader", title: "Reader Mode", isSelected: false),
+                        SettingsPickerOptionPresentation(id: "embedded", title: "Feed Reader", isSelected: false),
                         SettingsPickerOptionPresentation(id: "browser", title: "In-App Browser", isSelected: true)
                     ]
                 )
@@ -75,8 +74,8 @@ struct SettingsScreenPresentationTests {
         #expect(
             readingItems[1] == .picker(
                 SettingsPickerItemPresentation(
-                    id: .articleBodyLinkOpeningPolicy,
-                    title: "Links in Articles",
+                    id: .articleSourceLinkOpeningPolicy,
+                    title: "Open Original Article",
                     subtitle: nil,
                     selectedValueTitle: "External Browser",
                     options: [
@@ -89,8 +88,8 @@ struct SettingsScreenPresentationTests {
         #expect(
             readingItems[2] == .picker(
                 SettingsPickerItemPresentation(
-                    id: .articleSourceLinkOpeningPolicy,
-                    title: "Original Article Link",
+                    id: .articleBodyLinkOpeningPolicy,
+                    title: "Open Article Links",
                     subtitle: nil,
                     selectedValueTitle: "External Browser",
                     options: [
@@ -325,7 +324,7 @@ struct SettingsScreenPresentationTests {
     @Test
     func settingsScreenInputBuilderNormalizesSnapshotIntoScreenSpecificInput() {
         let snapshot = AppSettingsSnapshot(
-            defaultReaderMode: .reader,
+            defaultReaderMode: .embedded,
             selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
             refreshIntervalPreference: .every6Hours,
             useiCloudSync: true,
@@ -343,7 +342,7 @@ struct SettingsScreenPresentationTests {
             iCloudSyncStatus: .syncing
         )
 
-        #expect(input.defaultReaderMode == .reader)
+        #expect(input.defaultReaderMode == .embedded)
         #expect(input.markAsReadOnOpen == false)
         #expect(input.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(input.articleSourceLinkOpeningPolicy == .externalBrowser)

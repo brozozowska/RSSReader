@@ -51,7 +51,6 @@ struct ArticleScreenStateTests {
         #expect(viewState.content?.header.author == article.author)
         #expect(viewState.content?.body.blocks == [.paragraph(.plainText("Rendered body text"))])
         #expect(viewState.content?.body.source == .contentText)
-        #expect(viewState.content?.body.readerMode == .embedded)
         #expect(viewState.toolbarActions.showsShareAction)
         #expect(viewState.toolbarActions.isShareEnabled)
         #expect(viewState.toolbarActions.showsBottomActions)
