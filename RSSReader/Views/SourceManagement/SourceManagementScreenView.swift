@@ -440,7 +440,8 @@ private struct SourceManagementAddFeedView: View {
                         Text("Preview Feed")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tint)
                     .disabled(presentation.validationMessage != nil)
                 }
             }
