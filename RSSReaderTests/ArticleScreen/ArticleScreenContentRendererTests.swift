@@ -103,10 +103,169 @@ struct ArticleScreenContentRendererTests {
             content.body.blocks == [
                 .paragraph(.plainText("First paragraph.")),
                 .image(URL(string: "https://example.com/images/inline.png")!),
-                .paragraph(.plainText("Second paragraph."))
+                .paragraph(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(text: "Second "),
+                            ArticleScreenTextSpan(text: "paragraph", isStrong: true),
+                            ArticleScreenTextSpan(text: ".")
+                        ]
+                    )
+                )
             ]
         )
         #expect(content.body.source == .contentHTML)
+    }
+
+    @Test
+    func articleScreenContentRendererPreservesHTMLHeadingsListsAndInlineFormatting() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <h2>Что такое аванс</h2>
+                <p>Аванс — это часть <strong>зарплаты</strong>, которую выплачивают заранее.</p>
+                <ul>
+                    <li>Оклад</li>
+                    <li><em>Компенсационные</em> надбавки</li>
+                </ul>
+                <ol>
+                    <li>Первый шаг</li>
+                    <li>Второй <code>step</code></li>
+                </ol>
+                """
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .heading(level: 2, .plainText("Что такое аванс")),
+                .paragraph(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(text: "Аванс — это часть "),
+                            ArticleScreenTextSpan(text: "зарплаты", isStrong: true),
+                            ArticleScreenTextSpan(text: ", которую выплачивают заранее.")
+                        ]
+                    )
+                ),
+                .list(
+                    ArticleScreenListBlock(
+                        kind: .unordered,
+                        items: [
+                            .plainText("Оклад"),
+                            ArticleScreenTextBlock(
+                                spans: [
+                                    ArticleScreenTextSpan(text: "Компенсационные", isEmphasized: true),
+                                    ArticleScreenTextSpan(text: " надбавки")
+                                ]
+                            )
+                        ]
+                    )
+                ),
+                .list(
+                    ArticleScreenListBlock(
+                        kind: .ordered,
+                        items: [
+                            .plainText("Первый шаг"),
+                            ArticleScreenTextBlock(
+                                spans: [
+                                    ArticleScreenTextSpan(text: "Второй "),
+                                    ArticleScreenTextSpan(text: "step", isCode: true)
+                                ]
+                            )
+                        ]
+                    )
+                )
+            ]
+        )
+    }
+
+    @Test
+    func articleScreenContentRendererPreservesBlockquotesPreformattedTextAndDividers() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <blockquote>
+                    <p>Первая цитата.</p>
+                    <p>Вторая <a href="/quote">цитата</a>.</p>
+                </blockquote>
+                <pre><code>let value = 42
+                print(value)</code></pre>
+                <hr>
+                """
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .blockquote(
+                    [
+                        .plainText("Первая цитата."),
+                        ArticleScreenTextBlock(
+                            spans: [
+                                ArticleScreenTextSpan(text: "Вторая "),
+                                ArticleScreenTextSpan(
+                                    text: "цитата",
+                                    linkURL: URL(string: "https://example.com/quote")!
+                                ),
+                                ArticleScreenTextSpan(text: ".")
+                            ]
+                        )
+                    ]
+                ),
+                .codeBlock("let value = 42\nprint(value)"),
+                .divider
+            ]
+        )
+    }
+
+    @Test
+    func articleScreenContentRendererPreservesFigureImageAndCaption() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <figure>
+                    <img src="/images/book.png">
+                    <figcaption>Обложка <strong>книги</strong></figcaption>
+                </figure>
+                """,
+                canonicalURL: "https://example.com/articles/body"
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .image(URL(string: "https://example.com/images/book.png")!),
+                .caption(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(text: "Обложка "),
+                            ArticleScreenTextSpan(text: "книги", isStrong: true)
+                        ]
+                    )
+                )
+            ]
+        )
+    }
+
+    @Test
+    func articleScreenContentRendererFallsBackToReadableTextForSimpleTables() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <table>
+                    <tr><th>Платёж</th><th>Дата</th></tr>
+                    <tr><td>Аванс</td><td>15 мая</td></tr>
+                </table>
+                """
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .paragraph(.plainText("Платёж Дата Аванс 15 мая"))
+            ]
+        )
     }
 
     @Test
@@ -156,7 +315,15 @@ struct ArticleScreenContentRendererTests {
 
         #expect(
             content.body.blocks == [
-                .paragraph(.plainText("Short summary paragraph.")),
+                .paragraph(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(text: "Short "),
+                            ArticleScreenTextSpan(text: "summary", isStrong: true),
+                            ArticleScreenTextSpan(text: " paragraph.")
+                        ]
+                    )
+                ),
                 .fallbackNotice("This source only provides a summary, not the full article body.")
             ]
         )

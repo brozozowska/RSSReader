@@ -2,18 +2,46 @@ import Foundation
 
 @MainActor
 enum ArticleScreenBodyBlock: Equatable {
+    case heading(level: Int, ArticleScreenTextBlock)
     case paragraph(ArticleScreenTextBlock)
+    case list(ArticleScreenListBlock)
+    case blockquote([ArticleScreenTextBlock])
+    case codeBlock(String)
+    case divider
+    case caption(ArticleScreenTextBlock)
     case image(URL)
     case fallbackNotice(String)
+}
+
+enum ArticleScreenListKind: Equatable, Sendable {
+    case ordered
+    case unordered
+}
+
+struct ArticleScreenListBlock: Equatable, Sendable {
+    let kind: ArticleScreenListKind
+    let items: [ArticleScreenTextBlock]
 }
 
 struct ArticleScreenTextSpan: Equatable, Sendable {
     let text: String
     let linkURL: URL?
+    let isStrong: Bool
+    let isEmphasized: Bool
+    let isCode: Bool
 
-    init(text: String, linkURL: URL? = nil) {
+    init(
+        text: String,
+        linkURL: URL? = nil,
+        isStrong: Bool = false,
+        isEmphasized: Bool = false,
+        isCode: Bool = false
+    ) {
         self.text = text
         self.linkURL = linkURL
+        self.isStrong = isStrong
+        self.isEmphasized = isEmphasized
+        self.isCode = isCode
     }
 }
 
@@ -28,6 +56,7 @@ struct ArticleScreenTextBlock: Equatable, Sendable {
         spans.reduce(into: AttributedString()) { partialResult, span in
             var attributedSpan = AttributedString(span.text)
             attributedSpan.link = span.linkURL
+            attributedSpan.inlinePresentationIntent = span.inlinePresentationIntent
             partialResult.append(attributedSpan)
         }
     }
@@ -39,6 +68,31 @@ struct ArticleScreenTextBlock: Equatable, Sendable {
     static func plainText(_ text: String) -> ArticleScreenTextBlock {
         ArticleScreenTextBlock(spans: [ArticleScreenTextSpan(text: text)])
     }
+}
+
+private extension ArticleScreenTextSpan {
+    var inlinePresentationIntent: InlinePresentationIntent? {
+        var intent = InlinePresentationIntent()
+
+        if isStrong {
+            intent.insert(.stronglyEmphasized)
+        }
+        if isEmphasized {
+            intent.insert(.emphasized)
+        }
+        if isCode {
+            intent.insert(.code)
+        }
+
+        return intent.isEmpty ? nil : intent
+    }
+}
+
+private struct ArticleScreenInlineTextStyle {
+    var linkURL: URL?
+    var isStrong = false
+    var isEmphasized = false
+    var isCode = false
 }
 
 @MainActor
@@ -119,14 +173,14 @@ enum ArticleScreenContentRenderer {
         article: ReaderArticleDTO
     ) -> [ArticleScreenBodyBlock] {
         let htmlNSString = contentHTML as NSString
-        let imageTagPattern = #"<img\b[^>]*>"#
-        guard let imageTagRegex = try? NSRegularExpression(pattern: imageTagPattern, options: [.caseInsensitive]) else {
+        let blockPattern = #"(?is)<(h[1-6]|p|blockquote|pre|ul|ol|figure|table)\b[^>]*>.*?</\1\s*>|<img\b[^>]*>|<hr\b[^>]*>"#
+        guard let blockRegex = try? NSRegularExpression(pattern: blockPattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) else {
             return renderTextBlock(stripHTML(contentHTML))
         }
 
         var blocks: [ArticleScreenBodyBlock] = []
         var currentLocation = 0
-        let matches = imageTagRegex.matches(
+        let matches = blockRegex.matches(
             in: contentHTML,
             options: [],
             range: NSRange(location: 0, length: htmlNSString.length)
@@ -139,10 +193,8 @@ enum ArticleScreenContentRenderer {
                 blocks.append(contentsOf: renderHTMLTextSegment(textSegment, article: article))
             }
 
-            let imageTag = htmlNSString.substring(with: match.range)
-            if let imageURL = resolveImageURL(fromImageTag: imageTag, article: article) {
-                blocks.append(.image(imageURL))
-            }
+            let blockHTML = htmlNSString.substring(with: match.range)
+            blocks.append(contentsOf: renderHTMLBlock(blockHTML, article: article))
 
             currentLocation = match.range.location + match.range.length
         }
@@ -151,6 +203,119 @@ enum ArticleScreenContentRenderer {
             let trailingRange = NSRange(location: currentLocation, length: htmlNSString.length - currentLocation)
             let trailingSegment = htmlNSString.substring(with: trailingRange)
             blocks.append(contentsOf: renderHTMLTextSegment(trailingSegment, article: article))
+        }
+
+        return blocks
+    }
+
+    private static func renderHTMLBlock(
+        _ blockHTML: String,
+        article: ReaderArticleDTO
+    ) -> [ArticleScreenBodyBlock] {
+        let tagName = leadingTagName(in: blockHTML)
+
+        if tagName == "img" {
+            return resolveImageURL(fromImageTag: blockHTML, article: article).map { [.image($0)] } ?? []
+        }
+
+        if tagName == "hr" {
+            return [.divider]
+        }
+
+        let innerHTML = unwrapHTMLBlock(blockHTML)
+
+        switch tagName {
+        case "h1", "h2", "h3", "h4", "h5", "h6":
+            guard let headingText = makeTextBlock(fromHTML: innerHTML, article: article) else { return [] }
+            let level = Int(String(tagName.dropFirst())) ?? 2
+            return [.heading(level: level, headingText)]
+        case "p":
+            return makeTextBlock(fromHTML: innerHTML, article: article).map { [.paragraph($0)] } ?? []
+        case "blockquote":
+            let quotedBlocks = renderHTMLTextSegment(innerHTML, article: article).compactMap { block -> ArticleScreenTextBlock? in
+                if case .paragraph(let textBlock) = block {
+                    return textBlock
+                }
+                return nil
+            }
+            return quotedBlocks.isEmpty ? [] : [.blockquote(quotedBlocks)]
+        case "pre":
+            let codeText = stripHTML(innerHTML).trimmingCharacters(in: .whitespacesAndNewlines)
+            return codeText.isEmpty ? [] : [.codeBlock(codeText)]
+        case "ul":
+            return renderHTMLList(innerHTML, kind: .unordered, article: article)
+        case "ol":
+            return renderHTMLList(innerHTML, kind: .ordered, article: article)
+        case "figure":
+            return renderHTMLFigure(innerHTML, article: article)
+        case "table":
+            return renderHTMLTableFallback(innerHTML, article: article)
+        default:
+            return renderHTMLTextSegment(blockHTML, article: article)
+        }
+    }
+
+    private static func renderHTMLList(
+        _ innerHTML: String,
+        kind: ArticleScreenListKind,
+        article: ReaderArticleDTO
+    ) -> [ArticleScreenBodyBlock] {
+        let itemPattern = #"(?is)<li\b[^>]*>(.*?)</li\s*>"#
+        guard let itemRegex = try? NSRegularExpression(pattern: itemPattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) else {
+            return renderHTMLTextSegment(innerHTML, article: article)
+        }
+
+        let nsHTML = innerHTML as NSString
+        let items = itemRegex.matches(
+            in: innerHTML,
+            options: [],
+            range: NSRange(location: 0, length: nsHTML.length)
+        )
+        .compactMap { match -> ArticleScreenTextBlock? in
+            let itemHTML = nsHTML.substring(with: match.range(at: 1))
+            return makeTextBlock(fromHTML: itemHTML, article: article)
+        }
+
+        return items.isEmpty ? [] : [.list(ArticleScreenListBlock(kind: kind, items: items))]
+    }
+
+    private static func renderHTMLTableFallback(
+        _ innerHTML: String,
+        article: ReaderArticleDTO
+    ) -> [ArticleScreenBodyBlock] {
+        let fallbackHTML = innerHTML
+            .replacingOccurrences(
+                of: #"(?i)</(th|td)\s*>"#,
+                with: " ",
+                options: .regularExpression
+            )
+            .replacingOccurrences(
+                of: #"(?i)</tr\s*>"#,
+                with: "\n",
+                options: .regularExpression
+            )
+
+        return renderHTMLTextSegment(fallbackHTML, article: article)
+    }
+
+    private static func renderHTMLFigure(
+        _ innerHTML: String,
+        article: ReaderArticleDTO
+    ) -> [ArticleScreenBodyBlock] {
+        var blocks: [ArticleScreenBodyBlock] = []
+
+        if let imageTag = firstHTMLTag(named: "img", in: innerHTML),
+           let imageURL = resolveImageURL(fromImageTag: imageTag, article: article) {
+            blocks.append(.image(imageURL))
+        }
+
+        if let captionHTML = firstHTMLBlock(named: "figcaption", in: innerHTML),
+           let captionText = makeTextBlock(fromHTML: unwrapHTMLBlock(captionHTML), article: article) {
+            blocks.append(.caption(captionText))
+        }
+
+        if blocks.isEmpty {
+            return renderHTMLTextSegment(innerHTML, article: article)
         }
 
         return blocks
@@ -237,6 +402,122 @@ enum ArticleScreenContentRenderer {
         return renderedBlocks
     }
 
+    private static func makeTextBlock(
+        fromHTML html: String,
+        article: ReaderArticleDTO
+    ) -> ArticleScreenTextBlock? {
+        var spans: [ArticleScreenTextSpan] = []
+        appendInlineHTML(
+            html,
+            article: article,
+            style: ArticleScreenInlineTextStyle(),
+            to: &spans
+        )
+
+        let trimmedSpans = trimBoundaryWhitespace(in: spans)
+        return trimmedSpans.isEmpty ? nil : ArticleScreenTextBlock(spans: trimmedSpans)
+    }
+
+    private static func appendInlineHTML(
+        _ html: String,
+        article: ReaderArticleDTO,
+        style: ArticleScreenInlineTextStyle,
+        to spans: inout [ArticleScreenTextSpan]
+    ) {
+        let inlinePattern = #"(?is)<br\s*/?>|<(a|strong|b|em|i|code)\b([^>]*)>(.*?)</\1\s*>"#
+        guard let inlineRegex = try? NSRegularExpression(
+            pattern: inlinePattern,
+            options: [.caseInsensitive, .dotMatchesLineSeparators]
+        ) else {
+            appendStyledHTMLFragment(html, style: style, to: &spans)
+            return
+        }
+
+        let nsHTML = html as NSString
+        let matches = inlineRegex.matches(
+            in: html,
+            options: [],
+            range: NSRange(location: 0, length: nsHTML.length)
+        )
+
+        var currentLocation = 0
+        for match in matches {
+            let leadingRange = NSRange(location: currentLocation, length: match.range.location - currentLocation)
+            if leadingRange.length > 0 {
+                appendStyledHTMLFragment(
+                    nsHTML.substring(with: leadingRange),
+                    style: style,
+                    to: &spans
+                )
+            }
+
+            if match.range(at: 1).location == NSNotFound {
+                appendStyledText(" ", style: style, to: &spans)
+            } else {
+                let tagName = nsHTML.substring(with: match.range(at: 1)).lowercased()
+                let attributes = nsHTML.substring(with: match.range(at: 2))
+                let innerHTML = nsHTML.substring(with: match.range(at: 3))
+                var childStyle = style
+
+                switch tagName {
+                case "a":
+                    if let rawHref = htmlAttribute(named: "href", in: attributes) {
+                        childStyle.linkURL = ArticleScreenURLResolver.resolveArticleBodyLinkURL(
+                            rawValue: rawHref,
+                            baseURLString: article.canonicalURL ?? article.articleURL
+                        )
+                    }
+                case "strong", "b":
+                    childStyle.isStrong = true
+                case "em", "i":
+                    childStyle.isEmphasized = true
+                case "code":
+                    childStyle.isCode = true
+                default:
+                    break
+                }
+
+                appendInlineHTML(innerHTML, article: article, style: childStyle, to: &spans)
+            }
+
+            currentLocation = match.range.location + match.range.length
+        }
+
+        if currentLocation < nsHTML.length {
+            let trailingRange = NSRange(location: currentLocation, length: nsHTML.length - currentLocation)
+            appendStyledHTMLFragment(
+                nsHTML.substring(with: trailingRange),
+                style: style,
+                to: &spans
+            )
+        }
+    }
+
+    private static func appendStyledHTMLFragment(
+        _ htmlFragment: String,
+        style: ArticleScreenInlineTextStyle,
+        to spans: inout [ArticleScreenTextSpan]
+    ) {
+        let strippedText = stripHTML(htmlFragment)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+        appendStyledText(strippedText, style: style, to: &spans)
+    }
+
+    private static func appendStyledText(
+        _ text: String,
+        style: ArticleScreenInlineTextStyle,
+        to spans: inout [ArticleScreenTextSpan]
+    ) {
+        appendInlineText(
+            text,
+            linkURL: style.linkURL,
+            isStrong: style.isStrong,
+            isEmphasized: style.isEmphasized,
+            isCode: style.isCode,
+            to: &spans
+        )
+    }
+
     private static func appendLeadImageIfNeeded(
         _ blocks: [ArticleScreenBodyBlock],
         article: ReaderArticleDTO
@@ -284,6 +565,83 @@ enum ArticleScreenContentRenderer {
             rawValue: rawImageURL,
             baseURLString: article.canonicalURL ?? article.articleURL
         )
+    }
+
+    private static func leadingTagName(in html: String) -> String {
+        guard
+            let tagRegex = try? NSRegularExpression(pattern: #"<\s*([a-zA-Z0-9]+)"#, options: []),
+            let match = tagRegex.firstMatch(
+                in: html,
+                options: [],
+                range: NSRange(location: 0, length: (html as NSString).length)
+            ),
+            match.numberOfRanges > 1
+        else {
+            return ""
+        }
+
+        return (html as NSString).substring(with: match.range(at: 1)).lowercased()
+    }
+
+    private static func unwrapHTMLBlock(_ html: String) -> String {
+        html
+            .replacingOccurrences(of: #"(?is)^<[^>]+>"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"(?is)</[^>]+>\s*$"#, with: "", options: .regularExpression)
+    }
+
+    private static func firstHTMLTag(named tagName: String, in html: String) -> String? {
+        let tagPattern = #"(?is)<\#(tagName)\b[^>]*>"#
+        guard
+            let tagRegex = try? NSRegularExpression(pattern: tagPattern, options: [.caseInsensitive]),
+            let match = tagRegex.firstMatch(
+                in: html,
+                options: [],
+                range: NSRange(location: 0, length: (html as NSString).length)
+            )
+        else {
+            return nil
+        }
+
+        return (html as NSString).substring(with: match.range)
+    }
+
+    private static func firstHTMLBlock(named tagName: String, in html: String) -> String? {
+        let blockPattern = #"(?is)<\#(tagName)\b[^>]*>.*?</\#(tagName)\s*>"#
+        guard
+            let blockRegex = try? NSRegularExpression(pattern: blockPattern, options: [.caseInsensitive, .dotMatchesLineSeparators]),
+            let match = blockRegex.firstMatch(
+                in: html,
+                options: [],
+                range: NSRange(location: 0, length: (html as NSString).length)
+            )
+        else {
+            return nil
+        }
+
+        return (html as NSString).substring(with: match.range)
+    }
+
+    private static func htmlAttribute(named attributeName: String, in html: String) -> String? {
+        let attributePattern = #"\b\#(attributeName)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))"#
+        guard
+            let attributeRegex = try? NSRegularExpression(pattern: attributePattern, options: [.caseInsensitive]),
+            let match = attributeRegex.firstMatch(
+                in: html,
+                options: [],
+                range: NSRange(location: 0, length: (html as NSString).length)
+            )
+        else {
+            return nil
+        }
+
+        for rangeIndex in 1..<match.numberOfRanges {
+            let range = match.range(at: rangeIndex)
+            if range.location != NSNotFound {
+                return (html as NSString).substring(with: range).decodingHTMLEntities()
+            }
+        }
+
+        return nil
     }
 
     private static func stripHTML(_ value: String) -> String {
@@ -337,6 +695,9 @@ enum ArticleScreenContentRenderer {
             appendInlineText(
                 normalizedText.replacingOccurrences(of: #"\s*\n\s*"#, with: " ", options: .regularExpression),
                 linkURL: linkURL,
+                isStrong: false,
+                isEmphasized: false,
+                isCode: false,
                 to: &currentParagraphSpans
             )
             return
@@ -357,6 +718,9 @@ enum ArticleScreenContentRenderer {
                 appendInlineText(
                     chunk.replacingOccurrences(of: #"\s*\n\s*"#, with: " ", options: .regularExpression),
                     linkURL: linkURL,
+                    isStrong: false,
+                    isEmphasized: false,
+                    isCode: false,
                     to: &currentParagraphSpans
                 )
             }
@@ -371,6 +735,9 @@ enum ArticleScreenContentRenderer {
             appendInlineText(
                 trailingChunk.replacingOccurrences(of: #"\s*\n\s*"#, with: " ", options: .regularExpression),
                 linkURL: linkURL,
+                isStrong: false,
+                isEmphasized: false,
+                isCode: false,
                 to: &currentParagraphSpans
             )
         }
@@ -379,17 +746,35 @@ enum ArticleScreenContentRenderer {
     private static func appendInlineText(
         _ text: String,
         linkURL: URL?,
+        isStrong: Bool,
+        isEmphasized: Bool,
+        isCode: Bool,
         to spans: inout [ArticleScreenTextSpan]
     ) {
         guard text.isEmpty == false else { return }
 
-        if let lastSpan = spans.last, lastSpan.linkURL == linkURL {
+        if let lastSpan = spans.last,
+           lastSpan.linkURL == linkURL,
+           lastSpan.isStrong == isStrong,
+           lastSpan.isEmphasized == isEmphasized,
+           lastSpan.isCode == isCode {
             spans[spans.count - 1] = ArticleScreenTextSpan(
                 text: lastSpan.text + text,
-                linkURL: linkURL
+                linkURL: linkURL,
+                isStrong: isStrong,
+                isEmphasized: isEmphasized,
+                isCode: isCode
             )
         } else {
-            spans.append(ArticleScreenTextSpan(text: text, linkURL: linkURL))
+            spans.append(
+                ArticleScreenTextSpan(
+                    text: text,
+                    linkURL: linkURL,
+                    isStrong: isStrong,
+                    isEmphasized: isEmphasized,
+                    isCode: isCode
+                )
+            )
         }
     }
 
@@ -458,7 +843,13 @@ enum ArticleScreenContentRenderer {
             if trimmedText.isEmpty {
                 trimmedSpans.removeFirst()
             } else {
-                trimmedSpans[0] = ArticleScreenTextSpan(text: trimLeadingWhitespace(in: firstSpan.text), linkURL: firstSpan.linkURL)
+                trimmedSpans[0] = ArticleScreenTextSpan(
+                    text: trimLeadingWhitespace(in: firstSpan.text),
+                    linkURL: firstSpan.linkURL,
+                    isStrong: firstSpan.isStrong,
+                    isEmphasized: firstSpan.isEmphasized,
+                    isCode: firstSpan.isCode
+                )
                 break
             }
         }
@@ -470,7 +861,10 @@ enum ArticleScreenContentRenderer {
             } else {
                 trimmedSpans[trimmedSpans.count - 1] = ArticleScreenTextSpan(
                     text: trimTrailingWhitespace(in: lastSpan.text),
-                    linkURL: lastSpan.linkURL
+                    linkURL: lastSpan.linkURL,
+                    isStrong: lastSpan.isStrong,
+                    isEmphasized: lastSpan.isEmphasized,
+                    isCode: lastSpan.isCode
                 )
                 break
             }
@@ -483,10 +877,17 @@ enum ArticleScreenContentRenderer {
         spans.reduce(into: [ArticleScreenTextSpan]()) { partialResult, span in
             guard span.text.isEmpty == false else { return }
 
-            if let lastSpan = partialResult.last, lastSpan.linkURL == span.linkURL {
+            if let lastSpan = partialResult.last,
+               lastSpan.linkURL == span.linkURL,
+               lastSpan.isStrong == span.isStrong,
+               lastSpan.isEmphasized == span.isEmphasized,
+               lastSpan.isCode == span.isCode {
                 partialResult[partialResult.count - 1] = ArticleScreenTextSpan(
                     text: lastSpan.text + span.text,
-                    linkURL: span.linkURL
+                    linkURL: span.linkURL,
+                    isStrong: span.isStrong,
+                    isEmphasized: span.isEmphasized,
+                    isCode: span.isCode
                 )
             } else {
                 partialResult.append(span)
