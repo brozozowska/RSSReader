@@ -310,6 +310,45 @@ struct ArticleScreenContentRendererTests {
     }
 
     @Test
+    func articleScreenContentRendererRemovesNonReadableStyleScriptAndSVGBlocks() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <p>Всё, продолжаем про аванс.</p>
+                <div class="wp-block-lazyblock-banners-btn">
+                    <a href="https://practicum.yandex.ru/content-marketer/">
+                        Стать контент-маркетологом
+                        <svg viewBox="0 0 11 12"><path d="M9 8"></path></svg>
+                    </a>
+                    <style>
+                    .wp-block-lazyblock-banners-btn .article-ban-btn {
+                        font-family: NeueMachina, sans-serif;
+                    }
+                    </style>
+                    <script>window.trackBanner()</script>
+                </div>
+                """
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .paragraph(.plainText("Всё, продолжаем про аванс.")),
+                .paragraph(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(
+                                text: "Стать контент-маркетологом",
+                                linkURL: URL(string: "https://practicum.yandex.ru/content-marketer/")!
+                            )
+                        ]
+                    )
+                )
+            ]
+        )
+    }
+
+    @Test
     func articleScreenContentRendererBuildsReadableFallbackLinksForUnsupportedEmbeds() {
         let content = ArticleScreenContentState(
             article: makeReaderArticleDTO(

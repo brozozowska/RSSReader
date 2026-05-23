@@ -483,6 +483,7 @@
 - [x] `Article List Title Preview Consistency`: изменить presentation списка статей так, чтобы primary text в `ArticleListRowView` показывал нормализованный `Article.title`, а очищенный summary / body excerpt использовался только как отдельный preview, если он нужен, чтобы заголовок в списке совпадал с заголовком в `ReaderView`;
 - [x] `Reader Image Layout Policy`: обновить `CachedArticleImageView`, чтобы маленькие изображения не апскейлились на всю ширину reader, большие изображения оставались адаптивными по ширине, а failed image state не занимал чрезмерно много места и не ломал чтение статьи;
 - [x] `Reader Picture Fallback Selection`: точечно исправить выбор картинки из `picture`: предпочитать вложенный `img` fallback перед `source srcset`, чтобы WordPress / responsive banner blocks в feed не выбирали desktop-баннер для мобильного reader; дополнительно не передавать `.svg` из `img` в `CachedArticleImageView`, потому что текущий bitmap loader через `UIImage(data:)` не декодирует SVG и показывает бесполезный failed state;
+- [x] `Reader Non-Readable HTML Block Filtering`: вырезать из feed HTML нерендеримые блоки `style`, `script`, `noscript` и inline `svg` до text fallback в `ArticleScreenContentRenderer`, чтобы CSS / JS / SVG markup из WordPress custom blocks не попадали в текст статьи, а окружающие readable links и paragraphs продолжали отображаться;
 
 #### Testing
 - [ ] unit tests для normalizer;

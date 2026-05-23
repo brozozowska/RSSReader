@@ -172,16 +172,17 @@ enum ArticleScreenContentRenderer {
         _ contentHTML: String,
         article: ReaderArticleDTO
     ) -> [ArticleScreenBodyBlock] {
-        let htmlNSString = contentHTML as NSString
+        let readableHTML = removingNonReadableHTMLBlocks(from: contentHTML)
+        let htmlNSString = readableHTML as NSString
         let blockPattern = #"(?is)<(h[1-6]|p|blockquote|pre|ul|ol|figure|table|picture|iframe|video|audio)\b[^>]*>.*?</\1\s*>|<(img|hr|embed)\b[^>]*>"#
         guard let blockRegex = try? NSRegularExpression(pattern: blockPattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) else {
-            return renderTextBlock(stripHTML(contentHTML))
+            return renderTextBlock(stripHTML(readableHTML))
         }
 
         var blocks: [ArticleScreenBodyBlock] = []
         var currentLocation = 0
         let matches = blockRegex.matches(
-            in: contentHTML,
+            in: readableHTML,
             options: [],
             range: NSRange(location: 0, length: htmlNSString.length)
         )
@@ -391,7 +392,7 @@ enum ArticleScreenContentRenderer {
         _ htmlSegment: String,
         article: ReaderArticleDTO
     ) -> [ArticleScreenBodyBlock] {
-        let normalizedHTML = htmlSegment
+        let normalizedHTML = removingNonReadableHTMLBlocks(from: htmlSegment)
             .replacingOccurrences(
                 of: #"(?i)<br\s*/?>"#,
                 with: "\n",
@@ -812,7 +813,7 @@ enum ArticleScreenContentRenderer {
     }
 
     private static func stripHTML(_ value: String) -> String {
-        value
+        removingNonReadableHTMLBlocks(from: value)
             .replacingOccurrences(
                 of: #"(?i)<br\s*/?>"#,
                 with: "\n",
@@ -829,6 +830,14 @@ enum ArticleScreenContentRenderer {
                 options: .regularExpression
             )
             .decodingHTMLEntities()
+    }
+
+    private static func removingNonReadableHTMLBlocks(from value: String) -> String {
+        value.replacingOccurrences(
+            of: #"(?is)<(style|script|noscript|svg)\b[^>]*>.*?</\1\s*>"#,
+            with: "",
+            options: .regularExpression
+        )
     }
 
     private static func appendHTMLFragment(
