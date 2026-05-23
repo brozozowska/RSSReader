@@ -56,6 +56,36 @@ struct ArticleScreenContentRendererTests {
     }
 
     @Test
+    func articleScreenBodyPayloadNormalizerClassifiesEscapedHTMLAsHTML() throws {
+        let payload = try #require(
+            ArticleScreenBodyPayloadNormalizer.normalize(
+                """
+                &lt;p&gt;Это уже другой уровень&lt;/p&gt;
+                &lt;p&gt;Сообщение &lt;a href=&quot;https://thecode.media/article&quot;&gt;Создатели Flipper Zero&lt;/a&gt; появились сначала&lt;/p&gt;
+                """,
+                preferredKind: .plainText
+            )
+        )
+
+        #expect(payload.kind == .html)
+        #expect(payload.value.contains("<p>Это уже другой уровень</p>"))
+        #expect(payload.value.contains(#"<a href="https://thecode.media/article">Создатели Flipper Zero</a>"#))
+    }
+
+    @Test
+    func articleScreenBodyPayloadNormalizerDecodesNumericEntities() throws {
+        let payload = try #require(
+            ArticleScreenBodyPayloadNormalizer.normalize(
+                "Зарплата &#8381; и аванс &#x20BD;",
+                preferredKind: .plainText
+            )
+        )
+
+        #expect(payload.kind == .plainText)
+        #expect(payload.value == "Зарплата ₽ и аванс ₽")
+    }
+
+    @Test
     func articleScreenContentRendererParsesHTMLParagraphsAndInlineImagesInOrder() {
         let content = ArticleScreenContentState(
             article: makeReaderArticleDTO(
@@ -77,6 +107,60 @@ struct ArticleScreenContentRendererTests {
             ]
         )
         #expect(content.body.source == .contentHTML)
+    }
+
+    @Test
+    func articleScreenContentRendererRendersEscapedHTMLTextAsReadableParagraphsAndLinks() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentText: """
+                &lt;p&gt;Это уже другой уровень&lt;/p&gt;
+                &lt;p&gt;Сообщение &lt;a href=&quot;https://thecode.media/komanda-flipper-zero&quot;&gt;Создатели Flipper Zero анонсировали карманный Linux-компьютер&lt;/a&gt; появились сначала на &lt;a href=&quot;https://thecode.media&quot;&gt;Журнал «Код»&lt;/a&gt;&lt;/p&gt;
+                """
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .paragraph(.plainText("Это уже другой уровень")),
+                .paragraph(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(text: "Сообщение "),
+                            ArticleScreenTextSpan(
+                                text: "Создатели Flipper Zero анонсировали карманный Linux-компьютер",
+                                linkURL: URL(string: "https://thecode.media/komanda-flipper-zero")!
+                            ),
+                            ArticleScreenTextSpan(text: " появились сначала на "),
+                            ArticleScreenTextSpan(
+                                text: "Журнал «Код»",
+                                linkURL: URL(string: "https://thecode.media")!
+                            )
+                        ]
+                    )
+                )
+            ]
+        )
+        #expect(content.body.source == .contentText)
+    }
+
+    @Test
+    func articleScreenContentRendererRendersEscapedHTMLSummaryBeforeFallbackNotice() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                summary: "&lt;p&gt;Short &lt;strong&gt;summary&lt;/strong&gt; paragraph.&lt;/p&gt;",
+                contentHTML: nil,
+                contentText: nil
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .paragraph(.plainText("Short summary paragraph.")),
+                .fallbackNotice("This source only provides a summary, not the full article body.")
+            ]
+        )
+        #expect(content.body.source == .summary)
     }
 
     @Test

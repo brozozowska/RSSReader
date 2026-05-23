@@ -44,28 +44,37 @@ struct ArticleScreenTextBlock: Equatable, Sendable {
 @MainActor
 enum ArticleScreenContentRenderer {
     static func renderBody(for article: ReaderArticleDTO) -> ArticleScreenBodyContentState {
-        if let contentHTML = article.contentHTML?.nilIfBlank {
-            let htmlBlocks = renderHTML(contentHTML, article: article)
-            if htmlBlocks.isEmpty == false {
+        if let contentHTML = ArticleScreenBodyPayloadNormalizer.normalize(
+            article.contentHTML,
+            preferredKind: .html
+        ) {
+            let bodyBlocks = renderBodyPayload(contentHTML, article: article)
+            if bodyBlocks.isEmpty == false {
                 return ArticleScreenBodyContentState(
-                    blocks: appendLeadImageIfNeeded(htmlBlocks, article: article),
+                    blocks: appendLeadImageIfNeeded(bodyBlocks, article: article),
                     source: .contentHTML
                 )
             }
         }
 
-        if let contentText = article.contentText?.nilIfBlank {
-            let textBlocks = renderTextBlock(contentText)
-            if textBlocks.isEmpty == false {
+        if let contentText = ArticleScreenBodyPayloadNormalizer.normalize(
+            article.contentText,
+            preferredKind: .plainText
+        ) {
+            let bodyBlocks = renderBodyPayload(contentText, article: article)
+            if bodyBlocks.isEmpty == false {
                 return ArticleScreenBodyContentState(
-                    blocks: appendLeadImageIfNeeded(textBlocks, article: article),
+                    blocks: appendLeadImageIfNeeded(bodyBlocks, article: article),
                     source: .contentText
                 )
             }
         }
 
-        if let summary = article.summary?.nilIfBlank {
-            var summaryBlocks = renderTextBlock(summary)
+        if let summary = ArticleScreenBodyPayloadNormalizer.normalize(
+            article.summary,
+            preferredKind: .plainText
+        ) {
+            var summaryBlocks = renderBodyPayload(summary, article: article)
             summaryBlocks = appendLeadImageIfNeeded(summaryBlocks, article: article)
             summaryBlocks.append(
                 ArticleScreenBodyBlock.fallbackNotice(
@@ -91,6 +100,18 @@ enum ArticleScreenContentRenderer {
             blocks: fallbackBlocks,
             source: .empty
         )
+    }
+
+    private static func renderBodyPayload(
+        _ payload: ArticleScreenBodyPayload,
+        article: ReaderArticleDTO
+    ) -> [ArticleScreenBodyBlock] {
+        switch payload.kind {
+        case .plainText:
+            renderTextBlock(payload.value)
+        case .html:
+            renderHTML(payload.value, article: article)
+        }
     }
 
     private static func renderHTML(
@@ -282,7 +303,7 @@ enum ArticleScreenContentRenderer {
                 with: "",
                 options: .regularExpression
             )
-            .decodingBasicHTMLEntities()
+            .decodingHTMLEntities()
     }
 
     private static func appendHTMLFragment(
@@ -513,13 +534,7 @@ private extension String {
             .filter { $0.isEmpty == false }
     }
 
-    func decodingBasicHTMLEntities() -> String {
-        self
-            .replacingOccurrences(of: "&nbsp;", with: " ")
-            .replacingOccurrences(of: "&amp;", with: "&")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&#39;", with: "'")
+    func decodingHTMLEntities() -> String {
+        ArticleScreenBodyPayloadNormalizer.decodeHTMLEntities(in: self)
     }
 }
