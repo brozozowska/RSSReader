@@ -129,11 +129,79 @@ struct ArticleRowSwipeActionsState: Equatable {
     }
 }
 
+struct ArticleListRowContent: Equatable {
+    let titleText: String
+    let previewText: String?
+
+    init(article: ArticleListItemDTO) {
+        let titleText = article.title.nilIfBlank ?? "Untitled Article"
+        let previewText = ArticleListRowPreviewNormalizer.normalizedPreview(from: article.summary)
+
+        self.titleText = titleText
+        self.previewText = previewText == titleText ? nil : previewText
+    }
+}
+
+private enum ArticleListRowPreviewNormalizer {
+    static func normalizedPreview(from rawValue: String?) -> String? {
+        guard let payload = ArticleScreenBodyPayloadNormalizer.normalize(
+            rawValue,
+            preferredKind: .plainText
+        ) else {
+            return nil
+        }
+
+        let normalizedValue: String
+        switch payload.kind {
+        case .plainText:
+            normalizedValue = payload.value
+        case .html:
+            normalizedValue = stripHTML(payload.value)
+        }
+
+        return normalizedValue
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nilIfBlank
+    }
+
+    private static func stripHTML(_ value: String) -> String {
+        value
+            .replacingOccurrences(
+                of: #"(?i)<br\s*/?>"#,
+                with: " ",
+                options: .regularExpression
+            )
+            .replacingOccurrences(
+                of: #"(?i)</?(p|div|section|article|blockquote|ul|ol|li|h[1-6]|pre|figure|figcaption|table|tbody|thead|tr|td|th)\b[^>]*>"#,
+                with: " ",
+                options: .regularExpression
+            )
+            .replacingOccurrences(
+                of: #"<[^>]+>"#,
+                with: "",
+                options: .regularExpression
+            )
+            .decodingHTMLEntitiesForArticleListPreview()
+    }
+}
+
 private extension ArticlesScreenPhase {
     var isFailed: Bool {
         if case .failed = self {
             return true
         }
         return false
+    }
+}
+
+private extension String {
+    var nilIfBlank: String? {
+        let trimmedValue = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedValue.isEmpty ? nil : trimmedValue
+    }
+
+    func decodingHTMLEntitiesForArticleListPreview() -> String {
+        ArticleScreenBodyPayloadNormalizer.decodeHTMLEntities(in: self)
     }
 }

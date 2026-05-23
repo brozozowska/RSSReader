@@ -26,6 +26,56 @@ struct ArticlesScreenPresentationTests {
     }
 
     @Test
+    func articleListRowContentUsesArticleTitleAsPrimaryTextAndSummaryAsPreview() {
+        let content = ArticleListRowContent(
+            article: makeArticleListItemDTO(
+                title: "Создатели Flipper Zero анонсировали Flipper One",
+                summary: """
+                <p>Это уже другой уровень</p>
+                <p>Сообщение <a href="https://thecode.media/article">Создатели Flipper Zero</a> появились сначала.</p>
+                """
+            )
+        )
+
+        #expect(content.titleText == "Создатели Flipper Zero анонсировали Flipper One")
+        #expect(content.previewText == "Это уже другой уровень Сообщение Создатели Flipper Zero появились сначала.")
+    }
+
+    @Test
+    func articleListRowContentDecodesEscapedHTMLPreviewAndSuppressesDuplicateTitlePreview() {
+        let escapedHTMLContent = ArticleListRowContent(
+            article: makeArticleListItemDTO(
+                title: "Что такое аванс",
+                summary: "&lt;p&gt;Аванс &amp; зарплата&lt;/p&gt;"
+            )
+        )
+        let duplicateTitleContent = ArticleListRowContent(
+            article: makeArticleListItemDTO(
+                title: "Что такое аванс",
+                summary: "Что такое аванс"
+            )
+        )
+
+        #expect(escapedHTMLContent.titleText == "Что такое аванс")
+        #expect(escapedHTMLContent.previewText == "Аванс & зарплата")
+        #expect(duplicateTitleContent.titleText == "Что такое аванс")
+        #expect(duplicateTitleContent.previewText == nil)
+    }
+
+    @Test
+    func articleListRowContentFallsBackToUntitledArticleForBlankTitle() {
+        let content = ArticleListRowContent(
+            article: makeArticleListItemDTO(
+                title: "   ",
+                summary: nil
+            )
+        )
+
+        #expect(content.titleText == "Untitled Article")
+        #expect(content.previewText == nil)
+    }
+
+    @Test
     func articlesScreenNavigationTitleResolverBuildsTitlesFromSidebarSelection() {
         #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: nil) == "Articles")
         #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .inbox) == "All Items")
