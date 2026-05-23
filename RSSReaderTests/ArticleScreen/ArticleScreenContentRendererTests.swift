@@ -579,6 +579,22 @@ struct ArticleScreenContentRendererTests {
         #expect(cache.image(for: imageURL) == nil)
     }
 
+    @Test
+    func cachedArticleImageLayoutPolicyDoesNotUpscaleSmallImages() {
+        let layout = CachedArticleImageLayoutPolicy.layout(for: CGSize(width: 120, height: 80))
+
+        #expect(layout.maxImageWidth == 120)
+        #expect(layout.horizontalAlignment == .center)
+    }
+
+    @Test
+    func cachedArticleImageLayoutPolicyKeepsLargeImagesAdaptive() {
+        let layout = CachedArticleImageLayoutPolicy.layout(for: CGSize(width: 1_200, height: 800))
+
+        #expect(layout.maxImageWidth == nil)
+        #expect(layout.horizontalAlignment == .center)
+    }
+
     private func makeTestImage() -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: 1, height: 1))
         return renderer.image { context in

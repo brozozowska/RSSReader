@@ -620,17 +620,31 @@ struct CachedArticleImageView: View {
             .frame(maxWidth: .infinity)
             .frame(height: 220)
         case .success(let image):
+            let layout = CachedArticleImageLayoutPolicy.layout(for: image.size)
+
             Image(uiImage: image)
                 .resizable()
                 .scaledToFit()
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: layout.maxImageWidth)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .frame(maxWidth: .infinity, alignment: layout.swiftUIAlignment)
         case .failure:
-            ContentUnavailableView(
-                "Image Unavailable",
-                systemImage: "photo",
-                description: Text("The article image could not be loaded.")
-            )
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: "photo")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Image Unavailable")
+                        .font(.subheadline.weight(.semibold))
+                    Text("The article image could not be loaded.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
     }
 
@@ -680,6 +694,47 @@ enum CachedArticleImagePhase {
     case loading
     case success(UIImage)
     case failure
+}
+
+struct CachedArticleImageLayout: Equatable {
+    let maxImageWidth: CGFloat?
+    let horizontalAlignment: CachedArticleImageHorizontalAlignment
+
+    var swiftUIAlignment: Alignment {
+        switch horizontalAlignment {
+        case .leading:
+            .leading
+        case .center:
+            .center
+        }
+    }
+}
+
+enum CachedArticleImageHorizontalAlignment: Equatable {
+    case leading
+    case center
+}
+
+enum CachedArticleImageLayoutPolicy {
+    static let smallImageMaximumWidth: CGFloat = 320
+
+    static func layout(for imageSize: CGSize) -> CachedArticleImageLayout {
+        guard imageSize.width > 0, imageSize.height > 0 else {
+            return CachedArticleImageLayout(maxImageWidth: nil, horizontalAlignment: .center)
+        }
+
+        if imageSize.width <= smallImageMaximumWidth {
+            return CachedArticleImageLayout(
+                maxImageWidth: imageSize.width,
+                horizontalAlignment: .center
+            )
+        }
+
+        return CachedArticleImageLayout(
+            maxImageWidth: nil,
+            horizontalAlignment: .center
+        )
+    }
 }
 
 @MainActor

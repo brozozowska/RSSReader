@@ -481,7 +481,7 @@
 - [x] `Reader Structured HTML Blocks`: расширить `ArticleScreenBodyBlock` и renderer для базовой структуры HTML: paragraphs, links, headings `h1`-`h6`, ordered / unordered lists, blockquotes, inline emphasis / strong text, `pre` / `code`, `hr`, `figure` / `figcaption` и простые tables с graceful text fallback, чтобы feed body сохранял читаемую структуру без внедрения полноценного web view;
 - [x] `Reader Embedded Media Fallbacks`: улучшить извлечение media из feed HTML: поддержать `img src`, `srcset`, lazy-loading атрибуты вроде `data-src` / `data-original`, `picture/source`, относительные URL от article URL и readable fallback links для неподдерживаемых `iframe`, `video`, `audio` и embed-блоков;
 - [x] `Article List Title Preview Consistency`: изменить presentation списка статей так, чтобы primary text в `ArticleListRowView` показывал нормализованный `Article.title`, а очищенный summary / body excerpt использовался только как отдельный preview, если он нужен, чтобы заголовок в списке совпадал с заголовком в `ReaderView`;
-- [ ] `Reader Image Layout Policy`: обновить `CachedArticleImageView`, чтобы маленькие изображения не апскейлились на всю ширину reader, большие изображения оставались адаптивными по ширине, а failed image state не занимал чрезмерно много места и не ломал чтение статьи;
+- [x] `Reader Image Layout Policy`: обновить `CachedArticleImageView`, чтобы маленькие изображения не апскейлились на всю ширину reader, большие изображения оставались адаптивными по ширине, а failed image state не занимал чрезмерно много места и не ломал чтение статьи;
 
 #### Testing
 - [ ] unit tests для normalizer;
