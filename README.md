@@ -484,6 +484,7 @@
 - [x] `Reader Image Layout Policy`: обновить `CachedArticleImageView`, чтобы маленькие изображения не апскейлились на всю ширину reader, большие изображения оставались адаптивными по ширине, а failed image state не занимал чрезмерно много места и не ломал чтение статьи;
 - [x] `Reader Picture Fallback Selection`: точечно исправить выбор картинки из `picture`: предпочитать вложенный `img` fallback перед `source srcset`, чтобы WordPress / responsive banner blocks в feed не выбирали desktop-баннер для мобильного reader; дополнительно не передавать `.svg` из `img` в `CachedArticleImageView`, потому что текущий bitmap loader через `UIImage(data:)` не декодирует SVG и показывает бесполезный failed state;
 - [x] `Reader Non-Readable HTML Block Filtering`: вырезать из feed HTML нерендеримые блоки `style`, `script`, `noscript` и inline `svg` до text fallback в `ArticleScreenContentRenderer`, чтобы CSS / JS / SVG markup из WordPress custom blocks не попадали в текст статьи, а окружающие readable links и paragraphs продолжали отображаться;
+- [x] `Reader Video-Like Media Fallback`: не передавать video-like URL из `img` / lazy image attributes / `srcset` / `article.imageURL` в `CachedArticleImageView`; вместо долгого image loading и `Image Unavailable` рендерить readable fallback links `Open video`, `Open audio` или `Open embedded content`, чтобы unsupported media оставались доступными через текущую политику открытия ссылок reader;
 
 #### Testing
 - [ ] unit tests для normalizer;

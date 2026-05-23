@@ -95,6 +95,23 @@ private struct ArticleScreenInlineTextStyle {
     var isCode = false
 }
 
+private enum ArticleScreenMediaFallbackKind {
+    case embedded
+    case video
+    case audio
+
+    var title: String {
+        switch self {
+        case .embedded:
+            "Open embedded content"
+        case .video:
+            "Open video"
+        case .audio:
+            "Open audio"
+        }
+    }
+}
+
 @MainActor
 enum ArticleScreenContentRenderer {
     static func renderBody(for article: ReaderArticleDTO) -> ArticleScreenBodyContentState {
@@ -216,7 +233,7 @@ enum ArticleScreenContentRenderer {
         let tagName = leadingTagName(in: blockHTML)
 
         if tagName == "img" {
-            return resolveImageURL(fromImageTag: blockHTML, article: article).map { [.image($0)] } ?? []
+            return renderImageOrMediaFallback(fromImageTag: blockHTML, article: article)
         }
 
         if tagName == "hr" {
@@ -352,9 +369,11 @@ enum ArticleScreenContentRenderer {
             return [.image(pictureURL)]
         }
 
-        if let imageTag = firstHTMLTag(named: "img", in: innerHTML),
-           let imageURL = resolveImageURL(fromImageTag: imageTag, article: article) {
-            return [.image(imageURL)]
+        if let imageTag = firstHTMLTag(named: "img", in: innerHTML) {
+            let imageBlocks = renderImageOrMediaFallback(fromImageTag: imageTag, article: article)
+            if imageBlocks.isEmpty == false {
+                return imageBlocks
+            }
         }
 
         return nil
@@ -371,11 +390,33 @@ enum ArticleScreenContentRenderer {
         }
 
         let label = unsupportedMediaFallbackTitle(for: tagName)
+        return mediaFallbackBlock(title: label, url: mediaURL)
+    }
+
+    private static func renderImageOrMediaFallback(
+        fromImageTag imageTag: String,
+        article: ReaderArticleDTO
+    ) -> [ArticleScreenBodyBlock] {
+        if let imageURL = resolveImageURL(fromImageTag: imageTag, article: article) {
+            return [.image(imageURL)]
+        }
+
+        if let mediaFallback = resolveVideoLikeMediaFallback(fromHTML: imageTag, article: article) {
+            return mediaFallbackBlock(title: mediaFallback.kind.title, url: mediaFallback.url)
+        }
+
+        return []
+    }
+
+    private static func mediaFallbackBlock(
+        title: String,
+        url: URL
+    ) -> [ArticleScreenBodyBlock] {
         return [
             .paragraph(
                 ArticleScreenTextBlock(
                     spans: [
-                        ArticleScreenTextSpan(text: label, linkURL: mediaURL)
+                        ArticleScreenTextSpan(text: title, linkURL: url)
                     ]
                 )
             )
@@ -600,6 +641,12 @@ enum ArticleScreenContentRenderer {
         else {
             return nil
         }
+        if let fallbackKind = videoLikeMediaFallbackKind(for: imageURL) {
+            return mediaFallbackBlock(title: fallbackKind.title, url: imageURL).first
+        }
+        guard isRenderableImageURL(imageURL) else {
+            return nil
+        }
 
         return .image(imageURL)
     }
@@ -618,7 +665,8 @@ enum ArticleScreenContentRenderer {
 
         for attributeName in directAttributes {
             if let rawURL = htmlAttribute(named: attributeName, in: imageTag),
-               let imageURL = resolveArticleMediaURL(rawURL, article: article) {
+               let imageURL = resolveArticleMediaURL(rawURL, article: article),
+               isRenderableImageURL(imageURL) {
                 return imageURL
             }
         }
@@ -631,7 +679,8 @@ enum ArticleScreenContentRenderer {
         for attributeName in srcsetAttributes {
             if let rawSrcset = htmlAttribute(named: attributeName, in: imageTag),
                let rawURL = preferredURLCandidate(fromSrcset: rawSrcset),
-               let imageURL = resolveArticleMediaURL(rawURL, article: article) {
+               let imageURL = resolveArticleMediaURL(rawURL, article: article),
+               isRenderableImageURL(imageURL) {
                 return imageURL
             }
         }
@@ -651,8 +700,46 @@ enum ArticleScreenContentRenderer {
         for sourceTag in htmlTags(named: "source", in: innerHTML) {
             if let rawSrcset = htmlAttribute(named: "srcset", in: sourceTag),
                let rawURL = preferredURLCandidate(fromSrcset: rawSrcset),
-               let imageURL = resolveArticleMediaURL(rawURL, article: article) {
+               let imageURL = resolveArticleMediaURL(rawURL, article: article),
+               isRenderableImageURL(imageURL) {
                 return imageURL
+            }
+        }
+
+        return nil
+    }
+
+    private static func resolveVideoLikeMediaFallback(
+        fromHTML html: String,
+        article: ReaderArticleDTO
+    ) -> (url: URL, kind: ArticleScreenMediaFallbackKind)? {
+        let directAttributes = [
+            "data-src",
+            "data-original",
+            "data-lazy-src",
+            "data-url",
+            "src"
+        ]
+
+        for attributeName in directAttributes {
+            if let rawURL = htmlAttribute(named: attributeName, in: html),
+               let mediaURL = resolveArticleMediaURL(rawURL, article: article),
+               let kind = videoLikeMediaFallbackKind(for: mediaURL) {
+                return (mediaURL, kind)
+            }
+        }
+
+        let srcsetAttributes = [
+            "data-srcset",
+            "srcset"
+        ]
+
+        for attributeName in srcsetAttributes {
+            if let rawSrcset = htmlAttribute(named: attributeName, in: html),
+               let rawURL = preferredURLCandidate(fromSrcset: rawSrcset),
+               let mediaURL = resolveArticleMediaURL(rawURL, article: article),
+               let kind = videoLikeMediaFallbackKind(for: mediaURL) {
+                return (mediaURL, kind)
             }
         }
 
@@ -697,6 +784,41 @@ enum ArticleScreenContentRenderer {
             rawValue: trimmedValue,
             baseURLString: article.articleURL
         )
+    }
+
+    private static func isRenderableImageURL(_ url: URL) -> Bool {
+        let fileExtension = url.pathExtension.lowercased()
+        if fileExtension == "svg" {
+            return false
+        }
+        return videoLikeMediaFallbackKind(for: url) == nil
+    }
+
+    private static func videoLikeMediaFallbackKind(for url: URL) -> ArticleScreenMediaFallbackKind? {
+        let fileExtension = url.pathExtension.lowercased()
+        let host = url.host?.lowercased() ?? ""
+        let path = url.path.lowercased()
+
+        if ["jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "avif"].contains(fileExtension) {
+            return nil
+        }
+
+        if ["mp4", "m4v", "mov", "webm", "m3u8", "avi", "mkv"].contains(fileExtension) {
+            return .video
+        }
+
+        if ["mp3", "m4a", "aac", "ogg", "oga", "wav", "flac"].contains(fileExtension) {
+            return .audio
+        }
+
+        if host.contains("youtube.com")
+            || host.contains("youtu.be")
+            || host.contains("vimeo.com")
+            || path.contains("/embed/") {
+            return .embedded
+        }
+
+        return nil
     }
 
     private static func preferredURLCandidate(fromSrcset srcset: String) -> String? {

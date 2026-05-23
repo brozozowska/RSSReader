@@ -310,6 +310,60 @@ struct ArticleScreenContentRendererTests {
     }
 
     @Test
+    func articleScreenContentRendererRendersVideoLikeImageSourceAsFallbackLink() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <p>«Вкалывают роботы, а не человек»</p>
+                <img src="https://cdn.example.com/video/figure-shift.mp4">
+                """
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .paragraph(.plainText("«Вкалывают роботы, а не человек»")),
+                .paragraph(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(
+                                text: "Open video",
+                                linkURL: URL(string: "https://cdn.example.com/video/figure-shift.mp4")!
+                            )
+                        ]
+                    )
+                )
+            ]
+        )
+    }
+
+    @Test
+    func articleScreenContentRendererRendersVideoLikeLeadImageAsFallbackLink() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: "<p>Body copy</p>",
+                imageURL: "https://cdn.example.com/video/lead-video.webm"
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .paragraph(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(
+                                text: "Open video",
+                                linkURL: URL(string: "https://cdn.example.com/video/lead-video.webm")!
+                            )
+                        ]
+                    )
+                ),
+                .paragraph(.plainText("Body copy"))
+            ]
+        )
+    }
+
+    @Test
     func articleScreenContentRendererRemovesNonReadableStyleScriptAndSVGBlocks() {
         let content = ArticleScreenContentState(
             article: makeReaderArticleDTO(
