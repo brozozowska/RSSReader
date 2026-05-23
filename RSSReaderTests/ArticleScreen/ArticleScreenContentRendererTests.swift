@@ -249,6 +249,108 @@ struct ArticleScreenContentRendererTests {
     }
 
     @Test
+    func articleScreenContentRendererResolvesLazyImageAttributesAndSrcsetCandidates() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <img src="data:image/gif;base64,placeholder" data-src="images/lazy.png">
+                <img srcset="small.png 320w, large.png 960w">
+                <img data-original="/images/original.png">
+                """,
+                articleURL: "https://example.com/articles/body/index.html",
+                canonicalURL: "https://canonical.example.com/article"
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .image(URL(string: "https://example.com/articles/body/images/lazy.png")!),
+                .image(URL(string: "https://example.com/articles/body/large.png")!),
+                .image(URL(string: "https://example.com/images/original.png")!)
+            ]
+        )
+    }
+
+    @Test
+    func articleScreenContentRendererResolvesPictureSourceSrcsetBeforeImgFallback() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <picture>
+                    <source media="(min-width: 800px)" srcset="/images/hero-large.jpg 2x, /images/hero-retina.jpg 3x">
+                    <img src="/images/hero-small.jpg">
+                </picture>
+                """
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .image(URL(string: "https://example.com/images/hero-retina.jpg")!)
+            ]
+        )
+    }
+
+    @Test
+    func articleScreenContentRendererBuildsReadableFallbackLinksForUnsupportedEmbeds() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <iframe src="https://www.youtube.com/embed/video-id"></iframe>
+                <video src="/media/movie.mp4"></video>
+                <audio data-src="/media/audio.mp3"></audio>
+                <embed src="/media/widget">
+                """
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .paragraph(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(
+                                text: "Open embedded content",
+                                linkURL: URL(string: "https://www.youtube.com/embed/video-id")!
+                            )
+                        ]
+                    )
+                ),
+                .paragraph(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(
+                                text: "Open video",
+                                linkURL: URL(string: "https://example.com/media/movie.mp4")!
+                            )
+                        ]
+                    )
+                ),
+                .paragraph(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(
+                                text: "Open audio",
+                                linkURL: URL(string: "https://example.com/media/audio.mp3")!
+                            )
+                        ]
+                    )
+                ),
+                .paragraph(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(
+                                text: "Open media",
+                                linkURL: URL(string: "https://example.com/media/widget")!
+                            )
+                        ]
+                    )
+                )
+            ]
+        )
+    }
+
+    @Test
     func articleScreenContentRendererFallsBackToReadableTextForSimpleTables() {
         let content = ArticleScreenContentState(
             article: makeReaderArticleDTO(

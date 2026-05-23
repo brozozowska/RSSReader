@@ -173,7 +173,7 @@ enum ArticleScreenContentRenderer {
         article: ReaderArticleDTO
     ) -> [ArticleScreenBodyBlock] {
         let htmlNSString = contentHTML as NSString
-        let blockPattern = #"(?is)<(h[1-6]|p|blockquote|pre|ul|ol|figure|table)\b[^>]*>.*?</\1\s*>|<img\b[^>]*>|<hr\b[^>]*>"#
+        let blockPattern = #"(?is)<(h[1-6]|p|blockquote|pre|ul|ol|figure|table|picture|iframe|video|audio)\b[^>]*>.*?</\1\s*>|<(img|hr|embed)\b[^>]*>"#
         guard let blockRegex = try? NSRegularExpression(pattern: blockPattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) else {
             return renderTextBlock(stripHTML(contentHTML))
         }
@@ -250,6 +250,22 @@ enum ArticleScreenContentRenderer {
             return renderHTMLFigure(innerHTML, article: article)
         case "table":
             return renderHTMLTableFallback(innerHTML, article: article)
+        case "picture":
+            return renderHTMLPicture(innerHTML, article: article)
+        case "iframe", "video", "audio":
+            return renderUnsupportedMediaFallback(
+                tagName: tagName,
+                html: blockHTML,
+                innerHTML: innerHTML,
+                article: article
+            )
+        case "embed":
+            return renderUnsupportedMediaFallback(
+                tagName: tagName,
+                html: blockHTML,
+                innerHTML: "",
+                article: article
+            )
         default:
             return renderHTMLTextSegment(blockHTML, article: article)
         }
@@ -304,9 +320,8 @@ enum ArticleScreenContentRenderer {
     ) -> [ArticleScreenBodyBlock] {
         var blocks: [ArticleScreenBodyBlock] = []
 
-        if let imageTag = firstHTMLTag(named: "img", in: innerHTML),
-           let imageURL = resolveImageURL(fromImageTag: imageTag, article: article) {
-            blocks.append(.image(imageURL))
+        if let imageBlocks = firstHTMLMediaImageBlocks(in: innerHTML, article: article) {
+            blocks.append(contentsOf: imageBlocks)
         }
 
         if let captionHTML = firstHTMLBlock(named: "figcaption", in: innerHTML),
@@ -319,6 +334,51 @@ enum ArticleScreenContentRenderer {
         }
 
         return blocks
+    }
+
+    private static func renderHTMLPicture(
+        _ innerHTML: String,
+        article: ReaderArticleDTO
+    ) -> [ArticleScreenBodyBlock] {
+        firstHTMLMediaImageBlocks(in: innerHTML, article: article) ?? []
+    }
+
+    private static func firstHTMLMediaImageBlocks(
+        in innerHTML: String,
+        article: ReaderArticleDTO
+    ) -> [ArticleScreenBodyBlock]? {
+        if let pictureURL = resolvePictureImageURL(fromInnerHTML: innerHTML, article: article) {
+            return [.image(pictureURL)]
+        }
+
+        if let imageTag = firstHTMLTag(named: "img", in: innerHTML),
+           let imageURL = resolveImageURL(fromImageTag: imageTag, article: article) {
+            return [.image(imageURL)]
+        }
+
+        return nil
+    }
+
+    private static func renderUnsupportedMediaFallback(
+        tagName: String,
+        html: String,
+        innerHTML: String,
+        article: ReaderArticleDTO
+    ) -> [ArticleScreenBodyBlock] {
+        guard let mediaURL = resolveMediaFallbackURL(fromHTML: html, article: article) else {
+            return renderHTMLTextSegment(innerHTML, article: article)
+        }
+
+        let label = unsupportedMediaFallbackTitle(for: tagName)
+        return [
+            .paragraph(
+                ArticleScreenTextBlock(
+                    spans: [
+                        ArticleScreenTextSpan(text: label, linkURL: mediaURL)
+                    ]
+                )
+            )
+        ]
     }
 
     private static func renderTextBlock(_ text: String) -> [ArticleScreenBodyBlock] {
@@ -547,24 +607,117 @@ enum ArticleScreenContentRenderer {
         fromImageTag imageTag: String,
         article: ReaderArticleDTO
     ) -> URL? {
-        let srcPattern = #"src\s*=\s*["']?([^"' >]+)"?"#
-        guard
-            let srcRegex = try? NSRegularExpression(pattern: srcPattern, options: [.caseInsensitive]),
-            let match = srcRegex.firstMatch(
-                in: imageTag,
-                options: [],
-                range: NSRange(location: 0, length: (imageTag as NSString).length)
-            ),
-            match.numberOfRanges > 1
-        else {
+        let directAttributes = [
+            "data-src",
+            "data-original",
+            "data-lazy-src",
+            "data-url",
+            "src"
+        ]
+
+        for attributeName in directAttributes {
+            if let rawURL = htmlAttribute(named: attributeName, in: imageTag),
+               let imageURL = resolveArticleMediaURL(rawURL, article: article) {
+                return imageURL
+            }
+        }
+
+        let srcsetAttributes = [
+            "data-srcset",
+            "srcset"
+        ]
+
+        for attributeName in srcsetAttributes {
+            if let rawSrcset = htmlAttribute(named: attributeName, in: imageTag),
+               let rawURL = preferredURLCandidate(fromSrcset: rawSrcset),
+               let imageURL = resolveArticleMediaURL(rawURL, article: article) {
+                return imageURL
+            }
+        }
+
+        return nil
+    }
+
+    private static func resolvePictureImageURL(
+        fromInnerHTML innerHTML: String,
+        article: ReaderArticleDTO
+    ) -> URL? {
+        for sourceTag in htmlTags(named: "source", in: innerHTML) {
+            if let rawSrcset = htmlAttribute(named: "srcset", in: sourceTag),
+               let rawURL = preferredURLCandidate(fromSrcset: rawSrcset),
+               let imageURL = resolveArticleMediaURL(rawURL, article: article) {
+                return imageURL
+            }
+        }
+
+        if let imageTag = firstHTMLTag(named: "img", in: innerHTML) {
+            return resolveImageURL(fromImageTag: imageTag, article: article)
+        }
+
+        return nil
+    }
+
+    private static func resolveMediaFallbackURL(
+        fromHTML html: String,
+        article: ReaderArticleDTO
+    ) -> URL? {
+        let directAttributes = [
+            "src",
+            "data-src",
+            "data-original",
+            "data-url",
+            "href"
+        ]
+
+        for attributeName in directAttributes {
+            if let rawURL = htmlAttribute(named: attributeName, in: html),
+               let mediaURL = resolveArticleMediaURL(rawURL, article: article) {
+                return mediaURL
+            }
+        }
+
+        return nil
+    }
+
+    private static func resolveArticleMediaURL(
+        _ rawValue: String,
+        article: ReaderArticleDTO
+    ) -> URL? {
+        let trimmedValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedValue.isEmpty == false, trimmedValue.lowercased().hasPrefix("data:") == false else {
             return nil
         }
 
-        let rawImageURL = (imageTag as NSString).substring(with: match.range(at: 1))
         return ArticleScreenURLResolver.resolveMediaURL(
-            rawValue: rawImageURL,
-            baseURLString: article.canonicalURL ?? article.articleURL
+            rawValue: trimmedValue,
+            baseURLString: article.articleURL
         )
+    }
+
+    private static func preferredURLCandidate(fromSrcset srcset: String) -> String? {
+        srcset
+            .split(separator: ",")
+            .compactMap { candidate -> String? in
+                candidate
+                    .split(whereSeparator: { $0.isWhitespace })
+                    .first
+                    .map(String.init)
+            }
+            .last?
+            .nilIfBlank
+    }
+
+    private static func unsupportedMediaFallbackTitle(for tagName: String) -> String {
+        switch tagName {
+        case "iframe":
+            "Open embedded content"
+        case "video":
+            "Open video"
+        case "audio":
+            "Open audio"
+        default:
+            "Open media"
+        }
     }
 
     private static func leadingTagName(in html: String) -> String {
@@ -590,19 +743,29 @@ enum ArticleScreenContentRenderer {
     }
 
     private static func firstHTMLTag(named tagName: String, in html: String) -> String? {
+        htmlTags(named: tagName, in: html).first
+    }
+
+    private static func htmlTags(named tagName: String, in html: String) -> [String] {
         let tagPattern = #"(?is)<\#(tagName)\b[^>]*>"#
         guard
             let tagRegex = try? NSRegularExpression(pattern: tagPattern, options: [.caseInsensitive]),
-            let match = tagRegex.firstMatch(
+            tagRegex.numberOfMatches(
                 in: html,
                 options: [],
                 range: NSRange(location: 0, length: (html as NSString).length)
-            )
+            ) > 0
         else {
-            return nil
+            return []
         }
 
-        return (html as NSString).substring(with: match.range)
+        let nsHTML = html as NSString
+        return tagRegex.matches(
+            in: html,
+            options: [],
+            range: NSRange(location: 0, length: nsHTML.length)
+        )
+        .map { nsHTML.substring(with: $0.range) }
     }
 
     private static func firstHTMLBlock(named tagName: String, in html: String) -> String? {
