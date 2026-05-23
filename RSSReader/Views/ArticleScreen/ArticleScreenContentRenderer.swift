@@ -642,16 +642,17 @@ enum ArticleScreenContentRenderer {
         fromInnerHTML innerHTML: String,
         article: ReaderArticleDTO
     ) -> URL? {
+        if let imageTag = firstHTMLTag(named: "img", in: innerHTML),
+           let imageURL = resolveImageURL(fromImageTag: imageTag, article: article) {
+            return imageURL
+        }
+
         for sourceTag in htmlTags(named: "source", in: innerHTML) {
             if let rawSrcset = htmlAttribute(named: "srcset", in: sourceTag),
                let rawURL = preferredURLCandidate(fromSrcset: rawSrcset),
                let imageURL = resolveArticleMediaURL(rawURL, article: article) {
                 return imageURL
             }
-        }
-
-        if let imageTag = firstHTMLTag(named: "img", in: innerHTML) {
-            return resolveImageURL(fromImageTag: imageTag, article: article)
         }
 
         return nil
@@ -685,6 +686,9 @@ enum ArticleScreenContentRenderer {
     ) -> URL? {
         let trimmedValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmedValue.isEmpty == false, trimmedValue.lowercased().hasPrefix("data:") == false else {
+            return nil
+        }
+        guard trimmedValue.lowercased().hasSuffix(".svg") == false else {
             return nil
         }
 

@@ -272,7 +272,7 @@ struct ArticleScreenContentRendererTests {
     }
 
     @Test
-    func articleScreenContentRendererResolvesPictureSourceSrcsetBeforeImgFallback() {
+    func articleScreenContentRendererResolvesPictureImgFallbackBeforeSourceSrcset() {
         let content = ArticleScreenContentState(
             article: makeReaderArticleDTO(
                 contentHTML: """
@@ -286,7 +286,25 @@ struct ArticleScreenContentRendererTests {
 
         #expect(
             content.body.blocks == [
-                .image(URL(string: "https://example.com/images/hero-retina.jpg")!)
+                .image(URL(string: "https://example.com/images/hero-small.jpg")!)
+            ]
+        )
+    }
+
+    @Test
+    func articleScreenContentRendererSkipsSVGImagesThatUIImageCannotDecode() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <p>Начать бесплатно</p>
+                <img src="/assets/icon.svg">
+                """
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .paragraph(.plainText("Начать бесплатно"))
             ]
         )
     }
