@@ -98,6 +98,9 @@ public final class AppState {
     var articleNavigationContextIDs: [UUID] = []
     private var articleNavigationContextSourceSelection: SidebarSelection?
     private var articleNavigationContextSourcesFilter: SourcesFilter = .allItems
+    private(set) var articleListSessionReadArticleIDs: Set<UUID> = []
+    private var articleListSessionReadSourceSelection: SidebarSelection?
+    private var articleListSessionReadSourcesFilter: SourcesFilter = .allItems
     var articleListReloadID = UUID()
     var sourcesSidebarReloadID = UUID()
     var articleScreenReloadID = UUID()
@@ -170,7 +173,12 @@ public final class AppState {
     }
 
     func selectSourcesFilter(_ filter: SourcesFilter) {
+        guard selectedSourcesFilter != filter else {
+            return
+        }
+
         selectedSourcesFilter = filter
+        clearArticleListSessionReadArticles()
     }
 
     func selectArticle(_ articleID: UUID?) {
@@ -194,6 +202,38 @@ public final class AppState {
 
     func requestArticleListReload() {
         articleListReloadID = UUID()
+    }
+
+    func recordArticleReadInCurrentListSession(_ articleID: UUID) {
+        let sourceSelection = selectedSidebarSelection
+        let sourcesFilter = selectedSourcesFilter
+
+        if articleListSessionReadSourceSelection != sourceSelection
+            || articleListSessionReadSourcesFilter != sourcesFilter {
+            articleListSessionReadArticleIDs = []
+            articleListSessionReadSourceSelection = sourceSelection
+            articleListSessionReadSourcesFilter = sourcesFilter
+        }
+
+        articleListSessionReadArticleIDs.insert(articleID)
+    }
+
+    func currentArticleListSessionReadArticleIDs(
+        sourceSelection: SidebarSelection?,
+        sourcesFilter: SourcesFilter
+    ) -> Set<UUID> {
+        guard articleListSessionReadSourceSelection == sourceSelection,
+              articleListSessionReadSourcesFilter == sourcesFilter else {
+            return []
+        }
+
+        return articleListSessionReadArticleIDs
+    }
+
+    func clearArticleListSessionReadArticles() {
+        articleListSessionReadArticleIDs = []
+        articleListSessionReadSourceSelection = selectedSidebarSelection
+        articleListSessionReadSourcesFilter = selectedSourcesFilter
     }
 
     func requestSourcesSidebarReload() {
@@ -223,6 +263,7 @@ public final class AppState {
         guard previousSourceSelection != sourceSelection else { return }
 
         readingNavigation.selectSource(sourceSelection)
+        clearArticleListSessionReadArticles()
         clearArticleNavigationContext()
         requestArticleListReload()
     }

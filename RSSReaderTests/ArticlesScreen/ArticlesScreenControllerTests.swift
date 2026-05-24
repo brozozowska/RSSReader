@@ -112,6 +112,54 @@ struct ArticlesScreenControllerTests {
         #expect(controller.screenState.navigationSubtitle == "1 Unread Item")
     }
 
+    @Test
+    func articlesScreenControllerRetainsSessionReadArticleInUnreadFilterUntilNewEntry() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let articleStateService = try #require(harness.dependencies.articleStateService)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/session-unread.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "session-unread-article",
+            url: "https://example.com/articles/session-unread",
+            title: "Session Unread"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        _ = try articleStateService.markAsRead(
+            feedID: feed.id,
+            articleExternalID: article.externalID,
+            at: .now
+        )
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies,
+            sessionReadArticleIDs: [article.id]
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.map(\.id) == [article.id])
+        #expect(controller.screenState.articles.first?.isRead == true)
+        #expect(controller.screenState.navigationSubtitle == "No Unread Items")
+
+        let newEntryController = ArticlesScreenController()
+        await newEntryController.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        #expect(newEntryController.screenState.phase == .empty)
+        #expect(newEntryController.screenState.articles.isEmpty)
+    }
+
     func articlesScreenControllerPresentsRefreshFailureFromBatchRefreshResult() async throws {
         let client = ScriptedHTTPClient(
             responsesByURL: [

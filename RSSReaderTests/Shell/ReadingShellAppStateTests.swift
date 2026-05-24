@@ -120,6 +120,51 @@ struct ReadingShellAppStateTests {
     }
 
     @Test
+    func readingShellTracksSessionReadArticlesWithinCurrentListContext() {
+        let appState = AppState()
+        let feedID = UUID()
+        let articleID = UUID()
+
+        appState.selectReadingSource(.feed(feedID))
+        appState.selectSourcesFilter(.unread)
+        appState.recordArticleReadInCurrentListSession(articleID)
+
+        #expect(
+            appState.currentArticleListSessionReadArticleIDs(
+                sourceSelection: .feed(feedID),
+                sourcesFilter: .unread
+            ) == [articleID]
+        )
+        #expect(
+            appState.currentArticleListSessionReadArticleIDs(
+                sourceSelection: .feed(feedID),
+                sourcesFilter: .allItems
+            ).isEmpty
+        )
+    }
+
+    @Test
+    func readingShellClearsSessionReadArticlesWhenListContextEnds() {
+        let appState = AppState()
+        let firstFeedID = UUID()
+        let secondFeedID = UUID()
+        let articleID = UUID()
+
+        appState.selectReadingSource(.feed(firstFeedID))
+        appState.selectSourcesFilter(.unread)
+        appState.recordArticleReadInCurrentListSession(articleID)
+
+        appState.selectReadingSource(.feed(secondFeedID))
+
+        #expect(appState.articleListSessionReadArticleIDs.isEmpty)
+
+        appState.recordArticleReadInCurrentListSession(articleID)
+        appState.selectSourcesFilter(.allItems)
+
+        #expect(appState.articleListSessionReadArticleIDs.isEmpty)
+    }
+
+    @Test
     func readingShellOpenArticleSafariSetsPresentedRouteAndPreservesArticleContext() {
         let appState = AppState()
         let articleID = UUID()

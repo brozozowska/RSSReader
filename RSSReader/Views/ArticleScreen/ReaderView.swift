@@ -168,7 +168,8 @@ struct ReaderView: View {
             await controller.load(
                 articleID: currentArticleID,
                 dependencies: dependencies,
-                preservesCurrentArticleDuringLoading: adjacentArticleTransitionDirection != nil
+                preservesCurrentArticleDuringLoading: adjacentArticleTransitionDirection != nil,
+                articleReadOnOpenHandler: recordArticleReadInCurrentListSession
             )
             pendingAdjacentArticleOverscrollDirection = nil
             adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
@@ -391,7 +392,8 @@ struct ReaderView: View {
         await controller.load(
             articleID: currentArticleID,
             dependencies: dependencies,
-            preservesCurrentArticleDuringLoading: true
+            preservesCurrentArticleDuringLoading: true,
+            articleReadOnOpenHandler: recordArticleReadInCurrentListSession
         )
         pendingAdjacentArticleOverscrollDirection = nil
         adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
@@ -402,6 +404,11 @@ struct ReaderView: View {
         guard adjacentArticleTransitionDirection != nil else { return }
         try? await Task.sleep(for: .milliseconds(320))
         adjacentArticleTransitionDirection = nil
+    }
+
+    @MainActor
+    private func recordArticleReadInCurrentListSession(_ articleID: UUID) {
+        appState.recordArticleReadInCurrentListSession(articleID)
     }
 
     private var actionHandlers: ArticleScreenActionHandlers {

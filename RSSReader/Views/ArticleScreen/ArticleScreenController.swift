@@ -13,7 +13,8 @@ final class ArticleScreenController {
     func load(
         articleID: UUID?,
         dependencies: AppDependencies,
-        preservesCurrentArticleDuringLoading: Bool = false
+        preservesCurrentArticleDuringLoading: Bool = false,
+        articleReadOnOpenHandler: ((UUID) -> Void)? = nil
     ) async {
         screenState.beginLoading(
             articleID: articleID,
@@ -39,7 +40,8 @@ final class ArticleScreenController {
                 }
                 let resolvedArticle = applyMarkAsReadOnOpenPolicy(
                     to: article,
-                    dependencies: dependencies
+                    dependencies: dependencies,
+                    articleReadOnOpenHandler: articleReadOnOpenHandler
                 )
                 guard screenState.articleID == articleID else {
                     return
@@ -162,7 +164,8 @@ final class ArticleScreenController {
 
     private func applyMarkAsReadOnOpenPolicy(
         to article: ReaderArticleDTO,
-        dependencies: AppDependencies
+        dependencies: AppDependencies,
+        articleReadOnOpenHandler: ((UUID) -> Void)?
     ) -> ReaderArticleDTO {
         guard article.isRead == false else {
             return article
@@ -183,6 +186,7 @@ final class ArticleScreenController {
                 articleExternalID: article.articleExternalID,
                 at: .now
             )
+            articleReadOnOpenHandler?(article.id)
             return article.updating(isRead: true)
         } catch {
             dependencies.logger.error("Failed to apply mark-as-read-on-open policy: \(error)")

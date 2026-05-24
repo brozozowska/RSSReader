@@ -203,6 +203,25 @@ struct ArticlesScreenState {
         updateToolbarActions(for: selection)
     }
 
+    mutating func applySessionArticleUpdates(
+        _ updatedArticles: [ArticleListItemDTO],
+        navigationSubtitle: String
+    ) {
+        articles = updatedArticles
+        self.navigationSubtitle = navigationSubtitle
+        refreshState = .idle
+
+        if selection == nil {
+            phase = .noSelection
+        } else if updatedArticles.isEmpty {
+            phase = .empty
+        } else {
+            phase = .loaded
+        }
+
+        updateToolbarActions(for: selection)
+    }
+
     private mutating func updateToolbarActions(for selection: SidebarSelection?) {
         toolbarActions = ArticlesScreenToolbarActionsState(
             selection: selection,

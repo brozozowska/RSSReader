@@ -114,6 +114,9 @@ struct ArticleListView: View {
             selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
             syncArticleNavigationContext(visibleArticleIDs)
         }
+        .onChange(of: appState.articleListSessionReadArticleIDs) { _, _ in
+            applySessionReadArticleUpdates()
+        }
         .simultaneousGesture(backNavigationGesture)
     }
 
@@ -127,13 +130,34 @@ struct ArticleListView: View {
         await controller.load(
             selection: loadingSidebarSelection,
             sourcesFilter: loadingSourcesFilter,
-            dependencies: dependencies
+            dependencies: dependencies,
+            sessionReadArticleIDs: appState.currentArticleListSessionReadArticleIDs(
+                sourceSelection: loadingSidebarSelection,
+                sourcesFilter: loadingSourcesFilter
+            )
         )
 
         guard loadingSidebarSelection == appState.selectedSidebarSelection,
               loadingSourcesFilter == appState.selectedSourcesFilter else {
             return
         }
+
+        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
+    }
+
+    @MainActor
+    private func applySessionReadArticleUpdates() {
+        let sessionReadArticleIDs = appState.currentArticleListSessionReadArticleIDs(
+            sourceSelection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter
+        )
+
+        controller.applySessionReadArticleIDs(
+            sessionReadArticleIDs,
+            sourcesFilter: selectedSourcesFilter
+        )
 
         let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
@@ -246,8 +270,15 @@ struct ArticleListView: View {
                 ) else {
                     return
                 }
+                endCurrentArticleListSession()
                 navigateBackToSources()
             }
+    }
+
+    @MainActor
+    private func endCurrentArticleListSession() {
+        appState.clearArticleListSessionReadArticles()
+        appState.requestArticleListReload()
     }
 
     @ViewBuilder

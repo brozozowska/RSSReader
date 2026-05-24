@@ -63,11 +63,17 @@ struct ArticleScreenControllerTests {
             title: "Article Screen Mark On Open"
         )
         let controller = ArticleScreenController()
+        var recordedReadArticleIDs: [UUID] = []
 
-        await controller.load(articleID: article.id, dependencies: harness.dependencies)
+        await controller.load(
+            articleID: article.id,
+            dependencies: harness.dependencies,
+            articleReadOnOpenHandler: { recordedReadArticleIDs.append($0) }
+        )
 
         let loadedArticle = try #require(controller.screenState.article)
         #expect(loadedArticle.isRead == true)
+        #expect(recordedReadArticleIDs == [article.id])
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
 
@@ -96,11 +102,17 @@ struct ArticleScreenControllerTests {
             title: "Article Screen Keep Unread On Open"
         )
         let controller = ArticleScreenController()
+        var recordedReadArticleIDs: [UUID] = []
 
-        await controller.load(articleID: article.id, dependencies: harness.dependencies)
+        await controller.load(
+            articleID: article.id,
+            dependencies: harness.dependencies,
+            articleReadOnOpenHandler: { recordedReadArticleIDs.append($0) }
+        )
 
         let loadedArticle = try #require(controller.screenState.article)
         #expect(loadedArticle.isRead == false)
+        #expect(recordedReadArticleIDs.isEmpty)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Read")
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
 
