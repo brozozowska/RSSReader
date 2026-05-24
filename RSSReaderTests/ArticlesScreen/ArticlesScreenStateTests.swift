@@ -11,7 +11,7 @@ struct ArticlesScreenStateTests {
 
         #expect(state.phase == .noSelection)
         #expect(state.navigationTitle == "Articles")
-        #expect(state.navigationSubtitle == "0 Unread Items")
+        #expect(state.navigationSubtitle == "No Unread Items")
         #expect(state.placeholder?.title == "No Source Selected")
         #expect(state.toolbarActions.showsSearchAction == false)
         #expect(state.toolbarActions.showsMarkAllAsReadAction == false)

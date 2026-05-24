@@ -102,7 +102,7 @@ struct SidebarView: View {
         }
         .task {
             guard controller.isPreviewMode == false else { return }
-            await loadFeeds(showsFullScreenLoading: true, refreshedAt: .now)
+            await loadFeeds(showsFullScreenLoading: true, refreshedAt: nil)
         }
         .onChange(of: appState.sourcesSidebarReloadID) { _, _ in
             guard controller.isPreviewMode == false else { return }

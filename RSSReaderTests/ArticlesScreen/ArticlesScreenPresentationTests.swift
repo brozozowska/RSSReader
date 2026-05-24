@@ -119,6 +119,30 @@ struct ArticlesScreenPresentationTests {
     }
 
     @Test
+    func articlesScreenSubtitleResolverUsesEmptyUnreadCopyForZeroUnreadItems() {
+        let readItem = makeArticleListItemDTO(isRead: true, isStarred: false)
+
+        #expect(
+            ArticlesScreenSubtitleResolver.resolve(
+                articles: [],
+                sourcesFilter: .allItems
+            ) == "No Unread Items"
+        )
+        #expect(
+            ArticlesScreenSubtitleResolver.resolve(
+                articles: [readItem],
+                sourcesFilter: .unread
+            ) == "No Unread Items"
+        )
+        #expect(
+            ArticlesScreenSubtitleResolver.resolve(
+                articles: [],
+                sourcesFilter: .starred
+            ) == "0 Starred Items"
+        )
+    }
+
+    @Test
     func articlesDaySectionsBuilderGroupsArticlesByDayAndPreservesVisibleOrder() {
         let calendar = Calendar.current
         let now = Date()

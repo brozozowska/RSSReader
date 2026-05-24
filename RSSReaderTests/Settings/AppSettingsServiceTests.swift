@@ -159,6 +159,7 @@ struct AppSettingsServiceTests {
     func appDependenciesRunsBackgroundRefreshWhenPreferenceIsAutomatic() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
+        let service = try #require(harness.dependencies.appSettingsService)
 
         _ = try repository.update(
             AppSettingsUpdate(
@@ -173,9 +174,46 @@ struct AppSettingsServiceTests {
         case .executed(let refreshResult):
             #expect(refreshResult.trigger == .background)
             #expect(refreshResult.batchResult.results.isEmpty == true)
+            #expect(try service.fetchSettings().lastSourcesRefreshAt == nil)
         case .skippedManual, .failedToStart:
             Issue.record("Expected executed background refresh result")
         }
+    }
+
+    @Test
+    func appDependenciesPersistsLastSourcesRefreshAfterManualAllSourcesRefresh() async throws {
+        let feedURL = "https://example.com/manual-all-feed.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: [
+                            "Content-Type": "application/rss+xml; charset=utf-8"
+                        ],
+                        body: makeValidRSSFeedXML(
+                            channelTitle: "Manual All Feed",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Manual Refresh Article",
+                            itemLink: "https://example.com/articles/manual-refresh",
+                            itemGUID: "manual-refresh-article",
+                            itemDescription: "Manual refresh article",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+        let service = try #require(harness.dependencies.appSettingsService)
+        let feed = Feed(url: feedURL, title: "Manual All Feed")
+        try harness.feedRepository.insert(feed)
+
+        let result = try #require(await harness.dependencies.refreshAllFeeds())
+        let snapshot = try service.fetchSettings()
+
+        #expect(result.summary.fetchedCount == 1)
+        #expect(snapshot.lastSourcesRefreshAt == result.finishedAt)
     }
 
     @Test
@@ -205,6 +243,7 @@ struct AppSettingsServiceTests {
             )
         )
         let repository = try #require(harness.dependencies.appSettingsRepository)
+        let service = try #require(harness.dependencies.appSettingsService)
         let articleQueryService = try #require(harness.dependencies.articleQueryService)
         let feed = Feed(
             url: feedURL,
@@ -240,6 +279,7 @@ struct AppSettingsServiceTests {
         #expect(executedResult.trigger == .background)
         #expect(executedResult.summary.totalFeedCount == 1)
         #expect(executedResult.summary.fetchedCount == 1)
+        #expect(try service.fetchSettings().lastSourcesRefreshAt == executedResult.batchResult.finishedAt)
         #expect(persistedArticles.count == 1)
         #expect(persistedArticles.first?.title == "Materialized In Shared Cache")
         #expect(inboxItems.count == 1)

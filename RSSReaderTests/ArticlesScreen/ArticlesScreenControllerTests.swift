@@ -87,6 +87,31 @@ struct ArticlesScreenControllerTests {
         #expect(controller.screenState.navigationTitle == "My Feed")
     }
 
+    @Test
+    func articlesScreenControllerUsesUnreadCountForFeedNavigationSubtitle() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = Feed(
+            url: "https://example.com/last-refresh.xml",
+            title: "Last Refresh"
+        )
+        try harness.feedRepository.insert(feed)
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "last-refresh-article",
+            url: "https://example.com/articles/last-refresh",
+            title: "Last Refresh Article"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.navigationSubtitle == "1 Unread Item")
+    }
+
     func articlesScreenControllerPresentsRefreshFailureFromBatchRefreshResult() async throws {
         let client = ScriptedHTTPClient(
             responsesByURL: [
@@ -286,7 +311,7 @@ struct ArticlesScreenControllerTests {
 
         #expect(controller.screenState.pendingConfirmation == nil)
         #expect(controller.screenState.articles.first?.isRead == true)
-        #expect(controller.screenState.navigationSubtitle == "0 Unread Items")
+        #expect(controller.screenState.navigationSubtitle == "No Unread Items")
         #expect(persistedState?.isRead == true)
     }
 }

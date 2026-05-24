@@ -60,6 +60,9 @@ struct ArticlesScreenSubtitleResolver {
         switch sourcesFilter {
         case .allItems, .unread:
             count = articles.filter { $0.isRead == false }.count
+            guard count > 0 else {
+                return "No Unread Items"
+            }
             itemLabel = count == 1 ? "Unread Item" : "Unread Items"
         case .starred:
             count = articles.filter(\.isStarred).count

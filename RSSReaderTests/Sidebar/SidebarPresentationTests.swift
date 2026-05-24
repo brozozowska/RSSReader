@@ -75,48 +75,78 @@ struct SidebarPresentationTests {
     }
 
     @Test
-    func sidebarSubtitleFormatterFormatsTodayRefreshDate() {
-        let formatter = SidebarSubtitleFormatter()
-        let calendar = Calendar.current
-        let now = Date()
-        let refreshDate = calendar.date(
-            bySettingHour: 9,
-            minute: 41,
-            second: 0,
-            of: now
-        ) ?? now
+    func sidebarSubtitleFormatterFormatsTodayRefreshDate() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+        let now = try #require(calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: 2026,
+            month: 5,
+            day: 24,
+            hour: 18,
+            minute: 30
+        )))
+        let refreshDate = try #require(calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: 2026,
+            month: 5,
+            day: 24,
+            hour: 17,
+            minute: 8
+        )))
+        let formatter = SidebarSubtitleFormatter(now: now, calendar: calendar)
 
-        let expectedText = "Today at \(refreshDate.formatted(date: .omitted, time: .shortened))"
-
-        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == expectedText)
+        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == "Today at 17:08")
     }
 
     @Test
-    func sidebarSubtitleFormatterFormatsYesterdayRefreshDate() {
-        let formatter = SidebarSubtitleFormatter()
-        let calendar = Calendar.current
-        let now = Date()
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: now) ?? now
-        let refreshDate = calendar.date(
-            bySettingHour: 21,
-            minute: 15,
-            second: 0,
-            of: yesterday
-        ) ?? yesterday
+    func sidebarSubtitleFormatterFormatsYesterdayRefreshDate() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+        let now = try #require(calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: 2026,
+            month: 5,
+            day: 25,
+            hour: 9,
+            minute: 0
+        )))
+        let refreshDate = try #require(calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: 2026,
+            month: 5,
+            day: 24,
+            hour: 17,
+            minute: 8
+        )))
+        let formatter = SidebarSubtitleFormatter(now: now, calendar: calendar)
 
-        let expectedText = "Yesterday at \(refreshDate.formatted(date: .omitted, time: .shortened))"
-
-        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == expectedText)
+        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == "Yesterday at 17:08")
     }
 
     @Test
-    func sidebarSubtitleFormatterFormatsOlderRefreshDateWithAbbreviatedDate() {
-        let formatter = SidebarSubtitleFormatter()
-        let refreshDate = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? .distantPast
+    func sidebarSubtitleFormatterFormatsOlderRefreshDateWithFullDate() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+        let now = try #require(calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: 2026,
+            month: 5,
+            day: 26,
+            hour: 9,
+            minute: 0
+        )))
+        let refreshDate = try #require(calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: 2026,
+            month: 5,
+            day: 24,
+            hour: 17,
+            minute: 8
+        )))
+        let formatter = SidebarSubtitleFormatter(now: now, calendar: calendar)
 
-        let expectedText = refreshDate.formatted(date: .abbreviated, time: .shortened)
-
-        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == expectedText)
+        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == "Sunday, 24 May 2026")
     }
 
     @Test

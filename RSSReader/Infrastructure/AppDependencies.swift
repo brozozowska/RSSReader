@@ -1185,6 +1185,7 @@ extension AppDependencies {
         }
 
         let result = await feedRefreshService.refreshAllActiveFeeds()
+        recordSourcesRefreshIfNeeded(from: result)
         cleanupArchivedArticlesUsingCurrentSettings()
         await refreshUnreadAppIconBadgeCount()
         return result
@@ -1257,11 +1258,30 @@ extension AppDependencies {
         }
 
         let result = await backgroundRefreshService.performScheduledRefresh()
-        if case .executed = result {
+        if case .executed(let refreshResult) = result {
+            recordSourcesRefreshIfNeeded(from: refreshResult.batchResult)
             cleanupPersistenceBoundedGrowth()
             await refreshUnreadAppIconBadgeCount()
         }
         return result
+    }
+
+    @MainActor
+    private func recordSourcesRefreshIfNeeded(from result: FeedRefreshBatchResult) {
+        guard result.summary.fetchedCount + result.summary.notModifiedCount > 0 else {
+            return
+        }
+
+        do {
+            _ = try appSettingsService?.updateSettings(
+                AppSettingsPatch(
+                    lastSourcesRefreshAt: result.finishedAt,
+                    updatedAt: result.finishedAt
+                )
+            )
+        } catch {
+            logger.error("Failed to persist sources refresh timestamp: \(error)")
+        }
     }
 
     @MainActor

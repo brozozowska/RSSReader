@@ -6,6 +6,39 @@ import Testing
 @MainActor
 struct SidebarSelectionFlowTests {
     @Test
+    func sidebarControllerLoadsPersistedLastSourcesRefreshTimestampWithoutRewritingIt() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let lastSourcesRefreshAt = try #require(Calendar.current.date(from: DateComponents(
+            year: 2026,
+            month: 5,
+            day: 24,
+            hour: 17,
+            minute: 8
+        )))
+        _ = try repository.update(
+            AppSettingsUpdate(
+                lastSourcesRefreshAt: lastSourcesRefreshAt,
+                updatedAt: .distantPast
+            )
+        )
+        let controller = SidebarScreenController()
+
+        _ = await controller.loadFeeds(
+            showsFullScreenLoading: true,
+            dependencies: harness.dependencies,
+            currentSelection: nil,
+            filter: .allItems,
+            refreshedAt: nil
+        )
+
+        let persistedSettings = try repository.fetchOrCreate()
+
+        #expect(controller.screenState.refreshStatus == .idle(lastUpdatedAt: lastSourcesRefreshAt))
+        #expect(persistedSettings.lastSourcesRefreshAt == lastSourcesRefreshAt)
+    }
+
+    @Test
     func folderSelectionInheritsActiveSourcesFilterForSelectedFolder() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feeds = try harness.insertFeeds(

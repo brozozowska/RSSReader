@@ -20,6 +20,7 @@ final class AppSettings {
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = ArticleSourceLinkOpeningPolicy.inAppBrowser
     var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = ReaderAdjacentNavigationControlsMode.swipesAndToolbarControls
     var interfaceThemeMode: InterfaceThemeMode = InterfaceThemeMode.automaticLightDark
+    var lastSourcesRefreshAt: Date?
     var createdAt: Date = Date.now
     var updatedAt: Date = Date.now
 
@@ -39,6 +40,7 @@ final class AppSettings {
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
         readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls,
         interfaceThemeMode: InterfaceThemeMode = .automaticLightDark,
+        lastSourcesRefreshAt: Date? = nil,
         createdAt: Date = .now,
         updatedAt: Date = .now
     ) {
@@ -57,6 +59,7 @@ final class AppSettings {
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
         self.readerAdjacentNavigationControlsMode = readerAdjacentNavigationControlsMode
         self.interfaceThemeMode = interfaceThemeMode
+        self.lastSourcesRefreshAt = lastSourcesRefreshAt
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

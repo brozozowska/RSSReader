@@ -4,7 +4,7 @@ struct ArticlesScreenState {
     private(set) var articles: [ArticleListItemDTO] = []
     private(set) var selection: SidebarSelection?
     private(set) var navigationTitle = "Articles"
-    private(set) var navigationSubtitle = "0 Unread Items"
+    private(set) var navigationSubtitle = "No Unread Items"
     private(set) var phase: ArticlesScreenPhase = .noSelection
     private(set) var refreshState: ArticlesScreenRefreshState = .idle
     private(set) var refreshFeedback: ArticlesScreenRefreshFeedback?

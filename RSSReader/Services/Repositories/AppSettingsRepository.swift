@@ -15,6 +15,7 @@ struct AppSettingsUpdate: Sendable {
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
     var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode? = nil
     var interfaceThemeMode: InterfaceThemeMode? = nil
+    var lastSourcesRefreshAt: Date? = nil
     var updatedAt: Date = .now
 }
 
@@ -107,6 +108,10 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
 
         if let interfaceThemeMode = update.interfaceThemeMode {
             settings.interfaceThemeMode = interfaceThemeMode
+        }
+
+        if let lastSourcesRefreshAt = update.lastSourcesRefreshAt {
+            settings.lastSourcesRefreshAt = lastSourcesRefreshAt
         }
 
         settings.updatedAt = update.updatedAt

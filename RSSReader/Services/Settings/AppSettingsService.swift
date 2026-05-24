@@ -14,6 +14,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
     var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode
     var interfaceThemeMode: InterfaceThemeMode
+    var lastSourcesRefreshAt: Date?
 
     init(
         defaultReaderMode: ReaderMode = .embedded,
@@ -28,7 +29,8 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
         readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls,
-        interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
+        interfaceThemeMode: InterfaceThemeMode = .automaticLightDark,
+        lastSourcesRefreshAt: Date? = nil
     ) {
         self.defaultReaderMode = defaultReaderMode
         self.selectedSourcesFilterRawValue = selectedSourcesFilterRawValue
@@ -43,6 +45,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
         self.readerAdjacentNavigationControlsMode = readerAdjacentNavigationControlsMode
         self.interfaceThemeMode = interfaceThemeMode
+        self.lastSourcesRefreshAt = lastSourcesRefreshAt
     }
 
     init(settings: AppSettings) {
@@ -59,7 +62,8 @@ struct AppSettingsSnapshot: Equatable, Sendable {
             articleBodyLinkOpeningPolicy: settings.articleBodyLinkOpeningPolicy,
             articleSourceLinkOpeningPolicy: settings.articleSourceLinkOpeningPolicy,
             readerAdjacentNavigationControlsMode: settings.readerAdjacentNavigationControlsMode,
-            interfaceThemeMode: settings.interfaceThemeMode
+            interfaceThemeMode: settings.interfaceThemeMode,
+            lastSourcesRefreshAt: settings.lastSourcesRefreshAt
         )
     }
 }
@@ -78,6 +82,7 @@ struct AppSettingsPatch: Sendable {
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
     var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode? = nil
     var interfaceThemeMode: InterfaceThemeMode? = nil
+    var lastSourcesRefreshAt: Date? = nil
     var updatedAt: Date = .now
 }
 
@@ -127,6 +132,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
                 readerAdjacentNavigationControlsMode: snapshot.readerAdjacentNavigationControlsMode,
                 interfaceThemeMode: snapshot.interfaceThemeMode,
+                lastSourcesRefreshAt: snapshot.lastSourcesRefreshAt,
                 updatedAt: updatedAt
             )
         )
@@ -150,6 +156,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 articleSourceLinkOpeningPolicy: patch.articleSourceLinkOpeningPolicy,
                 readerAdjacentNavigationControlsMode: patch.readerAdjacentNavigationControlsMode,
                 interfaceThemeMode: patch.interfaceThemeMode,
+                lastSourcesRefreshAt: patch.lastSourcesRefreshAt,
                 updatedAt: patch.updatedAt
             )
         )

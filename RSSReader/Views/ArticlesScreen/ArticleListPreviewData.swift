@@ -28,7 +28,7 @@ import SwiftUI
         screenState: .previewFailed(
             selection: .unread,
             navigationTitle: "Unread",
-            navigationSubtitle: "0 Unread Items",
+            navigationSubtitle: "No Unread Items",
             message: "The selected source could not be loaded from persistence."
         )
     )
