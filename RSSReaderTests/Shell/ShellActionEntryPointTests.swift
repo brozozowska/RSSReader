@@ -341,6 +341,35 @@ struct ShellActionEntryPointTests {
     }
 
     @Test
+    func shellActionEntryPointsRefreshCurrentSelectionCanLeaveArticleListReloadToCaller() async throws {
+        let url = "https://example.com/suppress-article-reload.xml"
+        let responses = [
+            url: ScriptedHTTPClient.Step.response(
+                statusCode: 304,
+                headers: ["ETag": "\"etag-suppress-reload\""],
+                body: ""
+            )
+        ]
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient(responsesByURL: responses))
+        let appState = AppState()
+        let feed = try #require(try harness.insertFeeds(urls: [url]).first)
+
+        harness.dependencies.showFeed(id: feed.id, using: appState)
+        let articleReloadIDBeforeRefresh = appState.articleListReloadID
+        let sidebarReloadIDBeforeRefresh = appState.sourcesSidebarReloadID
+
+        let result = await harness.dependencies.refreshCurrentSelection(
+            using: appState,
+            requestsArticleListReload: false
+        )
+
+        #expect(result?.summary.totalFeedCount == 1)
+        #expect(result?.summary.notModifiedCount == 1)
+        #expect(appState.articleListReloadID == articleReloadIDBeforeRefresh)
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeRefresh)
+    }
+
+    @Test
     func shellActionEntryPointsRefreshCurrentSelectionRefreshesAllFeedsForInbox() async throws {
         let urls = [
             "https://example.com/inbox-refresh-1.xml",

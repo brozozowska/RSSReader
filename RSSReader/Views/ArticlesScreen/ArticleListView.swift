@@ -17,6 +17,8 @@ struct ArticleListView: View {
     @Binding var selection: UUID?
     @State private var controller: ArticlesScreenController
     @State private var searchText = ""
+    @State private var articleListIdentity = UUID()
+    @State private var deferredSessionReloadTask: Task<Void, Never>?
 
     init(
         selectedSidebarSelection: SidebarSelection?,
@@ -40,10 +42,20 @@ struct ArticleListView: View {
     // MARK: Body
 
     var body: some View {
-        let derivedViewState = controller.screenState.derivedViewState(searchText: searchText)
+        let sessionReadArticleIDs = appState.currentArticleListSessionReadArticleIDs(
+            sourceSelection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter
+        )
+        let derivedViewState = controller.screenState.derivedViewState(
+            searchText: searchText,
+            sourcesFilter: selectedSourcesFilter,
+            sessionReadArticleIDs: sessionReadArticleIDs
+        )
 
         ArticleListContentView(
             sections: derivedViewState.sections,
+            visibleArticleIDs: derivedViewState.visibleArticles.map(\.id),
+            listIdentity: articleListIdentity,
             selection: $selection,
             refreshAction: refreshCurrentSelection,
             toggleReadStatusAction: toggleArticleReadStatus,
@@ -60,7 +72,7 @@ struct ArticleListView: View {
             }
 
             ToolbarItem(placement: .subtitle) {
-                subtitleView(for: controller.screenState)
+                subtitleView(text: derivedViewState.navigationSubtitle)
             }
 
             if derivedViewState.toolbarActions.showsMarkAllAsReadAction {
@@ -107,7 +119,10 @@ struct ArticleListView: View {
             reloadID: reloadID
         )) {
             guard isPreviewMode == false else { return }
-            await loadArticles()
+            await loadArticles(
+                retainsSessionReadArticles: true,
+                recreatesListAfterSessionRetention: true
+            )
         }
         .onChange(of: searchText) { _, _ in
             let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
@@ -115,7 +130,7 @@ struct ArticleListView: View {
             syncArticleNavigationContext(visibleArticleIDs)
         }
         .onChange(of: appState.articleListSessionReadArticleIDs) { _, _ in
-            applySessionReadArticleUpdates()
+            syncSelectionAfterSessionReadPresentationChange()
         }
         .simultaneousGesture(backNavigationGesture)
     }
@@ -123,18 +138,23 @@ struct ArticleListView: View {
     // MARK: Loading
 
     @MainActor
-    private func loadArticles() async {
+    private func loadArticles(
+        retainsSessionReadArticles: Bool = true,
+        recreatesListAfterSessionRetention: Bool = false
+    ) async {
         let loadingSidebarSelection = selectedSidebarSelection
         let loadingSourcesFilter = selectedSourcesFilter
+        let sessionReadArticleIDs = appState.currentArticleListSessionReadArticleIDs(
+            sourceSelection: loadingSidebarSelection,
+            sourcesFilter: loadingSourcesFilter
+        )
 
         await controller.load(
             selection: loadingSidebarSelection,
             sourcesFilter: loadingSourcesFilter,
             dependencies: dependencies,
-            sessionReadArticleIDs: appState.currentArticleListSessionReadArticleIDs(
-                sourceSelection: loadingSidebarSelection,
-                sourcesFilter: loadingSourcesFilter
-            )
+            sessionReadArticleIDs: sessionReadArticleIDs,
+            retainsSessionReadArticles: retainsSessionReadArticles
         )
 
         guard loadingSidebarSelection == appState.selectedSidebarSelection,
@@ -145,20 +165,16 @@ struct ArticleListView: View {
         let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
+
+        if recreatesListAfterSessionRetention,
+           retainsSessionReadArticles,
+           sessionReadArticleIDs.isEmpty == false {
+            resetArticleListIdentity()
+        }
     }
 
     @MainActor
-    private func applySessionReadArticleUpdates() {
-        let sessionReadArticleIDs = appState.currentArticleListSessionReadArticleIDs(
-            sourceSelection: selectedSidebarSelection,
-            sourcesFilter: selectedSourcesFilter
-        )
-
-        controller.applySessionReadArticleIDs(
-            sessionReadArticleIDs,
-            sourcesFilter: selectedSourcesFilter
-        )
-
+    private func syncSelectionAfterSessionReadPresentationChange() {
         let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
@@ -288,9 +304,9 @@ struct ArticleListView: View {
     }
 
     @ViewBuilder
-    private func subtitleView(for screenState: ArticlesScreenState) -> some View {
-        if screenState.navigationSubtitle.isEmpty == false {
-            Text(screenState.navigationSubtitle)
+    private func subtitleView(text: String) -> some View {
+        if text.isEmpty == false {
+            Text(text)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -329,7 +345,7 @@ struct ArticleListView: View {
 
     private func retryPrimaryLoad() {
         Task {
-            await loadArticles()
+            await loadArticles(retainsSessionReadArticles: true)
         }
     }
 
@@ -338,11 +354,55 @@ struct ArticleListView: View {
     @MainActor
     private func refreshCurrentSelection() async {
         guard isPreviewMode == false else { return }
+
+        deferredSessionReloadTask?.cancel()
+        deferredSessionReloadTask = nil
+
+        let sessionReadArticleIDs = appState.currentArticleListSessionReadArticleIDs(
+            sourceSelection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter
+        )
+
         await controller.refreshCurrentSelection(
             selection: selectedSidebarSelection,
             dependencies: dependencies,
-            appState: appState
+            appState: appState,
+            requestsArticleListReload: false
         )
+
+        await loadArticles(retainsSessionReadArticles: sessionReadArticleIDs.isEmpty == false)
+
+        if sessionReadArticleIDs.isEmpty == false {
+            scheduleDeferredSessionReload()
+        }
+    }
+
+    private func scheduleDeferredSessionReload() {
+        let deferredSelection = selectedSidebarSelection
+        let deferredSourcesFilter = selectedSourcesFilter
+
+        deferredSessionReloadTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: ArticleListDeferredSessionReload.delayNanoseconds)
+            guard Task.isCancelled == false else { return }
+            guard deferredSelection == appState.selectedSidebarSelection,
+                  deferredSourcesFilter == appState.selectedSourcesFilter else {
+                return
+            }
+
+            appState.clearArticleListSessionReadArticles()
+            await loadArticles(retainsSessionReadArticles: false)
+            await scheduleListIdentityResetAfterAnimation()
+        }
+    }
+
+    private func scheduleListIdentityResetAfterAnimation() async {
+        try? await Task.sleep(nanoseconds: ArticleListDeferredSessionReload.identityResetDelayNanoseconds)
+        guard Task.isCancelled == false else { return }
+        resetArticleListIdentity()
+    }
+
+    private func resetArticleListIdentity() {
+        articleListIdentity = UUID()
     }
 
     @MainActor
@@ -368,6 +428,13 @@ private struct ArticleListSearchToolbarModifier: ViewModifier {
             content
         }
     }
+}
+
+private enum ArticleListDeferredSessionReload {
+    static let delayMilliseconds = 180
+    static let delayNanoseconds: UInt64 = UInt64(delayMilliseconds) * 1_000_000
+    static let identityResetDelayMilliseconds = 320
+    static let identityResetDelayNanoseconds: UInt64 = UInt64(identityResetDelayMilliseconds) * 1_000_000
 }
 
 private extension View {

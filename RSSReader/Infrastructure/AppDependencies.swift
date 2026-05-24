@@ -1207,7 +1207,10 @@ extension AppDependencies {
     }
 
     @MainActor
-    func refreshCurrentSelection(using appState: AppState) async -> FeedRefreshBatchResult? {
+    func refreshCurrentSelection(
+        using appState: AppState,
+        requestsArticleListReload: Bool = true
+    ) async -> FeedRefreshBatchResult? {
         guard let selection = appState.selectedSidebarSelection else {
             logger.info("Skipped selection refresh because no source is selected")
             return nil
@@ -1233,7 +1236,9 @@ extension AppDependencies {
 
         if result != nil {
             appState.requestSourcesSidebarReload()
-            appState.requestArticleListReload()
+            if requestsArticleListReload {
+                appState.requestArticleListReload()
+            }
         }
 
         return result

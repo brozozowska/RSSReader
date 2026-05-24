@@ -21,7 +21,8 @@ final class ArticlesScreenController {
         selection: SidebarSelection?,
         sourcesFilter: SourcesFilter,
         dependencies: AppDependencies,
-        sessionReadArticleIDs: Set<UUID> = []
+        sessionReadArticleIDs: Set<UUID> = [],
+        retainsSessionReadArticles: Bool = false
     ) async {
         loadGeneration += 1
         let currentLoadGeneration = loadGeneration
@@ -72,7 +73,11 @@ final class ArticlesScreenController {
                 selection: selection,
                 sourcesFilter: sourcesFilter,
                 sessionReadArticleIDs: sessionReadArticleIDs,
-                retainsCurrentContent: sourceSelectionChanged == false
+                retainsCurrentContent: sourceSelectionChanged == false && retainsSessionReadArticles
+            )
+            let subtitleArticles = articlesByApplyingSessionReadPresentation(
+                to: resolvedArticles,
+                sessionReadArticleIDs: sessionReadArticleIDs
             )
 
             guard currentLoadGeneration == loadGeneration else { return }
@@ -81,7 +86,7 @@ final class ArticlesScreenController {
                 selection: selection,
                 navigationTitle: navigationTitle,
                 navigationSubtitle: resolveNavigationSubtitle(
-                    for: resolvedArticles,
+                    for: subtitleArticles,
                     sourcesFilter: sourcesFilter
                 )
             )
@@ -98,45 +103,30 @@ final class ArticlesScreenController {
         }
     }
 
-    func applySessionReadArticleIDs(
-        _ articleIDs: Set<UUID>,
-        sourcesFilter: SourcesFilter
-    ) {
-        guard articleIDs.isEmpty == false else { return }
-
-        let updatedArticles = screenState.articles.map { article in
-            articleIDs.contains(article.id)
-                ? article.updating(isRead: true, isStarred: article.isStarred)
-                : article
-        }
-
-        guard updatedArticles != screenState.articles else { return }
-
-        screenState.applySessionArticleUpdates(
-            updatedArticles,
-            navigationSubtitle: resolveNavigationSubtitle(
-                for: updatedArticles,
-                sourcesFilter: sourcesFilter
-            )
-        )
-    }
-
+    @discardableResult
     func refreshCurrentSelection(
         selection: SidebarSelection?,
         dependencies: AppDependencies,
-        appState: AppState
-    ) async {
+        appState: AppState,
+        requestsArticleListReload: Bool = true
+    ) async -> FeedRefreshBatchResult? {
         screenState.dismissRefreshFeedback()
-        let result = await dependencies.refreshCurrentSelection(using: appState)
+        let result = await dependencies.refreshCurrentSelection(
+            using: appState,
+            requestsArticleListReload: requestsArticleListReload
+        )
 
         if let result, let refreshFailureMessage = refreshFailureMessage(for: result) {
             screenState.presentRefreshFailure(refreshFailureMessage)
-            return
+            return result
         }
 
         if result == nil, selection != nil {
             screenState.presentRefreshFailure("Unable to refresh the current selection right now.")
+            return nil
         }
+
+        return result
     }
 
     private func resolveNavigationTitle(
@@ -246,12 +236,7 @@ final class ArticlesScreenController {
                 resolvedArticles.append(loadedArticle)
                 emittedArticleIDs.insert(loadedArticle.id)
             } else if sessionReadArticleIDs.contains(currentArticle.id) {
-                resolvedArticles.append(
-                    currentArticle.updating(
-                        isRead: true,
-                        isStarred: currentArticle.isStarred
-                    )
-                )
+                resolvedArticles.append(currentArticle)
                 emittedArticleIDs.insert(currentArticle.id)
             }
         }
@@ -261,6 +246,23 @@ final class ArticlesScreenController {
         }
 
         return resolvedArticles
+    }
+
+    private func articlesByApplyingSessionReadPresentation(
+        to articles: [ArticleListItemDTO],
+        sessionReadArticleIDs: Set<UUID>
+    ) -> [ArticleListItemDTO] {
+        guard sessionReadArticleIDs.isEmpty == false else {
+            return articles
+        }
+
+        return articles.map { article in
+            guard sessionReadArticleIDs.contains(article.id) else {
+                return article
+            }
+
+            return article.updating(isRead: true, isStarred: article.isStarred)
+        }
     }
 
     private func refreshFailureMessage(for result: FeedRefreshBatchResult) -> String? {

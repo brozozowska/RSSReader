@@ -3,6 +3,8 @@ import SwiftUI
 struct ArticleListContentView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     let sections: [ArticlesDaySection]
+    let visibleArticleIDs: [UUID]
+    let listIdentity: UUID
     @Binding var selection: UUID?
     let refreshAction: @MainActor () async -> Void
     let toggleReadStatusAction: @MainActor (ArticleListItemDTO) -> Void
@@ -35,10 +37,12 @@ struct ArticleListContentView: View {
                     .textCase(nil)
                 }
             }
+            .id(listIdentity)
             .listStyle(.plain)
             .listSectionSpacing(12)
             .scrollContentBackground(.hidden)
             .contentMargins(.top, 8, for: .scrollContent)
+            .animation(.snappy(duration: 0.24), value: visibleArticleIDs)
             .refreshable {
                 await refreshAction()
             }

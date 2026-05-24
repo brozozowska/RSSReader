@@ -113,7 +113,7 @@ struct ArticlesScreenControllerTests {
     }
 
     @Test
-    func articlesScreenControllerRetainsSessionReadArticleInUnreadFilterUntilNewEntry() async throws {
+    func articlesScreenControllerRetainsSessionReadArticleOnlyForRetainingReloads() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let articleStateService = try #require(harness.dependencies.articleStateService)
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/session-unread.xml"]).first)
@@ -141,13 +141,21 @@ struct ArticlesScreenControllerTests {
             selection: .feed(feed.id),
             sourcesFilter: .unread,
             dependencies: harness.dependencies,
-            sessionReadArticleIDs: [article.id]
+            sessionReadArticleIDs: [article.id],
+            retainsSessionReadArticles: true
         )
 
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.articles.map(\.id) == [article.id])
-        #expect(controller.screenState.articles.first?.isRead == true)
+        #expect(controller.screenState.articles.first?.isRead == false)
         #expect(controller.screenState.navigationSubtitle == "No Unread Items")
+        #expect(
+            controller.screenState
+                .derivedViewState(searchText: "", sessionReadArticleIDs: [article.id])
+                .visibleArticles
+                .first?
+                .isRead == true
+        )
 
         let newEntryController = ArticlesScreenController()
         await newEntryController.load(

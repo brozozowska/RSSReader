@@ -3,6 +3,7 @@ import Foundation
 struct ArticlesScreenDerivedViewState {
     let visibleArticles: [ArticleListItemDTO]
     let sections: [ArticlesDaySection]
+    let navigationSubtitle: String
     let toolbarActions: ArticlesScreenToolbarActionsState
     let searchPlaceholder: ArticlesScreenPlaceholderState?
     let refreshBanner: ArticlesScreenRefreshBannerState?
@@ -10,21 +11,33 @@ struct ArticlesScreenDerivedViewState {
 }
 
 extension ArticlesScreenState {
-    func derivedViewState(searchText: String) -> ArticlesScreenDerivedViewState {
+    func derivedViewState(
+        searchText: String,
+        sourcesFilter: SourcesFilter = .allItems,
+        sessionReadArticleIDs: Set<UUID> = []
+    ) -> ArticlesScreenDerivedViewState {
         let normalizedSearchText = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         let visibleArticles = filteredArticles(matching: normalizedSearchText)
+        let presentationArticles = articlesByApplyingSessionReadPresentation(
+            to: visibleArticles,
+            sessionReadArticleIDs: sessionReadArticleIDs
+        )
 
         return ArticlesScreenDerivedViewState(
-            visibleArticles: visibleArticles,
-            sections: ArticlesDaySectionsBuilder.build(from: visibleArticles),
+            visibleArticles: presentationArticles,
+            sections: ArticlesDaySectionsBuilder.build(from: presentationArticles),
+            navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
+                articles: presentationArticles,
+                sourcesFilter: sourcesFilter
+            ),
             toolbarActions: ArticlesScreenToolbarActionsState(
                 selection: selection,
-                visibleArticles: visibleArticles,
+                visibleArticles: presentationArticles,
                 phase: phase
             ),
             searchPlaceholder: searchPlaceholder(
                 normalizedSearchText: normalizedSearchText,
-                visibleArticles: visibleArticles
+                visibleArticles: presentationArticles
             ),
             refreshBanner: refreshBannerState,
             primaryLoadingState: primaryLoadingState
@@ -40,6 +53,23 @@ extension ArticlesScreenState {
             [article.feedTitle, article.title, article.summary, article.author]
                 .compactMap { $0 }
                 .contains { $0.localizedCaseInsensitiveContains(normalizedSearchText) }
+        }
+    }
+
+    private func articlesByApplyingSessionReadPresentation(
+        to articles: [ArticleListItemDTO],
+        sessionReadArticleIDs: Set<UUID>
+    ) -> [ArticleListItemDTO] {
+        guard sessionReadArticleIDs.isEmpty == false else {
+            return articles
+        }
+
+        return articles.map { article in
+            guard sessionReadArticleIDs.contains(article.id) else {
+                return article
+            }
+
+            return article.updating(isRead: true, isStarred: article.isStarred)
         }
     }
 
