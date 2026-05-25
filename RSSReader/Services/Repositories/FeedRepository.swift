@@ -76,6 +76,7 @@ struct FeedFetchMetadata: Sendable {
 struct FeedSidebarItem: Sendable, Identifiable {
     let id: UUID
     let title: String
+    let siteURL: String?
     let iconURL: String?
     let folderName: String?
     let unreadCount: Int
@@ -84,6 +85,7 @@ struct FeedSidebarItem: Sendable, Identifiable {
     init(feed: Feed, unreadCount: Int = 0, starredCount: Int = 0) {
         self.id = feed.id
         self.title = feed.displayTitle
+        self.siteURL = feed.siteURL
         self.iconURL = feed.iconURL
         self.folderName = feed.folder?.name
         self.unreadCount = unreadCount
@@ -94,6 +96,7 @@ struct FeedSidebarItem: Sendable, Identifiable {
         FeedSidebarItem(
             id: id,
             title: title,
+            siteURL: siteURL,
             iconURL: iconURL,
             folderName: folderName,
             unreadCount: unreadCount,
@@ -104,6 +107,7 @@ struct FeedSidebarItem: Sendable, Identifiable {
     private init(
         id: UUID,
         title: String,
+        siteURL: String?,
         iconURL: String?,
         folderName: String?,
         unreadCount: Int,
@@ -111,6 +115,7 @@ struct FeedSidebarItem: Sendable, Identifiable {
     ) {
         self.id = id
         self.title = title
+        self.siteURL = siteURL
         self.iconURL = iconURL
         self.folderName = folderName
         self.unreadCount = unreadCount

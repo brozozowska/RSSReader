@@ -6,19 +6,24 @@ enum FeedNormalizationService {
 
         return ParsedFeedDTO(
             kind: feed.kind,
-            metadata: normalize(feed.metadata),
+            metadata: normalize(feed.metadata, feedURL: normalizedFeedURL),
             entries: feed.entries.map { normalize($0, feedURL: normalizedFeedURL) }
         )
     }
 
-    private static func normalize(_ metadata: ParsedFeedMetadataDTO) -> ParsedFeedMetadataDTO {
+    private static func normalize(_ metadata: ParsedFeedMetadataDTO, feedURL: String) -> ParsedFeedMetadataDTO {
         let normalizedSiteURL = normalizeSourceURL(metadata.siteURL)
+        let fallbackSiteURL = normalizedSiteURL ?? makeOriginURL(from: feedURL)
 
         return ParsedFeedMetadataDTO(
             title: normalizeTitle(metadata.title),
             subtitle: normalizeTextBlock(metadata.subtitle),
             siteURL: normalizedSiteURL,
-            iconURL: normalizeFeedIconURL(metadata.iconURL, siteURL: normalizedSiteURL),
+            iconURL: normalizeFeedIconURL(
+                metadata.iconURL,
+                siteURL: fallbackSiteURL,
+                baseURL: normalizedSiteURL ?? fallbackSiteURL ?? feedURL
+            ),
             language: normalizeInlineText(metadata.language)
         )
     }
@@ -152,8 +157,23 @@ enum FeedNormalizationService {
     }
 
     private static func normalizeSourceURL(_ value: String?) -> String? {
+        normalizeSourceURL(value, baseURL: nil)
+    }
+
+    private static func normalizeSourceURL(_ value: String?, baseURL: String?) -> String? {
         guard let value = normalizeScalar(value) else { return nil }
-        guard let components = URLComponents(string: value) else {
+
+        let resolvedValue: String
+        if let baseURL,
+           hasAbsoluteWebURL(value) == false,
+           let base = URL(string: baseURL),
+           let resolvedURL = URL(string: value, relativeTo: base)?.absoluteURL {
+            resolvedValue = resolvedURL.absoluteString
+        } else {
+            resolvedValue = value
+        }
+
+        guard let components = URLComponents(string: resolvedValue) else {
             return normalizeInlineText(value)
         }
 
@@ -176,11 +196,16 @@ enum FeedNormalizationService {
         }
 
         return normalizedComponents.string?.trimmingCharacters(in: .whitespacesAndNewlines)
-            ?? normalizeInlineText(value)
+            ?? normalizeInlineText(resolvedValue)
     }
 
-    private static func normalizeFeedIconURL(_ iconURL: String?, siteURL: String?) -> String? {
-        guard let normalizedIconURL = normalizeSourceURL(iconURL) else {
+    private static func normalizeFeedIconURL(
+        _ iconURL: String?,
+        siteURL: String?,
+        baseURL: String?
+    ) -> String? {
+        guard let normalizedIconURL = normalizeSourceURL(iconURL, baseURL: baseURL),
+              hasAbsoluteWebURL(normalizedIconURL) else {
             return makeSiteFaviconURL(from: siteURL)
         }
         guard shouldKeepFeedIconURL(normalizedIconURL) else {
@@ -188,6 +213,31 @@ enum FeedNormalizationService {
         }
 
         return normalizedIconURL
+    }
+
+    private static func hasAbsoluteWebURL(_ value: String) -> Bool {
+        guard let components = URLComponents(string: value),
+              let scheme = components.scheme?.lowercased(),
+              let host = components.host,
+              host.isEmpty == false else {
+            return false
+        }
+
+        return scheme == "http" || scheme == "https"
+    }
+
+    private static func makeOriginURL(from sourceURL: String?) -> String? {
+        guard let sourceURL,
+              var components = URLComponents(string: sourceURL),
+              components.scheme != nil,
+              components.host != nil else {
+            return nil
+        }
+
+        components.path = "/"
+        components.query = nil
+        components.fragment = nil
+        return components.string
     }
 
     private static func shouldKeepFeedIconURL(_ value: String) -> Bool {
@@ -238,7 +288,6 @@ enum FeedNormalizationService {
         "header",
         "hero",
         "landscape",
-        "logo",
         "masthead",
         "wordmark"
     ]

@@ -246,7 +246,7 @@ struct SidebarView: View {
 
     private func feedRow(_ row: SidebarFeedRowState) -> some View {
         HStack(spacing: 12) {
-            SourceIconView(iconURL: row.iconURL)
+            SourceIconView(siteURL: row.siteURL, iconURL: row.iconURL)
 
             Text(row.title)
                 .lineLimit(1)
@@ -395,6 +395,7 @@ private struct SidebarRow: View {
 
 private struct SourceIconView: View {
     @Environment(\.appDependencies) private var dependencies
+    let siteURL: String?
     let iconURL: String?
     @State private var iconImage: Image?
     @State private var loadTask: Task<Void, Never>?
@@ -425,6 +426,11 @@ private struct SourceIconView: View {
         return URL(string: iconURL)
     }
 
+    private var resolvedSiteURL: URL? {
+        guard let siteURL else { return nil }
+        return URL(string: siteURL)
+    }
+
     private var placeholder: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 5)
@@ -446,27 +452,216 @@ private struct SourceIconView: View {
         }
 
         let task = Task {
+            if await loadFirstAvailableIcon(from: [resolvedURL]) {
+                return
+            }
+
+            let fallbackOriginURL = resolvedSiteURL
+                .flatMap(SourceIconCandidateBuilder.originURL(for:))
+                ?? SourceIconCandidateBuilder.originURL(for: resolvedURL)
+
+            if let originURL = fallbackOriginURL,
+               let html = await fetchSourceHomeHTML(from: originURL),
+               await loadFirstAvailableIcon(
+                from: SourceIconCandidateBuilder.htmlIconCandidates(in: html, baseURL: originURL)
+               ) {
+                return
+            }
+
+            _ = await loadFirstAvailableIcon(
+                from: SourceIconCandidateBuilder.commonIconCandidates(for: fallbackOriginURL ?? resolvedURL)
+            )
+        }
+
+        loadTask = task
+        await task.value
+    }
+
+    private func loadFirstAvailableIcon(from iconURLs: [URL]) async -> Bool {
+        for iconURL in iconURLs {
             do {
-                let data = try await dependencies.sourceIconCache.imageData(for: resolvedURL)
+                let data = try await dependencies.sourceIconCache.imageData(for: iconURL)
                 try Task.checkCancellation()
 
-                guard let uiImage = UIImage(data: data) else {
-                    return
+                guard let uiImage = UIImage(data: data),
+                      SourceIconImagePolicy.isSuitableIconSize(uiImage.size) else {
+                    continue
                 }
 
                 await MainActor.run {
                     iconImage = Image(uiImage: uiImage)
                 }
+                return true
             } catch is CancellationError {
-                return
+                return true
             } catch {
                 dependencies.logger.debug(
-                    "Failed to load source icon for \(resolvedURL.absoluteString): \(String(describing: error))"
+                    "Failed to load source icon for \(iconURL.absoluteString): \(String(describing: error))"
                 )
             }
         }
 
-        loadTask = task
-        await task.value
+        return false
+    }
+
+    private func fetchSourceHomeHTML(from url: URL) async -> String? {
+        do {
+            let response = try await dependencies.httpClient.execute(
+                HTTPRequest(
+                    url: url,
+                    headers: [
+                        "Accept": "text/html, application/xhtml+xml;q=0.9, */*;q=0.1",
+                        "User-Agent": "RSSReader/0 (Source Icon Discovery)"
+                    ],
+                    timeoutInterval: 8
+                )
+            )
+            guard (200...299).contains(response.statusCode) else { return nil }
+            return String(data: response.body, encoding: .utf8)
+        } catch {
+            dependencies.logger.debug(
+                "Failed to load source homepage for icon discovery from \(url.absoluteString): \(String(describing: error))"
+            )
+            return nil
+        }
+    }
+}
+
+enum SourceIconCandidateBuilder {
+    static func originURL(for url: URL) -> URL? {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.scheme != nil,
+              components.host != nil else {
+            return nil
+        }
+
+        components.path = "/"
+        components.query = nil
+        components.fragment = nil
+        return components.url
+    }
+
+    static func commonIconCandidates(for url: URL) -> [URL] {
+        guard let originURL = originURL(for: url) else { return [] }
+
+        return deduplicated(
+            [
+                appendingIconPath("/apple-touch-icon.png", to: originURL),
+                appendingIconPath("/apple-touch-icon-precomposed.png", to: originURL),
+                appendingIconPath("/favicon-32x32.png", to: originURL),
+                appendingIconPath("/favicon.png", to: originURL),
+                appendingIconPath("/favicon.ico", to: originURL)
+            ].compactMap { $0 }
+        )
+    }
+
+    static func htmlIconCandidates(in html: String, baseURL: URL) -> [URL] {
+        guard let linkTagExpression = try? NSRegularExpression(
+            pattern: #"<link\b[^>]*>"#,
+            options: [.caseInsensitive]
+        ) else {
+            return []
+        }
+
+        let nsRange = NSRange(html.startIndex..<html.endIndex, in: html)
+        let candidates = linkTagExpression.matches(in: html, range: nsRange).compactMap { match -> SourceIconCandidate? in
+            guard let tagRange = Range(match.range, in: html) else { return nil }
+            let attributes = linkTagAttributes(in: String(html[tagRange]))
+            guard let href = attributes["href"],
+                  let rel = attributes["rel"],
+                  let priority = iconPriority(forRelValue: rel),
+                  let url = URL(string: href, relativeTo: baseURL)?.absoluteURL,
+                  isSupportedIconURL(url) else {
+                return nil
+            }
+
+            return SourceIconCandidate(url: url, priority: priority)
+        }
+
+        return deduplicated(
+            candidates
+                .sorted { lhs, rhs in
+                    lhs.priority == rhs.priority
+                        ? lhs.url.absoluteString < rhs.url.absoluteString
+                        : lhs.priority < rhs.priority
+                }
+                .map(\.url)
+        )
+    }
+
+    private struct SourceIconCandidate {
+        let url: URL
+        let priority: Int
+    }
+
+    private static func iconPriority(forRelValue relValue: String) -> Int? {
+        let tokens = Set(relValue.lowercased().split(whereSeparator: \.isWhitespace).map(String.init))
+
+        if tokens.contains("apple-touch-icon") || tokens.contains("apple-touch-icon-precomposed") {
+            return 0
+        }
+
+        if tokens.contains("icon") || tokens.contains("shortcut") && tokens.contains("icon") {
+            return 1
+        }
+
+        return nil
+    }
+
+    private static func isSupportedIconURL(_ url: URL) -> Bool {
+        url.pathExtension.lowercased() != "svg"
+    }
+
+    private static func appendingIconPath(_ path: String, to originURL: URL) -> URL? {
+        URL(string: path, relativeTo: originURL)?.absoluteURL
+    }
+
+    private static func deduplicated(_ urls: [URL]) -> [URL] {
+        var seen = Set<String>()
+        return urls.filter { url in
+            seen.insert(url.absoluteString).inserted
+        }
+    }
+
+    private static func linkTagAttributes(in tag: String) -> [String: String] {
+        guard let attributeExpression = try? NSRegularExpression(
+            pattern: #"([A-Za-z_:][-A-Za-z0-9_:.]*)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)"#,
+            options: [.caseInsensitive]
+        ) else {
+            return [:]
+        }
+
+        let nsRange = NSRange(tag.startIndex..<tag.endIndex, in: tag)
+        return attributeExpression.matches(in: tag, range: nsRange).reduce(into: [String: String]()) { result, match in
+            guard match.numberOfRanges == 3,
+                  let nameRange = Range(match.range(at: 1), in: tag),
+                  let valueRange = Range(match.range(at: 2), in: tag) else {
+                return
+            }
+
+            let name = String(tag[nameRange]).lowercased()
+            let rawValue = String(tag[valueRange])
+            result[name] = unquotedAttributeValue(rawValue)
+        }
+    }
+
+    private static func unquotedAttributeValue(_ value: String) -> String {
+        guard value.count >= 2,
+              let first = value.first,
+              let last = value.last,
+              (first == "\"" && last == "\"") || (first == "'" && last == "'") else {
+            return value
+        }
+
+        return String(value.dropFirst().dropLast())
+    }
+}
+
+enum SourceIconImagePolicy {
+    static func isSuitableIconSize(_ size: CGSize) -> Bool {
+        guard size.width > 0, size.height > 0 else { return false }
+
+        let aspectRatio = max(size.width, size.height) / min(size.width, size.height)
+        return aspectRatio <= 2
     }
 }
