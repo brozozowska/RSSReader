@@ -133,6 +133,11 @@ struct ArticleListView: View {
         .onChange(of: appState.articleListSessionReadArticleIDs) { _, _ in
             syncSelectionAfterSessionReadPresentationChange()
         }
+        .onChange(of: appState.selectedArticleID) { oldValue, newValue in
+            if oldValue != nil && newValue == nil {
+                resetArticleListIdentity()
+            }
+        }
         .sensoryFeedback(
             .impact(flexibility: .solid, intensity: 0.65),
             trigger: refreshStartHapticTrigger
