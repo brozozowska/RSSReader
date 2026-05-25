@@ -244,33 +244,55 @@ struct ReaderView: View {
 
     @ViewBuilder
     private func articleContent(_ content: ArticleScreenContentState) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let publishedAtText = content.header.publishedAtText {
+        VStack(alignment: .leading, spacing: ReaderArticleContentLayout.sectionSpacing) {
+            articleHeader(content.header)
+
+            bodyBlocks(content.body.blocks)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func articleHeader(_ header: ArticleScreenHeaderState) -> some View {
+        VStack(alignment: .leading, spacing: ReaderArticleContentLayout.headerSpacing) {
+            if let publishedAtText = header.publishedAtText {
                 Text(publishedAtText)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
 
-            Text(content.header.title)
+            Text(header.title)
                 .font(.title2.weight(.semibold))
 
-            if let author = content.header.author {
-                Text(author)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+            if header.author != nil || header.feedTitle != nil {
+                VStack(alignment: .leading, spacing: ReaderArticleContentLayout.metadataSpacing) {
+                    if let author = header.author {
+                        Text(author)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
 
-            if let feedTitle = content.header.feedTitle {
-                Text(feedTitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            ForEach(Array(content.body.blocks.enumerated()), id: \.offset) { _, block in
-                bodyBlockView(block)
+                    if let feedTitle = header.feedTitle {
+                        Text(feedTitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func bodyBlocks(_ blocks: [ArticleScreenBodyBlock]) -> some View {
+        ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+            bodyBlockView(block)
+        }
+    }
+
+    private enum ReaderArticleContentLayout {
+        static let sectionSpacing: CGFloat = 14
+        static let headerSpacing: CGFloat = 6
+        static let metadataSpacing: CGFloat = 2
     }
 
     private var articleTransition: AnyTransition {
