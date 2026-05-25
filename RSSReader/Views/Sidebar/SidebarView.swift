@@ -395,6 +395,7 @@ private struct SidebarRow: View {
 
 private struct SourceIconView: View {
     @Environment(\.appDependencies) private var dependencies
+    @Environment(AppState.self) private var appState
     let siteURL: String?
     let iconURL: String?
     @State private var iconImage: Image?
@@ -412,13 +413,31 @@ private struct SourceIconView: View {
         }
         .frame(width: 20, height: 20)
         .clipShape(RoundedRectangle(cornerRadius: 5))
-        .task(id: iconURL) {
-            await loadIcon()
+        .task(id: cacheOnlyLoadID) {
+            await loadIcon(allowsNetworkDiscovery: false)
+        }
+        .onChange(of: appState.sourceIconReloadID) { _, _ in
+            Task {
+                await loadIcon(allowsNetworkDiscovery: true)
+            }
+        }
+        .onChange(of: appState.sourceIconCacheResetID) { _, _ in
+            loadTask?.cancel()
+            loadTask = nil
+            iconImage = nil
         }
         .onDisappear {
             loadTask?.cancel()
             loadTask = nil
         }
+    }
+
+    private var cacheOnlyLoadID: SourceIconCacheOnlyLoadID {
+        SourceIconCacheOnlyLoadID(
+            siteURL: siteURL,
+            iconURL: iconURL,
+            sidebarReloadID: appState.sourcesSidebarReloadID
+        )
     }
 
     private var resolvedURL: URL? {
@@ -443,7 +462,7 @@ private struct SourceIconView: View {
     }
 
     @MainActor
-    private func loadIcon() async {
+    private func loadIcon(allowsNetworkDiscovery: Bool) async {
         loadTask?.cancel()
         iconImage = nil
 
@@ -452,7 +471,11 @@ private struct SourceIconView: View {
         }
 
         let task = Task {
-            if await loadFirstAvailableIcon(from: [resolvedURL]) {
+            if await loadFirstAvailableIcon(
+                from: [resolvedURL],
+                allowsNetworkDiscovery: allowsNetworkDiscovery,
+                cacheAliasURL: nil
+            ) {
                 return
             }
 
@@ -460,16 +483,21 @@ private struct SourceIconView: View {
                 .flatMap(SourceIconCandidateBuilder.originURL(for:))
                 ?? SourceIconCandidateBuilder.originURL(for: resolvedURL)
 
-            if let originURL = fallbackOriginURL,
+            if allowsNetworkDiscovery,
+               let originURL = fallbackOriginURL,
                let html = await fetchSourceHomeHTML(from: originURL),
                await loadFirstAvailableIcon(
-                from: SourceIconCandidateBuilder.htmlIconCandidates(in: html, baseURL: originURL)
+                from: SourceIconCandidateBuilder.htmlIconCandidates(in: html, baseURL: originURL),
+                allowsNetworkDiscovery: true,
+                cacheAliasURL: resolvedURL
                ) {
                 return
             }
 
             _ = await loadFirstAvailableIcon(
-                from: SourceIconCandidateBuilder.commonIconCandidates(for: fallbackOriginURL ?? resolvedURL)
+                from: SourceIconCandidateBuilder.commonIconCandidates(for: fallbackOriginURL ?? resolvedURL),
+                allowsNetworkDiscovery: allowsNetworkDiscovery,
+                cacheAliasURL: allowsNetworkDiscovery ? resolvedURL : nil
             )
         }
 
@@ -477,15 +505,31 @@ private struct SourceIconView: View {
         await task.value
     }
 
-    private func loadFirstAvailableIcon(from iconURLs: [URL]) async -> Bool {
+    private func loadFirstAvailableIcon(
+        from iconURLs: [URL],
+        allowsNetworkDiscovery: Bool,
+        cacheAliasURL: URL?
+    ) async -> Bool {
         for iconURL in iconURLs {
             do {
-                let data = try await dependencies.sourceIconCache.imageData(for: iconURL)
+                let data: Data?
+                if allowsNetworkDiscovery {
+                    data = try await dependencies.sourceIconCache.imageData(for: iconURL)
+                } else {
+                    data = try await dependencies.sourceIconCache.cachedImageData(for: iconURL)
+                }
                 try Task.checkCancellation()
 
-                guard let uiImage = UIImage(data: data),
+                guard let data,
+                      let uiImage = UIImage(data: data),
                       SourceIconImagePolicy.isSuitableIconSize(uiImage.size) else {
                     continue
+                }
+
+                if allowsNetworkDiscovery,
+                   let cacheAliasURL,
+                   cacheAliasURL != iconURL {
+                    try await dependencies.sourceIconCache.storeImageData(data, for: cacheAliasURL)
                 }
 
                 await MainActor.run {
@@ -525,6 +569,12 @@ private struct SourceIconView: View {
             return nil
         }
     }
+}
+
+private struct SourceIconCacheOnlyLoadID: Hashable {
+    let siteURL: String?
+    let iconURL: String?
+    let sidebarReloadID: UUID
 }
 
 enum SourceIconCandidateBuilder {

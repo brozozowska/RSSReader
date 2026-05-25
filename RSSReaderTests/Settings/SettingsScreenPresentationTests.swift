@@ -235,6 +235,16 @@ struct SettingsScreenPresentationTests {
                         role: .destructive,
                         isEnabled: false
                     )
+                ),
+                .button(
+                    SettingsButtonItemPresentation(
+                        id: .clearSourceIconCache,
+                        title: "Clear Source Icon Cache",
+                        subtitle: "Remove feed icons saved on this device.",
+                        systemImage: "newspaper",
+                        role: .destructive,
+                        isEnabled: false
+                    )
                 )
             ]
         )
@@ -269,8 +279,40 @@ struct SettingsScreenPresentationTests {
                         role: .destructive,
                         isEnabled: true
                     )
+                ),
+                .button(
+                    SettingsButtonItemPresentation(
+                        id: .clearSourceIconCache,
+                        title: "Clear Source Icon Cache",
+                        subtitle: "Remove feed icons saved on this device.",
+                        systemImage: "newspaper",
+                        role: .destructive,
+                        isEnabled: false
+                    )
                 )
             ]
+        )
+    }
+
+    @Test
+    func settingsScreenPresentationBuilderEnablesSourceIconCacheResetWhenCacheExists() throws {
+        let sections = SettingsScreenPresentationBuilder.buildSections(
+            from: SettingsScreenInputBuilder.build(from: AppSettingsSnapshot()),
+            hasSourceIconCache: true
+        )
+        let storageSection = try #require(sections.first(where: { $0.id == .storage }))
+
+        #expect(
+            storageSection.items.last == .button(
+                SettingsButtonItemPresentation(
+                    id: .clearSourceIconCache,
+                    title: "Clear Source Icon Cache",
+                    subtitle: "Remove feed icons saved on this device.",
+                    systemImage: "newspaper",
+                    role: .destructive,
+                    isEnabled: true
+                )
+            )
         )
     }
 

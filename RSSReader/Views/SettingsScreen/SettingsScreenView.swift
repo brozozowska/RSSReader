@@ -16,6 +16,7 @@ struct SettingsScreenView: View {
     @State private var controller: SettingsScreenController
     @State private var isArchivedArticlesPurgeConfirmationPresented = false
     @State private var isArticleImageCacheResetConfirmationPresented = false
+    @State private var isSourceIconCacheResetConfirmationPresented = false
     let dismiss: () -> Void
 
     init(
@@ -57,6 +58,7 @@ struct SettingsScreenView: View {
                     controller.loadSettings(dependencies: dependencies, appState: appState)
                     controller.refreshArchivedArticlesAvailability(dependencies: dependencies)
                     await controller.refreshArticleImageCacheAvailability(dependencies: dependencies)
+                    await controller.refreshSourceIconCacheAvailability(dependencies: dependencies)
                 }
                 .alert(
                     "Clear archived articles?",
@@ -79,6 +81,17 @@ struct SettingsScreenView: View {
                     Button("Cancel", role: .cancel) {}
                 } message: {
                     Text("This removes article images saved on this device. Images can be downloaded again when articles are opened.")
+                }
+                .alert(
+                    "Clear source icon cache?",
+                    isPresented: $isSourceIconCacheResetConfirmationPresented
+                ) {
+                    Button("Clear Cache", role: .destructive) {
+                        actionHandlers.tapButton(.clearSourceIconCache)
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This removes feed icons saved on this device. Icons can be discovered and downloaded again during refresh or when the sidebar is shown.")
                 }
         }
     }
@@ -204,6 +217,8 @@ struct SettingsScreenView: View {
             isArchivedArticlesPurgeConfirmationPresented = true
         case .clearArticleImageCache:
             isArticleImageCacheResetConfirmationPresented = true
+        case .clearSourceIconCache:
+            isSourceIconCacheResetConfirmationPresented = true
         case .defaultReaderMode,
                 .markAsReadOnOpen,
                 .showUnreadCountBadge,

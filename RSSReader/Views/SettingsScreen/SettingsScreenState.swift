@@ -13,6 +13,7 @@ struct SettingsScreenState {
     private(set) var iCloudSyncStatus: ICloudSyncStatus = .disabled
     private(set) var syncStatusPresentation: SettingsSyncStatusPresentation = .disabled
     private(set) var hasArticleImageCache = false
+    private(set) var hasSourceIconCache = false
     private(set) var hasArchivedArticles = false
     private(set) var sections: [SettingsScreenSectionPresentation] = []
 
@@ -46,6 +47,7 @@ struct SettingsScreenState {
         sections = SettingsScreenPresentationBuilder.buildSections(
             from: input,
             hasArticleImageCache: hasArticleImageCache,
+            hasSourceIconCache: hasSourceIconCache,
             hasArchivedArticles: hasArchivedArticles
         )
         phase = .loaded
@@ -58,6 +60,7 @@ struct SettingsScreenState {
         sections = SettingsScreenPresentationBuilder.buildSections(
             from: input,
             hasArticleImageCache: hasArticleImageCache,
+            hasSourceIconCache: hasSourceIconCache,
             hasArchivedArticles: hasArchivedArticles
         )
     }
@@ -67,6 +70,17 @@ struct SettingsScreenState {
         sections = SettingsScreenPresentationBuilder.buildSections(
             from: settingsInput,
             hasArticleImageCache: hasArticleImageCache,
+            hasSourceIconCache: hasSourceIconCache,
+            hasArchivedArticles: hasArchivedArticles
+        )
+    }
+
+    mutating func applySourceIconCacheAvailability(_ hasCache: Bool) {
+        hasSourceIconCache = hasCache
+        sections = SettingsScreenPresentationBuilder.buildSections(
+            from: settingsInput,
+            hasArticleImageCache: hasArticleImageCache,
+            hasSourceIconCache: hasSourceIconCache,
             hasArchivedArticles: hasArchivedArticles
         )
     }
@@ -76,6 +90,7 @@ struct SettingsScreenState {
         sections = SettingsScreenPresentationBuilder.buildSections(
             from: settingsInput,
             hasArticleImageCache: hasArticleImageCache,
+            hasSourceIconCache: hasSourceIconCache,
             hasArchivedArticles: self.hasArchivedArticles
         )
     }

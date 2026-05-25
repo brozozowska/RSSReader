@@ -103,6 +103,8 @@ public final class AppState {
     private var articleListSessionReadSourcesFilter: SourcesFilter = .allItems
     var articleListReloadID = UUID()
     var sourcesSidebarReloadID = UUID()
+    var sourceIconReloadID = UUID()
+    var sourceIconCacheResetID = UUID()
     var articleScreenReloadID = UUID()
     var lastContentReloadTrigger: AppContentReloadTrigger?
 
@@ -238,6 +240,14 @@ public final class AppState {
 
     func requestSourcesSidebarReload() {
         sourcesSidebarReloadID = UUID()
+    }
+
+    func requestSourceIconReload() {
+        sourceIconReloadID = UUID()
+    }
+
+    func requestSourceIconCacheReset() {
+        sourceIconCacheResetID = UUID()
     }
 
     func requestArticleScreenReload() {

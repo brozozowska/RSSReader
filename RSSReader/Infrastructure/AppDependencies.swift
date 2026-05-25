@@ -1248,6 +1248,7 @@ extension AppDependencies {
     func refreshVisibleSources(using appState: AppState) async -> FeedRefreshBatchResult? {
         let result = await refreshAllFeeds()
         if result != nil {
+            appState.requestSourceIconReload()
             appState.requestArticleListReload()
         }
         return result

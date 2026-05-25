@@ -69,6 +69,16 @@ final class SettingsScreenController {
         }
     }
 
+    func refreshSourceIconCacheAvailability(dependencies: AppDependencies) async {
+        do {
+            let hasCache = try await dependencies.sourceIconCache.hasCachedData()
+            screenState.applySourceIconCacheAvailability(hasCache)
+        } catch {
+            dependencies.logger.error("Failed to inspect source icon cache: \(error)")
+            screenState.applySourceIconCacheAvailability(false)
+        }
+    }
+
     func refreshArchivedArticlesAvailability(dependencies: AppDependencies) {
         do {
             let hasArchivedArticles = try dependencies.articleRepository?.fetchArchivedArticles().isEmpty == false
@@ -112,7 +122,8 @@ final class SettingsScreenController {
                 .useICloudSync,
                 .iCloudSyncStatus,
                 .purgeArchivedArticles,
-                .clearArticleImageCache:
+                .clearArticleImageCache,
+                .clearSourceIconCache:
             return
         }
     }
@@ -141,7 +152,8 @@ final class SettingsScreenController {
                 .iCloudSyncStatus,
                 .appearance,
                 .purgeArchivedArticles,
-                .clearArticleImageCache:
+                .clearArticleImageCache,
+                .clearSourceIconCache:
             return
         }
     }
@@ -156,6 +168,8 @@ final class SettingsScreenController {
             purgeArchivedArticles(dependencies: dependencies, appState: appState)
         case .clearArticleImageCache:
             await clearArticleImageCache(dependencies: dependencies)
+        case .clearSourceIconCache:
+            await clearSourceIconCache(dependencies: dependencies, appState: appState)
         case .defaultReaderMode,
                 .markAsReadOnOpen,
                 .articleSourceLinkOpeningPolicy,
@@ -222,6 +236,21 @@ private extension SettingsScreenController {
         } catch {
             dependencies.logger.error("Failed to clear article image disk cache: \(error)")
             await refreshArticleImageCacheAvailability(dependencies: dependencies)
+        }
+    }
+
+    func clearSourceIconCache(
+        dependencies: AppDependencies,
+        appState: AppState?
+    ) async {
+        do {
+            try await dependencies.sourceIconCache.removeAllCachedData()
+            screenState.applySourceIconCacheAvailability(false)
+            appState?.requestSourceIconCacheReset()
+            dependencies.logger.info("Cleared source icon cache")
+        } catch {
+            dependencies.logger.error("Failed to clear source icon cache: \(error)")
+            await refreshSourceIconCacheAvailability(dependencies: dependencies)
         }
     }
 

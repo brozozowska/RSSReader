@@ -27,6 +27,7 @@ enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
     case appearance
     case purgeArchivedArticles
     case clearArticleImageCache
+    case clearSourceIconCache
 
     var id: String { rawValue }
 }
@@ -294,6 +295,7 @@ enum SettingsScreenPresentationBuilder {
     static func buildSections(
         from input: SettingsScreenInput,
         hasArticleImageCache: Bool = false,
+        hasSourceIconCache: Bool = false,
         hasArchivedArticles: Bool = false
     ) -> [SettingsScreenSectionPresentation] {
         [
@@ -304,6 +306,7 @@ enum SettingsScreenPresentationBuilder {
             notificationsSection(from: input),
             storageSection(
                 hasArticleImageCache: hasArticleImageCache,
+                hasSourceIconCache: hasSourceIconCache,
                 hasArchivedArticles: hasArchivedArticles
             )
         ]
@@ -531,6 +534,7 @@ enum SettingsScreenPresentationBuilder {
 
     private static func storageSection(
         hasArticleImageCache: Bool,
+        hasSourceIconCache: Bool,
         hasArchivedArticles: Bool
     ) -> SettingsScreenSectionPresentation {
         SettingsScreenSectionPresentation(
@@ -556,6 +560,16 @@ enum SettingsScreenPresentationBuilder {
                         systemImage: "photo.stack",
                         role: .destructive,
                         isEnabled: hasArticleImageCache
+                    )
+                ),
+                .button(
+                    SettingsButtonItemPresentation(
+                        id: .clearSourceIconCache,
+                        title: "Clear Source Icon Cache",
+                        subtitle: "Remove feed icons saved on this device.",
+                        systemImage: "newspaper",
+                        role: .destructive,
+                        isEnabled: hasSourceIconCache
                     )
                 )
             ]
