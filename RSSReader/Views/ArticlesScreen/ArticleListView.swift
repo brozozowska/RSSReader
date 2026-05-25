@@ -19,6 +19,7 @@ struct ArticleListView: View {
     @State private var searchText = ""
     @State private var articleListIdentity = UUID()
     @State private var deferredSessionReloadTask: Task<Void, Never>?
+    @State private var refreshStartHapticTrigger = 0
 
     init(
         selectedSidebarSelection: SidebarSelection?,
@@ -132,6 +133,10 @@ struct ArticleListView: View {
         .onChange(of: appState.articleListSessionReadArticleIDs) { _, _ in
             syncSelectionAfterSessionReadPresentationChange()
         }
+        .sensoryFeedback(
+            .impact(flexibility: .solid, intensity: 0.65),
+            trigger: refreshStartHapticTrigger
+        )
         .simultaneousGesture(backNavigationGesture)
     }
 
@@ -355,6 +360,7 @@ struct ArticleListView: View {
     private func refreshCurrentSelection() async {
         guard isPreviewMode == false else { return }
 
+        refreshStartHapticTrigger += 1
         deferredSessionReloadTask?.cancel()
         deferredSessionReloadTask = nil
 
