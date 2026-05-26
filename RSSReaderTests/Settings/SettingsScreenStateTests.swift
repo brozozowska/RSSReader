@@ -34,6 +34,24 @@ struct SettingsScreenStateTests {
     }
 
     @Test
+    func settingsScreenStateDoesNotTreatLastSourcesRefreshDateAsDraftChange() {
+        let snapshot = AppSettingsSnapshot(
+            lastSourcesRefreshAt: Date(timeIntervalSinceReferenceDate: 100)
+        )
+        var state = SettingsScreenState()
+
+        state.applyLoadedSnapshot(snapshot)
+
+        #expect(state.derivedViewState().canApplyChanges == false)
+
+        var input = state.settingsInput
+        input.markAsReadOnOpen.toggle()
+        state.applyDraftInput(input)
+
+        #expect(state.derivedViewState().canApplyChanges)
+    }
+
+    @Test
     func settingsScreenStateKeepsDefaultReaderModePickerInLoadedSections() throws {
         let state = SettingsScreenState.previewLoaded(
             snapshot: AppSettingsSnapshot(defaultReaderMode: .embedded)

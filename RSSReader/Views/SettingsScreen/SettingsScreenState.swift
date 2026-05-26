@@ -170,7 +170,8 @@ private extension SettingsScreenState {
             articleBodyLinkOpeningPolicy: settingsInput.articleBodyLinkOpeningPolicy,
             articleSourceLinkOpeningPolicy: settingsInput.articleSourceLinkOpeningPolicy,
             readerAdjacentNavigationControlsMode: settingsInput.readerAdjacentNavigationControlsMode,
-            interfaceThemeMode: settingsInput.interfaceThemeMode
+            interfaceThemeMode: settingsInput.interfaceThemeMode,
+            lastSourcesRefreshAt: settingsSnapshot.lastSourcesRefreshAt
         )
     }
 
