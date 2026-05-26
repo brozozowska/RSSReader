@@ -58,6 +58,7 @@ struct ArticleListView: View {
             visibleArticleIDs: derivedViewState.visibleArticles.map(\.id),
             listIdentity: articleListIdentity,
             selection: $selection,
+            scrollPositionID: articleListScrollPositionBinding,
             refreshAction: refreshCurrentSelection,
             toggleReadStatusAction: toggleArticleReadStatus,
             toggleStarredAction: toggleStarredState
@@ -129,6 +130,14 @@ struct ArticleListView: View {
             let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
             selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
             syncArticleNavigationContext(visibleArticleIDs)
+        }
+        .onChange(of: selection) { _, newValue in
+            guard let newValue else { return }
+            appState.updateArticleListScrollPosition(
+                newValue,
+                sourceSelection: selectedSidebarSelection,
+                sourcesFilter: selectedSourcesFilter
+            )
         }
         .onChange(of: appState.articleListSessionReadArticleIDs) { _, _ in
             syncSelectionAfterSessionReadPresentationChange()
@@ -204,8 +213,44 @@ struct ArticleListView: View {
 
     private func syncArticleNavigationContext(_ visibleArticleIDs: [UUID]) {
         guard isPreviewMode == false else { return }
+        reconcileArticleListScrollPosition(visibleArticleIDs: visibleArticleIDs)
         appState.updateArticleNavigationContext(
             visibleArticleIDs,
+            sourceSelection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter
+        )
+    }
+
+    private var articleListScrollPositionBinding: Binding<UUID?> {
+        Binding(
+            get: {
+                appState.articleListScrollPositionID(
+                    sourceSelection: selectedSidebarSelection,
+                    sourcesFilter: selectedSourcesFilter
+                )
+            },
+            set: { articleID in
+                appState.updateArticleListScrollPosition(
+                    articleID,
+                    sourceSelection: selectedSidebarSelection,
+                    sourcesFilter: selectedSourcesFilter
+                )
+            }
+        )
+    }
+
+    private func reconcileArticleListScrollPosition(visibleArticleIDs: [UUID]) {
+        let currentScrollPositionID = appState.articleListScrollPositionID(
+            sourceSelection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter
+        )
+        guard let currentScrollPositionID,
+              visibleArticleIDs.contains(currentScrollPositionID) == false else {
+            return
+        }
+
+        appState.updateArticleListScrollPosition(
+            nil,
             sourceSelection: selectedSidebarSelection,
             sourcesFilter: selectedSourcesFilter
         )

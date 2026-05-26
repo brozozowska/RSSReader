@@ -81,6 +81,11 @@ struct ReadingNavigationState: Hashable, Sendable {
     }
 }
 
+struct ArticleListScrollPositionKey: Hashable, Sendable {
+    let sourceSelection: SourceSelection?
+    let sourcesFilter: SourcesFilter
+}
+
 enum AppContentReloadTrigger: Equatable, Sendable {
     case remoteSyncImport
     case backgroundRefresh
@@ -101,6 +106,7 @@ public final class AppState {
     private(set) var articleListSessionReadArticleIDs: Set<UUID> = []
     private var articleListSessionReadSourceSelection: SidebarSelection?
     private var articleListSessionReadSourcesFilter: SourcesFilter = .allItems
+    private var articleListScrollPositionIDs: [ArticleListScrollPositionKey: UUID] = [:]
     var articleListReloadID = UUID()
     var sourcesSidebarReloadID = UUID()
     var sourceIconReloadID = UUID()
@@ -236,6 +242,35 @@ public final class AppState {
         articleListSessionReadArticleIDs = []
         articleListSessionReadSourceSelection = selectedSidebarSelection
         articleListSessionReadSourcesFilter = selectedSourcesFilter
+    }
+
+    func articleListScrollPositionID(
+        sourceSelection: SidebarSelection?,
+        sourcesFilter: SourcesFilter
+    ) -> UUID? {
+        articleListScrollPositionIDs[
+            ArticleListScrollPositionKey(
+                sourceSelection: sourceSelection,
+                sourcesFilter: sourcesFilter
+            )
+        ]
+    }
+
+    func updateArticleListScrollPosition(
+        _ articleID: UUID?,
+        sourceSelection: SidebarSelection?,
+        sourcesFilter: SourcesFilter
+    ) {
+        let key = ArticleListScrollPositionKey(
+            sourceSelection: sourceSelection,
+            sourcesFilter: sourcesFilter
+        )
+
+        if let articleID {
+            articleListScrollPositionIDs[key] = articleID
+        } else {
+            articleListScrollPositionIDs.removeValue(forKey: key)
+        }
     }
 
     func requestSourcesSidebarReload() {

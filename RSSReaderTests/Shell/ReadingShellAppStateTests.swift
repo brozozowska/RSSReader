@@ -120,6 +120,57 @@ struct ReadingShellAppStateTests {
     }
 
     @Test
+    func readingShellAppStateKeepsArticleListScrollPositionPerSelectionAndFilter() {
+        let appState = AppState()
+        let feedID = UUID()
+        let allItemsPositionID = UUID()
+        let unreadPositionID = UUID()
+
+        appState.updateArticleListScrollPosition(
+            allItemsPositionID,
+            sourceSelection: .feed(feedID),
+            sourcesFilter: .allItems
+        )
+        appState.updateArticleListScrollPosition(
+            unreadPositionID,
+            sourceSelection: .feed(feedID),
+            sourcesFilter: .unread
+        )
+
+        #expect(
+            appState.articleListScrollPositionID(
+                sourceSelection: .feed(feedID),
+                sourcesFilter: .allItems
+            ) == allItemsPositionID
+        )
+        #expect(
+            appState.articleListScrollPositionID(
+                sourceSelection: .feed(feedID),
+                sourcesFilter: .unread
+            ) == unreadPositionID
+        )
+
+        appState.updateArticleListScrollPosition(
+            nil,
+            sourceSelection: .feed(feedID),
+            sourcesFilter: .allItems
+        )
+
+        #expect(
+            appState.articleListScrollPositionID(
+                sourceSelection: .feed(feedID),
+                sourcesFilter: .allItems
+            ) == nil
+        )
+        #expect(
+            appState.articleListScrollPositionID(
+                sourceSelection: .feed(feedID),
+                sourcesFilter: .unread
+            ) == unreadPositionID
+        )
+    }
+
+    @Test
     func readingShellTracksSessionReadArticlesWithinCurrentListContext() {
         let appState = AppState()
         let feedID = UUID()
