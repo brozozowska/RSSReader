@@ -38,7 +38,7 @@ enum FeedNormalizationService {
             summary: normalizeTextBlock(entry.summary),
             contentHTML: normalizeHTMLContent(entry.contentHTML),
             contentText: normalizeTextContent(entry.contentText),
-            author: normalizeInlineText(entry.author),
+            author: normalizeAuthor(entry.author),
             publishedAtRaw: normalizeScalar(entry.publishedAtRaw),
             updatedAtRaw: normalizeScalar(entry.updatedAtRaw),
             imageURL: normalizeSourceURL(entry.imageURL)
@@ -115,6 +115,23 @@ enum FeedNormalizationService {
             .replacingOccurrences(of: " ;", with: ";")
 
         return normalizedValue.isEmpty ? nil : normalizedValue
+    }
+
+    private static func normalizeAuthor(_ value: String?) -> String? {
+        guard let value = normalizeInlineText(value) else { return nil }
+
+        let authorWithoutWrappedEmail = value.replacingOccurrences(
+            of: #"\s*[\(<\[]\s*(?:mailto:)?[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\s*[\)>\]]\s*"#,
+            with: " ",
+            options: [.regularExpression, .caseInsensitive]
+        )
+        let authorWithoutEmail = authorWithoutWrappedEmail.replacingOccurrences(
+            of: #"\b(?:mailto:)?[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"#,
+            with: " ",
+            options: [.regularExpression, .caseInsensitive]
+        )
+
+        return normalizeInlineText(authorWithoutEmail)
     }
 
     private static func normalizeTextBlock(_ value: String?) -> String? {

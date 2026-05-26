@@ -138,4 +138,52 @@ struct FeedNormalizationTests {
 
         #expect(normalized.metadata.iconURL == "https://static2.tinkoffjournal.ru/mercury-old/img/core-logo-rss.png")
     }
+
+    @Test
+    func feedNormalizationRemovesEmailFromEntryAuthor() {
+        let feed = ParsedFeedDTO(
+            kind: .rss,
+            metadata: ParsedFeedMetadataDTO(title: "N + 1"),
+            entries: [
+                ParsedFeedEntryDTO(
+                    guid: "https://nplus1.ru/news/2026/05/25/subduction-and-oxygenation",
+                    url: "https://nplus1.ru/news/2026/05/25/subduction-and-oxygenation",
+                    title: "«Холодная» субдукция оказалась выгодна для накопления кислорода в атмосфере",
+                    author: """
+                    Винера Андреева            <v.and73@gmail.com>
+                    """,
+                    publishedAtRaw: "Mon, 25 May 2026 22:00:00 +0300"
+                )
+            ]
+        )
+
+        let normalized = FeedNormalizationService.normalize(feed, feedURL: "https://nplus1.ru/rss")
+
+        #expect(normalized.entries.first?.author == "Винера Андреева")
+    }
+
+    @Test(arguments: [
+        "Сергей Коленов <sergey-k-0@yandex.ru>",
+        "Сергей Коленов (sergey-k-0@yandex.ru)",
+        "Сергей Коленов [sergey-k-0@yandex.ru]",
+        "Сергей Коленов mailto:sergey-k-0@yandex.ru",
+        "Сергей Коленов <mailto:sergey-k-0@yandex.ru>"
+    ])
+    func feedNormalizationRemovesCommonEmailShapesFromEntryAuthor(author: String) {
+        let feed = ParsedFeedDTO(
+            kind: .rss,
+            metadata: ParsedFeedMetadataDTO(title: "N + 1"),
+            entries: [
+                ParsedFeedEntryDTO(
+                    url: "https://nplus1.ru/news/example",
+                    title: "Example",
+                    author: author
+                )
+            ]
+        )
+
+        let normalized = FeedNormalizationService.normalize(feed, feedURL: "https://nplus1.ru/rss")
+
+        #expect(normalized.entries.first?.author == "Сергей Коленов")
+    }
 }
