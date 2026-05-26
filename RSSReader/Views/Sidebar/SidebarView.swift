@@ -451,14 +451,9 @@ private struct SourceIconView: View {
     }
 
     private var placeholder: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 5)
-                .fill(Color.secondary.opacity(0.12))
-
-            Image(systemName: "newspaper")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-        }
+        Image(systemName: "newspaper")
+            .font(.body.weight(.medium))
+            .foregroundStyle(.secondary)
     }
 
     @MainActor
