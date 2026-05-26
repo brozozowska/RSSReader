@@ -261,8 +261,20 @@ struct ReaderView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Text(header.title)
-                .font(.title2.weight(.semibold))
+            if header.canOpenSourceArticle {
+                Button(action: handleOpenSourceArticleTap) {
+                    Text(header.title)
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open Original Article")
+            } else {
+                Text(header.title)
+                    .font(.title2.weight(.semibold))
+            }
 
             if header.author != nil || header.feedTitle != nil {
                 VStack(alignment: .leading, spacing: ReaderArticleContentLayout.metadataSpacing) {

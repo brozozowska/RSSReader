@@ -49,6 +49,7 @@ struct ArticleScreenStateTests {
         #expect(viewState.content?.header.title == article.title)
         #expect(viewState.content?.header.feedTitle == article.feedTitle)
         #expect(viewState.content?.header.author == article.author)
+        #expect(viewState.content?.header.canOpenSourceArticle == true)
         #expect(viewState.content?.body.blocks == [.paragraph(.plainText("Rendered body text"))])
         #expect(viewState.content?.body.source == .contentText)
         #expect(viewState.toolbarActions.showsShareAction)
@@ -143,5 +144,27 @@ struct ArticleScreenStateTests {
 
         let invalidBottomActions = invalidURLState.derivedViewState().toolbarActions.bottomActions
         #expect(invalidBottomActions?.canOpenSourceArticle == false)
+    }
+
+    @Test
+    func articleScreenHeaderEnablesTitleLinkOnlyWhenArticleHasValidExternalURL() {
+        var loadedState = ArticleScreenState()
+        loadedState.applyLoadedArticle(
+            makeReaderArticleDTO(
+                canonicalURL: "https://example.com/articles/openable"
+            )
+        )
+
+        #expect(loadedState.derivedViewState().content?.header.canOpenSourceArticle == true)
+
+        var invalidURLState = ArticleScreenState()
+        invalidURLState.applyLoadedArticle(
+            makeReaderArticleDTO(
+                articleURL: "invalid-url",
+                canonicalURL: nil
+            )
+        )
+
+        #expect(invalidURLState.derivedViewState().content?.header.canOpenSourceArticle == false)
     }
 }

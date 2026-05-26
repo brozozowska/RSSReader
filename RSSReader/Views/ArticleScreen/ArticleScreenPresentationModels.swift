@@ -57,12 +57,17 @@ struct ArticleScreenHeaderState: Equatable {
     let title: String
     let author: String?
     let feedTitle: String?
+    let canOpenSourceArticle: Bool
 
     init(article: ReaderArticleDTO) {
         self.publishedAtText = article.publishedAt.map(ArticleScreenDateFormatter.string(from:))
         self.title = article.title.nilIfBlank ?? "Untitled Article"
         self.author = article.author?.nilIfBlank
         self.feedTitle = article.feedTitle.nilIfBlank
+        self.canOpenSourceArticle = ArticleScreenURLResolver.resolveExternalURL(
+            canonicalURL: article.canonicalURL,
+            articleURL: article.articleURL
+        ) != nil
     }
 }
 
