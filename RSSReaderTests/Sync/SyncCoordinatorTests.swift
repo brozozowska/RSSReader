@@ -228,6 +228,9 @@ struct SyncCoordinatorTests {
         try await expectEventually {
             coordinator.runtimeState.phase == .idle
         }
+        try await expectEventually {
+            accountAvailabilityService.subscriberCount == 1
+        }
 
         await accountAvailabilityService.yield(.restricted)
 
@@ -256,6 +259,9 @@ struct SyncCoordinatorTests {
         try await expectEventually {
             coordinator.runtimeState.phase == .idle
         }
+        try await expectEventually {
+            cloudKitRuntimeEventSource.subscriberCount == 1
+        }
 
         await cloudKitRuntimeEventSource.yield(.started(.import, context))
 
@@ -283,6 +289,9 @@ struct SyncCoordinatorTests {
         )
         try await expectEventually {
             coordinator.runtimeState.phase == .idle
+        }
+        try await expectEventually {
+            cloudKitRuntimeEventSource.subscriberCount == 1
         }
 
         await cloudKitRuntimeEventSource.yield(.failed(.setup, context, "Setup failed."))
@@ -321,48 +330,82 @@ struct SyncCoordinatorTests {
     }
 }
 
-private actor TestICloudAccountAvailabilityService: ICloudAccountAvailabilityService {
+private final class TestICloudAccountAvailabilityService: ICloudAccountAvailabilityService, @unchecked Sendable {
     private let initialAvailability: ICloudAccountAvailability
-    private let stream: AsyncStream<ICloudAccountAvailability>
-    private let continuation: AsyncStream<ICloudAccountAvailability>.Continuation
+    private let queue = DispatchQueue(label: "RSSReaderTests.SyncCoordinator.AccountAvailability")
+    private var continuations: [UUID: AsyncStream<ICloudAccountAvailability>.Continuation] = [:]
 
     init(initialAvailability: ICloudAccountAvailability) {
         self.initialAvailability = initialAvailability
-
-        let components = AsyncStream.makeStream(of: ICloudAccountAvailability.self)
-        self.stream = components.stream
-        self.continuation = components.continuation
     }
 
     func currentAvailability() async -> ICloudAccountAvailability {
         initialAvailability
     }
 
-    nonisolated func availabilityChanges() -> AsyncStream<ICloudAccountAvailability> {
-        stream
+    func availabilityChanges() -> AsyncStream<ICloudAccountAvailability> {
+        AsyncStream { continuation in
+            let id = UUID()
+            queue.sync {
+                continuations[id] = continuation
+            }
+            continuation.onTermination = { [weak self] _ in
+                guard let self else { return }
+                queue.async {
+                    self.continuations.removeValue(forKey: id)
+                }
+            }
+        }
     }
 
-    func yield(_ availability: ICloudAccountAvailability) {
-        continuation.yield(availability)
+    var subscriberCount: Int {
+        queue.sync {
+            continuations.count
+        }
+    }
+
+    func yield(_ availability: ICloudAccountAvailability) async {
+        let activeContinuations = queue.sync {
+            Array(continuations.values)
+        }
+        activeContinuations.forEach { continuation in
+            continuation.yield(availability)
+        }
     }
 }
 
-private actor TestCloudKitRuntimeEventSource: CloudKitRuntimeEventSource {
-    private let stream: AsyncStream<CloudKitRuntimeEvent>
-    private let continuation: AsyncStream<CloudKitRuntimeEvent>.Continuation
+private final class TestCloudKitRuntimeEventSource: CloudKitRuntimeEventSource, @unchecked Sendable {
+    private let queue = DispatchQueue(label: "RSSReaderTests.SyncCoordinator.CloudKitRuntimeEvents")
+    private var continuations: [UUID: AsyncStream<CloudKitRuntimeEvent>.Continuation] = [:]
 
-    init() {
-        let components = AsyncStream.makeStream(of: CloudKitRuntimeEvent.self)
-        self.stream = components.stream
-        self.continuation = components.continuation
+    func events() -> AsyncStream<CloudKitRuntimeEvent> {
+        AsyncStream { continuation in
+            let id = UUID()
+            queue.sync {
+                continuations[id] = continuation
+            }
+            continuation.onTermination = { [weak self] _ in
+                guard let self else { return }
+                queue.async {
+                    self.continuations.removeValue(forKey: id)
+                }
+            }
+        }
     }
 
-    nonisolated func events() -> AsyncStream<CloudKitRuntimeEvent> {
-        stream
+    var subscriberCount: Int {
+        queue.sync {
+            continuations.count
+        }
     }
 
-    func yield(_ event: CloudKitRuntimeEvent) {
-        continuation.yield(event)
+    func yield(_ event: CloudKitRuntimeEvent) async {
+        let activeContinuations = queue.sync {
+            Array(continuations.values)
+        }
+        activeContinuations.forEach { continuation in
+            continuation.yield(event)
+        }
     }
 }
 
