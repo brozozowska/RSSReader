@@ -148,9 +148,7 @@ enum ArticleScreenContentRenderer {
             var summaryBlocks = renderBodyPayload(summary, article: article)
             summaryBlocks = appendLeadImageIfNeeded(summaryBlocks, article: article)
             summaryBlocks.append(
-                ArticleScreenBodyBlock.fallbackNotice(
-                    "This source only provides a summary, not the full article body."
-                )
+                ArticleScreenBodyBlock.fallbackNotice("This article included only a summary in the received feed.")
             )
 
             return ArticleScreenBodyContentState(
@@ -164,7 +162,7 @@ enum ArticleScreenContentRenderer {
             fallbackBlocks.append(imageBlock)
         }
         fallbackBlocks.append(
-            ArticleScreenBodyBlock.fallbackNotice("Full article content is unavailable in this feed.")
+            ArticleScreenBodyBlock.fallbackNotice("This article did not include body content in the received feed.")
         )
 
         return ArticleScreenBodyContentState(

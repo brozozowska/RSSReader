@@ -537,7 +537,7 @@ struct ArticleScreenContentRendererTests {
                         ]
                     )
                 ),
-                .fallbackNotice("This source only provides a summary, not the full article body.")
+                .fallbackNotice("This article included only a summary in the received feed.")
             ]
         )
         #expect(content.body.source == .summary)
@@ -641,7 +641,7 @@ struct ArticleScreenContentRendererTests {
             content.body.blocks == [
                 .paragraph(.plainText("Short summary paragraph.")),
                 .paragraph(.plainText("Another summary paragraph.")),
-                .fallbackNotice("This source only provides a summary, not the full article body.")
+                .fallbackNotice("This article included only a summary in the received feed.")
             ]
         )
         #expect(content.body.source == .summary)
@@ -659,7 +659,7 @@ struct ArticleScreenContentRendererTests {
 
         #expect(
             content.body.blocks == [
-                .fallbackNotice("Full article content is unavailable in this feed.")
+                .fallbackNotice("This article did not include body content in the received feed.")
             ]
         )
         #expect(content.body.source == .empty)
