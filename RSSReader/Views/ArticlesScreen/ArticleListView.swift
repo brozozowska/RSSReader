@@ -164,8 +164,8 @@ struct ArticleListView: View {
         let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
-
     }
+
     // MARK: Selection
 
     private func stabilizedSelection(availableArticleIDs: [UUID]) -> UUID? {
