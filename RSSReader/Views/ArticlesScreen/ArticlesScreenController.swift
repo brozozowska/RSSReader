@@ -5,16 +5,24 @@ import Observation
 @Observable
 final class ArticlesScreenController {
     var screenState: ArticlesScreenState
-    private var lastLoadedSourceSelection: SidebarSelection?
+    private var lastLoadedSessionContext: ArticleListSession.Context
     private var loadGeneration = 0
 
     init(previewScreenState: ArticlesScreenState? = nil) {
         self.screenState = previewScreenState ?? ArticlesScreenState()
-        self.lastLoadedSourceSelection = previewScreenState?.selection
+        if let previewScreenState {
+            self.lastLoadedSessionContext = previewScreenState.articleListSession.context
+        } else {
+            self.lastLoadedSessionContext = .noSelection
+        }
     }
 
     func shouldResetArticleSelection(for selection: SidebarSelection?) -> Bool {
-        lastLoadedSourceSelection != selection
+        lastLoadedSessionContext.selection != selection
+    }
+
+    func shouldResetArticleSession(for context: ArticleListSession.Context) -> Bool {
+        lastLoadedSessionContext != context
     }
 
     func markArticleAsReadInCurrentSession(_ articleID: UUID) {
@@ -30,14 +38,14 @@ final class ArticlesScreenController {
     ) async {
         loadGeneration += 1
         let currentLoadGeneration = loadGeneration
-        let sourceSelectionChanged = shouldResetArticleSelection(for: selection)
-        let navigationTitle = resolveNavigationTitle(
-            selection: selection,
-            dependencies: dependencies
-        )
         let sessionContext = ArticleListSession.Context(
             selection: selection,
             sourcesFilter: sourcesFilter
+        )
+        let sessionContextChanged = shouldResetArticleSession(for: sessionContext)
+        let navigationTitle = resolveNavigationTitle(
+            selection: selection,
+            dependencies: dependencies
         )
         let loadingSubtitle = resolveNavigationSubtitle(
             for: screenState.articles,
@@ -47,13 +55,13 @@ final class ArticlesScreenController {
             for: selection,
             navigationTitle: navigationTitle,
             navigationSubtitle: loadingSubtitle,
-            resetsContent: sourceSelectionChanged,
+            resetsContent: sessionContextChanged,
             sessionContext: sessionContext
         )
 
         defer {
             if currentLoadGeneration == loadGeneration {
-                lastLoadedSourceSelection = selection
+                lastLoadedSessionContext = sessionContext
             }
         }
 
@@ -82,7 +90,7 @@ final class ArticlesScreenController {
                 loadedArticles,
                 selection: selection,
                 sourcesFilter: sourcesFilter,
-                retainsCurrentContent: sourceSelectionChanged == false && retainsSessionReadArticles,
+                retainsCurrentContent: sessionContextChanged == false && retainsSessionReadArticles,
                 retainedMembershipStatus: retainedSessionReadMembershipStatus
             )
             let subtitleArticles = resolvedEntries.map(\.article)
@@ -106,7 +114,7 @@ final class ArticlesScreenController {
                 selection: selection,
                 navigationTitle: navigationTitle,
                 navigationSubtitle: loadingSubtitle,
-                retainsContent: sourceSelectionChanged == false,
+                retainsContent: sessionContextChanged == false,
                 sessionContext: sessionContext
             )
         }
@@ -230,11 +238,11 @@ final class ArticlesScreenController {
                 sourcesFilter: sourcesFilter
               ) == .unread else {
             return ArticleListSessionMergePolicy.merge(
-            currentEntries: screenState.articleListSession.entries,
-            loadedArticles: loadedArticles,
-            retainedArticleIDs: [],
-            retainsCurrentContent: false,
-            retainedMembershipStatus: retainedMembershipStatus
+                currentEntries: screenState.articleListSession.entries,
+                loadedArticles: loadedArticles,
+                retainedArticleIDs: [],
+                retainsCurrentContent: false,
+                retainedMembershipStatus: retainedMembershipStatus
             )
         }
 
