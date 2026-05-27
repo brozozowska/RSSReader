@@ -76,6 +76,33 @@ struct ArticlesScreenStateTests {
         #expect(state.articleListSession.context == context)
         #expect(state.articleListSession.context.articleListFilter == .unread)
         #expect(state.articleListSession.entries.map(\.id) == [unreadItem.id])
+        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.matchesCurrentQuery])
+        #expect(state.articles.map(\.id) == [unreadItem.id])
+    }
+
+    @Test
+    func articlesScreenStatePreservesExplicitEntryMembershipInSessionSnapshot() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedEntries(
+            [
+                ArticleListEntry(
+                    article: unreadItem,
+                    membershipStatus: .retainedAfterRefresh
+                )
+            ],
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "No Unread Items",
+            sessionContext: ArticleListSession.Context(
+                selection: .unread,
+                sourcesFilter: .allItems
+            )
+        )
+
+        #expect(state.phase == .loaded)
+        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRefresh])
         #expect(state.articles.map(\.id) == [unreadItem.id])
     }
 

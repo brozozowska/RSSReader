@@ -102,11 +102,27 @@ struct ArticlesScreenState {
         navigationSubtitle: String,
         sessionContext: ArticleListSession.Context? = nil
     ) {
+        applyLoadedEntries(
+            loadedArticles.map { ArticleListEntry(article: $0) },
+            selection: selection,
+            navigationTitle: navigationTitle,
+            navigationSubtitle: navigationSubtitle,
+            sessionContext: sessionContext
+        )
+    }
+
+    mutating func applyLoadedEntries(
+        _ loadedEntries: [ArticleListEntry],
+        selection: SidebarSelection?,
+        navigationTitle: String,
+        navigationSubtitle: String,
+        sessionContext: ArticleListSession.Context? = nil
+    ) {
         self.selection = selection
         self.navigationTitle = navigationTitle
         self.navigationSubtitle = navigationSubtitle
-        articleListSession.replaceArticles(
-            loadedArticles,
+        articleListSession.replaceEntries(
+            loadedEntries,
             context: resolvedContext(
                 selection: selection,
                 sessionContext: sessionContext
@@ -117,7 +133,7 @@ struct ArticlesScreenState {
 
         if selection == nil {
             phase = .noSelection
-        } else if loadedArticles.isEmpty {
+        } else if loadedEntries.isEmpty {
             phase = .empty
         } else {
             phase = .loaded

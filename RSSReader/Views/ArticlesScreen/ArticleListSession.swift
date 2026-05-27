@@ -38,13 +38,23 @@ struct ArticleListSession: Equatable {
         _ articles: [ArticleListItemDTO],
         context: Context
     ) {
+        replaceEntries(
+            articles.map { ArticleListEntry(article: $0) },
+            context: context
+        )
+    }
+
+    mutating func replaceEntries(
+        _ entries: [ArticleListEntry],
+        context: Context
+    ) {
         self.context = context
-        self.entries = articles.map { ArticleListEntry(article: $0) }
+        self.entries = entries
     }
 
     mutating func updateArticle(_ article: ArticleListItemDTO) {
         entries = entries.map { entry in
-            entry.id == article.id ? ArticleListEntry(article: article) : entry
+            entry.id == article.id ? entry.updating(article: article) : entry
         }
     }
 
@@ -53,12 +63,30 @@ struct ArticleListSession: Equatable {
     }
 }
 
+enum ArticleListEntryMembershipStatus: Equatable {
+    case matchesCurrentQuery
+    case retainedAfterRead
+    case retainedAfterRefresh
+}
+
 struct ArticleListEntry: Identifiable, Equatable {
     let id: UUID
     let article: ArticleListItemDTO
+    let membershipStatus: ArticleListEntryMembershipStatus
 
-    init(article: ArticleListItemDTO) {
+    init(
+        article: ArticleListItemDTO,
+        membershipStatus: ArticleListEntryMembershipStatus = .matchesCurrentQuery
+    ) {
         self.id = article.id
         self.article = article
+        self.membershipStatus = membershipStatus
+    }
+
+    func updating(article: ArticleListItemDTO) -> ArticleListEntry {
+        ArticleListEntry(
+            article: article,
+            membershipStatus: membershipStatus
+        )
     }
 }

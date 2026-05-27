@@ -147,6 +147,7 @@ struct ArticlesScreenControllerTests {
 
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.articles.map(\.id) == [article.id])
+        #expect(controller.screenState.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
         #expect(controller.screenState.articles.first?.isRead == false)
         #expect(controller.screenState.navigationSubtitle == "No Unread Items")
         #expect(
@@ -166,6 +167,46 @@ struct ArticlesScreenControllerTests {
 
         #expect(newEntryController.screenState.phase == .empty)
         #expect(newEntryController.screenState.articles.isEmpty)
+    }
+
+    @Test
+    func articlesScreenControllerMarksSessionReadRetentionAfterRefresh() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let articleStateService = try #require(harness.dependencies.articleStateService)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/session-refresh.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "session-refresh-article",
+            url: "https://example.com/articles/session-refresh",
+            title: "Session Refresh"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        _ = try articleStateService.markAsRead(
+            feedID: feed.id,
+            articleExternalID: article.externalID,
+            at: .now
+        )
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies,
+            sessionReadArticleIDs: [article.id],
+            retainsSessionReadArticles: true,
+            retainedSessionReadMembershipStatus: .retainedAfterRefresh
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.map(\.id) == [article.id])
+        #expect(controller.screenState.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRefresh])
+        #expect(controller.screenState.navigationSubtitle == "No Unread Items")
     }
 
     func articlesScreenControllerPresentsRefreshFailureFromBatchRefreshResult() async throws {

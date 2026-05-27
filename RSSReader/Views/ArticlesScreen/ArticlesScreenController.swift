@@ -22,7 +22,8 @@ final class ArticlesScreenController {
         sourcesFilter: SourcesFilter,
         dependencies: AppDependencies,
         sessionReadArticleIDs: Set<UUID> = [],
-        retainsSessionReadArticles: Bool = false
+        retainsSessionReadArticles: Bool = false,
+        retainedSessionReadMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead
     ) async {
         loadGeneration += 1
         let currentLoadGeneration = loadGeneration
@@ -74,21 +75,22 @@ final class ArticlesScreenController {
                 sortMode: sortMode,
                 articleQueryService: articleQueryService
             )
-            let resolvedArticles = articlesByRetainingSessionReadItems(
+            let resolvedEntries = entriesByRetainingSessionReadItems(
                 loadedArticles,
                 selection: selection,
                 sourcesFilter: sourcesFilter,
                 sessionReadArticleIDs: sessionReadArticleIDs,
-                retainsCurrentContent: sourceSelectionChanged == false && retainsSessionReadArticles
+                retainsCurrentContent: sourceSelectionChanged == false && retainsSessionReadArticles,
+                retainedMembershipStatus: retainedSessionReadMembershipStatus
             )
             let subtitleArticles = articlesByApplyingSessionReadPresentation(
-                to: resolvedArticles,
+                to: resolvedEntries.map(\.article),
                 sessionReadArticleIDs: sessionReadArticleIDs
             )
 
             guard currentLoadGeneration == loadGeneration else { return }
-            screenState.applyLoadedArticles(
-                resolvedArticles,
+            screenState.applyLoadedEntries(
+                resolvedEntries,
                 selection: selection,
                 navigationTitle: navigationTitle,
                 navigationSubtitle: resolveNavigationSubtitle(
@@ -216,20 +218,21 @@ final class ArticlesScreenController {
         }
     }
 
-    private func articlesByRetainingSessionReadItems(
+    private func entriesByRetainingSessionReadItems(
         _ loadedArticles: [ArticleListItemDTO],
         selection: SidebarSelection?,
         sourcesFilter: SourcesFilter,
         sessionReadArticleIDs: Set<UUID>,
-        retainsCurrentContent: Bool
-    ) -> [ArticleListItemDTO] {
+        retainsCurrentContent: Bool,
+        retainedMembershipStatus: ArticleListEntryMembershipStatus
+    ) -> [ArticleListEntry] {
         guard retainsCurrentContent,
               sessionReadArticleIDs.isEmpty == false,
               ArticlesScreenMutationReducer.articleListFilter(
                 selection: selection,
                 sourcesFilter: sourcesFilter
               ) == .unread else {
-            return loadedArticles
+            return loadedArticles.map { ArticleListEntry(article: $0) }
         }
 
         var loadedArticlesByID: [UUID: ArticleListItemDTO] = [:]
@@ -237,23 +240,38 @@ final class ArticlesScreenController {
             loadedArticlesByID[loadedArticle.id] = loadedArticle
         }
         var emittedArticleIDs = Set<UUID>()
-        var resolvedArticles: [ArticleListItemDTO] = []
+        var resolvedEntries: [ArticleListEntry] = []
 
-        for currentArticle in screenState.articles {
-            if let loadedArticle = loadedArticlesByID[currentArticle.id] {
-                resolvedArticles.append(loadedArticle)
+        for currentEntry in screenState.articleListSession.entries {
+            if let loadedArticle = loadedArticlesByID[currentEntry.id] {
+                resolvedEntries.append(
+                    ArticleListEntry(
+                        article: loadedArticle,
+                        membershipStatus: .matchesCurrentQuery
+                    )
+                )
                 emittedArticleIDs.insert(loadedArticle.id)
-            } else if sessionReadArticleIDs.contains(currentArticle.id) {
-                resolvedArticles.append(currentArticle)
-                emittedArticleIDs.insert(currentArticle.id)
+            } else if sessionReadArticleIDs.contains(currentEntry.id) {
+                resolvedEntries.append(
+                    ArticleListEntry(
+                        article: currentEntry.article,
+                        membershipStatus: retainedMembershipStatus
+                    )
+                )
+                emittedArticleIDs.insert(currentEntry.id)
             }
         }
 
         for loadedArticle in loadedArticles where emittedArticleIDs.contains(loadedArticle.id) == false {
-            resolvedArticles.append(loadedArticle)
+            resolvedEntries.append(
+                ArticleListEntry(
+                    article: loadedArticle,
+                    membershipStatus: .matchesCurrentQuery
+                )
+            )
         }
 
-        return resolvedArticles
+        return resolvedEntries
     }
 
     private func articlesByApplyingSessionReadPresentation(

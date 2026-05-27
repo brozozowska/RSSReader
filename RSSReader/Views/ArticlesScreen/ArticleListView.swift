@@ -159,7 +159,8 @@ struct ArticleListView: View {
     @MainActor
     private func loadArticles(
         retainsSessionReadArticles: Bool = true,
-        recreatesListAfterSessionRetention: Bool = false
+        recreatesListAfterSessionRetention: Bool = false,
+        retainedSessionReadMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead
     ) async {
         let loadingSidebarSelection = selectedSidebarSelection
         let loadingSourcesFilter = selectedSourcesFilter
@@ -173,7 +174,8 @@ struct ArticleListView: View {
             sourcesFilter: loadingSourcesFilter,
             dependencies: dependencies,
             sessionReadArticleIDs: sessionReadArticleIDs,
-            retainsSessionReadArticles: retainsSessionReadArticles
+            retainsSessionReadArticles: retainsSessionReadArticles,
+            retainedSessionReadMembershipStatus: retainedSessionReadMembershipStatus
         )
 
         guard loadingSidebarSelection == appState.selectedSidebarSelection,
@@ -426,7 +428,10 @@ struct ArticleListView: View {
             requestsArticleListReload: false
         )
 
-        await loadArticles(retainsSessionReadArticles: sessionReadArticleIDs.isEmpty == false)
+        await loadArticles(
+            retainsSessionReadArticles: sessionReadArticleIDs.isEmpty == false,
+            retainedSessionReadMembershipStatus: .retainedAfterRefresh
+        )
 
         if sessionReadArticleIDs.isEmpty == false {
             scheduleDeferredSessionReload()
