@@ -17,7 +17,6 @@ struct ArticleListView: View {
     @Binding var selection: UUID?
     @State private var controller: ArticlesScreenController
     @State private var searchText = ""
-    @State private var articleListIdentity = UUID()
     @State private var refreshStartHapticTrigger = 0
 
     init(
@@ -50,7 +49,6 @@ struct ArticleListView: View {
         ArticleListContentView(
             sections: derivedViewState.sections,
             visibleArticleIDs: derivedViewState.visibleArticles.map(\.id),
-            listIdentity: articleListIdentity,
             selection: $selection,
             scrollPositionID: articleListScrollPositionBinding,
             refreshAction: refreshCurrentSelection,
@@ -132,11 +130,6 @@ struct ArticleListView: View {
         }
         .onChange(of: appState.articleReadOnOpenEvent) { _, event in
             applyArticleReadOnOpenEvent(event)
-        }
-        .onChange(of: appState.selectedArticleID) { oldValue, newValue in
-            if oldValue != nil && newValue == nil {
-                resetArticleListIdentity()
-            }
         }
         .sensoryFeedback(
             .impact(flexibility: .solid, intensity: 0.65),
@@ -407,13 +400,9 @@ struct ArticleListView: View {
         )
 
         await loadArticles(
-            retainsSessionReadArticles: true,
+            retainsSessionReadArticles: false,
             retainedSessionReadMembershipStatus: .retainedAfterRefresh
         )
-    }
-
-    private func resetArticleListIdentity() {
-        articleListIdentity = UUID()
     }
 
     @MainActor

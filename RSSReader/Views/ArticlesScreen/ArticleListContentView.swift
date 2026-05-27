@@ -4,7 +4,6 @@ struct ArticleListContentView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     let sections: [ArticlesDaySection]
     let visibleArticleIDs: [UUID]
-    let listIdentity: UUID
     @Binding var selection: UUID?
     @Binding var scrollPositionID: UUID?
     let refreshAction: @MainActor () async -> Void
@@ -40,7 +39,6 @@ struct ArticleListContentView: View {
                         .textCase(nil)
                     }
                 }
-                .id(listIdentity)
                 .listStyle(.plain)
                 .listSectionSpacing(12)
                 .scrollContentBackground(.hidden)
@@ -51,9 +49,6 @@ struct ArticleListContentView: View {
                     await refreshAction()
                 }
                 .onAppear {
-                    restoreScrollPosition(with: scrollProxy)
-                }
-                .onChange(of: listIdentity) { _, _ in
                     restoreScrollPosition(with: scrollProxy)
                 }
             }

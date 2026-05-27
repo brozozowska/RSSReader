@@ -203,6 +203,46 @@ struct ArticlesScreenControllerTests {
     }
 
     @Test
+    func articlesScreenControllerAppliesFreshQuerySnapshotAfterRefreshWithoutRetainingReadEntries() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let articleStateService = try #require(harness.dependencies.articleStateService)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/session-refresh-reset.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "session-refresh-reset-article",
+            url: "https://example.com/articles/session-refresh-reset",
+            title: "Session Refresh Reset"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        _ = try articleStateService.markAsRead(
+            feedID: feed.id,
+            articleExternalID: article.externalID,
+            at: .now
+        )
+        controller.markArticleAsReadInCurrentSession(article.id)
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies,
+            retainsSessionReadArticles: false,
+            retainedSessionReadMembershipStatus: .retainedAfterRefresh
+        )
+
+        #expect(controller.screenState.phase == .empty)
+        #expect(controller.screenState.articles.isEmpty)
+        #expect(controller.screenState.articleListSession.entries.isEmpty)
+        #expect(controller.screenState.navigationSubtitle == "No Unread Items")
+    }
+
+    @Test
     func articlesScreenControllerMergesFreshQuerySnapshotWithCurrentRetainedEntries() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let articleStateService = try #require(harness.dependencies.articleStateService)

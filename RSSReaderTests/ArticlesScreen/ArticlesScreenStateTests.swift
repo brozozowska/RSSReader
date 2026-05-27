@@ -204,6 +204,43 @@ struct ArticlesScreenStateTests {
     }
 
     @Test
+    func articlesScreenStatePreservesCurrentSessionEntriesWhenRefreshBegins() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedEntries(
+            [
+                ArticleListEntry(
+                    article: unreadItem,
+                    membershipStatus: .retainedAfterRead
+                )
+            ],
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "No Unread Items",
+            sessionContext: ArticleListSession.Context(
+                selection: .unread,
+                sourcesFilter: .allItems
+            )
+        )
+
+        state.beginLoading(
+            for: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "No Unread Items",
+            resetsContent: false,
+            sessionContext: ArticleListSession.Context(
+                selection: .unread,
+                sourcesFilter: .allItems
+            )
+        )
+
+        #expect(state.refreshState == .refreshing)
+        #expect(state.articleListSession.entries.map(\.id) == [unreadItem.id])
+        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
+    }
+
+    @Test
     func articlesScreenStateClearsRefreshFeedbackWhenPrimaryReloadStarts() {
         var state = ArticlesScreenState()
         let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
