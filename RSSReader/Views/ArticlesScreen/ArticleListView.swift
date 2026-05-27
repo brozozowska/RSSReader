@@ -121,10 +121,7 @@ struct ArticleListView: View {
             reloadID: reloadID
         )) {
             guard isPreviewMode == false else { return }
-            await loadArticles(
-                retainsSessionReadArticles: true,
-                recreatesListAfterSessionRetention: true
-            )
+            await loadArticles(retainsSessionReadArticles: true)
         }
         .onChange(of: searchText) { _, _ in
             let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
@@ -159,7 +156,6 @@ struct ArticleListView: View {
     @MainActor
     private func loadArticles(
         retainsSessionReadArticles: Bool = true,
-        recreatesListAfterSessionRetention: Bool = false,
         retainedSessionReadMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead
     ) async {
         let loadingSidebarSelection = selectedSidebarSelection
@@ -187,11 +183,6 @@ struct ArticleListView: View {
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
 
-        if recreatesListAfterSessionRetention,
-           retainsSessionReadArticles,
-           sessionReadArticleIDs.isEmpty == false {
-            resetArticleListIdentity()
-        }
     }
 
     @MainActor
@@ -452,14 +443,7 @@ struct ArticleListView: View {
 
             appState.clearArticleListSessionReadArticles()
             await loadArticles(retainsSessionReadArticles: false)
-            await scheduleListIdentityResetAfterAnimation()
         }
-    }
-
-    private func scheduleListIdentityResetAfterAnimation() async {
-        try? await Task.sleep(nanoseconds: ArticleListDeferredSessionReload.identityResetDelayNanoseconds)
-        guard Task.isCancelled == false else { return }
-        resetArticleListIdentity()
     }
 
     private func resetArticleListIdentity() {
@@ -494,8 +478,6 @@ private struct ArticleListSearchToolbarModifier: ViewModifier {
 private enum ArticleListDeferredSessionReload {
     static let delayMilliseconds = 180
     static let delayNanoseconds: UInt64 = UInt64(delayMilliseconds) * 1_000_000
-    static let identityResetDelayMilliseconds = 320
-    static let identityResetDelayNanoseconds: UInt64 = UInt64(identityResetDelayMilliseconds) * 1_000_000
 }
 
 private extension View {

@@ -107,6 +107,52 @@ struct ArticlesScreenStateTests {
     }
 
     @Test
+    func articleListSessionMergeUpdatesExistingRowsAddsNewRowsAndKeepsRetainedEntries() {
+        let retainedID = UUID()
+        let updatedID = UUID()
+        let newID = UUID()
+        let retainedArticle = makeArticleListItemDTO(
+            id: retainedID,
+            title: "Read In Session",
+            isRead: false
+        )
+        let staleArticle = makeArticleListItemDTO(
+            id: updatedID,
+            title: "Old Title",
+            isRead: false
+        )
+        let updatedArticle = makeArticleListItemDTO(
+            id: updatedID,
+            title: "Updated Title",
+            isRead: true
+        )
+        let newArticle = makeArticleListItemDTO(
+            id: newID,
+            title: "New Query Article",
+            isRead: false
+        )
+
+        let mergedEntries = ArticleListSessionMergePolicy.merge(
+            currentEntries: [
+                ArticleListEntry(
+                    article: retainedArticle,
+                    membershipStatus: .retainedAfterRead
+                ),
+                ArticleListEntry(article: staleArticle)
+            ],
+            loadedArticles: [updatedArticle, newArticle],
+            retainedArticleIDs: [],
+            retainsCurrentContent: true,
+            retainedMembershipStatus: .retainedAfterRefresh
+        )
+
+        #expect(mergedEntries.map(\.id) == [retainedID, updatedID, newID])
+        #expect(mergedEntries.map(\.article.title) == ["Read In Session", "Updated Title", "New Query Article"])
+        #expect(mergedEntries.map(\.membershipStatus) == [.retainedAfterRead, .matchesCurrentQuery, .matchesCurrentQuery])
+        #expect(mergedEntries[1].article.isRead)
+    }
+
+    @Test
     func articlesScreenStateBuildsPrimaryFailureForInitialLoad() {
         var state = ArticlesScreenState()
 

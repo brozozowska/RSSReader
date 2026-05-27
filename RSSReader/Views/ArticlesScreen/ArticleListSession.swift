@@ -63,6 +63,63 @@ struct ArticleListSession: Equatable {
     }
 }
 
+enum ArticleListSessionMergePolicy {
+    static func merge(
+        currentEntries: [ArticleListEntry],
+        loadedArticles: [ArticleListItemDTO],
+        retainedArticleIDs: Set<UUID>,
+        retainsCurrentContent: Bool,
+        retainedMembershipStatus: ArticleListEntryMembershipStatus
+    ) -> [ArticleListEntry] {
+        guard retainsCurrentContent else {
+            return loadedArticles.map {
+                ArticleListEntry(article: $0, membershipStatus: .matchesCurrentQuery)
+            }
+        }
+
+        var loadedArticlesByID: [UUID: ArticleListItemDTO] = [:]
+        for loadedArticle in loadedArticles where loadedArticlesByID[loadedArticle.id] == nil {
+            loadedArticlesByID[loadedArticle.id] = loadedArticle
+        }
+
+        var emittedArticleIDs = Set<UUID>()
+        var mergedEntries: [ArticleListEntry] = []
+
+        for currentEntry in currentEntries {
+            if let loadedArticle = loadedArticlesByID[currentEntry.id] {
+                mergedEntries.append(
+                    ArticleListEntry(
+                        article: loadedArticle,
+                        membershipStatus: .matchesCurrentQuery
+                    )
+                )
+                emittedArticleIDs.insert(loadedArticle.id)
+            } else if currentEntry.isRetained || retainedArticleIDs.contains(currentEntry.id) {
+                mergedEntries.append(
+                    ArticleListEntry(
+                        article: currentEntry.article,
+                        membershipStatus: currentEntry.retainedMembershipStatus(
+                            fallback: retainedMembershipStatus
+                        )
+                    )
+                )
+                emittedArticleIDs.insert(currentEntry.id)
+            }
+        }
+
+        for loadedArticle in loadedArticles where emittedArticleIDs.contains(loadedArticle.id) == false {
+            mergedEntries.append(
+                ArticleListEntry(
+                    article: loadedArticle,
+                    membershipStatus: .matchesCurrentQuery
+                )
+            )
+        }
+
+        return mergedEntries
+    }
+}
+
 enum ArticleListEntryMembershipStatus: Equatable {
     case matchesCurrentQuery
     case retainedAfterRead
@@ -88,5 +145,20 @@ struct ArticleListEntry: Identifiable, Equatable {
             article: article,
             membershipStatus: membershipStatus
         )
+    }
+
+    var isRetained: Bool {
+        switch membershipStatus {
+        case .matchesCurrentQuery:
+            false
+        case .retainedAfterRead, .retainedAfterRefresh:
+            true
+        }
+    }
+
+    func retainedMembershipStatus(
+        fallback: ArticleListEntryMembershipStatus
+    ) -> ArticleListEntryMembershipStatus {
+        isRetained ? membershipStatus : fallback
     }
 }

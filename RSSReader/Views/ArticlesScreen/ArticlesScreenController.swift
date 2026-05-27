@@ -227,51 +227,26 @@ final class ArticlesScreenController {
         retainedMembershipStatus: ArticleListEntryMembershipStatus
     ) -> [ArticleListEntry] {
         guard retainsCurrentContent,
-              sessionReadArticleIDs.isEmpty == false,
               ArticlesScreenMutationReducer.articleListFilter(
                 selection: selection,
                 sourcesFilter: sourcesFilter
               ) == .unread else {
-            return loadedArticles.map { ArticleListEntry(article: $0) }
-        }
-
-        var loadedArticlesByID: [UUID: ArticleListItemDTO] = [:]
-        for loadedArticle in loadedArticles where loadedArticlesByID[loadedArticle.id] == nil {
-            loadedArticlesByID[loadedArticle.id] = loadedArticle
-        }
-        var emittedArticleIDs = Set<UUID>()
-        var resolvedEntries: [ArticleListEntry] = []
-
-        for currentEntry in screenState.articleListSession.entries {
-            if let loadedArticle = loadedArticlesByID[currentEntry.id] {
-                resolvedEntries.append(
-                    ArticleListEntry(
-                        article: loadedArticle,
-                        membershipStatus: .matchesCurrentQuery
-                    )
-                )
-                emittedArticleIDs.insert(loadedArticle.id)
-            } else if sessionReadArticleIDs.contains(currentEntry.id) {
-                resolvedEntries.append(
-                    ArticleListEntry(
-                        article: currentEntry.article,
-                        membershipStatus: retainedMembershipStatus
-                    )
-                )
-                emittedArticleIDs.insert(currentEntry.id)
-            }
-        }
-
-        for loadedArticle in loadedArticles where emittedArticleIDs.contains(loadedArticle.id) == false {
-            resolvedEntries.append(
-                ArticleListEntry(
-                    article: loadedArticle,
-                    membershipStatus: .matchesCurrentQuery
-                )
+            return ArticleListSessionMergePolicy.merge(
+                currentEntries: screenState.articleListSession.entries,
+                loadedArticles: loadedArticles,
+                retainedArticleIDs: [],
+                retainsCurrentContent: false,
+                retainedMembershipStatus: retainedMembershipStatus
             )
         }
 
-        return resolvedEntries
+        return ArticleListSessionMergePolicy.merge(
+            currentEntries: screenState.articleListSession.entries,
+            loadedArticles: loadedArticles,
+            retainedArticleIDs: sessionReadArticleIDs,
+            retainsCurrentContent: true,
+            retainedMembershipStatus: retainedMembershipStatus
+        )
     }
 
     private func articlesByApplyingSessionReadPresentation(

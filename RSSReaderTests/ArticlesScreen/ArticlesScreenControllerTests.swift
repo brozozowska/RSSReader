@@ -209,6 +209,68 @@ struct ArticlesScreenControllerTests {
         #expect(controller.screenState.navigationSubtitle == "No Unread Items")
     }
 
+    @Test
+    func articlesScreenControllerMergesFreshQuerySnapshotWithCurrentRetainedEntries() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let articleStateService = try #require(harness.dependencies.articleStateService)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/session-merge.xml"]).first)
+        let retainedArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "session-merge-retained",
+            url: "https://example.com/articles/session-merge-retained",
+            title: "Retained Article"
+        )
+        let currentArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "session-merge-current",
+            url: "https://example.com/articles/session-merge-current",
+            title: "Current Article"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        _ = try articleStateService.markAsRead(
+            feedID: feed.id,
+            articleExternalID: retainedArticle.externalID,
+            at: .now
+        )
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "session-merge-new",
+            url: "https://example.com/articles/session-merge-new",
+            title: "New Article"
+        )
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies,
+            sessionReadArticleIDs: [retainedArticle.id],
+            retainsSessionReadArticles: true,
+            retainedSessionReadMembershipStatus: .retainedAfterRefresh
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.contains { $0.id == retainedArticle.id })
+        #expect(controller.screenState.articles.contains { $0.id == currentArticle.id })
+        #expect(controller.screenState.articles.contains { $0.title == "New Article" })
+        #expect(
+            controller.screenState.articleListSession.entries.first {
+                $0.id == retainedArticle.id
+            }?.membershipStatus == .retainedAfterRefresh
+        )
+        #expect(
+            controller.screenState.articleListSession.entries.filter {
+                $0.membershipStatus == .matchesCurrentQuery
+            }.count == 2
+        )
+    }
+
     func articlesScreenControllerPresentsRefreshFailureFromBatchRefreshResult() async throws {
         let client = ScriptedHTTPClient(
             responsesByURL: [
