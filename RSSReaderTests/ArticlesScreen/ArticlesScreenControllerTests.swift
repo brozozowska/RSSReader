@@ -136,27 +136,20 @@ struct ArticlesScreenControllerTests {
             articleExternalID: article.externalID,
             at: .now
         )
+        controller.markArticleAsReadInCurrentSession(article.id)
 
         await controller.load(
             selection: .feed(feed.id),
             sourcesFilter: .unread,
             dependencies: harness.dependencies,
-            sessionReadArticleIDs: [article.id],
             retainsSessionReadArticles: true
         )
 
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.articles.map(\.id) == [article.id])
         #expect(controller.screenState.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
-        #expect(controller.screenState.articles.first?.isRead == false)
+        #expect(controller.screenState.articles.first?.isRead == true)
         #expect(controller.screenState.navigationSubtitle == "No Unread Items")
-        #expect(
-            controller.screenState
-                .derivedViewState(searchText: "", sessionReadArticleIDs: [article.id])
-                .visibleArticles
-                .first?
-                .isRead == true
-        )
 
         let newEntryController = ArticlesScreenController()
         await newEntryController.load(
@@ -193,12 +186,12 @@ struct ArticlesScreenControllerTests {
             articleExternalID: article.externalID,
             at: .now
         )
+        controller.markArticleAsReadInCurrentSession(article.id)
 
         await controller.load(
             selection: .feed(feed.id),
             sourcesFilter: .unread,
             dependencies: harness.dependencies,
-            sessionReadArticleIDs: [article.id],
             retainsSessionReadArticles: true,
             retainedSessionReadMembershipStatus: .retainedAfterRefresh
         )
@@ -239,6 +232,7 @@ struct ArticlesScreenControllerTests {
             articleExternalID: retainedArticle.externalID,
             at: .now
         )
+        controller.markArticleAsReadInCurrentSession(retainedArticle.id)
         _ = try harness.insertArticle(
             feed: feed,
             externalID: "session-merge-new",
@@ -250,7 +244,6 @@ struct ArticlesScreenControllerTests {
             selection: .feed(feed.id),
             sourcesFilter: .unread,
             dependencies: harness.dependencies,
-            sessionReadArticleIDs: [retainedArticle.id],
             retainsSessionReadArticles: true,
             retainedSessionReadMembershipStatus: .retainedAfterRefresh
         )

@@ -440,6 +440,32 @@ struct ArticlesScreenStateTests {
     }
 
     @Test
+    func articlesScreenStateMarksUnreadSessionArticleAsReadWithoutRemovingIt() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "1 Unread Item",
+            sessionContext: ArticleListSession.Context(
+                selection: .unread,
+                sourcesFilter: .allItems
+            )
+        )
+
+        state.markArticleAsReadInCurrentSession(articleID: unreadItem.id)
+
+        #expect(state.phase == .loaded)
+        #expect(state.articles.map(\.id) == [unreadItem.id])
+        #expect(state.articles.first?.isRead == true)
+        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
+        #expect(state.navigationSubtitle == "No Unread Items")
+        #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
+    }
+
+    @Test
     func articlesScreenStateRemovesArticleRowForReadActionInUnreadSelection() {
         var state = ArticlesScreenState()
         let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)

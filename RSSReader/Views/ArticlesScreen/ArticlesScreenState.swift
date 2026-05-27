@@ -88,7 +88,10 @@ struct ArticlesScreenState {
             phase = .loading
             refreshState = .idle
         } else {
-            articleListSession.replaceArticles(articles, context: resolvedSessionContext)
+            articleListSession.replaceEntries(
+                articleListSession.entries,
+                context: resolvedSessionContext
+            )
             refreshState = .refreshing
         }
 
@@ -230,6 +233,24 @@ struct ArticlesScreenState {
 
         self.navigationSubtitle = navigationSubtitle
         refreshState = .idle
+
+        if selection == nil {
+            phase = .noSelection
+        } else if articles.isEmpty {
+            phase = .empty
+        } else {
+            phase = .loaded
+        }
+
+        updateToolbarActions(for: selection)
+    }
+
+    mutating func markArticleAsReadInCurrentSession(articleID: UUID) {
+        articleListSession.markArticleAsReadInCurrentSession(id: articleID)
+        navigationSubtitle = ArticlesScreenSubtitleResolver.resolve(
+            articles: articles,
+            sourcesFilter: articleListSession.context.sourcesFilter
+        )
 
         if selection == nil {
             phase = .noSelection

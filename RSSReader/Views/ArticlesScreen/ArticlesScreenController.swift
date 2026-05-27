@@ -17,11 +17,14 @@ final class ArticlesScreenController {
         lastLoadedSourceSelection != selection
     }
 
+    func markArticleAsReadInCurrentSession(_ articleID: UUID) {
+        screenState.markArticleAsReadInCurrentSession(articleID: articleID)
+    }
+
     func load(
         selection: SidebarSelection?,
         sourcesFilter: SourcesFilter,
         dependencies: AppDependencies,
-        sessionReadArticleIDs: Set<UUID> = [],
         retainsSessionReadArticles: Bool = false,
         retainedSessionReadMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead
     ) async {
@@ -79,14 +82,10 @@ final class ArticlesScreenController {
                 loadedArticles,
                 selection: selection,
                 sourcesFilter: sourcesFilter,
-                sessionReadArticleIDs: sessionReadArticleIDs,
                 retainsCurrentContent: sourceSelectionChanged == false && retainsSessionReadArticles,
                 retainedMembershipStatus: retainedSessionReadMembershipStatus
             )
-            let subtitleArticles = articlesByApplyingSessionReadPresentation(
-                to: resolvedEntries.map(\.article),
-                sessionReadArticleIDs: sessionReadArticleIDs
-            )
+            let subtitleArticles = resolvedEntries.map(\.article)
 
             guard currentLoadGeneration == loadGeneration else { return }
             screenState.applyLoadedEntries(
@@ -222,7 +221,6 @@ final class ArticlesScreenController {
         _ loadedArticles: [ArticleListItemDTO],
         selection: SidebarSelection?,
         sourcesFilter: SourcesFilter,
-        sessionReadArticleIDs: Set<UUID>,
         retainsCurrentContent: Bool,
         retainedMembershipStatus: ArticleListEntryMembershipStatus
     ) -> [ArticleListEntry] {
@@ -232,38 +230,21 @@ final class ArticlesScreenController {
                 sourcesFilter: sourcesFilter
               ) == .unread else {
             return ArticleListSessionMergePolicy.merge(
-                currentEntries: screenState.articleListSession.entries,
-                loadedArticles: loadedArticles,
-                retainedArticleIDs: [],
-                retainsCurrentContent: false,
-                retainedMembershipStatus: retainedMembershipStatus
+            currentEntries: screenState.articleListSession.entries,
+            loadedArticles: loadedArticles,
+            retainedArticleIDs: [],
+            retainsCurrentContent: false,
+            retainedMembershipStatus: retainedMembershipStatus
             )
         }
 
         return ArticleListSessionMergePolicy.merge(
             currentEntries: screenState.articleListSession.entries,
             loadedArticles: loadedArticles,
-            retainedArticleIDs: sessionReadArticleIDs,
+            retainedArticleIDs: [],
             retainsCurrentContent: true,
             retainedMembershipStatus: retainedMembershipStatus
         )
-    }
-
-    private func articlesByApplyingSessionReadPresentation(
-        to articles: [ArticleListItemDTO],
-        sessionReadArticleIDs: Set<UUID>
-    ) -> [ArticleListItemDTO] {
-        guard sessionReadArticleIDs.isEmpty == false else {
-            return articles
-        }
-
-        return articles.map { article in
-            guard sessionReadArticleIDs.contains(article.id) else {
-                return article
-            }
-
-            return article.updating(isRead: true, isStarred: article.isStarred)
-        }
     }
 
     private func refreshFailureMessage(for result: FeedRefreshBatchResult) -> String? {

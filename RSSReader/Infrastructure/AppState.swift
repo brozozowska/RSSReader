@@ -86,6 +86,13 @@ struct ArticleListScrollPositionKey: Hashable, Sendable {
     let sourcesFilter: SourcesFilter
 }
 
+struct ArticleReadOnOpenEvent: Equatable, Sendable {
+    let id = UUID()
+    let articleID: UUID
+    let sourceSelection: SourceSelection?
+    let sourcesFilter: SourcesFilter
+}
+
 enum AppContentReloadTrigger: Equatable, Sendable {
     case remoteSyncImport
     case backgroundRefresh
@@ -103,15 +110,13 @@ public final class AppState {
     var articleNavigationContextIDs: [UUID] = []
     private var articleNavigationContextSourceSelection: SidebarSelection?
     private var articleNavigationContextSourcesFilter: SourcesFilter = .allItems
-    private(set) var articleListSessionReadArticleIDs: Set<UUID> = []
-    private var articleListSessionReadSourceSelection: SidebarSelection?
-    private var articleListSessionReadSourcesFilter: SourcesFilter = .allItems
     private var articleListScrollPositionIDs: [ArticleListScrollPositionKey: UUID] = [:]
     var articleListReloadID = UUID()
     var sourcesSidebarReloadID = UUID()
     var sourceIconReloadID = UUID()
     var sourceIconCacheResetID = UUID()
     var articleScreenReloadID = UUID()
+    var articleReadOnOpenEvent: ArticleReadOnOpenEvent?
     var lastContentReloadTrigger: AppContentReloadTrigger?
 
     var selectedSidebarSelection: SidebarSelection? {
@@ -186,7 +191,6 @@ public final class AppState {
         }
 
         selectedSourcesFilter = filter
-        clearArticleListSessionReadArticles()
     }
 
     func selectArticle(_ articleID: UUID?) {
@@ -212,36 +216,12 @@ public final class AppState {
         articleListReloadID = UUID()
     }
 
-    func recordArticleReadInCurrentListSession(_ articleID: UUID) {
-        let sourceSelection = selectedSidebarSelection
-        let sourcesFilter = selectedSourcesFilter
-
-        if articleListSessionReadSourceSelection != sourceSelection
-            || articleListSessionReadSourcesFilter != sourcesFilter {
-            articleListSessionReadArticleIDs = []
-            articleListSessionReadSourceSelection = sourceSelection
-            articleListSessionReadSourcesFilter = sourcesFilter
-        }
-
-        articleListSessionReadArticleIDs.insert(articleID)
-    }
-
-    func currentArticleListSessionReadArticleIDs(
-        sourceSelection: SidebarSelection?,
-        sourcesFilter: SourcesFilter
-    ) -> Set<UUID> {
-        guard articleListSessionReadSourceSelection == sourceSelection,
-              articleListSessionReadSourcesFilter == sourcesFilter else {
-            return []
-        }
-
-        return articleListSessionReadArticleIDs
-    }
-
-    func clearArticleListSessionReadArticles() {
-        articleListSessionReadArticleIDs = []
-        articleListSessionReadSourceSelection = selectedSidebarSelection
-        articleListSessionReadSourcesFilter = selectedSourcesFilter
+    func recordArticleReadOnOpenInCurrentListSession(_ articleID: UUID) {
+        articleReadOnOpenEvent = ArticleReadOnOpenEvent(
+            articleID: articleID,
+            sourceSelection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter
+        )
     }
 
     func articleListScrollPositionID(
@@ -308,7 +288,6 @@ public final class AppState {
         guard previousSourceSelection != sourceSelection else { return }
 
         readingNavigation.selectSource(sourceSelection)
-        clearArticleListSessionReadArticles()
         clearArticleNavigationContext()
         requestArticleListReload()
     }

@@ -169,7 +169,7 @@ struct ReaderView: View {
                 articleID: currentArticleID,
                 dependencies: dependencies,
                 preservesCurrentArticleDuringLoading: adjacentArticleTransitionDirection != nil,
-                articleReadOnOpenHandler: recordArticleReadInCurrentListSession
+                articleReadOnOpenHandler: recordArticleReadOnOpenInCurrentListSession
             )
             pendingAdjacentArticleOverscrollDirection = nil
             adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
@@ -427,7 +427,7 @@ struct ReaderView: View {
             articleID: currentArticleID,
             dependencies: dependencies,
             preservesCurrentArticleDuringLoading: true,
-            articleReadOnOpenHandler: recordArticleReadInCurrentListSession
+            articleReadOnOpenHandler: recordArticleReadOnOpenInCurrentListSession
         )
         pendingAdjacentArticleOverscrollDirection = nil
         adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
@@ -441,8 +441,8 @@ struct ReaderView: View {
     }
 
     @MainActor
-    private func recordArticleReadInCurrentListSession(_ articleID: UUID) {
-        appState.recordArticleReadInCurrentListSession(articleID)
+    private func recordArticleReadOnOpenInCurrentListSession(_ articleID: UUID) {
+        appState.recordArticleReadOnOpenInCurrentListSession(articleID)
     }
 
     private var actionHandlers: ArticleScreenActionHandlers {

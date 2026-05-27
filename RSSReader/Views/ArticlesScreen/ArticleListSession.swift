@@ -58,6 +58,27 @@ struct ArticleListSession: Equatable {
         }
     }
 
+    mutating func markArticleAsReadInCurrentSession(
+        id articleID: UUID,
+        retainedMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead
+    ) {
+        entries = entries.map { entry in
+            guard entry.id == articleID else {
+                return entry
+            }
+
+            return ArticleListEntry(
+                article: entry.article.updating(
+                    isRead: true,
+                    isStarred: entry.article.isStarred
+                ),
+                membershipStatus: context.articleListFilter == .unread
+                    ? retainedMembershipStatus
+                    : entry.membershipStatus
+            )
+        }
+    }
+
     mutating func removeArticle(id articleID: UUID) {
         entries.removeAll { $0.id == articleID }
     }
@@ -98,9 +119,7 @@ enum ArticleListSessionMergePolicy {
                 mergedEntries.append(
                     ArticleListEntry(
                         article: currentEntry.article,
-                        membershipStatus: currentEntry.retainedMembershipStatus(
-                            fallback: retainedMembershipStatus
-                        )
+                        membershipStatus: retainedMembershipStatus
                     )
                 )
                 emittedArticleIDs.insert(currentEntry.id)
@@ -154,11 +173,5 @@ struct ArticleListEntry: Identifiable, Equatable {
         case .retainedAfterRead, .retainedAfterRefresh:
             true
         }
-    }
-
-    func retainedMembershipStatus(
-        fallback: ArticleListEntryMembershipStatus
-    ) -> ArticleListEntryMembershipStatus {
-        isRetained ? membershipStatus : fallback
     }
 }

@@ -171,48 +171,34 @@ struct ReadingShellAppStateTests {
     }
 
     @Test
-    func readingShellTracksSessionReadArticlesWithinCurrentListContext() {
+    func readingShellPublishesReadOnOpenEventWithinCurrentListContext() {
         let appState = AppState()
         let feedID = UUID()
         let articleID = UUID()
 
         appState.selectReadingSource(.feed(feedID))
         appState.selectSourcesFilter(.unread)
-        appState.recordArticleReadInCurrentListSession(articleID)
+        appState.recordArticleReadOnOpenInCurrentListSession(articleID)
 
-        #expect(
-            appState.currentArticleListSessionReadArticleIDs(
-                sourceSelection: .feed(feedID),
-                sourcesFilter: .unread
-            ) == [articleID]
-        )
-        #expect(
-            appState.currentArticleListSessionReadArticleIDs(
-                sourceSelection: .feed(feedID),
-                sourcesFilter: .allItems
-            ).isEmpty
-        )
+        #expect(appState.articleReadOnOpenEvent?.articleID == articleID)
+        #expect(appState.articleReadOnOpenEvent?.sourceSelection == .feed(feedID))
+        #expect(appState.articleReadOnOpenEvent?.sourcesFilter == .unread)
     }
 
     @Test
-    func readingShellClearsSessionReadArticlesWhenListContextEnds() {
+    func readingShellPublishesDistinctReadOnOpenEvents() {
         let appState = AppState()
-        let firstFeedID = UUID()
-        let secondFeedID = UUID()
-        let articleID = UUID()
+        let firstArticleID = UUID()
+        let secondArticleID = UUID()
 
-        appState.selectReadingSource(.feed(firstFeedID))
-        appState.selectSourcesFilter(.unread)
-        appState.recordArticleReadInCurrentListSession(articleID)
+        appState.recordArticleReadOnOpenInCurrentListSession(firstArticleID)
+        let firstEvent = appState.articleReadOnOpenEvent
 
-        appState.selectReadingSource(.feed(secondFeedID))
+        appState.recordArticleReadOnOpenInCurrentListSession(secondArticleID)
 
-        #expect(appState.articleListSessionReadArticleIDs.isEmpty)
-
-        appState.recordArticleReadInCurrentListSession(articleID)
-        appState.selectSourcesFilter(.allItems)
-
-        #expect(appState.articleListSessionReadArticleIDs.isEmpty)
+        #expect(firstEvent?.articleID == firstArticleID)
+        #expect(appState.articleReadOnOpenEvent?.articleID == secondArticleID)
+        #expect(appState.articleReadOnOpenEvent?.id != firstEvent?.id)
     }
 
     @Test

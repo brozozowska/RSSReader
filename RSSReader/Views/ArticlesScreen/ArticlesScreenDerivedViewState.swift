@@ -13,31 +13,26 @@ struct ArticlesScreenDerivedViewState {
 extension ArticlesScreenState {
     func derivedViewState(
         searchText: String,
-        sourcesFilter: SourcesFilter = .allItems,
-        sessionReadArticleIDs: Set<UUID> = []
+        sourcesFilter: SourcesFilter = .allItems
     ) -> ArticlesScreenDerivedViewState {
         let normalizedSearchText = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         let visibleArticles = filteredArticles(matching: normalizedSearchText)
-        let presentationArticles = articlesByApplyingSessionReadPresentation(
-            to: visibleArticles,
-            sessionReadArticleIDs: sessionReadArticleIDs
-        )
 
         return ArticlesScreenDerivedViewState(
-            visibleArticles: presentationArticles,
-            sections: ArticlesDaySectionsBuilder.build(from: presentationArticles),
+            visibleArticles: visibleArticles,
+            sections: ArticlesDaySectionsBuilder.build(from: visibleArticles),
             navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
-                articles: presentationArticles,
+                articles: visibleArticles,
                 sourcesFilter: sourcesFilter
             ),
             toolbarActions: ArticlesScreenToolbarActionsState(
                 selection: selection,
-                visibleArticles: presentationArticles,
+                visibleArticles: visibleArticles,
                 phase: phase
             ),
             searchPlaceholder: searchPlaceholder(
                 normalizedSearchText: normalizedSearchText,
-                visibleArticles: presentationArticles
+                visibleArticles: visibleArticles
             ),
             refreshBanner: refreshBannerState,
             primaryLoadingState: primaryLoadingState
@@ -53,23 +48,6 @@ extension ArticlesScreenState {
             [article.feedTitle, article.title, article.summary, article.author]
                 .compactMap { $0 }
                 .contains { $0.localizedCaseInsensitiveContains(normalizedSearchText) }
-        }
-    }
-
-    private func articlesByApplyingSessionReadPresentation(
-        to articles: [ArticleListItemDTO],
-        sessionReadArticleIDs: Set<UUID>
-    ) -> [ArticleListItemDTO] {
-        guard sessionReadArticleIDs.isEmpty == false else {
-            return articles
-        }
-
-        return articles.map { article in
-            guard sessionReadArticleIDs.contains(article.id) else {
-                return article
-            }
-
-            return article.updating(isRead: true, isStarred: article.isStarred)
         }
     }
 

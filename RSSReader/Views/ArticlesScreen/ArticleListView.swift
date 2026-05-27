@@ -18,7 +18,6 @@ struct ArticleListView: View {
     @State private var controller: ArticlesScreenController
     @State private var searchText = ""
     @State private var articleListIdentity = UUID()
-    @State private var deferredSessionReloadTask: Task<Void, Never>?
     @State private var refreshStartHapticTrigger = 0
 
     init(
@@ -43,14 +42,9 @@ struct ArticleListView: View {
     // MARK: Body
 
     var body: some View {
-        let sessionReadArticleIDs = appState.currentArticleListSessionReadArticleIDs(
-            sourceSelection: selectedSidebarSelection,
-            sourcesFilter: selectedSourcesFilter
-        )
         let derivedViewState = controller.screenState.derivedViewState(
             searchText: searchText,
-            sourcesFilter: selectedSourcesFilter,
-            sessionReadArticleIDs: sessionReadArticleIDs
+            sourcesFilter: selectedSourcesFilter
         )
 
         ArticleListContentView(
@@ -136,8 +130,8 @@ struct ArticleListView: View {
                 sourcesFilter: selectedSourcesFilter
             )
         }
-        .onChange(of: appState.articleListSessionReadArticleIDs) { _, _ in
-            syncSelectionAfterSessionReadPresentationChange()
+        .onChange(of: appState.articleReadOnOpenEvent) { _, event in
+            applyArticleReadOnOpenEvent(event)
         }
         .onChange(of: appState.selectedArticleID) { oldValue, newValue in
             if oldValue != nil && newValue == nil {
@@ -160,16 +154,11 @@ struct ArticleListView: View {
     ) async {
         let loadingSidebarSelection = selectedSidebarSelection
         let loadingSourcesFilter = selectedSourcesFilter
-        let sessionReadArticleIDs = appState.currentArticleListSessionReadArticleIDs(
-            sourceSelection: loadingSidebarSelection,
-            sourcesFilter: loadingSourcesFilter
-        )
 
         await controller.load(
             selection: loadingSidebarSelection,
             sourcesFilter: loadingSourcesFilter,
             dependencies: dependencies,
-            sessionReadArticleIDs: sessionReadArticleIDs,
             retainsSessionReadArticles: retainsSessionReadArticles,
             retainedSessionReadMembershipStatus: retainedSessionReadMembershipStatus
         )
@@ -184,14 +173,6 @@ struct ArticleListView: View {
         syncArticleNavigationContext(visibleArticleIDs)
 
     }
-
-    @MainActor
-    private func syncSelectionAfterSessionReadPresentationChange() {
-        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
-        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
-        syncArticleNavigationContext(visibleArticleIDs)
-    }
-
     // MARK: Selection
 
     private func stabilizedSelection(availableArticleIDs: [UUID]) -> UUID? {
@@ -341,8 +322,21 @@ struct ArticleListView: View {
 
     @MainActor
     private func endCurrentArticleListSession() {
-        appState.clearArticleListSessionReadArticles()
         appState.requestArticleListReload()
+    }
+
+    @MainActor
+    private func applyArticleReadOnOpenEvent(_ event: ArticleReadOnOpenEvent?) {
+        guard let event else { return }
+        guard event.sourceSelection == selectedSidebarSelection,
+              event.sourcesFilter == selectedSourcesFilter else {
+            return
+        }
+
+        controller.markArticleAsReadInCurrentSession(event.articleID)
+        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
     }
 
     @ViewBuilder
@@ -404,13 +398,6 @@ struct ArticleListView: View {
         guard isPreviewMode == false else { return }
 
         refreshStartHapticTrigger += 1
-        deferredSessionReloadTask?.cancel()
-        deferredSessionReloadTask = nil
-
-        let sessionReadArticleIDs = appState.currentArticleListSessionReadArticleIDs(
-            sourceSelection: selectedSidebarSelection,
-            sourcesFilter: selectedSourcesFilter
-        )
 
         await controller.refreshCurrentSelection(
             selection: selectedSidebarSelection,
@@ -420,30 +407,9 @@ struct ArticleListView: View {
         )
 
         await loadArticles(
-            retainsSessionReadArticles: sessionReadArticleIDs.isEmpty == false,
+            retainsSessionReadArticles: true,
             retainedSessionReadMembershipStatus: .retainedAfterRefresh
         )
-
-        if sessionReadArticleIDs.isEmpty == false {
-            scheduleDeferredSessionReload()
-        }
-    }
-
-    private func scheduleDeferredSessionReload() {
-        let deferredSelection = selectedSidebarSelection
-        let deferredSourcesFilter = selectedSourcesFilter
-
-        deferredSessionReloadTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: ArticleListDeferredSessionReload.delayNanoseconds)
-            guard Task.isCancelled == false else { return }
-            guard deferredSelection == appState.selectedSidebarSelection,
-                  deferredSourcesFilter == appState.selectedSourcesFilter else {
-                return
-            }
-
-            appState.clearArticleListSessionReadArticles()
-            await loadArticles(retainsSessionReadArticles: false)
-        }
     }
 
     private func resetArticleListIdentity() {
@@ -473,11 +439,6 @@ private struct ArticleListSearchToolbarModifier: ViewModifier {
             content
         }
     }
-}
-
-private enum ArticleListDeferredSessionReload {
-    static let delayMilliseconds = 180
-    static let delayNanoseconds: UInt64 = UInt64(delayMilliseconds) * 1_000_000
 }
 
 private extension View {
