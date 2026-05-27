@@ -241,6 +241,31 @@ struct ArticlesScreenStateTests {
     }
 
     @Test
+    func articlesScreenStateDoesNotShowCustomRefreshBannerDuringNativeRefresh() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.beginLoading(
+            for: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "1 Unread Item",
+            resetsContent: false
+        )
+
+        let derivedViewState = state.derivedViewState(searchText: "")
+
+        #expect(state.refreshState == .refreshing)
+        #expect(derivedViewState.primaryLoadingState == nil)
+        #expect(derivedViewState.refreshBanner == nil)
+    }
+
+    @Test
     func articlesScreenStateClearsRefreshFeedbackWhenPrimaryReloadStarts() {
         var state = ArticlesScreenState()
         let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)

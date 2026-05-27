@@ -399,10 +399,13 @@ struct ArticleListView: View {
             requestsArticleListReload: false
         )
 
-        await loadArticles(
-            retainsSessionReadArticles: false,
-            retainedSessionReadMembershipStatus: .retainedAfterRefresh
-        )
+        Task { @MainActor in
+            await Task.yield()
+            await loadArticles(
+                retainsSessionReadArticles: false,
+                retainedSessionReadMembershipStatus: .retainedAfterRefresh
+            )
+        }
     }
 
     @MainActor

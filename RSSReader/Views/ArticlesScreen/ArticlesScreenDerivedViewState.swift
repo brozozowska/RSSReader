@@ -75,14 +75,6 @@ extension ArticlesScreenState {
     }
 
     private var refreshBannerState: ArticlesScreenRefreshBannerState? {
-        if refreshState == .refreshing && articles.isEmpty == false {
-            return ArticlesScreenRefreshBannerState(
-                style: .refreshing,
-                title: "Refreshing Articles",
-                message: "Updating the current selection."
-            )
-        }
-
         guard let refreshFeedback else {
             return nil
         }
