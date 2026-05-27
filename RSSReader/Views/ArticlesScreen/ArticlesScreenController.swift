@@ -31,6 +31,10 @@ final class ArticlesScreenController {
             selection: selection,
             dependencies: dependencies
         )
+        let sessionContext = ArticleListSession.Context(
+            selection: selection,
+            sourcesFilter: sourcesFilter
+        )
         let loadingSubtitle = resolveNavigationSubtitle(
             for: screenState.articles,
             sourcesFilter: sourcesFilter
@@ -39,7 +43,8 @@ final class ArticlesScreenController {
             for: selection,
             navigationTitle: navigationTitle,
             navigationSubtitle: loadingSubtitle,
-            resetsContent: sourceSelectionChanged
+            resetsContent: sourceSelectionChanged,
+            sessionContext: sessionContext
         )
 
         defer {
@@ -54,7 +59,8 @@ final class ArticlesScreenController {
                 selection: selection,
                 navigationTitle: navigationTitle,
                 navigationSubtitle: loadingSubtitle,
-                retainsContent: false
+                retainsContent: false,
+                sessionContext: sessionContext
             )
             return
         }
@@ -88,7 +94,8 @@ final class ArticlesScreenController {
                 navigationSubtitle: resolveNavigationSubtitle(
                     for: subtitleArticles,
                     sourcesFilter: sourcesFilter
-                )
+                ),
+                sessionContext: sessionContext
             )
         } catch {
             guard currentLoadGeneration == loadGeneration else { return }
@@ -98,7 +105,8 @@ final class ArticlesScreenController {
                 selection: selection,
                 navigationTitle: navigationTitle,
                 navigationSubtitle: loadingSubtitle,
-                retainsContent: sourceSelectionChanged == false
+                retainsContent: sourceSelectionChanged == false,
+                sessionContext: sessionContext
             )
         }
     }

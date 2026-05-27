@@ -1,7 +1,7 @@
 import Foundation
 
 struct ArticlesScreenState {
-    private(set) var articles: [ArticleListItemDTO] = []
+    private(set) var articleListSession = ArticleListSession(context: .noSelection)
     private(set) var selection: SidebarSelection?
     private(set) var navigationTitle = "Articles"
     private(set) var navigationSubtitle = "No Unread Items"
@@ -14,6 +14,10 @@ struct ArticlesScreenState {
         phase: .noSelection
     )
     var pendingConfirmation: ArticlesScreenConfirmationDialog?
+
+    var articles: [ArticleListItemDTO] {
+        articleListSession.articles
+    }
 
     var placeholder: ArticlesScreenPlaceholderState? {
         switch phase {
@@ -55,15 +59,20 @@ struct ArticlesScreenState {
         for selection: SidebarSelection?,
         navigationTitle: String,
         navigationSubtitle: String,
-        resetsContent: Bool
+        resetsContent: Bool,
+        sessionContext: ArticleListSession.Context? = nil
     ) {
         pendingConfirmation = nil
         self.selection = selection
         self.navigationTitle = navigationTitle
         self.navigationSubtitle = navigationSubtitle
+        let resolvedSessionContext = resolvedContext(
+            selection: selection,
+            sessionContext: sessionContext
+        )
 
         guard selection != nil else {
-            articles = []
+            articleListSession.replaceArticles([], context: resolvedSessionContext)
             phase = .noSelection
             refreshState = .idle
             refreshFeedback = nil
@@ -74,11 +83,12 @@ struct ArticlesScreenState {
         if resetsContent || articles.isEmpty {
             refreshFeedback = nil
             if resetsContent {
-                articles = []
+                articleListSession.replaceArticles([], context: resolvedSessionContext)
             }
             phase = .loading
             refreshState = .idle
         } else {
+            articleListSession.replaceArticles(articles, context: resolvedSessionContext)
             refreshState = .refreshing
         }
 
@@ -89,12 +99,19 @@ struct ArticlesScreenState {
         _ loadedArticles: [ArticleListItemDTO],
         selection: SidebarSelection?,
         navigationTitle: String,
-        navigationSubtitle: String
+        navigationSubtitle: String,
+        sessionContext: ArticleListSession.Context? = nil
     ) {
         self.selection = selection
         self.navigationTitle = navigationTitle
         self.navigationSubtitle = navigationSubtitle
-        articles = loadedArticles
+        articleListSession.replaceArticles(
+            loadedArticles,
+            context: resolvedContext(
+                selection: selection,
+                sessionContext: sessionContext
+            )
+        )
         refreshState = .idle
         refreshFeedback = nil
 
@@ -114,22 +131,27 @@ struct ArticlesScreenState {
         selection: SidebarSelection?,
         navigationTitle: String,
         navigationSubtitle: String,
-        retainsContent: Bool
+        retainsContent: Bool,
+        sessionContext: ArticleListSession.Context? = nil
     ) {
         self.selection = selection
         self.navigationTitle = navigationTitle
         self.navigationSubtitle = navigationSubtitle
+        let resolvedSessionContext = resolvedContext(
+            selection: selection,
+            sessionContext: sessionContext
+        )
         refreshState = .idle
 
         if retainsContent && articles.isEmpty == false {
             phase = .loaded
             refreshFeedback = ArticlesScreenRefreshFeedback(message: message)
         } else if selection == nil {
-            articles = []
+            articleListSession.replaceArticles([], context: resolvedSessionContext)
             phase = .noSelection
             refreshFeedback = nil
         } else {
-            articles = []
+            articleListSession.replaceArticles([], context: resolvedSessionContext)
             phase = .failed(message)
             refreshFeedback = nil
         }
@@ -159,7 +181,10 @@ struct ArticlesScreenState {
         _ updatedArticles: [ArticleListItemDTO],
         navigationSubtitle: String
     ) {
-        articles = updatedArticles
+        articleListSession.replaceArticles(
+            updatedArticles,
+            context: articleListSession.context
+        )
         self.navigationSubtitle = navigationSubtitle
         pendingConfirmation = nil
         refreshState = .idle
@@ -182,11 +207,9 @@ struct ArticlesScreenState {
     ) {
         switch mutation {
         case .update(let updatedArticle):
-            articles = articles.map { article in
-                article.id == articleID ? updatedArticle : article
-            }
+            articleListSession.updateArticle(updatedArticle)
         case .remove:
-            articles.removeAll { $0.id == articleID }
+            articleListSession.removeArticle(id: articleID)
         }
 
         self.navigationSubtitle = navigationSubtitle
@@ -208,6 +231,16 @@ struct ArticlesScreenState {
             selection: selection,
             visibleArticles: articles,
             phase: phase
+        )
+    }
+
+    private func resolvedContext(
+        selection: SidebarSelection?,
+        sessionContext: ArticleListSession.Context?
+    ) -> ArticleListSession.Context {
+        sessionContext ?? ArticleListSession.Context(
+            selection: selection,
+            sourcesFilter: articleListSession.context.sourcesFilter
         )
     }
 

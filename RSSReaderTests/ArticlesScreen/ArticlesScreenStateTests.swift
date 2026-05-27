@@ -12,6 +12,8 @@ struct ArticlesScreenStateTests {
         #expect(state.phase == .noSelection)
         #expect(state.navigationTitle == "Articles")
         #expect(state.navigationSubtitle == "No Unread Items")
+        #expect(state.articleListSession.context == .noSelection)
+        #expect(state.articleListSession.entries.isEmpty)
         #expect(state.placeholder?.title == "No Source Selected")
         #expect(state.toolbarActions.showsSearchAction == false)
         #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
@@ -52,6 +54,29 @@ struct ArticlesScreenStateTests {
         #expect(state.navigationSubtitle == "0 Starred Items")
         #expect(state.placeholder?.title == "No Articles")
         #expect(state.placeholder?.description == "You have not starred any articles yet.")
+    }
+
+    @Test
+    func articlesScreenStateMaterializesLoadedArticlesIntoSessionSnapshot() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+        let context = ArticleListSession.Context(
+            selection: .feed(unreadItem.feedID),
+            sourcesFilter: .unread
+        )
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item",
+            sessionContext: context
+        )
+
+        #expect(state.articleListSession.context == context)
+        #expect(state.articleListSession.context.articleListFilter == .unread)
+        #expect(state.articleListSession.entries.map(\.id) == [unreadItem.id])
+        #expect(state.articles.map(\.id) == [unreadItem.id])
     }
 
     @Test
@@ -334,6 +359,8 @@ struct ArticlesScreenStateTests {
 
         #expect(state.phase == .loaded)
         #expect(state.navigationSubtitle == "0 Unread Items")
+        #expect(state.articleListSession.entries.count == 1)
+        #expect(state.articleListSession.entries.first?.article.isRead == true)
         #expect(state.articles.count == 1)
         #expect(state.articles.first?.isRead == true)
         #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
