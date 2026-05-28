@@ -168,6 +168,41 @@ struct ArticlesScreenPresentationTests {
     }
 
     @Test
+    func articleListCustomRefreshPullPolicyMapsTopOverscrollToProgress() {
+        let restingGeometry = ArticleListCustomRefreshGeometry(
+            contentOffsetY: -12,
+            contentInsetTop: 12
+        )
+        let partialPullGeometry = ArticleListCustomRefreshGeometry(
+            contentOffsetY: -48,
+            contentInsetTop: 12
+        )
+        let readyPullGeometry = ArticleListCustomRefreshGeometry(
+            contentOffsetY: -120,
+            contentInsetTop: 12
+        )
+
+        #expect(
+            ArticleListCustomRefreshPullPolicy.progress(
+                for: restingGeometry,
+                threshold: 72
+            ) == 0
+        )
+        #expect(
+            ArticleListCustomRefreshPullPolicy.progress(
+                for: partialPullGeometry,
+                threshold: 72
+            ) == 0.5
+        )
+        #expect(
+            ArticleListCustomRefreshPullPolicy.progress(
+                for: readyPullGeometry,
+                threshold: 72
+            ) == 1
+        )
+    }
+
+    @Test
     func articlesDaySectionsBuilderGroupsArticlesByDayAndPreservesVisibleOrder() {
         let calendar = Calendar.current
         let now = Date()

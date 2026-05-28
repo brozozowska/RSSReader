@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 enum ArticlesScreenPhase: Equatable {
     case noSelection
@@ -69,6 +70,38 @@ struct ArticlesScreenCustomRefreshState: Equatable {
             phase: .pulling,
             pullProgress: normalizedProgress
         )
+    }
+}
+
+struct ArticleListCustomRefreshGeometry: Equatable {
+    var contentOffsetY: CGFloat
+    var contentInsetTop: CGFloat
+
+    init(
+        contentOffsetY: CGFloat = 0,
+        contentInsetTop: CGFloat = 0
+    ) {
+        self.contentOffsetY = contentOffsetY
+        self.contentInsetTop = contentInsetTop
+    }
+
+    var topOverscrollDistance: CGFloat {
+        max(0, -(contentOffsetY + contentInsetTop))
+    }
+}
+
+enum ArticleListCustomRefreshPullPolicy {
+    static let pullThreshold: CGFloat = 72
+
+    static func progress(
+        for geometry: ArticleListCustomRefreshGeometry,
+        threshold: CGFloat = pullThreshold
+    ) -> Double {
+        guard threshold > 0 else {
+            return 0
+        }
+
+        return min(Double(geometry.topOverscrollDistance / threshold), 1)
     }
 }
 

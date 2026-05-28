@@ -49,9 +49,11 @@ struct ArticleListView: View {
         ArticleListContentView(
             sections: derivedViewState.sections,
             visibleArticleIDs: derivedViewState.visibleArticles.map(\.id),
+            customRefreshState: derivedViewState.customRefreshState,
             selection: $selection,
             scrollPositionID: articleListScrollPositionBinding,
-            refreshAction: refreshCurrentSelection,
+            customRefreshPullProgressChanged: updateCustomRefreshPullProgress,
+            customRefreshReleaseAction: triggerCustomRefresh,
             toggleReadStatusAction: toggleArticleReadStatus,
             toggleStarredAction: toggleStarredState
         )
@@ -403,6 +405,24 @@ struct ArticleListView: View {
             retainsSessionReadArticles: false,
             retainedSessionReadMembershipStatus: .retainedAfterRefresh
         )
+    }
+
+    @MainActor
+    private func updateCustomRefreshPullProgress(_ progress: Double) {
+        controller.screenState.updateCustomRefreshPullProgress(progress)
+    }
+
+    @MainActor
+    private func triggerCustomRefresh() async {
+        guard isPreviewMode == false else { return }
+        guard controller.screenState.customRefreshState.phase == .ready else { return }
+
+        controller.screenState.beginCustomRefresh()
+        defer {
+            controller.screenState.endCustomRefresh()
+        }
+
+        await refreshCurrentSelection()
     }
 
     @MainActor

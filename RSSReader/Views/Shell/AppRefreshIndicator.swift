@@ -38,7 +38,7 @@ struct AppRefreshIndicator: View {
         TimelineView(.animation) { timeline in
             RefreshRing(progress: ringProgress)
                 .stroke(
-                    .secondary,
+                    Color.primary.opacity(ringOpacity),
                     style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
                 )
                 .frame(width: size, height: size)
@@ -55,9 +55,22 @@ struct AppRefreshIndicator: View {
         case .idle:
             0
         case .pulling(let progress):
-            min(max(progress, 0), 1) * 0.78
-        case .ready, .refreshing:
+            min(max(progress, 0), 1)
+        case .ready:
+            1
+        case .refreshing:
             0.78
+        }
+    }
+
+    private var ringOpacity: Double {
+        switch state {
+        case .idle:
+            0
+        case .pulling(let progress):
+            0.25 + 0.75 * min(max(progress, 0), 1)
+        case .ready, .refreshing:
+            1
         }
     }
 
