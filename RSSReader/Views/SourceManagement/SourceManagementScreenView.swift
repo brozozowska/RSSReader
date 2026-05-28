@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 struct SourceManagementScreenView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
@@ -480,8 +479,7 @@ private struct SourceManagementCheckingSourceView: View {
         HStack {
             Spacer()
             HStack(spacing: 8) {
-                SourceManagementActivityIndicator()
-                    .frame(width: 18, height: 18)
+                AppRefreshIndicator(state: .refreshing, size: 18, lineWidth: 2)
 
                 Text("Checking Source...")
             }
@@ -489,22 +487,6 @@ private struct SourceManagementCheckingSourceView: View {
             Spacer()
         }
         .padding(.vertical, 4)
-    }
-}
-
-private struct SourceManagementActivityIndicator: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIActivityIndicatorView {
-        let view = UIActivityIndicatorView(style: .medium)
-        view.color = .secondaryLabel
-        view.hidesWhenStopped = false
-        view.startAnimating()
-        return view
-    }
-
-    func updateUIView(_ uiView: UIActivityIndicatorView, context: Context) {
-        if uiView.isAnimating == false {
-            uiView.startAnimating()
-        }
     }
 }
 

@@ -140,10 +140,16 @@ struct SidebarView: View {
     }
 
     private func subtitleView(toolbarState: SidebarToolbarState) -> some View {
-        Text(toolbarState.subtitle)
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        HStack(spacing: 6) {
+            if toolbarState.isSyncing {
+                AppRefreshIndicator(state: .refreshing, size: 13, lineWidth: 1.7)
+            }
+
+            Text(toolbarState.subtitle)
+        }
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: User Actions
