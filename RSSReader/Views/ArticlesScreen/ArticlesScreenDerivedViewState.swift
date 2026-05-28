@@ -6,6 +6,7 @@ struct ArticlesScreenDerivedViewState {
     let navigationSubtitle: String
     let toolbarActions: ArticlesScreenToolbarActionsState
     let searchPlaceholder: ArticlesScreenPlaceholderState?
+    let customRefreshState: ArticlesScreenCustomRefreshState
     let refreshBanner: ArticlesScreenRefreshBannerState?
     let primaryLoadingState: ArticlesScreenPrimaryLoadingState?
 }
@@ -34,6 +35,7 @@ extension ArticlesScreenState {
                 normalizedSearchText: normalizedSearchText,
                 visibleArticles: visibleArticles
             ),
+            customRefreshState: customRefreshState,
             refreshBanner: refreshBannerState,
             primaryLoadingState: primaryLoadingState
         )

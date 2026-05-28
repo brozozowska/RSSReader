@@ -12,6 +12,7 @@ struct ArticlesScreenStateTests {
         #expect(state.phase == .noSelection)
         #expect(state.navigationTitle == "Articles")
         #expect(state.navigationSubtitle == "No Unread Items")
+        #expect(state.customRefreshState == .idle)
         #expect(state.articleListSession.context == .noSelection)
         #expect(state.articleListSession.entries.isEmpty)
         #expect(state.placeholder?.title == "No Source Selected")
@@ -263,6 +264,51 @@ struct ArticlesScreenStateTests {
         #expect(state.refreshState == .refreshing)
         #expect(derivedViewState.primaryLoadingState == nil)
         #expect(derivedViewState.refreshBanner == nil)
+        #expect(derivedViewState.customRefreshState == .idle)
+    }
+
+    @Test
+    func articlesScreenStateTracksCustomRefreshGestureSeparatelyFromDataRefresh() {
+        var state = ArticlesScreenState()
+
+        state.updateCustomRefreshPullProgress(0.45)
+
+        #expect(state.customRefreshState.phase == .pulling)
+        #expect(state.customRefreshState.pullProgress == 0.45)
+        #expect(state.refreshState == .idle)
+        #expect(state.articleListSession.context == .noSelection)
+
+        state.updateCustomRefreshPullProgress(1)
+
+        #expect(state.customRefreshState.phase == .ready)
+        #expect(state.refreshState == .idle)
+
+        state.beginCustomRefresh()
+
+        #expect(state.customRefreshState == .refreshing)
+        #expect(state.refreshState == .idle)
+
+        state.updateCustomRefreshPullProgress(0.2)
+
+        #expect(state.customRefreshState == .refreshing)
+
+        state.endCustomRefresh()
+
+        #expect(state.customRefreshState == .idle)
+        #expect(state.refreshState == .idle)
+    }
+
+    @Test
+    func articlesScreenDerivedViewStateExposesCustomRefreshState() {
+        var state = ArticlesScreenState()
+
+        state.updateCustomRefreshPullProgress(0.7)
+
+        let viewState = state.derivedViewState(searchText: "")
+
+        #expect(viewState.customRefreshState.phase == .pulling)
+        #expect(viewState.customRefreshState.pullProgress == 0.7)
+        #expect(viewState.customRefreshState.indicatorState == .pulling(progress: 0.7))
     }
 
     @Test

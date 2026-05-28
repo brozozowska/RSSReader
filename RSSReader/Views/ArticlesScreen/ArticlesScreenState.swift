@@ -7,6 +7,7 @@ struct ArticlesScreenState {
     private(set) var navigationSubtitle = "No Unread Items"
     private(set) var phase: ArticlesScreenPhase = .noSelection
     private(set) var refreshState: ArticlesScreenRefreshState = .idle
+    private(set) var customRefreshState: ArticlesScreenCustomRefreshState = .idle
     private(set) var refreshFeedback: ArticlesScreenRefreshFeedback?
     private(set) var toolbarActions = ArticlesScreenToolbarActionsState(
         selection: nil,
@@ -75,6 +76,7 @@ struct ArticlesScreenState {
             articleListSession.replaceArticles([], context: resolvedSessionContext)
             phase = .noSelection
             refreshState = .idle
+            customRefreshState = .idle
             refreshFeedback = nil
             updateToolbarActions(for: selection)
             return
@@ -82,6 +84,7 @@ struct ArticlesScreenState {
 
         if resetsContent || articles.isEmpty {
             refreshFeedback = nil
+            customRefreshState = .idle
             if resetsContent {
                 articleListSession.replaceArticles([], context: resolvedSessionContext)
             }
@@ -132,6 +135,7 @@ struct ArticlesScreenState {
             )
         )
         refreshState = .idle
+        customRefreshState = .idle
         refreshFeedback = nil
 
         if selection == nil {
@@ -161,6 +165,7 @@ struct ArticlesScreenState {
             sessionContext: sessionContext
         )
         refreshState = .idle
+        customRefreshState = .idle
 
         if retainsContent && articles.isEmpty == false {
             phase = .loaded
@@ -207,6 +212,7 @@ struct ArticlesScreenState {
         self.navigationSubtitle = navigationSubtitle
         pendingConfirmation = nil
         refreshState = .idle
+        customRefreshState = .idle
 
         if selection == nil {
             phase = .noSelection
@@ -233,6 +239,7 @@ struct ArticlesScreenState {
 
         self.navigationSubtitle = navigationSubtitle
         refreshState = .idle
+        customRefreshState = .idle
 
         if selection == nil {
             phase = .noSelection
@@ -243,6 +250,19 @@ struct ArticlesScreenState {
         }
 
         updateToolbarActions(for: selection)
+    }
+
+    mutating func updateCustomRefreshPullProgress(_ progress: Double) {
+        guard customRefreshState.phase != .refreshing else { return }
+        customRefreshState = .pulling(progress: progress)
+    }
+
+    mutating func beginCustomRefresh() {
+        customRefreshState = .refreshing
+    }
+
+    mutating func endCustomRefresh() {
+        customRefreshState = .idle
     }
 
     mutating func markArticleAsReadInCurrentSession(articleID: UUID) {

@@ -143,6 +143,31 @@ struct ArticlesScreenPresentationTests {
     }
 
     @Test
+    func customRefreshStateMapsPullProgressToIndicatorContract() {
+        let idleState = ArticlesScreenCustomRefreshState.pulling(progress: -0.1)
+        let pullingState = ArticlesScreenCustomRefreshState.pulling(progress: 0.4)
+        let readyState = ArticlesScreenCustomRefreshState.pulling(progress: 1.2)
+        let refreshingState = ArticlesScreenCustomRefreshState.refreshing
+
+        #expect(idleState == .idle)
+        #expect(idleState.showsIndicator == false)
+        #expect(idleState.indicatorState == .idle)
+
+        #expect(pullingState.phase == .pulling)
+        #expect(pullingState.pullProgress == 0.4)
+        #expect(pullingState.showsIndicator)
+        #expect(pullingState.indicatorState == .pulling(progress: 0.4))
+
+        #expect(readyState.phase == .ready)
+        #expect(readyState.pullProgress == 1)
+        #expect(readyState.indicatorState == .ready)
+
+        #expect(refreshingState.phase == .refreshing)
+        #expect(refreshingState.showsIndicator)
+        #expect(refreshingState.indicatorState == .refreshing)
+    }
+
+    @Test
     func articlesDaySectionsBuilderGroupsArticlesByDayAndPreservesVisibleOrder() {
         let calendar = Calendar.current
         let now = Date()
