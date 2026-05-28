@@ -386,6 +386,39 @@ struct ArticlesScreenControllerTests {
     }
 
     @Test
+    func articlesScreenControllerCanPreserveRefreshFailureDuringPostRefreshReload() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-refresh-preserve.xml"]).first)
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "controller-refresh-preserve-article",
+            url: "https://example.com/articles/controller-refresh-preserve",
+            title: "Controller Refresh Preserve"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        controller.screenState.presentRefreshFailure("Refresh failed")
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies,
+            retainsSessionReadArticles: false,
+            retainedSessionReadMembershipStatus: .retainedAfterRefresh,
+            preservesRefreshFeedback: true
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.map(\.title) == ["Controller Refresh Preserve"])
+        #expect(controller.screenState.refreshFeedback == ArticlesScreenRefreshFeedback(message: "Refresh failed"))
+    }
+
+    @Test
     func articlesScreenControllerClearsPreviousRefreshErrorAfterSuccessfulRefresh() async throws {
         let client = ScriptedHTTPClient(
             responsesByURL: [

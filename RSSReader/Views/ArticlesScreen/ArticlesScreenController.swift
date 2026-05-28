@@ -34,7 +34,8 @@ final class ArticlesScreenController {
         sourcesFilter: SourcesFilter,
         dependencies: AppDependencies,
         retainsSessionReadArticles: Bool = false,
-        retainedSessionReadMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead
+        retainedSessionReadMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead,
+        preservesRefreshFeedback: Bool = false
     ) async {
         loadGeneration += 1
         let currentLoadGeneration = loadGeneration
@@ -104,7 +105,8 @@ final class ArticlesScreenController {
                     for: subtitleArticles,
                     sourcesFilter: sourcesFilter
                 ),
-                sessionContext: sessionContext
+                sessionContext: sessionContext,
+                preservesRefreshFeedback: preservesRefreshFeedback
             )
         } catch {
             guard currentLoadGeneration == loadGeneration else { return }

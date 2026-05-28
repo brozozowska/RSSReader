@@ -106,14 +106,16 @@ struct ArticlesScreenState {
         selection: SidebarSelection?,
         navigationTitle: String,
         navigationSubtitle: String,
-        sessionContext: ArticleListSession.Context? = nil
+        sessionContext: ArticleListSession.Context? = nil,
+        preservesRefreshFeedback: Bool = false
     ) {
         applyLoadedEntries(
             loadedArticles.map { ArticleListEntry(article: $0) },
             selection: selection,
             navigationTitle: navigationTitle,
             navigationSubtitle: navigationSubtitle,
-            sessionContext: sessionContext
+            sessionContext: sessionContext,
+            preservesRefreshFeedback: preservesRefreshFeedback
         )
     }
 
@@ -122,7 +124,8 @@ struct ArticlesScreenState {
         selection: SidebarSelection?,
         navigationTitle: String,
         navigationSubtitle: String,
-        sessionContext: ArticleListSession.Context? = nil
+        sessionContext: ArticleListSession.Context? = nil,
+        preservesRefreshFeedback: Bool = false
     ) {
         self.selection = selection
         self.navigationTitle = navigationTitle
@@ -136,7 +139,9 @@ struct ArticlesScreenState {
         )
         refreshState = .idle
         customRefreshState = .idle
-        refreshFeedback = nil
+        if preservesRefreshFeedback == false {
+            refreshFeedback = nil
+        }
 
         if selection == nil {
             phase = .noSelection

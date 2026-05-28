@@ -145,7 +145,8 @@ struct ArticleListView: View {
     @MainActor
     private func loadArticles(
         retainsSessionReadArticles: Bool = true,
-        retainedSessionReadMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead
+        retainedSessionReadMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead,
+        preservesRefreshFeedback: Bool = false
     ) async {
         let loadingSidebarSelection = selectedSidebarSelection
         let loadingSourcesFilter = selectedSourcesFilter
@@ -155,7 +156,8 @@ struct ArticleListView: View {
             sourcesFilter: loadingSourcesFilter,
             dependencies: dependencies,
             retainsSessionReadArticles: retainsSessionReadArticles,
-            retainedSessionReadMembershipStatus: retainedSessionReadMembershipStatus
+            retainedSessionReadMembershipStatus: retainedSessionReadMembershipStatus,
+            preservesRefreshFeedback: preservesRefreshFeedback
         )
 
         guard loadingSidebarSelection == appState.selectedSidebarSelection,
@@ -400,10 +402,12 @@ struct ArticleListView: View {
             appState: appState,
             requestsArticleListReload: false
         )
+        let preservesRefreshFeedback = controller.screenState.refreshFeedback != nil
 
         await loadArticles(
             retainsSessionReadArticles: false,
-            retainedSessionReadMembershipStatus: .retainedAfterRefresh
+            retainedSessionReadMembershipStatus: .retainedAfterRefresh,
+            preservesRefreshFeedback: preservesRefreshFeedback
         )
     }
 

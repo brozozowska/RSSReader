@@ -389,6 +389,31 @@ struct ArticlesScreenStateTests {
     }
 
     @Test
+    func articlesScreenStateCanPreserveRefreshFeedbackAfterPostRefreshReload() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.presentRefreshFailure("Refresh failed")
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item",
+            preservesRefreshFeedback: true
+        )
+
+        #expect(state.phase == .loaded)
+        #expect(state.refreshFeedback == ArticlesScreenRefreshFeedback(message: "Refresh failed"))
+    }
+
+    @Test
     func articlesScreenStateBuildsPrimaryLoadingCopyFromSelection() {
         var state = ArticlesScreenState()
 
