@@ -181,6 +181,68 @@ struct SidebarPresentationTests {
     }
 
     @Test
+    func sidebarCustomRefreshStateMapsPullProgressToIndicatorContract() {
+        let idleState = SidebarCustomRefreshState.pulling(progress: -0.1)
+        let pullingState = SidebarCustomRefreshState.pulling(progress: 0.4)
+        let readyState = SidebarCustomRefreshState.pulling(progress: 1.2)
+        let refreshingState = SidebarCustomRefreshState.refreshing
+
+        #expect(idleState == .idle)
+        #expect(idleState.showsIndicator == false)
+        #expect(idleState.indicatorState == .idle)
+
+        #expect(pullingState.phase == .pulling)
+        #expect(pullingState.pullProgress == 0.4)
+        #expect(pullingState.indicatorState == .pulling(progress: 0.4))
+
+        #expect(readyState.phase == .ready)
+        #expect(readyState.pullProgress == 1)
+        #expect(readyState.indicatorState == .ready)
+
+        #expect(refreshingState.phase == .refreshing)
+        #expect(refreshingState.indicatorState == .refreshing)
+    }
+
+    @Test
+    func sidebarCustomRefreshPoliciesMapOverscrollAndReleaseToRefresh() {
+        let partialPullGeometry = SidebarCustomRefreshGeometry(
+            contentOffsetY: -48,
+            contentInsetTop: 12
+        )
+        let readyPullGeometry = SidebarCustomRefreshGeometry(
+            contentOffsetY: -120,
+            contentInsetTop: 12
+        )
+
+        #expect(
+            SidebarCustomRefreshPullPolicy.progress(
+                for: partialPullGeometry,
+                threshold: 72
+            ) == 0.5
+        )
+        #expect(
+            SidebarCustomRefreshPullPolicy.progress(
+                for: readyPullGeometry,
+                threshold: 72
+            ) == 1
+        )
+        #expect(
+            SidebarCustomRefreshReleasePolicy.shouldTriggerRefresh(
+                wasInteracting: true,
+                isInteracting: false,
+                customRefreshState: .pulling(progress: 1)
+            )
+        )
+        #expect(
+            SidebarCustomRefreshReleasePolicy.shouldTriggerRefresh(
+                wasInteracting: true,
+                isInteracting: false,
+                customRefreshState: .pulling(progress: 0.5)
+            ) == false
+        )
+    }
+
+    @Test
     func sourceIconCandidateBuilderParsesHTMLIconLinksInPriorityOrder() throws {
         let baseURL = try #require(URL(string: "https://example.com/"))
         let html = """

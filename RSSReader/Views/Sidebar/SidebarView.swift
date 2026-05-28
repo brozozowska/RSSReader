@@ -33,45 +33,9 @@ struct SidebarView: View {
             iCloudSyncStatus: appState.iCloudSyncStatus
         )
 
-        List(selection: $selection) {
-            if viewState.smartRows.isEmpty == false {
-                Section {
-                    ForEach(viewState.smartRows) { row in
-                        smartRow(row)
-                    }
-                } header: {
-                    if viewState.smartRows.count > 1 {
-                        sectionHeader("Smart Views")
-                    }
-                }
-            }
-
-            if viewState.folderRows.isEmpty == false {
-                Section {
-                    ForEach(viewState.folderRows) { row in
-                        folderSectionRow(row)
-                    }
-                } header: {
-                    sectionHeader("Folders")
-                }
-            }
-
-            if viewState.ungroupedFeedRows.isEmpty == false {
-                Section {
-                    ForEach(viewState.ungroupedFeedRows) { feed in
-                        feedRow(feed)
-                    }
-                } header: {
-                    sectionHeader("Ungrouped")
-                }
-            }
-        }
-        .listStyle(.sidebar)
-        .scrollContentBackground(.hidden)
-        .background(appThemeVariant.primaryBackground)
-        .scrollDisabled(viewState.shouldDisableScrolling)
-        .refreshable {
-            await refreshSources()
+        ZStack {
+            sidebarList(viewState)
+            customRefreshIndicator
         }
         .toolbarTitleDisplayMode(.inline)
         .toolbar {
@@ -118,6 +82,91 @@ struct SidebarView: View {
         }
     }
 
+    private func sidebarList(_ viewState: SidebarScreenDerivedViewState) -> some View {
+        List(selection: $selection) {
+            sidebarSections(viewState)
+        }
+        .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(appThemeVariant.primaryBackground)
+        .scrollDisabled(viewState.shouldDisableScrolling)
+        .onScrollGeometryChange(for: SidebarCustomRefreshGeometry.self) { geometry in
+            SidebarCustomRefreshGeometry(
+                contentOffsetY: geometry.contentOffset.y,
+                contentInsetTop: geometry.contentInsets.top
+            )
+        } action: { _, newGeometry in
+            let progress = SidebarCustomRefreshPullPolicy.progress(for: newGeometry)
+            updateCustomRefreshPullProgress(progress)
+        }
+        .onScrollPhaseChange { oldPhase, newPhase, _ in
+            guard SidebarCustomRefreshReleasePolicy.shouldTriggerRefresh(
+                wasInteracting: oldPhase == .interacting,
+                isInteracting: newPhase == .interacting,
+                customRefreshState: controller.screenState.customRefreshState
+            ) else {
+                return
+            }
+
+            Task {
+                await triggerCustomRefresh()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func sidebarSections(_ viewState: SidebarScreenDerivedViewState) -> some View {
+        if viewState.smartRows.isEmpty == false {
+            Section {
+                ForEach(viewState.smartRows) { row in
+                    smartRow(row)
+                }
+            } header: {
+                if viewState.smartRows.count > 1 {
+                    sectionHeader("Smart Views")
+                }
+            }
+        }
+
+        if viewState.folderRows.isEmpty == false {
+            Section {
+                ForEach(viewState.folderRows) { row in
+                    folderSectionRow(row)
+                }
+            } header: {
+                sectionHeader("Folders")
+            }
+        }
+
+        if viewState.ungroupedFeedRows.isEmpty == false {
+            Section {
+                ForEach(viewState.ungroupedFeedRows) { feed in
+                    feedRow(feed)
+                }
+            } header: {
+                sectionHeader("Ungrouped")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var customRefreshIndicator: some View {
+        if controller.screenState.customRefreshState.showsIndicator {
+            VStack {
+                AppRefreshIndicator(
+                    state: controller.screenState.customRefreshState.indicatorState,
+                    size: 24,
+                    lineWidth: 2.5
+                )
+                .padding(.top, 14)
+
+                Spacer()
+            }
+            .allowsHitTesting(false)
+            .transition(.opacity)
+        }
+    }
+
     @ViewBuilder
     private func overlayContent(using viewState: SidebarScreenDerivedViewState) -> some View {
         if let primaryLoadingState = viewState.primaryLoadingState {
@@ -140,13 +189,7 @@ struct SidebarView: View {
     }
 
     private func subtitleView(toolbarState: SidebarToolbarState) -> some View {
-        HStack(spacing: 6) {
-            if toolbarState.isSyncing {
-                AppRefreshIndicator(state: .refreshing, size: 13, lineWidth: 1.7)
-            }
-
-            Text(toolbarState.subtitle)
-        }
+        Text(toolbarState.subtitle)
         .font(.subheadline)
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -235,6 +278,24 @@ struct SidebarView: View {
         )
 
         selection = adjustedSelection
+    }
+
+    @MainActor
+    private func updateCustomRefreshPullProgress(_ progress: Double) {
+        controller.screenState.updateCustomRefreshPullProgress(progress)
+    }
+
+    @MainActor
+    private func triggerCustomRefresh() async {
+        guard controller.isPreviewMode == false else { return }
+        guard controller.screenState.customRefreshState.phase == .ready else { return }
+
+        controller.screenState.beginCustomRefresh()
+        defer {
+            controller.screenState.endCustomRefresh()
+        }
+
+        await refreshSources()
     }
 
     private func smartRow(_ row: SidebarSmartRowState) -> some View {

@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 enum SidebarContentPhase: Equatable {
     case loading
@@ -16,6 +17,89 @@ enum SidebarRefreshStatus: Equatable {
             return true
         }
         return false
+    }
+}
+
+struct SidebarCustomRefreshState: Equatable {
+    enum Phase: Equatable {
+        case idle
+        case pulling
+        case ready
+        case refreshing
+    }
+
+    static let idle = SidebarCustomRefreshState(phase: .idle, pullProgress: 0)
+    static let refreshing = SidebarCustomRefreshState(phase: .refreshing, pullProgress: 1)
+
+    let phase: Phase
+    let pullProgress: Double
+
+    var showsIndicator: Bool {
+        phase != .idle
+    }
+
+    var indicatorState: AppRefreshIndicatorState {
+        switch phase {
+        case .idle:
+            .idle
+        case .pulling:
+            .pulling(progress: pullProgress)
+        case .ready:
+            .ready
+        case .refreshing:
+            .refreshing
+        }
+    }
+
+    static func pulling(progress: Double) -> SidebarCustomRefreshState {
+        let normalizedProgress = min(max(progress, 0), 1)
+
+        if normalizedProgress <= 0 {
+            return .idle
+        }
+
+        if normalizedProgress >= 1 {
+            return SidebarCustomRefreshState(phase: .ready, pullProgress: 1)
+        }
+
+        return SidebarCustomRefreshState(phase: .pulling, pullProgress: normalizedProgress)
+    }
+}
+
+struct SidebarCustomRefreshGeometry: Equatable {
+    var contentOffsetY: CGFloat
+    var contentInsetTop: CGFloat
+
+    init(contentOffsetY: CGFloat = 0, contentInsetTop: CGFloat = 0) {
+        self.contentOffsetY = contentOffsetY
+        self.contentInsetTop = contentInsetTop
+    }
+
+    var topOverscrollDistance: CGFloat {
+        max(0, -(contentOffsetY + contentInsetTop))
+    }
+}
+
+enum SidebarCustomRefreshPullPolicy {
+    static let pullThreshold: CGFloat = 72
+
+    static func progress(
+        for geometry: SidebarCustomRefreshGeometry,
+        threshold: CGFloat = pullThreshold
+    ) -> Double {
+        guard threshold > 0 else { return 0 }
+
+        return min(Double(geometry.topOverscrollDistance / threshold), 1)
+    }
+}
+
+enum SidebarCustomRefreshReleasePolicy {
+    static func shouldTriggerRefresh(
+        wasInteracting: Bool,
+        isInteracting: Bool,
+        customRefreshState: SidebarCustomRefreshState
+    ) -> Bool {
+        wasInteracting && isInteracting == false && customRefreshState.phase == .ready
     }
 }
 

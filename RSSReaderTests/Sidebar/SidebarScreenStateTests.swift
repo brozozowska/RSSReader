@@ -20,6 +20,38 @@ struct SidebarScreenStateTests {
         #expect(viewState.placeholder == nil)
         #expect(viewState.shouldDisableScrolling)
         #expect(viewState.smartRows.isEmpty)
+        #expect(state.customRefreshState == .idle)
+    }
+
+    @Test
+    func sidebarScreenStateTracksCustomRefreshGestureSeparatelyFromRefreshStatus() {
+        var state = SidebarScreenState()
+
+        state.updateCustomRefreshPullProgress(0.5)
+
+        #expect(state.customRefreshState.phase == .pulling)
+        #expect(state.customRefreshState.pullProgress == 0.5)
+        #expect(state.refreshStatus == .idle(lastUpdatedAt: nil))
+
+        state.updateCustomRefreshPullProgress(1)
+
+        #expect(state.customRefreshState.phase == .ready)
+        #expect(state.refreshStatus == .idle(lastUpdatedAt: nil))
+
+        state.beginCustomRefresh()
+        state.beginRefreshing()
+
+        #expect(state.customRefreshState == .refreshing)
+        #expect(state.refreshStatus == .syncing)
+
+        state.updateCustomRefreshPullProgress(0.2)
+
+        #expect(state.customRefreshState == .refreshing)
+
+        state.endCustomRefresh()
+
+        #expect(state.customRefreshState == .idle)
+        #expect(state.refreshStatus == .syncing)
     }
 
     @Test
