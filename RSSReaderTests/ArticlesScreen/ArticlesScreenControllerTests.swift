@@ -243,6 +243,61 @@ struct ArticlesScreenControllerTests {
     }
 
     @Test
+    func articlesScreenControllerKeepsScrollPositionAndRemovesRetainedReadArticleAfterReturnRefresh() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let articleStateService = try #require(harness.dependencies.articleStateService)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/return-refresh.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "return-refresh-article",
+            url: "https://example.com/articles/return-refresh",
+            title: "Return Refresh"
+        )
+        let appState = AppState()
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies
+        )
+        appState.updateArticleListScrollPosition(
+            article.id,
+            sourceSelection: .feed(feed.id),
+            sourcesFilter: .unread
+        )
+
+        _ = try articleStateService.markAsRead(
+            feedID: feed.id,
+            articleExternalID: article.externalID,
+            at: .now
+        )
+        controller.markArticleAsReadInCurrentSession(article.id)
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.map(\.id) == [article.id])
+        #expect(controller.screenState.articles.first?.isRead == true)
+        #expect(controller.screenState.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies,
+            retainsSessionReadArticles: false,
+            retainedSessionReadMembershipStatus: .retainedAfterRefresh
+        )
+
+        #expect(controller.screenState.phase == .empty)
+        #expect(controller.screenState.articles.isEmpty)
+        #expect(
+            appState.articleListScrollPositionID(
+                sourceSelection: .feed(feed.id),
+                sourcesFilter: .unread
+            ) == article.id
+        )
+    }
+
+    @Test
     func articlesScreenControllerResetsSessionWhenSourcesFilterChanges() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let articleStateService = try #require(harness.dependencies.articleStateService)

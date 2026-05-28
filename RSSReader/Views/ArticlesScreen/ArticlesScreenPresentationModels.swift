@@ -105,6 +105,16 @@ enum ArticleListCustomRefreshPullPolicy {
     }
 }
 
+enum ArticleListCustomRefreshReleasePolicy {
+    static func shouldTriggerRefresh(
+        wasInteracting: Bool,
+        isInteracting: Bool,
+        customRefreshState: ArticlesScreenCustomRefreshState
+    ) -> Bool {
+        wasInteracting && isInteracting == false && customRefreshState.phase == .ready
+    }
+}
+
 enum ArticlesScreenConfirmationDialog: Equatable {
     case markAllAsRead
 }

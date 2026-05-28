@@ -203,6 +203,38 @@ struct ArticlesScreenPresentationTests {
     }
 
     @Test
+    func articleListCustomRefreshReleasePolicyTriggersOnlyWhenReadyPullIsReleased() {
+        #expect(
+            ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
+                wasInteracting: true,
+                isInteracting: false,
+                customRefreshState: .pulling(progress: 1)
+            )
+        )
+        #expect(
+            ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
+                wasInteracting: true,
+                isInteracting: false,
+                customRefreshState: .pulling(progress: 0.5)
+            ) == false
+        )
+        #expect(
+            ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
+                wasInteracting: false,
+                isInteracting: false,
+                customRefreshState: .pulling(progress: 1)
+            ) == false
+        )
+        #expect(
+            ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
+                wasInteracting: true,
+                isInteracting: true,
+                customRefreshState: .pulling(progress: 1)
+            ) == false
+        )
+    }
+
+    @Test
     func articlesDaySectionsBuilderGroupsArticlesByDayAndPreservesVisibleOrder() {
         let calendar = Calendar.current
         let now = Date()

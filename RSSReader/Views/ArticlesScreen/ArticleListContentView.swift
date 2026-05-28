@@ -42,9 +42,14 @@ struct ArticleListContentView: View {
             let progress = ArticleListCustomRefreshPullPolicy.progress(for: newGeometry)
             customRefreshPullProgressChanged(progress)
         }
-            .onScrollPhaseChange { oldPhase, newPhase, _ in
-                guard oldPhase == .interacting, newPhase != .interacting else { return }
-            guard customRefreshState.phase == .ready else { return }
+        .onScrollPhaseChange { oldPhase, newPhase, _ in
+            guard ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
+                wasInteracting: oldPhase == .interacting,
+                isInteracting: newPhase == .interacting,
+                customRefreshState: customRefreshState
+            ) else {
+                return
+            }
 
             Task {
                 await customRefreshReleaseAction()

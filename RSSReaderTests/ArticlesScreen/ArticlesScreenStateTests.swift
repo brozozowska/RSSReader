@@ -149,7 +149,7 @@ struct ArticlesScreenStateTests {
 
         #expect(mergedEntries.map(\.id) == [retainedID, updatedID, newID])
         #expect(mergedEntries.map(\.article.title) == ["Read In Session", "Updated Title", "New Query Article"])
-        #expect(mergedEntries.map(\.membershipStatus) == [.retainedAfterRead, .matchesCurrentQuery, .matchesCurrentQuery])
+        #expect(mergedEntries.map(\.membershipStatus) == [.retainedAfterRefresh, .matchesCurrentQuery, .matchesCurrentQuery])
         #expect(mergedEntries[1].article.isRead)
     }
 
@@ -309,6 +309,46 @@ struct ArticlesScreenStateTests {
         #expect(viewState.customRefreshState.phase == .pulling)
         #expect(viewState.customRefreshState.pullProgress == 0.7)
         #expect(viewState.customRefreshState.indicatorState == .pulling(progress: 0.7))
+    }
+
+    @Test
+    func articlesScreenStateKeepsCustomRefreshIndicatorVisibleUntilPostRefreshReloadFinishes() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.beginCustomRefresh()
+
+        state.beginLoading(
+            for: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "1 Unread Item",
+            resetsContent: false
+        )
+
+        #expect(state.customRefreshState == .refreshing)
+        #expect(state.refreshState == .refreshing)
+        #expect(state.articles.map(\.id) == [unreadItem.id])
+
+        state.applyLoadedArticles(
+            [],
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "No Unread Items",
+            sessionContext: ArticleListSession.Context(
+                selection: .unread,
+                sourcesFilter: .allItems
+            )
+        )
+
+        #expect(state.customRefreshState == .idle)
+        #expect(state.phase == .empty)
+        #expect(state.articles.isEmpty)
     }
 
     @Test
