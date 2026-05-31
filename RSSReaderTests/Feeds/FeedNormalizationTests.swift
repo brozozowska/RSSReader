@@ -140,6 +140,42 @@ struct FeedNormalizationTests {
     }
 
     @Test
+    func feedNormalizationDecodesEscapedTitleEntitiesAndLegacyNumericPunctuation() {
+        let feed = ParsedFeedDTO(
+            kind: .rss,
+            metadata: ParsedFeedMetadataDTO(title: "N + 1"),
+            entries: [
+                ParsedFeedEntryDTO(
+                    url: "https://nplus1.ru/blog/2026/05/27/aztec-mythology",
+                    title: "«Мифы ацтеков. От\u{00A0}Кецалькоатля и\u{00A0}&amp;#132;Семи пещер&amp;#147; до\u{00A0}Камня Солнца»"
+                )
+            ]
+        )
+
+        let normalized = FeedNormalizationService.normalize(feed, feedURL: "https://nplus1.ru/rss")
+
+        #expect(normalized.entries.first?.title == "«Мифы ацтеков. От Кецалькоатля и „Семи пещер“ до Камня Солнца»")
+    }
+
+    @Test
+    func feedNormalizationRemovesInvisibleTitleCharactersAndStripsHTML() {
+        let feed = ParsedFeedDTO(
+            kind: .atom,
+            metadata: ParsedFeedMetadataDTO(title: "Example"),
+            entries: [
+                ParsedFeedEntryDTO(
+                    url: "https://example.com/articles/title",
+                    title: "\u{FEFF}<b>Visible</b>\u{200B}\u{0007} &amp; useful&nbsp;title"
+                )
+            ]
+        )
+
+        let normalized = FeedNormalizationService.normalize(feed, feedURL: "https://example.com/feed.xml")
+
+        #expect(normalized.entries.first?.title == "Visible & useful title")
+    }
+
+    @Test
     func feedNormalizationRemovesEmailFromEntryAuthor() {
         let feed = ParsedFeedDTO(
             kind: .rss,
