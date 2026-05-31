@@ -16,6 +16,7 @@ struct SidebarView: View {
     // MARK: View State
 
     @State private var controller: SidebarScreenController
+    @State private var refreshStartHapticTrigger = 0
 
     init(
         selection: Binding<SidebarSelection?>,
@@ -80,6 +81,10 @@ struct SidebarView: View {
                 filter: appState.selectedSourcesFilter
             )
         }
+        .sensoryFeedback(
+            .impact(flexibility: .solid, intensity: 0.65),
+            trigger: refreshStartHapticTrigger
+        )
     }
 
     private func sidebarList(_ viewState: SidebarScreenDerivedViewState) -> some View {
@@ -269,6 +274,8 @@ struct SidebarView: View {
     @MainActor
     private func refreshSources() async {
         guard controller.isPreviewMode == false, controller.screenState.isSyncing == false else { return }
+
+        refreshStartHapticTrigger += 1
 
         let adjustedSelection = await controller.refreshSources(
             dependencies: dependencies,
