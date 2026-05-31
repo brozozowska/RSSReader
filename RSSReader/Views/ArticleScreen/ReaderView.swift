@@ -656,7 +656,13 @@ struct CachedArticleImageView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(.quaternary.opacity(0.4))
-                ProgressView()
+                AppRefreshIndicator(
+                    state: .refreshing,
+                    size: 24,
+                    lineWidth: 2.5,
+                    tint: AnyShapeStyle(.secondary),
+                    accessibilityLabel: "Loading image"
+                )
             }
             .frame(maxWidth: .infinity)
             .frame(height: 220)

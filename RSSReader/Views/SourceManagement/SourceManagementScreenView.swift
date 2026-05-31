@@ -479,7 +479,13 @@ private struct SourceManagementCheckingSourceView: View {
         HStack {
             Spacer()
             HStack(spacing: 8) {
-                AppRefreshIndicator(state: .refreshing, size: 18, lineWidth: 2)
+                AppRefreshIndicator(
+                    state: .refreshing,
+                    size: 18,
+                    lineWidth: 2,
+                    tint: AnyShapeStyle(.secondary),
+                    accessibilityLabel: "Checking source"
+                )
 
                 Text("Checking Source...")
             }

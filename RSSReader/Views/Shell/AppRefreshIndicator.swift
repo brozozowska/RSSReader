@@ -33,19 +33,21 @@ struct AppRefreshIndicator: View {
     let state: AppRefreshIndicatorState
     var size: CGFloat = 18
     var lineWidth: CGFloat = 2
+    var tint: AnyShapeStyle = AnyShapeStyle(.primary)
+    var accessibilityLabel: String?
 
     var body: some View {
         TimelineView(.animation) { timeline in
             RefreshRing(progress: ringProgress)
                 .stroke(
-                    Color.primary.opacity(ringOpacity),
+                    tint,
                     style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
                 )
                 .frame(width: size, height: size)
                 .rotationEffect(rotation(at: timeline.date))
-                .opacity(state.isVisible ? 1 : 0)
+                .opacity(state.isVisible ? ringOpacity : 0)
                 .animation(.snappy(duration: 0.2), value: state)
-                .accessibilityLabel(state.accessibilityLabel)
+                .accessibilityLabel(accessibilityLabel ?? state.accessibilityLabel)
                 .accessibilityHidden(state == .idle)
         }
     }
