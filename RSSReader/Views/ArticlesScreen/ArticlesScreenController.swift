@@ -78,13 +78,13 @@ final class ArticlesScreenController {
             return
         }
 
-        let sortMode = loadSortMode(dependencies: dependencies)
+        let unreadSortMode = loadUnreadSortMode(dependencies: dependencies)
 
         do {
             let loadedArticles = try loadArticles(
                 for: selection,
                 sourcesFilter: sourcesFilter,
-                sortMode: sortMode,
+                unreadSortMode: unreadSortMode,
                 articleQueryService: articleQueryService
             )
             let resolvedEntries = entriesByRetainingSessionReadItems(
@@ -175,56 +175,86 @@ final class ArticlesScreenController {
         )
     }
 
-    private func loadSortMode(dependencies: AppDependencies) -> ArticleSortMode {
+    private func loadUnreadSortMode(dependencies: AppDependencies) -> ArticleSortMode {
         guard let appSettingsService = dependencies.appSettingsService else {
-            return .publishedAtAscending
+            return .publishedAtDescending
         }
 
         do {
             return try appSettingsService.fetchSettings().sortMode
         } catch {
-            dependencies.logger.error("Failed to load app settings for article sort mode: \(error)")
-            return .publishedAtAscending
+            dependencies.logger.error("Failed to load app settings for unread article sort mode: \(error)")
+            return .publishedAtDescending
         }
     }
 
     private func loadArticles(
         for selection: SidebarSelection?,
         sourcesFilter: SourcesFilter,
-        sortMode: ArticleSortMode,
+        unreadSortMode: ArticleSortMode,
         articleQueryService: any ArticleQueryService
     ) throws -> [ArticleListItemDTO] {
-        switch selection {
+        let articleListFilter = articleListFilter(
+            for: selection,
+            sourcesFilter: sourcesFilter
+        )
+        let sortMode = sortMode(
+            for: articleListFilter,
+            unreadSortMode: unreadSortMode
+        )
+
+        return switch selection {
         case .inbox:
             try articleQueryService.fetchInboxListItems(
                 sortMode: sortMode,
-                filter: SourcesFilterArticleListFilterResolver.resolve(for: sourcesFilter)
+                filter: articleListFilter
             )
         case .unread:
             try articleQueryService.fetchInboxListItems(
                 sortMode: sortMode,
-                filter: .unread
+                filter: articleListFilter
             )
         case .starred:
             try articleQueryService.fetchInboxListItems(
                 sortMode: sortMode,
-                filter: .starred
+                filter: articleListFilter
             )
         case .folder(let folderName):
             try articleQueryService.fetchFolderListItems(
                 folderName: folderName,
                 sortMode: sortMode,
-                filter: SourcesFilterArticleListFilterResolver.resolve(for: sourcesFilter)
+                filter: articleListFilter
             )
         case .feed(let selectedFeedID):
             try articleQueryService.fetchArticleListItems(
                 feedID: selectedFeedID,
                 sortMode: sortMode,
-                filter: SourcesFilterArticleListFilterResolver.resolve(for: sourcesFilter)
+                filter: articleListFilter
             )
         case .none:
             []
         }
+    }
+
+    private func articleListFilter(
+        for selection: SidebarSelection?,
+        sourcesFilter: SourcesFilter
+    ) -> ArticleListFilter {
+        switch selection {
+        case .unread:
+            .unread
+        case .starred:
+            .starred
+        case .inbox, .folder, .feed, .none:
+            SourcesFilterArticleListFilterResolver.resolve(for: sourcesFilter)
+        }
+    }
+
+    private func sortMode(
+        for filter: ArticleListFilter,
+        unreadSortMode: ArticleSortMode
+    ) -> ArticleSortMode {
+        filter == .unread ? unreadSortMode : .publishedAtDescending
     }
 
     private func entriesByRetainingSessionReadItems(

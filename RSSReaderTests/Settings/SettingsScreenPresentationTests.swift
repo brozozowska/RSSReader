@@ -129,7 +129,7 @@ struct SettingsScreenPresentationTests {
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .articleSortMode,
-                        title: "Sort Articles",
+                        title: "Sort Unread Articles",
                         subtitle: nil,
                         selectedValueTitle: "Newest First",
                         options: [

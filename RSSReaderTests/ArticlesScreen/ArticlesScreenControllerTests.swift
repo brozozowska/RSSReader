@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import RSSReader
 
@@ -110,6 +111,94 @@ struct ArticlesScreenControllerTests {
         )
 
         #expect(controller.screenState.navigationSubtitle == "1 Unread Item")
+    }
+
+    @Test
+    func articlesScreenControllerUsesNewestFirstForAllItemsRegardlessOfUnreadSortSetting() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/all-items-sort.xml"]).first)
+        let oldDate = try #require(Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1)))
+        let newDate = try #require(Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 2)))
+        let oldArticle = Article(
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            feedSiteURL: feed.siteURL,
+            feedFolderName: feed.folder?.name,
+            externalID: "all-items-old",
+            url: "https://example.com/articles/all-items-old",
+            title: "Old Article",
+            publishedAt: oldDate,
+            fetchedAt: oldDate
+        )
+        let newArticle = Article(
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            feedSiteURL: feed.siteURL,
+            feedFolderName: feed.folder?.name,
+            externalID: "all-items-new",
+            url: "https://example.com/articles/all-items-new",
+            title: "New Article",
+            publishedAt: newDate,
+            fetchedAt: newDate
+        )
+        harness.modelContainer.mainContext.insert(oldArticle)
+        harness.modelContainer.mainContext.insert(newArticle)
+        try harness.modelContainer.mainContext.save()
+        _ = try repository.update(AppSettingsUpdate(sortMode: .publishedAtAscending))
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.articles.map(\.id) == [newArticle.id, oldArticle.id])
+    }
+
+    @Test
+    func articlesScreenControllerUsesUnreadSortSettingForUnreadFilter() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/unread-sort.xml"]).first)
+        let oldDate = try #require(Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1)))
+        let newDate = try #require(Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 2)))
+        let oldArticle = Article(
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            feedSiteURL: feed.siteURL,
+            feedFolderName: feed.folder?.name,
+            externalID: "unread-old",
+            url: "https://example.com/articles/unread-old",
+            title: "Old Unread Article",
+            publishedAt: oldDate,
+            fetchedAt: oldDate
+        )
+        let newArticle = Article(
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            feedSiteURL: feed.siteURL,
+            feedFolderName: feed.folder?.name,
+            externalID: "unread-new",
+            url: "https://example.com/articles/unread-new",
+            title: "New Unread Article",
+            publishedAt: newDate,
+            fetchedAt: newDate
+        )
+        harness.modelContainer.mainContext.insert(oldArticle)
+        harness.modelContainer.mainContext.insert(newArticle)
+        try harness.modelContainer.mainContext.save()
+        _ = try repository.update(AppSettingsUpdate(sortMode: .publishedAtAscending))
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.articles.map(\.id) == [oldArticle.id, newArticle.id])
     }
 
     @Test

@@ -24,7 +24,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         markAsReadOnOpen: Bool = true,
         askBeforeMarkingAllAsRead: Bool = true,
         showUnreadCountBadge: Bool = false,
-        sortMode: ArticleSortMode = .publishedAtAscending,
+        sortMode: ArticleSortMode = .publishedAtDescending,
         articleRetentionPolicy: ArticleRetentionPolicy = .oneWeek,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,

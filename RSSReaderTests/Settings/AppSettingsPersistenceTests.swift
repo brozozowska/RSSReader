@@ -49,7 +49,7 @@ struct AppSettingsPersistenceTests {
 
         #expect(settings.selectedSourcesFilterRawValue == SourcesFilter.allItems.rawValue)
         #expect(settings.askBeforeMarkingAllAsRead)
-        #expect(settings.sortMode == .publishedAtAscending)
+        #expect(settings.sortMode == .publishedAtDescending)
         #expect(settings.articleBodyLinkOpeningPolicy == .inAppBrowser)
         #expect(settings.articleSourceLinkOpeningPolicy == .inAppBrowser)
         #expect(settings.readerAdjacentNavigationControlsMode == .swipesAndToolbarControls)

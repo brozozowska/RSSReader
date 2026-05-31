@@ -424,7 +424,7 @@ enum SettingsScreenPresentationBuilder {
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .articleSortMode,
-                        title: "Sort Articles",
+                        title: "Sort Unread Articles",
                         subtitle: nil,
                         selectedValueTitle: articleListSortOrderTitle(input.articleListSortOrder),
                         options: ArticleListSortOrder.allCases.map { order in

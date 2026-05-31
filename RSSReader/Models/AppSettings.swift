@@ -14,7 +14,7 @@ final class AppSettings {
     var markAsReadOnOpen: Bool = true
     var askBeforeMarkingAllAsRead: Bool = true
     var showUnreadCountBadge: Bool = false
-    var sortMode: ArticleSortMode = ArticleSortMode.publishedAtAscending
+    var sortMode: ArticleSortMode = ArticleSortMode.publishedAtDescending
     var articleRetentionPolicy: ArticleRetentionPolicy = ArticleRetentionPolicy.oneWeek
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = ArticleBodyLinkOpeningPolicy.inAppBrowser
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = ArticleSourceLinkOpeningPolicy.inAppBrowser
@@ -34,7 +34,7 @@ final class AppSettings {
         markAsReadOnOpen: Bool = true,
         askBeforeMarkingAllAsRead: Bool = true,
         showUnreadCountBadge: Bool = false,
-        sortMode: ArticleSortMode = .publishedAtAscending,
+        sortMode: ArticleSortMode = .publishedAtDescending,
         articleRetentionPolicy: ArticleRetentionPolicy = .oneWeek,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
