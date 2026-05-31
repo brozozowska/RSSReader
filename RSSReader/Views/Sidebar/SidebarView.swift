@@ -320,7 +320,7 @@ struct SidebarView: View {
 
     private func feedRow(_ row: SidebarFeedRowState) -> some View {
         HStack(spacing: 12) {
-            SourceIconView(siteURL: row.siteURL, iconURL: row.iconURL)
+            SourceIconView(feedID: row.id, siteURL: row.siteURL, iconURL: row.iconURL)
 
             Text(row.title)
                 .lineLimit(1)
@@ -470,6 +470,7 @@ private struct SidebarRow: View {
 private struct SourceIconView: View {
     @Environment(\.appDependencies) private var dependencies
     @Environment(AppState.self) private var appState
+    let feedID: UUID
     let siteURL: String?
     let iconURL: String?
     @State private var iconImage: Image?
@@ -488,7 +489,8 @@ private struct SourceIconView: View {
         .frame(width: 20, height: 20)
         .clipShape(RoundedRectangle(cornerRadius: 5))
         .task(id: cacheOnlyLoadID) {
-            await loadIcon(allowsNetworkDiscovery: false)
+            let allowsNetworkDiscovery = appState.consumeSourceIconNetworkLoadRequest(for: feedID)
+            await loadIcon(allowsNetworkDiscovery: allowsNetworkDiscovery)
         }
         .onChange(of: appState.sourceIconReloadID) { _, _ in
             Task {

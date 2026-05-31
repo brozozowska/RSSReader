@@ -155,6 +155,7 @@ struct SourceManagementScreenControllerTests {
         #expect(appState.selectedSidebarSelection == nil)
         #expect(appState.articleListReloadID == articleReloadIDBeforeCreation)
         #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCreation)
+        #expect(appState.consumeSourceIconNetworkLoadRequest(for: persistedFeed.id))
         #expect(persistedFeed.lastFetchedAt == nil)
         #expect(persistedFeed.lastSuccessfulFetchAt == nil)
         #expect(articles.isEmpty)

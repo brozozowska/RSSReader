@@ -987,6 +987,7 @@ extension AppDependencies {
         using appState: AppState,
         selectsSavedFeed: Bool = true
     ) async -> FeedRefreshResult? {
+        appState.requestSourceIconNetworkLoad(for: feedID)
         appState.requestSourcesSidebarReload()
         if selectsSavedFeed {
             showFeed(id: feedID, using: appState)

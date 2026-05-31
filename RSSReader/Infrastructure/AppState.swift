@@ -115,6 +115,7 @@ public final class AppState {
     var sourcesSidebarReloadID = UUID()
     var sourceIconReloadID = UUID()
     var sourceIconCacheResetID = UUID()
+    private var sourceIconNetworkLoadFeedIDs: Set<UUID> = []
     var articleScreenReloadID = UUID()
     var articleReadOnOpenEvent: ArticleReadOnOpenEvent?
     var lastContentReloadTrigger: AppContentReloadTrigger?
@@ -259,6 +260,14 @@ public final class AppState {
 
     func requestSourceIconReload() {
         sourceIconReloadID = UUID()
+    }
+
+    func requestSourceIconNetworkLoad(for feedID: UUID) {
+        sourceIconNetworkLoadFeedIDs.insert(feedID)
+    }
+
+    func consumeSourceIconNetworkLoadRequest(for feedID: UUID) -> Bool {
+        sourceIconNetworkLoadFeedIDs.remove(feedID) != nil
     }
 
     func requestSourceIconCacheReset() {

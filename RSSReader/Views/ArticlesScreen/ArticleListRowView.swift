@@ -42,7 +42,7 @@ struct ArticleListRowView: View {
                         .font(.subheadline)
                         .foregroundStyle(metadataForegroundStyle)
                         .multilineTextAlignment(.leading)
-                        .lineLimit(2)
+                        .lineLimit(3)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
