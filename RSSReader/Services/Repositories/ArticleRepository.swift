@@ -9,6 +9,8 @@ protocol ArticleRepository {
     func fetchArticles(feedID: UUID) throws -> [Article]
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article]
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
+    func fetchArchivedArticles() throws -> [Article]
+    func fetchArticleStateIdentities() throws -> Set<ArticleStateIdentity>
     func reconcileArticles(
         feedID: UUID,
         keepingExternalIDs: Set<String>,
@@ -39,6 +41,7 @@ protocol ArticleRepository {
 
     func save() throws
     func delete(_ article: Article) throws
+    func delete(_ articles: [Article], saveAfterOperation: Bool) throws
 }
 
 extension ArticleRepository {
@@ -64,6 +67,10 @@ extension ArticleRepository {
     func upsert(_ payloads: [ArticleUpsertPayload], into feed: Feed) throws -> [Article] {
         try upsert(payloads, into: feed, saveAfterOperation: true)
     }
+
+    func delete(_ articles: [Article]) throws {
+        try delete(articles, saveAfterOperation: true)
+    }
 }
 
 @MainActor
@@ -79,8 +86,8 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         var updatedCount = 0
 
         for article in articles {
-            if article.feedTitle != feed.title {
-                article.feedTitle = feed.title
+            if article.feedTitle != feed.displayTitle {
+                article.feedTitle = feed.displayTitle
                 updatedCount += 1
             }
 
@@ -132,7 +139,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article] {
         let descriptor = FetchDescriptor<Article>(
             predicate: #Predicate<Article> { article in
-                article.feedID == feedID && article.isDeletedAtSource == false
+                article.feedID == feedID
             },
             sortBy: sortDescriptors(for: sortMode)
         )
@@ -141,12 +148,31 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
 
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article] {
         let descriptor = FetchDescriptor<Article>(
-            predicate: #Predicate<Article> { article in
-                article.isDeletedAtSource == false
-            },
             sortBy: sortDescriptors(for: sortMode)
         )
         return try modelContext.fetch(descriptor)
+    }
+
+    func fetchArchivedArticles() throws -> [Article] {
+        let descriptor = FetchDescriptor<Article>(
+            predicate: #Predicate<Article> { article in
+                article.archivedAt != nil
+            }
+        )
+        return try modelContext.fetch(descriptor)
+    }
+
+    func fetchArticleStateIdentities() throws -> Set<ArticleStateIdentity> {
+        let descriptor = FetchDescriptor<Article>()
+        let articles = try modelContext.fetch(descriptor)
+        return Set(
+            articles.map { article in
+                ArticleStateIdentity(
+                    feedID: article.feedID,
+                    articleExternalID: article.externalID
+                )
+            }
+        )
     }
 
     @discardableResult
@@ -198,6 +224,18 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         try saveIfNeeded()
     }
 
+    func delete(_ articles: [Article], saveAfterOperation: Bool = true) throws {
+        guard articles.isEmpty == false else { return }
+
+        for article in articles {
+            modelContext.delete(article)
+        }
+
+        if saveAfterOperation {
+            try saveIfNeeded()
+        }
+    }
+
     func reconcileArticles(
         feedID: UUID,
         keepingExternalIDs: Set<String>,
@@ -210,10 +248,10 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
 
         for article in articles {
             let shouldKeep = normalizedExternalIDs.contains(article.externalID)
-            let newDeletedAtSource = shouldKeep == false
+            let newArchivedAt = shouldKeep ? nil : (article.archivedAt ?? fetchedAt)
 
-            if article.isDeletedAtSource != newDeletedAtSource {
-                article.isDeletedAtSource = newDeletedAtSource
+            if article.archivedAt != newArchivedAt {
+                article.archivedAt = newArchivedAt
                 article.fetchedAt = fetchedAt
                 article.updatedAt = .now
                 reconciledCount += 1
@@ -238,7 +276,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         article.publishedAt = payload.publishedAt
         article.updatedAtSource = payload.updatedAtSource
         article.imageURL = payload.imageURL
-        article.isDeletedAtSource = payload.isDeletedAtSource
+        article.archivedAt = payload.archivedAt
         article.fetchedAt = payload.fetchedAt
         article.updatedAt = .now
     }
@@ -258,7 +296,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
 
         let article = Article(
             feedID: feed.id,
-            feedTitle: feed.title,
+            feedTitle: feed.displayTitle,
             feedSiteURL: feed.siteURL,
             feedFolderName: feed.folder?.name,
             externalID: payload.externalID,
@@ -273,7 +311,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             publishedAt: payload.publishedAt,
             updatedAtSource: payload.updatedAtSource,
             imageURL: payload.imageURL,
-            isDeletedAtSource: payload.isDeletedAtSource,
+            archivedAt: payload.archivedAt,
             fetchedAt: payload.fetchedAt
         )
 

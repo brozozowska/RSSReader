@@ -17,6 +17,7 @@ struct ArticleListView: View {
     @Binding var selection: UUID?
     @State private var controller: ArticlesScreenController
     @State private var searchText = ""
+    @State private var refreshStartHapticTrigger = 0
 
     init(
         selectedSidebarSelection: SidebarSelection?,
@@ -40,12 +41,19 @@ struct ArticleListView: View {
     // MARK: Body
 
     var body: some View {
-        let derivedViewState = controller.screenState.derivedViewState(searchText: searchText)
+        let derivedViewState = controller.screenState.derivedViewState(
+            searchText: searchText,
+            sourcesFilter: selectedSourcesFilter
+        )
 
         ArticleListContentView(
             sections: derivedViewState.sections,
+            visibleArticleIDs: derivedViewState.visibleArticles.map(\.id),
+            customRefreshState: derivedViewState.customRefreshState,
             selection: $selection,
-            refreshAction: refreshCurrentSelection,
+            scrollPositionID: articleListScrollPositionBinding,
+            customRefreshPullProgressChanged: updateCustomRefreshPullProgress,
+            customRefreshReleaseAction: triggerCustomRefresh,
             toggleReadStatusAction: toggleArticleReadStatus,
             toggleStarredAction: toggleStarredState
         )
@@ -60,7 +68,7 @@ struct ArticleListView: View {
             }
 
             ToolbarItem(placement: .subtitle) {
-                subtitleView(for: controller.screenState)
+                subtitleView(text: derivedViewState.navigationSubtitle)
             }
 
             if derivedViewState.toolbarActions.showsMarkAllAsReadAction {
@@ -107,33 +115,59 @@ struct ArticleListView: View {
             reloadID: reloadID
         )) {
             guard isPreviewMode == false else { return }
-            await loadArticles()
+            await loadArticles(retainsSessionReadArticles: true)
         }
         .onChange(of: searchText) { _, _ in
-            selection = stabilizedSelection(
-                availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
+            let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+            selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+            syncArticleNavigationContext(visibleArticleIDs)
+        }
+        .onChange(of: selection) { _, newValue in
+            guard let newValue else { return }
+            appState.updateArticleListScrollPosition(
+                newValue,
+                sourceSelection: selectedSidebarSelection,
+                sourcesFilter: selectedSourcesFilter
             )
         }
+        .onChange(of: appState.articleReadOnOpenEvent) { _, event in
+            applyArticleReadOnOpenEvent(event)
+        }
+        .sensoryFeedback(
+            .impact(flexibility: .solid, intensity: 0.65),
+            trigger: refreshStartHapticTrigger
+        )
         .simultaneousGesture(backNavigationGesture)
     }
 
     // MARK: Loading
 
     @MainActor
-    private func loadArticles() async {
-        if controller.shouldResetArticleSelection(for: selectedSidebarSelection) {
-            selection = nil
-        }
+    private func loadArticles(
+        retainsSessionReadArticles: Bool = true,
+        retainedSessionReadMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead,
+        preservesRefreshFeedback: Bool = false
+    ) async {
+        let loadingSidebarSelection = selectedSidebarSelection
+        let loadingSourcesFilter = selectedSourcesFilter
 
         await controller.load(
-            selection: selectedSidebarSelection,
-            sourcesFilter: selectedSourcesFilter,
-            dependencies: dependencies
+            selection: loadingSidebarSelection,
+            sourcesFilter: loadingSourcesFilter,
+            dependencies: dependencies,
+            retainsSessionReadArticles: retainsSessionReadArticles,
+            retainedSessionReadMembershipStatus: retainedSessionReadMembershipStatus,
+            preservesRefreshFeedback: preservesRefreshFeedback
         )
 
-        selection = stabilizedSelection(
-            availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
-        )
+        guard loadingSidebarSelection == appState.selectedSidebarSelection,
+              loadingSourcesFilter == appState.selectedSourcesFilter else {
+            return
+        }
+
+        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
     }
 
     // MARK: Selection
@@ -146,6 +180,51 @@ struct ArticleListView: View {
             return nil
         }
         return availableArticleIDs.first
+    }
+
+    private func syncArticleNavigationContext(_ visibleArticleIDs: [UUID]) {
+        guard isPreviewMode == false else { return }
+        reconcileArticleListScrollPosition(visibleArticleIDs: visibleArticleIDs)
+        appState.updateArticleNavigationContext(
+            visibleArticleIDs,
+            sourceSelection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter
+        )
+    }
+
+    private var articleListScrollPositionBinding: Binding<UUID?> {
+        Binding(
+            get: {
+                appState.articleListScrollPositionID(
+                    sourceSelection: selectedSidebarSelection,
+                    sourcesFilter: selectedSourcesFilter
+                )
+            },
+            set: { articleID in
+                appState.updateArticleListScrollPosition(
+                    articleID,
+                    sourceSelection: selectedSidebarSelection,
+                    sourcesFilter: selectedSourcesFilter
+                )
+            }
+        )
+    }
+
+    private func reconcileArticleListScrollPosition(visibleArticleIDs: [UUID]) {
+        let currentScrollPositionID = appState.articleListScrollPositionID(
+            sourceSelection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter
+        )
+        guard let currentScrollPositionID,
+              visibleArticleIDs.contains(currentScrollPositionID) == false else {
+            return
+        }
+
+        appState.updateArticleListScrollPosition(
+            nil,
+            sourceSelection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter
+        )
     }
 
     // MARK: Confirmation
@@ -170,9 +249,9 @@ struct ArticleListView: View {
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
-        selection = stabilizedSelection(
-            availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
-        )
+        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
     }
 
     // MARK: Bulk Actions
@@ -186,9 +265,9 @@ struct ArticleListView: View {
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
-        selection = stabilizedSelection(
-            availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
-        )
+        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
     }
 
     // MARK: Row Actions
@@ -202,9 +281,9 @@ struct ArticleListView: View {
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
-        selection = stabilizedSelection(
-            availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
-        )
+        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
     }
 
     @MainActor
@@ -216,9 +295,9 @@ struct ArticleListView: View {
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
-        selection = stabilizedSelection(
-            availableArticleIDs: controller.visibleArticleIDs(searchText: searchText)
-        )
+        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
     }
 
     // MARK: Toolbar
@@ -233,8 +312,28 @@ struct ArticleListView: View {
                 ) else {
                     return
                 }
+                endCurrentArticleListSession()
                 navigateBackToSources()
             }
+    }
+
+    @MainActor
+    private func endCurrentArticleListSession() {
+        appState.requestArticleListReload()
+    }
+
+    @MainActor
+    private func applyArticleReadOnOpenEvent(_ event: ArticleReadOnOpenEvent?) {
+        guard let event else { return }
+        guard event.sourceSelection == selectedSidebarSelection,
+              event.sourcesFilter == selectedSourcesFilter else {
+            return
+        }
+
+        controller.markArticleAsReadInCurrentSession(event.articleID)
+        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
     }
 
     @ViewBuilder
@@ -244,9 +343,9 @@ struct ArticleListView: View {
     }
 
     @ViewBuilder
-    private func subtitleView(for screenState: ArticlesScreenState) -> some View {
-        if screenState.navigationSubtitle.isEmpty == false {
-            Text(screenState.navigationSubtitle)
+    private func subtitleView(text: String) -> some View {
+        if text.isEmpty == false {
+            Text(text)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -285,7 +384,7 @@ struct ArticleListView: View {
 
     private func retryPrimaryLoad() {
         Task {
-            await loadArticles()
+            await loadArticles(retainsSessionReadArticles: true)
         }
     }
 
@@ -294,11 +393,40 @@ struct ArticleListView: View {
     @MainActor
     private func refreshCurrentSelection() async {
         guard isPreviewMode == false else { return }
+
+        refreshStartHapticTrigger += 1
+
         await controller.refreshCurrentSelection(
             selection: selectedSidebarSelection,
             dependencies: dependencies,
-            appState: appState
+            appState: appState,
+            requestsArticleListReload: false
         )
+        let preservesRefreshFeedback = controller.screenState.refreshFeedback != nil
+
+        await loadArticles(
+            retainsSessionReadArticles: false,
+            retainedSessionReadMembershipStatus: .retainedAfterRefresh,
+            preservesRefreshFeedback: preservesRefreshFeedback
+        )
+    }
+
+    @MainActor
+    private func updateCustomRefreshPullProgress(_ progress: Double) {
+        controller.screenState.updateCustomRefreshPullProgress(progress)
+    }
+
+    @MainActor
+    private func triggerCustomRefresh() async {
+        guard isPreviewMode == false else { return }
+        guard controller.screenState.customRefreshState.phase == .ready else { return }
+
+        controller.screenState.beginCustomRefresh()
+        defer {
+            controller.screenState.endCustomRefresh()
+        }
+
+        await refreshCurrentSelection()
     }
 
     @MainActor

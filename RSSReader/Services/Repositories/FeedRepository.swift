@@ -76,6 +76,7 @@ struct FeedFetchMetadata: Sendable {
 struct FeedSidebarItem: Sendable, Identifiable {
     let id: UUID
     let title: String
+    let siteURL: String?
     let iconURL: String?
     let folderName: String?
     let unreadCount: Int
@@ -83,7 +84,8 @@ struct FeedSidebarItem: Sendable, Identifiable {
 
     init(feed: Feed, unreadCount: Int = 0, starredCount: Int = 0) {
         self.id = feed.id
-        self.title = feed.title
+        self.title = feed.displayTitle
+        self.siteURL = feed.siteURL
         self.iconURL = feed.iconURL
         self.folderName = feed.folder?.name
         self.unreadCount = unreadCount
@@ -94,6 +96,7 @@ struct FeedSidebarItem: Sendable, Identifiable {
         FeedSidebarItem(
             id: id,
             title: title,
+            siteURL: siteURL,
             iconURL: iconURL,
             folderName: folderName,
             unreadCount: unreadCount,
@@ -104,6 +107,7 @@ struct FeedSidebarItem: Sendable, Identifiable {
     private init(
         id: UUID,
         title: String,
+        siteURL: String?,
         iconURL: String?,
         folderName: String?,
         unreadCount: Int,
@@ -111,6 +115,7 @@ struct FeedSidebarItem: Sendable, Identifiable {
     ) {
         self.id = id
         self.title = title
+        self.siteURL = siteURL
         self.iconURL = iconURL
         self.folderName = folderName
         self.unreadCount = unreadCount
@@ -138,6 +143,8 @@ struct FeedDetailsUpdate: Sendable {
     var url: String? = nil
     var siteURL: String? = nil
     var title: String? = nil
+    var displayTitleOverride: String? = nil
+    var clearsDisplayTitleOverride = false
     var subtitle: String? = nil
     var iconURL: String? = nil
     var language: String? = nil
@@ -384,6 +391,12 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
 
         if let title = update.title, title.isEmpty == false {
             feed.title = title
+        }
+
+        if update.clearsDisplayTitleOverride {
+            feed.displayTitleOverride = nil
+        } else if let displayTitleOverride = update.displayTitleOverride {
+            feed.displayTitleOverride = displayTitleOverride
         }
 
         if let subtitle = update.subtitle {

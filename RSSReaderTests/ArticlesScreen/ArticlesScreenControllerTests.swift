@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import RSSReader
 
@@ -27,6 +28,467 @@ struct ArticlesScreenControllerTests {
         #expect(controller.screenState.navigationTitle == "controller-load.xml")
         #expect(controller.screenState.articles.count == 1)
         #expect(controller.screenState.articles.first?.title == "Controller Load")
+    }
+
+    @Test
+    func articlesScreenControllerLoadsArchivedAndCurrentArticlesForCurrentSelection() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-archive.xml"]).first)
+        let archivedAt = try #require(Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1)))
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "controller-archived-article",
+            url: "https://example.com/articles/controller-archived",
+            title: "Controller Archived",
+            archivedAt: archivedAt
+        )
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "controller-current-article",
+            url: "https://example.com/articles/controller-current",
+            title: "Controller Current"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.count == 2)
+        #expect(controller.screenState.articles.contains { $0.title == "Controller Archived" && $0.archivedAt == archivedAt })
+        #expect(controller.screenState.articles.contains { $0.title == "Controller Current" && $0.archivedAt == nil })
+    }
+
+    @Test
+    func articlesScreenControllerUsesFeedDisplayTitleOverrideForNavigationTitle() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = Feed(
+            url: "https://example.com/display-title.xml",
+            title: "XML Feed Title",
+            displayTitleOverride: "My Feed"
+        )
+        try harness.feedRepository.insert(feed)
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "display-title-article",
+            url: "https://example.com/articles/display-title",
+            title: "Display Title Article"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.navigationTitle == "My Feed")
+    }
+
+    @Test
+    func articlesScreenControllerUsesUnreadCountForFeedNavigationSubtitle() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = Feed(
+            url: "https://example.com/last-refresh.xml",
+            title: "Last Refresh"
+        )
+        try harness.feedRepository.insert(feed)
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "last-refresh-article",
+            url: "https://example.com/articles/last-refresh",
+            title: "Last Refresh Article"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.navigationSubtitle == "1 Unread Item")
+    }
+
+    @Test
+    func articlesScreenControllerUsesNewestFirstForAllItemsRegardlessOfUnreadSortSetting() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/all-items-sort.xml"]).first)
+        let oldDate = try #require(Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1)))
+        let newDate = try #require(Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 2)))
+        let oldArticle = Article(
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            feedSiteURL: feed.siteURL,
+            feedFolderName: feed.folder?.name,
+            externalID: "all-items-old",
+            url: "https://example.com/articles/all-items-old",
+            title: "Old Article",
+            publishedAt: oldDate,
+            fetchedAt: oldDate
+        )
+        let newArticle = Article(
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            feedSiteURL: feed.siteURL,
+            feedFolderName: feed.folder?.name,
+            externalID: "all-items-new",
+            url: "https://example.com/articles/all-items-new",
+            title: "New Article",
+            publishedAt: newDate,
+            fetchedAt: newDate
+        )
+        harness.modelContainer.mainContext.insert(oldArticle)
+        harness.modelContainer.mainContext.insert(newArticle)
+        try harness.modelContainer.mainContext.save()
+        _ = try repository.update(AppSettingsUpdate(unreadSortMode: .publishedAtAscending))
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.articles.map(\.id) == [newArticle.id, oldArticle.id])
+    }
+
+    @Test
+    func articlesScreenControllerUsesUnreadSortSettingForUnreadFilter() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/unread-sort.xml"]).first)
+        let oldDate = try #require(Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1)))
+        let newDate = try #require(Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 2)))
+        let oldArticle = Article(
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            feedSiteURL: feed.siteURL,
+            feedFolderName: feed.folder?.name,
+            externalID: "unread-old",
+            url: "https://example.com/articles/unread-old",
+            title: "Old Unread Article",
+            publishedAt: oldDate,
+            fetchedAt: oldDate
+        )
+        let newArticle = Article(
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            feedSiteURL: feed.siteURL,
+            feedFolderName: feed.folder?.name,
+            externalID: "unread-new",
+            url: "https://example.com/articles/unread-new",
+            title: "New Unread Article",
+            publishedAt: newDate,
+            fetchedAt: newDate
+        )
+        harness.modelContainer.mainContext.insert(oldArticle)
+        harness.modelContainer.mainContext.insert(newArticle)
+        try harness.modelContainer.mainContext.save()
+        _ = try repository.update(AppSettingsUpdate(unreadSortMode: .publishedAtAscending))
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.articles.map(\.id) == [oldArticle.id, newArticle.id])
+    }
+
+    @Test
+    func articlesScreenControllerRetainsSessionReadArticleOnlyForRetainingReloads() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let articleStateService = try #require(harness.dependencies.articleStateService)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/session-unread.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "session-unread-article",
+            url: "https://example.com/articles/session-unread",
+            title: "Session Unread"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        _ = try articleStateService.markAsRead(
+            feedID: feed.id,
+            articleExternalID: article.externalID,
+            at: .now
+        )
+        controller.markArticleAsReadInCurrentSession(article.id)
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies,
+            retainsSessionReadArticles: true
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.map(\.id) == [article.id])
+        #expect(controller.screenState.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
+        #expect(controller.screenState.articles.first?.isRead == true)
+        #expect(controller.screenState.navigationSubtitle == "No Unread Items")
+
+        let newEntryController = ArticlesScreenController()
+        await newEntryController.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        #expect(newEntryController.screenState.phase == .empty)
+        #expect(newEntryController.screenState.articles.isEmpty)
+    }
+
+    @Test
+    func articlesScreenControllerMarksSessionReadRetentionAfterRefresh() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let articleStateService = try #require(harness.dependencies.articleStateService)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/session-refresh.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "session-refresh-article",
+            url: "https://example.com/articles/session-refresh",
+            title: "Session Refresh"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        _ = try articleStateService.markAsRead(
+            feedID: feed.id,
+            articleExternalID: article.externalID,
+            at: .now
+        )
+        controller.markArticleAsReadInCurrentSession(article.id)
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies,
+            retainsSessionReadArticles: true,
+            retainedSessionReadMembershipStatus: .retainedAfterRefresh
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.map(\.id) == [article.id])
+        #expect(controller.screenState.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRefresh])
+        #expect(controller.screenState.navigationSubtitle == "No Unread Items")
+    }
+
+    @Test
+    func articlesScreenControllerAppliesFreshQuerySnapshotAfterRefreshWithoutRetainingReadEntries() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let articleStateService = try #require(harness.dependencies.articleStateService)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/session-refresh-reset.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "session-refresh-reset-article",
+            url: "https://example.com/articles/session-refresh-reset",
+            title: "Session Refresh Reset"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        _ = try articleStateService.markAsRead(
+            feedID: feed.id,
+            articleExternalID: article.externalID,
+            at: .now
+        )
+        controller.markArticleAsReadInCurrentSession(article.id)
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies,
+            retainsSessionReadArticles: false,
+            retainedSessionReadMembershipStatus: .retainedAfterRefresh
+        )
+
+        #expect(controller.screenState.phase == .empty)
+        #expect(controller.screenState.articles.isEmpty)
+        #expect(controller.screenState.articleListSession.entries.isEmpty)
+        #expect(controller.screenState.navigationSubtitle == "No Unread Items")
+    }
+
+    @Test
+    func articlesScreenControllerKeepsScrollPositionAndRemovesRetainedReadArticleAfterReturnRefresh() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let articleStateService = try #require(harness.dependencies.articleStateService)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/return-refresh.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "return-refresh-article",
+            url: "https://example.com/articles/return-refresh",
+            title: "Return Refresh"
+        )
+        let appState = AppState()
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies
+        )
+        appState.updateArticleListScrollPosition(
+            article.id,
+            sourceSelection: .feed(feed.id),
+            sourcesFilter: .unread
+        )
+
+        _ = try articleStateService.markAsRead(
+            feedID: feed.id,
+            articleExternalID: article.externalID,
+            at: .now
+        )
+        controller.markArticleAsReadInCurrentSession(article.id)
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.map(\.id) == [article.id])
+        #expect(controller.screenState.articles.first?.isRead == true)
+        #expect(controller.screenState.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies,
+            retainsSessionReadArticles: false,
+            retainedSessionReadMembershipStatus: .retainedAfterRefresh
+        )
+
+        #expect(controller.screenState.phase == .empty)
+        #expect(controller.screenState.articles.isEmpty)
+        #expect(
+            appState.articleListScrollPositionID(
+                sourceSelection: .feed(feed.id),
+                sourcesFilter: .unread
+            ) == article.id
+        )
+    }
+
+    @Test
+    func articlesScreenControllerResetsSessionWhenSourcesFilterChanges() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let articleStateService = try #require(harness.dependencies.articleStateService)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/session-filter-reset.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "session-filter-reset-article",
+            url: "https://example.com/articles/session-filter-reset",
+            title: "Session Filter Reset"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        _ = try articleStateService.markAsRead(
+            feedID: feed.id,
+            articleExternalID: article.externalID,
+            at: .now
+        )
+        controller.markArticleAsReadInCurrentSession(article.id)
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies,
+            retainsSessionReadArticles: true
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articleListSession.context == ArticleListSession.Context(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems
+        ))
+        #expect(controller.screenState.articles.map(\.id) == [article.id])
+        #expect(controller.screenState.articleListSession.entries.map(\.membershipStatus) == [.matchesCurrentQuery])
+        #expect(controller.screenState.articles.first?.isRead == true)
+    }
+
+    @Test
+    func articlesScreenControllerMergesFreshQuerySnapshotWithCurrentRetainedEntries() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let articleStateService = try #require(harness.dependencies.articleStateService)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/session-merge.xml"]).first)
+        let retainedArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "session-merge-retained",
+            url: "https://example.com/articles/session-merge-retained",
+            title: "Retained Article"
+        )
+        let currentArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "session-merge-current",
+            url: "https://example.com/articles/session-merge-current",
+            title: "Current Article"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        _ = try articleStateService.markAsRead(
+            feedID: feed.id,
+            articleExternalID: retainedArticle.externalID,
+            at: .now
+        )
+        controller.markArticleAsReadInCurrentSession(retainedArticle.id)
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "session-merge-new",
+            url: "https://example.com/articles/session-merge-new",
+            title: "New Article"
+        )
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies,
+            retainsSessionReadArticles: true,
+            retainedSessionReadMembershipStatus: .retainedAfterRefresh
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.contains { $0.id == retainedArticle.id })
+        #expect(controller.screenState.articles.contains { $0.id == currentArticle.id })
+        #expect(controller.screenState.articles.contains { $0.title == "New Article" })
+        #expect(
+            controller.screenState.articleListSession.entries.first {
+                $0.id == retainedArticle.id
+            }?.membershipStatus == .retainedAfterRefresh
+        )
+        #expect(
+            controller.screenState.articleListSession.entries.filter {
+                $0.membershipStatus == .matchesCurrentQuery
+            }.count == 2
+        )
     }
 
     func articlesScreenControllerPresentsRefreshFailureFromBatchRefreshResult() async throws {
@@ -65,6 +527,39 @@ struct ArticlesScreenControllerTests {
 
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.refreshFeedback?.message.contains("invalidStatusCode") == true)
+    }
+
+    @Test
+    func articlesScreenControllerCanPreserveRefreshFailureDuringPostRefreshReload() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-refresh-preserve.xml"]).first)
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "controller-refresh-preserve-article",
+            url: "https://example.com/articles/controller-refresh-preserve",
+            title: "Controller Refresh Preserve"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        controller.screenState.presentRefreshFailure("Refresh failed")
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .allItems,
+            dependencies: harness.dependencies,
+            retainsSessionReadArticles: false,
+            retainedSessionReadMembershipStatus: .retainedAfterRefresh,
+            preservesRefreshFeedback: true
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.map(\.title) == ["Controller Refresh Preserve"])
+        #expect(controller.screenState.refreshFeedback == ArticlesScreenRefreshFeedback(message: "Refresh failed"))
     }
 
     @Test
@@ -228,7 +723,7 @@ struct ArticlesScreenControllerTests {
 
         #expect(controller.screenState.pendingConfirmation == nil)
         #expect(controller.screenState.articles.first?.isRead == true)
-        #expect(controller.screenState.navigationSubtitle == "0 Unread Items")
+        #expect(controller.screenState.navigationSubtitle == "No Unread Items")
         #expect(persistedState?.isRead == true)
     }
 }

@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import SwiftData
 import Observation
@@ -15,6 +16,12 @@ enum AppComposition {
     static let developmentSchemaBootstrapGuard = AppLaunchBootstrapGuard()
     @MainActor
     static let backgroundRefreshLaunchSchedulingGuard = AppLaunchBootstrapGuard()
+
+    static func configureSharedURLCache(
+        configuration: AppURLCacheConfiguration = .articleImageLoading
+    ) {
+        configuration.applyAsSharedURLCache()
+    }
 
     @MainActor
     static func makeAppDependencies(
@@ -158,6 +165,30 @@ enum AppComposition {
     }
 }
 
+struct AppURLCacheConfiguration: Equatable {
+    let memoryCapacity: Int
+    let diskCapacity: Int
+    let diskPath: String
+
+    static let articleImageLoading = AppURLCacheConfiguration(
+        memoryCapacity: 50 * 1024 * 1024,
+        diskCapacity: 200 * 1024 * 1024,
+        diskPath: "RSSReaderArticleImageURLCache"
+    )
+
+    func makeURLCache() -> URLCache {
+        URLCache(
+            memoryCapacity: memoryCapacity,
+            diskCapacity: diskCapacity,
+            diskPath: diskPath
+        )
+    }
+
+    func applyAsSharedURLCache() {
+        URLCache.shared = makeURLCache()
+    }
+}
+
 @MainActor
 final class AppLaunchBootstrapGuard {
     private var attemptedIdentifiers: Set<String> = []
@@ -193,6 +224,7 @@ struct AppRootContainer: View {
             )
             dependencies.startRemoteSyncReloadAppLifetime(using: appState)
             await restorePersistedAppSettingsIfNeeded()
+            await dependencies.refreshUnreadAppIconBadgeCount()
         }
         .onChange(of: scenePhase) { _, newPhase in
             AppComposition.applyBackgroundRefreshForegroundRuntimeState(

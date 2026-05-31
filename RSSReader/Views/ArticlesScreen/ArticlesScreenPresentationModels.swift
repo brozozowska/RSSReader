@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 enum ArticlesScreenPhase: Equatable {
     case noSelection
@@ -11,6 +12,107 @@ enum ArticlesScreenPhase: Equatable {
 enum ArticlesScreenRefreshState: Equatable {
     case idle
     case refreshing
+}
+
+struct ArticlesScreenCustomRefreshState: Equatable {
+    enum Phase: Equatable {
+        case idle
+        case pulling
+        case ready
+        case refreshing
+    }
+
+    static let idle = ArticlesScreenCustomRefreshState(
+        phase: .idle,
+        pullProgress: 0
+    )
+
+    static let refreshing = ArticlesScreenCustomRefreshState(
+        phase: .refreshing,
+        pullProgress: 1
+    )
+
+    let phase: Phase
+    let pullProgress: Double
+
+    var showsIndicator: Bool {
+        phase != .idle
+    }
+
+    var indicatorState: AppRefreshIndicatorState {
+        switch phase {
+        case .idle:
+            .idle
+        case .pulling:
+            .pulling(progress: pullProgress)
+        case .ready:
+            .ready
+        case .refreshing:
+            .refreshing
+        }
+    }
+
+    static func pulling(progress: Double) -> ArticlesScreenCustomRefreshState {
+        let normalizedProgress = min(max(progress, 0), 1)
+
+        if normalizedProgress <= 0 {
+            return .idle
+        }
+
+        if normalizedProgress >= 1 {
+            return ArticlesScreenCustomRefreshState(
+                phase: .ready,
+                pullProgress: 1
+            )
+        }
+
+        return ArticlesScreenCustomRefreshState(
+            phase: .pulling,
+            pullProgress: normalizedProgress
+        )
+    }
+}
+
+struct ArticleListCustomRefreshGeometry: Equatable {
+    var contentOffsetY: CGFloat
+    var contentInsetTop: CGFloat
+
+    init(
+        contentOffsetY: CGFloat = 0,
+        contentInsetTop: CGFloat = 0
+    ) {
+        self.contentOffsetY = contentOffsetY
+        self.contentInsetTop = contentInsetTop
+    }
+
+    var topOverscrollDistance: CGFloat {
+        max(0, -(contentOffsetY + contentInsetTop))
+    }
+}
+
+enum ArticleListCustomRefreshPullPolicy {
+    static let pullThreshold: CGFloat = 72
+
+    static func progress(
+        for geometry: ArticleListCustomRefreshGeometry,
+        threshold: CGFloat = pullThreshold
+    ) -> Double {
+        guard threshold > 0 else {
+            return 0
+        }
+
+        return min(Double(geometry.topOverscrollDistance / threshold), 1)
+    }
+}
+
+enum ArticleListCustomRefreshReleasePolicy {
+    static func shouldTriggerRefresh(
+        wasInteracting: Bool,
+        isInteracting: Bool,
+        customRefreshState: ArticlesScreenCustomRefreshState
+    ) -> Bool {
+        wasInteracting && isInteracting == false && customRefreshState.phase == .ready
+    }
 }
 
 enum ArticlesScreenConfirmationDialog: Equatable {
@@ -60,6 +162,9 @@ struct ArticlesScreenSubtitleResolver {
         switch sourcesFilter {
         case .allItems, .unread:
             count = articles.filter { $0.isRead == false }.count
+            guard count > 0 else {
+                return "No Unread Items"
+            }
             itemLabel = count == 1 ? "Unread Item" : "Unread Items"
         case .starred:
             count = articles.filter(\.isStarred).count
@@ -129,11 +234,79 @@ struct ArticleRowSwipeActionsState: Equatable {
     }
 }
 
+struct ArticleListRowContent: Equatable {
+    let titleText: String
+    let previewText: String?
+
+    init(article: ArticleListItemDTO) {
+        let titleText = article.title.nilIfBlank ?? "Untitled Article"
+        let previewText = ArticleListRowPreviewNormalizer.normalizedPreview(from: article.summary)
+
+        self.titleText = titleText
+        self.previewText = previewText == titleText ? nil : previewText
+    }
+}
+
+private enum ArticleListRowPreviewNormalizer {
+    static func normalizedPreview(from rawValue: String?) -> String? {
+        guard let payload = ArticleScreenBodyPayloadNormalizer.normalize(
+            rawValue,
+            preferredKind: .plainText
+        ) else {
+            return nil
+        }
+
+        let normalizedValue: String
+        switch payload.kind {
+        case .plainText:
+            normalizedValue = payload.value
+        case .html:
+            normalizedValue = stripHTML(payload.value)
+        }
+
+        return normalizedValue
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nilIfBlank
+    }
+
+    private static func stripHTML(_ value: String) -> String {
+        value
+            .replacingOccurrences(
+                of: #"(?i)<br\s*/?>"#,
+                with: " ",
+                options: .regularExpression
+            )
+            .replacingOccurrences(
+                of: #"(?i)</?(p|div|section|article|blockquote|ul|ol|li|h[1-6]|pre|figure|figcaption|table|tbody|thead|tr|td|th)\b[^>]*>"#,
+                with: " ",
+                options: .regularExpression
+            )
+            .replacingOccurrences(
+                of: #"<[^>]+>"#,
+                with: "",
+                options: .regularExpression
+            )
+            .decodingHTMLEntitiesForArticleListPreview()
+    }
+}
+
 private extension ArticlesScreenPhase {
     var isFailed: Bool {
         if case .failed = self {
             return true
         }
         return false
+    }
+}
+
+private extension String {
+    var nilIfBlank: String? {
+        let trimmedValue = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedValue.isEmpty ? nil : trimmedValue
+    }
+
+    func decodingHTMLEntitiesForArticleListPreview() -> String {
+        ArticleScreenBodyPayloadNormalizer.decodeHTMLEntities(in: self)
     }
 }

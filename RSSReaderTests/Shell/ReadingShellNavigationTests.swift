@@ -6,6 +6,21 @@ import Testing
 @MainActor
 struct ReadingShellNavigationTests {
     @Test
+    func readingShellInitialAppStateStartsOnSourcesInCompactNavigation() {
+        let appState = AppState()
+
+        #expect(appState.selectedSidebarSelection == nil)
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
+        #expect(
+            ReadingShellCompactNavigationState.preferredCompactColumn(
+                sourceSelection: appState.selectedSidebarSelection,
+                articleSelection: appState.selectedArticleID
+            ) == .sidebar
+        )
+    }
+
+    @Test
     func readingShellNavigationStateBuildsDetailDestinationsForNoneAndArticleRoutes() {
         let articleID = UUID()
 
@@ -30,17 +45,17 @@ struct ReadingShellNavigationTests {
     }
 
     @Test
-    func readingShellNavigationStateBuildsWebViewDestinationForWebViewRoute() {
-        let route = ArticleWebViewRoute(
+    func readingShellNavigationStateKeepsArticleDestinationBehindSafariRoute() {
+        let route = ArticleSafariRoute(
             articleID: UUID(),
             url: URL(string: "https://example.com/web-shell-destination")!
         )
 
         #expect(
             ReadingShellDetailNavigationState.detailDestination(
-                route: .webView(route),
+                route: .safari(route),
                 selectedArticleID: route.articleID
-            ) == .webView(route)
+            ) == .article(route.articleID)
         )
     }
 

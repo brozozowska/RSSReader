@@ -296,6 +296,9 @@ struct AppDependenciesTests {
         try await expectEventually {
             syncCoordinator.runtimeState.phase == .idle
         }
+        try await expectEventually {
+            cloudKitRuntimeEventSource.subscriberCount == 1
+        }
 
         let context = CloudKitRuntimeEventContext(
             identifier: UUID(),
@@ -435,8 +438,17 @@ struct AppDependenciesTests {
         try await expectEventually {
             syncCoordinator.runtimeState.phase == .idle
         }
+        try await expectEventually {
+            accountAvailabilityService.subscriberCount == 1
+                && cloudKitRuntimeEventSource.subscriberCount == 1
+        }
 
         dependencies.stopSyncRuntimeAppLifetime()
+
+        try await expectEventually {
+            accountAvailabilityService.subscriberCount == 0
+                && cloudKitRuntimeEventSource.subscriberCount == 0
+        }
 
         await accountAvailabilityService.yield(.restricted)
         await cloudKitRuntimeEventSource.yield(
@@ -478,6 +490,10 @@ struct AppDependenciesTests {
         let initialArticleScreenReloadID = appState.articleScreenReloadID
 
         dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+        try await expectEventually {
+            cloudKitRuntimeEventSource.subscriberCount == 1
+                && remoteChangeSource.subscriberCount == 1
+        }
 
         await remoteChangeSource.yield(
             PersistentStoreRemoteChangeEvent(
@@ -559,12 +575,13 @@ struct AppDependenciesTests {
     @Test
     func appDependenciesStartRemoteSyncReloadAppLifetimeRequiresFreshRemoteChangeAfterImportFailure() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let logger = RecordingLogger()
         let syncCoordinator = SyncCoordinator(isSyncEnabled: true)
         syncCoordinator.applyAccountAvailability(.available)
         let cloudKitRuntimeEventSource = TestCloudKitRuntimeEventSource()
         let remoteChangeSource = TestPersistentStoreRemoteChangeSource()
         let dependencies = AppDependencies(
-            logger: TestLogger(),
+            logger: logger,
             httpClient: harness.httpClient,
             modelContainer: harness.modelContainer,
             syncBackedStoreReference: testSyncBackedStoreReference(),
@@ -578,6 +595,10 @@ struct AppDependenciesTests {
         let initialArticleScreenReloadID = appState.articleScreenReloadID
 
         dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+        try await expectEventually {
+            cloudKitRuntimeEventSource.subscriberCount == 1
+                && remoteChangeSource.subscriberCount == 1
+        }
 
         await remoteChangeSource.yield(
             PersistentStoreRemoteChangeEvent(
@@ -585,6 +606,12 @@ struct AppDependenciesTests {
                 storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
             )
         )
+        try await expectEventually {
+            logger.contains(
+                "Observed persistent store remote change; marked store change pending",
+                level: .info
+            )
+        }
         await cloudKitRuntimeEventSource.yield(
             .failed(
                 .import,
@@ -597,6 +624,12 @@ struct AppDependenciesTests {
                 "Import failed."
             )
         )
+        try await expectEventually {
+            logger.contains(
+                "Observed CloudKit import failure; cleared pending remote reload correlation",
+                level: .error
+            )
+        }
         await cloudKitRuntimeEventSource.yield(
             .finished(
                 .import,
@@ -1110,29 +1143,47 @@ struct AppDependenciesTests {
     }
 }
 
-private actor TestICloudAccountAvailabilityService: ICloudAccountAvailabilityService {
+private final class TestICloudAccountAvailabilityService: ICloudAccountAvailabilityService, @unchecked Sendable {
     private let initialAvailability: ICloudAccountAvailability
-    private let stream: AsyncStream<ICloudAccountAvailability>
-    private let continuation: AsyncStream<ICloudAccountAvailability>.Continuation
+    private let queue = DispatchQueue(label: "RSSReaderTests.AppDependencies.AccountAvailability")
+    private var continuations: [UUID: AsyncStream<ICloudAccountAvailability>.Continuation] = [:]
 
     init(initialAvailability: ICloudAccountAvailability) {
         self.initialAvailability = initialAvailability
-
-        let components = AsyncStream.makeStream(of: ICloudAccountAvailability.self)
-        self.stream = components.stream
-        self.continuation = components.continuation
     }
 
     func currentAvailability() async -> ICloudAccountAvailability {
         initialAvailability
     }
 
-    nonisolated func availabilityChanges() -> AsyncStream<ICloudAccountAvailability> {
-        stream
+    func availabilityChanges() -> AsyncStream<ICloudAccountAvailability> {
+        AsyncStream { continuation in
+            let id = UUID()
+            queue.sync {
+                continuations[id] = continuation
+            }
+            continuation.onTermination = { [weak self] _ in
+                guard let self else { return }
+                queue.async {
+                    self.continuations.removeValue(forKey: id)
+                }
+            }
+        }
     }
 
-    func yield(_ availability: ICloudAccountAvailability) {
-        continuation.yield(availability)
+    var subscriberCount: Int {
+        queue.sync {
+            continuations.count
+        }
+    }
+
+    func yield(_ availability: ICloudAccountAvailability) async {
+        let activeContinuations = queue.sync {
+            Array(continuations.values)
+        }
+        activeContinuations.forEach { continuation in
+            continuation.yield(availability)
+        }
     }
 }
 
@@ -1159,41 +1210,73 @@ private final class RecordingBackgroundRefreshForegroundHandoffCoordinator:
     }
 }
 
-private actor TestCloudKitRuntimeEventSource: CloudKitRuntimeEventSource {
-    private let stream: AsyncStream<CloudKitRuntimeEvent>
-    private let continuation: AsyncStream<CloudKitRuntimeEvent>.Continuation
+private final class TestCloudKitRuntimeEventSource: CloudKitRuntimeEventSource, @unchecked Sendable {
+    private let queue = DispatchQueue(label: "RSSReaderTests.AppDependencies.CloudKitRuntimeEvents")
+    private var continuations: [UUID: AsyncStream<CloudKitRuntimeEvent>.Continuation] = [:]
 
-    init() {
-        let components = AsyncStream.makeStream(of: CloudKitRuntimeEvent.self)
-        self.stream = components.stream
-        self.continuation = components.continuation
+    func events() -> AsyncStream<CloudKitRuntimeEvent> {
+        AsyncStream { continuation in
+            let id = UUID()
+            queue.sync {
+                continuations[id] = continuation
+            }
+            continuation.onTermination = { [weak self] _ in
+                guard let self else { return }
+                queue.async {
+                    self.continuations.removeValue(forKey: id)
+                }
+            }
+        }
     }
 
-    nonisolated func events() -> AsyncStream<CloudKitRuntimeEvent> {
-        stream
+    var subscriberCount: Int {
+        queue.sync {
+            continuations.count
+        }
     }
 
-    func yield(_ event: CloudKitRuntimeEvent) {
-        continuation.yield(event)
+    func yield(_ event: CloudKitRuntimeEvent) async {
+        let activeContinuations = queue.sync {
+            Array(continuations.values)
+        }
+        activeContinuations.forEach { continuation in
+            continuation.yield(event)
+        }
     }
 }
 
-private actor TestPersistentStoreRemoteChangeSource: PersistentStoreRemoteChangeSource {
-    private let stream: AsyncStream<PersistentStoreRemoteChangeEvent>
-    private let continuation: AsyncStream<PersistentStoreRemoteChangeEvent>.Continuation
+private final class TestPersistentStoreRemoteChangeSource: PersistentStoreRemoteChangeSource, @unchecked Sendable {
+    private let queue = DispatchQueue(label: "RSSReaderTests.AppDependencies.PersistentStoreRemoteChanges")
+    private var continuations: [UUID: AsyncStream<PersistentStoreRemoteChangeEvent>.Continuation] = [:]
 
-    init() {
-        let components = AsyncStream.makeStream(of: PersistentStoreRemoteChangeEvent.self)
-        self.stream = components.stream
-        self.continuation = components.continuation
+    func events() -> AsyncStream<PersistentStoreRemoteChangeEvent> {
+        AsyncStream { continuation in
+            let id = UUID()
+            queue.sync {
+                continuations[id] = continuation
+            }
+            continuation.onTermination = { [weak self] _ in
+                guard let self else { return }
+                queue.async {
+                    self.continuations.removeValue(forKey: id)
+                }
+            }
+        }
     }
 
-    nonisolated func events() -> AsyncStream<PersistentStoreRemoteChangeEvent> {
-        stream
+    var subscriberCount: Int {
+        queue.sync {
+            continuations.count
+        }
     }
 
-    func yield(_ event: PersistentStoreRemoteChangeEvent) {
-        continuation.yield(event)
+    func yield(_ event: PersistentStoreRemoteChangeEvent) async {
+        let activeContinuations = queue.sync {
+            Array(continuations.values)
+        }
+        activeContinuations.forEach { continuation in
+            continuation.yield(event)
+        }
     }
 }
 

@@ -25,6 +25,27 @@ struct ArticleScreenControllerTests {
     }
 
     @Test
+    func articleScreenControllerLoadsArchivedReaderArticleWithArchiveMetadata() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-archive.xml"]).first)
+        let archivedAt = try #require(Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1)))
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-archive",
+            url: "https://example.com/articles/article-screen-archive",
+            title: "Article Screen Archive",
+            archivedAt: archivedAt
+        )
+        let controller = ArticleScreenController()
+
+        await controller.load(articleID: article.id, dependencies: harness.dependencies)
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.article?.title == "Article Screen Archive")
+        #expect(controller.screenState.article?.archivedAt == archivedAt)
+    }
+
+    @Test
     func articleScreenControllerMarksArticleAsReadOnOpenWhenSettingIsEnabled() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
@@ -42,11 +63,17 @@ struct ArticleScreenControllerTests {
             title: "Article Screen Mark On Open"
         )
         let controller = ArticleScreenController()
+        var recordedReadArticleIDs: [UUID] = []
 
-        await controller.load(articleID: article.id, dependencies: harness.dependencies)
+        await controller.load(
+            articleID: article.id,
+            dependencies: harness.dependencies,
+            articleReadOnOpenHandler: { recordedReadArticleIDs.append($0) }
+        )
 
         let loadedArticle = try #require(controller.screenState.article)
         #expect(loadedArticle.isRead == true)
+        #expect(recordedReadArticleIDs == [article.id])
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
 
@@ -75,11 +102,17 @@ struct ArticleScreenControllerTests {
             title: "Article Screen Keep Unread On Open"
         )
         let controller = ArticleScreenController()
+        var recordedReadArticleIDs: [UUID] = []
 
-        await controller.load(articleID: article.id, dependencies: harness.dependencies)
+        await controller.load(
+            articleID: article.id,
+            dependencies: harness.dependencies,
+            articleReadOnOpenHandler: { recordedReadArticleIDs.append($0) }
+        )
 
         let loadedArticle = try #require(controller.screenState.article)
         #expect(loadedArticle.isRead == false)
+        #expect(recordedReadArticleIDs.isEmpty)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Read")
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
 
@@ -216,7 +249,7 @@ struct ArticleScreenControllerTests {
     }
 
     @Test
-    func articleScreenControllerOpensCurrentArticleInAppLevelWebViewRoute() async throws {
+    func articleScreenControllerOpensCurrentArticleInAppLevelSafariRoute() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
         let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
@@ -248,15 +281,15 @@ struct ArticleScreenControllerTests {
         )
 
         #expect(
-            appState.selectedDetailRoute == .webView(
-                ArticleWebViewRoute(
+            appState.selectedDetailRoute == .safari(
+                ArticleSafariRoute(
                     articleID: articleModel.id,
                     url: URL(string: "https://example.com/articles/article-screen-open-web/canonical")!
                 )
             )
         )
         #expect(
-            appState.presentedWebViewRoute == ArticleWebViewRoute(
+            appState.presentedSafariRoute == ArticleSafariRoute(
                 articleID: articleModel.id,
                 url: URL(string: "https://example.com/articles/article-screen-open-web/canonical")!
             )
@@ -298,11 +331,11 @@ struct ArticleScreenControllerTests {
 
         #expect(externallyOpenedURL == URL(string: "https://example.com/articles/article-screen-open-external/canonical")!)
         #expect(appState.selectedDetailRoute == .none)
-        #expect(appState.presentedWebViewRoute == nil)
+        #expect(appState.presentedSafariRoute == nil)
     }
 
     @Test
-    func articleScreenControllerHandlesTappedBodyLinkThroughAppLevelWebViewRoute() async throws {
+    func articleScreenControllerHandlesTappedBodyLinkThroughAppLevelSafariRoute() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
         let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
@@ -335,15 +368,15 @@ struct ArticleScreenControllerTests {
         )
 
         #expect(
-            appState.selectedDetailRoute == .webView(
-                ArticleWebViewRoute(
+            appState.selectedDetailRoute == .safari(
+                ArticleSafariRoute(
                     articleID: articleModel.id,
                     url: tappedURL
                 )
             )
         )
         #expect(
-            appState.presentedWebViewRoute == ArticleWebViewRoute(
+            appState.presentedSafariRoute == ArticleSafariRoute(
                 articleID: articleModel.id,
                 url: tappedURL
             )
@@ -386,6 +419,6 @@ struct ArticleScreenControllerTests {
 
         #expect(externallyOpenedURL == tappedURL)
         #expect(appState.selectedDetailRoute == .none)
-        #expect(appState.presentedWebViewRoute == nil)
+        #expect(appState.presentedSafariRoute == nil)
     }
 }

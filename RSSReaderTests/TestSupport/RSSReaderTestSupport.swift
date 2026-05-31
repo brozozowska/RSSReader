@@ -134,7 +134,9 @@ struct TestHarness {
             logger: TestLogger(),
             httpClient: httpClient,
             feedFetcher: feedFetcher,
-            modelContainer: modelContainer
+            modelContainer: modelContainer,
+            unreadAppIconBadgeService: NoOpUnreadAppIconBadgeService(),
+            tracksFeedSaveRefreshTasks: true
         )
 
         let feedRepository = SwiftDataFeedRepository(modelContext: modelContext)
@@ -197,18 +199,18 @@ struct TestHarness {
         guid: String? = nil,
         url: String,
         title: String,
-        isDeletedAtSource: Bool = false
+        archivedAt: Date? = nil
     ) throws -> Article {
         let article = Article(
             feedID: feed.id,
-            feedTitle: feed.title,
+            feedTitle: feed.displayTitle,
             feedSiteURL: feed.siteURL,
             feedFolderName: feed.folder?.name,
             externalID: externalID,
             guid: guid,
             url: url,
             title: title,
-            isDeletedAtSource: isDeletedAtSource
+            archivedAt: archivedAt
         )
         modelContainer.mainContext.insert(article)
         try modelContainer.mainContext.save()
@@ -225,6 +227,11 @@ struct TestLogger: Logging {
     func debug(_ message: @autoclosure () -> String) {}
     func info(_ message: @autoclosure () -> String) {}
     func error(_ message: @autoclosure () -> String) {}
+}
+
+final class NoOpUnreadAppIconBadgeService: UnreadAppIconBadgeServicing {
+    func refreshBadgeCount() async {}
+    func applyBadgePreference(isEnabled: Bool) async {}
 }
 
 final class RecordingLogger: Logging {

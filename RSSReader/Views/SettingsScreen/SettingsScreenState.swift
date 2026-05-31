@@ -12,12 +12,13 @@ struct SettingsScreenState {
     private(set) var settingsInput = SettingsScreenInput()
     private(set) var iCloudSyncStatus: ICloudSyncStatus = .disabled
     private(set) var syncStatusPresentation: SettingsSyncStatusPresentation = .disabled
+    private(set) var hasArticleImageCache = false
+    private(set) var hasSourceIconCache = false
+    private(set) var hasArchivedArticles = false
     private(set) var sections: [SettingsScreenSectionPresentation] = []
-    private(set) var presentedPicker: SettingsPickerItemPresentation? = nil
 
     mutating func beginLoading() {
         phase = .loading
-        presentedPicker = nil
     }
 
     mutating func applyLoadedSnapshot(
@@ -43,23 +44,60 @@ struct SettingsScreenState {
         settingsInput = input
         iCloudSyncStatus = input.iCloudSyncStatus
         syncStatusPresentation = input.syncStatusPresentation
-        sections = SettingsScreenPresentationBuilder.buildSections(from: input)
+        sections = SettingsScreenPresentationBuilder.buildSections(
+            from: input,
+            hasArticleImageCache: hasArticleImageCache,
+            hasSourceIconCache: hasSourceIconCache,
+            hasArchivedArticles: hasArchivedArticles
+        )
         phase = .loaded
-        presentedPicker = nil
+    }
+
+    mutating func applyDraftInput(_ input: SettingsScreenInput) {
+        settingsInput = input
+        iCloudSyncStatus = input.iCloudSyncStatus
+        syncStatusPresentation = input.syncStatusPresentation
+        sections = SettingsScreenPresentationBuilder.buildSections(
+            from: input,
+            hasArticleImageCache: hasArticleImageCache,
+            hasSourceIconCache: hasSourceIconCache,
+            hasArchivedArticles: hasArchivedArticles
+        )
+    }
+
+    mutating func applyArticleImageCacheAvailability(_ hasCache: Bool) {
+        hasArticleImageCache = hasCache
+        sections = SettingsScreenPresentationBuilder.buildSections(
+            from: settingsInput,
+            hasArticleImageCache: hasArticleImageCache,
+            hasSourceIconCache: hasSourceIconCache,
+            hasArchivedArticles: hasArchivedArticles
+        )
+    }
+
+    mutating func applySourceIconCacheAvailability(_ hasCache: Bool) {
+        hasSourceIconCache = hasCache
+        sections = SettingsScreenPresentationBuilder.buildSections(
+            from: settingsInput,
+            hasArticleImageCache: hasArticleImageCache,
+            hasSourceIconCache: hasSourceIconCache,
+            hasArchivedArticles: hasArchivedArticles
+        )
+    }
+
+    mutating func applyArchivedArticlesAvailability(_ hasArchivedArticles: Bool) {
+        self.hasArchivedArticles = hasArchivedArticles
+        sections = SettingsScreenPresentationBuilder.buildSections(
+            from: settingsInput,
+            hasArticleImageCache: hasArticleImageCache,
+            hasSourceIconCache: hasSourceIconCache,
+            hasArchivedArticles: self.hasArchivedArticles
+        )
     }
 
     mutating func applyLoadingFailure(_ message: String) {
         sections = []
         phase = .failed(message)
-        presentedPicker = nil
-    }
-
-    mutating func presentPicker(for itemID: SettingsScreenItemID) {
-        presentedPicker = pickerItem(for: itemID)
-    }
-
-    mutating func dismissPresentedPicker() {
-        presentedPicker = nil
     }
 
     func derivedViewState() -> SettingsScreenViewState {
@@ -67,8 +105,12 @@ struct SettingsScreenState {
             sections: sections,
             primaryLoadingState: primaryLoadingState,
             placeholder: placeholder,
-            presentedPicker: presentedPicker
+            canApplyChanges: canApplyChanges
         )
+    }
+
+    func pendingSettingsSnapshot() -> AppSettingsSnapshot {
+        draftSnapshot
     }
 
     static func previewLoading() -> SettingsScreenState {
@@ -109,6 +151,30 @@ struct SettingsScreenState {
 }
 
 private extension SettingsScreenState {
+    var canApplyChanges: Bool {
+        guard phase == .loaded else { return false }
+        return draftSnapshot != settingsSnapshot
+    }
+
+    var draftSnapshot: AppSettingsSnapshot {
+        AppSettingsSnapshot(
+            defaultReaderMode: settingsInput.defaultReaderMode,
+            selectedSourcesFilterRawValue: settingsSnapshot.selectedSourcesFilterRawValue,
+            refreshIntervalPreference: settingsInput.refreshIntervalPreference,
+            useiCloudSync: settingsInput.useiCloudSync,
+            markAsReadOnOpen: settingsInput.markAsReadOnOpen,
+            askBeforeMarkingAllAsRead: settingsInput.askBeforeMarkingAllAsRead,
+            showUnreadCountBadge: settingsInput.showUnreadCountBadge,
+            unreadSortMode: settingsInput.unreadArticleSortOrder.unreadSortMode,
+            articleRetentionPolicy: settingsInput.articleRetentionPolicy,
+            articleBodyLinkOpeningPolicy: settingsInput.articleBodyLinkOpeningPolicy,
+            articleSourceLinkOpeningPolicy: settingsInput.articleSourceLinkOpeningPolicy,
+            readerAdjacentNavigationControlsMode: settingsInput.readerAdjacentNavigationControlsMode,
+            interfaceThemeMode: settingsInput.interfaceThemeMode,
+            lastSourcesRefreshAt: settingsSnapshot.lastSourcesRefreshAt
+        )
+    }
+
     var primaryLoadingState: SettingsScreenPrimaryLoadingState? {
         guard phase == .loading else {
             return nil
@@ -128,17 +194,5 @@ private extension SettingsScreenState {
             description: message,
             actionTitle: "Retry"
         )
-    }
-
-    func pickerItem(for itemID: SettingsScreenItemID) -> SettingsPickerItemPresentation? {
-        sections
-            .flatMap(\.items)
-            .first { $0.id == itemID }
-            .flatMap { item in
-                guard case .picker(let pickerItem) = item else {
-                    return nil
-                }
-                return pickerItem
-            }
     }
 }

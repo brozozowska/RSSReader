@@ -67,7 +67,6 @@ struct FeedRefreshServiceTests {
         let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
         #expect(articles.count == 1)
         #expect(articles.first?.title == "Article One")
-        #expect(articles.first?.isDeletedAtSource == false)
 
         let fetchedLog = try harness.feedFetchLogRepository.fetchLatestLog(feedID: feed.id)
         let latestLog = try #require(fetchedLog)
@@ -461,7 +460,7 @@ struct FeedRefreshServiceTests {
     }
 
     @Test
-    func refreshUpdatesFeedMetadataAndMarksMissingArticlesAsDeletedAtSource() async throws {
+    func refreshUpdatesFeedMetadataAndArchivesMissingArticles() async throws {
         let feedURL = "https://example.com/reconcile-feed.xml"
         let harness = try TestHarness.make(
             httpClient: ScriptedHTTPClient(
@@ -488,6 +487,7 @@ struct FeedRefreshServiceTests {
 
         let feed = try #require(try harness.insertFeeds(urls: [feedURL]).first)
         feed.title = "Stale Feed Title"
+        feed.displayTitleOverride = "Custom Display Name"
         feed.siteURL = "https://example.com/old/"
         feed.language = "en"
         feed.kind = .unknown
@@ -500,6 +500,15 @@ struct FeedRefreshServiceTests {
             url: "https://example.com/reconciled/articles/obsolete",
             title: "Obsolete Article"
         )
+        let existingArchivedAt = try #require(Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1)))
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "already-archived-article",
+            guid: "already-archived-article",
+            url: "https://example.com/reconciled/articles/already-archived",
+            title: "Already Archived Article",
+            archivedAt: existingArchivedAt
+        )
 
         let result = await harness.service.refresh(feedID: feed.id)
 
@@ -508,19 +517,27 @@ struct FeedRefreshServiceTests {
 
         let refreshedFeed = try #require(try harness.fetchFeed(id: feed.id))
         #expect(refreshedFeed.title == "Reconciled Feed Title")
+        #expect(refreshedFeed.displayTitleOverride == "Custom Display Name")
+        #expect(refreshedFeed.displayTitle == "Custom Display Name")
         #expect(refreshedFeed.siteURL == "https://example.com/reconciled/")
         #expect(refreshedFeed.language == "fr")
         #expect(refreshedFeed.kind == .rss)
 
         let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
-        #expect(articles.count == 2)
+        #expect(articles.count == 3)
 
         let obsoleteArticle = try #require(articles.first { $0.externalID == "obsolete-article" })
-        #expect(obsoleteArticle.isDeletedAtSource == true)
+        #expect(obsoleteArticle.archivedAt != nil)
+        #expect(obsoleteArticle.feedTitle == "Custom Display Name")
+
+        let alreadyArchivedArticle = try #require(articles.first { $0.externalID == "already-archived-article" })
+        #expect(alreadyArchivedArticle.archivedAt == existingArchivedAt)
+        #expect(alreadyArchivedArticle.feedTitle == "Custom Display Name")
 
         let currentArticle = try #require(articles.first { $0.guid == "current-article" })
-        #expect(currentArticle.isDeletedAtSource == false)
+        #expect(currentArticle.archivedAt == nil)
         #expect(currentArticle.title == "Current Article")
+        #expect(currentArticle.feedTitle == "Custom Display Name")
     }
 
     @Test
@@ -565,7 +582,7 @@ struct FeedRefreshServiceTests {
             guid: "revived-article",
             url: "https://example.com/reappearing/articles/revived",
             title: "Stale Revived Article",
-            isDeletedAtSource: true
+            archivedAt: .distantPast
         )
 
         let result = await harness.service.refresh(feedID: feed.id)
@@ -578,7 +595,7 @@ struct FeedRefreshServiceTests {
 
         let revivedArticle = try #require(articles.first)
         #expect(revivedArticle.externalID == refreshedEntryExternalID)
-        #expect(revivedArticle.isDeletedAtSource == false)
+        #expect(revivedArticle.archivedAt == nil)
         #expect(revivedArticle.title == "Revived Article")
     }
 }

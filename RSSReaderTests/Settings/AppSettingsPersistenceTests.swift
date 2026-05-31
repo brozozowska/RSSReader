@@ -49,9 +49,12 @@ struct AppSettingsPersistenceTests {
 
         #expect(settings.selectedSourcesFilterRawValue == SourcesFilter.allItems.rawValue)
         #expect(settings.askBeforeMarkingAllAsRead)
+        #expect(settings.unreadSortMode == .publishedAtDescending)
         #expect(settings.articleBodyLinkOpeningPolicy == .inAppBrowser)
         #expect(settings.articleSourceLinkOpeningPolicy == .inAppBrowser)
+        #expect(settings.readerAdjacentNavigationControlsMode == .swipesAndToolbarControls)
         #expect(settings.interfaceThemeMode == .automaticLightDark)
+        #expect(settings.showUnreadCountBadge == false)
     }
 
     @Test
@@ -123,6 +126,23 @@ struct AppSettingsPersistenceTests {
     }
 
     @Test
+    func appSettingsRepositoryPersistsReaderAdjacentNavigationControlsMode() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                readerAdjacentNavigationControlsMode: .toolbarControlsOnly,
+                updatedAt: .distantPast
+            )
+        )
+
+        let settings = try repository.fetchOrCreate()
+
+        #expect(settings.readerAdjacentNavigationControlsMode == .toolbarControlsOnly)
+    }
+
+    @Test
     func appSettingsRepositoryPersistsInterfaceThemeMode() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
@@ -137,6 +157,23 @@ struct AppSettingsPersistenceTests {
         let settings = try repository.fetchOrCreate()
 
         #expect(settings.interfaceThemeMode == .black)
+    }
+
+    @Test
+    func appSettingsRepositoryPersistsUnreadCountBadgePreference() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+
+        _ = try repository.update(
+            AppSettingsUpdate(
+                showUnreadCountBadge: true,
+                updatedAt: .distantPast
+            )
+        )
+
+        let settings = try repository.fetchOrCreate()
+
+        #expect(settings.showUnreadCountBadge)
     }
 
     @Test

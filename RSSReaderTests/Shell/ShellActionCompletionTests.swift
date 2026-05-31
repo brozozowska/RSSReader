@@ -76,12 +76,12 @@ struct ShellActionCompletionTests {
     }
 
     @Test
-    func shellActionCompletionHelpersSaveFeedRefreshesSelectionAndDismissesModalFlow() async throws {
+    func shellActionCompletionHelpersSaveFeedDismissesThenRefreshesSelection() async throws {
         let feedURL = "https://example.com/helper-save.xml"
         let harness = try TestHarness.make(
             httpClient: ScriptedHTTPClient(
                 responsesByURL: [
-                    feedURL: .response(
+                    feedURL: .delayedResponse(
                         statusCode: 200,
                         headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
                         body: makeValidRSSFeedXML(
@@ -93,7 +93,8 @@ struct ShellActionCompletionTests {
                             itemGUID: "helper-saved-article",
                             itemDescription: "Helper saved description",
                             pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
-                        )
+                        ),
+                        delayNanoseconds: 200_000_000
                     )
                 ]
             )
@@ -115,13 +116,18 @@ struct ShellActionCompletionTests {
         let result = await harness.dependencies.finishSavingFeed(id: feed.id, using: appState)
         let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
 
-        #expect(result?.status == .fetched)
+        #expect(result == nil)
         #expect(appState.isPresentingSourceManagementScreen == false)
         #expect(appState.selectedSidebarSelection == .feed(feed.id))
         #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCompletion)
         #expect(appState.articleListReloadID != articleReloadIDBeforeCompletion)
-        #expect(articles.count == 1)
-        #expect(articles.first?.title == "Helper Saved Article")
+        #expect(articles.isEmpty)
+
+        await harness.dependencies.waitForScheduledFeedSaveRefreshes()
+
+        let refreshedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        #expect(refreshedArticles.count == 1)
+        #expect(refreshedArticles.first?.title == "Helper Saved Article")
     }
 
     @Test

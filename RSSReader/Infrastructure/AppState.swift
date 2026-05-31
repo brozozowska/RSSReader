@@ -17,19 +17,35 @@ enum SourcesFilter: String, Hashable, Sendable, CaseIterable {
 
 typealias SidebarSelection = SourceSelection
 
-struct ArticleWebViewRoute: Hashable, Sendable {
+struct ArticleSafariRoute: Hashable, Sendable {
     let articleID: UUID
     let url: URL
+
+    static func canOpen(_ url: URL) -> Bool {
+        guard let scheme = url.scheme else {
+            return false
+        }
+        let normalizedScheme = scheme.lowercased()
+        guard normalizedScheme == "http" || normalizedScheme == "https" else {
+            return false
+        }
+        return url.host?.isEmpty == false
+    }
 }
 
 enum ReadingDetailRoute: Hashable, Sendable {
     case none
     case article(UUID)
-    case webView(ArticleWebViewRoute)
+    case safari(ArticleSafariRoute)
+}
+
+enum ReaderAdjacentArticleNavigationDirection: Sendable {
+    case previous
+    case next
 }
 
 struct ReadingNavigationState: Hashable, Sendable {
-    var sourceSelection: SourceSelection? = .inbox
+    var sourceSelection: SourceSelection? = nil
     var articleSelection: UUID? = nil
     var detailRoute: ReadingDetailRoute = .none
 
@@ -44,19 +60,37 @@ struct ReadingNavigationState: Hashable, Sendable {
         detailRoute = articleID.map(ReadingDetailRoute.article) ?? .none
     }
 
-    mutating func presentWebView(articleID: UUID, url: URL) {
+    @discardableResult
+    mutating func presentSafari(articleID: UUID, url: URL) -> Bool {
+        guard ArticleSafariRoute.canOpen(url) else {
+            return false
+        }
+
         articleSelection = articleID
-        detailRoute = .webView(
-            ArticleWebViewRoute(
+        detailRoute = .safari(
+            ArticleSafariRoute(
                 articleID: articleID,
                 url: url
             )
         )
+        return true
     }
 
-    mutating func dismissWebView() {
+    mutating func dismissSafari() {
         detailRoute = articleSelection.map(ReadingDetailRoute.article) ?? .none
     }
+}
+
+struct ArticleListScrollPositionKey: Hashable, Sendable {
+    let sourceSelection: SourceSelection?
+    let sourcesFilter: SourcesFilter
+}
+
+struct ArticleReadOnOpenEvent: Equatable, Sendable {
+    let id = UUID()
+    let articleID: UUID
+    let sourceSelection: SourceSelection?
+    let sourcesFilter: SourcesFilter
 }
 
 enum AppContentReloadTrigger: Equatable, Sendable {
@@ -73,9 +107,17 @@ public final class AppState {
     var isPresentingSettingsScreen = false
     var isPresentingSourceManagementScreen = false
     var sourceManagementLaunchContext: SourceManagementScreenLaunchContext = .entry
+    var articleNavigationContextIDs: [UUID] = []
+    private var articleNavigationContextSourceSelection: SidebarSelection?
+    private var articleNavigationContextSourcesFilter: SourcesFilter = .allItems
+    private var articleListScrollPositionIDs: [ArticleListScrollPositionKey: UUID] = [:]
     var articleListReloadID = UUID()
     var sourcesSidebarReloadID = UUID()
+    var sourceIconReloadID = UUID()
+    var sourceIconCacheResetID = UUID()
+    private var sourceIconNetworkLoadFeedIDs: Set<UUID> = []
     var articleScreenReloadID = UUID()
+    var articleReadOnOpenEvent: ArticleReadOnOpenEvent?
     var lastContentReloadTrigger: AppContentReloadTrigger?
 
     var selectedSidebarSelection: SidebarSelection? {
@@ -101,26 +143,27 @@ public final class AppState {
 
     public var selectedArticleID: UUID? {
         get { readingNavigation.articleSelection }
-        set { readingNavigation.selectArticle(newValue) }
+        set { selectArticle(newValue) }
     }
 
     var selectedDetailRoute: ReadingDetailRoute {
         readingNavigation.detailRoute
     }
 
-    var presentedWebViewRoute: ArticleWebViewRoute? {
-        guard case .webView(let route) = readingNavigation.detailRoute else {
+    var presentedSafariRoute: ArticleSafariRoute? {
+        guard case .safari(let route) = readingNavigation.detailRoute else {
             return nil
         }
         return route
     }
 
-    func presentWebView(articleID: UUID, url: URL) {
-        readingNavigation.presentWebView(articleID: articleID, url: url)
+    @discardableResult
+    func presentSafari(articleID: UUID, url: URL) -> Bool {
+        readingNavigation.presentSafari(articleID: articleID, url: url)
     }
 
-    func dismissPresentedWebView() {
-        readingNavigation.dismissWebView()
+    func dismissPresentedSafari() {
+        readingNavigation.dismissSafari()
     }
 
     func presentSettingsScreen() {
@@ -144,7 +187,22 @@ public final class AppState {
     }
 
     func selectSourcesFilter(_ filter: SourcesFilter) {
+        guard selectedSourcesFilter != filter else {
+            return
+        }
+
         selectedSourcesFilter = filter
+    }
+
+    func selectArticle(_ articleID: UUID?) {
+        let previousArticleID = readingNavigation.articleSelection
+        readingNavigation.selectArticle(articleID)
+
+        guard previousArticleID != articleID else {
+            return
+        }
+
+        requestArticleScreenReload()
     }
 
     func applyInterfaceThemeMode(_ mode: InterfaceThemeMode) {
@@ -159,8 +217,61 @@ public final class AppState {
         articleListReloadID = UUID()
     }
 
+    func recordArticleReadOnOpenInCurrentListSession(_ articleID: UUID) {
+        articleReadOnOpenEvent = ArticleReadOnOpenEvent(
+            articleID: articleID,
+            sourceSelection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter
+        )
+    }
+
+    func articleListScrollPositionID(
+        sourceSelection: SidebarSelection?,
+        sourcesFilter: SourcesFilter
+    ) -> UUID? {
+        articleListScrollPositionIDs[
+            ArticleListScrollPositionKey(
+                sourceSelection: sourceSelection,
+                sourcesFilter: sourcesFilter
+            )
+        ]
+    }
+
+    func updateArticleListScrollPosition(
+        _ articleID: UUID?,
+        sourceSelection: SidebarSelection?,
+        sourcesFilter: SourcesFilter
+    ) {
+        let key = ArticleListScrollPositionKey(
+            sourceSelection: sourceSelection,
+            sourcesFilter: sourcesFilter
+        )
+
+        if let articleID {
+            articleListScrollPositionIDs[key] = articleID
+        } else {
+            articleListScrollPositionIDs.removeValue(forKey: key)
+        }
+    }
+
     func requestSourcesSidebarReload() {
         sourcesSidebarReloadID = UUID()
+    }
+
+    func requestSourceIconReload() {
+        sourceIconReloadID = UUID()
+    }
+
+    func requestSourceIconNetworkLoad(for feedID: UUID) {
+        sourceIconNetworkLoadFeedIDs.insert(feedID)
+    }
+
+    func consumeSourceIconNetworkLoadRequest(for feedID: UUID) -> Bool {
+        sourceIconNetworkLoadFeedIDs.remove(feedID) != nil
+    }
+
+    func requestSourceIconCacheReset() {
+        sourceIconCacheResetID = UUID()
     }
 
     func requestArticleScreenReload() {
@@ -186,7 +297,77 @@ public final class AppState {
         guard previousSourceSelection != sourceSelection else { return }
 
         readingNavigation.selectSource(sourceSelection)
+        clearArticleNavigationContext()
         requestArticleListReload()
+    }
+
+    func updateArticleNavigationContext(_ articleIDs: [UUID]) {
+        updateArticleNavigationContext(
+            articleIDs,
+            sourceSelection: selectedSidebarSelection,
+            sourcesFilter: selectedSourcesFilter
+        )
+    }
+
+    func updateArticleNavigationContext(
+        _ articleIDs: [UUID],
+        sourceSelection: SidebarSelection?,
+        sourcesFilter: SourcesFilter
+    ) {
+        var seenArticleIDs = Set<UUID>()
+        articleNavigationContextSourceSelection = sourceSelection
+        articleNavigationContextSourcesFilter = sourcesFilter
+        articleNavigationContextIDs = articleIDs.filter { articleID in
+            seenArticleIDs.insert(articleID).inserted
+        }
+    }
+
+    private func clearArticleNavigationContext() {
+        articleNavigationContextIDs = []
+        articleNavigationContextSourceSelection = selectedSidebarSelection
+        articleNavigationContextSourcesFilter = selectedSourcesFilter
+    }
+
+    @discardableResult
+    func selectAdjacentArticle(_ direction: ReaderAdjacentArticleNavigationDirection) -> Bool {
+        guard let targetArticleID = adjacentArticleID(direction) else {
+            return false
+        }
+
+        selectArticle(targetArticleID)
+        return true
+    }
+
+    func adjacentArticleID(_ direction: ReaderAdjacentArticleNavigationDirection) -> UUID? {
+        guard articleNavigationContextSourceSelection == selectedSidebarSelection,
+              articleNavigationContextSourcesFilter == selectedSourcesFilter else {
+            return nil
+        }
+
+        guard let selectedArticleID,
+              let currentIndex = articleNavigationContextIDs.firstIndex(of: selectedArticleID) else {
+            return nil
+        }
+
+        let step: Int
+        switch direction {
+        case .previous:
+            step = -1
+        case .next:
+            step = 1
+        }
+
+        var targetIndex = currentIndex + step
+        while articleNavigationContextIDs.indices.contains(targetIndex) {
+            let targetArticleID = articleNavigationContextIDs[targetIndex]
+            if targetArticleID != selectedArticleID {
+                return targetArticleID
+            }
+
+            targetIndex += step
+        }
+
+        return nil
     }
 
     public init() {}

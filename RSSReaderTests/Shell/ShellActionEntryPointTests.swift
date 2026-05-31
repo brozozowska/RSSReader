@@ -6,7 +6,7 @@ import Testing
 @MainActor
 struct ShellActionEntryPointTests {
     @Test
-    func shellActionEntryPointsOpenAndCloseArticleWebViewViaDependencies() throws {
+    func shellActionEntryPointsOpenAndCloseArticleSafariRouteViaDependencies() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
         let feeds = try harness.insertFeeds(urls: ["https://example.com/shell-web.xml"])
@@ -23,19 +23,61 @@ struct ShellActionEntryPointTests {
         let article = try #require(readerArticle)
 
         harness.dependencies.selectArticle(id: article.id, using: appState)
-        harness.dependencies.openArticleInWebView(article, using: appState)
+        harness.dependencies.openArticleInSafari(article, using: appState)
 
-        #expect(appState.selectedDetailRoute == .webView(ArticleWebViewRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!)))
-        #expect(appState.presentedWebViewRoute == ArticleWebViewRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!))
+        #expect(appState.selectedDetailRoute == .safari(ArticleSafariRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!)))
+        #expect(appState.presentedSafariRoute == ArticleSafariRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!))
 
-        harness.dependencies.closePresentedArticleWebView(using: appState)
+        harness.dependencies.closePresentedArticleSafari(using: appState)
 
         #expect(appState.selectedDetailRoute == .article(article.id))
-        #expect(appState.presentedWebViewRoute == nil)
+        #expect(appState.presentedSafariRoute == nil)
     }
 
     @Test
-    func shellActionEntryPointsSelectArticleOpensWebViewWhenDefaultReaderModeIsBrowser() throws {
+    func shellActionEntryPointsSkipUnsupportedArticleSafariURLs() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feeds = try harness.insertFeeds(urls: ["https://example.com/shell-unsupported-safari.xml"])
+        let feed = try #require(feeds.first)
+        let articleModel = try harness.insertArticle(
+            feed: feed,
+            externalID: "shell-unsupported-safari-article",
+            url: "https://example.com/articles/unsupported-safari",
+            title: "Shell Unsupported Safari Article"
+        )
+        articleModel.canonicalURL = "mailto:hello@example.com"
+        try harness.saveModelContext()
+        let readerArticle = try harness.dependencies.articleQueryService?.fetchReaderArticle(id: articleModel.id)
+        let article = try #require(readerArticle)
+
+        let didOpenSafari = harness.dependencies.openArticleInSafari(article, using: appState)
+
+        #expect(didOpenSafari == false)
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
+        #expect(appState.presentedSafariRoute == nil)
+    }
+
+    @Test
+    func shellActionEntryPointsSkipUnsupportedBodyLinkSafariURLs() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let articleID = UUID()
+
+        harness.dependencies.openArticleBodyLink(
+            URL(string: "mailto:hello@example.com")!,
+            articleID: articleID,
+            using: appState
+        )
+
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
+        #expect(appState.presentedSafariRoute == nil)
+    }
+
+    @Test
+    func shellActionEntryPointsSelectArticleOpensSafariWhenDefaultReaderModeIsBrowser() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
         let feeds = try harness.insertFeeds(urls: ["https://example.com/default-reader-mode.xml"])
@@ -56,19 +98,44 @@ struct ShellActionEntryPointTests {
 
         #expect(appState.selectedArticleID == articleModel.id)
         #expect(
-            appState.selectedDetailRoute == .webView(
-                ArticleWebViewRoute(
+            appState.selectedDetailRoute == .safari(
+                ArticleSafariRoute(
                     articleID: articleModel.id,
                     url: URL(string: "https://example.com/articles/browser-mode/canonical")!
                 )
             )
         )
         #expect(
-            appState.presentedWebViewRoute == ArticleWebViewRoute(
+            appState.presentedSafariRoute == ArticleSafariRoute(
                 articleID: articleModel.id,
                 url: URL(string: "https://example.com/articles/browser-mode/canonical")!
             )
         )
+    }
+
+    @Test
+    func shellActionEntryPointsSelectArticleFallsBackToReaderWhenDefaultSafariURLIsUnsupported() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feeds = try harness.insertFeeds(urls: ["https://example.com/default-reader-unsupported-safari.xml"])
+        let feed = try #require(feeds.first)
+        let articleModel = try harness.insertArticle(
+            feed: feed,
+            externalID: "default-unsupported-safari-article",
+            url: "https://example.com/articles/default-unsupported-safari",
+            title: "Default Unsupported Safari Article"
+        )
+        articleModel.canonicalURL = "mailto:hello@example.com"
+        try harness.dependencies.appSettingsRepository?.update(
+            AppSettingsUpdate(defaultReaderMode: .browser)
+        )
+        try harness.saveModelContext()
+
+        harness.dependencies.selectArticle(id: articleModel.id, using: appState)
+
+        #expect(appState.selectedArticleID == articleModel.id)
+        #expect(appState.selectedDetailRoute == .article(articleModel.id))
+        #expect(appState.presentedSafariRoute == nil)
     }
 
     @Test
@@ -270,6 +337,35 @@ struct ShellActionEntryPointTests {
         #expect(result?.summary.totalFeedCount == 2)
         #expect(result?.summary.notModifiedCount == 2)
         #expect(appState.articleListReloadID != articleReloadIDBeforeRefresh)
+        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeRefresh)
+    }
+
+    @Test
+    func shellActionEntryPointsRefreshCurrentSelectionCanLeaveArticleListReloadToCaller() async throws {
+        let url = "https://example.com/suppress-article-reload.xml"
+        let responses = [
+            url: ScriptedHTTPClient.Step.response(
+                statusCode: 304,
+                headers: ["ETag": "\"etag-suppress-reload\""],
+                body: ""
+            )
+        ]
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient(responsesByURL: responses))
+        let appState = AppState()
+        let feed = try #require(try harness.insertFeeds(urls: [url]).first)
+
+        harness.dependencies.showFeed(id: feed.id, using: appState)
+        let articleReloadIDBeforeRefresh = appState.articleListReloadID
+        let sidebarReloadIDBeforeRefresh = appState.sourcesSidebarReloadID
+
+        let result = await harness.dependencies.refreshCurrentSelection(
+            using: appState,
+            requestsArticleListReload: false
+        )
+
+        #expect(result?.summary.totalFeedCount == 1)
+        #expect(result?.summary.notModifiedCount == 1)
+        #expect(appState.articleListReloadID == articleReloadIDBeforeRefresh)
         #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeRefresh)
     }
 

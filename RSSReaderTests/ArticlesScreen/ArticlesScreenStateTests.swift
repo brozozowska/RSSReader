@@ -11,7 +11,10 @@ struct ArticlesScreenStateTests {
 
         #expect(state.phase == .noSelection)
         #expect(state.navigationTitle == "Articles")
-        #expect(state.navigationSubtitle == "0 Unread Items")
+        #expect(state.navigationSubtitle == "No Unread Items")
+        #expect(state.customRefreshState == .idle)
+        #expect(state.articleListSession.context == .noSelection)
+        #expect(state.articleListSession.entries.isEmpty)
         #expect(state.placeholder?.title == "No Source Selected")
         #expect(state.toolbarActions.showsSearchAction == false)
         #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
@@ -52,6 +55,102 @@ struct ArticlesScreenStateTests {
         #expect(state.navigationSubtitle == "0 Starred Items")
         #expect(state.placeholder?.title == "No Articles")
         #expect(state.placeholder?.description == "You have not starred any articles yet.")
+    }
+
+    @Test
+    func articlesScreenStateMaterializesLoadedArticlesIntoSessionSnapshot() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+        let context = ArticleListSession.Context(
+            selection: .feed(unreadItem.feedID),
+            sourcesFilter: .unread
+        )
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item",
+            sessionContext: context
+        )
+
+        #expect(state.articleListSession.context == context)
+        #expect(state.articleListSession.context.articleListFilter == .unread)
+        #expect(state.articleListSession.entries.map(\.id) == [unreadItem.id])
+        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.matchesCurrentQuery])
+        #expect(state.articles.map(\.id) == [unreadItem.id])
+    }
+
+    @Test
+    func articlesScreenStatePreservesExplicitEntryMembershipInSessionSnapshot() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedEntries(
+            [
+                ArticleListEntry(
+                    article: unreadItem,
+                    membershipStatus: .retainedAfterRefresh
+                )
+            ],
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "No Unread Items",
+            sessionContext: ArticleListSession.Context(
+                selection: .unread,
+                sourcesFilter: .allItems
+            )
+        )
+
+        #expect(state.phase == .loaded)
+        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRefresh])
+        #expect(state.articles.map(\.id) == [unreadItem.id])
+    }
+
+    @Test
+    func articleListSessionMergeUpdatesExistingRowsAddsNewRowsAndKeepsRetainedEntries() {
+        let retainedID = UUID()
+        let updatedID = UUID()
+        let newID = UUID()
+        let retainedArticle = makeArticleListItemDTO(
+            id: retainedID,
+            title: "Read In Session",
+            isRead: false
+        )
+        let staleArticle = makeArticleListItemDTO(
+            id: updatedID,
+            title: "Old Title",
+            isRead: false
+        )
+        let updatedArticle = makeArticleListItemDTO(
+            id: updatedID,
+            title: "Updated Title",
+            isRead: true
+        )
+        let newArticle = makeArticleListItemDTO(
+            id: newID,
+            title: "New Query Article",
+            isRead: false
+        )
+
+        let mergedEntries = ArticleListSessionMergePolicy.merge(
+            currentEntries: [
+                ArticleListEntry(
+                    article: retainedArticle,
+                    membershipStatus: .retainedAfterRead
+                ),
+                ArticleListEntry(article: staleArticle)
+            ],
+            loadedArticles: [updatedArticle, newArticle],
+            retainedArticleIDs: [],
+            retainsCurrentContent: true,
+            retainedMembershipStatus: .retainedAfterRefresh
+        )
+
+        #expect(mergedEntries.map(\.id) == [retainedID, updatedID, newID])
+        #expect(mergedEntries.map(\.article.title) == ["Read In Session", "Updated Title", "New Query Article"])
+        #expect(mergedEntries.map(\.membershipStatus) == [.retainedAfterRefresh, .matchesCurrentQuery, .matchesCurrentQuery])
+        #expect(mergedEntries[1].article.isRead)
     }
 
     @Test
@@ -103,6 +202,153 @@ struct ArticlesScreenStateTests {
         #expect(state.refreshState == .idle)
         #expect(state.refreshFeedback == ArticlesScreenRefreshFeedback(message: "Refresh failed"))
         #expect(state.toolbarActions.isMarkAllAsReadEnabled)
+    }
+
+    @Test
+    func articlesScreenStatePreservesCurrentSessionEntriesWhenRefreshBegins() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedEntries(
+            [
+                ArticleListEntry(
+                    article: unreadItem,
+                    membershipStatus: .retainedAfterRead
+                )
+            ],
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "No Unread Items",
+            sessionContext: ArticleListSession.Context(
+                selection: .unread,
+                sourcesFilter: .allItems
+            )
+        )
+
+        state.beginLoading(
+            for: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "No Unread Items",
+            resetsContent: false,
+            sessionContext: ArticleListSession.Context(
+                selection: .unread,
+                sourcesFilter: .allItems
+            )
+        )
+
+        #expect(state.refreshState == .refreshing)
+        #expect(state.articleListSession.entries.map(\.id) == [unreadItem.id])
+        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
+    }
+
+    @Test
+    func articlesScreenStateDoesNotShowCustomRefreshBannerDuringNativeRefresh() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.beginLoading(
+            for: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "1 Unread Item",
+            resetsContent: false
+        )
+
+        let derivedViewState = state.derivedViewState(searchText: "")
+
+        #expect(state.refreshState == .refreshing)
+        #expect(derivedViewState.primaryLoadingState == nil)
+        #expect(derivedViewState.refreshBanner == nil)
+        #expect(derivedViewState.customRefreshState == .idle)
+    }
+
+    @Test
+    func articlesScreenStateTracksCustomRefreshGestureSeparatelyFromDataRefresh() {
+        var state = ArticlesScreenState()
+
+        state.updateCustomRefreshPullProgress(0.45)
+
+        #expect(state.customRefreshState.phase == .pulling)
+        #expect(state.customRefreshState.pullProgress == 0.45)
+        #expect(state.refreshState == .idle)
+        #expect(state.articleListSession.context == .noSelection)
+
+        state.updateCustomRefreshPullProgress(1)
+
+        #expect(state.customRefreshState.phase == .ready)
+        #expect(state.refreshState == .idle)
+
+        state.beginCustomRefresh()
+
+        #expect(state.customRefreshState == .refreshing)
+        #expect(state.refreshState == .idle)
+
+        state.updateCustomRefreshPullProgress(0.2)
+
+        #expect(state.customRefreshState == .refreshing)
+
+        state.endCustomRefresh()
+
+        #expect(state.customRefreshState == .idle)
+        #expect(state.refreshState == .idle)
+    }
+
+    @Test
+    func articlesScreenDerivedViewStateExposesCustomRefreshState() {
+        var state = ArticlesScreenState()
+
+        state.updateCustomRefreshPullProgress(0.7)
+
+        let viewState = state.derivedViewState(searchText: "")
+
+        #expect(viewState.customRefreshState.phase == .pulling)
+        #expect(viewState.customRefreshState.pullProgress == 0.7)
+        #expect(viewState.customRefreshState.indicatorState == .pulling(progress: 0.7))
+    }
+
+    @Test
+    func articlesScreenStateKeepsCustomRefreshIndicatorVisibleUntilPostRefreshReloadFinishes() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.beginCustomRefresh()
+
+        state.beginLoading(
+            for: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "1 Unread Item",
+            resetsContent: false
+        )
+
+        #expect(state.customRefreshState == .refreshing)
+        #expect(state.refreshState == .refreshing)
+        #expect(state.articles.map(\.id) == [unreadItem.id])
+
+        state.applyLoadedArticles(
+            [],
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "No Unread Items",
+            sessionContext: ArticleListSession.Context(
+                selection: .unread,
+                sourcesFilter: .allItems
+            )
+        )
+
+        #expect(state.customRefreshState == .idle)
+        #expect(state.phase == .empty)
+        #expect(state.articles.isEmpty)
     }
 
     @Test
@@ -180,6 +426,31 @@ struct ArticlesScreenStateTests {
         #expect(derivedViewState.refreshBanner?.title == "Refresh Failed")
         #expect(derivedViewState.refreshBanner?.message == "Refresh failed")
         #expect(derivedViewState.refreshBanner?.showsRetryAction == true)
+    }
+
+    @Test
+    func articlesScreenStateCanPreserveRefreshFeedbackAfterPostRefreshReload() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
+        )
+        state.presentRefreshFailure("Refresh failed")
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item",
+            preservesRefreshFeedback: true
+        )
+
+        #expect(state.phase == .loaded)
+        #expect(state.refreshFeedback == ArticlesScreenRefreshFeedback(message: "Refresh failed"))
     }
 
     @Test
@@ -334,8 +605,36 @@ struct ArticlesScreenStateTests {
 
         #expect(state.phase == .loaded)
         #expect(state.navigationSubtitle == "0 Unread Items")
+        #expect(state.articleListSession.entries.count == 1)
+        #expect(state.articleListSession.entries.first?.article.isRead == true)
         #expect(state.articles.count == 1)
         #expect(state.articles.first?.isRead == true)
+        #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
+    }
+
+    @Test
+    func articlesScreenStateMarksUnreadSessionArticleAsReadWithoutRemovingIt() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "1 Unread Item",
+            sessionContext: ArticleListSession.Context(
+                selection: .unread,
+                sourcesFilter: .allItems
+            )
+        )
+
+        state.markArticleAsReadInCurrentSession(articleID: unreadItem.id)
+
+        #expect(state.phase == .loaded)
+        #expect(state.articles.map(\.id) == [unreadItem.id])
+        #expect(state.articles.first?.isRead == true)
+        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
+        #expect(state.navigationSubtitle == "No Unread Items")
         #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
     }
 

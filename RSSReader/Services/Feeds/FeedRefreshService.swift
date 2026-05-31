@@ -25,7 +25,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     let transactionBoundary: FeedRefreshTransactionBoundary = .singleFeedRefresh
     let notModifiedPolicy: FeedRefreshNotModifiedPolicy = .default
     let diagnosticsPolicy: FeedRefreshDiagnosticsPolicy = .default
-    let reconciliationPolicy: FeedRefreshReconciliationPolicy = .markMissingArticlesAsDeletedAtSource
+    let reconciliationPolicy: FeedRefreshReconciliationPolicy = .markMissingArticlesAsArchived
     let batchPolicy: FeedRefreshBatchPolicy = .default
     let inFlightPolicy: FeedRefreshInFlightPolicy = .shareExistingTaskResult
     private let logger: Logging
@@ -532,7 +532,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         saveAfterOperation: Bool = true
     ) throws -> Int {
         switch reconciliationPolicy {
-        case .markMissingArticlesAsDeletedAtSource:
+        case .markMissingArticlesAsArchived:
             let incomingExternalIDs = Set(entries.compactMap(\.externalID))
             let reconciledCount = try articleRepository.reconcileArticles(
                 feedID: feedID,

@@ -5,18 +5,20 @@ import Testing
 @MainActor
 struct CloudKitCompatibilityAuditTests {
     @Test
-    func cloudKitCompatibilityAuditTracksCleanSyncBackedModelSetAfterRelationshipMigration() throws {
+    func cloudKitCompatibilityAuditTracksCleanSyncBackedModelSetAfterArticlePayloadMigration() throws {
         let audit = CloudKitCompatibilityAudit.currentSyncBackedModelSet
 
-        #expect(audit.reports.map(\.model) == [.appSettings, .articleState, .feed, .folder])
+        #expect(audit.reports.map(\.model) == [.appSettings, .articleState, .article, .feed, .folder])
 
         let appSettingsReport = try #require(audit.report(for: .appSettings))
         let articleStateReport = try #require(audit.report(for: .articleState))
+        let articleReport = try #require(audit.report(for: .article))
         let feedReport = try #require(audit.report(for: .feed))
         let folderReport = try #require(audit.report(for: .folder))
 
         #expect(appSettingsReport.hasBlockingFindings == false)
         #expect(articleStateReport.hasBlockingFindings == false)
+        #expect(articleReport.hasBlockingFindings == false)
         #expect(feedReport.hasBlockingFindings == false)
         #expect(folderReport.hasBlockingFindings == false)
     }
@@ -27,6 +29,7 @@ struct CloudKitCompatibilityAuditTests {
 
         let appSettingsReport = try #require(audit.report(for: .appSettings))
         let articleStateReport = try #require(audit.report(for: .articleState))
+        let articleReport = try #require(audit.report(for: .article))
         let feedReport = try #require(audit.report(for: .feed))
         let folderReport = try #require(audit.report(for: .folder))
 
@@ -61,6 +64,16 @@ struct CloudKitCompatibilityAuditTests {
             }
         )
         #expect(
+            articleReport.findings.contains {
+                $0.rule == .repositoryManagedIdentityInvariant
+                    && $0.affectedPaths == [
+                        "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
+                        "SwiftDataArticleRepository.upsert(_:into:saveAfterOperation:)",
+                        "DeduplicationService"
+                    ]
+            }
+        )
+        #expect(
             folderReport.findings.contains {
                 $0.rule == .repositoryManagedIdentityInvariant
                     && $0.affectedPaths == [
@@ -81,7 +94,7 @@ struct CloudKitCompatibilityAuditTests {
     }
 
     @Test
-    func cloudKitCompatibilityAuditFlagsArticleStateArticleAndFeedFetchLogBoundaries() throws {
+    func cloudKitCompatibilityAuditFlagsArticlePayloadAndFeedFetchLogBoundaries() throws {
         let audit = CloudKitCompatibilityAudit.articleStateArticleFeedFetchLog
 
         #expect(audit.reports.map(\.model) == [.articleState, .article, .feedFetchLog])
@@ -91,15 +104,15 @@ struct CloudKitCompatibilityAuditTests {
         let feedFetchLogReport = try #require(audit.report(for: .feedFetchLog))
 
         #expect(articleStateReport.hasBlockingFindings == false)
-        #expect(articleReport.hasBlockingFindings)
+        #expect(articleReport.hasBlockingFindings == false)
         #expect(feedFetchLogReport.hasBlockingFindings)
         #expect(
             articleReport.findings.contains {
-                $0.rule == .localOnlyStoreBoundary
+                $0.rule == .repositoryManagedIdentityInvariant
                     && $0.affectedPaths == [
-                        "Article",
-                        "SwiftDataArticleRepository",
-                        "FeedRefreshService"
+                        "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
+                        "SwiftDataArticleRepository.upsert(_:into:saveAfterOperation:)",
+                        "DeduplicationService"
                     ]
             }
         )
@@ -146,7 +159,7 @@ struct CloudKitCompatibilityAuditTests {
         )
         #expect(
             articleStateReport.findings.contains {
-                $0.rule == .crossStoreRelationship
+                $0.rule == .repositoryManagedIdentityInvariant
                     && $0.affectedPaths == [
                         "ArticleState.feedID",
                         "ArticleState.articleExternalID",

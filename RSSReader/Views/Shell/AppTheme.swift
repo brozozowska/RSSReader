@@ -81,6 +81,15 @@ struct AppThemeApplicationPolicy {
             .light
         }
     }
+
+    var resolvedColorScheme: ColorScheme {
+        switch resolvedTheme {
+        case .light:
+            .light
+        case .dark, .black:
+            .dark
+        }
+    }
 }
 
 private struct AppThemeVariantKey: EnvironmentKey {

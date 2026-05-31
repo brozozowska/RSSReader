@@ -20,13 +20,16 @@ protocol ArticleStateServicing {
 final class ArticleStateService: ArticleStateServicing {
     private let logger: Logging
     private let articleStateRepository: any ArticleStateRepository
+    private let unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)?
 
     init(
         logger: Logging,
-        articleStateRepository: any ArticleStateRepository
+        articleStateRepository: any ArticleStateRepository,
+        unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = nil
     ) {
         self.logger = logger
         self.articleStateRepository = articleStateRepository
+        self.unreadAppIconBadgeService = unreadAppIconBadgeService
     }
 
     func fetchStateSnapshot(feedID: UUID, articleExternalID: String) throws -> ArticleUserStateSnapshot? {
@@ -63,6 +66,7 @@ final class ArticleStateService: ArticleStateServicing {
             update: makeReadUpdate(isRead: true, at: at)
         )
         logger.info("Marked article as read for feed \(feedID.uuidString)")
+        scheduleUnreadAppIconBadgeRefresh()
         return ArticleUserStateSnapshot(articleState: articleState)
     }
 
@@ -85,6 +89,7 @@ final class ArticleStateService: ArticleStateServicing {
             update: makeReadUpdate(isRead: false, at: at)
         )
         logger.info("Marked article as unread for feed \(feedID.uuidString)")
+        scheduleUnreadAppIconBadgeRefresh()
         return ArticleUserStateSnapshot(articleState: articleState)
     }
 
@@ -137,6 +142,7 @@ final class ArticleStateService: ArticleStateServicing {
             at: at
         )
         logger.info("Marked \(articleStates.count) visible articles as read for feed \(feedID.uuidString)")
+        scheduleUnreadAppIconBadgeRefresh()
         return articleStates.map(ArticleUserStateSnapshot.init(articleState:))
     }
 
@@ -196,5 +202,13 @@ final class ArticleStateService: ArticleStateServicing {
             lastInteractionAt: at,
             updatedAt: at
         )
+    }
+
+    private func scheduleUnreadAppIconBadgeRefresh() {
+        guard let unreadAppIconBadgeService else { return }
+
+        Task { @MainActor in
+            await unreadAppIconBadgeService.refreshBadgeCount()
+        }
     }
 }

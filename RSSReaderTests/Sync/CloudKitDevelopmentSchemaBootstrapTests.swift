@@ -38,6 +38,7 @@ struct CloudKitDevelopmentSchemaBootstrapTests {
                     == [
                         String(reflecting: AppSettings.self),
                         String(reflecting: ArticleState.self),
+                        String(reflecting: Article.self),
                         String(reflecting: Feed.self),
                         String(reflecting: Folder.self)
                     ]
@@ -113,7 +114,7 @@ struct CloudKitDevelopmentSchemaBootstrapTests {
                     findings: [
                         CloudKitCompatibilityFinding(
                             severity: .blocker,
-                            rule: .crossStoreRelationship,
+                            rule: .deleteRuleStoreCoupling,
                             affectedPaths: ["Feed", "Article.feed"],
                             summary: "Test fixture",
                             recommendedFollowUp: "Test fixture"

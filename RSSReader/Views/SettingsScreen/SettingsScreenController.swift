@@ -58,25 +58,35 @@ final class SettingsScreenController {
         loadSettings(dependencies: dependencies, appState: appState)
     }
 
-    func handleItemSelection(_ itemID: SettingsScreenItemID) {
-        switch itemID {
-        case .defaultReaderMode,
-                .articleSourceLinkOpeningPolicy,
-                .articleSortMode,
-                .articleBodyLinkOpeningPolicy,
-                .appearance,
-                .refreshInterval:
-            screenState.presentPicker(for: itemID)
-        case .markAsReadOnOpen,
-                .askBeforeMarkingAllAsRead,
-                .useICloudSync,
-                .iCloudSyncStatus:
-            return
+    func refreshArticleImageCacheAvailability(dependencies: AppDependencies) async {
+        do {
+            let hasDiskCache = try await ArticleImageDiskCache.shared.isEmpty() == false
+            let hasMemoryCache = ArticleImageMemoryCache.shared.hasImages
+            screenState.applyArticleImageCacheAvailability(hasDiskCache || hasMemoryCache)
+        } catch {
+            dependencies.logger.error("Failed to inspect article image cache: \(error)")
+            screenState.applyArticleImageCacheAvailability(ArticleImageMemoryCache.shared.hasImages)
         }
     }
 
-    func dismissPresentedPicker() {
-        screenState.dismissPresentedPicker()
+    func refreshSourceIconCacheAvailability(dependencies: AppDependencies) async {
+        do {
+            let hasCache = try await dependencies.sourceIconCache.hasCachedData()
+            screenState.applySourceIconCacheAvailability(hasCache)
+        } catch {
+            dependencies.logger.error("Failed to inspect source icon cache: \(error)")
+            screenState.applySourceIconCacheAvailability(false)
+        }
+    }
+
+    func refreshArchivedArticlesAvailability(dependencies: AppDependencies) {
+        do {
+            let hasArchivedArticles = try dependencies.articleRepository?.fetchArchivedArticles().isEmpty == false
+            screenState.applyArchivedArticlesAvailability(hasArchivedArticles)
+        } catch {
+            dependencies.logger.error("Failed to inspect archived articles: \(error)")
+            screenState.applyArchivedArticlesAvailability(false)
+        }
     }
 
     func handlePickerOptionSelection(
@@ -90,10 +100,14 @@ final class SettingsScreenController {
             updateDefaultReaderMode(optionID: optionID, dependencies: dependencies)
         case .articleSourceLinkOpeningPolicy:
             updateArticleSourceLinkOpeningPolicy(optionID: optionID, dependencies: dependencies)
-        case .articleSortMode:
-            updateArticleSortMode(optionID: optionID, dependencies: dependencies)
+        case .unreadArticleSortMode:
+            updateUnreadArticleSortMode(optionID: optionID, dependencies: dependencies)
+        case .articleRetentionPolicy:
+            updateArticleRetentionPolicy(optionID: optionID, dependencies: dependencies)
         case .articleBodyLinkOpeningPolicy:
             updateArticleBodyLinkOpeningPolicy(optionID: optionID, dependencies: dependencies)
+        case .readerAdjacentNavigationControlsMode:
+            updateReaderAdjacentNavigationControlsMode(optionID: optionID, dependencies: dependencies)
         case .refreshInterval:
             updateRefreshIntervalPreference(optionID: optionID, dependencies: dependencies)
         case .appearance:
@@ -104,8 +118,12 @@ final class SettingsScreenController {
             )
         case .markAsReadOnOpen,
                 .askBeforeMarkingAllAsRead,
+                .showUnreadCountBadge,
                 .useICloudSync,
-                .iCloudSyncStatus:
+                .iCloudSyncStatus,
+                .purgeArchivedArticles,
+                .clearArticleImageCache,
+                .clearSourceIconCache:
             return
         }
     }
@@ -122,19 +140,136 @@ final class SettingsScreenController {
             updateAskBeforeMarkingAllAsRead(isOn: isOn, dependencies: dependencies)
         case .useICloudSync:
             updateUseICloudSync(isOn: isOn, dependencies: dependencies)
+        case .showUnreadCountBadge:
+            updateShowUnreadCountBadge(isOn: isOn, dependencies: dependencies)
         case .defaultReaderMode,
                 .articleSourceLinkOpeningPolicy,
-                .articleSortMode,
+                .unreadArticleSortMode,
+                .articleRetentionPolicy,
                 .articleBodyLinkOpeningPolicy,
+                .readerAdjacentNavigationControlsMode,
                 .refreshInterval,
                 .iCloudSyncStatus,
+                .appearance,
+                .purgeArchivedArticles,
+                .clearArticleImageCache,
+                .clearSourceIconCache:
+            return
+        }
+    }
+
+    func handleButtonTap(
+        itemID: SettingsScreenItemID,
+        dependencies: AppDependencies,
+        appState: AppState? = nil
+    ) async {
+        switch itemID {
+        case .purgeArchivedArticles:
+            purgeArchivedArticles(dependencies: dependencies, appState: appState)
+        case .clearArticleImageCache:
+            await clearArticleImageCache(dependencies: dependencies)
+        case .clearSourceIconCache:
+            await clearSourceIconCache(dependencies: dependencies, appState: appState)
+        case .defaultReaderMode,
+                .markAsReadOnOpen,
+                .articleSourceLinkOpeningPolicy,
+                .unreadArticleSortMode,
+                .articleRetentionPolicy,
+                .askBeforeMarkingAllAsRead,
+                .showUnreadCountBadge,
+                .refreshInterval,
+                .useICloudSync,
+                .iCloudSyncStatus,
+                .articleBodyLinkOpeningPolicy,
+                .readerAdjacentNavigationControlsMode,
                 .appearance:
             return
+        }
+    }
+
+    @discardableResult
+    func applySettingsChanges(
+        dependencies: AppDependencies,
+        appState: AppState? = nil
+    ) -> Bool {
+        guard screenState.derivedViewState().canApplyChanges else {
+            return true
+        }
+
+        guard let appSettingsService = dependencies.appSettingsService else {
+            dependencies.logger.error("App settings service is unavailable for applying settings changes")
+            return false
+        }
+
+        let previousSnapshot = screenState.settingsSnapshot
+        let pendingSnapshot = screenState.pendingSettingsSnapshot()
+
+        do {
+            let updatedSnapshot = try appSettingsService.saveSettings(
+                pendingSnapshot,
+                updatedAt: .now
+            )
+            applyUpdatedSettingsSnapshot(updatedSnapshot)
+            applySettingsSideEffects(
+                previousSnapshot: previousSnapshot,
+                updatedSnapshot: updatedSnapshot,
+                dependencies: dependencies,
+                appState: appState
+            )
+            return true
+        } catch {
+            dependencies.logger.error("Failed to apply settings changes: \(error)")
+            return false
         }
     }
 }
 
 private extension SettingsScreenController {
+    func clearArticleImageCache(dependencies: AppDependencies) async {
+        ArticleImageMemoryCache.shared.removeAllImages()
+        URLCache.shared.removeAllCachedResponses()
+
+        do {
+            try await ArticleImageDiskCache.shared.removeAll()
+            screenState.applyArticleImageCacheAvailability(false)
+            dependencies.logger.info("Cleared article image cache")
+        } catch {
+            dependencies.logger.error("Failed to clear article image disk cache: \(error)")
+            await refreshArticleImageCacheAvailability(dependencies: dependencies)
+        }
+    }
+
+    func clearSourceIconCache(
+        dependencies: AppDependencies,
+        appState: AppState?
+    ) async {
+        do {
+            try await dependencies.sourceIconCache.removeAllCachedData()
+            screenState.applySourceIconCacheAvailability(false)
+            appState?.requestSourceIconCacheReset()
+            dependencies.logger.info("Cleared source icon cache")
+        } catch {
+            dependencies.logger.error("Failed to clear source icon cache: \(error)")
+            await refreshSourceIconCacheAvailability(dependencies: dependencies)
+        }
+    }
+
+    func purgeArchivedArticles(
+        dependencies: AppDependencies,
+        appState: AppState?
+    ) {
+        guard let result = dependencies.purgeArchivedArticles() else {
+            refreshArchivedArticlesAvailability(dependencies: dependencies)
+            return
+        }
+
+        screenState.applyArchivedArticlesAvailability(false)
+        if result.deletedCount > 0 {
+            appState?.requestSourcesSidebarReload()
+            appState?.requestArticleListReload()
+        }
+    }
+
     func updateDefaultReaderMode(
         optionID: String,
         dependencies: AppDependencies
@@ -144,106 +279,101 @@ private extension SettingsScreenController {
             return
         }
 
-        guard screenState.settingsSnapshot.defaultReaderMode != selectedMode else {
-            screenState.dismissPresentedPicker()
+        guard screenState.settingsInput.defaultReaderMode != selectedMode else {
             return
         }
 
-        persistSettingsPatch(
-            AppSettingsPatch(
-                defaultReaderMode: selectedMode,
-                updatedAt: .now
-            ),
-            dependencies: dependencies,
-            unavailableServiceLog: "App settings service is unavailable for default reader mode update",
-            failureLogPrefix: "Failed to update default reader mode"
-        )
+        var input = screenState.settingsInput
+        input.defaultReaderMode = selectedMode
+        screenState.applyDraftInput(input)
     }
 
     func updateMarkAsReadOnOpen(
         isOn: Bool,
         dependencies: AppDependencies
     ) {
-        guard screenState.settingsSnapshot.markAsReadOnOpen != isOn else {
+        guard screenState.settingsInput.markAsReadOnOpen != isOn else {
             return
         }
 
-        persistSettingsPatch(
-            AppSettingsPatch(
-                markAsReadOnOpen: isOn,
-                updatedAt: .now
-            ),
-            dependencies: dependencies,
-            unavailableServiceLog: "App settings service is unavailable for mark-as-read-on-open update",
-            failureLogPrefix: "Failed to update mark-as-read-on-open setting"
-        )
+        var input = screenState.settingsInput
+        input.markAsReadOnOpen = isOn
+        screenState.applyDraftInput(input)
     }
 
     func updateAskBeforeMarkingAllAsRead(
         isOn: Bool,
         dependencies: AppDependencies
     ) {
-        guard screenState.settingsSnapshot.askBeforeMarkingAllAsRead != isOn else {
+        guard screenState.settingsInput.askBeforeMarkingAllAsRead != isOn else {
             return
         }
 
-        persistSettingsPatch(
-            AppSettingsPatch(
-                askBeforeMarkingAllAsRead: isOn,
-                updatedAt: .now
-            ),
-            dependencies: dependencies,
-            unavailableServiceLog: "App settings service is unavailable for ask-before-marking-all-as-read update",
-            failureLogPrefix: "Failed to update ask-before-marking-all-as-read setting"
-        )
+        var input = screenState.settingsInput
+        input.askBeforeMarkingAllAsRead = isOn
+        screenState.applyDraftInput(input)
     }
 
     func updateUseICloudSync(
         isOn: Bool,
         dependencies: AppDependencies
     ) {
-        guard screenState.settingsSnapshot.useiCloudSync != isOn else {
+        guard screenState.settingsInput.useiCloudSync != isOn else {
             return
         }
 
-        persistSettingsPatch(
-            AppSettingsPatch(
-                useiCloudSync: isOn,
-                updatedAt: .now
-            ),
-            dependencies: dependencies,
-            unavailableServiceLog: "App settings service is unavailable for iCloud sync preference update",
-            failureLogPrefix: "Failed to update iCloud sync preference",
-            onApplied: { _ in
-                dependencies.syncBootstrapPreferenceStore.saveBootPreference(isOn ? .enabled : .disabled)
-            }
-        )
+        var input = screenState.settingsInput
+        input.useiCloudSync = isOn
+        screenState.applyDraftInput(input)
     }
 
-    func updateArticleSortMode(
+    func updateShowUnreadCountBadge(
+        isOn: Bool,
+        dependencies: AppDependencies
+    ) {
+        guard screenState.settingsInput.showUnreadCountBadge != isOn else {
+            return
+        }
+
+        var input = screenState.settingsInput
+        input.showUnreadCountBadge = isOn
+        screenState.applyDraftInput(input)
+    }
+
+    func updateUnreadArticleSortMode(
         optionID: String,
         dependencies: AppDependencies
     ) {
-        guard let selectedOrder = ArticleListSortOrder(rawValue: optionID) else {
-            dependencies.logger.error("Skipped article sort mode update because option is invalid: \(optionID)")
+        guard let selectedOrder = UnreadArticleSortOrder(rawValue: optionID) else {
+            dependencies.logger.error("Skipped unread article sort mode update because option is invalid: \(optionID)")
             return
         }
 
-        let selectedSortMode = selectedOrder.sortMode
-        guard screenState.settingsSnapshot.sortMode != selectedSortMode else {
-            screenState.dismissPresentedPicker()
+        guard screenState.settingsInput.unreadArticleSortOrder != selectedOrder else {
             return
         }
 
-        persistSettingsPatch(
-            AppSettingsPatch(
-                sortMode: selectedSortMode,
-                updatedAt: .now
-            ),
-            dependencies: dependencies,
-            unavailableServiceLog: "App settings service is unavailable for article sort mode update",
-            failureLogPrefix: "Failed to update article sort mode"
-        )
+        var input = screenState.settingsInput
+        input.unreadArticleSortOrder = selectedOrder
+        screenState.applyDraftInput(input)
+    }
+
+    func updateArticleRetentionPolicy(
+        optionID: String,
+        dependencies: AppDependencies
+    ) {
+        guard let selectedPolicy = ArticleRetentionPolicy(rawValue: optionID) else {
+            dependencies.logger.error("Skipped article retention policy update because option is invalid: \(optionID)")
+            return
+        }
+
+        guard screenState.settingsInput.articleRetentionPolicy != selectedPolicy else {
+            return
+        }
+
+        var input = screenState.settingsInput
+        input.articleRetentionPolicy = selectedPolicy
+        screenState.applyDraftInput(input)
     }
 
     func updateArticleBodyLinkOpeningPolicy(
@@ -255,20 +385,13 @@ private extension SettingsScreenController {
             return
         }
 
-        guard screenState.settingsSnapshot.articleBodyLinkOpeningPolicy != selectedPolicy else {
-            screenState.dismissPresentedPicker()
+        guard screenState.settingsInput.articleBodyLinkOpeningPolicy != selectedPolicy else {
             return
         }
 
-        persistSettingsPatch(
-            AppSettingsPatch(
-                articleBodyLinkOpeningPolicy: selectedPolicy,
-                updatedAt: .now
-            ),
-            dependencies: dependencies,
-            unavailableServiceLog: "App settings service is unavailable for article body link opening policy update",
-            failureLogPrefix: "Failed to update article body link opening policy"
-        )
+        var input = screenState.settingsInput
+        input.articleBodyLinkOpeningPolicy = selectedPolicy
+        screenState.applyDraftInput(input)
     }
 
     func updateArticleSourceLinkOpeningPolicy(
@@ -280,20 +403,31 @@ private extension SettingsScreenController {
             return
         }
 
-        guard screenState.settingsSnapshot.articleSourceLinkOpeningPolicy != selectedPolicy else {
-            screenState.dismissPresentedPicker()
+        guard screenState.settingsInput.articleSourceLinkOpeningPolicy != selectedPolicy else {
             return
         }
 
-        persistSettingsPatch(
-            AppSettingsPatch(
-                articleSourceLinkOpeningPolicy: selectedPolicy,
-                updatedAt: .now
-            ),
-            dependencies: dependencies,
-            unavailableServiceLog: "App settings service is unavailable for article source link opening policy update",
-            failureLogPrefix: "Failed to update article source link opening policy"
-        )
+        var input = screenState.settingsInput
+        input.articleSourceLinkOpeningPolicy = selectedPolicy
+        screenState.applyDraftInput(input)
+    }
+
+    func updateReaderAdjacentNavigationControlsMode(
+        optionID: String,
+        dependencies: AppDependencies
+    ) {
+        guard let selectedMode = ReaderAdjacentNavigationControlsMode(rawValue: optionID) else {
+            dependencies.logger.error("Skipped reader adjacent navigation controls mode update because option is invalid: \(optionID)")
+            return
+        }
+
+        guard screenState.settingsInput.readerAdjacentNavigationControlsMode != selectedMode else {
+            return
+        }
+
+        var input = screenState.settingsInput
+        input.readerAdjacentNavigationControlsMode = selectedMode
+        screenState.applyDraftInput(input)
     }
 
     func updateInterfaceThemeMode(
@@ -306,22 +440,13 @@ private extension SettingsScreenController {
             return
         }
 
-        guard screenState.settingsSnapshot.interfaceThemeMode != selectedMode else {
-            screenState.dismissPresentedPicker()
+        guard screenState.settingsInput.interfaceThemeMode != selectedMode else {
             return
         }
 
-        persistSettingsPatch(
-            AppSettingsPatch(
-                interfaceThemeMode: selectedMode,
-                updatedAt: .now
-            ),
-            dependencies: dependencies,
-            unavailableServiceLog: "App settings service is unavailable for interface theme mode update",
-            failureLogPrefix: "Failed to update interface theme mode"
-        ) { updatedSnapshot in
-            appState?.applyInterfaceThemeMode(updatedSnapshot.interfaceThemeMode)
-        }
+        var input = screenState.settingsInput
+        input.interfaceThemeMode = selectedMode
+        screenState.applyDraftInput(input)
     }
 
     func updateRefreshIntervalPreference(
@@ -333,36 +458,13 @@ private extension SettingsScreenController {
             return
         }
 
-        guard screenState.settingsSnapshot.refreshIntervalPreference != selectedPreference else {
-            screenState.dismissPresentedPicker()
+        guard screenState.settingsInput.refreshIntervalPreference != selectedPreference else {
             return
         }
 
-        guard let backgroundRefreshService = dependencies.backgroundRefreshService else {
-            dependencies.logger.error("Background refresh service is unavailable for refresh interval update")
-            return
-        }
-
-        do {
-            let updatedConfiguration = try backgroundRefreshService.updatePreference(
-                selectedPreference,
-                updatedAt: .now
-            )
-            do {
-                try dependencies.replaceBackgroundRefreshSchedule(
-                    using: updatedConfiguration,
-                    now: .now
-                )
-            } catch {
-                let failureReason = BackgroundRefreshScheduleFailureReason.classify(error).rawValue
-                dependencies.logger.error(
-                    "Failed to replace background refresh schedule after refresh interval update: reason=\(failureReason) error=\(error)"
-                )
-            }
-            applyUpdatedSettingsSnapshot(updatedConfiguration.settingsSnapshot)
-        } catch {
-            dependencies.logger.error("Failed to update refresh interval preference: \(error)")
-        }
+        var input = screenState.settingsInput
+        input.refreshIntervalPreference = selectedPreference
+        screenState.applyDraftInput(input)
     }
 
     func resolveSyncStatusPresentation(
@@ -399,24 +501,56 @@ private extension SettingsScreenController {
         return .statusUnavailable
     }
 
-    func persistSettingsPatch(
-        _ patch: AppSettingsPatch,
+    func applySettingsSideEffects(
+        previousSnapshot: AppSettingsSnapshot,
+        updatedSnapshot: AppSettingsSnapshot,
         dependencies: AppDependencies,
-        unavailableServiceLog: String,
-        failureLogPrefix: String,
-        onApplied: ((AppSettingsSnapshot) -> Void)? = nil
+        appState: AppState?
     ) {
-        guard let appSettingsService = dependencies.appSettingsService else {
-            dependencies.logger.error(unavailableServiceLog)
+        if previousSnapshot.useiCloudSync != updatedSnapshot.useiCloudSync {
+            dependencies.syncBootstrapPreferenceStore.saveBootPreference(
+                updatedSnapshot.useiCloudSync ? .enabled : .disabled
+            )
+        }
+
+        if previousSnapshot.interfaceThemeMode != updatedSnapshot.interfaceThemeMode {
+            appState?.applyInterfaceThemeMode(updatedSnapshot.interfaceThemeMode)
+        }
+
+        if previousSnapshot.articleRetentionPolicy != updatedSnapshot.articleRetentionPolicy {
+            let cleanupResult = dependencies.cleanupArchivedArticles(
+                policy: updatedSnapshot.articleRetentionPolicy,
+                now: .now
+            )
+            if cleanupResult?.deletedCount ?? 0 > 0 {
+                appState?.requestSourcesSidebarReload()
+                appState?.requestArticleListReload()
+            }
+        }
+
+        if previousSnapshot.showUnreadCountBadge != updatedSnapshot.showUnreadCountBadge {
+            dependencies.applyUnreadAppIconBadgePreference(isEnabled: updatedSnapshot.showUnreadCountBadge)
+        }
+
+        guard previousSnapshot.refreshIntervalPreference != updatedSnapshot.refreshIntervalPreference else {
             return
         }
 
+        let configuration = BackgroundRefreshConfiguration(
+            settingsSnapshot: updatedSnapshot,
+            policy: BackgroundRefreshPolicy(preference: updatedSnapshot.refreshIntervalPreference)
+        )
+
         do {
-            let updatedSnapshot = try appSettingsService.updateSettings(patch)
-            applyUpdatedSettingsSnapshot(updatedSnapshot)
-            onApplied?(updatedSnapshot)
+            try dependencies.replaceBackgroundRefreshSchedule(
+                using: configuration,
+                now: .now
+            )
         } catch {
-            dependencies.logger.error("\(failureLogPrefix): \(error)")
+            let failureReason = BackgroundRefreshScheduleFailureReason.classify(error).rawValue
+            dependencies.logger.error(
+                "Failed to replace background refresh schedule after applying settings changes: reason=\(failureReason) error=\(error)"
+            )
         }
     }
 

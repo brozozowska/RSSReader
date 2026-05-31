@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ArticleScreenActionHandlers {
     let toggleReadStatus: () -> Void
@@ -18,6 +19,12 @@ struct ReaderView: View {
     let navigateBackToArticles: () -> Void
     let previewScreenState: ArticleScreenState?
     @State private var controller = ArticleScreenController()
+    @State private var adjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls
+    @State private var adjacentArticleTransitionDirection: ReaderAdjacentArticleNavigationDirection?
+    @State private var pendingAdjacentArticleOverscrollDirection: ReaderAdjacentArticleNavigationDirection?
+    @State private var adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
+    @State private var adjacentArticleOverscrollReadyHapticTrigger = 0
+    @State private var hasTriggeredAdjacentArticleOverscrollReadyHaptic = false
 
     init(
         articleID: UUID?,
@@ -35,50 +42,54 @@ struct ReaderView: View {
     }
 
     var body: some View {
-        let viewState = controller.screenState.derivedViewState()
+        let currentArticleID = resolvedArticleID
+        let preservesStaleContent = adjacentArticleTransitionDirection != nil
+        let viewState = controller.screenState.derivedViewState(
+            selectedArticleID: currentArticleID,
+            preservesStaleContent: preservesStaleContent
+        )
+        let contentTransitionID = viewState.content?.articleID ?? currentArticleID
+        let chromeUnderlayEdges: Edge.Set = viewState.content == nil ? [] : [.top, .bottom]
 
-        Group {
-            if let content = viewState.content {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        if let publishedAtText = content.header.publishedAtText {
-                            Text(publishedAtText)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Text(content.header.title)
-                            .font(.title2.weight(.semibold))
-
-                        if let author = content.header.author {
-                            Text(author)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        if let feedTitle = content.header.feedTitle {
-                            Text(feedTitle)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        ForEach(Array(content.body.blocks.enumerated()), id: \.offset) { _, block in
-                            bodyBlockView(block)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                }
-            } else if let primaryLoadingState = viewState.primaryLoadingState {
-                ScreenLoadingView(title: primaryLoadingState.title)
-            } else if let placeholder = viewState.placeholder {
-                ScreenPlaceholderView(
-                    title: placeholder.title,
-                    systemImage: placeholder.systemImage,
-                    description: placeholder.description
+        GeometryReader { geometryProxy in
+            ZStack {
+                contentSurface(
+                    viewState,
+                    contentSafeAreaInsets: geometryProxy.safeAreaInsets
+                )
+                .id(contentTransitionID)
+                .transition(articleTransition)
+            }
+            .overlay(alignment: .top) {
+                adjacentArticleOverscrollIndicator(
+                    systemImage: "chevron.up",
+                    progress: adjacentArticleOverscrollState.previousProgress,
+                    isReady: adjacentArticleOverscrollState.previousProgress >= 1
+                )
+                .padding(
+                    .top,
+                    geometryProxy.safeAreaInsets.top + ReaderChromeUnderlayLayout.indicatorChromeSpacing
                 )
             }
+            .overlay(alignment: .bottom) {
+                adjacentArticleOverscrollIndicator(
+                    systemImage: "chevron.down",
+                    progress: adjacentArticleOverscrollState.nextProgress,
+                    isReady: adjacentArticleOverscrollState.nextProgress >= 1
+                )
+                .padding(
+                    .bottom,
+                    geometryProxy.safeAreaInsets.bottom + ReaderChromeUnderlayLayout.indicatorChromeSpacing
+                )
+            }
+            .clipped()
+            .ignoresSafeArea(.container, edges: chromeUnderlayEdges)
         }
+        .animation(.snappy(duration: 0.28), value: contentTransitionID)
+        .sensoryFeedback(
+            .impact(flexibility: .solid, intensity: 0.75),
+            trigger: adjacentArticleOverscrollReadyHapticTrigger
+        )
         .background(appThemeVariant.primaryBackground.ignoresSafeArea())
         .toolbarTitleDisplayMode(.inline)
         .navigationTitle("")
@@ -120,6 +131,28 @@ struct ReaderView: View {
 
                 ToolbarSpacer(placement: .bottomBar)
 
+                if adjacentNavigationControlsMode.showsToolbarControls {
+                    ToolbarItem(placement: .bottomBar) {
+                        Button(action: handleNextArticleTap) {
+                            Image(systemName: "chevron.down")
+                        }
+                        .disabled(appState.adjacentArticleID(.next) == nil)
+                        .accessibilityLabel("Next Article")
+                    }
+
+                    ToolbarSpacer(placement: .bottomBar)
+
+                    ToolbarItem(placement: .bottomBar) {
+                        Button(action: handlePreviousArticleTap) {
+                            Image(systemName: "chevron.up")
+                        }
+                        .disabled(appState.adjacentArticleID(.previous) == nil)
+                        .accessibilityLabel("Previous Article")
+                    }
+
+                    ToolbarSpacer(placement: .bottomBar)
+                }
+
                 ToolbarItem(placement: .bottomBar) {
                     Button(action: handleOpenSourceArticleTap) {
                         Image(systemName: bottomActions.openSourceArticleSystemImage)
@@ -129,11 +162,166 @@ struct ReaderView: View {
                 }
             }
         }
-        .task(id: ArticleScreenLoadContext(articleID: articleID, reloadID: reloadID)) {
+        .task(id: ArticleScreenLoadContext(articleID: currentArticleID, reloadID: reloadID)) {
             guard previewScreenState == nil else { return }
-            await controller.load(articleID: articleID, dependencies: dependencies)
+            loadReaderAdjacentNavigationControlsMode()
+            await controller.load(
+                articleID: currentArticleID,
+                dependencies: dependencies,
+                preservesCurrentArticleDuringLoading: adjacentArticleTransitionDirection != nil,
+                articleReadOnOpenHandler: recordArticleReadOnOpenInCurrentListSession
+            )
+            pendingAdjacentArticleOverscrollDirection = nil
+            adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
+            await resetAdjacentArticleTransitionDirectionAfterAnimation()
+        }
+        .onChange(of: appState.isPresentingSettingsScreen) { _, isPresentingSettingsScreen in
+            guard previewScreenState == nil, isPresentingSettingsScreen == false else { return }
+            loadReaderAdjacentNavigationControlsMode()
         }
         .simultaneousGesture(backNavigationGesture)
+    }
+
+    private var resolvedArticleID: UUID? {
+        previewScreenState == nil ? appState.selectedArticleID : articleID
+    }
+
+    private func loadReaderAdjacentNavigationControlsMode() {
+        guard let appSettingsService = dependencies.appSettingsService else {
+            adjacentNavigationControlsMode = .swipesAndToolbarControls
+            return
+        }
+
+        do {
+            adjacentNavigationControlsMode = try appSettingsService.fetchSettings().readerAdjacentNavigationControlsMode
+        } catch {
+            dependencies.logger.error("Failed to load reader adjacent navigation controls mode: \(error)")
+            adjacentNavigationControlsMode = .swipesAndToolbarControls
+        }
+    }
+
+    @ViewBuilder
+    private func contentSurface(
+        _ viewState: ArticleScreenDerivedViewState,
+        contentSafeAreaInsets: EdgeInsets
+    ) -> some View {
+        Group {
+            if let content = viewState.content {
+                ScrollView {
+                    articleContent(content)
+                        .padding(.horizontal, ReaderChromeUnderlayLayout.contentMargin)
+                        .padding(.top, contentSafeAreaInsets.top + ReaderChromeUnderlayLayout.contentMargin)
+                        .padding(.bottom, contentSafeAreaInsets.bottom + ReaderChromeUnderlayLayout.contentMargin)
+                }
+                .ignoresSafeArea(.container, edges: [.top, .bottom])
+                .onScrollGeometryChange(for: ReaderArticleScrollGeometry.self) { geometry in
+                    ReaderArticleScrollGeometry(
+                        contentHeight: geometry.contentSize.height,
+                        containerHeight: geometry.containerSize.height,
+                        contentOffsetY: geometry.contentOffset.y,
+                        contentInsetTop: geometry.contentInsets.top,
+                        contentInsetBottom: geometry.contentInsets.bottom,
+                        boundsMaxY: geometry.bounds.maxY
+                    )
+                } action: { _, newGeometry in
+                    handleArticleScrollGeometryChange(newGeometry)
+                }
+                .onScrollPhaseChange { oldPhase, newPhase, _ in
+                    handleArticleScrollPhaseChange(oldPhase: oldPhase, newPhase: newPhase)
+                }
+            } else if let primaryLoadingState = viewState.primaryLoadingState {
+                ScreenLoadingView(title: primaryLoadingState.title)
+            } else if let placeholder = viewState.placeholder {
+                ScreenPlaceholderView(
+                    title: placeholder.title,
+                    systemImage: placeholder.systemImage,
+                    description: placeholder.description
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private func articleContent(_ content: ArticleScreenContentState) -> some View {
+        VStack(alignment: .leading, spacing: ReaderArticleContentLayout.sectionSpacing) {
+            articleHeader(content.header)
+
+            bodyBlocks(content.body.blocks)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func articleHeader(_ header: ArticleScreenHeaderState) -> some View {
+        VStack(alignment: .leading, spacing: ReaderArticleContentLayout.headerSpacing) {
+            if let publishedAtText = header.publishedAtText {
+                Text(publishedAtText)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            if header.canOpenSourceArticle {
+                Button(action: handleOpenSourceArticleTap) {
+                    Text(header.title)
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open Original Article")
+            } else {
+                Text(header.title)
+                    .font(.title2.weight(.semibold))
+            }
+
+            if header.author != nil || header.feedTitle != nil {
+                VStack(alignment: .leading, spacing: ReaderArticleContentLayout.metadataSpacing) {
+                    if let author = header.author {
+                        Text(author)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let feedTitle = header.feedTitle {
+                        Text(feedTitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func bodyBlocks(_ blocks: [ArticleScreenBodyBlock]) -> some View {
+        ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+            bodyBlockView(block)
+        }
+    }
+
+    private enum ReaderArticleContentLayout {
+        static let sectionSpacing: CGFloat = 14
+        static let headerSpacing: CGFloat = 6
+        static let metadataSpacing: CGFloat = 2
+    }
+
+    private var articleTransition: AnyTransition {
+        switch adjacentArticleTransitionDirection {
+        case .next:
+            .asymmetric(
+                insertion: .move(edge: .bottom).combined(with: .opacity),
+                removal: .move(edge: .top).combined(with: .opacity)
+            )
+        case .previous:
+            .asymmetric(
+                insertion: .move(edge: .top).combined(with: .opacity),
+                removal: .move(edge: .bottom).combined(with: .opacity)
+            )
+        case .none:
+            .opacity
+        }
     }
 
     private var backNavigationGesture: some Gesture {
@@ -148,6 +336,113 @@ struct ReaderView: View {
                 }
                 navigateBackToArticles()
             }
+    }
+
+    private func handleArticleScrollGeometryChange(_ scrollGeometry: ReaderArticleScrollGeometry) {
+        guard previewScreenState == nil else { return }
+        guard adjacentNavigationControlsMode.allowsAdjacentArticleSwipes else {
+            adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
+            pendingAdjacentArticleOverscrollDirection = nil
+            return
+        }
+
+        let overscrollState = ArticleScreenNavigationState.adjacentArticleOverscrollState(
+            scrollGeometry: scrollGeometry
+        )
+        let previousOverscrollState = adjacentArticleOverscrollState
+        let newOverscrollState = effectiveAdjacentArticleOverscrollState(overscrollState)
+
+        if ArticleScreenNavigationState.shouldTriggerAdjacentArticleOverscrollReadyHaptic(
+            previousState: previousOverscrollState,
+            newState: newOverscrollState,
+            hasTriggeredInCurrentGesture: hasTriggeredAdjacentArticleOverscrollReadyHaptic
+        ) {
+            adjacentArticleOverscrollReadyHapticTrigger += 1
+            hasTriggeredAdjacentArticleOverscrollReadyHaptic = true
+        }
+
+        adjacentArticleOverscrollState = newOverscrollState
+        pendingAdjacentArticleOverscrollDirection = adjacentArticleOverscrollState.readyDirection
+    }
+
+    private func handleArticleScrollPhaseChange(oldPhase: ScrollPhase, newPhase: ScrollPhase) {
+        guard previewScreenState == nil else { return }
+        guard adjacentNavigationControlsMode.allowsAdjacentArticleSwipes else {
+            pendingAdjacentArticleOverscrollDirection = nil
+            adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
+            return
+        }
+
+        if newPhase == .tracking || newPhase == .interacting {
+            pendingAdjacentArticleOverscrollDirection = nil
+            adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
+            hasTriggeredAdjacentArticleOverscrollReadyHaptic = false
+            return
+        }
+
+        guard oldPhase == .interacting, newPhase != .interacting else { return }
+        guard let direction = pendingAdjacentArticleOverscrollDirection else { return }
+        pendingAdjacentArticleOverscrollDirection = nil
+        adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
+        navigateToAdjacentArticle(direction)
+    }
+
+    private func effectiveAdjacentArticleOverscrollState(
+        _ overscrollState: ReaderArticleOverscrollNavigationState
+    ) -> ReaderArticleOverscrollNavigationState {
+        ReaderArticleOverscrollNavigationState(
+            previousProgress: appState.adjacentArticleID(.previous) == nil ? 0 : overscrollState.previousProgress,
+            nextProgress: appState.adjacentArticleID(.next) == nil ? 0 : overscrollState.nextProgress
+        )
+    }
+
+    private func navigateToAdjacentArticle(_ direction: ReaderAdjacentArticleNavigationDirection) {
+        adjacentArticleTransitionDirection = direction
+
+        var didSelectAdjacentArticle = false
+        withAnimation(.snappy(duration: 0.28)) {
+            didSelectAdjacentArticle = appState.selectAdjacentArticle(direction)
+        }
+
+        if didSelectAdjacentArticle == false {
+            adjacentArticleTransitionDirection = nil
+            return
+        }
+
+        Task {
+            await loadCurrentArticleAfterAdjacentNavigationIfNeeded()
+        }
+    }
+
+    @MainActor
+    private func loadCurrentArticleAfterAdjacentNavigationIfNeeded() async {
+        try? await Task.sleep(for: .milliseconds(80))
+        let currentArticleID = resolvedArticleID
+        guard controller.screenState.article?.id != currentArticleID else {
+            await resetAdjacentArticleTransitionDirectionAfterAnimation()
+            return
+        }
+
+        await controller.load(
+            articleID: currentArticleID,
+            dependencies: dependencies,
+            preservesCurrentArticleDuringLoading: true,
+            articleReadOnOpenHandler: recordArticleReadOnOpenInCurrentListSession
+        )
+        pendingAdjacentArticleOverscrollDirection = nil
+        adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
+        await resetAdjacentArticleTransitionDirectionAfterAnimation()
+    }
+
+    private func resetAdjacentArticleTransitionDirectionAfterAnimation() async {
+        guard adjacentArticleTransitionDirection != nil else { return }
+        try? await Task.sleep(for: .milliseconds(320))
+        adjacentArticleTransitionDirection = nil
+    }
+
+    @MainActor
+    private func recordArticleReadOnOpenInCurrentListSession(_ articleID: UUID) {
+        appState.recordArticleReadOnOpenInCurrentListSession(articleID)
     }
 
     private var actionHandlers: ArticleScreenActionHandlers {
@@ -201,44 +496,94 @@ struct ReaderView: View {
         actionHandlers.openSourceArticle()
     }
 
+    @MainActor
+    private func handlePreviousArticleTap() {
+        navigateToAdjacentArticle(.previous)
+    }
+
+    @MainActor
+    private func handleNextArticleTap() {
+        navigateToAdjacentArticle(.next)
+    }
+
+    @ViewBuilder
+    private func adjacentArticleOverscrollIndicator(
+        systemImage: String,
+        progress: CGFloat,
+        isReady: Bool
+    ) -> some View {
+        if progress >= ReaderChromeUnderlayLayout.indicatorVisibilityThreshold {
+            Image(systemName: isReady ? systemImage : "minus")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(isReady ? .primary : .secondary)
+                .contentTransition(
+                    .symbolEffect(
+                        .replace.magic(fallback: .downUp.byLayer),
+                        options: .nonRepeating
+                    )
+                )
+                .scaleEffect(0.4 + 0.6 * progress)
+                .opacity(0.25 + 0.75 * progress)
+                .animation(.snappy(duration: 0.18), value: isReady)
+                .accessibilityHidden(true)
+        }
+    }
+
     @ViewBuilder
     private func bodyBlockView(_ block: ArticleScreenBodyBlock) -> some View {
         switch block {
+        case .heading(let level, let text):
+            linkedText(text)
+                .font(headingFont(for: level))
+                .padding(.top, level <= 2 ? 10 : 6)
         case .paragraph(let text):
-            Text(text.attributedString)
+            linkedText(text)
                 .font(.body)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .environment(\.openURL, OpenURLAction { url in
-                    actionHandlers.bodyLinkTapped(url)
-                    return .handled
-                })
-        case .image(let url):
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .empty:
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(.quaternary.opacity(0.4))
-                        ProgressView()
+        case .list(let listBlock):
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Array(listBlock.items.enumerated()), id: \.offset) { index, item in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(listMarker(for: listBlock.kind, index: index))
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 24, alignment: .trailing)
+                        linkedText(item)
+                            .font(.body)
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 220)
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                case .failure:
-                    ContentUnavailableView(
-                        "Image Unavailable",
-                        systemImage: "photo",
-                        description: Text("The article image could not be loaded.")
-                    )
-                @unknown default:
-                    EmptyView()
                 }
             }
+            .padding(.vertical, 2)
+        case .blockquote(let paragraphs):
+            HStack(alignment: .top, spacing: 12) {
+                Rectangle()
+                    .fill(.secondary.opacity(0.35))
+                    .frame(width: 3)
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
+                        linkedText(paragraph)
+                            .font(.body.italic())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        case .codeBlock(let code):
+            Text(code)
+                .font(.system(.body, design: .monospaced))
+                .textSelection(.enabled)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        case .divider:
+            Divider()
+                .padding(.vertical, 8)
+        case .caption(let text):
+            linkedText(text)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .image(let url):
+            CachedArticleImageView(url: url)
+                .id(url)
         case .fallbackNotice(let message):
             Text(message)
                 .font(.subheadline)
@@ -246,9 +591,262 @@ struct ReaderView: View {
                 .padding(.top, 4)
         }
     }
+
+    private func linkedText(_ text: ArticleScreenTextBlock) -> some View {
+        Text(text.attributedString)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .environment(\.openURL, OpenURLAction { url in
+                actionHandlers.bodyLinkTapped(url)
+                return .handled
+            })
+    }
+
+    private func headingFont(for level: Int) -> Font {
+        switch level {
+        case ...1:
+            .title2.weight(.semibold)
+        case 2:
+            .title3.weight(.semibold)
+        default:
+            .headline
+        }
+    }
+
+    private func listMarker(for kind: ArticleScreenListKind, index: Int) -> String {
+        switch kind {
+        case .ordered:
+            "\(index + 1)."
+        case .unordered:
+            "•"
+        }
+    }
+}
+
+struct CachedArticleImageView: View {
+    let url: URL
+    @State private var phase: CachedArticleImagePhase
+
+    @MainActor
+    init(url: URL) {
+        self.init(url: url, cache: ArticleImageMemoryCache.shared)
+    }
+
+    @MainActor
+    init(url: URL, cache: ArticleImageMemoryCache) {
+        self.url = url
+
+        if let cachedImage = cache.image(for: url) {
+            self._phase = State(initialValue: .success(cachedImage))
+        } else {
+            self._phase = State(initialValue: .empty)
+        }
+    }
+
+    var body: some View {
+        content
+            .task(id: url) {
+                await loadImage()
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch phase {
+        case .empty, .loading:
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.quaternary.opacity(0.4))
+                AppRefreshIndicator(
+                    state: .refreshing,
+                    size: 24,
+                    lineWidth: 2.5,
+                    tint: AnyShapeStyle(.secondary),
+                    accessibilityLabel: "Loading image"
+                )
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 220)
+        case .success(let image):
+            let layout = CachedArticleImageLayoutPolicy.layout(for: image.size)
+
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: layout.maxImageWidth)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .frame(maxWidth: .infinity, alignment: layout.swiftUIAlignment)
+        case .failure:
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: "photo")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Image Unavailable")
+                        .font(.subheadline.weight(.semibold))
+                    Text("The article image could not be loaded.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+    }
+
+    @MainActor
+    private func loadImage() async {
+        let memoryCache = ArticleImageMemoryCache.shared
+        let diskCache = ArticleImageDiskCache.shared
+
+        if let cachedImage = memoryCache.image(for: url) {
+            phase = .success(cachedImage)
+            return
+        }
+
+        phase = .loading
+
+        do {
+            if let cachedData = try? await diskCache.data(for: url),
+               let diskImage = UIImage(data: cachedData) {
+                memoryCache.insert(diskImage, for: url, cost: cachedData.count)
+                phase = .success(diskImage)
+                return
+            }
+
+            let (data, response) = try await URLSession.shared.data(from: url)
+            try Task.checkCancellation()
+
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode),
+                  let image = UIImage(data: data) else {
+                phase = .failure
+                return
+            }
+
+            try? await diskCache.insert(data, for: url)
+            memoryCache.insert(image, for: url, cost: data.count)
+            phase = .success(image)
+        } catch is CancellationError {
+            return
+        } catch {
+            phase = .failure
+        }
+    }
+}
+
+enum CachedArticleImagePhase {
+    case empty
+    case loading
+    case success(UIImage)
+    case failure
+}
+
+struct CachedArticleImageLayout: Equatable {
+    let maxImageWidth: CGFloat?
+    let horizontalAlignment: CachedArticleImageHorizontalAlignment
+
+    var swiftUIAlignment: Alignment {
+        switch horizontalAlignment {
+        case .leading:
+            .leading
+        case .center:
+            .center
+        }
+    }
+}
+
+enum CachedArticleImageHorizontalAlignment: Equatable {
+    case leading
+    case center
+}
+
+enum CachedArticleImageLayoutPolicy {
+    static let smallImageMaximumWidth: CGFloat = 320
+
+    static func layout(for imageSize: CGSize) -> CachedArticleImageLayout {
+        guard imageSize.width > 0, imageSize.height > 0 else {
+            return CachedArticleImageLayout(maxImageWidth: nil, horizontalAlignment: .center)
+        }
+
+        if imageSize.width <= smallImageMaximumWidth {
+            return CachedArticleImageLayout(
+                maxImageWidth: imageSize.width,
+                horizontalAlignment: .center
+            )
+        }
+
+        return CachedArticleImageLayout(
+            maxImageWidth: nil,
+            horizontalAlignment: .center
+        )
+    }
+}
+
+@MainActor
+final class ArticleImageMemoryCache {
+    static let shared = ArticleImageMemoryCache()
+
+    private let storage = NSCache<NSURL, UIImage>()
+    private var storedURLs: Set<URL> = []
+
+    init(countLimit: Int = 256, totalCostLimit: Int = 80 * 1024 * 1024) {
+        storage.countLimit = countLimit
+        storage.totalCostLimit = totalCostLimit
+    }
+
+    func image(for url: URL) -> UIImage? {
+        guard let image = storage.object(forKey: url as NSURL) else {
+            storedURLs.remove(url)
+            return nil
+        }
+
+        return image
+    }
+
+    func insert(_ image: UIImage, for url: URL, cost: Int = 0) {
+        storage.setObject(image, forKey: url as NSURL, cost: cost)
+        storedURLs.insert(url)
+    }
+
+    var hasImages: Bool {
+        storedURLs.isEmpty == false
+    }
+
+    func removeAllImages() {
+        storage.removeAllObjects()
+        storedURLs.removeAll()
+    }
 }
 
 private struct ArticleScreenLoadContext: Hashable {
     let articleID: UUID?
     let reloadID: UUID
+}
+
+private extension ReaderAdjacentNavigationControlsMode {
+    var showsToolbarControls: Bool {
+        switch self {
+        case .toolbarControlsOnly, .swipesAndToolbarControls:
+            true
+        case .swipesOnly:
+            false
+        }
+    }
+
+    var allowsAdjacentArticleSwipes: Bool {
+        switch self {
+        case .swipesOnly, .swipesAndToolbarControls:
+            true
+        case .toolbarControlsOnly:
+            false
+        }
+    }
+}
+
+private enum ReaderChromeUnderlayLayout {
+    static let contentMargin: CGFloat = 16
+    static let indicatorChromeSpacing: CGFloat = 12
+    static let indicatorVisibilityThreshold: CGFloat = 0.18
 }

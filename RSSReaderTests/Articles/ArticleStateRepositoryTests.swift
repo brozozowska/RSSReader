@@ -85,4 +85,20 @@ struct ArticleStateRepositoryTests {
         #expect(repairedState.readAt == Date(timeIntervalSince1970: 200))
         #expect(repairedState.updatedAt == Date(timeIntervalSince1970: 200))
     }
+
+    @Test
+    func articleStateRepositoryCountsArchivedArticlesAsUnread() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/state-counts.xml"]).first)
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "archived-unread-article",
+            url: "https://example.com/state-counts/articles/archived",
+            title: "Archived Unread Article",
+            archivedAt: .distantPast
+        )
+        let unreadCounts = try harness.articleStateRepository.fetchUnreadCounts(feedIDs: [feed.id])
+
+        #expect(unreadCounts[feed.id] == 1)
+    }
 }

@@ -18,6 +18,9 @@ struct SidebarToolbarState: Equatable {
 }
 
 struct SidebarSubtitleFormatter {
+    var now: Date = .now
+    var calendar: Calendar = .current
+
     func text(
         for refreshStatus: SidebarRefreshStatus,
         iCloudSyncStatus: ICloudSyncStatus = .disabled
@@ -43,14 +46,33 @@ struct SidebarSubtitleFormatter {
             return "Not updated yet"
         }
 
-        if Calendar.current.isDateInToday(date) {
-            return "Today at \(date.formatted(date: .omitted, time: .shortened))"
+        if calendar.isDate(date, inSameDayAs: now) {
+            return "Today at \(timeString(for: date))"
         }
 
-        if Calendar.current.isDateInYesterday(date) {
-            return "Yesterday at \(date.formatted(date: .omitted, time: .shortened))"
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
+           calendar.isDate(date, inSameDayAs: yesterday) {
+            return "Yesterday at \(timeString(for: date))"
         }
 
-        return date.formatted(date: .abbreviated, time: .shortened)
+        return dateString(for: date)
+    }
+
+    private func timeString(for date: Date) -> String {
+        let components = calendar.dateComponents([.hour, .minute], from: date)
+        return String(
+            format: "%02d:%02d",
+            components.hour ?? 0,
+            components.minute ?? 0
+        )
+    }
+
+    private func dateString(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "EEEE, d MMMM yyyy"
+        return formatter.string(from: date)
     }
 }

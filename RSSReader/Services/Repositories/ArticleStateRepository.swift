@@ -27,6 +27,17 @@ struct ArticleUserStateSnapshot: Sendable {
     }
 }
 
+struct ArticleStateIdentity: Hashable, Sendable {
+    let feedID: UUID
+    let articleExternalID: String
+}
+
+struct ArticleStateOrphanCleanupResult: Equatable, Sendable {
+    let inspectedCount: Int
+    let deletedCount: Int
+    let retainedStarredCount: Int
+}
+
 struct ArticleStateUpsert: Sendable {
     var isRead: Bool? = nil
     var readAt: Date? = nil
@@ -50,6 +61,10 @@ protocol ArticleStateRepository {
     func fetchStateSnapshots(feedID: UUID, articleExternalIDs: [String]) throws -> [String: ArticleUserStateSnapshot]
     func fetchStateSnapshots(for articles: [Article]) throws -> [String: ArticleUserStateSnapshot]
     func fetchUnreadCounts(feedIDs: [UUID]) throws -> [UUID: Int]
+    func deleteOrphanStates(
+        keepingArticleIdentities articleIdentities: Set<ArticleStateIdentity>,
+        saveAfterOperation: Bool
+    ) throws -> ArticleStateOrphanCleanupResult
 
     @discardableResult
     func upsert(feedID: UUID, articleExternalID: String, update: ArticleStateUpsert) throws -> ArticleState
@@ -130,11 +145,7 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
         let normalizedFeedIDs = Set(feedIDs)
         guard normalizedFeedIDs.isEmpty == false else { return [:] }
 
-        let articleDescriptor = FetchDescriptor<Article>(
-            predicate: #Predicate<Article> { article in
-                article.isDeletedAtSource == false
-            }
-        )
+        let articleDescriptor = FetchDescriptor<Article>()
         let articles = try modelContext.fetch(articleDescriptor)
 
         let relevantArticles = articles.filter { normalizedFeedIDs.contains($0.feedID) }
@@ -156,6 +167,44 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
         }
 
         return unreadCounts
+    }
+
+    func deleteOrphanStates(
+        keepingArticleIdentities articleIdentities: Set<ArticleStateIdentity>,
+        saveAfterOperation: Bool = true
+    ) throws -> ArticleStateOrphanCleanupResult {
+        let descriptor = FetchDescriptor<ArticleState>()
+        let states = try modelContext.fetch(descriptor)
+        var deletedCount = 0
+        var retainedStarredCount = 0
+
+        for state in states {
+            let identity = ArticleStateIdentity(
+                feedID: state.feedID,
+                articleExternalID: state.articleExternalID
+            )
+            guard articleIdentities.contains(identity) == false else {
+                continue
+            }
+
+            if state.isStarred {
+                retainedStarredCount += 1
+                continue
+            }
+
+            modelContext.delete(state)
+            deletedCount += 1
+        }
+
+        if saveAfterOperation {
+            try saveIfNeeded()
+        }
+
+        return ArticleStateOrphanCleanupResult(
+            inspectedCount: states.count,
+            deletedCount: deletedCount,
+            retainedStarredCount: retainedStarredCount
+        )
     }
 
     @discardableResult

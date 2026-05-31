@@ -49,9 +49,9 @@ struct ArticleScreenStateTests {
         #expect(viewState.content?.header.title == article.title)
         #expect(viewState.content?.header.feedTitle == article.feedTitle)
         #expect(viewState.content?.header.author == article.author)
+        #expect(viewState.content?.header.canOpenSourceArticle == true)
         #expect(viewState.content?.body.blocks == [.paragraph(.plainText("Rendered body text"))])
         #expect(viewState.content?.body.source == .contentText)
-        #expect(viewState.content?.body.readerMode == .embedded)
         #expect(viewState.toolbarActions.showsShareAction)
         #expect(viewState.toolbarActions.isShareEnabled)
         #expect(viewState.toolbarActions.showsBottomActions)
@@ -59,6 +59,41 @@ struct ArticleScreenStateTests {
         #expect(viewState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
         #expect(viewState.toolbarActions.bottomActions?.starTitle == "Unstar")
         #expect(viewState.toolbarActions.bottomActions?.starSystemImage == "star.slash")
+    }
+
+    @Test
+    func articleScreenStateHidesStaleContentForDifferentSelectedArticleID() {
+        var state = ArticleScreenState()
+        let article = makeReaderArticleDTO(title: "Stale Article")
+
+        state.applyLoadedArticle(article)
+        let viewState = state.derivedViewState(selectedArticleID: UUID())
+
+        #expect(viewState.content == nil)
+        #expect(viewState.primaryLoadingState?.title == "Loading Article")
+        #expect(viewState.toolbarActions.showsShareAction == false)
+        #expect(viewState.toolbarActions.showsBottomActions == false)
+    }
+
+    @Test
+    func articleScreenStateCanPreserveStaleContentForAdjacentTransition() {
+        var state = ArticleScreenState()
+        let article = makeReaderArticleDTO(title: "Transition Source Article")
+
+        state.applyLoadedArticle(article)
+        state.beginLoading(
+            articleID: UUID(),
+            preservesCurrentArticle: true
+        )
+        let viewState = state.derivedViewState(
+            selectedArticleID: UUID(),
+            preservesStaleContent: true
+        )
+
+        #expect(viewState.content?.articleID == article.id)
+        #expect(viewState.content?.header.title == "Transition Source Article")
+        #expect(viewState.primaryLoadingState == nil)
+        #expect(viewState.toolbarActions.showsBottomActions)
     }
 
     @Test
@@ -109,5 +144,27 @@ struct ArticleScreenStateTests {
 
         let invalidBottomActions = invalidURLState.derivedViewState().toolbarActions.bottomActions
         #expect(invalidBottomActions?.canOpenSourceArticle == false)
+    }
+
+    @Test
+    func articleScreenHeaderEnablesTitleLinkOnlyWhenArticleHasValidExternalURL() {
+        var loadedState = ArticleScreenState()
+        loadedState.applyLoadedArticle(
+            makeReaderArticleDTO(
+                canonicalURL: "https://example.com/articles/openable"
+            )
+        )
+
+        #expect(loadedState.derivedViewState().content?.header.canOpenSourceArticle == true)
+
+        var invalidURLState = ArticleScreenState()
+        invalidURLState.applyLoadedArticle(
+            makeReaderArticleDTO(
+                articleURL: "invalid-url",
+                canonicalURL: nil
+            )
+        )
+
+        #expect(invalidURLState.derivedViewState().content?.header.canOpenSourceArticle == false)
     }
 }

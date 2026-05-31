@@ -5,6 +5,7 @@ struct SourceManagementScreenView: View {
     @Environment(\.appDependencies) private var dependencies
     @Environment(AppState.self) private var appState
     @State private var controller: SourceManagementScreenController
+    @State private var destinationPath: [SourceManagementScenarioID] = []
     let dismiss: () -> Void
     let launchContext: SourceManagementScreenLaunchContext
 
@@ -26,10 +27,12 @@ struct SourceManagementScreenView: View {
             controller: controller,
             dependencies: dependencies,
             appState: appState,
-            dismiss: dismiss
+            dismiss: dismiss,
+            showsDirectLaunchCloseControl: launchContext.opensDirectDestination,
+            destinationPath: $destinationPath
         )
 
-        NavigationStack {
+        NavigationStack(path: destinationPathBinding) {
             List {
                 Section {
                     summarySection(viewState.summary)
@@ -61,16 +64,37 @@ struct SourceManagementScreenView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done", action: navigator.dismiss)
+                    SourceManagementCloseButton(
+                        accessibilityLabel: "Close Add Source",
+                        action: navigator.dismiss
+                    )
                 }
             }
-            .navigationDestination(item: navigator.presentedDestinationBinding) { destination in
-                navigator.destinationView(for: destination)
+            .navigationDestination(for: SourceManagementScenarioID.self) { scenarioID in
+                navigator.destinationView(for: scenarioID)
             }
             .task(id: launchContext) {
                 navigator.handleLaunchContext(launchContext)
             }
         }
+    }
+
+    private var destinationPathBinding: Binding<[SourceManagementScenarioID]> {
+        Binding(
+            get: { destinationPath },
+            set: { newPath in
+                let oldPath = destinationPath
+                destinationPath = newPath
+
+                if newPath.count < oldPath.count {
+                    controller.dismissPresentedScenario()
+                }
+
+                if let activeScenario = newPath.last {
+                    controller.screenState.presentScenario(activeScenario)
+                }
+            }
+        )
     }
 
     private func summarySection(_ summary: SourceManagementScreenSummaryPresentation) -> some View {
@@ -91,9 +115,21 @@ private struct SourceManagementScreenNavigator {
     let dependencies: AppDependencies
     let appState: AppState
     let dismiss: () -> Void
+    let showsDirectLaunchCloseControl: Bool
+    @Binding var destinationPath: [SourceManagementScenarioID]
 
     func handleLaunchContext(_ launchContext: SourceManagementScreenLaunchContext) {
         controller.handleLaunchContext(launchContext, dependencies: dependencies)
+        switch launchContext {
+        case .entry:
+            return
+        case .editFeed:
+            destinationPath = [.addFeed]
+        case .editFolder:
+            destinationPath = [.createFolder]
+        case .organizeFeed:
+            destinationPath = [.moveSource]
+        }
     }
 
     func selectScenario(_ scenarioID: SourceManagementScenarioID) {
@@ -101,35 +137,45 @@ private struct SourceManagementScreenNavigator {
             scenarioID,
             dependencies: dependencies
         )
+        destinationPath = [scenarioID]
     }
 
-    var presentedDestinationBinding: Binding<SourceManagementScreenDestinationPresentation?> {
-        Binding(
-            get: { controller.screenState.presentedDestination },
-            set: { destination in
-                if let destination {
-                    selectScenario(destination.id)
-                } else {
-                    controller.dismissPresentedScenario()
-                }
-            }
+    func startCreateFolderFromAddFeed() {
+        controller.startCreateFolderFromAddFeed(dependencies: dependencies)
+        destinationPath.append(.createFolder)
+    }
+
+    func submitCreateFolder() {
+        let wasNestedAddFeedFolderCreation = destinationPath == [.addFeed, .createFolder]
+        controller.submitCreateFolder(
+            dependencies: dependencies,
+            appState: appState
         )
+
+        if wasNestedAddFeedFolderCreation,
+           controller.screenState.presentedDestination?.id == .addFeed {
+            destinationPath = [.addFeed]
+        }
     }
 
     @ViewBuilder
     func destinationView(
-        for destination: SourceManagementScreenDestinationPresentation
+        for scenarioID: SourceManagementScenarioID
     ) -> some View {
+        let destination = controller.screenState.destinationPresentation(for: scenarioID)
+
         switch destination {
         case .addFeed(let addFeed):
             SourceManagementAddFeedView(
                 presentation: addFeed,
                 urlBinding: addFeedURLBinding,
+                displayNameBinding: addFeedDisplayNameBinding,
+                showsCloseControl: showsDirectLaunchCloseControl,
                 selectPlacement: { placement in
                     controller.handleAddFeedFolderPlacementSelection(placement)
                 },
                 startCreateFolder: {
-                    controller.startCreateFolderFromAddFeed(dependencies: dependencies)
+                    startCreateFolderFromAddFeed()
                 },
                 handlePrimaryAction: {
                     Task {
@@ -138,22 +184,30 @@ private struct SourceManagementScreenNavigator {
                             appState: appState
                         )
                     }
-                }
+                },
+                handlePreviewAction: {
+                    Task {
+                        await controller.handleAddFeedPreviewAction(
+                            dependencies: dependencies
+                        )
+                    }
+                },
+                dismiss: dismiss
             )
         case .createFolder(let createFolder):
             SourceManagementCreateFolderView(
                 presentation: createFolder,
                 nameBinding: createFolderNameBinding,
+                showsCloseControl: showsDirectLaunchCloseControl,
                 submit: {
-                    controller.submitCreateFolder(
-                        dependencies: dependencies,
-                        appState: appState
-                    )
-                }
+                    submitCreateFolder()
+                },
+                dismiss: dismiss
             )
         case .moveSource(let moveSource):
             SourceManagementMoveSourceView(
                 presentation: moveSource,
+                showsCloseControl: showsDirectLaunchCloseControl,
                 selectFeed: { feedID in
                     controller.handleMoveSourceFeedSelection(feedID)
                 },
@@ -165,41 +219,49 @@ private struct SourceManagementScreenNavigator {
                         dependencies: dependencies,
                         appState: appState
                     )
-                }
+                },
+                dismiss: dismiss
             )
         }
     }
 
     private var addFeedURLBinding: Binding<String> {
         Binding(
-            get: {
-                switch controller.viewState().presentedDestination {
-                case .addFeed(let presentation):
-                    return presentation.urlInput
-                case .moveSource, .createFolder, .none:
-                    return ""
-                }
-            },
+            get: { controller.screenState.addFeedURLInput() },
             set: { value in
                 controller.handleAddFeedURLChange(value)
             }
         )
     }
 
+    private var addFeedDisplayNameBinding: Binding<String> {
+        Binding(
+            get: { controller.screenState.addFeedDisplayNameInput() },
+            set: { value in
+                controller.handleAddFeedDisplayNameChange(value)
+            }
+        )
+    }
+
     private var createFolderNameBinding: Binding<String> {
         Binding(
-            get: {
-                switch controller.viewState().presentedDestination {
-                case .addFeed, .moveSource, .none:
-                    return ""
-                case .createFolder(let presentation):
-                    return presentation.nameInput
-                }
-            },
+            get: { controller.screenState.createFolderNameInput() },
             set: { value in
                 controller.handleCreateFolderNameChange(value)
             }
         )
+    }
+}
+
+private struct SourceManagementCloseButton: View {
+    let accessibilityLabel: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+        }
+        .accessibilityLabel(accessibilityLabel)
     }
 }
 
@@ -248,9 +310,13 @@ private struct SourceManagementAddFeedView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     let presentation: SourceManagementAddFeedPresentation
     let urlBinding: Binding<String>
+    let displayNameBinding: Binding<String>
+    let showsCloseControl: Bool
     let selectPlacement: (SourceManagementFolderPlacement) -> Void
     let startCreateFolder: () -> Void
     let handlePrimaryAction: () -> Void
+    let handlePreviewAction: () -> Void
+    let dismiss: () -> Void
 
     var body: some View {
         List {
@@ -270,14 +336,14 @@ private struct SourceManagementAddFeedView: View {
                 TextField(
                     presentation.urlPrompt,
                     text: urlBinding,
-                    prompt: Text("https://example.com/feed.xml")
+                    prompt: Text("example.com")
                 )
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .keyboardType(.URL)
                 .textContentType(.URL)
                 .submitLabel(.done)
-                .onSubmit(handlePrimaryAction)
+                .onSubmit(handlePreviewAction)
 
                 if let validationMessage = presentation.validationMessage {
                     Text(validationMessage)
@@ -287,19 +353,47 @@ private struct SourceManagementAddFeedView: View {
             } header: {
                 Text("Feed URL")
             } footer: {
-                Text("The URL is validated locally before any network preview starts.")
+                Text("Use a website address or a direct RSS / Atom feed link.")
             }
 
-            if let normalizedURL = presentation.normalizedURL {
-                Section("Normalized URL") {
-                    Text(normalizedURL)
-                        .textSelection(.enabled)
+            if presentation.showsDisplayNameInput {
+                Section {
+                    TextField(
+                        presentation.displayNamePrompt,
+                        text: displayNameBinding,
+                        prompt: Text("Source name")
+                    )
+                    .textInputAutocapitalization(.sentences)
+                    .autocorrectionDisabled()
+                    .submitLabel(.done)
+                    .onSubmit(handlePrimaryAction)
+                } header: {
+                    Text("Display Name")
+                } footer: {
+                    Text(presentation.displayNameFooter)
                 }
             }
 
-            if let preview = presentation.preview {
-                Section("Preview Metadata") {
+            if presentation.isLoadingPreview {
+                Section {
+                    SourceManagementCheckingSourceView()
+                } header: {
+                    Text("Source Preview")
+                }
+            } else if let preview = presentation.preview {
+                Section("Source Preview") {
                     SourceManagementAddFeedPreviewCard(preview: preview)
+                }
+            } else if let status = presentation.status,
+                      status.kind == .failure {
+                Section {
+                    SourceManagementFeedbackCard(
+                        feedback: .init(status: status)
+                    )
+                } header: {
+                    Text("Source Preview")
+                } footer: {
+                    Text("Try a different website address or a direct RSS / Atom feed link.")
                 }
             }
 
@@ -324,15 +418,30 @@ private struct SourceManagementAddFeedView: View {
                 Section {
                     Button(createFolderActionTitle, action: startCreateFolder)
                 } footer: {
-                    Text("Create a new folder first when the destination you need does not exist yet.")
+                    Text("Create a folder now if this source should live in a new group.")
                 }
             }
 
-            if let status = presentation.status {
+            if let status = presentation.status,
+               status.kind != .failure || presentation.preview != nil {
                 Section {
                     SourceManagementFeedbackCard(
                         feedback: .init(status: status)
                     )
+                }
+            }
+
+            if presentation.isLoadingPreview == false,
+               presentation.preview == nil,
+               presentation.status?.kind != .failure {
+                Section {
+                    Button(action: handlePreviewAction) {
+                        Text("Preview Feed")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tint)
+                    .disabled(presentation.validationMessage != nil)
                 }
             }
         }
@@ -341,12 +450,49 @@ private struct SourceManagementAddFeedView: View {
         .background(appThemeVariant.primaryBackground)
         .navigationTitle(presentation.title)
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(showsCloseControl)
         .toolbar {
+            if showsCloseControl {
+                ToolbarItem(placement: .cancellationAction) {
+                    SourceManagementCloseButton(
+                        accessibilityLabel: "Close \(presentation.title)",
+                        action: dismiss
+                    )
+                }
+            }
+
             ToolbarItem(placement: .confirmationAction) {
-                Button(presentation.primaryActionTitle, action: handlePrimaryAction)
-                    .disabled(presentation.isPrimaryActionEnabled == false)
+                Button(action: handlePrimaryAction) {
+                    Image(systemName: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.accentColor)
+                .accessibilityLabel(presentation.primaryActionTitle)
+                .disabled(presentation.isConfirmationActionEnabled == false)
             }
         }
+    }
+}
+
+private struct SourceManagementCheckingSourceView: View {
+    var body: some View {
+        HStack {
+            Spacer()
+            HStack(spacing: 8) {
+                AppRefreshIndicator(
+                    state: .refreshing,
+                    size: 18,
+                    lineWidth: 2,
+                    tint: AnyShapeStyle(.secondary),
+                    accessibilityLabel: "Checking source"
+                )
+
+                Text("Checking Source...")
+            }
+            .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(.vertical, 4)
     }
 }
 
@@ -371,6 +517,12 @@ private struct SourceManagementFolderPlacementRow: View {
             }
 
             Spacer()
+
+            if let trailingValue = option.trailingValue {
+                Text(trailingValue)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.vertical, 4)
     }
@@ -384,21 +536,13 @@ private struct SourceManagementAddFeedPreviewCard: View {
             Text(preview.title)
                 .font(.body.weight(.semibold))
 
-            LabeledContent("Kind", value: preview.kindTitle)
+            LabeledContent("Feed Type", value: preview.kindTitle)
 
             if let subtitle = preview.subtitle {
-                LabeledContent("Subtitle", value: subtitle)
+                LabeledContent("Description", value: subtitle)
             }
 
-            LabeledContent("Resolved Feed URL", value: preview.resolvedFeedURL)
-
-            if let siteURL = preview.siteURL {
-                LabeledContent("Site URL", value: siteURL)
-            }
-
-            if let iconURL = preview.iconURL {
-                LabeledContent("Icon URL", value: iconURL)
-            }
+            LabeledContent("Feed Address", value: preview.resolvedFeedURL)
 
             if let existingFeedNotice = preview.existingFeedNotice {
                 Text(existingFeedNotice)
@@ -420,7 +564,9 @@ private struct SourceManagementCreateFolderView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     let presentation: SourceManagementCreateFolderPresentation
     let nameBinding: Binding<String>
+    let showsCloseControl: Bool
     let submit: () -> Void
+    let dismiss: () -> Void
 
     var body: some View {
         List {
@@ -455,13 +601,7 @@ private struct SourceManagementCreateFolderView: View {
             } header: {
                 Text("Folder Name")
             } footer: {
-                Text("Folder names stay unique within the current sidebar grouping.")
-            }
-
-            Section {
-                Text(presentation.placementDescription)
-            } header: {
-                Text("Sidebar Placement")
+                Text("Use a name that is easy to recognize in the source list.")
             }
 
             if let emptyStateTitle = presentation.emptyStateTitle,
@@ -478,17 +618,11 @@ private struct SourceManagementCreateFolderView: View {
                     .padding(.vertical, 4)
                 }
             } else if presentation.existingFolders.isEmpty == false {
-                Section("Existing Folders") {
+                Section {
                     ForEach(presentation.existingFolders) { folder in
                         HStack(alignment: .firstTextBaseline) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(folder.name)
-                                    .font(.body.weight(.semibold))
-
-                                Text("Sidebar position #\(folder.sortOrder + 1)")
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
+                            Text(folder.name)
+                                .font(.body.weight(.semibold))
 
                             Spacer()
 
@@ -497,6 +631,8 @@ private struct SourceManagementCreateFolderView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                } header: {
+                    Text("Existing Folders")
                 }
             }
 
@@ -513,10 +649,25 @@ private struct SourceManagementCreateFolderView: View {
         .background(appThemeVariant.primaryBackground)
         .navigationTitle(presentation.title)
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(showsCloseControl)
         .toolbar {
+            if showsCloseControl {
+                ToolbarItem(placement: .cancellationAction) {
+                    SourceManagementCloseButton(
+                        accessibilityLabel: "Close \(presentation.title)",
+                        action: dismiss
+                    )
+                }
+            }
+
             ToolbarItem(placement: .confirmationAction) {
-                Button(presentation.primaryActionTitle, action: submit)
-                    .disabled(presentation.isPrimaryActionEnabled == false)
+                Button(action: submit) {
+                    Image(systemName: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.accentColor)
+                .accessibilityLabel(presentation.primaryActionTitle)
+                .disabled(presentation.isPrimaryActionEnabled == false)
             }
         }
     }
@@ -525,9 +676,11 @@ private struct SourceManagementCreateFolderView: View {
 private struct SourceManagementMoveSourceView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     let presentation: SourceManagementMoveSourcePresentation
+    let showsCloseControl: Bool
     let selectFeed: (UUID) -> Void
     let selectPlacement: (SourceManagementFolderPlacement) -> Void
     let submit: () -> Void
+    let dismiss: () -> Void
 
     var body: some View {
         List {
@@ -579,8 +732,6 @@ private struct SourceManagementMoveSourceView: View {
                     }
                 } header: {
                     Text(presentation.placementTitle)
-                } footer: {
-                    Text(presentation.placementDescription)
                 }
             }
 
@@ -597,10 +748,25 @@ private struct SourceManagementMoveSourceView: View {
         .background(appThemeVariant.primaryBackground)
         .navigationTitle(presentation.title)
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(showsCloseControl)
         .toolbar {
+            if showsCloseControl {
+                ToolbarItem(placement: .cancellationAction) {
+                    SourceManagementCloseButton(
+                        accessibilityLabel: "Close \(presentation.title)",
+                        action: dismiss
+                    )
+                }
+            }
+
             ToolbarItem(placement: .confirmationAction) {
-                Button(presentation.primaryActionTitle, action: submit)
-                    .disabled(presentation.isPrimaryActionEnabled == false)
+                Button(action: submit) {
+                    Image(systemName: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.accentColor)
+                .accessibilityLabel(presentation.primaryActionTitle)
+                .disabled(presentation.isPrimaryActionEnabled == false)
             }
         }
     }

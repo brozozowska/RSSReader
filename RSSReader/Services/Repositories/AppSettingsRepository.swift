@@ -8,10 +8,14 @@ struct AppSettingsUpdate: Sendable {
     var useiCloudSync: Bool? = nil
     var markAsReadOnOpen: Bool? = nil
     var askBeforeMarkingAllAsRead: Bool? = nil
-    var sortMode: ArticleSortMode? = nil
+    var showUnreadCountBadge: Bool? = nil
+    var unreadSortMode: ArticleSortMode? = nil
+    var articleRetentionPolicy: ArticleRetentionPolicy? = nil
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
+    var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode? = nil
     var interfaceThemeMode: InterfaceThemeMode? = nil
+    var lastSourcesRefreshAt: Date? = nil
     var updatedAt: Date = .now
 }
 
@@ -78,8 +82,16 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
             settings.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         }
 
-        if let sortMode = update.sortMode {
-            settings.sortMode = sortMode
+        if let showUnreadCountBadge = update.showUnreadCountBadge {
+            settings.showUnreadCountBadge = showUnreadCountBadge
+        }
+
+        if let unreadSortMode = update.unreadSortMode {
+            settings.unreadSortMode = unreadSortMode
+        }
+
+        if let articleRetentionPolicy = update.articleRetentionPolicy {
+            settings.articleRetentionPolicy = articleRetentionPolicy
         }
 
         if let articleBodyLinkOpeningPolicy = update.articleBodyLinkOpeningPolicy {
@@ -90,8 +102,16 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
             settings.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
         }
 
+        if let readerAdjacentNavigationControlsMode = update.readerAdjacentNavigationControlsMode {
+            settings.readerAdjacentNavigationControlsMode = readerAdjacentNavigationControlsMode
+        }
+
         if let interfaceThemeMode = update.interfaceThemeMode {
             settings.interfaceThemeMode = interfaceThemeMode
+        }
+
+        if let lastSourcesRefreshAt = update.lastSourcesRefreshAt {
+            settings.lastSourcesRefreshAt = lastSourcesRefreshAt
         }
 
         settings.updatedAt = update.updatedAt

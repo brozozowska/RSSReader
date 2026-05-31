@@ -115,6 +115,40 @@ struct SidebarFilteringTests {
     }
 
     @Test
+    func sourcesSidebarKeepsEmptyFoldersForAllItemsFilter() {
+        let emptyFolderID = UUID()
+        let groups = FolderSidebarGroup.groups(
+            from: [
+                FolderSidebarItem(
+                    id: emptyFolderID,
+                    name: "Empty",
+                    sortOrder: 0
+                )
+            ],
+            feeds: [],
+            filter: .allItems
+        )
+
+        #expect(groups.map(\.folderID) == [emptyFolderID])
+        #expect(groups.map(\.name) == ["Empty"])
+        #expect(groups.first?.feeds.isEmpty == true)
+    }
+
+    @Test
+    func sourcesSidebarHidesEmptyFoldersForUnreadAndStarredFilters() {
+        let folders = [
+            FolderSidebarItem(
+                id: UUID(),
+                name: "Empty",
+                sortOrder: 0
+            )
+        ]
+
+        #expect(FolderSidebarGroup.groups(from: folders, feeds: [], filter: .unread).isEmpty)
+        #expect(FolderSidebarGroup.groups(from: folders, feeds: [], filter: .starred).isEmpty)
+    }
+
+    @Test
     func sourcesSidebarHidesUngroupedSectionWhenFilteredFeedsDoNotContainUngroupedSources() {
         let folder = Folder(name: "News")
         let groupedFeed = FeedSidebarItem(

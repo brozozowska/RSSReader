@@ -4,6 +4,8 @@ struct ArticleListRowView: View {
     let article: ArticleListItemDTO
 
     var body: some View {
+        let content = ArticleListRowContent(article: article)
+
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(article.feedTitle)
@@ -27,12 +29,23 @@ struct ArticleListRowView: View {
                 }
             }
 
-            Text(ArticleListRowContent.primaryText(for: article))
-                .font(.body)
-                .foregroundStyle(titleForegroundStyle)
-                .multilineTextAlignment(.leading)
-                .lineLimit(4)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(content.titleText)
+                    .font(.body)
+                    .foregroundStyle(titleForegroundStyle)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if let previewText = content.previewText {
+                    Text(previewText)
+                        .font(.subheadline)
+                        .foregroundStyle(metadataForegroundStyle)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
         }
         .padding(.vertical, 10)
     }
@@ -47,20 +60,6 @@ struct ArticleListRowView: View {
         article.isRead
             ? AnyShapeStyle(.tertiary)
             : AnyShapeStyle(.secondary)
-    }
-}
-
-private enum ArticleListRowContent {
-    static func primaryText(for article: ArticleListItemDTO) -> String {
-        guard let summary = article.summary?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-            summary.isEmpty == false,
-            summary != article.title
-        else {
-            return article.title
-        }
-
-        return summary
     }
 }
 

@@ -12,6 +12,37 @@ public protocol AppDependenciesProtocol {
     var modelContainer: ModelContainer? { get }
 }
 
+private final class AppDependencyTaskStore: @unchecked Sendable {
+    private let lock = NSLock()
+    private var tasks: [Task<Void, Never>] = []
+
+    func append(_ task: Task<Void, Never>) {
+        lock.lock()
+        tasks.append(task)
+        lock.unlock()
+    }
+
+    func waitForAll() async {
+        while true {
+            let currentTasks = takeTasks()
+
+            guard currentTasks.isEmpty == false else { return }
+
+            for task in currentTasks {
+                await task.value
+            }
+        }
+    }
+
+    private func takeTasks() -> [Task<Void, Never>] {
+        lock.lock()
+        let currentTasks = tasks
+        tasks.removeAll()
+        lock.unlock()
+        return currentTasks
+    }
+}
+
 public final class AppDependencies: AppDependenciesProtocol {
     
     public let logger: Logging
@@ -24,6 +55,9 @@ public final class AppDependencies: AppDependenciesProtocol {
     let sourceManagementService: (any SourceManagementService)?
     let articleRepository: (any ArticleRepository)?
     let articleStateService: ArticleStateService?
+    let unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)?
+    let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)?
+    let persistenceBoundedGrowthCleanupService: (any PersistenceBoundedGrowthCleanupServicing)?
     let articleQueryService: (any ArticleQueryService)?
     let sourcesSidebarQueryService: (any SourcesSidebarQueryService)?
     let articleStateRepository: (any ArticleStateRepository)?
@@ -45,6 +79,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let syncBootstrapPreferenceStore: any AppSyncBootstrapPreferenceStoring
     let syncBootstrapContext: AppSyncBootstrapContext?
     private let syncRuntimeOrchestrator: AppSyncRuntimeOrchestrator
+    private let feedSaveRefreshTaskStore: AppDependencyTaskStore?
 
     init(
         logger: Logging,
@@ -62,7 +97,9 @@ public final class AppDependencies: AppDependenciesProtocol {
         iCloudAccountAvailabilityService: (any ICloudAccountAvailabilityService)? = nil,
         cloudKitRuntimeEventSource: (any CloudKitRuntimeEventSource)? = nil,
         persistentStoreRemoteChangeSource: (any PersistentStoreRemoteChangeSource)? = nil,
-        syncCoordinator: SyncCoordinator? = nil
+        syncCoordinator: SyncCoordinator? = nil,
+        unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = nil,
+        tracksFeedSaveRefreshTasks: Bool = false
     ) {
         let feedRepository = modelContainer.map { container in
             SwiftDataFeedRepository(modelContext: container.mainContext)
@@ -76,6 +113,12 @@ public final class AppDependencies: AppDependenciesProtocol {
         let articleStateRepository = modelContainer.map { container in
             SwiftDataArticleStateRepository(modelContext: container.mainContext)
         }
+        let appSettingsRepository = modelContainer.map { container in
+            SwiftDataAppSettingsRepository(modelContext: container.mainContext)
+        }
+        let appSettingsService = appSettingsRepository.map { repository in
+            DefaultAppSettingsService(repository: repository)
+        }
         let articleQueryService: (any ArticleQueryService)? = {
             guard let articleRepository,
                   let articleStateRepository else {
@@ -87,14 +130,39 @@ public final class AppDependencies: AppDependenciesProtocol {
                 articleStateRepository: articleStateRepository
             )
         }()
+        let resolvedUnreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = unreadAppIconBadgeService ?? {
+            guard let feedRepository, let articleStateRepository, let appSettingsService else {
+                return nil
+            }
+
+            return UnreadAppIconBadgeService(
+                logger: logger,
+                feedRepository: feedRepository,
+                articleStateRepository: articleStateRepository,
+                appSettingsService: appSettingsService
+            )
+        }()
         let articleStateService = articleStateRepository.map { repository in
             ArticleStateService(
                 logger: logger,
-                articleStateRepository: repository
+                articleStateRepository: repository,
+                unreadAppIconBadgeService: resolvedUnreadAppIconBadgeService
             )
         }
+        let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)? = {
+            guard let articleRepository, let articleStateRepository else {
+                return nil
+            }
+
+            return ArticleRetentionCleanupService(
+                logger: logger,
+                articleRepository: articleRepository,
+                articleStateRepository: articleStateRepository
+            )
+        }()
         let sourcesSidebarQueryService: (any SourcesSidebarQueryService)? = {
             guard let feedRepository,
+                  let folderRepository,
                   let articleStateRepository,
                   let articleQueryService else {
                 return nil
@@ -102,19 +170,26 @@ public final class AppDependencies: AppDependenciesProtocol {
 
             return DefaultSourcesSidebarQueryService(
                 feedRepository: feedRepository,
+                folderRepository: folderRepository,
                 articleStateRepository: articleStateRepository,
                 articleQueryService: articleQueryService
             )
         }()
-        let appSettingsRepository = modelContainer.map { container in
-            SwiftDataAppSettingsRepository(modelContext: container.mainContext)
-        }
-        let appSettingsService = appSettingsRepository.map { repository in
-            DefaultAppSettingsService(repository: repository)
-        }
         let feedFetchLogRepository = modelContainer.map { container in
             SwiftDataFeedFetchLogRepository(modelContext: container.mainContext)
         }
+        let persistenceBoundedGrowthCleanupService: (any PersistenceBoundedGrowthCleanupServicing)? = {
+            guard let articleRepository, let articleStateRepository, let feedFetchLogRepository else {
+                return nil
+            }
+
+            return PersistenceBoundedGrowthCleanupService(
+                logger: logger,
+                articleRepository: articleRepository,
+                articleStateRepository: articleStateRepository,
+                feedFetchLogRepository: feedFetchLogRepository
+            )
+        }()
         let resolvedFeedFetcher = feedFetcher ?? Self.makeFeedFetcher(
             httpClient: httpClient
         )
@@ -125,7 +200,11 @@ public final class AppDependencies: AppDependenciesProtocol {
 
             return DefaultSourceManagementService(
                 logger: logger,
-                feedFetcher: resolvedFeedFetcher,
+                httpClient: httpClient,
+                feedFetcher: FeedFetcher(
+                    httpClient: httpClient,
+                    retryPolicy: FeedRetryPolicy(maxAttempts: 1)
+                ),
                 feedRepository: feedRepository,
                 folderRepository: folderRepository,
                 articleRepository: articleRepository
@@ -149,7 +228,8 @@ public final class AppDependencies: AppDependenciesProtocol {
             DefaultBackgroundRefreshService(
                 logger: logger,
                 appSettingsService: service,
-                feedRefreshService: feedRefreshService
+                feedRefreshService: feedRefreshService,
+                articleRetentionCleanupService: articleRetentionCleanupService
             )
         }
         let backgroundRefreshRuntimePrerequisitesSource = DefaultBackgroundRefreshRuntimePrerequisitesSource(
@@ -181,6 +261,9 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.sourceManagementService = sourceManagementService
         self.articleRepository = articleRepository
         self.articleStateService = articleStateService
+        self.unreadAppIconBadgeService = resolvedUnreadAppIconBadgeService
+        self.articleRetentionCleanupService = articleRetentionCleanupService
+        self.persistenceBoundedGrowthCleanupService = persistenceBoundedGrowthCleanupService
         self.articleStateRepository = articleStateRepository
         self.articleQueryService = articleQueryService
         self.sourcesSidebarQueryService = sourcesSidebarQueryService
@@ -197,6 +280,9 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.syncCoordinator = syncCoordinator
         self.feedFetchLogRepository = feedFetchLogRepository
         self.feedFetcher = resolvedFeedFetcher
+        self.feedSaveRefreshTaskStore = tracksFeedSaveRefreshTasks
+            ? AppDependencyTaskStore()
+            : nil
         self.syncRuntimeOrchestrator = AppSyncRuntimeOrchestrator(
             logger: logger,
             syncCoordinator: syncCoordinator,
@@ -600,7 +686,7 @@ extension AppDependencies {
             return
         }
 
-        guard shouldPresentSelectedArticleInWebViewByDefault() else {
+        guard shouldPresentSelectedArticleInSafariByDefault() else {
             appState.selectedArticleID = articleID
             return
         }
@@ -613,12 +699,15 @@ extension AppDependencies {
 
         do {
             guard let article = try articleQueryService.fetchReaderArticle(id: articleID) else {
-                logger.error("Skipped default web view presentation because article \(articleID) was not found")
+                logger.error("Skipped default Safari presentation because article \(articleID) was not found")
                 appState.selectedArticleID = articleID
                 return
             }
 
-            openArticleInWebView(article, using: appState)
+            guard openArticleInSafari(article, using: appState) else {
+                appState.selectedArticleID = articleID
+                return
+            }
         } catch {
             logger.error("Failed to apply default reader mode policy for article \(articleID): \(error)")
             appState.selectedArticleID = articleID
@@ -631,23 +720,32 @@ extension AppDependencies {
     }
 
     @MainActor
-    func openArticleInWebView(_ article: ReaderArticleDTO, using appState: AppState) {
+    @discardableResult
+    func openArticleInSafari(_ article: ReaderArticleDTO, using appState: AppState) -> Bool {
         guard let url = URL(string: article.canonicalURL ?? article.articleURL) else {
-            logger.error("Skipped opening article in web view because URL is invalid for article \(article.id)")
-            return
+            logger.error("Skipped opening article in Safari because URL is invalid for article \(article.id)")
+            return false
         }
 
-        appState.presentWebView(articleID: article.id, url: url)
+        guard appState.presentSafari(articleID: article.id, url: url) else {
+            logger.error("Skipped opening article in Safari because URL is unsupported for article \(article.id)")
+            return false
+        }
+
+        return true
     }
 
     @MainActor
     func openArticleBodyLink(_ url: URL, articleID: UUID, using appState: AppState) {
-        appState.presentWebView(articleID: articleID, url: url)
+        guard appState.presentSafari(articleID: articleID, url: url) else {
+            logger.error("Skipped opening article body link in Safari because URL is unsupported for article \(articleID)")
+            return
+        }
     }
 
     @MainActor
-    func closePresentedArticleWebView(using appState: AppState) {
-        appState.dismissPresentedWebView()
+    func closePresentedArticleSafari(using appState: AppState) {
+        appState.dismissPresentedSafari()
     }
 
     @MainActor
@@ -668,6 +766,11 @@ extension AppDependencies {
     @MainActor
     func showFeedEditor(id feedID: UUID, using appState: AppState) {
         appState.presentSourceManagementScreen(launchContext: .editFeed(feedID))
+    }
+
+    @MainActor
+    func showFeedOrganizer(id feedID: UUID, using appState: AppState) {
+        appState.presentSourceManagementScreen(launchContext: .organizeFeed(feedID))
     }
 
     @MainActor
@@ -795,6 +898,7 @@ extension AppDependencies {
 
     @MainActor
     func loadSourceManagementMoveSourceContext(
+        selectedFeedID: UUID? = nil,
         into screenState: inout SourceManagementScreenState
     ) {
         guard let sourceManagementService else {
@@ -809,7 +913,11 @@ extension AppDependencies {
         do {
             let feeds = try sourceManagementService.fetchFeeds()
             let folders = try sourceManagementService.fetchFolders()
-            screenState.applyMoveSourceContext(feeds: feeds, folders: folders)
+            screenState.applyMoveSourceContext(
+                feeds: feeds,
+                folders: folders,
+                selectedFeedID: selectedFeedID
+            )
         } catch {
             logger.error("Failed to load move-source context for source management screen: \(error)")
             screenState.applyMoveSourceContext(feeds: [], folders: [])
@@ -874,19 +982,44 @@ extension AppDependencies {
     }
 
     @MainActor
-    func finishSavingFeed(id feedID: UUID, using appState: AppState) async -> FeedRefreshResult? {
-        let result: FeedRefreshResult?
-        if let feedRefreshService {
-            result = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
+    func finishSavingFeed(
+        id feedID: UUID,
+        using appState: AppState,
+        selectsSavedFeed: Bool = true
+    ) async -> FeedRefreshResult? {
+        appState.requestSourceIconNetworkLoad(for: feedID)
+        appState.requestSourcesSidebarReload()
+        if selectsSavedFeed {
+            showFeed(id: feedID, using: appState)
         } else {
+            appState.selectReadingSource(nil)
+        }
+        dismissSourceManagement(using: appState)
+        scheduleInitialRefreshAfterSavingFeed(id: feedID, using: appState)
+        return nil
+    }
+
+    @MainActor
+    private func scheduleInitialRefreshAfterSavingFeed(
+        id feedID: UUID,
+        using appState: AppState
+    ) {
+        guard let feedRefreshService else {
             logger.error("Feed refresh service is unavailable for source save completion")
-            result = nil
+            return
         }
 
-        appState.requestSourcesSidebarReload()
-        showFeed(id: feedID, using: appState)
-        dismissSourceManagement(using: appState)
-        return result
+        let task = Task { @MainActor in
+            _ = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
+            await refreshUnreadAppIconBadgeCount()
+            appState.requestSourcesSidebarReload()
+            appState.requestArticleListReload()
+        }
+        feedSaveRefreshTaskStore?.append(task)
+    }
+
+    func waitForScheduledFeedSaveRefreshes() async {
+        await feedSaveRefreshTaskStore?.waitForAll()
     }
 
     @MainActor
@@ -931,10 +1064,15 @@ extension AppDependencies {
     @MainActor
     func completeSourceManagementFeedSave(
         id feedID: UUID,
-        using appState: AppState?
+        using appState: AppState?,
+        selectsSavedFeed: Bool
     ) async -> FeedRefreshResult? {
         guard let appState else { return nil }
-        return await finishSavingFeed(id: feedID, using: appState)
+        return await finishSavingFeed(
+            id: feedID,
+            using: appState,
+            selectsSavedFeed: selectsSavedFeed
+        )
     }
 
     @MainActor
@@ -967,6 +1105,7 @@ extension AppDependencies {
         do {
             try sourceManagementService.deleteFeed(id: feedID)
             finishUnsubscribingFeed(id: feedID, using: appState)
+            scheduleUnreadAppIconBadgeRefresh()
         } catch {
             logger.error("Failed to unsubscribe feed \(feedID): \(error)")
         }
@@ -1007,12 +1146,26 @@ extension AppDependencies {
             return nil
         }
 
-        return await feedRefreshService.refresh(feedID: feedID)
+        let result = await feedRefreshService.refresh(feedID: feedID)
+        cleanupArchivedArticlesUsingCurrentSettings()
+        await refreshUnreadAppIconBadgeCount()
+        return result
     }
 
     @MainActor
     func refreshAfterAddingFeed(id feedID: UUID, using appState: AppState) async -> FeedRefreshResult? {
-        await finishSavingFeed(id: feedID, using: appState)
+        guard let feedRefreshService else {
+            logger.error("Feed refresh service is unavailable for source save completion")
+            return nil
+        }
+
+        let result = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
+        cleanupArchivedArticlesUsingCurrentSettings()
+        await refreshUnreadAppIconBadgeCount()
+        appState.requestSourcesSidebarReload()
+        showFeed(id: feedID, using: appState)
+        dismissSourceManagement(using: appState)
+        return result
     }
 
     @MainActor
@@ -1032,7 +1185,11 @@ extension AppDependencies {
             return nil
         }
 
-        return await feedRefreshService.refreshAllActiveFeeds()
+        let result = await feedRefreshService.refreshAllActiveFeeds()
+        recordSourcesRefreshIfNeeded(from: result)
+        cleanupArchivedArticlesUsingCurrentSettings()
+        await refreshUnreadAppIconBadgeCount()
+        return result
     }
 
     @MainActor
@@ -1051,7 +1208,10 @@ extension AppDependencies {
     }
 
     @MainActor
-    func refreshCurrentSelection(using appState: AppState) async -> FeedRefreshBatchResult? {
+    func refreshCurrentSelection(
+        using appState: AppState,
+        requestsArticleListReload: Bool = true
+    ) async -> FeedRefreshBatchResult? {
         guard let selection = appState.selectedSidebarSelection else {
             logger.info("Skipped selection refresh because no source is selected")
             return nil
@@ -1077,7 +1237,9 @@ extension AppDependencies {
 
         if result != nil {
             appState.requestSourcesSidebarReload()
-            appState.requestArticleListReload()
+            if requestsArticleListReload {
+                appState.requestArticleListReload()
+            }
         }
 
         return result
@@ -1087,6 +1249,7 @@ extension AppDependencies {
     func refreshVisibleSources(using appState: AppState) async -> FeedRefreshBatchResult? {
         let result = await refreshAllFeeds()
         if result != nil {
+            appState.requestSourceIconReload()
             appState.requestArticleListReload()
         }
         return result
@@ -1101,7 +1264,125 @@ extension AppDependencies {
             return .failedToStart(.feedRefreshServiceUnavailable)
         }
 
-        return await backgroundRefreshService.performScheduledRefresh()
+        let result = await backgroundRefreshService.performScheduledRefresh()
+        if case .executed(let refreshResult) = result {
+            recordSourcesRefreshIfNeeded(from: refreshResult.batchResult)
+            cleanupPersistenceBoundedGrowth()
+            await refreshUnreadAppIconBadgeCount()
+        }
+        return result
+    }
+
+    @MainActor
+    private func recordSourcesRefreshIfNeeded(from result: FeedRefreshBatchResult) {
+        guard result.summary.fetchedCount + result.summary.notModifiedCount > 0 else {
+            return
+        }
+
+        do {
+            _ = try appSettingsService?.updateSettings(
+                AppSettingsPatch(
+                    lastSourcesRefreshAt: result.finishedAt,
+                    updatedAt: result.finishedAt
+                )
+            )
+        } catch {
+            logger.error("Failed to persist sources refresh timestamp: \(error)")
+        }
+    }
+
+    @MainActor
+    @discardableResult
+    func cleanupArchivedArticles(
+        policy: ArticleRetentionPolicy,
+        now: Date = .now
+    ) -> ArticleRetentionCleanupResult? {
+        guard let articleRetentionCleanupService else {
+            logger.debug("Article retention cleanup service is unavailable")
+            return nil
+        }
+
+        do {
+            let result = try articleRetentionCleanupService.cleanupArchivedArticles(policy: policy, now: now)
+            cleanupPersistenceBoundedGrowth(now: now)
+            return result
+        } catch {
+            logger.error("Failed to clean up archived articles: \(error)")
+            return nil
+        }
+    }
+
+    @MainActor
+    @discardableResult
+    func cleanupArchivedArticlesUsingCurrentSettings(now: Date = .now) -> ArticleRetentionCleanupResult? {
+        guard let appSettingsService else {
+            logger.debug("App settings service is unavailable for article retention cleanup")
+            return nil
+        }
+
+        do {
+            let settings = try appSettingsService.fetchSettings()
+            return cleanupArchivedArticles(policy: settings.articleRetentionPolicy, now: now)
+        } catch {
+            logger.error("Failed to load article retention settings for cleanup: \(error)")
+            return nil
+        }
+    }
+
+    @MainActor
+    @discardableResult
+    func purgeArchivedArticles() -> ArticleArchivePurgeResult? {
+        guard let articleRetentionCleanupService else {
+            logger.debug("Article retention cleanup service is unavailable for article archive purge")
+            return nil
+        }
+
+        do {
+            let result = try articleRetentionCleanupService.purgeArchivedArticles()
+            cleanupPersistenceBoundedGrowth()
+            return result
+        } catch {
+            logger.error("Failed to purge archived articles: \(error)")
+            return nil
+        }
+    }
+
+    @MainActor
+    @discardableResult
+    func cleanupPersistenceBoundedGrowth(now: Date = .now) -> PersistenceBoundedGrowthCleanupResult? {
+        guard let persistenceBoundedGrowthCleanupService else {
+            logger.debug("Persistence bounded growth cleanup service is unavailable")
+            return nil
+        }
+
+        do {
+            return try persistenceBoundedGrowthCleanupService.cleanupBoundedGrowth(now: now)
+        } catch {
+            logger.error("Failed to clean up bounded persistence growth: \(error)")
+            return nil
+        }
+    }
+
+    @MainActor
+    func refreshUnreadAppIconBadgeCount() async {
+        guard let unreadAppIconBadgeService else {
+            logger.debug("Unread app icon badge service is unavailable")
+            return
+        }
+
+        await unreadAppIconBadgeService.refreshBadgeCount()
+    }
+
+    @MainActor
+    func applyUnreadAppIconBadgePreference(isEnabled: Bool) {
+        guard let unreadAppIconBadgeService else {
+            logger.debug("Unread app icon badge service is unavailable")
+            return
+        }
+
+        Task { @MainActor in
+            await unreadAppIconBadgeService.applyBadgePreference(isEnabled: isEnabled)
+        }
     }
 
     @MainActor
@@ -1195,7 +1476,7 @@ private extension AppDependencies {
     }
 
     @MainActor
-    func shouldPresentSelectedArticleInWebViewByDefault() -> Bool {
+    func shouldPresentSelectedArticleInSafariByDefault() -> Bool {
         guard let appSettingsService else {
             return false
         }
@@ -1229,10 +1510,20 @@ private extension AppDependencies {
             let folderFeedIDs = try feedRepository.fetchActiveFeeds()
                 .filter { $0.folder?.name == folderName }
                 .map(\.id)
-            return await feedRefreshService.refreshFeeds(folderFeedIDs)
+            let result = await feedRefreshService.refreshFeeds(folderFeedIDs)
+            cleanupArchivedArticlesUsingCurrentSettings()
+            await refreshUnreadAppIconBadgeCount()
+            return result
         } catch {
             logger.error("Failed to load folder feeds for refresh: \(error)")
             return nil
+        }
+    }
+
+    @MainActor
+    func scheduleUnreadAppIconBadgeRefresh() {
+        Task { @MainActor in
+            await refreshUnreadAppIconBadgeCount()
         }
     }
 }

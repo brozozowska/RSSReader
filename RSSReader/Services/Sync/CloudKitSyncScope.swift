@@ -18,10 +18,10 @@ struct CloudKitSyncScope: Equatable, Sendable {
             .feed,
             .folder,
             .articleState,
+            .article,
             .appSettings
         ],
         localOnlyModels: [
-            .article,
             .feedFetchLog
         ]
     )
@@ -42,12 +42,12 @@ struct CloudKitSyncScope: Equatable, Sendable {
         syncs(.articleState)
     }
 
-    var syncsAppSettings: Bool {
-        syncs(.appSettings)
+    var syncsArticlePayload: Bool {
+        syncs(.article)
     }
 
-    var keepsArticlesLocalOnly: Bool {
-        storesLocallyOnly(.article)
+    var syncsAppSettings: Bool {
+        syncs(.appSettings)
     }
 
     var keepsFeedFetchLogsLocalOnly: Bool {
@@ -56,6 +56,6 @@ struct CloudKitSyncScope: Equatable, Sendable {
 
     func settingsSectionFooter(readingScenario: CrossDeviceReadingScenario) -> String {
         let readingStateCopy = readingScenario.settingsSectionFooter
-        return "\(readingStateCopy) App settings should also sync through CloudKit, while fetch logs remain local-only debug storage."
+        return "\(readingStateCopy) Settings sync through iCloud too."
     }
 }

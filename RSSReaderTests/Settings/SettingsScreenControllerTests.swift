@@ -7,14 +7,18 @@ import Testing
 @MainActor
 struct SettingsScreenControllerTests {
     @Test
-    func settingsScreenControllerDoesNotTreatSyncStatusRowAsInteractiveItem() {
+    func settingsScreenControllerIgnoresPickerSelectionForSyncStatusRow() {
         let controller = SettingsScreenController(
             previewScreenState: .previewLoaded(snapshot: AppSettingsSnapshot())
         )
 
-        controller.handleItemSelection(.iCloudSyncStatus)
+        controller.handlePickerOptionSelection(
+            itemID: .iCloudSyncStatus,
+            optionID: "unsupported",
+            dependencies: .makeDefault()
+        )
 
-        #expect(controller.viewState().presentedPicker == nil)
+        #expect(controller.screenState.settingsSnapshot == AppSettingsSnapshot())
     }
 
     @Test
@@ -23,15 +27,16 @@ struct SettingsScreenControllerTests {
         let service = try #require(harness.dependencies.appSettingsService)
         _ = try service.saveSettings(
             AppSettingsSnapshot(
-                defaultReaderMode: .reader,
+                defaultReaderMode: .embedded,
                 selectedSourcesFilterRawValue: SourcesFilter.unread.rawValue,
                 refreshIntervalPreference: .every15Minutes,
                 useiCloudSync: false,
                 markAsReadOnOpen: true,
                 askBeforeMarkingAllAsRead: false,
-                sortMode: .publishedAtDescending,
+                unreadSortMode: .publishedAtDescending,
                 articleBodyLinkOpeningPolicy: .externalBrowser,
                 articleSourceLinkOpeningPolicy: .externalBrowser,
+                readerAdjacentNavigationControlsMode: .swipesOnly,
                 interfaceThemeMode: .black
             ),
             updatedAt: .distantPast
@@ -45,11 +50,12 @@ struct SettingsScreenControllerTests {
         #expect(viewState.primaryLoadingState == nil)
         #expect(viewState.placeholder == nil)
         #expect(viewState.sections.isEmpty == false)
-        #expect(controller.screenState.settingsSnapshot.defaultReaderMode == .reader)
+        #expect(controller.screenState.settingsSnapshot.defaultReaderMode == .embedded)
         #expect(controller.screenState.settingsSnapshot.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
         #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead == false)
         #expect(controller.screenState.settingsSnapshot.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(controller.screenState.settingsSnapshot.articleSourceLinkOpeningPolicy == .externalBrowser)
+        #expect(controller.screenState.settingsSnapshot.readerAdjacentNavigationControlsMode == .swipesOnly)
         #expect(controller.screenState.settingsSnapshot.interfaceThemeMode == .black)
         #expect(controller.screenState.iCloudSyncStatus == .disabled)
         #expect(appState.interfaceThemeMode == .black)
@@ -73,9 +79,9 @@ struct SettingsScreenControllerTests {
         controller.loadSettings(dependencies: harness.dependencies, appState: appState)
 
         let syncSection = try #require(
-            controller.viewState().sections.first(where: { $0.id == .sync })
+            controller.viewState().sections.first(where: { $0.id == .updatesAndSync })
         )
-        let syncToggle = try #require(syncSection.items.first)
+        let syncToggle = try #require(syncSection.items.dropFirst().first)
         let syncStatusItem = try #require(syncSection.items.last)
 
         #expect(controller.screenState.iCloudSyncStatus == .syncing)
@@ -85,7 +91,7 @@ struct SettingsScreenControllerTests {
                 SettingsToggleItemPresentation(
                     id: .useICloudSync,
                     title: "Enable iCloud Sync",
-                    subtitle: "Applies on next launch. The app will rebuild its sync container and try to use iCloud for supported data.",
+                    subtitle: "Applies on next launch. Supported data will sync through iCloud when available.",
                     isOn: true
                 )
             )
@@ -124,7 +130,7 @@ struct SettingsScreenControllerTests {
         controller.loadSettings(dependencies: dependencies, appState: appState)
 
         let syncSection = try #require(
-            controller.viewState().sections.first(where: { $0.id == .sync })
+            controller.viewState().sections.first(where: { $0.id == .updatesAndSync })
         )
         let syncStatusItem = try #require(syncSection.items.last)
 
@@ -136,7 +142,7 @@ struct SettingsScreenControllerTests {
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
                     title: "Current Status",
-                    subtitle: "Sign in to iCloud with the Apple ID used on this device to enable sync. RSSReader does not require a separate account.",
+                    subtitle: "Sign in to iCloud with the Apple ID used on this device to enable sync.",
                     valueTitle: "Sign In Required"
                 )
             )
@@ -198,7 +204,7 @@ struct SettingsScreenControllerTests {
         controller.loadSettings(dependencies: dependencies, appState: appState)
 
         let syncSection = try #require(
-            controller.viewState().sections.first(where: { $0.id == .sync })
+            controller.viewState().sections.first(where: { $0.id == .updatesAndSync })
         )
 
         #expect(controller.screenState.iCloudSyncStatus == .statusUnavailable)
@@ -206,11 +212,11 @@ struct SettingsScreenControllerTests {
         #expect(controller.screenState.settingsInput.isUsingLocalOnlySyncFallbackForCurrentLaunch)
         #expect(appState.iCloudSyncStatus == .statusUnavailable)
         #expect(
-            syncSection.items.first == .toggle(
+            syncSection.items.dropFirst().first == .toggle(
                 SettingsToggleItemPresentation(
                     id: .useICloudSync,
                     title: "Enable iCloud Sync",
-                    subtitle: "Saved for the next launch. This session is still using local-only data because the current iCloud account is temporarily unavailable.",
+                    subtitle: "Saved for the next launch. This session keeps using local data because the current iCloud account is temporarily unavailable.",
                     isOn: true
                 )
             )
@@ -220,7 +226,7 @@ struct SettingsScreenControllerTests {
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
                     title: "Current Status",
-                    subtitle: "Sync is enabled as a saved preference, but this app launch is still using the local-only store because the current iCloud account is temporarily unavailable. Relaunch after iCloud becomes available so the app can rebuild its sync container.",
+                    subtitle: "Sync is enabled, but this launch cannot use iCloud because the current account is temporarily unavailable. Relaunch after iCloud becomes available.",
                     valueTitle: "Temporarily Unavailable"
                 )
             )
@@ -268,43 +274,38 @@ struct SettingsScreenControllerTests {
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: harness.dependencies)
-        controller.handleItemSelection(.defaultReaderMode)
-
-        #expect(controller.viewState().presentedPicker?.id == .defaultReaderMode)
-
         controller.handlePickerOptionSelection(
             itemID: .defaultReaderMode,
             optionID: ReaderMode.browser.rawValue,
             dependencies: harness.dependencies
         )
 
+        let settingsBeforeApply = try repository.fetchOrCreate()
+        #expect(controller.viewState().canApplyChanges)
+        #expect(settingsBeforeApply.defaultReaderMode == .embedded)
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.defaultReaderMode == .browser)
-        #expect(controller.viewState().presentedPicker == nil)
         #expect(persistedSettings.defaultReaderMode == .browser)
     }
 
     @Test
-    func settingsScreenControllerPersistsUpdatedArticleSortModeThroughSettingsService() throws {
+    func settingsScreenControllerPersistsUpdatedUnreadArticleSortModeThroughSettingsService() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: harness.dependencies)
-        controller.handleItemSelection(.articleSortMode)
-
-        #expect(controller.viewState().presentedPicker?.id == .articleSortMode)
-
         controller.handlePickerOptionSelection(
-            itemID: .articleSortMode,
-            optionID: ArticleListSortOrder.oldestFirst.rawValue,
+            itemID: .unreadArticleSortMode,
+            optionID: UnreadArticleSortOrder.oldestFirst.rawValue,
             dependencies: harness.dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
-        #expect(controller.screenState.settingsSnapshot.sortMode == .publishedAtAscending)
-        #expect(controller.viewState().presentedPicker == nil)
-        #expect(persistedSettings.sortMode == .publishedAtAscending)
+        #expect(controller.screenState.settingsSnapshot.unreadSortMode == .publishedAtAscending)
+        #expect(persistedSettings.unreadSortMode == .publishedAtAscending)
     }
 
     @Test
@@ -322,6 +323,7 @@ struct SettingsScreenControllerTests {
             dependencies: harness.dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.markAsReadOnOpen == false)
         #expect(persistedSettings.markAsReadOnOpen == false)
@@ -342,6 +344,7 @@ struct SettingsScreenControllerTests {
             dependencies: harness.dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead == false)
         #expect(persistedSettings.askBeforeMarkingAllAsRead == false)
@@ -362,6 +365,7 @@ struct SettingsScreenControllerTests {
             dependencies: harness.dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.useiCloudSync)
         #expect(persistedSettings.useiCloudSync)
@@ -375,19 +379,15 @@ struct SettingsScreenControllerTests {
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: harness.dependencies)
-        controller.handleItemSelection(.articleBodyLinkOpeningPolicy)
-
-        #expect(controller.viewState().presentedPicker?.id == .articleBodyLinkOpeningPolicy)
-
         controller.handlePickerOptionSelection(
             itemID: .articleBodyLinkOpeningPolicy,
             optionID: ArticleBodyLinkOpeningPolicy.externalBrowser.rawValue,
             dependencies: harness.dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.articleBodyLinkOpeningPolicy == .externalBrowser)
-        #expect(controller.viewState().presentedPicker == nil)
         #expect(persistedSettings.articleBodyLinkOpeningPolicy == .externalBrowser)
     }
 
@@ -398,20 +398,35 @@ struct SettingsScreenControllerTests {
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: harness.dependencies)
-        controller.handleItemSelection(.articleSourceLinkOpeningPolicy)
-
-        #expect(controller.viewState().presentedPicker?.id == .articleSourceLinkOpeningPolicy)
-
         controller.handlePickerOptionSelection(
             itemID: .articleSourceLinkOpeningPolicy,
             optionID: ArticleSourceLinkOpeningPolicy.externalBrowser.rawValue,
             dependencies: harness.dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.articleSourceLinkOpeningPolicy == .externalBrowser)
-        #expect(controller.viewState().presentedPicker == nil)
         #expect(persistedSettings.articleSourceLinkOpeningPolicy == .externalBrowser)
+    }
+
+    @Test
+    func settingsScreenControllerPersistsUpdatedReaderAdjacentNavigationControlsModeThroughSettingsService() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+
+        controller.loadSettings(dependencies: harness.dependencies)
+        controller.handlePickerOptionSelection(
+            itemID: .readerAdjacentNavigationControlsMode,
+            optionID: ReaderAdjacentNavigationControlsMode.toolbarControlsOnly.rawValue,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(controller.screenState.settingsSnapshot.readerAdjacentNavigationControlsMode == .toolbarControlsOnly)
+        #expect(persistedSettings.readerAdjacentNavigationControlsMode == .toolbarControlsOnly)
     }
 
     @Test
@@ -429,20 +444,16 @@ struct SettingsScreenControllerTests {
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: dependencies)
-        controller.handleItemSelection(.refreshInterval)
-
-        #expect(controller.viewState().presentedPicker?.id == .refreshInterval)
-
         controller.handlePickerOptionSelection(
             itemID: .refreshInterval,
             optionID: RefreshPreference.daily.rawValue,
             dependencies: dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         let replacedConfiguration = try #require(scheduler.lastReplacedConfiguration)
         #expect(controller.screenState.settingsSnapshot.refreshIntervalPreference == .daily)
-        #expect(controller.viewState().presentedPicker == nil)
         #expect(persistedSettings.refreshIntervalPreference == .daily)
         #expect(replacedConfiguration.settingsSnapshot.refreshIntervalPreference == .daily)
         #expect(replacedConfiguration.policy.minimumInterval == TimeInterval(24 * 60 * 60))
@@ -469,14 +480,13 @@ struct SettingsScreenControllerTests {
         )
 
         controller.loadSettings(dependencies: dependencies)
-        controller.handleItemSelection(.refreshInterval)
-
         controller.handlePickerOptionSelection(
             itemID: .refreshInterval,
             optionID: RefreshPreference.manual.rawValue,
             dependencies: dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         let replacedConfiguration = try #require(scheduler.lastReplacedConfiguration)
         #expect(controller.screenState.settingsSnapshot.refreshIntervalPreference == .manual)
@@ -506,19 +516,19 @@ struct SettingsScreenControllerTests {
         let repository = try #require(dependencies.appSettingsRepository)
 
         controller.loadSettings(dependencies: dependencies)
-        controller.handleItemSelection(.refreshInterval)
         controller.handlePickerOptionSelection(
             itemID: .refreshInterval,
             optionID: RefreshPreference.daily.rawValue,
             dependencies: dependencies
         )
 
+        #expect(controller.applySettingsChanges(dependencies: dependencies))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(persistedSettings.refreshIntervalPreference == .daily)
         #expect(controller.screenState.settingsSnapshot.refreshIntervalPreference == .daily)
         #expect(
             logger.contains(
-                "Failed to replace background refresh schedule after refresh interval update",
+                "Failed to replace background refresh schedule after applying settings changes",
                 level: .error
             )
         )
@@ -533,10 +543,6 @@ struct SettingsScreenControllerTests {
         let appState = AppState()
 
         controller.loadSettings(dependencies: harness.dependencies, appState: appState)
-        controller.handleItemSelection(.appearance)
-
-        #expect(controller.viewState().presentedPicker?.id == .appearance)
-
         controller.handlePickerOptionSelection(
             itemID: .appearance,
             optionID: InterfaceThemeMode.black.rawValue,
@@ -544,9 +550,10 @@ struct SettingsScreenControllerTests {
             appState: appState
         )
 
+        #expect(appState.interfaceThemeMode == .automaticLightDark)
+        #expect(controller.applySettingsChanges(dependencies: harness.dependencies, appState: appState))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.interfaceThemeMode == .black)
-        #expect(controller.viewState().presentedPicker == nil)
         #expect(persistedSettings.interfaceThemeMode == .black)
         #expect(appState.interfaceThemeMode == .black)
     }

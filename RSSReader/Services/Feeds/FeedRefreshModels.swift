@@ -117,7 +117,7 @@ struct FeedRefreshDiagnosticsPolicy: Sendable, Equatable {
 }
 
 enum FeedRefreshReconciliationPolicy: String, Sendable {
-    case markMissingArticlesAsDeletedAtSource
+    case markMissingArticlesAsArchived
 }
 
 enum FeedRefreshBatchErrorPolicy: String, Sendable {

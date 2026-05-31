@@ -10,14 +10,14 @@ struct SourceManagementScreenStateTests {
         let state = SourceManagementScreenState.makePreviewFixture()
         let viewState = state.derivedViewState()
 
-        #expect(viewState.summary.title == "Choose the source task you want to start.")
+        #expect(viewState.summary.title == "Manage sources and folders.")
         #expect(viewState.sections.map(\.id) == [.startNew, .organizeExisting])
         #expect(viewState.sections.first?.items.map(\.id) == [.addFeed, .createFolder])
         #expect(viewState.sections.last?.items.map(\.id) == [.moveSource])
     }
 
     @Test
-    func sourceManagementScreenStateBuildsAddFeedPresentationWithPreviewAndConfirmationState() {
+    func sourceManagementScreenStateBuildsAddFeedPresentationWithPreviewAndSingleSaveState() {
         var state = SourceManagementScreenState.makePreviewFixture()
         let newsFolderID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
         let techFolderID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
@@ -47,15 +47,26 @@ struct SourceManagementScreenStateTests {
         #expect(initialDestination.validationMessage == "Enter a feed URL to continue.")
         #expect(initialDestination.isPrimaryActionEnabled == false)
 
-        state.updateAddFeedURLInput("example")
+        state.updateAddFeedURLInput("not a url")
 
         guard case .addFeed(let invalidDestination)? = state.derivedViewState().presentedDestination else {
             Issue.record("Expected add-feed destination presentation after invalid URL input")
             return
         }
 
-        #expect(invalidDestination.validationMessage == "Enter a valid http or https URL.")
+        #expect(invalidDestination.validationMessage == "Enter a valid site or feed URL.")
         #expect(invalidDestination.isPrimaryActionEnabled == false)
+
+        state.updateAddFeedURLInput("example.com")
+
+        guard case .addFeed(let siteDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after site URL input")
+            return
+        }
+
+        #expect(siteDestination.validationMessage == nil)
+        #expect(siteDestination.normalizedURL == "https://example.com")
+        #expect(siteDestination.isPrimaryActionEnabled)
 
         state.updateAddFeedURLInput(" https://example.com/feed.xml ")
 
@@ -81,16 +92,19 @@ struct SourceManagementScreenStateTests {
             rejectedEntryCount: 0,
             existingFeedID: nil
         )
-        let requestURL = state.beginAddFeedPreviewLoading()
-        state.applyLoadedAddFeedPreview(preview, requestURL: requestURL ?? "")
+        let previewCommand = state.beginAddFeedPreviewLoading()
+        if let previewCommand {
+            state.applyLoadedAddFeedPreview(preview, command: previewCommand)
+        }
 
         guard case .addFeed(let previewDestination)? = state.derivedViewState().presentedDestination else {
             Issue.record("Expected add-feed destination presentation after preview loading")
             return
         }
 
-        #expect(previewDestination.primaryActionTitle == "Confirm Feed")
+        #expect(previewDestination.primaryActionTitle == "Add Feed")
         #expect(previewDestination.isPrimaryActionEnabled)
+        #expect(previewDestination.isConfirmationActionEnabled)
         #expect(previewDestination.preview?.title == "Example Feed")
         #expect(previewDestination.preview?.kindTitle == "RSS")
         #expect(previewDestination.placementOptions.map(\.title) == ["Ungrouped", "News", "Tech"])
@@ -98,19 +112,6 @@ struct SourceManagementScreenStateTests {
         #expect(previewDestination.createFolderActionTitle == "Create New Folder")
 
         state.selectAddFeedFolderPlacement(.folder(techFolderID))
-
-        state.confirmAddFeedPreview()
-
-        guard case .addFeed(let confirmedDestination)? = state.derivedViewState().presentedDestination else {
-            Issue.record("Expected add-feed destination presentation after confirmation")
-            return
-        }
-
-        #expect(confirmedDestination.primaryActionTitle == "Add Feed")
-        #expect(confirmedDestination.isPrimaryActionEnabled)
-        #expect(confirmedDestination.status?.kind == .success)
-        #expect(confirmedDestination.placementOptions.last?.isSelected == true)
-        #expect(confirmedDestination.status?.detail?.contains("Tech") == true)
 
         let createCommand = state.beginAddFeedCreation()
         #expect(createCommand?.folderPlacement == .folder(techFolderID))
@@ -132,6 +133,239 @@ struct SourceManagementScreenStateTests {
         #expect(createdDestination.primaryActionTitle == "Feed Added")
         #expect(createdDestination.isPrimaryActionEnabled == false)
         #expect(createdDestination.status?.title == "Feed added")
+    }
+
+    @Test
+    func sourceManagementScreenStateHidesFolderPlacementWhenEditingFeed() {
+        var state = SourceManagementScreenState.makePreviewFixture()
+        let newsFolderID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let techFolderID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        state.applyAddFeedEditContext(
+            feed: SourceManagementFeedSummary(
+                id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
+                url: "https://example.com/original.xml",
+                title: "Original Feed",
+                folderID: newsFolderID,
+                folderName: "News"
+            ),
+            folders: [
+                SourceManagementFolderSummary(
+                    id: newsFolderID,
+                    name: "News",
+                    sortOrder: 0,
+                    feedCount: 1
+                ),
+                SourceManagementFolderSummary(
+                    id: techFolderID,
+                    name: "Tech",
+                    sortOrder: 1,
+                    feedCount: 0
+                )
+            ]
+        )
+        state.presentScenario(.addFeed)
+
+        guard case .addFeed(let editDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation for feed editing")
+            return
+        }
+
+        #expect(editDestination.title == "Edit Feed")
+        #expect(editDestination.placementOptions.isEmpty)
+        #expect(editDestination.createFolderActionTitle == nil)
+
+        state.updateAddFeedURLInput("https://example.com/updated.xml")
+        guard let previewCommand = state.beginAddFeedPreviewLoading() else {
+            Issue.record("Expected preview command for edited feed URL")
+            return
+        }
+        state.applyLoadedAddFeedPreview(
+            SourceManagementFeedPreview(
+                requestedURL: previewCommand.urlString,
+                resolvedFeedURL: previewCommand.urlString,
+                title: "Updated Feed",
+                subtitle: nil,
+                siteURL: "https://example.com/",
+                iconURL: nil,
+                language: "en",
+                kind: .rss,
+                parserAnomalyCount: 0,
+                rejectedEntryCount: 0,
+                existingFeedID: nil
+            ),
+            command: previewCommand
+        )
+
+        let updateCommand = state.beginAddFeedUpdate()
+        #expect(updateCommand?.folderPlacement == .folder(newsFolderID))
+    }
+
+    @Test
+    func sourceManagementScreenStateRequiresPreviewBeforeSavingChangedEditFeedURL() {
+        var state = SourceManagementScreenState.makePreviewFixture()
+        state.applyAddFeedEditContext(
+            feed: SourceManagementFeedSummary(
+                id: UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!,
+                url: "https://example.com/original.xml",
+                title: "Original Feed",
+                folderID: nil,
+                folderName: nil
+            ),
+            folders: []
+        )
+        state.presentScenario(.addFeed)
+
+        state.updateAddFeedDisplayNameInput("Renamed Feed")
+        let displayNameOnlyCommand = state.beginAddFeedUpdate()
+        #expect(displayNameOnlyCommand?.preview == nil)
+
+        state.updateAddFeedURLInput("https://example.com/changed.xml")
+
+        #expect(state.shouldPreviewAddFeedBeforeSaving())
+        #expect(state.beginAddFeedUpdate() == nil)
+
+        guard let previewCommand = state.beginAddFeedPreviewLoading() else {
+            Issue.record("Expected preview command for changed edit URL")
+            return
+        }
+
+        #expect(previewCommand.urlString == "https://example.com/changed.xml")
+    }
+
+    @Test
+    func sourceManagementScreenStateIgnoresStaleAddFeedPreviewCompletion() {
+        var state = SourceManagementScreenState.makePreviewFixture()
+        state.presentScenario(.addFeed)
+        state.updateAddFeedURLInput("example.com/feed.xml")
+
+        guard let activeCommand = state.beginAddFeedPreviewLoading() else {
+            Issue.record("Expected first preview command")
+            return
+        }
+
+        let secondCommand = state.beginAddFeedPreviewLoading()
+        #expect(secondCommand == nil)
+
+        let staleCommand = SourceManagementAddFeedPreviewCommand(
+            requestID: UUID(),
+            urlString: activeCommand.urlString
+        )
+        state.applyAddFeedPreviewFailure(
+            SourceManagementAddFeedStatusPresentation(
+                title: "Preview could not be loaded",
+                kind: .failure,
+                detail: "Unable to check this source right now."
+            ),
+            command: staleCommand
+        )
+
+        guard case .addFeed(let loadingDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination after stale completion")
+            return
+        }
+
+        #expect(loadingDestination.isLoadingPreview)
+        #expect(loadingDestination.status == nil)
+        #expect(loadingDestination.preview == nil)
+    }
+
+    @Test
+    func sourceManagementScreenStateKeepsAddFeedPreviewLoadingForRepeatedURLBindingSet() {
+        var state = SourceManagementScreenState.makePreviewFixture()
+        state.presentScenario(.addFeed)
+        state.updateAddFeedURLInput("example.com/feed.xml")
+
+        guard let activeCommand = state.beginAddFeedPreviewLoading() else {
+            Issue.record("Expected preview command")
+            return
+        }
+
+        state.updateAddFeedURLInput("example.com/feed.xml")
+
+        guard case .addFeed(let loadingDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination after repeated URL binding set")
+            return
+        }
+
+        #expect(loadingDestination.isLoadingPreview)
+        #expect(loadingDestination.preview == nil)
+        #expect(loadingDestination.status == nil)
+
+        let preview = SourceManagementFeedPreview(
+            requestedURL: activeCommand.urlString,
+            resolvedFeedURL: activeCommand.urlString,
+            title: "Example Feed",
+            subtitle: nil,
+            siteURL: "https://example.com/",
+            iconURL: nil,
+            language: "en",
+            kind: .rss,
+            parserAnomalyCount: 0,
+            rejectedEntryCount: 0,
+            existingFeedID: nil
+        )
+        state.applyLoadedAddFeedPreview(preview, command: activeCommand)
+
+        guard case .addFeed(let loadedDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination after preview completion")
+            return
+        }
+
+        #expect(loadedDestination.preview?.title == "Example Feed")
+        #expect(loadedDestination.isConfirmationActionEnabled)
+    }
+
+    @Test
+    func sourceManagementScreenStateStartsNewAddFeedPreviewLoadingAfterFailureAndURLChange() {
+        var state = SourceManagementScreenState.makePreviewFixture()
+        state.presentScenario(.addFeed)
+        state.updateAddFeedURLInput("thecode.")
+
+        guard let failedCommand = state.beginAddFeedPreviewLoading() else {
+            Issue.record("Expected failed preview command")
+            return
+        }
+
+        state.applyAddFeedPreviewFailure(
+            SourceManagementAddFeedStatusPresentation(
+                title: "Feed was not found",
+                kind: .failure,
+                detail: "The app could not find a supported RSS or Atom feed for this address."
+            ),
+            command: failedCommand
+        )
+
+        guard case .addFeed(let failureDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination after preview failure")
+            return
+        }
+
+        #expect(failureDestination.status?.kind == .failure)
+        #expect(failureDestination.isLoadingPreview == false)
+
+        state.updateAddFeedURLInput("thecode.media")
+
+        guard case .addFeed(let retryReadyDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination after URL change")
+            return
+        }
+
+        #expect(retryReadyDestination.status == nil)
+        #expect(retryReadyDestination.isPrimaryActionEnabled)
+
+        guard state.beginAddFeedPreviewLoading() != nil else {
+            Issue.record("Expected retry preview command")
+            return
+        }
+
+        guard case .addFeed(let retryLoadingDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected add-feed destination during retry preview loading")
+            return
+        }
+
+        #expect(retryLoadingDestination.isLoadingPreview)
+        #expect(retryLoadingDestination.preview == nil)
+        #expect(retryLoadingDestination.status == nil)
     }
 
     @Test
@@ -161,7 +395,7 @@ struct SourceManagementScreenStateTests {
         }
 
         #expect(initialDestination.existingFolders.map(\.name) == ["News", "Tech"])
-        #expect(initialDestination.placementDescription.contains("#3"))
+        #expect(initialDestination.placementDescription == "This folder will be added after 2 existing folders.")
         #expect(initialDestination.isPrimaryActionEnabled == false)
 
         state.updateCreateFolderNameInput("News")
@@ -173,6 +407,16 @@ struct SourceManagementScreenStateTests {
 
         #expect(duplicateDestination.validationMessage == "A folder with this name already exists.")
         #expect(duplicateDestination.isPrimaryActionEnabled == false)
+
+        state.updateCreateFolderNameInput(" tEcH ")
+
+        guard case .createFolder(let caseDuplicateDestination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected create-folder destination presentation after case-insensitive duplicate input")
+            return
+        }
+
+        #expect(caseDuplicateDestination.validationMessage == "A folder with this name already exists.")
+        #expect(caseDuplicateDestination.isPrimaryActionEnabled == false)
 
         state.updateCreateFolderNameInput("Research")
 
@@ -243,5 +487,59 @@ struct SourceManagementScreenStateTests {
 
         #expect(changedDestination.isPrimaryActionEnabled)
         #expect(changedDestination.placementOptions.last?.isSelected == true)
+    }
+
+    @Test
+    func sourceManagementScreenStatePreselectsRequestedFeedForMoveSourceContext() {
+        var state = SourceManagementScreenState.makePreviewFixture()
+        let newsFolderID = UUID(uuidString: "55555555-5555-5555-5555-555555555555")!
+        let techFolderID = UUID(uuidString: "66666666-6666-6666-6666-666666666666")!
+        let appleFeedID = UUID(uuidString: "77777777-7777-7777-7777-777777777777")!
+        let betaFeedID = UUID(uuidString: "88888888-8888-8888-8888-888888888888")!
+
+        state.applyMoveSourceContext(
+            feeds: [
+                SourceManagementFeedSummary(
+                    id: appleFeedID,
+                    url: "https://example.com/apple.xml",
+                    title: "Apple Feed",
+                    folderID: newsFolderID,
+                    folderName: "News"
+                ),
+                SourceManagementFeedSummary(
+                    id: betaFeedID,
+                    url: "https://example.com/beta.xml",
+                    title: "Beta Feed",
+                    folderID: techFolderID,
+                    folderName: "Tech"
+                )
+            ],
+            folders: [
+                SourceManagementFolderSummary(
+                    id: newsFolderID,
+                    name: "News",
+                    sortOrder: 0,
+                    feedCount: 2
+                ),
+                SourceManagementFolderSummary(
+                    id: techFolderID,
+                    name: "Tech",
+                    sortOrder: 1,
+                    feedCount: 6
+                )
+            ],
+            selectedFeedID: betaFeedID
+        )
+        state.presentScenario(.moveSource)
+
+        guard case .moveSource(let destination)? = state.derivedViewState().presentedDestination else {
+            Issue.record("Expected move-source destination presentation")
+            return
+        }
+
+        #expect(destination.feeds.first(where: { $0.id == appleFeedID })?.isSelected == false)
+        #expect(destination.feeds.first(where: { $0.id == betaFeedID })?.isSelected == true)
+        #expect(destination.placementOptions.first(where: { $0.title == "Tech" })?.isSelected == true)
+        #expect(destination.isPrimaryActionEnabled == false)
     }
 }

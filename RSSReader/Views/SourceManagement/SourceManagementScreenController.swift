@@ -1,6 +1,8 @@
 import Foundation
 import Observation
 
+private struct SourceManagementPreviewTimeoutError: Error {}
+
 @MainActor
 @Observable
 final class SourceManagementScreenController {
@@ -38,6 +40,12 @@ final class SourceManagementScreenController {
                 into: &screenState
             )
             screenState.presentScenario(.createFolder)
+        case .organizeFeed(let feedID):
+            dependencies.loadSourceManagementMoveSourceContext(
+                selectedFeedID: feedID,
+                into: &screenState
+            )
+            screenState.presentScenario(.moveSource)
         }
     }
 
@@ -68,6 +76,14 @@ final class SourceManagementScreenController {
     }
 
     func dismissPresentedScenario() {
+        if scenarioToRestoreAfterCreateFolder == .addFeed,
+           screenState.presentedDestination?.id == .createFolder {
+            scenarioToRestoreAfterCreateFolder = nil
+            screenState.resetCreateFolderForEntry()
+            screenState.presentScenario(.addFeed)
+            return
+        }
+
         screenState.dismissPresentedScenario()
     }
 
@@ -77,6 +93,10 @@ final class SourceManagementScreenController {
 
     func handleAddFeedURLChange(_ value: String) {
         screenState.updateAddFeedURLInput(value)
+    }
+
+    func handleAddFeedDisplayNameChange(_ value: String) {
+        screenState.updateAddFeedDisplayNameInput(value)
     }
 
     func handleAddFeedFolderPlacementSelection(
@@ -95,8 +115,12 @@ final class SourceManagementScreenController {
         dependencies: AppDependencies,
         appState: AppState? = nil
     ) async {
-        if screenState.addFeedCanConfirmPreview() {
-            screenState.confirmAddFeedPreview()
+        if screenState.shouldPreviewAddFeedBeforeSaving() {
+            guard let previewCommand = screenState.beginAddFeedPreviewLoading() else { return }
+            await performAddFeedPreview(
+                command: previewCommand,
+                dependencies: dependencies
+            )
             return
         }
 
@@ -118,9 +142,17 @@ final class SourceManagementScreenController {
             return
         }
 
-        guard let requestURL = screenState.beginAddFeedPreviewLoading() else { return }
+        guard let previewCommand = screenState.beginAddFeedPreviewLoading() else { return }
         await performAddFeedPreview(
-            requestURL: requestURL,
+            command: previewCommand,
+            dependencies: dependencies
+        )
+    }
+
+    func handleAddFeedPreviewAction(dependencies: AppDependencies) async {
+        guard let previewCommand = screenState.beginAddFeedPreviewLoading() else { return }
+        await performAddFeedPreview(
+            command: previewCommand,
             dependencies: dependencies
         )
     }
@@ -143,7 +175,7 @@ final class SourceManagementScreenController {
             let unavailableMessage = "Source management service is unavailable for source moves."
             dependencies.logger.error(unavailableMessage)
             screenState.applyMoveSourceFailure(
-                "Source moves are unavailable in the current app environment."
+                "Source moves are unavailable right now."
             )
             return
         }
@@ -181,8 +213,8 @@ final class SourceManagementScreenController {
                     ? "Folder editing is unavailable"
                     : "Folder creation is unavailable",
                 message: screenState.isEditingCreateFolder()
-                    ? "Folder editing is unavailable in the current app environment."
-                    : "Folder creation is unavailable in the current app environment."
+                    ? "Folder editing is unavailable right now."
+                    : "Folder creation is unavailable right now."
             )
             return
         }
@@ -225,7 +257,8 @@ private extension SourceManagementScreenController {
             screenState.applyCreatedAddFeed(updatedFeed)
             _ = await dependencies.completeSourceManagementFeedSave(
                 id: updatedFeed.id,
-                using: appState
+                using: appState,
+                selectsSavedFeed: false
             )
         } catch let error as SourceManagementServiceError {
             dependencies.logger.error("Failed to update feed through source management flow: \(error)")
@@ -265,7 +298,8 @@ private extension SourceManagementScreenController {
             screenState.applyCreatedAddFeed(createdFeed)
             _ = await dependencies.completeSourceManagementFeedSave(
                 id: createdFeed.id,
-                using: appState
+                using: appState,
+                selectsSavedFeed: false
             )
         } catch let error as SourceManagementServiceError {
             dependencies.logger.error("Failed to create feed through source management flow: \(error)")
@@ -288,27 +322,60 @@ private extension SourceManagementScreenController {
     }
 
     func performAddFeedPreview(
-        requestURL: String,
+        command: SourceManagementAddFeedPreviewCommand,
         dependencies: AppDependencies
     ) async {
         guard let sourceManagementService = dependencies.sourceManagementService else {
             dependencies.logger.error("Source management service is unavailable for feed preview")
             screenState.applyAddFeedPreviewFailure(
                 SourceManagementScreenStatusMapper.addFeedPreviewUnavailableStatus(),
-                requestURL: requestURL
+                command: command
             )
             return
         }
 
         do {
-            let preview = try await sourceManagementService.previewFeed(urlString: requestURL)
-            screenState.applyLoadedAddFeedPreview(preview, requestURL: requestURL)
+            let preview = try await withAddFeedPreviewTimeout(seconds: 10) {
+                try await sourceManagementService.previewFeed(urlString: command.urlString)
+            }
+            screenState.applyLoadedAddFeedPreview(preview, command: command)
+        } catch is SourceManagementPreviewTimeoutError {
+            dependencies.logger.error("Timed out while previewing feed through source management flow")
+            screenState.applyAddFeedPreviewFailure(
+                SourceManagementScreenStatusMapper.addFeedPreviewFailureStatus(
+                    for: .feedDiscoveryFailed(command.urlString)
+                ),
+                command: command
+            )
         } catch {
             dependencies.logger.error("Failed to preview feed through source management flow: \(error)")
             screenState.applyAddFeedPreviewFailure(
                 SourceManagementScreenStatusMapper.addFeedPreviewFailureStatus(for: error),
-                requestURL: requestURL
+                command: command
             )
+        }
+    }
+
+    func withAddFeedPreviewTimeout<T>(
+        seconds: UInt64,
+        operation: @escaping () async throws -> T
+    ) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            defer { group.cancelAll() }
+
+            group.addTask {
+                try await operation()
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: seconds * 1_000_000_000)
+                throw SourceManagementPreviewTimeoutError()
+            }
+
+            guard let result = try await group.next() else {
+                throw SourceManagementPreviewTimeoutError()
+            }
+            group.cancelAll()
+            return result
         }
     }
 
@@ -415,8 +482,10 @@ private enum SourceManagementScreenStatusMapper {
         case .duplicateFolderName:
             return "A folder with this name already exists."
         case .invalidFeedURL,
+                .feedDiscoveryFailed,
                 .previewUnavailableForNotModifiedResponse,
                 .duplicateFeed,
+                .duplicateFeedDisplayName,
                 .feedNotFound,
                 .folderNotFound:
             return "Unable to create the folder right now. Try again."
@@ -430,8 +499,10 @@ private enum SourceManagementScreenStatusMapper {
         case .folderNotFound:
             return "The selected folder no longer exists. Reload the move flow and choose another destination."
         case .invalidFeedURL,
+                .feedDiscoveryFailed,
                 .previewUnavailableForNotModifiedResponse,
                 .duplicateFeed,
+                .duplicateFeedDisplayName,
                 .emptyFolderName,
                 .duplicateFolderName:
             return "Unable to move the source right now. Try again."
@@ -463,6 +534,12 @@ private enum SourceManagementScreenStatusMapper {
                     ? "Another source already uses this normalized URL. Change the feed URL and try again."
                     : "Another source with the same normalized URL was saved before this create step finished."
             )
+        case .duplicateFeedDisplayName:
+            return SourceManagementAddFeedStatusPresentation(
+                title: "This display name is already in use",
+                kind: .warning,
+                detail: "Choose a different source name before saving."
+            )
         case .folderNotFound:
             return SourceManagementAddFeedStatusPresentation(
                 title: "Destination folder is unavailable",
@@ -470,6 +547,7 @@ private enum SourceManagementScreenStatusMapper {
                 detail: "The selected folder no longer exists. Choose another destination and try again."
             )
         case .invalidFeedURL,
+                .feedDiscoveryFailed,
                 .previewUnavailableForNotModifiedResponse,
                 .emptyFolderName,
                 .duplicateFolderName,
@@ -486,9 +564,9 @@ private enum SourceManagementScreenStatusMapper {
 
     static func addFeedPreviewUnavailableStatus() -> SourceManagementAddFeedStatusPresentation {
         SourceManagementAddFeedStatusPresentation(
-            title: "Feed preview is unavailable",
+            title: "Source preview is unavailable",
             kind: .failure,
-            detail: "Feed preview is unavailable in the current app environment."
+            detail: "The app cannot check this source right now."
         )
     }
 
@@ -510,7 +588,7 @@ private enum SourceManagementScreenStatusMapper {
         return SourceManagementAddFeedStatusPresentation(
             title: "Preview could not be loaded",
             kind: .failure,
-            detail: "Unable to load the feed preview right now. Try again."
+            detail: "Unable to check this source right now. Try again."
         )
     }
 
@@ -520,17 +598,24 @@ private enum SourceManagementScreenStatusMapper {
         switch error {
         case .invalidFeedURL:
             return SourceManagementAddFeedStatusPresentation(
-                title: "Enter a valid feed URL",
+                title: "Enter a valid source address",
                 kind: .failure,
-                detail: "Use a full http or https URL before loading the preview."
+                detail: "Use a website address or a direct RSS / Atom feed link."
+            )
+        case .feedDiscoveryFailed:
+            return SourceManagementAddFeedStatusPresentation(
+                title: "Feed was not found",
+                kind: .failure,
+                detail: "The app could not find a supported RSS or Atom feed for this address."
             )
         case .previewUnavailableForNotModifiedResponse:
             return SourceManagementAddFeedStatusPresentation(
-                title: "Preview metadata is unavailable",
+                title: "Source could not be checked",
                 kind: .failure,
-                detail: "The source returned a not-modified response, so the app could not inspect the feed contents."
+                detail: "The source did not send enough information to review it right now."
             )
         case .duplicateFeed,
+                .duplicateFeedDisplayName,
                 .emptyFolderName,
                 .duplicateFolderName,
                 .feedNotFound,
@@ -538,7 +623,7 @@ private enum SourceManagementScreenStatusMapper {
             return SourceManagementAddFeedStatusPresentation(
                 title: "Preview could not be loaded",
                 kind: .failure,
-                detail: "Unable to load the feed preview right now. Try again."
+                detail: "Unable to check this source right now. Try again."
             )
         }
     }
@@ -557,14 +642,14 @@ private enum SourceManagementScreenStatusMapper {
             return SourceManagementAddFeedStatusPresentation(
                 title: "Preview could not be loaded",
                 kind: .failure,
-                detail: "The server returned HTTP \(statusCode) instead of usable feed metadata."
+                detail: "The server returned HTTP \(statusCode), so the app could not read this source."
             )
         case .unsupportedContentType(let contentType):
             let detail: String
             if let contentType, contentType.isEmpty == false {
-                detail = "The URL responded with \(contentType), not a supported RSS or Atom feed."
+                detail = "The address responded with \(contentType), not a supported RSS or Atom feed."
             } else {
-                detail = "The URL responded, but it did not advertise a supported RSS or Atom content type."
+                detail = "The address responded, but it does not look like a supported RSS or Atom feed."
             }
             return SourceManagementAddFeedStatusPresentation(
                 title: "Source is not a supported feed",
@@ -582,31 +667,31 @@ private enum SourceManagementScreenStatusMapper {
             return SourceManagementAddFeedStatusPresentation(
                 title: "Source is not a supported feed",
                 kind: .failure,
-                detail: "The URL responded, but the document was empty."
+                detail: "The address responded, but there was no feed content to read."
             )
         case .malformedXML:
             return SourceManagementAddFeedStatusPresentation(
                 title: "Source is not a supported feed",
                 kind: .failure,
-                detail: "The URL responded, but the document could not be parsed as RSS or Atom."
+                detail: "The address responded, but the app could not read it as RSS or Atom."
             )
         case .unsupportedFeedKind:
             return SourceManagementAddFeedStatusPresentation(
                 title: "Source is not a supported feed",
                 kind: .failure,
-                detail: "The URL responded, but it did not contain a supported RSS or Atom feed."
+                detail: "The address responded, but it did not contain a supported RSS or Atom feed."
             )
-        case .missingRSSElement(let elementName):
+        case .missingRSSElement:
             return SourceManagementAddFeedStatusPresentation(
                 title: "Source is not a supported feed",
                 kind: .failure,
-                detail: "The RSS document is missing the required \(elementName) element."
+                detail: "The RSS feed is missing information the app needs before adding it."
             )
-        case .missingAtomElement(let elementName):
+        case .missingAtomElement:
             return SourceManagementAddFeedStatusPresentation(
                 title: "Source is not a supported feed",
                 kind: .failure,
-                detail: "The Atom document is missing the required \(elementName) element."
+                detail: "The Atom feed is missing information the app needs before adding it."
             )
         }
     }
@@ -616,19 +701,19 @@ private enum SourceManagementScreenStatusMapper {
         case .timedOut:
             return "The request timed out before the feed preview could be loaded."
         case .cannotFindHost, .dnsLookupFailed:
-            return "The host name could not be resolved for this feed URL."
+            return "The host name could not be found for this source."
         case .cannotConnectToHost, .resourceUnavailable:
-            return "The app could not connect to the server for this feed URL."
+            return "The app could not connect to this source."
         case .networkConnectionLost:
-            return "The network connection was lost while loading the feed preview."
+            return "The network connection was lost while checking this source."
         case .notConnectedToInternet:
-            return "Check the internet connection and try loading the preview again."
+            return "Check the internet connection and try again."
         case .internationalRoamingOff, .callIsActive, .dataNotAllowed:
-            return "The current network settings are blocking the feed preview request."
+            return "The current network settings are blocking this request."
         case .invalidResponse:
-            return "The server returned an invalid response for this feed preview request."
+            return "The server returned a response the app could not read."
         case .unknown:
-            return "The preview request failed for an unknown network reason."
+            return "The source could not be checked for an unknown network reason."
         }
     }
 }

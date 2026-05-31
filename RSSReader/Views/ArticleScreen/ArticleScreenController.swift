@@ -10,8 +10,16 @@ final class ArticleScreenController {
         self.screenState = previewScreenState ?? ArticleScreenState()
     }
 
-    func load(articleID: UUID?, dependencies: AppDependencies) async {
-        screenState.beginLoading(articleID: articleID)
+    func load(
+        articleID: UUID?,
+        dependencies: AppDependencies,
+        preservesCurrentArticleDuringLoading: Bool = false,
+        articleReadOnOpenHandler: ((UUID) -> Void)? = nil
+    ) async {
+        screenState.beginLoading(
+            articleID: articleID,
+            preservesCurrentArticle: preservesCurrentArticleDuringLoading
+        )
 
         guard let articleID else {
             return
@@ -27,15 +35,28 @@ final class ArticleScreenController {
 
         do {
             if let article = try articleQueryService.fetchReaderArticle(id: articleID) {
+                guard screenState.articleID == articleID else {
+                    return
+                }
                 let resolvedArticle = applyMarkAsReadOnOpenPolicy(
                     to: article,
-                    dependencies: dependencies
+                    dependencies: dependencies,
+                    articleReadOnOpenHandler: articleReadOnOpenHandler
                 )
+                guard screenState.articleID == articleID else {
+                    return
+                }
                 screenState.applyLoadedArticle(resolvedArticle)
             } else {
+                guard screenState.articleID == articleID else {
+                    return
+                }
                 screenState.applyArticleNotFound(articleID: articleID)
             }
         } catch {
+            guard screenState.articleID == articleID else {
+                return
+            }
             dependencies.logger.error("Failed to load article by ID \(articleID): \(error)")
             screenState.applyLoadingFailure(
                 error.localizedDescription,
@@ -116,7 +137,7 @@ final class ArticleScreenController {
         guard let article = screenState.article else { return }
         switch articleSourceLinkOpeningPolicy(dependencies: dependencies) {
         case .inAppBrowser:
-            dependencies.openArticleInWebView(article, using: appState)
+            dependencies.openArticleInSafari(article, using: appState)
         case .externalBrowser:
             guard let url = ArticleScreenShareURLResolver.resolveShareURL(article: article) else {
                 return
@@ -143,7 +164,8 @@ final class ArticleScreenController {
 
     private func applyMarkAsReadOnOpenPolicy(
         to article: ReaderArticleDTO,
-        dependencies: AppDependencies
+        dependencies: AppDependencies,
+        articleReadOnOpenHandler: ((UUID) -> Void)?
     ) -> ReaderArticleDTO {
         guard article.isRead == false else {
             return article
@@ -164,6 +186,7 @@ final class ArticleScreenController {
                 articleExternalID: article.articleExternalID,
                 at: .now
             )
+            articleReadOnOpenHandler?(article.id)
             return article.updating(isRead: true)
         } catch {
             dependencies.logger.error("Failed to apply mark-as-read-on-open policy: \(error)")

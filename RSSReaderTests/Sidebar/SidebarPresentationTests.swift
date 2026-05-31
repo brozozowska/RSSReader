@@ -75,48 +75,78 @@ struct SidebarPresentationTests {
     }
 
     @Test
-    func sidebarSubtitleFormatterFormatsTodayRefreshDate() {
-        let formatter = SidebarSubtitleFormatter()
-        let calendar = Calendar.current
-        let now = Date()
-        let refreshDate = calendar.date(
-            bySettingHour: 9,
-            minute: 41,
-            second: 0,
-            of: now
-        ) ?? now
+    func sidebarSubtitleFormatterFormatsTodayRefreshDate() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+        let now = try #require(calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: 2026,
+            month: 5,
+            day: 24,
+            hour: 18,
+            minute: 30
+        )))
+        let refreshDate = try #require(calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: 2026,
+            month: 5,
+            day: 24,
+            hour: 17,
+            minute: 8
+        )))
+        let formatter = SidebarSubtitleFormatter(now: now, calendar: calendar)
 
-        let expectedText = "Today at \(refreshDate.formatted(date: .omitted, time: .shortened))"
-
-        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == expectedText)
+        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == "Today at 17:08")
     }
 
     @Test
-    func sidebarSubtitleFormatterFormatsYesterdayRefreshDate() {
-        let formatter = SidebarSubtitleFormatter()
-        let calendar = Calendar.current
-        let now = Date()
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: now) ?? now
-        let refreshDate = calendar.date(
-            bySettingHour: 21,
-            minute: 15,
-            second: 0,
-            of: yesterday
-        ) ?? yesterday
+    func sidebarSubtitleFormatterFormatsYesterdayRefreshDate() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+        let now = try #require(calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: 2026,
+            month: 5,
+            day: 25,
+            hour: 9,
+            minute: 0
+        )))
+        let refreshDate = try #require(calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: 2026,
+            month: 5,
+            day: 24,
+            hour: 17,
+            minute: 8
+        )))
+        let formatter = SidebarSubtitleFormatter(now: now, calendar: calendar)
 
-        let expectedText = "Yesterday at \(refreshDate.formatted(date: .omitted, time: .shortened))"
-
-        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == expectedText)
+        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == "Yesterday at 17:08")
     }
 
     @Test
-    func sidebarSubtitleFormatterFormatsOlderRefreshDateWithAbbreviatedDate() {
-        let formatter = SidebarSubtitleFormatter()
-        let refreshDate = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? .distantPast
+    func sidebarSubtitleFormatterFormatsOlderRefreshDateWithFullDate() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+        let now = try #require(calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: 2026,
+            month: 5,
+            day: 26,
+            hour: 9,
+            minute: 0
+        )))
+        let refreshDate = try #require(calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: 2026,
+            month: 5,
+            day: 24,
+            hour: 17,
+            minute: 8
+        )))
+        let formatter = SidebarSubtitleFormatter(now: now, calendar: calendar)
 
-        let expectedText = refreshDate.formatted(date: .abbreviated, time: .shortened)
-
-        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == expectedText)
+        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == "Sunday, 24 May 2026")
     }
 
     @Test
@@ -148,6 +178,118 @@ struct SidebarPresentationTests {
 
         #expect(state.subtitle == "Syncing...")
         #expect(state.isSyncing)
+    }
+
+    @Test
+    func sidebarCustomRefreshStateMapsPullProgressToIndicatorContract() {
+        let idleState = SidebarCustomRefreshState.pulling(progress: -0.1)
+        let pullingState = SidebarCustomRefreshState.pulling(progress: 0.4)
+        let readyState = SidebarCustomRefreshState.pulling(progress: 1.2)
+        let refreshingState = SidebarCustomRefreshState.refreshing
+
+        #expect(idleState == .idle)
+        #expect(idleState.showsIndicator == false)
+        #expect(idleState.indicatorState == .idle)
+
+        #expect(pullingState.phase == .pulling)
+        #expect(pullingState.pullProgress == 0.4)
+        #expect(pullingState.indicatorState == .pulling(progress: 0.4))
+
+        #expect(readyState.phase == .ready)
+        #expect(readyState.pullProgress == 1)
+        #expect(readyState.indicatorState == .ready)
+
+        #expect(refreshingState.phase == .refreshing)
+        #expect(refreshingState.indicatorState == .refreshing)
+    }
+
+    @Test
+    func sidebarCustomRefreshPoliciesMapOverscrollAndReleaseToRefresh() {
+        let partialPullGeometry = SidebarCustomRefreshGeometry(
+            contentOffsetY: -48,
+            contentInsetTop: 12
+        )
+        let readyPullGeometry = SidebarCustomRefreshGeometry(
+            contentOffsetY: -120,
+            contentInsetTop: 12
+        )
+
+        #expect(
+            SidebarCustomRefreshPullPolicy.progress(
+                for: partialPullGeometry,
+                threshold: 72
+            ) == 0.5
+        )
+        #expect(
+            SidebarCustomRefreshPullPolicy.progress(
+                for: readyPullGeometry,
+                threshold: 72
+            ) == 1
+        )
+        #expect(
+            SidebarCustomRefreshReleasePolicy.shouldTriggerRefresh(
+                wasInteracting: true,
+                isInteracting: false,
+                customRefreshState: .pulling(progress: 1)
+            )
+        )
+        #expect(
+            SidebarCustomRefreshReleasePolicy.shouldTriggerRefresh(
+                wasInteracting: true,
+                isInteracting: false,
+                customRefreshState: .pulling(progress: 0.5)
+            ) == false
+        )
+    }
+
+    @Test
+    func sourceIconCandidateBuilderParsesHTMLIconLinksInPriorityOrder() throws {
+        let baseURL = try #require(URL(string: "https://example.com/"))
+        let html = """
+        <!doctype html>
+        <html>
+          <head>
+            <link rel="icon" sizes="32x32" href="/favicon-32x32.png">
+            <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+            <link rel="mask-icon" href="/mask.svg">
+            <link rel="shortcut icon" href="/favicon.ico">
+          </head>
+          <body></body>
+        </html>
+        """
+
+        let candidates = SourceIconCandidateBuilder.htmlIconCandidates(in: html, baseURL: baseURL)
+            .map(\.absoluteString)
+
+        #expect(candidates == [
+            "https://example.com/apple-touch-icon.png",
+            "https://example.com/favicon-32x32.png",
+            "https://example.com/favicon.ico"
+        ])
+    }
+
+    @Test
+    func sourceIconCandidateBuilderBuildsCommonIconCandidatesFromOrigin() throws {
+        let iconURL = try #require(URL(string: "https://example.com/news/favicon.ico"))
+
+        let candidates = SourceIconCandidateBuilder.commonIconCandidates(for: iconURL)
+            .map(\.absoluteString)
+
+        #expect(candidates == [
+            "https://example.com/apple-touch-icon.png",
+            "https://example.com/apple-touch-icon-precomposed.png",
+            "https://example.com/favicon-32x32.png",
+            "https://example.com/favicon.png",
+            "https://example.com/favicon.ico"
+        ])
+    }
+
+    @Test
+    func sourceIconImagePolicyRejectsWideLogoImages() {
+        #expect(SourceIconImagePolicy.isSuitableIconSize(CGSize(width: 180, height: 180)))
+        #expect(SourceIconImagePolicy.isSuitableIconSize(CGSize(width: 64, height: 32)))
+        #expect(SourceIconImagePolicy.isSuitableIconSize(CGSize(width: 240, height: 40)) == false)
+        #expect(SourceIconImagePolicy.isSuitableIconSize(CGSize(width: 0, height: 0)) == false)
     }
 
     @Test

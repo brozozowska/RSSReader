@@ -7,10 +7,14 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var useiCloudSync: Bool
     var markAsReadOnOpen: Bool
     var askBeforeMarkingAllAsRead: Bool
-    var sortMode: ArticleSortMode
+    var showUnreadCountBadge: Bool
+    var unreadSortMode: ArticleSortMode
+    var articleRetentionPolicy: ArticleRetentionPolicy
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
+    var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode
     var interfaceThemeMode: InterfaceThemeMode
+    var lastSourcesRefreshAt: Date?
 
     init(
         defaultReaderMode: ReaderMode = .embedded,
@@ -19,10 +23,14 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         useiCloudSync: Bool = false,
         markAsReadOnOpen: Bool = true,
         askBeforeMarkingAllAsRead: Bool = true,
-        sortMode: ArticleSortMode = .publishedAtDescending,
+        showUnreadCountBadge: Bool = false,
+        unreadSortMode: ArticleSortMode = .publishedAtDescending,
+        articleRetentionPolicy: ArticleRetentionPolicy = .oneWeek,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
-        interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
+        readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls,
+        interfaceThemeMode: InterfaceThemeMode = .automaticLightDark,
+        lastSourcesRefreshAt: Date? = nil
     ) {
         self.defaultReaderMode = defaultReaderMode
         self.selectedSourcesFilterRawValue = selectedSourcesFilterRawValue
@@ -30,10 +38,14 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         self.useiCloudSync = useiCloudSync
         self.markAsReadOnOpen = markAsReadOnOpen
         self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
-        self.sortMode = sortMode
+        self.showUnreadCountBadge = showUnreadCountBadge
+        self.unreadSortMode = unreadSortMode
+        self.articleRetentionPolicy = articleRetentionPolicy
         self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
+        self.readerAdjacentNavigationControlsMode = readerAdjacentNavigationControlsMode
         self.interfaceThemeMode = interfaceThemeMode
+        self.lastSourcesRefreshAt = lastSourcesRefreshAt
     }
 
     init(settings: AppSettings) {
@@ -44,10 +56,14 @@ struct AppSettingsSnapshot: Equatable, Sendable {
             useiCloudSync: settings.useiCloudSync,
             markAsReadOnOpen: settings.markAsReadOnOpen,
             askBeforeMarkingAllAsRead: settings.askBeforeMarkingAllAsRead,
-            sortMode: settings.sortMode,
+            showUnreadCountBadge: settings.showUnreadCountBadge,
+            unreadSortMode: settings.unreadSortMode,
+            articleRetentionPolicy: settings.articleRetentionPolicy,
             articleBodyLinkOpeningPolicy: settings.articleBodyLinkOpeningPolicy,
             articleSourceLinkOpeningPolicy: settings.articleSourceLinkOpeningPolicy,
-            interfaceThemeMode: settings.interfaceThemeMode
+            readerAdjacentNavigationControlsMode: settings.readerAdjacentNavigationControlsMode,
+            interfaceThemeMode: settings.interfaceThemeMode,
+            lastSourcesRefreshAt: settings.lastSourcesRefreshAt
         )
     }
 }
@@ -59,10 +75,14 @@ struct AppSettingsPatch: Sendable {
     var useiCloudSync: Bool? = nil
     var markAsReadOnOpen: Bool? = nil
     var askBeforeMarkingAllAsRead: Bool? = nil
-    var sortMode: ArticleSortMode? = nil
+    var showUnreadCountBadge: Bool? = nil
+    var unreadSortMode: ArticleSortMode? = nil
+    var articleRetentionPolicy: ArticleRetentionPolicy? = nil
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
+    var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode? = nil
     var interfaceThemeMode: InterfaceThemeMode? = nil
+    var lastSourcesRefreshAt: Date? = nil
     var updatedAt: Date = .now
 }
 
@@ -105,10 +125,14 @@ final class DefaultAppSettingsService: AppSettingsService {
                 useiCloudSync: snapshot.useiCloudSync,
                 markAsReadOnOpen: snapshot.markAsReadOnOpen,
                 askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
-                sortMode: snapshot.sortMode,
+                showUnreadCountBadge: snapshot.showUnreadCountBadge,
+                unreadSortMode: snapshot.unreadSortMode,
+                articleRetentionPolicy: snapshot.articleRetentionPolicy,
                 articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
                 articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
+                readerAdjacentNavigationControlsMode: snapshot.readerAdjacentNavigationControlsMode,
                 interfaceThemeMode: snapshot.interfaceThemeMode,
+                lastSourcesRefreshAt: snapshot.lastSourcesRefreshAt,
                 updatedAt: updatedAt
             )
         )
@@ -125,10 +149,14 @@ final class DefaultAppSettingsService: AppSettingsService {
                 useiCloudSync: patch.useiCloudSync,
                 markAsReadOnOpen: patch.markAsReadOnOpen,
                 askBeforeMarkingAllAsRead: patch.askBeforeMarkingAllAsRead,
-                sortMode: patch.sortMode,
+                showUnreadCountBadge: patch.showUnreadCountBadge,
+                unreadSortMode: patch.unreadSortMode,
+                articleRetentionPolicy: patch.articleRetentionPolicy,
                 articleBodyLinkOpeningPolicy: patch.articleBodyLinkOpeningPolicy,
                 articleSourceLinkOpeningPolicy: patch.articleSourceLinkOpeningPolicy,
+                readerAdjacentNavigationControlsMode: patch.readerAdjacentNavigationControlsMode,
                 interfaceThemeMode: patch.interfaceThemeMode,
+                lastSourcesRefreshAt: patch.lastSourcesRefreshAt,
                 updatedAt: patch.updatedAt
             )
         )

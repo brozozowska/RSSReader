@@ -41,7 +41,8 @@ final class SidebarScreenController {
 
         do {
             let snapshot = try sourcesSidebarQueryService.fetchSnapshot()
-            screenState.applyLoadedSnapshot(snapshot, refreshedAt: refreshedAt)
+            let effectiveRefreshedAt = refreshedAt ?? lastSourcesRefreshAt(dependencies: dependencies)
+            screenState.applyLoadedSnapshot(snapshot, refreshedAt: effectiveRefreshedAt)
             syncExpandedFolderNames(filter: filter)
             return resolvedSelection(currentSelection: currentSelection, filter: filter)
         } catch {
@@ -64,7 +65,7 @@ final class SidebarScreenController {
         let previousStatus = screenState.refreshStatus
         screenState.beginRefreshing()
         let result = await dependencies.refreshVisibleSources(using: appState)
-        let refreshedAt = result?.finishedAt
+        let refreshedAt = result.flatMap(Self.sourcesRefreshDisplayDate)
         let adjustedSelection = await loadFeeds(
             showsFullScreenLoading: false,
             dependencies: dependencies,
@@ -80,6 +81,23 @@ final class SidebarScreenController {
         return adjustedSelection
     }
 
+    private func lastSourcesRefreshAt(dependencies: AppDependencies) -> Date? {
+        do {
+            return try dependencies.appSettingsService?.fetchSettings().lastSourcesRefreshAt
+        } catch {
+            dependencies.logger.error("Failed to load last sources refresh timestamp: \(error)")
+            return nil
+        }
+    }
+
+    private static func sourcesRefreshDisplayDate(from result: FeedRefreshBatchResult) -> Date? {
+        guard result.summary.fetchedCount + result.summary.notModifiedCount > 0 else {
+            return nil
+        }
+
+        return result.finishedAt
+    }
+
     func resolvedSelection(
         currentSelection: SidebarSelection?,
         filter: SourcesFilter
@@ -89,7 +107,11 @@ final class SidebarScreenController {
             filter: filter,
             starredFeedIDs: screenState.starredFeedIDs
         )
-        let folderGroups = FolderSidebarGroup.groups(from: visibleFeeds)
+        let folderGroups = FolderSidebarGroup.groups(
+            from: screenState.folders,
+            feeds: visibleFeeds,
+            filter: filter
+        )
 
         return SidebarSelectionBehavior.resolvedSelection(
             currentSelection: currentSelection,
@@ -106,7 +128,13 @@ final class SidebarScreenController {
             starredFeedIDs: screenState.starredFeedIDs
         )
 
-        return Set(FolderSidebarGroup.groups(from: visibleFeeds).map(\.name))
+        return Set(
+            FolderSidebarGroup.groups(
+                from: screenState.folders,
+                feeds: visibleFeeds,
+                filter: filter
+            ).map(\.name)
+        )
     }
 
     func toggleFolderExpansion(named folderName: String) {

@@ -3,20 +3,29 @@ import Foundation
 struct ArticlesScreenDerivedViewState {
     let visibleArticles: [ArticleListItemDTO]
     let sections: [ArticlesDaySection]
+    let navigationSubtitle: String
     let toolbarActions: ArticlesScreenToolbarActionsState
     let searchPlaceholder: ArticlesScreenPlaceholderState?
+    let customRefreshState: ArticlesScreenCustomRefreshState
     let refreshBanner: ArticlesScreenRefreshBannerState?
     let primaryLoadingState: ArticlesScreenPrimaryLoadingState?
 }
 
 extension ArticlesScreenState {
-    func derivedViewState(searchText: String) -> ArticlesScreenDerivedViewState {
+    func derivedViewState(
+        searchText: String,
+        sourcesFilter: SourcesFilter = .allItems
+    ) -> ArticlesScreenDerivedViewState {
         let normalizedSearchText = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         let visibleArticles = filteredArticles(matching: normalizedSearchText)
 
         return ArticlesScreenDerivedViewState(
             visibleArticles: visibleArticles,
             sections: ArticlesDaySectionsBuilder.build(from: visibleArticles),
+            navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
+                articles: visibleArticles,
+                sourcesFilter: sourcesFilter
+            ),
             toolbarActions: ArticlesScreenToolbarActionsState(
                 selection: selection,
                 visibleArticles: visibleArticles,
@@ -26,6 +35,7 @@ extension ArticlesScreenState {
                 normalizedSearchText: normalizedSearchText,
                 visibleArticles: visibleArticles
             ),
+            customRefreshState: customRefreshState,
             refreshBanner: refreshBannerState,
             primaryLoadingState: primaryLoadingState
         )
@@ -67,14 +77,6 @@ extension ArticlesScreenState {
     }
 
     private var refreshBannerState: ArticlesScreenRefreshBannerState? {
-        if refreshState == .refreshing && articles.isEmpty == false {
-            return ArticlesScreenRefreshBannerState(
-                style: .refreshing,
-                title: "Refreshing Articles",
-                message: "Updating the current selection."
-            )
-        }
-
         guard let refreshFeedback else {
             return nil
         }

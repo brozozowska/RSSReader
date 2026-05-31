@@ -14,9 +14,12 @@ struct SettingsScreenPresentationTests {
             useiCloudSync: true,
             markAsReadOnOpen: false,
             askBeforeMarkingAllAsRead: false,
-            sortMode: .publishedAtDescending,
+            showUnreadCountBadge: true,
+            unreadSortMode: .publishedAtDescending,
+            articleRetentionPolicy: .twoWeeks,
             articleBodyLinkOpeningPolicy: .externalBrowser,
             articleSourceLinkOpeningPolicy: .externalBrowser,
+            readerAdjacentNavigationControlsMode: .swipesOnly,
             interfaceThemeMode: .black
         )
         let input = SettingsScreenInputBuilder.build(
@@ -26,36 +29,59 @@ struct SettingsScreenPresentationTests {
 
         let sections = SettingsScreenPresentationBuilder.buildSections(from: input)
 
-        #expect(sections.map(\.id) == [.reading, .articleList, .refresh, .sync, .advanced])
+        #expect(sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .notifications, .storage])
 
-        let readingItems = sections[0].items
-        let articleListItems = sections[1].items
-        let refreshItems = sections[2].items
-        let syncItems = sections[3].items
-        let advancedItems = sections[4].items
+        let appearanceItems = sections[0].items
+        let readingItems = sections[1].items
+        let articleListItems = sections[2].items
+        let updatesAndSyncItems = sections[3].items
+        let notificationsItems = sections[4].items
+        let storageItems = sections[5].items
 
+        #expect(
+            appearanceItems == [
+                .picker(
+                    SettingsPickerItemPresentation(
+                        id: .appearance,
+                        title: "Theme",
+                        subtitle: nil,
+                        selectedValueTitle: "Black",
+                        options: [
+                            SettingsPickerOptionPresentation(id: "automaticLightDark", title: "Automatic Light/Dark", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "automaticLightBlack", title: "Automatic Light/Black", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "light", title: "Light", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "dark", title: "Dark", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "black", title: "Black", isSelected: true)
+                        ]
+                    )
+                )
+            ]
+        )
         #expect(
             readingItems[0] == .picker(
                 SettingsPickerItemPresentation(
                     id: .defaultReaderMode,
-                    title: "Default Reader",
-                    subtitle: "Choose how articles open by default.",
+                    title: "Open Articles",
+                    subtitle: nil,
                     selectedValueTitle: "In-App Browser",
                     options: [
-                        SettingsPickerOptionPresentation(id: "embedded", title: "Embedded Reader", isSelected: false),
-                        SettingsPickerOptionPresentation(id: "reader", title: "Reader Mode", isSelected: false),
+                        SettingsPickerOptionPresentation(id: "embedded", title: "Feed Reader", isSelected: false),
                         SettingsPickerOptionPresentation(id: "browser", title: "In-App Browser", isSelected: true)
                     ]
                 )
             )
         )
         #expect(
-            readingItems[1] == .toggle(
-                SettingsToggleItemPresentation(
-                    id: .markAsReadOnOpen,
-                    title: "Mark Read on Open",
-                    subtitle: "Automatically mark an article as read when it is opened.",
-                    isOn: false
+            readingItems[1] == .picker(
+                SettingsPickerItemPresentation(
+                    id: .articleSourceLinkOpeningPolicy,
+                    title: "Open Original Article",
+                    subtitle: nil,
+                    selectedValueTitle: "External Browser",
+                    options: [
+                        SettingsPickerOptionPresentation(id: "inAppBrowser", title: "In-App Browser", isSelected: false),
+                        SettingsPickerOptionPresentation(id: "externalBrowser", title: "External Browser", isSelected: true)
+                    ]
                 )
             )
         )
@@ -63,8 +89,8 @@ struct SettingsScreenPresentationTests {
             readingItems[2] == .picker(
                 SettingsPickerItemPresentation(
                     id: .articleBodyLinkOpeningPolicy,
-                    title: "Article Links",
-                    subtitle: "Choose how links inside article text should open.",
+                    title: "Open Article Links",
+                    subtitle: nil,
                     selectedValueTitle: "External Browser",
                     options: [
                         SettingsPickerOptionPresentation(id: "inAppBrowser", title: "In-App Browser", isSelected: false),
@@ -76,14 +102,25 @@ struct SettingsScreenPresentationTests {
         #expect(
             readingItems[3] == .picker(
                 SettingsPickerItemPresentation(
-                    id: .articleSourceLinkOpeningPolicy,
-                    title: "Source Article",
-                    subtitle: "Choose how the toolbar action opens the original article URL.",
-                    selectedValueTitle: "External Browser",
+                    id: .readerAdjacentNavigationControlsMode,
+                    title: "Adjacent Navigation",
+                    subtitle: nil,
+                    selectedValueTitle: "Swipes",
                     options: [
-                        SettingsPickerOptionPresentation(id: "inAppBrowser", title: "In-App Browser", isSelected: false),
-                        SettingsPickerOptionPresentation(id: "externalBrowser", title: "External Browser", isSelected: true)
+                        SettingsPickerOptionPresentation(id: "toolbarControlsOnly", title: "Buttons", isSelected: false),
+                        SettingsPickerOptionPresentation(id: "swipesOnly", title: "Swipes", isSelected: true),
+                        SettingsPickerOptionPresentation(id: "swipesAndToolbarControls", title: "Both", isSelected: false)
                     ]
+                )
+            )
+        )
+        #expect(
+            readingItems[4] == .toggle(
+                SettingsToggleItemPresentation(
+                    id: .markAsReadOnOpen,
+                    title: "Mark Read on Open",
+                    subtitle: "Automatically mark an article as read when it is opened.",
+                    isOn: false
                 )
             )
         )
@@ -91,9 +128,9 @@ struct SettingsScreenPresentationTests {
             articleListItems == [
                 .picker(
                     SettingsPickerItemPresentation(
-                        id: .articleSortMode,
-                        title: "Sort Articles",
-                        subtitle: "Choose how unread and article lists are ordered.",
+                        id: .unreadArticleSortMode,
+                        title: "Sort Unread Articles",
+                        subtitle: nil,
                         selectedValueTitle: "Newest First",
                         options: [
                             SettingsPickerOptionPresentation(id: "newestFirst", title: "Newest First", isSelected: true),
@@ -108,16 +145,31 @@ struct SettingsScreenPresentationTests {
                         subtitle: "Show a confirmation before marking all visible articles as read.",
                         isOn: false
                     )
+                ),
+                .picker(
+                    SettingsPickerItemPresentation(
+                        id: .articleRetentionPolicy,
+                        title: "Keep Archived Articles",
+                        subtitle: nil,
+                        selectedValueTitle: "2 Weeks",
+                        options: [
+                            SettingsPickerOptionPresentation(id: "currentFeedOnly", title: "None", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "twoDays", title: "2 Days", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "oneWeek", title: "1 Week", isSelected: false),
+                            SettingsPickerOptionPresentation(id: "twoWeeks", title: "2 Weeks", isSelected: true),
+                            SettingsPickerOptionPresentation(id: "oneMonth", title: "1 Month", isSelected: false)
+                        ]
+                    )
                 )
             ]
         )
         #expect(
-            refreshItems.contains(
+            updatesAndSyncItems.contains(
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .refreshInterval,
                         title: "Background Refresh",
-                        subtitle: "Choose how often feeds should refresh when background refresh is available.",
+                        subtitle: nil,
                         selectedValueTitle: "Daily",
                         options: [
                             SettingsPickerOptionPresentation(id: "manual", title: "Manual", isSelected: false),
@@ -131,12 +183,12 @@ struct SettingsScreenPresentationTests {
             )
         )
         #expect(
-            syncItems == [
+            Array(updatesAndSyncItems.suffix(2)) == [
                 .toggle(
                     SettingsToggleItemPresentation(
                         id: .useICloudSync,
                         title: "Enable iCloud Sync",
-                        subtitle: "Applies on next launch. The app will rebuild its sync container and try to use iCloud for supported data.",
+                        subtitle: "Applies on next launch. Supported data will sync through iCloud when available.",
                         isOn: true
                     )
                 ),
@@ -151,23 +203,138 @@ struct SettingsScreenPresentationTests {
             ]
         )
         #expect(
-            advancedItems == [
-                .picker(
-                    SettingsPickerItemPresentation(
-                        id: .appearance,
-                        title: "Appearance",
-                        subtitle: "Choose between automatic light/dark handling, automatic light/black, or fixed appearance modes.",
-                        selectedValueTitle: "Black",
-                        options: [
-                            SettingsPickerOptionPresentation(id: "automaticLightDark", title: "Automatic Light/Dark", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "automaticLightBlack", title: "Automatic Light/Black", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "light", title: "Light", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "dark", title: "Dark", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "black", title: "Black", isSelected: true)
-                        ]
+            notificationsItems == [
+                .toggle(
+                    SettingsToggleItemPresentation(
+                        id: .showUnreadCountBadge,
+                        title: "App Icon Badge",
+                        subtitle: "Show the unread article count on the app icon.",
+                        isOn: true
                     )
                 )
             ]
+        )
+        #expect(
+            storageItems == [
+                .button(
+                    SettingsButtonItemPresentation(
+                        id: .purgeArchivedArticles,
+                        title: "Clear Archived Articles",
+                        subtitle: "Remove archived articles except starred ones from this device and iCloud.",
+                        systemImage: "archivebox",
+                        role: .destructive,
+                        isEnabled: false
+                    )
+                ),
+                .button(
+                    SettingsButtonItemPresentation(
+                        id: .clearArticleImageCache,
+                        title: "Clear Article Image Cache",
+                        subtitle: "Remove article images saved on this device.",
+                        systemImage: "photo.stack",
+                        role: .destructive,
+                        isEnabled: false
+                    )
+                ),
+                .button(
+                    SettingsButtonItemPresentation(
+                        id: .clearSourceIconCache,
+                        title: "Clear Source Icon Cache",
+                        subtitle: "Remove feed icons saved on this device.",
+                        systemImage: "newspaper",
+                        role: .destructive,
+                        isEnabled: false
+                    )
+                )
+            ]
+        )
+    }
+
+    @Test
+    func settingsScreenPresentationBuilderEnablesArticleImageCacheResetWhenCacheExists() throws {
+        let sections = SettingsScreenPresentationBuilder.buildSections(
+            from: SettingsScreenInputBuilder.build(from: AppSettingsSnapshot()),
+            hasArticleImageCache: true
+        )
+        let storageSection = try #require(sections.first(where: { $0.id == .storage }))
+
+        #expect(
+            storageSection.items == [
+                .button(
+                    SettingsButtonItemPresentation(
+                        id: .purgeArchivedArticles,
+                        title: "Clear Archived Articles",
+                        subtitle: "Remove archived articles except starred ones from this device and iCloud.",
+                        systemImage: "archivebox",
+                        role: .destructive,
+                        isEnabled: false
+                    )
+                ),
+                .button(
+                    SettingsButtonItemPresentation(
+                        id: .clearArticleImageCache,
+                        title: "Clear Article Image Cache",
+                        subtitle: "Remove article images saved on this device.",
+                        systemImage: "photo.stack",
+                        role: .destructive,
+                        isEnabled: true
+                    )
+                ),
+                .button(
+                    SettingsButtonItemPresentation(
+                        id: .clearSourceIconCache,
+                        title: "Clear Source Icon Cache",
+                        subtitle: "Remove feed icons saved on this device.",
+                        systemImage: "newspaper",
+                        role: .destructive,
+                        isEnabled: false
+                    )
+                )
+            ]
+        )
+    }
+
+    @Test
+    func settingsScreenPresentationBuilderEnablesSourceIconCacheResetWhenCacheExists() throws {
+        let sections = SettingsScreenPresentationBuilder.buildSections(
+            from: SettingsScreenInputBuilder.build(from: AppSettingsSnapshot()),
+            hasSourceIconCache: true
+        )
+        let storageSection = try #require(sections.first(where: { $0.id == .storage }))
+
+        #expect(
+            storageSection.items.last == .button(
+                SettingsButtonItemPresentation(
+                    id: .clearSourceIconCache,
+                    title: "Clear Source Icon Cache",
+                    subtitle: "Remove feed icons saved on this device.",
+                    systemImage: "newspaper",
+                    role: .destructive,
+                    isEnabled: true
+                )
+            )
+        )
+    }
+
+    @Test
+    func settingsScreenPresentationBuilderEnablesArchivedArticlePurgeWhenArchivedArticlesExist() throws {
+        let sections = SettingsScreenPresentationBuilder.buildSections(
+            from: SettingsScreenInputBuilder.build(from: AppSettingsSnapshot()),
+            hasArchivedArticles: true
+        )
+        let storageSection = try #require(sections.first(where: { $0.id == .storage }))
+
+        #expect(
+            storageSection.items.first == .button(
+                SettingsButtonItemPresentation(
+                    id: .purgeArchivedArticles,
+                    title: "Clear Archived Articles",
+                    subtitle: "Remove archived articles except starred ones from this device and iCloud.",
+                    systemImage: "archivebox",
+                    role: .destructive,
+                    isEnabled: true
+                )
+            )
         )
     }
 
@@ -190,20 +357,25 @@ struct SettingsScreenPresentationTests {
             if case .statusRow = item { return true }
             return false
         })
+        #expect(items.contains { item in
+            if case .button = item { return true }
+            return false
+        })
     }
 
     @Test
     func settingsScreenInputBuilderNormalizesSnapshotIntoScreenSpecificInput() {
         let snapshot = AppSettingsSnapshot(
-            defaultReaderMode: .reader,
+            defaultReaderMode: .embedded,
             selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
             refreshIntervalPreference: .every6Hours,
             useiCloudSync: true,
             markAsReadOnOpen: false,
             askBeforeMarkingAllAsRead: false,
-            sortMode: .publishedAtAscending,
+            unreadSortMode: .publishedAtAscending,
             articleBodyLinkOpeningPolicy: .externalBrowser,
             articleSourceLinkOpeningPolicy: .externalBrowser,
+            readerAdjacentNavigationControlsMode: .swipesOnly,
             interfaceThemeMode: .black
         )
 
@@ -212,11 +384,12 @@ struct SettingsScreenPresentationTests {
             iCloudSyncStatus: .syncing
         )
 
-        #expect(input.defaultReaderMode == .reader)
+        #expect(input.defaultReaderMode == .embedded)
         #expect(input.markAsReadOnOpen == false)
         #expect(input.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(input.articleSourceLinkOpeningPolicy == .externalBrowser)
-        #expect(input.articleListSortOrder == .oldestFirst)
+        #expect(input.readerAdjacentNavigationControlsMode == .swipesOnly)
+        #expect(input.unreadArticleSortOrder == .oldestFirst)
         #expect(input.askBeforeMarkingAllAsRead == false)
         #expect(input.refreshIntervalPreference == .every6Hours)
         #expect(input.useiCloudSync)
@@ -234,7 +407,7 @@ struct SettingsScreenPresentationTests {
         )
 
         let syncSection = try #require(
-            SettingsScreenPresentationBuilder.buildSections(from: input).first(where: { $0.id == .sync })
+            SettingsScreenPresentationBuilder.buildSections(from: input).first(where: { $0.id == .updatesAndSync })
         )
         let statusRow = try #require(syncSection.items.last)
 
@@ -243,12 +416,12 @@ struct SettingsScreenPresentationTests {
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
                     title: "Current Status",
-                    subtitle: "Sign in to iCloud with the Apple ID used on this device to enable sync. RSSReader does not require a separate account.",
+                    subtitle: "Sign in to iCloud with the Apple ID used on this device to enable sync.",
                     valueTitle: "Sign In Required"
                 )
             )
         )
-        #expect(syncSection.footer?.contains("does not require a separate app account") == true)
+        #expect(syncSection.footer?.contains("iCloud sync uses the Apple ID signed in on this device.") == true)
     }
 
     @Test
@@ -270,13 +443,13 @@ struct SettingsScreenPresentationTests {
         )
 
         let restrictedSection = try #require(
-            SettingsScreenPresentationBuilder.buildSections(from: restrictedInput).first(where: { $0.id == .sync })
+            SettingsScreenPresentationBuilder.buildSections(from: restrictedInput).first(where: { $0.id == .updatesAndSync })
         )
         let temporarilyUnavailableSection = try #require(
-            SettingsScreenPresentationBuilder.buildSections(from: temporarilyUnavailableInput).first(where: { $0.id == .sync })
+            SettingsScreenPresentationBuilder.buildSections(from: temporarilyUnavailableInput).first(where: { $0.id == .updatesAndSync })
         )
         let couldNotDetermineSection = try #require(
-            SettingsScreenPresentationBuilder.buildSections(from: couldNotDetermineInput).first(where: { $0.id == .sync })
+            SettingsScreenPresentationBuilder.buildSections(from: couldNotDetermineInput).first(where: { $0.id == .updatesAndSync })
         )
 
         #expect(
@@ -321,15 +494,15 @@ struct SettingsScreenPresentationTests {
         )
 
         let syncSection = try #require(
-            SettingsScreenPresentationBuilder.buildSections(from: input).first(where: { $0.id == .sync })
+            SettingsScreenPresentationBuilder.buildSections(from: input).first(where: { $0.id == .updatesAndSync })
         )
 
         #expect(
-            syncSection.items.first == .toggle(
+            syncSection.items.dropFirst().first == .toggle(
                 SettingsToggleItemPresentation(
                     id: .useICloudSync,
                     title: "Enable iCloud Sync",
-                    subtitle: "Saved for the next launch. This session is still using local-only data because the current iCloud account is temporarily unavailable.",
+                    subtitle: "Saved for the next launch. This session keeps using local data because the current iCloud account is temporarily unavailable.",
                     isOn: true
                 )
             )
@@ -339,13 +512,13 @@ struct SettingsScreenPresentationTests {
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
                     title: "Current Status",
-                    subtitle: "Sync is enabled as a saved preference, but this app launch is still using the local-only store because the current iCloud account is temporarily unavailable. Relaunch after iCloud becomes available so the app can rebuild its sync container.",
+                    subtitle: "Sync is enabled, but this launch cannot use iCloud because the current account is temporarily unavailable. Relaunch after iCloud becomes available.",
                     valueTitle: "Temporarily Unavailable"
                 )
             )
         )
         #expect(
-            syncSection.footer?.contains("currently waiting for a later launch") == true
+            syncSection.footer?.contains("Sync will try again on the next launch when iCloud is available.") == true
         )
     }
 }

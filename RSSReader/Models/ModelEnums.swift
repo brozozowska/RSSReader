@@ -8,7 +8,6 @@ enum FeedKind: String, Codable, CaseIterable, Sendable {
 
 enum ReaderMode: String, Codable, CaseIterable, Sendable {
     case embedded
-    case reader
     case browser
 }
 
@@ -25,12 +24,20 @@ enum ArticleSortMode: String, Codable, CaseIterable, Sendable {
     case publishedAtAscending
 }
 
-enum ArticleListSortOrder: String, CaseIterable, Sendable {
+enum ArticleRetentionPolicy: String, Codable, CaseIterable, Sendable {
+    case currentFeedOnly
+    case twoDays
+    case oneWeek
+    case twoWeeks
+    case oneMonth
+}
+
+enum UnreadArticleSortOrder: String, CaseIterable, Sendable {
     case newestFirst
     case oldestFirst
 
-    init(sortMode: ArticleSortMode) {
-        switch sortMode {
+    init(unreadSortMode: ArticleSortMode) {
+        switch unreadSortMode {
         case .publishedAtDescending:
             self = .newestFirst
         case .publishedAtAscending:
@@ -38,7 +45,7 @@ enum ArticleListSortOrder: String, CaseIterable, Sendable {
         }
     }
 
-    var sortMode: ArticleSortMode {
+    var unreadSortMode: ArticleSortMode {
         switch self {
         case .newestFirst:
             .publishedAtDescending
@@ -56,6 +63,12 @@ enum ArticleBodyLinkOpeningPolicy: String, Codable, CaseIterable, Sendable {
 enum ArticleSourceLinkOpeningPolicy: String, Codable, CaseIterable, Sendable {
     case inAppBrowser
     case externalBrowser
+}
+
+enum ReaderAdjacentNavigationControlsMode: String, Codable, CaseIterable, Sendable {
+    case toolbarControlsOnly
+    case swipesOnly
+    case swipesAndToolbarControls
 }
 
 enum InterfaceThemeMode: String, Codable, CaseIterable, Sendable {

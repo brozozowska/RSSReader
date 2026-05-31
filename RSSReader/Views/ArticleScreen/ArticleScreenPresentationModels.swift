@@ -21,33 +21,13 @@ enum ArticleScreenBodySource: Equatable {
     case summary
     case contentText
     case contentHTML
-    case fullTextExtracted
     case empty
-
-    var readerMode: ArticleScreenReaderMode {
-        switch self {
-        case .fullTextExtracted:
-            .fullText
-        case .summary, .contentText, .contentHTML, .empty:
-            .embedded
-        }
-    }
-}
-
-@MainActor
-enum ArticleScreenReaderMode: Equatable {
-    case embedded
-    case fullText
 }
 
 @MainActor
 struct ArticleScreenBodyContentState: Equatable {
     let blocks: [ArticleScreenBodyBlock]
     let source: ArticleScreenBodySource
-    
-    var readerMode: ArticleScreenReaderMode {
-        source.readerMode
-    }
 
     init(
         blocks: [ArticleScreenBodyBlock],
@@ -56,21 +36,16 @@ struct ArticleScreenBodyContentState: Equatable {
         self.blocks = blocks
         self.source = source
     }
-
-    static func extractedFullText(blocks: [ArticleScreenBodyBlock]) -> ArticleScreenBodyContentState {
-        ArticleScreenBodyContentState(
-            blocks: blocks,
-            source: .fullTextExtracted
-        )
-    }
 }
 
 @MainActor
 struct ArticleScreenContentState: Equatable {
+    let articleID: UUID
     let header: ArticleScreenHeaderState
     let body: ArticleScreenBodyContentState
 
     init(article: ReaderArticleDTO) {
+        self.articleID = article.id
         self.header = ArticleScreenHeaderState(article: article)
         self.body = ArticleScreenContentRenderer.renderBody(for: article)
     }
@@ -82,12 +57,17 @@ struct ArticleScreenHeaderState: Equatable {
     let title: String
     let author: String?
     let feedTitle: String?
+    let canOpenSourceArticle: Bool
 
     init(article: ReaderArticleDTO) {
         self.publishedAtText = article.publishedAt.map(ArticleScreenDateFormatter.string(from:))
         self.title = article.title.nilIfBlank ?? "Untitled Article"
         self.author = article.author?.nilIfBlank
         self.feedTitle = article.feedTitle.nilIfBlank
+        self.canOpenSourceArticle = ArticleScreenURLResolver.resolveExternalURL(
+            canonicalURL: article.canonicalURL,
+            articleURL: article.articleURL
+        ) != nil
     }
 }
 

@@ -40,6 +40,7 @@ struct RootView: View {
                 previewScreenState: nil,
                 selection: articleSelection
             )
+            .id(appState.selectedSidebarSelection)
         } detail: {
             switch detailDestination {
             case .none:
@@ -63,23 +64,37 @@ struct RootView: View {
                     ),
                     navigateBackToArticles: { appState.selectedArticleID = nil }
                 )
-            case .webView(let route):
-                WebViewScreenView(
+                .id(appState.selectedSidebarSelection)
+            }
+        }
+        .fullScreenCover(isPresented: safariPresentationBinding) {
+            if let route = appState.presentedSafariRoute {
+                SafariBrowserView(
                     route: route,
-                    closeWebView: { appState.dismissPresentedWebView() }
+                    dismissSafari: { appState.dismissPresentedSafari() }
                 )
             }
         }
         .sheet(isPresented: settingsPresentationBinding) {
-            SettingsScreenView(
-                dismiss: { dependencies.dismissSettings(using: appState) }
-            )
+            AppThemePresentationScope(
+                interfaceThemeMode: appState.interfaceThemeMode,
+                systemColorScheme: systemColorScheme
+            ) {
+                SettingsScreenView(
+                    dismiss: { dependencies.dismissSettings(using: appState) }
+                )
+            }
         }
         .sheet(isPresented: sourceManagementPresentationBinding) {
-            SourceManagementScreenView(
-                dismiss: { dependencies.dismissSourceManagement(using: appState) },
-                launchContext: appState.sourceManagementLaunchContext
-            )
+            AppThemePresentationScope(
+                interfaceThemeMode: appState.interfaceThemeMode,
+                systemColorScheme: systemColorScheme
+            ) {
+                SourceManagementScreenView(
+                    dismiss: { dependencies.dismissSourceManagement(using: appState) },
+                    launchContext: appState.sourceManagementLaunchContext
+                )
+            }
         }
         .preferredColorScheme(themeApplicationPolicy.preferredColorScheme)
         .environment(\.appThemeVariant, themeApplicationPolicy.resolvedTheme)
@@ -119,10 +134,40 @@ struct RootView: View {
         )
     }
 
+    private var safariPresentationBinding: Binding<Bool> {
+        Binding(
+            get: { appState.presentedSafariRoute != nil },
+            set: { isPresented in
+                if isPresented == false {
+                    appState.dismissPresentedSafari()
+                }
+            }
+        )
+    }
+
     private func syncPreferredCompactColumn() {
         preferredCompactColumn = ReadingShellCompactNavigationState.preferredCompactColumn(
             sourceSelection: appState.selectedSidebarSelection,
             articleSelection: appState.selectedArticleID
         )
+    }
+}
+
+private struct AppThemePresentationScope<Content: View>: View {
+    let interfaceThemeMode: InterfaceThemeMode
+    let systemColorScheme: ColorScheme
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        let themeApplicationPolicy = AppThemeApplicationPolicy(
+            interfaceThemeMode: interfaceThemeMode,
+            systemColorScheme: systemColorScheme
+        )
+
+        content()
+            .preferredColorScheme(themeApplicationPolicy.preferredColorScheme)
+            .environment(\.colorScheme, themeApplicationPolicy.resolvedColorScheme)
+            .environment(\.appThemeVariant, themeApplicationPolicy.resolvedTheme)
+            .background(themeApplicationPolicy.resolvedTheme.primaryBackground.ignoresSafeArea())
     }
 }

@@ -26,6 +26,56 @@ struct ArticlesScreenPresentationTests {
     }
 
     @Test
+    func articleListRowContentUsesArticleTitleAsPrimaryTextAndSummaryAsPreview() {
+        let content = ArticleListRowContent(
+            article: makeArticleListItemDTO(
+                title: "Создатели Flipper Zero анонсировали Flipper One",
+                summary: """
+                <p>Это уже другой уровень</p>
+                <p>Сообщение <a href="https://thecode.media/article">Создатели Flipper Zero</a> появились сначала.</p>
+                """
+            )
+        )
+
+        #expect(content.titleText == "Создатели Flipper Zero анонсировали Flipper One")
+        #expect(content.previewText == "Это уже другой уровень Сообщение Создатели Flipper Zero появились сначала.")
+    }
+
+    @Test
+    func articleListRowContentDecodesEscapedHTMLPreviewAndSuppressesDuplicateTitlePreview() {
+        let escapedHTMLContent = ArticleListRowContent(
+            article: makeArticleListItemDTO(
+                title: "Что такое аванс",
+                summary: "&lt;p&gt;Аванс &amp; зарплата&lt;/p&gt;"
+            )
+        )
+        let duplicateTitleContent = ArticleListRowContent(
+            article: makeArticleListItemDTO(
+                title: "Что такое аванс",
+                summary: "Что такое аванс"
+            )
+        )
+
+        #expect(escapedHTMLContent.titleText == "Что такое аванс")
+        #expect(escapedHTMLContent.previewText == "Аванс & зарплата")
+        #expect(duplicateTitleContent.titleText == "Что такое аванс")
+        #expect(duplicateTitleContent.previewText == nil)
+    }
+
+    @Test
+    func articleListRowContentFallsBackToUntitledArticleForBlankTitle() {
+        let content = ArticleListRowContent(
+            article: makeArticleListItemDTO(
+                title: "   ",
+                summary: nil
+            )
+        )
+
+        #expect(content.titleText == "Untitled Article")
+        #expect(content.previewText == nil)
+    }
+
+    @Test
     func articlesScreenNavigationTitleResolverBuildsTitlesFromSidebarSelection() {
         #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: nil) == "Articles")
         #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .inbox) == "All Items")
@@ -65,6 +115,122 @@ struct ArticlesScreenPresentationTests {
                 articles: articles,
                 sourcesFilter: .starred
             ) == "2 Starred Items"
+        )
+    }
+
+    @Test
+    func articlesScreenSubtitleResolverUsesEmptyUnreadCopyForZeroUnreadItems() {
+        let readItem = makeArticleListItemDTO(isRead: true, isStarred: false)
+
+        #expect(
+            ArticlesScreenSubtitleResolver.resolve(
+                articles: [],
+                sourcesFilter: .allItems
+            ) == "No Unread Items"
+        )
+        #expect(
+            ArticlesScreenSubtitleResolver.resolve(
+                articles: [readItem],
+                sourcesFilter: .unread
+            ) == "No Unread Items"
+        )
+        #expect(
+            ArticlesScreenSubtitleResolver.resolve(
+                articles: [],
+                sourcesFilter: .starred
+            ) == "0 Starred Items"
+        )
+    }
+
+    @Test
+    func customRefreshStateMapsPullProgressToIndicatorContract() {
+        let idleState = ArticlesScreenCustomRefreshState.pulling(progress: -0.1)
+        let pullingState = ArticlesScreenCustomRefreshState.pulling(progress: 0.4)
+        let readyState = ArticlesScreenCustomRefreshState.pulling(progress: 1.2)
+        let refreshingState = ArticlesScreenCustomRefreshState.refreshing
+
+        #expect(idleState == .idle)
+        #expect(idleState.showsIndicator == false)
+        #expect(idleState.indicatorState == .idle)
+
+        #expect(pullingState.phase == .pulling)
+        #expect(pullingState.pullProgress == 0.4)
+        #expect(pullingState.showsIndicator)
+        #expect(pullingState.indicatorState == .pulling(progress: 0.4))
+
+        #expect(readyState.phase == .ready)
+        #expect(readyState.pullProgress == 1)
+        #expect(readyState.indicatorState == .ready)
+
+        #expect(refreshingState.phase == .refreshing)
+        #expect(refreshingState.showsIndicator)
+        #expect(refreshingState.indicatorState == .refreshing)
+    }
+
+    @Test
+    func articleListCustomRefreshPullPolicyMapsTopOverscrollToProgress() {
+        let restingGeometry = ArticleListCustomRefreshGeometry(
+            contentOffsetY: -12,
+            contentInsetTop: 12
+        )
+        let partialPullGeometry = ArticleListCustomRefreshGeometry(
+            contentOffsetY: -48,
+            contentInsetTop: 12
+        )
+        let readyPullGeometry = ArticleListCustomRefreshGeometry(
+            contentOffsetY: -120,
+            contentInsetTop: 12
+        )
+
+        #expect(
+            ArticleListCustomRefreshPullPolicy.progress(
+                for: restingGeometry,
+                threshold: 72
+            ) == 0
+        )
+        #expect(
+            ArticleListCustomRefreshPullPolicy.progress(
+                for: partialPullGeometry,
+                threshold: 72
+            ) == 0.5
+        )
+        #expect(
+            ArticleListCustomRefreshPullPolicy.progress(
+                for: readyPullGeometry,
+                threshold: 72
+            ) == 1
+        )
+    }
+
+    @Test
+    func articleListCustomRefreshReleasePolicyTriggersOnlyWhenReadyPullIsReleased() {
+        #expect(
+            ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
+                wasInteracting: true,
+                isInteracting: false,
+                customRefreshState: .pulling(progress: 1)
+            )
+        )
+        #expect(
+            ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
+                wasInteracting: true,
+                isInteracting: false,
+                customRefreshState: .pulling(progress: 0.5)
+            ) == false
+        )
+        #expect(
+            ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
+                wasInteracting: false,
+                isInteracting: false,
+                customRefreshState: .pulling(progress: 1)
+            ) == false
+        )
+        #expect(
+            ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
+                wasInteracting: true,
+                isInteracting: true,
+                customRefreshState: .pulling(progress: 1)
+            ) == false
         )
     }
 

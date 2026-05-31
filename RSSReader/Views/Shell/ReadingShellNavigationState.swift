@@ -40,7 +40,6 @@ enum ReadingShellCompactNavigationState {
 enum ReadingShellDetailDestination: Equatable {
     case none
     case article(UUID?)
-    case webView(ArticleWebViewRoute)
 }
 
 enum ReadingShellDetailNavigationState {
@@ -53,8 +52,8 @@ enum ReadingShellDetailNavigationState {
             selectedArticleID.map(ReadingShellDetailDestination.article) ?? .none
         case .article(let articleID):
             .article(articleID)
-        case .webView(let route):
-            .webView(route)
+        case .safari(let route):
+            .article(route.articleID)
         }
     }
 }

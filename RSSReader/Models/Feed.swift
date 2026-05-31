@@ -9,6 +9,7 @@ final class Feed {
     var url: String = ""
     var siteURL: String?
     var title: String = ""
+    var displayTitleOverride: String?
     var subtitle: String?
     var iconURL: String?
     var language: String?
@@ -28,6 +29,7 @@ final class Feed {
         url: String,
         siteURL: String? = nil,
         title: String,
+        displayTitleOverride: String? = nil,
         subtitle: String? = nil,
         iconURL: String? = nil,
         language: String? = nil,
@@ -46,6 +48,7 @@ final class Feed {
         self.url = url
         self.siteURL = siteURL
         self.title = title
+        self.displayTitleOverride = displayTitleOverride
         self.subtitle = subtitle
         self.iconURL = iconURL
         self.language = language
@@ -59,5 +62,9 @@ final class Feed {
         self.lastSyncError = lastSyncError
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    var displayTitle: String {
+        displayTitleOverride ?? title
     }
 }

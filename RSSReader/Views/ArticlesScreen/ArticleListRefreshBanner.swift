@@ -16,8 +16,7 @@ struct ArticleListRefreshBanner: View {
     private func banner(state: ArticlesScreenRefreshBannerState) -> some View {
         HStack(alignment: .center, spacing: 12) {
             if state.showsActivityIndicator {
-                ProgressView()
-                    .controlSize(.small)
+                AppRefreshIndicator(state: .refreshing, size: 16, lineWidth: 2)
             } else {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)

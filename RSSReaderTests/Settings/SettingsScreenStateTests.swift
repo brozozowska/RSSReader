@@ -13,7 +13,8 @@ struct SettingsScreenStateTests {
             refreshIntervalPreference: .hourly,
             useiCloudSync: true,
             markAsReadOnOpen: false,
-            sortMode: .publishedAtAscending
+            unreadSortMode: .publishedAtAscending,
+            articleRetentionPolicy: .twoDays
         )
         var state = SettingsScreenState()
 
@@ -22,23 +23,80 @@ struct SettingsScreenStateTests {
 
         #expect(viewState.primaryLoadingState == nil)
         #expect(viewState.placeholder == nil)
-        #expect(viewState.sections.map(\.id) == [.reading, .articleList, .refresh, .sync, .advanced])
+        #expect(viewState.sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .notifications, .storage])
         #expect(state.settingsInput.defaultReaderMode == .browser)
-        #expect(state.settingsInput.articleListSortOrder == .oldestFirst)
+        #expect(state.settingsInput.unreadArticleSortOrder == .oldestFirst)
+        #expect(state.settingsInput.articleRetentionPolicy == .twoDays)
         #expect(state.settingsInput.iCloudSyncStatus == .disabled)
+        #expect(state.hasArticleImageCache == false)
+        #expect(state.hasSourceIconCache == false)
+        #expect(state.hasArchivedArticles == false)
     }
 
     @Test
-    func settingsScreenStatePresentsDefaultReaderModePickerFromLoadedSections() {
-        var state = SettingsScreenState.previewLoaded(
-            snapshot: AppSettingsSnapshot(defaultReaderMode: .reader)
+    func settingsScreenStateDoesNotTreatLastSourcesRefreshDateAsDraftChange() {
+        let snapshot = AppSettingsSnapshot(
+            lastSourcesRefreshAt: Date(timeIntervalSinceReferenceDate: 100)
+        )
+        var state = SettingsScreenState()
+
+        state.applyLoadedSnapshot(snapshot)
+
+        #expect(state.derivedViewState().canApplyChanges == false)
+
+        var input = state.settingsInput
+        input.markAsReadOnOpen.toggle()
+        state.applyDraftInput(input)
+
+        #expect(state.derivedViewState().canApplyChanges)
+    }
+
+    @Test
+    func settingsScreenStateKeepsDefaultReaderModePickerInLoadedSections() throws {
+        let state = SettingsScreenState.previewLoaded(
+            snapshot: AppSettingsSnapshot(defaultReaderMode: .embedded)
         )
 
-        state.presentPicker(for: .defaultReaderMode)
+        let readingSection = try #require(
+            state.derivedViewState().sections.first(where: { $0.id == .reading })
+        )
+        let pickerItem = try #require(
+            readingSection.items.compactMap { item -> SettingsPickerItemPresentation? in
+                guard case .picker(let pickerItem) = item, pickerItem.id == .defaultReaderMode else {
+                    return nil
+                }
+                return pickerItem
+            }
+            .first
+        )
 
-        let presentedPicker = state.derivedViewState().presentedPicker
-        #expect(presentedPicker?.id == .defaultReaderMode)
-        #expect(presentedPicker?.selectedValueTitle == "Reader Mode")
-        #expect(presentedPicker?.options.count == ReaderMode.allCases.count)
+        #expect(pickerItem.selectedValueTitle == "Feed Reader")
+        #expect(pickerItem.options.count == ReaderMode.allCases.count)
+    }
+
+    @Test
+    func settingsScreenStateShowsArticleRetentionPickerWithUserFacingExplanation() throws {
+        let state = SettingsScreenState.previewLoaded(
+            snapshot: AppSettingsSnapshot(articleRetentionPolicy: .oneWeek)
+        )
+
+        let articleListSection = try #require(
+            state.derivedViewState().sections.first(where: { $0.id == .articleList })
+        )
+        let pickerItem = try #require(
+            articleListSection.items.compactMap { item -> SettingsPickerItemPresentation? in
+                guard case .picker(let pickerItem) = item, pickerItem.id == .articleRetentionPolicy else {
+                    return nil
+                }
+                return pickerItem
+            }
+            .first
+        )
+
+        #expect(pickerItem.title == "Keep Archived Articles")
+        #expect(pickerItem.selectedValueTitle == "1 Week")
+        #expect(pickerItem.options.map(\.title) == ["None", "2 Days", "1 Week", "2 Weeks", "1 Month"])
+        #expect(articleListSection.items.last?.id == .articleRetentionPolicy)
+        #expect(articleListSection.footer == "\"None\" removes an article from the list when it disappears from its feed. Other options keep the article for the selected time after it disappears.")
     }
 }
