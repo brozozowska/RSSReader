@@ -33,7 +33,7 @@ struct SettingsScreenControllerTests {
                 useiCloudSync: false,
                 markAsReadOnOpen: true,
                 askBeforeMarkingAllAsRead: false,
-                sortMode: .publishedAtDescending,
+                unreadSortMode: .publishedAtDescending,
                 articleBodyLinkOpeningPolicy: .externalBrowser,
                 articleSourceLinkOpeningPolicy: .externalBrowser,
                 readerAdjacentNavigationControlsMode: .swipesOnly,
@@ -290,22 +290,22 @@ struct SettingsScreenControllerTests {
     }
 
     @Test
-    func settingsScreenControllerPersistsUpdatedArticleSortModeThroughSettingsService() throws {
+    func settingsScreenControllerPersistsUpdatedUnreadArticleSortModeThroughSettingsService() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: harness.dependencies)
         controller.handlePickerOptionSelection(
-            itemID: .articleSortMode,
-            optionID: ArticleListSortOrder.oldestFirst.rawValue,
+            itemID: .unreadArticleSortMode,
+            optionID: UnreadArticleSortOrder.oldestFirst.rawValue,
             dependencies: harness.dependencies
         )
 
         #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
-        #expect(controller.screenState.settingsSnapshot.sortMode == .publishedAtAscending)
-        #expect(persistedSettings.sortMode == .publishedAtAscending)
+        #expect(controller.screenState.settingsSnapshot.unreadSortMode == .publishedAtAscending)
+        #expect(persistedSettings.unreadSortMode == .publishedAtAscending)
     }
 
     @Test

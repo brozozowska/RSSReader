@@ -9,7 +9,7 @@ struct AppSettingsUpdate: Sendable {
     var markAsReadOnOpen: Bool? = nil
     var askBeforeMarkingAllAsRead: Bool? = nil
     var showUnreadCountBadge: Bool? = nil
-    var sortMode: ArticleSortMode? = nil
+    var unreadSortMode: ArticleSortMode? = nil
     var articleRetentionPolicy: ArticleRetentionPolicy? = nil
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
@@ -86,8 +86,8 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
             settings.showUnreadCountBadge = showUnreadCountBadge
         }
 
-        if let sortMode = update.sortMode {
-            settings.sortMode = sortMode
+        if let unreadSortMode = update.unreadSortMode {
+            settings.unreadSortMode = unreadSortMode
         }
 
         if let articleRetentionPolicy = update.articleRetentionPolicy {

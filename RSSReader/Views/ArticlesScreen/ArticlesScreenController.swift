@@ -181,7 +181,7 @@ final class ArticlesScreenController {
         }
 
         do {
-            return try appSettingsService.fetchSettings().sortMode
+            return try appSettingsService.fetchSettings().unreadSortMode
         } catch {
             dependencies.logger.error("Failed to load app settings for unread article sort mode: \(error)")
             return .publishedAtDescending
@@ -198,7 +198,7 @@ final class ArticlesScreenController {
             for: selection,
             sourcesFilter: sourcesFilter
         )
-        let sortMode = sortMode(
+        let effectiveSortMode = effectiveSortMode(
             for: articleListFilter,
             unreadSortMode: unreadSortMode
         )
@@ -206,29 +206,29 @@ final class ArticlesScreenController {
         return switch selection {
         case .inbox:
             try articleQueryService.fetchInboxListItems(
-                sortMode: sortMode,
+                sortMode: effectiveSortMode,
                 filter: articleListFilter
             )
         case .unread:
             try articleQueryService.fetchInboxListItems(
-                sortMode: sortMode,
+                sortMode: effectiveSortMode,
                 filter: articleListFilter
             )
         case .starred:
             try articleQueryService.fetchInboxListItems(
-                sortMode: sortMode,
+                sortMode: effectiveSortMode,
                 filter: articleListFilter
             )
         case .folder(let folderName):
             try articleQueryService.fetchFolderListItems(
                 folderName: folderName,
-                sortMode: sortMode,
+                sortMode: effectiveSortMode,
                 filter: articleListFilter
             )
         case .feed(let selectedFeedID):
             try articleQueryService.fetchArticleListItems(
                 feedID: selectedFeedID,
-                sortMode: sortMode,
+                sortMode: effectiveSortMode,
                 filter: articleListFilter
             )
         case .none:
@@ -250,7 +250,7 @@ final class ArticlesScreenController {
         }
     }
 
-    private func sortMode(
+    private func effectiveSortMode(
         for filter: ArticleListFilter,
         unreadSortMode: ArticleSortMode
     ) -> ArticleSortMode {

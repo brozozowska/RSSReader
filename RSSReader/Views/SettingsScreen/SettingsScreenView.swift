@@ -223,7 +223,7 @@ struct SettingsScreenView: View {
                 .markAsReadOnOpen,
                 .showUnreadCountBadge,
                 .articleSourceLinkOpeningPolicy,
-                .articleSortMode,
+                .unreadArticleSortMode,
                 .articleRetentionPolicy,
                 .askBeforeMarkingAllAsRead,
                 .refreshInterval,

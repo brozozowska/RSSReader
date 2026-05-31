@@ -8,7 +8,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var markAsReadOnOpen: Bool
     var askBeforeMarkingAllAsRead: Bool
     var showUnreadCountBadge: Bool
-    var sortMode: ArticleSortMode
+    var unreadSortMode: ArticleSortMode
     var articleRetentionPolicy: ArticleRetentionPolicy
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
@@ -24,7 +24,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         markAsReadOnOpen: Bool = true,
         askBeforeMarkingAllAsRead: Bool = true,
         showUnreadCountBadge: Bool = false,
-        sortMode: ArticleSortMode = .publishedAtDescending,
+        unreadSortMode: ArticleSortMode = .publishedAtDescending,
         articleRetentionPolicy: ArticleRetentionPolicy = .oneWeek,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
@@ -39,7 +39,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         self.markAsReadOnOpen = markAsReadOnOpen
         self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         self.showUnreadCountBadge = showUnreadCountBadge
-        self.sortMode = sortMode
+        self.unreadSortMode = unreadSortMode
         self.articleRetentionPolicy = articleRetentionPolicy
         self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
@@ -57,7 +57,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
             markAsReadOnOpen: settings.markAsReadOnOpen,
             askBeforeMarkingAllAsRead: settings.askBeforeMarkingAllAsRead,
             showUnreadCountBadge: settings.showUnreadCountBadge,
-            sortMode: settings.sortMode,
+            unreadSortMode: settings.unreadSortMode,
             articleRetentionPolicy: settings.articleRetentionPolicy,
             articleBodyLinkOpeningPolicy: settings.articleBodyLinkOpeningPolicy,
             articleSourceLinkOpeningPolicy: settings.articleSourceLinkOpeningPolicy,
@@ -76,7 +76,7 @@ struct AppSettingsPatch: Sendable {
     var markAsReadOnOpen: Bool? = nil
     var askBeforeMarkingAllAsRead: Bool? = nil
     var showUnreadCountBadge: Bool? = nil
-    var sortMode: ArticleSortMode? = nil
+    var unreadSortMode: ArticleSortMode? = nil
     var articleRetentionPolicy: ArticleRetentionPolicy? = nil
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
@@ -126,7 +126,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 markAsReadOnOpen: snapshot.markAsReadOnOpen,
                 askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
                 showUnreadCountBadge: snapshot.showUnreadCountBadge,
-                sortMode: snapshot.sortMode,
+                unreadSortMode: snapshot.unreadSortMode,
                 articleRetentionPolicy: snapshot.articleRetentionPolicy,
                 articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
                 articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
@@ -150,7 +150,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 markAsReadOnOpen: patch.markAsReadOnOpen,
                 askBeforeMarkingAllAsRead: patch.askBeforeMarkingAllAsRead,
                 showUnreadCountBadge: patch.showUnreadCountBadge,
-                sortMode: patch.sortMode,
+                unreadSortMode: patch.unreadSortMode,
                 articleRetentionPolicy: patch.articleRetentionPolicy,
                 articleBodyLinkOpeningPolicy: patch.articleBodyLinkOpeningPolicy,
                 articleSourceLinkOpeningPolicy: patch.articleSourceLinkOpeningPolicy,

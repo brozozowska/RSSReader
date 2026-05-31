@@ -32,12 +32,12 @@ enum ArticleRetentionPolicy: String, Codable, CaseIterable, Sendable {
     case oneMonth
 }
 
-enum ArticleListSortOrder: String, CaseIterable, Sendable {
+enum UnreadArticleSortOrder: String, CaseIterable, Sendable {
     case newestFirst
     case oldestFirst
 
-    init(sortMode: ArticleSortMode) {
-        switch sortMode {
+    init(unreadSortMode: ArticleSortMode) {
+        switch unreadSortMode {
         case .publishedAtDescending:
             self = .newestFirst
         case .publishedAtAscending:
@@ -45,7 +45,7 @@ enum ArticleListSortOrder: String, CaseIterable, Sendable {
         }
     }
 
-    var sortMode: ArticleSortMode {
+    var unreadSortMode: ArticleSortMode {
         switch self {
         case .newestFirst:
             .publishedAtDescending

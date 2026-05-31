@@ -15,7 +15,7 @@ struct SettingsScreenPresentationTests {
             markAsReadOnOpen: false,
             askBeforeMarkingAllAsRead: false,
             showUnreadCountBadge: true,
-            sortMode: .publishedAtDescending,
+            unreadSortMode: .publishedAtDescending,
             articleRetentionPolicy: .twoWeeks,
             articleBodyLinkOpeningPolicy: .externalBrowser,
             articleSourceLinkOpeningPolicy: .externalBrowser,
@@ -128,7 +128,7 @@ struct SettingsScreenPresentationTests {
             articleListItems == [
                 .picker(
                     SettingsPickerItemPresentation(
-                        id: .articleSortMode,
+                        id: .unreadArticleSortMode,
                         title: "Sort Unread Articles",
                         subtitle: nil,
                         selectedValueTitle: "Newest First",
@@ -372,7 +372,7 @@ struct SettingsScreenPresentationTests {
             useiCloudSync: true,
             markAsReadOnOpen: false,
             askBeforeMarkingAllAsRead: false,
-            sortMode: .publishedAtAscending,
+            unreadSortMode: .publishedAtAscending,
             articleBodyLinkOpeningPolicy: .externalBrowser,
             articleSourceLinkOpeningPolicy: .externalBrowser,
             readerAdjacentNavigationControlsMode: .swipesOnly,
@@ -389,7 +389,7 @@ struct SettingsScreenPresentationTests {
         #expect(input.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(input.articleSourceLinkOpeningPolicy == .externalBrowser)
         #expect(input.readerAdjacentNavigationControlsMode == .swipesOnly)
-        #expect(input.articleListSortOrder == .oldestFirst)
+        #expect(input.unreadArticleSortOrder == .oldestFirst)
         #expect(input.askBeforeMarkingAllAsRead == false)
         #expect(input.refreshIntervalPreference == .every6Hours)
         #expect(input.useiCloudSync)

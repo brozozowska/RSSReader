@@ -165,7 +165,7 @@ private extension SettingsScreenState {
             markAsReadOnOpen: settingsInput.markAsReadOnOpen,
             askBeforeMarkingAllAsRead: settingsInput.askBeforeMarkingAllAsRead,
             showUnreadCountBadge: settingsInput.showUnreadCountBadge,
-            sortMode: settingsInput.articleListSortOrder.sortMode,
+            unreadSortMode: settingsInput.unreadArticleSortOrder.unreadSortMode,
             articleRetentionPolicy: settingsInput.articleRetentionPolicy,
             articleBodyLinkOpeningPolicy: settingsInput.articleBodyLinkOpeningPolicy,
             articleSourceLinkOpeningPolicy: settingsInput.articleSourceLinkOpeningPolicy,

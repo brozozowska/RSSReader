@@ -15,7 +15,7 @@ enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
     case defaultReaderMode
     case markAsReadOnOpen
     case articleSourceLinkOpeningPolicy
-    case articleSortMode
+    case unreadArticleSortMode
     case articleRetentionPolicy
     case askBeforeMarkingAllAsRead
     case refreshInterval
@@ -38,7 +38,7 @@ struct SettingsScreenInput: Equatable, Sendable {
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
     var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode
-    var articleListSortOrder: ArticleListSortOrder
+    var unreadArticleSortOrder: UnreadArticleSortOrder
     var articleRetentionPolicy: ArticleRetentionPolicy
     var askBeforeMarkingAllAsRead: Bool
     var refreshIntervalPreference: RefreshPreference
@@ -55,7 +55,7 @@ struct SettingsScreenInput: Equatable, Sendable {
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
         readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls,
-        articleListSortOrder: ArticleListSortOrder = .oldestFirst,
+        unreadArticleSortOrder: UnreadArticleSortOrder = .newestFirst,
         articleRetentionPolicy: ArticleRetentionPolicy = .oneWeek,
         askBeforeMarkingAllAsRead: Bool = true,
         refreshIntervalPreference: RefreshPreference = .manual,
@@ -71,7 +71,7 @@ struct SettingsScreenInput: Equatable, Sendable {
         self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
         self.readerAdjacentNavigationControlsMode = readerAdjacentNavigationControlsMode
-        self.articleListSortOrder = articleListSortOrder
+        self.unreadArticleSortOrder = unreadArticleSortOrder
         self.articleRetentionPolicy = articleRetentionPolicy
         self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         self.refreshIntervalPreference = refreshIntervalPreference
@@ -277,7 +277,7 @@ enum SettingsScreenInputBuilder {
             articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
             articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
             readerAdjacentNavigationControlsMode: snapshot.readerAdjacentNavigationControlsMode,
-            articleListSortOrder: ArticleListSortOrder(sortMode: snapshot.sortMode),
+            unreadArticleSortOrder: UnreadArticleSortOrder(unreadSortMode: snapshot.unreadSortMode),
             articleRetentionPolicy: snapshot.articleRetentionPolicy,
             askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
             refreshIntervalPreference: snapshot.refreshIntervalPreference,
@@ -423,15 +423,15 @@ enum SettingsScreenPresentationBuilder {
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
-                        id: .articleSortMode,
+                        id: .unreadArticleSortMode,
                         title: "Sort Unread Articles",
                         subtitle: nil,
-                        selectedValueTitle: articleListSortOrderTitle(input.articleListSortOrder),
-                        options: ArticleListSortOrder.allCases.map { order in
+                        selectedValueTitle: unreadArticleSortOrderTitle(input.unreadArticleSortOrder),
+                        options: UnreadArticleSortOrder.allCases.map { order in
                             SettingsPickerOptionPresentation(
                                 id: order.rawValue,
-                                title: articleListSortOrderTitle(order),
-                                isSelected: input.articleListSortOrder == order
+                                title: unreadArticleSortOrderTitle(order),
+                                isSelected: input.unreadArticleSortOrder == order
                             )
                         }
                     )
@@ -585,7 +585,7 @@ enum SettingsScreenPresentationBuilder {
         }
     }
 
-    private static func articleListSortOrderTitle(_ order: ArticleListSortOrder) -> String {
+    private static func unreadArticleSortOrderTitle(_ order: UnreadArticleSortOrder) -> String {
         switch order {
         case .newestFirst:
             "Newest First"

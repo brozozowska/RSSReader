@@ -13,7 +13,7 @@ struct SettingsScreenStateTests {
             refreshIntervalPreference: .hourly,
             useiCloudSync: true,
             markAsReadOnOpen: false,
-            sortMode: .publishedAtAscending,
+            unreadSortMode: .publishedAtAscending,
             articleRetentionPolicy: .twoDays
         )
         var state = SettingsScreenState()
@@ -25,7 +25,7 @@ struct SettingsScreenStateTests {
         #expect(viewState.placeholder == nil)
         #expect(viewState.sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .notifications, .storage])
         #expect(state.settingsInput.defaultReaderMode == .browser)
-        #expect(state.settingsInput.articleListSortOrder == .oldestFirst)
+        #expect(state.settingsInput.unreadArticleSortOrder == .oldestFirst)
         #expect(state.settingsInput.articleRetentionPolicy == .twoDays)
         #expect(state.settingsInput.iCloudSyncStatus == .disabled)
         #expect(state.hasArticleImageCache == false)

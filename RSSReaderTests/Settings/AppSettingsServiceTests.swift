@@ -20,7 +20,7 @@ struct AppSettingsServiceTests {
                 markAsReadOnOpen: false,
                 askBeforeMarkingAllAsRead: false,
                 showUnreadCountBadge: true,
-                sortMode: .publishedAtAscending,
+                unreadSortMode: .publishedAtAscending,
                 articleRetentionPolicy: .oneWeek,
                 articleBodyLinkOpeningPolicy: .externalBrowser,
                 articleSourceLinkOpeningPolicy: .externalBrowser,
@@ -41,7 +41,7 @@ struct AppSettingsServiceTests {
                 markAsReadOnOpen: false,
                 askBeforeMarkingAllAsRead: false,
                 showUnreadCountBadge: true,
-                sortMode: .publishedAtAscending,
+                unreadSortMode: .publishedAtAscending,
                 articleRetentionPolicy: .oneWeek,
                 articleBodyLinkOpeningPolicy: .externalBrowser,
                 articleSourceLinkOpeningPolicy: .externalBrowser,
@@ -64,7 +64,7 @@ struct AppSettingsServiceTests {
             markAsReadOnOpen: false,
             askBeforeMarkingAllAsRead: false,
             showUnreadCountBadge: true,
-            sortMode: .publishedAtDescending,
+            unreadSortMode: .publishedAtDescending,
             articleRetentionPolicy: .twoWeeks,
             articleBodyLinkOpeningPolicy: .externalBrowser,
             articleSourceLinkOpeningPolicy: .externalBrowser,
@@ -86,7 +86,7 @@ struct AppSettingsServiceTests {
         #expect(persistedSettings.markAsReadOnOpen == false)
         #expect(persistedSettings.askBeforeMarkingAllAsRead == false)
         #expect(persistedSettings.showUnreadCountBadge)
-        #expect(persistedSettings.sortMode == .publishedAtDescending)
+        #expect(persistedSettings.unreadSortMode == .publishedAtDescending)
         #expect(persistedSettings.articleRetentionPolicy == .twoWeeks)
         #expect(persistedSettings.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(persistedSettings.articleSourceLinkOpeningPolicy == .externalBrowser)

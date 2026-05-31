@@ -100,8 +100,8 @@ final class SettingsScreenController {
             updateDefaultReaderMode(optionID: optionID, dependencies: dependencies)
         case .articleSourceLinkOpeningPolicy:
             updateArticleSourceLinkOpeningPolicy(optionID: optionID, dependencies: dependencies)
-        case .articleSortMode:
-            updateArticleSortMode(optionID: optionID, dependencies: dependencies)
+        case .unreadArticleSortMode:
+            updateUnreadArticleSortMode(optionID: optionID, dependencies: dependencies)
         case .articleRetentionPolicy:
             updateArticleRetentionPolicy(optionID: optionID, dependencies: dependencies)
         case .articleBodyLinkOpeningPolicy:
@@ -144,7 +144,7 @@ final class SettingsScreenController {
             updateShowUnreadCountBadge(isOn: isOn, dependencies: dependencies)
         case .defaultReaderMode,
                 .articleSourceLinkOpeningPolicy,
-                .articleSortMode,
+                .unreadArticleSortMode,
                 .articleRetentionPolicy,
                 .articleBodyLinkOpeningPolicy,
                 .readerAdjacentNavigationControlsMode,
@@ -173,7 +173,7 @@ final class SettingsScreenController {
         case .defaultReaderMode,
                 .markAsReadOnOpen,
                 .articleSourceLinkOpeningPolicy,
-                .articleSortMode,
+                .unreadArticleSortMode,
                 .articleRetentionPolicy,
                 .askBeforeMarkingAllAsRead,
                 .showUnreadCountBadge,
@@ -340,21 +340,21 @@ private extension SettingsScreenController {
         screenState.applyDraftInput(input)
     }
 
-    func updateArticleSortMode(
+    func updateUnreadArticleSortMode(
         optionID: String,
         dependencies: AppDependencies
     ) {
-        guard let selectedOrder = ArticleListSortOrder(rawValue: optionID) else {
-            dependencies.logger.error("Skipped article sort mode update because option is invalid: \(optionID)")
+        guard let selectedOrder = UnreadArticleSortOrder(rawValue: optionID) else {
+            dependencies.logger.error("Skipped unread article sort mode update because option is invalid: \(optionID)")
             return
         }
 
-        guard screenState.settingsInput.articleListSortOrder != selectedOrder else {
+        guard screenState.settingsInput.unreadArticleSortOrder != selectedOrder else {
             return
         }
 
         var input = screenState.settingsInput
-        input.articleListSortOrder = selectedOrder
+        input.unreadArticleSortOrder = selectedOrder
         screenState.applyDraftInput(input)
     }
 
