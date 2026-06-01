@@ -8,7 +8,7 @@ struct SettingsScreenPresentationTests {
     @Test
     func settingsScreenPresentationBuilderBuildsSectionedContractFromSettingsSnapshot() {
         let snapshot = AppSettingsSnapshot(
-            defaultReaderMode: .browser,
+            articleOpeningMode: .safariView,
             selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
             refreshIntervalPreference: .daily,
             useiCloudSync: true,
@@ -60,13 +60,13 @@ struct SettingsScreenPresentationTests {
         #expect(
             readingItems[0] == .picker(
                 SettingsPickerItemPresentation(
-                    id: .defaultReaderMode,
+                    id: .articleOpeningMode,
                     title: "Open Articles",
                     subtitle: nil,
-                    selectedValueTitle: "In-App Browser",
+                    selectedValueTitle: "Safari View",
                     options: [
-                        SettingsPickerOptionPresentation(id: "embedded", title: "Feed Reader", isSelected: false),
-                        SettingsPickerOptionPresentation(id: "browser", title: "In-App Browser", isSelected: true)
+                        SettingsPickerOptionPresentation(id: "feedReader", title: "Feed Reader", isSelected: false),
+                        SettingsPickerOptionPresentation(id: "safariView", title: "Safari View", isSelected: true)
                     ]
                 )
             )
@@ -366,7 +366,7 @@ struct SettingsScreenPresentationTests {
     @Test
     func settingsScreenInputBuilderNormalizesSnapshotIntoScreenSpecificInput() {
         let snapshot = AppSettingsSnapshot(
-            defaultReaderMode: .embedded,
+            articleOpeningMode: .feedReader,
             selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
             refreshIntervalPreference: .every6Hours,
             useiCloudSync: true,
@@ -384,7 +384,7 @@ struct SettingsScreenPresentationTests {
             iCloudSyncStatus: .syncing
         )
 
-        #expect(input.defaultReaderMode == .embedded)
+        #expect(input.articleOpeningMode == .feedReader)
         #expect(input.markAsReadOnOpen == false)
         #expect(input.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(input.articleSourceLinkOpeningPolicy == .externalBrowser)

@@ -12,7 +12,7 @@ enum SettingsScreenSectionID: String, Hashable, Identifiable, Sendable {
 }
 
 enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
-    case defaultReaderMode
+    case articleOpeningMode
     case markAsReadOnOpen
     case articleSourceLinkOpeningPolicy
     case unreadArticleSortMode
@@ -33,7 +33,7 @@ enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
 }
 
 struct SettingsScreenInput: Equatable, Sendable {
-    var defaultReaderMode: ReaderMode
+    var articleOpeningMode: ArticleOpeningMode
     var markAsReadOnOpen: Bool
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
@@ -50,7 +50,7 @@ struct SettingsScreenInput: Equatable, Sendable {
     var interfaceThemeMode: InterfaceThemeMode
 
     init(
-        defaultReaderMode: ReaderMode = .embedded,
+        articleOpeningMode: ArticleOpeningMode = .feedReader,
         markAsReadOnOpen: Bool = true,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
@@ -66,7 +66,7 @@ struct SettingsScreenInput: Equatable, Sendable {
         isUsingLocalOnlySyncFallbackForCurrentLaunch: Bool = false,
         interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
     ) {
-        self.defaultReaderMode = defaultReaderMode
+        self.articleOpeningMode = articleOpeningMode
         self.markAsReadOnOpen = markAsReadOnOpen
         self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
@@ -272,7 +272,7 @@ enum SettingsScreenInputBuilder {
             ?? SettingsSyncStatusPresentation(iCloudSyncStatus: iCloudSyncStatus)
 
         return SettingsScreenInput(
-            defaultReaderMode: snapshot.defaultReaderMode,
+            articleOpeningMode: snapshot.articleOpeningMode,
             markAsReadOnOpen: snapshot.markAsReadOnOpen,
             articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
             articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
@@ -341,19 +341,19 @@ enum SettingsScreenPresentationBuilder {
         SettingsScreenSectionPresentation(
             id: .reading,
             title: "Reading",
-            footer: "Choose whether articles from the list open in the feed reader or the in-app browser. Open Original Article controls the source web page; Open Article Links controls links inside article text.",
+            footer: "Choose whether articles from the list open in the feed reader or SFSafariViewController. Open Original Article controls the source web page; Open Article Links controls links inside article text.",
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
-                        id: .defaultReaderMode,
+                        id: .articleOpeningMode,
                         title: "Open Articles",
                         subtitle: nil,
-                        selectedValueTitle: readerModeTitle(input.defaultReaderMode),
-                        options: ReaderMode.allCases.map { mode in
+                        selectedValueTitle: articleOpeningModeTitle(input.articleOpeningMode),
+                        options: ArticleOpeningMode.allCases.map { mode in
                             SettingsPickerOptionPresentation(
                                 id: mode.rawValue,
-                                title: readerModeTitle(mode),
-                                isSelected: input.defaultReaderMode == mode
+                                title: articleOpeningModeTitle(mode),
+                                isSelected: input.articleOpeningMode == mode
                             )
                         }
                     )
@@ -576,12 +576,12 @@ enum SettingsScreenPresentationBuilder {
         )
     }
 
-    private static func readerModeTitle(_ mode: ReaderMode) -> String {
+    private static func articleOpeningModeTitle(_ mode: ArticleOpeningMode) -> String {
         switch mode {
-        case .embedded:
+        case .feedReader:
             "Feed Reader"
-        case .browser:
-            "In-App Browser"
+        case .safariView:
+            "Safari View"
         }
     }
 

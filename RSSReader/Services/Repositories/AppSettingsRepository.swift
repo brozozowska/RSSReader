@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 struct AppSettingsUpdate: Sendable {
-    var defaultReaderMode: ReaderMode? = nil
+    var articleOpeningMode: ArticleOpeningMode? = nil
     var selectedSourcesFilterRawValue: String? = nil
     var refreshIntervalPreference: RefreshPreference? = nil
     var useiCloudSync: Bool? = nil
@@ -58,8 +58,8 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
     func update(_ update: AppSettingsUpdate) throws -> AppSettings {
         let settings = try fetchOrCreate()
 
-        if let defaultReaderMode = update.defaultReaderMode {
-            settings.defaultReaderMode = defaultReaderMode
+        if let articleOpeningMode = update.articleOpeningMode {
+            settings.articleOpeningMode = articleOpeningMode
         }
 
         if let selectedSourcesFilterRawValue = update.selectedSourcesFilterRawValue {

@@ -56,20 +56,20 @@ struct AppActionRouter {
             return
         }
 
-        guard shouldPresentSelectedArticleInSafariByDefault() else {
+        guard shouldOpenSelectedArticleInSafariView() else {
             appState.selectedArticleID = articleID
             return
         }
 
         guard let articleQueryService else {
-            logger.error("Article query service is unavailable for default reader mode policy")
+            logger.error("Article query service is unavailable for article opening mode policy")
             appState.selectedArticleID = articleID
             return
         }
 
         do {
             guard let article = try articleQueryService.fetchReaderArticle(id: articleID) else {
-                logger.error("Skipped default Safari presentation because article \(articleID) was not found")
+                logger.error("Skipped Safari View presentation because article \(articleID) was not found")
                 appState.selectedArticleID = articleID
                 return
             }
@@ -79,7 +79,7 @@ struct AppActionRouter {
                 return
             }
         } catch {
-            logger.error("Failed to apply default reader mode policy for article \(articleID): \(error)")
+            logger.error("Failed to apply article opening mode policy for article \(articleID): \(error)")
             appState.selectedArticleID = articleID
         }
     }
@@ -758,15 +758,15 @@ struct AppActionRouter {
 
 private extension AppActionRouter {
     @MainActor
-    func shouldPresentSelectedArticleInSafariByDefault() -> Bool {
+    func shouldOpenSelectedArticleInSafariView() -> Bool {
         guard let appSettingsService else {
             return false
         }
 
         do {
-            return try appSettingsService.fetchSettings().defaultReaderMode == .browser
+            return try appSettingsService.fetchSettings().articleOpeningMode == .safariView
         } catch {
-            logger.error("Failed to load app settings for default reader mode policy: \(error)")
+            logger.error("Failed to load app settings for article opening mode policy: \(error)")
             return false
         }
     }

@@ -77,20 +77,20 @@ struct ShellActionEntryPointTests {
     }
 
     @Test
-    func shellActionEntryPointsSelectArticleOpensSafariWhenDefaultReaderModeIsBrowser() throws {
+    func shellActionEntryPointsSelectArticleOpensSafariWhenArticleOpeningModeIsSafariView() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
-        let feeds = try harness.insertFeeds(urls: ["https://example.com/default-reader-mode.xml"])
+        let feeds = try harness.insertFeeds(urls: ["https://example.com/article-opening-mode.xml"])
         let feed = try #require(feeds.first)
         let articleModel = try harness.insertArticle(
             feed: feed,
-            externalID: "default-browser-article",
-            url: "https://example.com/articles/browser-mode",
-            title: "Default Browser Mode Article"
+            externalID: "safari-view-article",
+            url: "https://example.com/articles/safari-view-mode",
+            title: "Safari View Article"
         )
-        articleModel.canonicalURL = "https://example.com/articles/browser-mode/canonical"
+        articleModel.canonicalURL = "https://example.com/articles/safari-view-mode/canonical"
         try harness.dependencies.appSettingsRepository?.update(
-            AppSettingsUpdate(defaultReaderMode: .browser)
+            AppSettingsUpdate(articleOpeningMode: .safariView)
         )
         try harness.saveModelContext()
 
@@ -101,14 +101,14 @@ struct ShellActionEntryPointTests {
             appState.selectedDetailRoute == .safari(
                 ArticleSafariRoute(
                     articleID: articleModel.id,
-                    url: URL(string: "https://example.com/articles/browser-mode/canonical")!
+                    url: URL(string: "https://example.com/articles/safari-view-mode/canonical")!
                 )
             )
         )
         #expect(
             appState.presentedSafariRoute == ArticleSafariRoute(
                 articleID: articleModel.id,
-                url: URL(string: "https://example.com/articles/browser-mode/canonical")!
+                url: URL(string: "https://example.com/articles/safari-view-mode/canonical")!
             )
         )
     }
@@ -117,17 +117,17 @@ struct ShellActionEntryPointTests {
     func shellActionEntryPointsSelectArticleFallsBackToReaderWhenDefaultSafariURLIsUnsupported() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
-        let feeds = try harness.insertFeeds(urls: ["https://example.com/default-reader-unsupported-safari.xml"])
+        let feeds = try harness.insertFeeds(urls: ["https://example.com/article-opening-unsupported-safari.xml"])
         let feed = try #require(feeds.first)
         let articleModel = try harness.insertArticle(
             feed: feed,
-            externalID: "default-unsupported-safari-article",
-            url: "https://example.com/articles/default-unsupported-safari",
-            title: "Default Unsupported Safari Article"
+            externalID: "article-opening-unsupported-safari-article",
+            url: "https://example.com/articles/article-opening-unsupported-safari",
+            title: "Unsupported Safari View Article"
         )
         articleModel.canonicalURL = "mailto:hello@example.com"
         try harness.dependencies.appSettingsRepository?.update(
-            AppSettingsUpdate(defaultReaderMode: .browser)
+            AppSettingsUpdate(articleOpeningMode: .safariView)
         )
         try harness.saveModelContext()
 

@@ -96,8 +96,8 @@ final class SettingsScreenController {
         appState: AppState? = nil
     ) {
         switch itemID {
-        case .defaultReaderMode:
-            updateDefaultReaderMode(optionID: optionID, dependencies: dependencies)
+        case .articleOpeningMode:
+            updateArticleOpeningMode(optionID: optionID, dependencies: dependencies)
         case .articleSourceLinkOpeningPolicy:
             updateArticleSourceLinkOpeningPolicy(optionID: optionID, dependencies: dependencies)
         case .unreadArticleSortMode:
@@ -142,7 +142,7 @@ final class SettingsScreenController {
             updateUseICloudSync(isOn: isOn, dependencies: dependencies)
         case .showUnreadCountBadge:
             updateShowUnreadCountBadge(isOn: isOn, dependencies: dependencies)
-        case .defaultReaderMode,
+        case .articleOpeningMode,
                 .articleSourceLinkOpeningPolicy,
                 .unreadArticleSortMode,
                 .articleRetentionPolicy,
@@ -170,7 +170,7 @@ final class SettingsScreenController {
             await clearArticleImageCache(dependencies: dependencies)
         case .clearSourceIconCache:
             await clearSourceIconCache(dependencies: dependencies, appState: appState)
-        case .defaultReaderMode,
+        case .articleOpeningMode,
                 .markAsReadOnOpen,
                 .articleSourceLinkOpeningPolicy,
                 .unreadArticleSortMode,
@@ -270,21 +270,21 @@ private extension SettingsScreenController {
         }
     }
 
-    func updateDefaultReaderMode(
+    func updateArticleOpeningMode(
         optionID: String,
         dependencies: AppDependencies
     ) {
-        guard let selectedMode = ReaderMode(rawValue: optionID) else {
-            dependencies.logger.error("Skipped default reader mode update because option is invalid: \(optionID)")
+        guard let selectedMode = ArticleOpeningMode(rawValue: optionID) else {
+            dependencies.logger.error("Skipped article opening mode update because option is invalid: \(optionID)")
             return
         }
 
-        guard screenState.settingsInput.defaultReaderMode != selectedMode else {
+        guard screenState.settingsInput.articleOpeningMode != selectedMode else {
             return
         }
 
         var input = screenState.settingsInput
-        input.defaultReaderMode = selectedMode
+        input.articleOpeningMode = selectedMode
         screenState.applyDraftInput(input)
     }
 

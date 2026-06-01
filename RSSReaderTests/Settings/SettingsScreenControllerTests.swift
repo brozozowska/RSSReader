@@ -27,7 +27,7 @@ struct SettingsScreenControllerTests {
         let service = try #require(harness.dependencies.appSettingsService)
         _ = try service.saveSettings(
             AppSettingsSnapshot(
-                defaultReaderMode: .embedded,
+                articleOpeningMode: .feedReader,
                 selectedSourcesFilterRawValue: SourcesFilter.unread.rawValue,
                 refreshIntervalPreference: .every15Minutes,
                 useiCloudSync: false,
@@ -50,7 +50,7 @@ struct SettingsScreenControllerTests {
         #expect(viewState.primaryLoadingState == nil)
         #expect(viewState.placeholder == nil)
         #expect(viewState.sections.isEmpty == false)
-        #expect(controller.screenState.settingsSnapshot.defaultReaderMode == .embedded)
+        #expect(controller.screenState.settingsSnapshot.articleOpeningMode == .feedReader)
         #expect(controller.screenState.settingsSnapshot.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
         #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead == false)
         #expect(controller.screenState.settingsSnapshot.articleBodyLinkOpeningPolicy == .externalBrowser)
@@ -268,25 +268,25 @@ struct SettingsScreenControllerTests {
     }
 
     @Test
-    func settingsScreenControllerPersistsUpdatedDefaultReaderModeThroughSettingsService() throws {
+    func settingsScreenControllerPersistsUpdatedArticleOpeningModeThroughSettingsService() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
         let controller = SettingsScreenController()
 
         controller.loadSettings(dependencies: harness.dependencies)
         controller.handlePickerOptionSelection(
-            itemID: .defaultReaderMode,
-            optionID: ReaderMode.browser.rawValue,
+            itemID: .articleOpeningMode,
+            optionID: ArticleOpeningMode.safariView.rawValue,
             dependencies: harness.dependencies
         )
 
         let settingsBeforeApply = try repository.fetchOrCreate()
         #expect(controller.viewState().canApplyChanges)
-        #expect(settingsBeforeApply.defaultReaderMode == .embedded)
+        #expect(settingsBeforeApply.articleOpeningMode == .feedReader)
         #expect(controller.applySettingsChanges(dependencies: harness.dependencies))
         let persistedSettings = try repository.fetchOrCreate()
-        #expect(controller.screenState.settingsSnapshot.defaultReaderMode == .browser)
-        #expect(persistedSettings.defaultReaderMode == .browser)
+        #expect(controller.screenState.settingsSnapshot.articleOpeningMode == .safariView)
+        #expect(persistedSettings.articleOpeningMode == .safariView)
     }
 
     @Test

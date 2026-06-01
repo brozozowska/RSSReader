@@ -1,7 +1,7 @@
 import Foundation
 
 struct AppSettingsSnapshot: Equatable, Sendable {
-    var defaultReaderMode: ReaderMode
+    var articleOpeningMode: ArticleOpeningMode
     var selectedSourcesFilterRawValue: String?
     var refreshIntervalPreference: RefreshPreference
     var useiCloudSync: Bool
@@ -17,7 +17,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var lastSourcesRefreshAt: Date?
 
     init(
-        defaultReaderMode: ReaderMode = .embedded,
+        articleOpeningMode: ArticleOpeningMode = .feedReader,
         selectedSourcesFilterRawValue: String? = SourcesFilter.allItems.rawValue,
         refreshIntervalPreference: RefreshPreference = .manual,
         useiCloudSync: Bool = false,
@@ -32,7 +32,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         interfaceThemeMode: InterfaceThemeMode = .automaticLightDark,
         lastSourcesRefreshAt: Date? = nil
     ) {
-        self.defaultReaderMode = defaultReaderMode
+        self.articleOpeningMode = articleOpeningMode
         self.selectedSourcesFilterRawValue = selectedSourcesFilterRawValue
         self.refreshIntervalPreference = refreshIntervalPreference
         self.useiCloudSync = useiCloudSync
@@ -50,7 +50,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
 
     init(settings: AppSettings) {
         self.init(
-            defaultReaderMode: settings.defaultReaderMode,
+            articleOpeningMode: settings.articleOpeningMode,
             selectedSourcesFilterRawValue: settings.selectedSourcesFilterRawValue,
             refreshIntervalPreference: settings.refreshIntervalPreference,
             useiCloudSync: settings.useiCloudSync,
@@ -69,7 +69,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
 }
 
 struct AppSettingsPatch: Sendable {
-    var defaultReaderMode: ReaderMode? = nil
+    var articleOpeningMode: ArticleOpeningMode? = nil
     var selectedSourcesFilterRawValue: String? = nil
     var refreshIntervalPreference: RefreshPreference? = nil
     var useiCloudSync: Bool? = nil
@@ -119,7 +119,7 @@ final class DefaultAppSettingsService: AppSettingsService {
     ) throws -> AppSettingsSnapshot {
         let settings = try repository.update(
             AppSettingsUpdate(
-                defaultReaderMode: snapshot.defaultReaderMode,
+                articleOpeningMode: snapshot.articleOpeningMode,
                 selectedSourcesFilterRawValue: snapshot.selectedSourcesFilterRawValue,
                 refreshIntervalPreference: snapshot.refreshIntervalPreference,
                 useiCloudSync: snapshot.useiCloudSync,
@@ -143,7 +143,7 @@ final class DefaultAppSettingsService: AppSettingsService {
     func updateSettings(_ patch: AppSettingsPatch) throws -> AppSettingsSnapshot {
         let settings = try repository.update(
             AppSettingsUpdate(
-                defaultReaderMode: patch.defaultReaderMode,
+                articleOpeningMode: patch.articleOpeningMode,
                 selectedSourcesFilterRawValue: patch.selectedSourcesFilterRawValue,
                 refreshIntervalPreference: patch.refreshIntervalPreference,
                 useiCloudSync: patch.useiCloudSync,

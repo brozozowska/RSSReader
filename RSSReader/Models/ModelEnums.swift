@@ -6,9 +6,9 @@ enum FeedKind: String, Codable, CaseIterable, Sendable {
     case unknown
 }
 
-enum ReaderMode: String, Codable, CaseIterable, Sendable {
-    case embedded
-    case browser
+enum ArticleOpeningMode: String, Codable, CaseIterable, Sendable {
+    case feedReader
+    case safariView
 }
 
 enum RefreshPreference: String, Codable, CaseIterable, Sendable {

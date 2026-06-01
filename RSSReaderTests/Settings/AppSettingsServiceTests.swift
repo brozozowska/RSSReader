@@ -13,7 +13,7 @@ struct AppSettingsServiceTests {
 
         _ = try repository.update(
             AppSettingsUpdate(
-                defaultReaderMode: .browser,
+                articleOpeningMode: .safariView,
                 selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
                 refreshIntervalPreference: .hourly,
                 useiCloudSync: true,
@@ -34,7 +34,7 @@ struct AppSettingsServiceTests {
 
         #expect(
             snapshot == AppSettingsSnapshot(
-                defaultReaderMode: .browser,
+                articleOpeningMode: .safariView,
                 selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
                 refreshIntervalPreference: .hourly,
                 useiCloudSync: true,
@@ -57,7 +57,7 @@ struct AppSettingsServiceTests {
         let repository = try #require(harness.dependencies.appSettingsRepository)
         let service = try #require(harness.dependencies.appSettingsService)
         let editedSettings = AppSettingsSnapshot(
-            defaultReaderMode: .browser,
+            articleOpeningMode: .safariView,
             selectedSourcesFilterRawValue: SourcesFilter.unread.rawValue,
             refreshIntervalPreference: .every6Hours,
             useiCloudSync: true,
@@ -79,7 +79,7 @@ struct AppSettingsServiceTests {
         let persistedSettings = try repository.fetchOrCreate()
 
         #expect(savedSnapshot == editedSettings)
-        #expect(persistedSettings.defaultReaderMode == .browser)
+        #expect(persistedSettings.articleOpeningMode == .safariView)
         #expect(persistedSettings.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
         #expect(persistedSettings.refreshIntervalPreference == .every6Hours)
         #expect(persistedSettings.useiCloudSync)
