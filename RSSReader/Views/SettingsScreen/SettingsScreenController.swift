@@ -258,7 +258,7 @@ private extension SettingsScreenController {
         dependencies: AppDependencies,
         appState: AppState?
     ) {
-        guard let result = dependencies.purgeArchivedArticles() else {
+        guard let result = dependencies.appActions.purgeArchivedArticles() else {
             refreshArchivedArticlesAvailability(dependencies: dependencies)
             return
         }
@@ -518,7 +518,7 @@ private extension SettingsScreenController {
         }
 
         if previousSnapshot.articleRetentionPolicy != updatedSnapshot.articleRetentionPolicy {
-            let cleanupResult = dependencies.cleanupArchivedArticles(
+            let cleanupResult = dependencies.appActions.cleanupArchivedArticles(
                 policy: updatedSnapshot.articleRetentionPolicy,
                 now: .now
             )
@@ -529,7 +529,7 @@ private extension SettingsScreenController {
         }
 
         if previousSnapshot.showUnreadCountBadge != updatedSnapshot.showUnreadCountBadge {
-            dependencies.applyUnreadAppIconBadgePreference(isEnabled: updatedSnapshot.showUnreadCountBadge)
+            dependencies.appActions.applyUnreadAppIconBadgePreference(isEnabled: updatedSnapshot.showUnreadCountBadge)
         }
 
         guard previousSnapshot.refreshIntervalPreference != updatedSnapshot.refreshIntervalPreference else {

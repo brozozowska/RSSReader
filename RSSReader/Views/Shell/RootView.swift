@@ -22,7 +22,7 @@ struct RootView: View {
         )
         let articleSelection = Binding<UUID?>(
             get: { appState.selectedArticleID },
-            set: { dependencies.selectArticle(id: $0, using: appState) }
+            set: { dependencies.appActions.selectArticle(id: $0, using: appState) }
         )
 
         NavigationSplitView(preferredCompactColumn: $preferredCompactColumn) {
@@ -81,7 +81,7 @@ struct RootView: View {
                 systemColorScheme: systemColorScheme
             ) {
                 SettingsScreenView(
-                    dismiss: { dependencies.dismissSettings(using: appState) }
+                    dismiss: { dependencies.appActions.dismissSettings(using: appState) }
                 )
             }
         }
@@ -91,7 +91,7 @@ struct RootView: View {
                 systemColorScheme: systemColorScheme
             ) {
                 SourceManagementScreenView(
-                    dismiss: { dependencies.dismissSourceManagement(using: appState) },
+                    dismiss: { dependencies.appActions.dismissSourceManagement(using: appState) },
                     launchContext: appState.sourceManagementLaunchContext
                 )
             }

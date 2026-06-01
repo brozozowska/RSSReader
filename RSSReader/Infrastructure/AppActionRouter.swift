@@ -1,6 +1,29 @@
 import Foundation
 
 extension AppDependencies {
+    var appActions: AppActionRouter {
+        AppActionRouter(dependencies: self)
+    }
+}
+
+struct AppActionRouter {
+    let dependencies: AppDependencies
+
+    private var logger: Logging { dependencies.logger }
+    private var articleQueryService: (any ArticleQueryService)? { dependencies.articleQueryService }
+    private var folderRepository: (any FolderRepository)? { dependencies.folderRepository }
+    private var sourceManagementService: (any SourceManagementService)? { dependencies.sourceManagementService }
+    private var feedRefreshService: FeedRefreshService? { dependencies.feedRefreshService }
+    private var feedRepository: (any FeedRepository)? { dependencies.feedRepository }
+    private var appSettingsService: (any AppSettingsService)? { dependencies.appSettingsService }
+    private var articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)? { dependencies.articleRetentionCleanupService }
+    private var persistenceBoundedGrowthCleanupService: (any PersistenceBoundedGrowthCleanupServicing)? {
+        dependencies.persistenceBoundedGrowthCleanupService
+    }
+    private var backgroundRefreshService: (any BackgroundRefreshService)? { dependencies.backgroundRefreshService }
+    private var unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? { dependencies.unreadAppIconBadgeService }
+    private var feedSaveRefreshTaskStore: AppDependencyTaskStore? { dependencies.feedSaveRefreshTaskStore }
+
     @MainActor
     func showInbox(using appState: AppState) {
         appState.selectReadingSource(.inbox)
@@ -733,7 +756,7 @@ extension AppDependencies {
     }
 }
 
-private extension AppDependencies {
+private extension AppActionRouter {
     @MainActor
     func shouldPresentSelectedArticleInSafariByDefault() -> Bool {
         guard let appSettingsService else {

@@ -38,7 +38,7 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
         dependencies.backgroundRefreshValidationDiagnosticsReporter.reportExecutionStarted()
         let cancellationState = BackgroundRefreshCancellationMarkerState()
         let refreshTask = Task { @MainActor in
-            await dependencies.refreshFeedsForBackground()
+            await dependencies.appActions.refreshFeedsForBackground()
         }
 
         let outcome = await withTaskCancellationHandler {

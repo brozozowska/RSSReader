@@ -29,19 +29,19 @@ final class SourceManagementScreenController {
         case .entry:
             return
         case .editFeed(let feedID):
-            dependencies.loadSourceManagementAddFeedEditContext(
+            dependencies.appActions.loadSourceManagementAddFeedEditContext(
                 feedID: feedID,
                 into: &screenState
             )
             screenState.presentScenario(.addFeed)
         case .editFolder(let folderID):
-            dependencies.loadSourceManagementCreateFolderEditContext(
+            dependencies.appActions.loadSourceManagementCreateFolderEditContext(
                 folderID: folderID,
                 into: &screenState
             )
             screenState.presentScenario(.createFolder)
         case .organizeFeed(let feedID):
-            dependencies.loadSourceManagementMoveSourceContext(
+            dependencies.appActions.loadSourceManagementMoveSourceContext(
                 selectedFeedID: feedID,
                 into: &screenState
             )
@@ -57,19 +57,19 @@ final class SourceManagementScreenController {
         case .addFeed:
             screenState.resetAddFeedForEntry()
             if let dependencies {
-                dependencies.loadSourceManagementAddFeedContext(into: &screenState)
+                dependencies.appActions.loadSourceManagementAddFeedContext(into: &screenState)
             }
             screenState.presentScenario(.addFeed)
         case .createFolder:
             scenarioToRestoreAfterCreateFolder = nil
             screenState.resetCreateFolderForEntry()
             if let dependencies {
-                dependencies.loadSourceManagementCreateFolderContext(into: &screenState)
+                dependencies.appActions.loadSourceManagementCreateFolderContext(into: &screenState)
             }
             screenState.presentScenario(.createFolder)
         case .moveSource:
             if let dependencies {
-                dependencies.loadSourceManagementMoveSourceContext(into: &screenState)
+                dependencies.appActions.loadSourceManagementMoveSourceContext(into: &screenState)
             }
             screenState.presentScenario(scenarioID)
         }
@@ -107,7 +107,7 @@ final class SourceManagementScreenController {
 
     func startCreateFolderFromAddFeed(dependencies: AppDependencies) {
         scenarioToRestoreAfterCreateFolder = .addFeed
-        dependencies.loadSourceManagementCreateFolderContext(into: &screenState)
+        dependencies.appActions.loadSourceManagementCreateFolderContext(into: &screenState)
         screenState.presentScenario(.createFolder)
     }
 
@@ -255,7 +255,7 @@ private extension SourceManagementScreenController {
         do {
             let updatedFeed = try sourceManagementService.updateFeed(updateCommand)
             screenState.applyCreatedAddFeed(updatedFeed)
-            _ = await dependencies.completeSourceManagementFeedSave(
+            _ = await dependencies.appActions.completeSourceManagementFeedSave(
                 id: updatedFeed.id,
                 using: appState,
                 selectsSavedFeed: false
@@ -296,7 +296,7 @@ private extension SourceManagementScreenController {
         do {
             let createdFeed = try sourceManagementService.createFeed(createCommand)
             screenState.applyCreatedAddFeed(createdFeed)
-            _ = await dependencies.completeSourceManagementFeedSave(
+            _ = await dependencies.appActions.completeSourceManagementFeedSave(
                 id: createdFeed.id,
                 using: appState,
                 selectsSavedFeed: false
@@ -389,7 +389,7 @@ private extension SourceManagementScreenController {
             let previousFeed = screenState.selectedMoveSourceFeed()
             let movedFeed = try sourceManagementService.moveFeed(moveCommand)
             screenState.applyMovedSource(movedFeed)
-            dependencies.completeSourceManagementMove(
+            dependencies.appActions.completeSourceManagementMove(
                 feedID: movedFeed.id,
                 previousFolderName: previousFeed?.folderName,
                 updatedFolderName: movedFeed.folderName,
@@ -419,7 +419,7 @@ private extension SourceManagementScreenController {
         do {
             let folder = try sourceManagementService.updateFolder(updateCommand)
             screenState.applyCreatedFolder(folder)
-            dependencies.completeSourceManagementFolderEditing(
+            dependencies.appActions.completeSourceManagementFolderEditing(
                 previousName: previousFolderName,
                 updatedFolderName: folder.name,
                 using: appState
@@ -449,12 +449,12 @@ private extension SourceManagementScreenController {
                 )
             )
             screenState.applyCreatedFolder(folder)
-            dependencies.completeSourceManagementFolderCreation(
+            dependencies.appActions.completeSourceManagementFolderCreation(
                 named: folder.name,
                 using: appState
             )
             if scenarioToRestoreAfterCreateFolder == .addFeed {
-                dependencies.restoreAddFeedAfterCreatingFolder(
+                dependencies.appActions.restoreAddFeedAfterCreatingFolder(
                     folder,
                     into: &screenState
                 )

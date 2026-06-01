@@ -64,7 +64,7 @@ final class SidebarScreenController {
 
         let previousStatus = screenState.refreshStatus
         screenState.beginRefreshing()
-        let result = await dependencies.refreshVisibleSources(using: appState)
+        let result = await dependencies.appActions.refreshVisibleSources(using: appState)
         let refreshedAt = result.flatMap(Self.sourcesRefreshDisplayDate)
         let adjustedSelection = await loadFeeds(
             showsFullScreenLoading: false,

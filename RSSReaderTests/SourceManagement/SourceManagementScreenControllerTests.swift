@@ -142,7 +142,7 @@ struct SourceManagementScreenControllerTests {
         let articleReloadIDBeforeCreation = appState.articleListReloadID
         let sidebarReloadIDBeforeCreation = appState.sourcesSidebarReloadID
 
-        harness.dependencies.showSourceManagement(using: appState)
+        harness.dependencies.appActions.showSourceManagement(using: appState)
         controller.handleScenarioSelection(.addFeed, dependencies: harness.dependencies)
         controller.handleAddFeedURLChange(feedURL)
         await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
@@ -160,7 +160,7 @@ struct SourceManagementScreenControllerTests {
         #expect(persistedFeed.lastSuccessfulFetchAt == nil)
         #expect(articles.isEmpty)
 
-        await harness.dependencies.waitForScheduledFeedSaveRefreshes()
+        await harness.dependencies.appActions.waitForScheduledFeedSaveRefreshes()
 
         let refreshedFeed = try #require(try harness.feedRepository.fetchFeed(id: persistedFeed.id))
         let refreshedArticles = try harness.articleRepository.fetchArticles(feedID: persistedFeed.id)
@@ -221,8 +221,8 @@ struct SourceManagementScreenControllerTests {
         let appState = AppState()
         let controller = SourceManagementScreenController()
 
-        harness.dependencies.showFeed(id: feed.id, using: appState)
-        harness.dependencies.showFeedEditor(id: feed.id, using: appState)
+        harness.dependencies.appActions.showFeed(id: feed.id, using: appState)
+        harness.dependencies.appActions.showFeedEditor(id: feed.id, using: appState)
         controller.handleLaunchContext(.editFeed(feed.id), dependencies: harness.dependencies)
 
         guard case .addFeed(let initialDestination)? = controller.viewState().presentedDestination else {
@@ -250,7 +250,7 @@ struct SourceManagementScreenControllerTests {
         #expect(persistedFeed.lastSuccessfulFetchAt == nil)
         #expect(articles.isEmpty)
 
-        await harness.dependencies.waitForScheduledFeedSaveRefreshes()
+        await harness.dependencies.appActions.waitForScheduledFeedSaveRefreshes()
 
         let refreshedFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
         let refreshedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
@@ -270,8 +270,8 @@ struct SourceManagementScreenControllerTests {
         let controller = SourceManagementScreenController()
         let sidebarReloadIDBeforeEdit = appState.sourcesSidebarReloadID
 
-        harness.dependencies.showFolder(named: "News", using: appState)
-        harness.dependencies.showFolderEditor(named: "News", using: appState)
+        harness.dependencies.appActions.showFolder(named: "News", using: appState)
+        harness.dependencies.appActions.showFolderEditor(named: "News", using: appState)
         controller.handleLaunchContext(.editFolder(folder.id), dependencies: harness.dependencies)
 
         guard case .createFolder(let initialDestination)? = controller.viewState().presentedDestination else {
@@ -311,7 +311,7 @@ struct SourceManagementScreenControllerTests {
         let controller = SourceManagementScreenController()
         let sidebarReloadIDBeforeMove = appState.sourcesSidebarReloadID
 
-        harness.dependencies.showFeedOrganizer(id: feed.id, using: appState)
+        harness.dependencies.appActions.showFeedOrganizer(id: feed.id, using: appState)
         controller.handleLaunchContext(.organizeFeed(feed.id), dependencies: harness.dependencies)
 
         guard case .moveSource(let initialDestination)? = controller.viewState().presentedDestination else {
@@ -506,11 +506,11 @@ struct SourceManagementScreenControllerTests {
         let controller = SourceManagementScreenController()
         let appState = AppState()
 
-        harness.dependencies.showFolder(named: "News", using: appState)
+        harness.dependencies.appActions.showFolder(named: "News", using: appState)
         let articleReloadIDBeforeMove = appState.articleListReloadID
         let sidebarReloadIDBeforeMove = appState.sourcesSidebarReloadID
 
-        harness.dependencies.showSourceManagement(using: appState)
+        harness.dependencies.appActions.showSourceManagement(using: appState)
         controller.handleScenarioSelection(.moveSource, dependencies: harness.dependencies)
         controller.handleMoveSourcePlacementSelection(.folder(techFolder.id))
         controller.submitMoveSource(dependencies: harness.dependencies, appState: appState)
@@ -685,7 +685,7 @@ struct SourceManagementScreenControllerTests {
         let sidebarReloadIDBeforeCreation = appState.sourcesSidebarReloadID
         let articleReloadIDBeforeCreation = appState.articleListReloadID
 
-        harness.dependencies.showSourceManagement(using: appState)
+        harness.dependencies.appActions.showSourceManagement(using: appState)
         controller.handleScenarioSelection(.createFolder, dependencies: harness.dependencies)
         controller.handleCreateFolderNameChange("Research")
         controller.submitCreateFolder(

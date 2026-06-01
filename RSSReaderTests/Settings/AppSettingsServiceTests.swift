@@ -145,7 +145,7 @@ struct AppSettingsServiceTests {
             )
         )
 
-        let result = await harness.dependencies.refreshFeedsForBackground()
+        let result = await harness.dependencies.appActions.refreshFeedsForBackground()
 
         switch result {
         case .skippedManual(let configuration):
@@ -168,7 +168,7 @@ struct AppSettingsServiceTests {
             )
         )
 
-        let result = await harness.dependencies.refreshFeedsForBackground()
+        let result = await harness.dependencies.appActions.refreshFeedsForBackground()
 
         switch result {
         case .executed(let refreshResult):
@@ -209,7 +209,7 @@ struct AppSettingsServiceTests {
         let feed = Feed(url: feedURL, title: "Manual All Feed")
         try harness.feedRepository.insert(feed)
 
-        let result = try #require(await harness.dependencies.refreshAllFeeds())
+        let result = try #require(await harness.dependencies.appActions.refreshAllFeeds())
         let snapshot = try service.fetchSettings()
 
         #expect(result.summary.fetchedCount == 1)
@@ -258,7 +258,7 @@ struct AppSettingsServiceTests {
             )
         )
 
-        let result = await harness.dependencies.refreshFeedsForBackground()
+        let result = await harness.dependencies.appActions.refreshFeedsForBackground()
 
         let executedResult: BackgroundFeedRefreshResult
         switch result {

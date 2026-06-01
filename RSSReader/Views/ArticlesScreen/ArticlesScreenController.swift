@@ -130,7 +130,7 @@ final class ArticlesScreenController {
         requestsArticleListReload: Bool = true
     ) async -> FeedRefreshBatchResult? {
         screenState.dismissRefreshFeedback()
-        let result = await dependencies.refreshCurrentSelection(
+        let result = await dependencies.appActions.refreshCurrentSelection(
             using: appState,
             requestsArticleListReload: requestsArticleListReload
         )

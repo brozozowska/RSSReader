@@ -517,7 +517,7 @@ struct ArticlesScreenControllerTests {
             sourcesFilter: .allItems,
             dependencies: harness.dependencies
         )
-        harness.dependencies.showFeed(id: feed.id, using: appState)
+        harness.dependencies.appActions.showFeed(id: feed.id, using: appState)
 
         await controller.refreshCurrentSelection(
             selection: .feed(feed.id),
@@ -601,7 +601,7 @@ struct ArticlesScreenControllerTests {
             dependencies: harness.dependencies
         )
         controller.screenState.presentRefreshFailure("Previous refresh failed")
-        harness.dependencies.showFeed(id: feed.id, using: appState)
+        harness.dependencies.appActions.showFeed(id: feed.id, using: appState)
 
         await controller.refreshCurrentSelection(
             selection: .feed(feed.id),

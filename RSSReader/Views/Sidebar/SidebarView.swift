@@ -217,7 +217,7 @@ struct SidebarView: View {
             Divider()
 
             Button("Settings") {
-                dependencies.showSettings(using: appState)
+                dependencies.appActions.showSettings(using: appState)
             }
         } label: {
             Image(systemName: "gearshape")
@@ -227,7 +227,7 @@ struct SidebarView: View {
 
     private var addSourceButton: some View {
         Button {
-            dependencies.showSourceManagement(using: appState)
+            dependencies.appActions.showSourceManagement(using: appState)
         } label: {
             Image(systemName: "plus")
         }
@@ -248,7 +248,7 @@ struct SidebarView: View {
     @ViewBuilder
     private func sourcesFilterButton(_ title: String, filter: SourcesFilter) -> some View {
         Button {
-            dependencies.applySourcesFilter(filter, using: appState)
+            dependencies.appActions.applySourcesFilter(filter, using: appState)
         } label: {
             if appState.selectedSourcesFilter == filter {
                 Label(title, systemImage: "checkmark")
@@ -339,15 +339,15 @@ struct SidebarView: View {
         }
         .contextMenu {
             Button("Organize...") {
-                dependencies.showFeedOrganizer(id: row.id, using: appState)
+                dependencies.appActions.showFeedOrganizer(id: row.id, using: appState)
             }
 
             Button("Edit...") {
-                dependencies.showFeedEditor(id: row.id, using: appState)
+                dependencies.appActions.showFeedEditor(id: row.id, using: appState)
             }
 
             Button("Unsubscribe", role: .destructive) {
-                dependencies.unsubscribeFeed(id: row.id, using: appState)
+                dependencies.appActions.unsubscribeFeed(id: row.id, using: appState)
             }
         }
         .listRowSeparator(.hidden)
@@ -368,7 +368,7 @@ struct SidebarView: View {
             .buttonStyle(.plain)
 
             Button {
-                dependencies.showFolder(named: row.name, using: appState)
+                dependencies.appActions.showFolder(named: row.name, using: appState)
                 selection = row.selection
             } label: {
                 Text(row.name)
@@ -385,11 +385,11 @@ struct SidebarView: View {
         .font(.body)
         .contextMenu {
             Button("Edit...") {
-                dependencies.showFolderEditor(named: row.name, using: appState)
+                dependencies.appActions.showFolderEditor(named: row.name, using: appState)
             }
 
             Button("Delete", role: .destructive) {
-                dependencies.deleteFolder(named: row.name, using: appState)
+                dependencies.appActions.deleteFolder(named: row.name, using: appState)
             }
         }
         .listRowSeparator(.hidden)
