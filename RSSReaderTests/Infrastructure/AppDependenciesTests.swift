@@ -4,9 +4,9 @@ import SwiftData
 import Testing
 @testable import RSSReader
 
-@Suite("Infrastructure / AppDependencies")
+@Suite("Infrastructure / AppDependencies / Composition")
 @MainActor
-struct AppDependenciesTests {
+struct AppDependenciesCompositionTests {
     @Test
     func appDependenciesExposeSeparateFolderRepositoryWhenSwiftDataIsAvailable() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
@@ -56,7 +56,11 @@ struct AppDependenciesTests {
         #expect(snapshot.refreshIntervalPreference == .manual)
         #expect(snapshot.schedulingMode == .manual)
     }
+}
 
+@Suite("Infrastructure / AppDependencies / SwiftData Configuration")
+@MainActor
+struct AppDependenciesSwiftDataConfigurationTests {
     @Test
     func appDependenciesBuildSwiftDataConfigurationsWithActiveCloudKitOnlyForSyncBackedStore() throws {
         let configurationPlan = AppDependencies.makeSwiftDataConfigurationPlan(
@@ -98,7 +102,11 @@ struct AppDependenciesTests {
 
         #expect(syncBackedCloudKitDatabase.contains("_none: true"))
     }
+}
 
+@Suite("Infrastructure / AppDependencies / Sync Bootstrap Policy")
+@MainActor
+struct AppDependenciesSyncBootstrapPolicyTests {
     @Test
     func appDependenciesResolveSyncBackedCloudKitPolicyFromPersistedSyncPreference() {
         #expect(
@@ -268,7 +276,11 @@ struct AppDependenciesTests {
         #expect(description.contains("domain=NSCocoaErrorDomain code=134060"))
         #expect(description.contains("Persistent store probe failed."))
     }
+}
 
+@Suite("Infrastructure / AppDependencies / Sync Runtime Orchestrator")
+@MainActor
+struct AppDependenciesSyncRuntimeOrchestratorTests {
     @Test
     func appDependenciesStartSyncCoordinatorAppLifetimeUsesPersistedSyncEnablementAndConnectsRuntimeSources() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
@@ -467,7 +479,11 @@ struct AppDependenciesTests {
 
         #expect(syncCoordinator.runtimeState.phase == .idle)
     }
+}
 
+@Suite("Infrastructure / AppDependencies / Remote Sync Reload")
+@MainActor
+struct AppDependenciesRemoteSyncReloadTests {
     @Test
     func appDependenciesStartRemoteSyncReloadAppLifetimeRequestsReloadWhenRemoteChangeAndImportCompletionArrive() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
@@ -1036,7 +1052,11 @@ struct AppDependenciesTests {
         #expect(logger.contains("Observed persistent store remote change; marked store change pending"))
         #expect(logger.contains("Observed CloudKit import completion; marked import completion pending"))
     }
+}
 
+@Suite("Infrastructure / AppDependencies / App Reload Boundaries")
+@MainActor
+struct AppDependenciesAppReloadBoundaryTests {
     @Test
     func appLevelReloadBoundaryKeepsRemoteSyncAndBackgroundRefreshTriggersSeparateAfterDiagnosticsCleanup() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
@@ -1106,7 +1126,11 @@ struct AppDependenciesTests {
                 && appState.articleScreenReloadID != backgroundRefreshArticleScreenReloadID
         }
     }
+}
 
+@Suite("Infrastructure / AppDependencies / Remote Sync Reload Lifecycle")
+@MainActor
+struct AppDependenciesRemoteSyncReloadLifecycleTests {
     @Test
     func appDependenciesStopSyncRuntimeAppLifetimeCancelsRemoteReloadObservation() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
@@ -1155,7 +1179,11 @@ struct AppDependenciesTests {
         #expect(appState.articleListReloadID == initialArticleListReloadID)
         #expect(appState.articleScreenReloadID == initialArticleScreenReloadID)
     }
+}
 
+@Suite("Infrastructure / AppDependencies / SwiftData Bootstrap Diagnostics")
+@MainActor
+struct AppDependenciesSwiftDataBootstrapDiagnosticsTests {
     @Test
     func appDependenciesMakeWithSwiftDataLogsModelContainerSetupMarkers() {
         let logger = RecordingLogger()
