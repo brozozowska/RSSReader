@@ -100,8 +100,8 @@ final class SettingsScreenController {
             updateArticleOpeningMode(optionID: optionID, dependencies: dependencies)
         case .articleSourceLinkOpeningPolicy:
             updateArticleSourceLinkOpeningPolicy(optionID: optionID, dependencies: dependencies)
-        case .unreadArticleSortMode:
-            updateUnreadArticleSortMode(optionID: optionID, dependencies: dependencies)
+        case .unreadArticleSortOrder:
+            updateUnreadArticleSortOrder(optionID: optionID, dependencies: dependencies)
         case .articleRetentionPolicy:
             updateArticleRetentionPolicy(optionID: optionID, dependencies: dependencies)
         case .articleBodyLinkOpeningPolicy:
@@ -144,7 +144,7 @@ final class SettingsScreenController {
             updateShowUnreadCountBadge(isOn: isOn, dependencies: dependencies)
         case .articleOpeningMode,
                 .articleSourceLinkOpeningPolicy,
-                .unreadArticleSortMode,
+                .unreadArticleSortOrder,
                 .articleRetentionPolicy,
                 .articleBodyLinkOpeningPolicy,
                 .readerAdjacentNavigationControlsMode,
@@ -173,7 +173,7 @@ final class SettingsScreenController {
         case .articleOpeningMode,
                 .markAsReadOnOpen,
                 .articleSourceLinkOpeningPolicy,
-                .unreadArticleSortMode,
+                .unreadArticleSortOrder,
                 .articleRetentionPolicy,
                 .askBeforeMarkingAllAsRead,
                 .showUnreadCountBadge,
@@ -340,7 +340,7 @@ private extension SettingsScreenController {
         screenState.applyDraftInput(input)
     }
 
-    func updateUnreadArticleSortMode(
+    func updateUnreadArticleSortOrder(
         optionID: String,
         dependencies: AppDependencies
     ) {

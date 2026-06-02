@@ -15,7 +15,7 @@ enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
     case articleOpeningMode
     case markAsReadOnOpen
     case articleSourceLinkOpeningPolicy
-    case unreadArticleSortMode
+    case unreadArticleSortOrder
     case articleRetentionPolicy
     case askBeforeMarkingAllAsRead
     case refreshInterval
@@ -277,7 +277,9 @@ enum SettingsScreenInputBuilder {
             articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
             articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
             readerAdjacentNavigationControlsMode: snapshot.readerAdjacentNavigationControlsMode,
-            unreadArticleSortOrder: UnreadArticleSortOrder(unreadSortMode: snapshot.unreadSortMode),
+            unreadArticleSortOrder: UnreadArticleSortOrder(
+                unreadArticleSortMode: snapshot.unreadArticleSortMode
+            ),
             articleRetentionPolicy: snapshot.articleRetentionPolicy,
             askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
             refreshIntervalPreference: snapshot.refreshIntervalPreference,
@@ -423,7 +425,7 @@ enum SettingsScreenPresentationBuilder {
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
-                        id: .unreadArticleSortMode,
+                        id: .unreadArticleSortOrder,
                         title: "Sort Unread Articles",
                         subtitle: nil,
                         selectedValueTitle: unreadArticleSortOrderTitle(input.unreadArticleSortOrder),

@@ -145,7 +145,7 @@ struct ArticlesScreenControllerTests {
         harness.modelContainer.mainContext.insert(oldArticle)
         harness.modelContainer.mainContext.insert(newArticle)
         try harness.modelContainer.mainContext.save()
-        _ = try repository.update(AppSettingsUpdate(unreadSortMode: .publishedAtAscending))
+        _ = try repository.update(AppSettingsUpdate(unreadArticleSortMode: .publishedAtAscending))
         let controller = ArticlesScreenController()
 
         await controller.load(
@@ -189,7 +189,7 @@ struct ArticlesScreenControllerTests {
         harness.modelContainer.mainContext.insert(oldArticle)
         harness.modelContainer.mainContext.insert(newArticle)
         try harness.modelContainer.mainContext.save()
-        _ = try repository.update(AppSettingsUpdate(unreadSortMode: .publishedAtAscending))
+        _ = try repository.update(AppSettingsUpdate(unreadArticleSortMode: .publishedAtAscending))
         let controller = ArticlesScreenController()
 
         await controller.load(

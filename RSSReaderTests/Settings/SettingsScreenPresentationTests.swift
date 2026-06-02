@@ -15,7 +15,7 @@ struct SettingsScreenPresentationTests {
             markAsReadOnOpen: false,
             askBeforeMarkingAllAsRead: false,
             showUnreadCountBadge: true,
-            unreadSortMode: .publishedAtDescending,
+            unreadArticleSortMode: .publishedAtDescending,
             articleRetentionPolicy: .twoWeeks,
             articleBodyLinkOpeningPolicy: .externalBrowser,
             articleSourceLinkOpeningPolicy: .externalBrowser,
@@ -128,7 +128,7 @@ struct SettingsScreenPresentationTests {
             articleListItems == [
                 .picker(
                     SettingsPickerItemPresentation(
-                        id: .unreadArticleSortMode,
+                        id: .unreadArticleSortOrder,
                         title: "Sort Unread Articles",
                         subtitle: nil,
                         selectedValueTitle: "Newest First",
@@ -372,7 +372,7 @@ struct SettingsScreenPresentationTests {
             useiCloudSync: true,
             markAsReadOnOpen: false,
             askBeforeMarkingAllAsRead: false,
-            unreadSortMode: .publishedAtAscending,
+            unreadArticleSortMode: .publishedAtAscending,
             articleBodyLinkOpeningPolicy: .externalBrowser,
             articleSourceLinkOpeningPolicy: .externalBrowser,
             readerAdjacentNavigationControlsMode: .swipesOnly,

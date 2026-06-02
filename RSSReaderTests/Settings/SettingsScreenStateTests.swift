@@ -13,7 +13,7 @@ struct SettingsScreenStateTests {
             refreshIntervalPreference: .hourly,
             useiCloudSync: true,
             markAsReadOnOpen: false,
-            unreadSortMode: .publishedAtAscending,
+            unreadArticleSortMode: .publishedAtAscending,
             articleRetentionPolicy: .twoDays
         )
         var state = SettingsScreenState()

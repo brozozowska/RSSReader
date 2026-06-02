@@ -44,7 +44,7 @@ private enum SettingsScreenPreviewFactory {
         refreshIntervalPreference: .hourly,
         useiCloudSync: true,
         markAsReadOnOpen: false,
-        unreadSortMode: .publishedAtAscending
+        unreadArticleSortMode: .publishedAtAscending
     )
     static let loadedInput = SettingsScreenInputBuilder.build(
         from: loadedSnapshot,
