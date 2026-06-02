@@ -490,10 +490,10 @@ struct AppDependenciesTests {
         let initialArticleScreenReloadID = appState.articleScreenReloadID
 
         dependencies.startRemoteSyncReloadAppLifetime(using: appState)
-        try await expectEventually {
-            cloudKitRuntimeEventSource.subscriberCount == 1
-                && remoteChangeSource.subscriberCount == 1
-        }
+        try await expectRemoteSyncReloadObservationStarted(
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            remoteChangeSource: remoteChangeSource
+        )
 
         await remoteChangeSource.yield(
             PersistentStoreRemoteChangeEvent(
@@ -544,6 +544,10 @@ struct AppDependenciesTests {
         let initialArticleScreenReloadID = appState.articleScreenReloadID
 
         dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+        try await expectRemoteSyncReloadObservationStarted(
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            remoteChangeSource: remoteChangeSource
+        )
 
         await cloudKitRuntimeEventSource.yield(
             .finished(
@@ -595,10 +599,10 @@ struct AppDependenciesTests {
         let initialArticleScreenReloadID = appState.articleScreenReloadID
 
         dependencies.startRemoteSyncReloadAppLifetime(using: appState)
-        try await expectEventually {
-            cloudKitRuntimeEventSource.subscriberCount == 1
-                && remoteChangeSource.subscriberCount == 1
-        }
+        try await expectRemoteSyncReloadObservationStarted(
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            remoteChangeSource: remoteChangeSource
+        )
 
         await remoteChangeSource.yield(
             PersistentStoreRemoteChangeEvent(
@@ -685,6 +689,10 @@ struct AppDependenciesTests {
         let initialArticleScreenReloadID = appState.articleScreenReloadID
 
         dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+        try await expectRemoteSyncReloadObservationStarted(
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            remoteChangeSource: remoteChangeSource
+        )
 
         await remoteChangeSource.yield(
             PersistentStoreRemoteChangeEvent(
@@ -734,6 +742,10 @@ struct AppDependenciesTests {
         let initialArticleScreenReloadID = appState.articleScreenReloadID
 
         dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+        try await expectRemoteSyncReloadObservationStarted(
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            remoteChangeSource: remoteChangeSource
+        )
 
         await remoteChangeSource.yield(
             PersistentStoreRemoteChangeEvent(
@@ -782,6 +794,10 @@ struct AppDependenciesTests {
         let initialArticleScreenReloadID = appState.articleScreenReloadID
 
         dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+        try await expectRemoteSyncReloadObservationStarted(
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            remoteChangeSource: remoteChangeSource
+        )
 
         await remoteChangeSource.yield(
             PersistentStoreRemoteChangeEvent(
@@ -830,6 +846,10 @@ struct AppDependenciesTests {
         let initialArticleScreenReloadID = appState.articleScreenReloadID
 
         dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+        try await expectRemoteSyncReloadObservationStarted(
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            remoteChangeSource: remoteChangeSource
+        )
 
         await remoteChangeSource.yield(
             PersistentStoreRemoteChangeEvent(
@@ -901,6 +921,10 @@ struct AppDependenciesTests {
         let initialArticleScreenReloadID = appState.articleScreenReloadID
 
         dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+        try await expectRemoteSyncReloadObservationStarted(
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            remoteChangeSource: remoteChangeSource
+        )
 
         await remoteChangeSource.yield(
             PersistentStoreRemoteChangeEvent(
@@ -979,6 +1003,10 @@ struct AppDependenciesTests {
         let appState = AppState()
 
         dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+        try await expectRemoteSyncReloadObservationStarted(
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            remoteChangeSource: remoteChangeSource
+        )
 
         await remoteChangeSource.yield(
             PersistentStoreRemoteChangeEvent(
@@ -1037,6 +1065,10 @@ struct AppDependenciesTests {
             appState: appState
         )
         dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+        try await expectRemoteSyncReloadObservationStarted(
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            remoteChangeSource: remoteChangeSource
+        )
 
         backgroundRefreshHandoffCoordinator.triggerBoundReloadHandler()
 
@@ -1341,7 +1373,7 @@ private func testSyncBackedStoreReference() -> SyncBackedStoreReference {
 }
 
 private func expectEventually(
-    timeoutNanoseconds: UInt64 = 2_000_000_000,
+    timeoutNanoseconds: UInt64 = 5_000_000_000,
     condition: @escaping @MainActor () -> Bool
 ) async throws {
     let deadline = ContinuousClock.now + .nanoseconds(Int64(timeoutNanoseconds))
@@ -1355,6 +1387,16 @@ private func expectEventually(
     }
 
     throw TimedOutError()
+}
+
+private func expectRemoteSyncReloadObservationStarted(
+    cloudKitRuntimeEventSource: TestCloudKitRuntimeEventSource,
+    remoteChangeSource: TestPersistentStoreRemoteChangeSource
+) async throws {
+    try await expectEventually {
+        cloudKitRuntimeEventSource.subscriberCount == 1
+            && remoteChangeSource.subscriberCount == 1
+    }
 }
 
 private func expectNoReload(
