@@ -41,7 +41,7 @@ struct SidebarView: View {
         .toolbarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                sidebarActionsMenu
+                settingsButton
             }
 
             ToolbarItem(placement: .title) {
@@ -202,27 +202,13 @@ struct SidebarView: View {
 
     // MARK: User Actions
 
-    private var sidebarActionsMenu: some View {
-        Menu {
-            Button("Import") {
-                // TODO: Replace with OPML import flow.
-                dependencies.logger.info("Import action is not implemented yet")
-            }
-
-            Button("Export") {
-                // TODO: Replace with OPML export flow.
-                dependencies.logger.info("Export action is not implemented yet")
-            }
-
-            Divider()
-
-            Button("Settings") {
-                dependencies.appActions.showSettings(using: appState)
-            }
+    private var settingsButton: some View {
+        Button {
+            dependencies.appActions.showSettings(using: appState)
         } label: {
             Image(systemName: "gearshape")
         }
-        .accessibilityLabel("Sidebar Actions")
+        .accessibilityLabel("Settings")
     }
 
     private var addSourceButton: some View {

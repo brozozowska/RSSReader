@@ -534,7 +534,7 @@
 - [x] `Loading Indicator Contract Audit`: пройти оставшиеся loading states после `Shared Loading Indicator Tint And Reuse` и явно зафиксировать, что runtime UI не использует системный `ProgressView` / UIKit indicator, а loading states должны использовать `AppRefreshIndicator`, чтобы UI не возвращался к смешанным indicator semantics перед UI tests;
 - [x] `Test Harness Decomposition`: разложить `RSSReaderTestSupport` на focused builders / fixtures: SwiftData harness, scripted HTTP client, DTO factories, logging doubles и source-management fixtures; тесты должны импортировать общие helpers без неявной зависимости от feed refresh harness;
 - [x] `App Dependencies Test Suite Split`: разделить большой `AppDependenciesTests` на suites по composition areas: SwiftData configuration, sync bootstrap policy, runtime orchestrator wiring, background refresh dependencies, cache directories и app action entry points; это должно подготовить инфраструктуру к эпику `Testing` и снизить стоимость targeted test runs;
-- [ ] `Roadmap TODO Cleanup`: перенести временные inline TODO для будущих OPML import/export flows из runtime UI-кода в roadmap / Post-MVP backlog или заменить их нейтральными disabled actions, чтобы текущий код не хранил незакрытые комментарии по отложенной функциональности.
+- [x] `Roadmap TODO Cleanup`: перенести временные inline TODO для будущих OPML import/export flows из runtime UI-кода в roadmap / Post-MVP backlog или заменить их нейтральными disabled actions, чтобы текущий код не хранил незакрытые комментарии по отложенной функциональности.
 
 #### Testing
 - [ ] unit tests для normalizer;
