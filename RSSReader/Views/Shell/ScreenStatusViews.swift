@@ -6,8 +6,11 @@ struct ScreenLoadingView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            ProgressView()
-                .controlSize(.regular)
+            AppRefreshIndicator(
+                state: .refreshing,
+                size: 22,
+                lineWidth: 2.5
+            )
 
             Text(title)
                 .font(.headline)

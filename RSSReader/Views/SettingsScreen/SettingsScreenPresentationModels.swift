@@ -12,10 +12,10 @@ enum SettingsScreenSectionID: String, Hashable, Identifiable, Sendable {
 }
 
 enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
-    case defaultReaderMode
+    case articleOpeningMode
     case markAsReadOnOpen
     case articleSourceLinkOpeningPolicy
-    case unreadArticleSortMode
+    case unreadArticleSortOrder
     case articleRetentionPolicy
     case askBeforeMarkingAllAsRead
     case refreshInterval
@@ -33,7 +33,7 @@ enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
 }
 
 struct SettingsScreenInput: Equatable, Sendable {
-    var defaultReaderMode: ReaderMode
+    var articleOpeningMode: ArticleOpeningMode
     var markAsReadOnOpen: Bool
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
@@ -50,7 +50,7 @@ struct SettingsScreenInput: Equatable, Sendable {
     var interfaceThemeMode: InterfaceThemeMode
 
     init(
-        defaultReaderMode: ReaderMode = .embedded,
+        articleOpeningMode: ArticleOpeningMode = .feedReader,
         markAsReadOnOpen: Bool = true,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
@@ -66,7 +66,7 @@ struct SettingsScreenInput: Equatable, Sendable {
         isUsingLocalOnlySyncFallbackForCurrentLaunch: Bool = false,
         interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
     ) {
-        self.defaultReaderMode = defaultReaderMode
+        self.articleOpeningMode = articleOpeningMode
         self.markAsReadOnOpen = markAsReadOnOpen
         self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
@@ -272,12 +272,14 @@ enum SettingsScreenInputBuilder {
             ?? SettingsSyncStatusPresentation(iCloudSyncStatus: iCloudSyncStatus)
 
         return SettingsScreenInput(
-            defaultReaderMode: snapshot.defaultReaderMode,
+            articleOpeningMode: snapshot.articleOpeningMode,
             markAsReadOnOpen: snapshot.markAsReadOnOpen,
             articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
             articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
             readerAdjacentNavigationControlsMode: snapshot.readerAdjacentNavigationControlsMode,
-            unreadArticleSortOrder: UnreadArticleSortOrder(unreadSortMode: snapshot.unreadSortMode),
+            unreadArticleSortOrder: UnreadArticleSortOrder(
+                unreadArticleSortMode: snapshot.unreadArticleSortMode
+            ),
             articleRetentionPolicy: snapshot.articleRetentionPolicy,
             askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
             refreshIntervalPreference: snapshot.refreshIntervalPreference,
@@ -310,490 +312,5 @@ enum SettingsScreenPresentationBuilder {
                 hasArchivedArticles: hasArchivedArticles
             )
         ]
-    }
-
-    private static func appearanceSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
-        SettingsScreenSectionPresentation(
-            id: .appearance,
-            title: "Appearance",
-            footer: "Choose how the app renders its interface. The selected mode applies immediately.",
-            items: [
-                .picker(
-                    SettingsPickerItemPresentation(
-                        id: .appearance,
-                        title: "Theme",
-                        subtitle: nil,
-                        selectedValueTitle: interfaceThemeModeTitle(input.interfaceThemeMode),
-                        options: InterfaceThemeMode.allCases.map { mode in
-                            SettingsPickerOptionPresentation(
-                                id: mode.rawValue,
-                                title: interfaceThemeModeTitle(mode),
-                                isSelected: input.interfaceThemeMode == mode
-                            )
-                        }
-                    )
-                )
-            ]
-        )
-    }
-
-    private static func readingSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
-        SettingsScreenSectionPresentation(
-            id: .reading,
-            title: "Reading",
-            footer: "Choose whether articles from the list open in the feed reader or the in-app browser. Open Original Article controls the source web page; Open Article Links controls links inside article text.",
-            items: [
-                .picker(
-                    SettingsPickerItemPresentation(
-                        id: .defaultReaderMode,
-                        title: "Open Articles",
-                        subtitle: nil,
-                        selectedValueTitle: readerModeTitle(input.defaultReaderMode),
-                        options: ReaderMode.allCases.map { mode in
-                            SettingsPickerOptionPresentation(
-                                id: mode.rawValue,
-                                title: readerModeTitle(mode),
-                                isSelected: input.defaultReaderMode == mode
-                            )
-                        }
-                    )
-                ),
-                .picker(
-                    SettingsPickerItemPresentation(
-                        id: .articleSourceLinkOpeningPolicy,
-                        title: "Open Original Article",
-                        subtitle: nil,
-                        selectedValueTitle: articleSourceLinkOpeningPolicyTitle(input.articleSourceLinkOpeningPolicy),
-                        options: ArticleSourceLinkOpeningPolicy.allCases.map { policy in
-                            SettingsPickerOptionPresentation(
-                                id: policy.rawValue,
-                                title: articleSourceLinkOpeningPolicyTitle(policy),
-                                isSelected: input.articleSourceLinkOpeningPolicy == policy
-                            )
-                        }
-                    )
-                ),
-                .picker(
-                    SettingsPickerItemPresentation(
-                        id: .articleBodyLinkOpeningPolicy,
-                        title: "Open Article Links",
-                        subtitle: nil,
-                        selectedValueTitle: articleBodyLinkOpeningPolicyTitle(input.articleBodyLinkOpeningPolicy),
-                        options: ArticleBodyLinkOpeningPolicy.allCases.map { policy in
-                            SettingsPickerOptionPresentation(
-                                id: policy.rawValue,
-                                title: articleBodyLinkOpeningPolicyTitle(policy),
-                                isSelected: input.articleBodyLinkOpeningPolicy == policy
-                            )
-                        }
-                    )
-                ),
-                .picker(
-                    SettingsPickerItemPresentation(
-                        id: .readerAdjacentNavigationControlsMode,
-                        title: "Adjacent Navigation",
-                        subtitle: nil,
-                        selectedValueTitle: readerAdjacentNavigationControlsModeTitle(input.readerAdjacentNavigationControlsMode),
-                        options: ReaderAdjacentNavigationControlsMode.allCases.map { mode in
-                            SettingsPickerOptionPresentation(
-                                id: mode.rawValue,
-                                title: readerAdjacentNavigationControlsModeTitle(mode),
-                                isSelected: input.readerAdjacentNavigationControlsMode == mode
-                            )
-                        }
-                    )
-                ),
-                .toggle(
-                    SettingsToggleItemPresentation(
-                        id: .markAsReadOnOpen,
-                        title: "Mark Read on Open",
-                        subtitle: "Automatically mark an article as read when it is opened.",
-                        isOn: input.markAsReadOnOpen
-                    )
-                )
-            ]
-        )
-    }
-
-    private static func articleListSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
-        SettingsScreenSectionPresentation(
-            id: .articleList,
-            title: "Article List",
-            footer: "\"None\" removes an article from the list when it disappears from its feed. Other options keep the article for the selected time after it disappears.",
-            items: [
-                .picker(
-                    SettingsPickerItemPresentation(
-                        id: .unreadArticleSortMode,
-                        title: "Sort Unread Articles",
-                        subtitle: nil,
-                        selectedValueTitle: unreadArticleSortOrderTitle(input.unreadArticleSortOrder),
-                        options: UnreadArticleSortOrder.allCases.map { order in
-                            SettingsPickerOptionPresentation(
-                                id: order.rawValue,
-                                title: unreadArticleSortOrderTitle(order),
-                                isSelected: input.unreadArticleSortOrder == order
-                            )
-                        }
-                    )
-                ),
-                .toggle(
-                    SettingsToggleItemPresentation(
-                        id: .askBeforeMarkingAllAsRead,
-                        title: "Ask Before Marking All Read",
-                        subtitle: "Show a confirmation before marking all visible articles as read.",
-                        isOn: input.askBeforeMarkingAllAsRead
-                    )
-                ),
-                .picker(
-                    SettingsPickerItemPresentation(
-                        id: .articleRetentionPolicy,
-                        title: "Keep Archived Articles",
-                        subtitle: nil,
-                        selectedValueTitle: articleRetentionPolicyTitle(input.articleRetentionPolicy),
-                        options: ArticleRetentionPolicy.allCases.map { policy in
-                            SettingsPickerOptionPresentation(
-                                id: policy.rawValue,
-                                title: articleRetentionPolicyTitle(policy),
-                                isSelected: input.articleRetentionPolicy == policy
-                            )
-                        }
-                    )
-                )
-            ]
-        )
-    }
-
-    private static func updatesAndSyncSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
-        let readingScenario = CrossDeviceReadingScenario.current
-        let syncScope = CloudKitSyncScope.current
-
-        return SettingsScreenSectionPresentation(
-            id: .updatesAndSync,
-            title: "Updates & Sync",
-            footer: updatesAndSyncSectionFooter(input: input, syncScope: syncScope, readingScenario: readingScenario),
-            items: [
-                .picker(
-                    SettingsPickerItemPresentation(
-                        id: .refreshInterval,
-                        title: "Background Refresh",
-                        subtitle: nil,
-                        selectedValueTitle: refreshPreferenceTitle(input.refreshIntervalPreference),
-                        options: RefreshPreference.allCases.map { preference in
-                            SettingsPickerOptionPresentation(
-                                id: preference.rawValue,
-                                title: refreshPreferenceTitle(preference),
-                                isSelected: input.refreshIntervalPreference == preference
-                            )
-                        }
-                    )
-                ),
-                .toggle(
-                    SettingsToggleItemPresentation(
-                        id: .useICloudSync,
-                        title: "Enable iCloud Sync",
-                        subtitle: iCloudSyncPreferenceSubtitle(
-                            input.useiCloudSync,
-                            isUsingLocalOnlySyncFallbackForCurrentLaunch: input.isUsingLocalOnlySyncFallbackForCurrentLaunch,
-                            syncStatusPresentation: input.syncStatusPresentation
-                        ),
-                        isOn: input.useiCloudSync
-                    )
-                ),
-                .statusRow(
-                    SettingsStatusRowItemPresentation(
-                        id: .iCloudSyncStatus,
-                        title: "Current Status",
-                        subtitle: iCloudSyncStatusSubtitle(
-                            input.syncStatusPresentation,
-                            isUsingLocalOnlySyncFallbackForCurrentLaunch: input.isUsingLocalOnlySyncFallbackForCurrentLaunch
-                        ),
-                        valueTitle: iCloudSyncStatusTitle(input.syncStatusPresentation)
-                    )
-                )
-            ]
-        )
-    }
-
-    private static func notificationsSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
-        SettingsScreenSectionPresentation(
-            id: .notifications,
-            title: "Notifications",
-            footer: "App does not send notifications. iOS still requires notification permission to show a badge on the app icon.",
-            items: [
-                .toggle(
-                    SettingsToggleItemPresentation(
-                        id: .showUnreadCountBadge,
-                        title: "App Icon Badge",
-                        subtitle: "Show the unread article count on the app icon.",
-                        isOn: input.showUnreadCountBadge
-                    )
-                )
-            ]
-        )
-    }
-
-    private static func storageSection(
-        hasArticleImageCache: Bool,
-        hasSourceIconCache: Bool,
-        hasArchivedArticles: Bool
-    ) -> SettingsScreenSectionPresentation {
-        SettingsScreenSectionPresentation(
-            id: .storage,
-            title: "Storage",
-            footer: nil,
-            items: [
-                .button(
-                    SettingsButtonItemPresentation(
-                        id: .purgeArchivedArticles,
-                        title: "Clear Archived Articles",
-                        subtitle: "Remove archived articles except starred ones from this device and iCloud.",
-                        systemImage: "archivebox",
-                        role: .destructive,
-                        isEnabled: hasArchivedArticles
-                    )
-                ),
-                .button(
-                    SettingsButtonItemPresentation(
-                        id: .clearArticleImageCache,
-                        title: "Clear Article Image Cache",
-                        subtitle: "Remove article images saved on this device.",
-                        systemImage: "photo.stack",
-                        role: .destructive,
-                        isEnabled: hasArticleImageCache
-                    )
-                ),
-                .button(
-                    SettingsButtonItemPresentation(
-                        id: .clearSourceIconCache,
-                        title: "Clear Source Icon Cache",
-                        subtitle: "Remove feed icons saved on this device.",
-                        systemImage: "newspaper",
-                        role: .destructive,
-                        isEnabled: hasSourceIconCache
-                    )
-                )
-            ]
-        )
-    }
-
-    private static func readerModeTitle(_ mode: ReaderMode) -> String {
-        switch mode {
-        case .embedded:
-            "Feed Reader"
-        case .browser:
-            "In-App Browser"
-        }
-    }
-
-    private static func unreadArticleSortOrderTitle(_ order: UnreadArticleSortOrder) -> String {
-        switch order {
-        case .newestFirst:
-            "Newest First"
-        case .oldestFirst:
-            "Oldest First"
-        }
-    }
-
-    private static func articleRetentionPolicyTitle(_ policy: ArticleRetentionPolicy) -> String {
-        switch policy {
-        case .currentFeedOnly:
-            "None"
-        case .twoDays:
-            "2 Days"
-        case .oneWeek:
-            "1 Week"
-        case .twoWeeks:
-            "2 Weeks"
-        case .oneMonth:
-            "1 Month"
-        }
-    }
-
-    private static func refreshPreferenceTitle(_ preference: RefreshPreference) -> String {
-        switch preference {
-        case .manual:
-            "Manual"
-        case .every15Minutes:
-            "Every 15 Minutes"
-        case .hourly:
-            "Hourly"
-        case .every6Hours:
-            "Every 6 Hours"
-        case .daily:
-            "Daily"
-        }
-    }
-
-    private static func articleBodyLinkOpeningPolicyTitle(_ policy: ArticleBodyLinkOpeningPolicy) -> String {
-        switch policy {
-        case .inAppBrowser:
-            "In-App Browser"
-        case .externalBrowser:
-            "External Browser"
-        }
-    }
-
-    private static func articleSourceLinkOpeningPolicyTitle(_ policy: ArticleSourceLinkOpeningPolicy) -> String {
-        switch policy {
-        case .inAppBrowser:
-            "In-App Browser"
-        case .externalBrowser:
-            "External Browser"
-        }
-    }
-
-    private static func readerAdjacentNavigationControlsModeTitle(_ mode: ReaderAdjacentNavigationControlsMode) -> String {
-        switch mode {
-        case .toolbarControlsOnly:
-            "Buttons"
-        case .swipesOnly:
-            "Swipes"
-        case .swipesAndToolbarControls:
-            "Both"
-        }
-    }
-
-    private static func interfaceThemeModeTitle(_ mode: InterfaceThemeMode) -> String {
-        switch mode {
-        case .automaticLightDark:
-            "Automatic Light/Dark"
-        case .automaticLightBlack:
-            "Automatic Light/Black"
-        case .light:
-            "Light"
-        case .dark:
-            "Dark"
-        case .black:
-            "Black"
-        }
-    }
-
-    private static func iCloudSyncPreferenceSubtitle(
-        _ isEnabled: Bool,
-        isUsingLocalOnlySyncFallbackForCurrentLaunch: Bool,
-        syncStatusPresentation: SettingsSyncStatusPresentation
-    ) -> String {
-        if isEnabled, isUsingLocalOnlySyncFallbackForCurrentLaunch {
-            return "Saved for the next launch. This session keeps using local data because \(bootstrapFallbackReason(syncStatusPresentation))."
-        }
-
-        if isEnabled {
-            return "Applies on next launch. Supported data will sync through iCloud when available."
-        }
-
-        return "Applies on next launch. Supported sync data will stay only on this device until iCloud sync is enabled again."
-    }
-
-    private static func iCloudSyncStatusTitle(_ status: SettingsSyncStatusPresentation) -> String {
-        switch status {
-        case .disabled:
-            "Off"
-        case .statusUnavailable:
-            "Status Unavailable"
-        case .checkingAccount:
-            "Checking"
-        case .ready:
-            "Ready"
-        case .syncing:
-            "Syncing"
-        case .preparing:
-            "Preparing"
-        case .importing:
-            "Importing"
-        case .uploading:
-            "Uploading"
-        case .noAccount:
-            "Sign In Required"
-        case .restricted:
-            "Restricted"
-        case .temporarilyUnavailable:
-            "Temporarily Unavailable"
-        case .couldNotDetermine:
-            "Account Unavailable"
-        case .failed:
-            "Error"
-        }
-    }
-
-    private static func iCloudSyncStatusSubtitle(
-        _ status: SettingsSyncStatusPresentation,
-        isUsingLocalOnlySyncFallbackForCurrentLaunch: Bool
-    ) -> String {
-        if isUsingLocalOnlySyncFallbackForCurrentLaunch {
-            switch status {
-            case .noAccount:
-                return "Sync is enabled, but this launch cannot use iCloud because the device is not signed in. Relaunch after signing in."
-            case .restricted:
-                return "Sync is enabled, but this launch cannot use iCloud because access is restricted on this device. Relaunch after the restriction is removed."
-            case .temporarilyUnavailable:
-                return "Sync is enabled, but this launch cannot use iCloud because the current account is temporarily unavailable. Relaunch after iCloud becomes available."
-            case .couldNotDetermine, .statusUnavailable, .checkingAccount:
-                return "Sync is enabled, but this launch could not confirm iCloud availability. Relaunch after iCloud becomes available."
-            case .disabled, .ready, .syncing, .preparing, .importing, .uploading, .failed:
-                break
-            }
-        }
-
-        switch status {
-        case .disabled:
-            return "iCloud sync is off."
-        case .statusUnavailable:
-            return "The current app session could not read the live iCloud sync status."
-        case .checkingAccount:
-            return "The app is checking the current iCloud account and CloudKit session status."
-        case .ready:
-            return "iCloud sync is available for the Apple ID currently signed in on this device."
-        case .syncing:
-            return "Changes are currently syncing with iCloud."
-        case .preparing:
-            return "The app is preparing the iCloud sync session for supported data."
-        case .importing:
-            return "Changes from iCloud are currently being applied on this device."
-        case .uploading:
-            return "Changes from this device are currently being uploaded to iCloud."
-        case .noAccount:
-            return "Sign in to iCloud with the Apple ID used on this device to enable sync."
-        case .restricted:
-            return "This device cannot use iCloud right now because account changes or CloudKit access are restricted."
-        case .temporarilyUnavailable:
-            return "The current iCloud account is temporarily unavailable. Try again later."
-        case .couldNotDetermine:
-            return "The app could not determine the current iCloud account status. Check the device Apple ID and iCloud availability, then try again."
-        case .failed(let message):
-            return message
-        }
-    }
-
-    private static func updatesAndSyncSectionFooter(
-        input: SettingsScreenInput,
-        syncScope: CloudKitSyncScope,
-        readingScenario: CrossDeviceReadingScenario
-    ) -> String {
-        let scopeFooter = syncScope.settingsSectionFooter(readingScenario: readingScenario)
-        let accountFooter = "iCloud sync uses the Apple ID signed in on this device."
-        let relaunchFooter = "Changing the sync preference applies on the next app launch."
-        let fallbackFooter: String
-        if input.isUsingLocalOnlySyncFallbackForCurrentLaunch {
-            fallbackFooter = "Sync will try again on the next launch when iCloud is available."
-        } else {
-            fallbackFooter = ""
-        }
-
-        return "\(scopeFooter) \(accountFooter) \(relaunchFooter) \(fallbackFooter)".trimmingCharacters(in: .whitespaces)
-    }
-
-    private static func bootstrapFallbackReason(_ status: SettingsSyncStatusPresentation) -> String {
-        switch status {
-        case .noAccount:
-            "the device is not signed in to iCloud"
-        case .restricted:
-            "iCloud access is currently restricted on this device"
-        case .temporarilyUnavailable:
-            "the current iCloud account is temporarily unavailable"
-        case .couldNotDetermine, .statusUnavailable, .checkingAccount:
-            "iCloud availability could not be confirmed"
-        case .disabled, .ready, .syncing, .preparing, .importing, .uploading, .failed:
-            "iCloud is not available for this launch"
-        }
     }
 }

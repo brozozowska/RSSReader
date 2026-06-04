@@ -1,4 +1,3 @@
-import Foundation
 import SwiftUI
 import SwiftData
 import Observation
@@ -16,12 +15,6 @@ enum AppComposition {
     static let developmentSchemaBootstrapGuard = AppLaunchBootstrapGuard()
     @MainActor
     static let backgroundRefreshLaunchSchedulingGuard = AppLaunchBootstrapGuard()
-
-    static func configureSharedURLCache(
-        configuration: AppURLCacheConfiguration = .articleImageLoading
-    ) {
-        configuration.applyAsSharedURLCache()
-    }
 
     @MainActor
     static func makeAppDependencies(
@@ -59,143 +52,6 @@ enum AppComposition {
     static func makeRoot(dependencies: AppDependencies) -> some View {
         AppRootContainer(dependencies: dependencies)
     }
-
-    @MainActor
-    static func applyCurrentICloudSyncStatus(
-        from syncCoordinator: SyncCoordinator?,
-        to appState: AppState
-    ) {
-        guard let syncCoordinator else { return }
-
-        let resolvedStatus = syncCoordinator.iCloudSyncStatus
-        if appState.iCloudSyncStatus != resolvedStatus {
-            appState.applyICloudSyncStatus(resolvedStatus)
-        }
-    }
-
-    @MainActor
-    static func runDevelopmentSchemaBootstrapIfNeeded(
-        logger: Logging
-    ) {
-        runDevelopmentSchemaBootstrapIfNeeded(
-            logger: logger,
-            guard: developmentSchemaBootstrapGuard
-        ) { bootstrapLogger in
-            CloudKitDevelopmentSchemaBootstrap.bootstrapIfNeeded(logger: bootstrapLogger)
-        }
-    }
-
-    @MainActor
-    static func runDevelopmentSchemaBootstrapIfNeeded(
-        logger: Logging,
-        guard bootstrapGuard: AppLaunchBootstrapGuard,
-        bootstrap: (Logging) -> Void
-    ) {
-        guard bootstrapGuard.beginAttempt(identifier: "CloudKitDevelopmentSchemaBootstrap") else {
-            logger.debug("Skipped CloudKit development schema bootstrap because app launch guard already attempted it")
-            return
-        }
-
-        bootstrap(logger)
-    }
-
-    @MainActor
-    static func scheduleBackgroundRefreshOnLaunch(using dependencies: AppDependencies) {
-        dependencies.configureBackgroundRefreshLaunchScheduling()
-    }
-
-    @MainActor
-    static func scheduleBackgroundRefreshOnLaunchIfNeeded(
-        using dependencies: AppDependencies
-    ) {
-        scheduleBackgroundRefreshOnLaunchIfNeeded(
-            using: dependencies,
-            guard: backgroundRefreshLaunchSchedulingGuard
-        )
-    }
-
-    @MainActor
-    static func scheduleBackgroundRefreshOnLaunchIfNeeded(
-        using dependencies: AppDependencies,
-        guard bootstrapGuard: AppLaunchBootstrapGuard
-    ) {
-        guard bootstrapGuard.beginAttempt(identifier: "BackgroundRefreshLaunchScheduling") else {
-            dependencies.reportSkippedDuplicateBackgroundRefreshLaunchSchedulingAttempt()
-            return
-        }
-
-        scheduleBackgroundRefreshOnLaunch(using: dependencies)
-    }
-
-    @MainActor
-    static func bindBackgroundRefreshForegroundReloadHandler(
-        using dependencies: AppDependencies,
-        appState: AppState
-    ) {
-        dependencies.backgroundRefreshForegroundHandoffCoordinator.bindReloadHandler {
-            appState.requestBackgroundRefreshReload()
-        }
-    }
-
-    @MainActor
-    static func unbindBackgroundRefreshForegroundReloadHandler(using dependencies: AppDependencies) {
-        dependencies.backgroundRefreshForegroundHandoffCoordinator.unbindReloadHandler()
-    }
-
-    @MainActor
-    static func applyBackgroundRefreshForegroundRuntimeState(
-        from scenePhase: ScenePhase,
-        using dependencies: AppDependencies
-    ) {
-        dependencies.backgroundRefreshForegroundHandoffCoordinator.updateRuntimeState(
-            runtimeState(from: scenePhase)
-        )
-    }
-
-    @MainActor
-    static func runtimeState(from scenePhase: ScenePhase) -> AppRuntimeReloadState {
-        switch scenePhase {
-        case .active:
-            .activeForeground
-        case .background, .inactive:
-            .inactiveOrBackground
-        @unknown default:
-            .inactiveOrBackground
-        }
-    }
-}
-
-struct AppURLCacheConfiguration: Equatable {
-    let memoryCapacity: Int
-    let diskCapacity: Int
-    let diskPath: String
-
-    static let articleImageLoading = AppURLCacheConfiguration(
-        memoryCapacity: 50 * 1024 * 1024,
-        diskCapacity: 200 * 1024 * 1024,
-        diskPath: "RSSReaderArticleImageURLCache"
-    )
-
-    func makeURLCache() -> URLCache {
-        URLCache(
-            memoryCapacity: memoryCapacity,
-            diskCapacity: diskCapacity,
-            diskPath: diskPath
-        )
-    }
-
-    func applyAsSharedURLCache() {
-        URLCache.shared = makeURLCache()
-    }
-}
-
-@MainActor
-final class AppLaunchBootstrapGuard {
-    private var attemptedIdentifiers: Set<String> = []
-
-    func beginAttempt(identifier: String) -> Bool {
-        attemptedIdentifiers.insert(identifier).inserted
-    }
 }
 
 struct AppRootContainer: View {
@@ -224,7 +80,7 @@ struct AppRootContainer: View {
             )
             dependencies.startRemoteSyncReloadAppLifetime(using: appState)
             await restorePersistedAppSettingsIfNeeded()
-            await dependencies.refreshUnreadAppIconBadgeCount()
+            await dependencies.appActions.refreshUnreadAppIconBadgeCount()
         }
         .onChange(of: scenePhase) { _, newPhase in
             AppComposition.applyBackgroundRefreshForegroundRuntimeState(

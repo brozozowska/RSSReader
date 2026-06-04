@@ -13,14 +13,14 @@ struct AppSettingsServiceTests {
 
         _ = try repository.update(
             AppSettingsUpdate(
-                defaultReaderMode: .browser,
+                articleOpeningMode: .safariView,
                 selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
                 refreshIntervalPreference: .hourly,
                 useiCloudSync: true,
                 markAsReadOnOpen: false,
                 askBeforeMarkingAllAsRead: false,
                 showUnreadCountBadge: true,
-                unreadSortMode: .publishedAtAscending,
+                unreadArticleSortMode: .publishedAtAscending,
                 articleRetentionPolicy: .oneWeek,
                 articleBodyLinkOpeningPolicy: .externalBrowser,
                 articleSourceLinkOpeningPolicy: .externalBrowser,
@@ -34,14 +34,14 @@ struct AppSettingsServiceTests {
 
         #expect(
             snapshot == AppSettingsSnapshot(
-                defaultReaderMode: .browser,
+                articleOpeningMode: .safariView,
                 selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
                 refreshIntervalPreference: .hourly,
                 useiCloudSync: true,
                 markAsReadOnOpen: false,
                 askBeforeMarkingAllAsRead: false,
                 showUnreadCountBadge: true,
-                unreadSortMode: .publishedAtAscending,
+                unreadArticleSortMode: .publishedAtAscending,
                 articleRetentionPolicy: .oneWeek,
                 articleBodyLinkOpeningPolicy: .externalBrowser,
                 articleSourceLinkOpeningPolicy: .externalBrowser,
@@ -57,14 +57,14 @@ struct AppSettingsServiceTests {
         let repository = try #require(harness.dependencies.appSettingsRepository)
         let service = try #require(harness.dependencies.appSettingsService)
         let editedSettings = AppSettingsSnapshot(
-            defaultReaderMode: .browser,
+            articleOpeningMode: .safariView,
             selectedSourcesFilterRawValue: SourcesFilter.unread.rawValue,
             refreshIntervalPreference: .every6Hours,
             useiCloudSync: true,
             markAsReadOnOpen: false,
             askBeforeMarkingAllAsRead: false,
             showUnreadCountBadge: true,
-            unreadSortMode: .publishedAtDescending,
+            unreadArticleSortMode: .publishedAtDescending,
             articleRetentionPolicy: .twoWeeks,
             articleBodyLinkOpeningPolicy: .externalBrowser,
             articleSourceLinkOpeningPolicy: .externalBrowser,
@@ -79,7 +79,7 @@ struct AppSettingsServiceTests {
         let persistedSettings = try repository.fetchOrCreate()
 
         #expect(savedSnapshot == editedSettings)
-        #expect(persistedSettings.defaultReaderMode == .browser)
+        #expect(persistedSettings.articleOpeningMode == .safariView)
         #expect(persistedSettings.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
         #expect(persistedSettings.refreshIntervalPreference == .every6Hours)
         #expect(persistedSettings.useiCloudSync)
@@ -145,7 +145,7 @@ struct AppSettingsServiceTests {
             )
         )
 
-        let result = await harness.dependencies.refreshFeedsForBackground()
+        let result = await harness.dependencies.appActions.refreshFeedsForBackground()
 
         switch result {
         case .skippedManual(let configuration):
@@ -168,7 +168,7 @@ struct AppSettingsServiceTests {
             )
         )
 
-        let result = await harness.dependencies.refreshFeedsForBackground()
+        let result = await harness.dependencies.appActions.refreshFeedsForBackground()
 
         switch result {
         case .executed(let refreshResult):
@@ -209,7 +209,7 @@ struct AppSettingsServiceTests {
         let feed = Feed(url: feedURL, title: "Manual All Feed")
         try harness.feedRepository.insert(feed)
 
-        let result = try #require(await harness.dependencies.refreshAllFeeds())
+        let result = try #require(await harness.dependencies.appActions.refreshAllFeeds())
         let snapshot = try service.fetchSettings()
 
         #expect(result.summary.fetchedCount == 1)
@@ -258,7 +258,7 @@ struct AppSettingsServiceTests {
             )
         )
 
-        let result = await harness.dependencies.refreshFeedsForBackground()
+        let result = await harness.dependencies.appActions.refreshFeedsForBackground()
 
         let executedResult: BackgroundFeedRefreshResult
         switch result {

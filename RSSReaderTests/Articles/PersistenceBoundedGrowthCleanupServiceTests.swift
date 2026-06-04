@@ -120,7 +120,7 @@ struct PersistenceBoundedGrowthCleanupServiceTests {
             )
         )
 
-        _ = harness.dependencies.purgeArchivedArticles()
+        _ = harness.dependencies.appActions.purgeArchivedArticles()
 
         let remainingArticle = try harness.articleRepository.fetchArticle(
             feedID: feed.id,

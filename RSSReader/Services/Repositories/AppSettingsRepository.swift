@@ -2,14 +2,14 @@ import Foundation
 import SwiftData
 
 struct AppSettingsUpdate: Sendable {
-    var defaultReaderMode: ReaderMode? = nil
+    var articleOpeningMode: ArticleOpeningMode? = nil
     var selectedSourcesFilterRawValue: String? = nil
     var refreshIntervalPreference: RefreshPreference? = nil
     var useiCloudSync: Bool? = nil
     var markAsReadOnOpen: Bool? = nil
     var askBeforeMarkingAllAsRead: Bool? = nil
     var showUnreadCountBadge: Bool? = nil
-    var unreadSortMode: ArticleSortMode? = nil
+    var unreadArticleSortMode: ArticleSortMode? = nil
     var articleRetentionPolicy: ArticleRetentionPolicy? = nil
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
@@ -58,8 +58,8 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
     func update(_ update: AppSettingsUpdate) throws -> AppSettings {
         let settings = try fetchOrCreate()
 
-        if let defaultReaderMode = update.defaultReaderMode {
-            settings.defaultReaderMode = defaultReaderMode
+        if let articleOpeningMode = update.articleOpeningMode {
+            settings.articleOpeningMode = articleOpeningMode
         }
 
         if let selectedSourcesFilterRawValue = update.selectedSourcesFilterRawValue {
@@ -86,8 +86,8 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
             settings.showUnreadCountBadge = showUnreadCountBadge
         }
 
-        if let unreadSortMode = update.unreadSortMode {
-            settings.unreadSortMode = unreadSortMode
+        if let unreadArticleSortMode = update.unreadArticleSortMode {
+            settings.unreadSortMode = unreadArticleSortMode
         }
 
         if let articleRetentionPolicy = update.articleRetentionPolicy {

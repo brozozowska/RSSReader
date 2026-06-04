@@ -78,13 +78,13 @@ final class ArticlesScreenController {
             return
         }
 
-        let unreadSortMode = loadUnreadSortMode(dependencies: dependencies)
+        let unreadArticleSortMode = loadUnreadArticleSortMode(dependencies: dependencies)
 
         do {
             let loadedArticles = try loadArticles(
                 for: selection,
                 sourcesFilter: sourcesFilter,
-                unreadSortMode: unreadSortMode,
+                unreadArticleSortMode: unreadArticleSortMode,
                 articleQueryService: articleQueryService
             )
             let resolvedEntries = entriesByRetainingSessionReadItems(
@@ -130,7 +130,7 @@ final class ArticlesScreenController {
         requestsArticleListReload: Bool = true
     ) async -> FeedRefreshBatchResult? {
         screenState.dismissRefreshFeedback()
-        let result = await dependencies.refreshCurrentSelection(
+        let result = await dependencies.appActions.refreshCurrentSelection(
             using: appState,
             requestsArticleListReload: requestsArticleListReload
         )
@@ -175,13 +175,13 @@ final class ArticlesScreenController {
         )
     }
 
-    private func loadUnreadSortMode(dependencies: AppDependencies) -> ArticleSortMode {
+    private func loadUnreadArticleSortMode(dependencies: AppDependencies) -> ArticleSortMode {
         guard let appSettingsService = dependencies.appSettingsService else {
             return .publishedAtDescending
         }
 
         do {
-            return try appSettingsService.fetchSettings().unreadSortMode
+            return try appSettingsService.fetchSettings().unreadArticleSortMode
         } catch {
             dependencies.logger.error("Failed to load app settings for unread article sort mode: \(error)")
             return .publishedAtDescending
@@ -191,44 +191,44 @@ final class ArticlesScreenController {
     private func loadArticles(
         for selection: SidebarSelection?,
         sourcesFilter: SourcesFilter,
-        unreadSortMode: ArticleSortMode,
+        unreadArticleSortMode: ArticleSortMode,
         articleQueryService: any ArticleQueryService
     ) throws -> [ArticleListItemDTO] {
         let articleListFilter = articleListFilter(
             for: selection,
             sourcesFilter: sourcesFilter
         )
-        let effectiveSortMode = effectiveSortMode(
+        let articleListSortMode = articleListSortMode(
             for: articleListFilter,
-            unreadSortMode: unreadSortMode
+            unreadArticleSortMode: unreadArticleSortMode
         )
 
         return switch selection {
         case .inbox:
             try articleQueryService.fetchInboxListItems(
-                sortMode: effectiveSortMode,
+                sortMode: articleListSortMode,
                 filter: articleListFilter
             )
         case .unread:
             try articleQueryService.fetchInboxListItems(
-                sortMode: effectiveSortMode,
+                sortMode: articleListSortMode,
                 filter: articleListFilter
             )
         case .starred:
             try articleQueryService.fetchInboxListItems(
-                sortMode: effectiveSortMode,
+                sortMode: articleListSortMode,
                 filter: articleListFilter
             )
         case .folder(let folderName):
             try articleQueryService.fetchFolderListItems(
                 folderName: folderName,
-                sortMode: effectiveSortMode,
+                sortMode: articleListSortMode,
                 filter: articleListFilter
             )
         case .feed(let selectedFeedID):
             try articleQueryService.fetchArticleListItems(
                 feedID: selectedFeedID,
-                sortMode: effectiveSortMode,
+                sortMode: articleListSortMode,
                 filter: articleListFilter
             )
         case .none:
@@ -250,11 +250,11 @@ final class ArticlesScreenController {
         }
     }
 
-    private func effectiveSortMode(
+    private func articleListSortMode(
         for filter: ArticleListFilter,
-        unreadSortMode: ArticleSortMode
+        unreadArticleSortMode: ArticleSortMode
     ) -> ArticleSortMode {
-        filter == .unread ? unreadSortMode : .publishedAtDescending
+        filter == .unread ? unreadArticleSortMode : .publishedAtDescending
     }
 
     private func entriesByRetainingSessionReadItems(

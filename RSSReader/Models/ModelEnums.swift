@@ -6,9 +6,9 @@ enum FeedKind: String, Codable, CaseIterable, Sendable {
     case unknown
 }
 
-enum ReaderMode: String, Codable, CaseIterable, Sendable {
-    case embedded
-    case browser
+enum ArticleOpeningMode: String, Codable, CaseIterable, Sendable {
+    case feedReader
+    case safariView
 }
 
 enum RefreshPreference: String, Codable, CaseIterable, Sendable {
@@ -36,8 +36,8 @@ enum UnreadArticleSortOrder: String, CaseIterable, Sendable {
     case newestFirst
     case oldestFirst
 
-    init(unreadSortMode: ArticleSortMode) {
-        switch unreadSortMode {
+    init(unreadArticleSortMode: ArticleSortMode) {
+        switch unreadArticleSortMode {
         case .publishedAtDescending:
             self = .newestFirst
         case .publishedAtAscending:
@@ -45,7 +45,7 @@ enum UnreadArticleSortOrder: String, CaseIterable, Sendable {
         }
     }
 
-    var unreadSortMode: ArticleSortMode {
+    var unreadArticleSortMode: ArticleSortMode {
         switch self {
         case .newestFirst:
             .publishedAtDescending

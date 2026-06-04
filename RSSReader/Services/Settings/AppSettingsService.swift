@@ -1,14 +1,14 @@
 import Foundation
 
 struct AppSettingsSnapshot: Equatable, Sendable {
-    var defaultReaderMode: ReaderMode
+    var articleOpeningMode: ArticleOpeningMode
     var selectedSourcesFilterRawValue: String?
     var refreshIntervalPreference: RefreshPreference
     var useiCloudSync: Bool
     var markAsReadOnOpen: Bool
     var askBeforeMarkingAllAsRead: Bool
     var showUnreadCountBadge: Bool
-    var unreadSortMode: ArticleSortMode
+    var unreadArticleSortMode: ArticleSortMode
     var articleRetentionPolicy: ArticleRetentionPolicy
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
@@ -17,14 +17,14 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var lastSourcesRefreshAt: Date?
 
     init(
-        defaultReaderMode: ReaderMode = .embedded,
+        articleOpeningMode: ArticleOpeningMode = .feedReader,
         selectedSourcesFilterRawValue: String? = SourcesFilter.allItems.rawValue,
         refreshIntervalPreference: RefreshPreference = .manual,
         useiCloudSync: Bool = false,
         markAsReadOnOpen: Bool = true,
         askBeforeMarkingAllAsRead: Bool = true,
         showUnreadCountBadge: Bool = false,
-        unreadSortMode: ArticleSortMode = .publishedAtDescending,
+        unreadArticleSortMode: ArticleSortMode = .publishedAtDescending,
         articleRetentionPolicy: ArticleRetentionPolicy = .oneWeek,
         articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy = .inAppBrowser,
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
@@ -32,14 +32,14 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         interfaceThemeMode: InterfaceThemeMode = .automaticLightDark,
         lastSourcesRefreshAt: Date? = nil
     ) {
-        self.defaultReaderMode = defaultReaderMode
+        self.articleOpeningMode = articleOpeningMode
         self.selectedSourcesFilterRawValue = selectedSourcesFilterRawValue
         self.refreshIntervalPreference = refreshIntervalPreference
         self.useiCloudSync = useiCloudSync
         self.markAsReadOnOpen = markAsReadOnOpen
         self.askBeforeMarkingAllAsRead = askBeforeMarkingAllAsRead
         self.showUnreadCountBadge = showUnreadCountBadge
-        self.unreadSortMode = unreadSortMode
+        self.unreadArticleSortMode = unreadArticleSortMode
         self.articleRetentionPolicy = articleRetentionPolicy
         self.articleBodyLinkOpeningPolicy = articleBodyLinkOpeningPolicy
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
@@ -50,14 +50,14 @@ struct AppSettingsSnapshot: Equatable, Sendable {
 
     init(settings: AppSettings) {
         self.init(
-            defaultReaderMode: settings.defaultReaderMode,
+            articleOpeningMode: settings.articleOpeningMode,
             selectedSourcesFilterRawValue: settings.selectedSourcesFilterRawValue,
             refreshIntervalPreference: settings.refreshIntervalPreference,
             useiCloudSync: settings.useiCloudSync,
             markAsReadOnOpen: settings.markAsReadOnOpen,
             askBeforeMarkingAllAsRead: settings.askBeforeMarkingAllAsRead,
             showUnreadCountBadge: settings.showUnreadCountBadge,
-            unreadSortMode: settings.unreadSortMode,
+            unreadArticleSortMode: settings.unreadSortMode,
             articleRetentionPolicy: settings.articleRetentionPolicy,
             articleBodyLinkOpeningPolicy: settings.articleBodyLinkOpeningPolicy,
             articleSourceLinkOpeningPolicy: settings.articleSourceLinkOpeningPolicy,
@@ -69,14 +69,14 @@ struct AppSettingsSnapshot: Equatable, Sendable {
 }
 
 struct AppSettingsPatch: Sendable {
-    var defaultReaderMode: ReaderMode? = nil
+    var articleOpeningMode: ArticleOpeningMode? = nil
     var selectedSourcesFilterRawValue: String? = nil
     var refreshIntervalPreference: RefreshPreference? = nil
     var useiCloudSync: Bool? = nil
     var markAsReadOnOpen: Bool? = nil
     var askBeforeMarkingAllAsRead: Bool? = nil
     var showUnreadCountBadge: Bool? = nil
-    var unreadSortMode: ArticleSortMode? = nil
+    var unreadArticleSortMode: ArticleSortMode? = nil
     var articleRetentionPolicy: ArticleRetentionPolicy? = nil
     var articleBodyLinkOpeningPolicy: ArticleBodyLinkOpeningPolicy? = nil
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
@@ -119,14 +119,14 @@ final class DefaultAppSettingsService: AppSettingsService {
     ) throws -> AppSettingsSnapshot {
         let settings = try repository.update(
             AppSettingsUpdate(
-                defaultReaderMode: snapshot.defaultReaderMode,
+                articleOpeningMode: snapshot.articleOpeningMode,
                 selectedSourcesFilterRawValue: snapshot.selectedSourcesFilterRawValue,
                 refreshIntervalPreference: snapshot.refreshIntervalPreference,
                 useiCloudSync: snapshot.useiCloudSync,
                 markAsReadOnOpen: snapshot.markAsReadOnOpen,
                 askBeforeMarkingAllAsRead: snapshot.askBeforeMarkingAllAsRead,
                 showUnreadCountBadge: snapshot.showUnreadCountBadge,
-                unreadSortMode: snapshot.unreadSortMode,
+                unreadArticleSortMode: snapshot.unreadArticleSortMode,
                 articleRetentionPolicy: snapshot.articleRetentionPolicy,
                 articleBodyLinkOpeningPolicy: snapshot.articleBodyLinkOpeningPolicy,
                 articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
@@ -143,14 +143,14 @@ final class DefaultAppSettingsService: AppSettingsService {
     func updateSettings(_ patch: AppSettingsPatch) throws -> AppSettingsSnapshot {
         let settings = try repository.update(
             AppSettingsUpdate(
-                defaultReaderMode: patch.defaultReaderMode,
+                articleOpeningMode: patch.articleOpeningMode,
                 selectedSourcesFilterRawValue: patch.selectedSourcesFilterRawValue,
                 refreshIntervalPreference: patch.refreshIntervalPreference,
                 useiCloudSync: patch.useiCloudSync,
                 markAsReadOnOpen: patch.markAsReadOnOpen,
                 askBeforeMarkingAllAsRead: patch.askBeforeMarkingAllAsRead,
                 showUnreadCountBadge: patch.showUnreadCountBadge,
-                unreadSortMode: patch.unreadSortMode,
+                unreadArticleSortMode: patch.unreadArticleSortMode,
                 articleRetentionPolicy: patch.articleRetentionPolicy,
                 articleBodyLinkOpeningPolicy: patch.articleBodyLinkOpeningPolicy,
                 articleSourceLinkOpeningPolicy: patch.articleSourceLinkOpeningPolicy,

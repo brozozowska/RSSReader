@@ -1,0 +1,180 @@
+import Foundation
+
+extension AppActionRouter {
+    @MainActor
+    func refreshFeed(id feedID: UUID) async -> FeedRefreshResult? {
+        guard let feedRefreshService else {
+            logger.error("Feed refresh service is unavailable")
+            return nil
+        }
+
+        let result = await feedRefreshService.refresh(feedID: feedID)
+        cleanupArchivedArticlesUsingCurrentSettings()
+        await refreshUnreadAppIconBadgeCount()
+        return result
+    }
+
+    @MainActor
+    func refreshAfterAddingFeed(id feedID: UUID, using appState: AppState) async -> FeedRefreshResult? {
+        guard let feedRefreshService else {
+            logger.error("Feed refresh service is unavailable for source save completion")
+            return nil
+        }
+
+        let result = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
+        cleanupArchivedArticlesUsingCurrentSettings()
+        await refreshUnreadAppIconBadgeCount()
+        appState.requestSourcesSidebarReload()
+        showFeed(id: feedID, using: appState)
+        dismissSourceManagement(using: appState)
+        return result
+    }
+
+    @MainActor
+    func refreshSelectedFeed(using appState: AppState) async -> FeedRefreshResult? {
+        guard let selectedFeedID = appState.selectedFeedID else {
+            logger.info("Skipped manual refresh because no feed is selected")
+            return nil
+        }
+
+        return await refreshFeed(id: selectedFeedID)
+    }
+
+    @MainActor
+    func refreshAllFeeds() async -> FeedRefreshBatchResult? {
+        guard let feedRefreshService else {
+            logger.error("Feed refresh service is unavailable")
+            return nil
+        }
+
+        let result = await feedRefreshService.refreshAllActiveFeeds()
+        recordSourcesRefreshIfNeeded(from: result)
+        cleanupArchivedArticlesUsingCurrentSettings()
+        await refreshUnreadAppIconBadgeCount()
+        return result
+    }
+
+    @MainActor
+    func refreshCurrentSource(using appState: AppState) async -> FeedRefreshResult? {
+        switch appState.selectedSidebarSelection {
+        case .feed(let feedID):
+            let result = await refreshFeed(id: feedID)
+            if result != nil {
+                appState.requestArticleListReload()
+            }
+            return result
+        case .inbox, .unread, .starred, .folder, .none:
+            logger.info("Skipped source refresh because the current source is not a single feed")
+            return nil
+        }
+    }
+
+    @MainActor
+    func refreshCurrentSelection(
+        using appState: AppState,
+        requestsArticleListReload: Bool = true
+    ) async -> FeedRefreshBatchResult? {
+        guard let selection = appState.selectedSidebarSelection else {
+            logger.info("Skipped selection refresh because no source is selected")
+            return nil
+        }
+
+        let result: FeedRefreshBatchResult?
+        switch selection {
+        case .feed(let feedID):
+            if let refreshResult = await refreshFeed(id: feedID) {
+                result = FeedRefreshBatchResult(
+                    startedAt: refreshResult.startedAt,
+                    finishedAt: refreshResult.finishedAt,
+                    results: [refreshResult]
+                )
+            } else {
+                result = nil
+            }
+        case .folder(let folderName):
+            result = await refreshFeeds(in: folderName)
+        case .inbox, .unread, .starred:
+            result = await refreshAllFeeds()
+        }
+
+        if result != nil {
+            appState.requestSourcesSidebarReload()
+            if requestsArticleListReload {
+                appState.requestArticleListReload()
+            }
+        }
+
+        return result
+    }
+
+    @MainActor
+    func refreshVisibleSources(using appState: AppState) async -> FeedRefreshBatchResult? {
+        let result = await refreshAllFeeds()
+        if result != nil {
+            appState.requestSourceIconReload()
+            appState.requestArticleListReload()
+        }
+        return result
+    }
+
+    @MainActor
+    func refreshFeedsForBackground() async -> BackgroundRefreshServiceExecutionResult {
+        guard let backgroundRefreshService else {
+            logger.debug(
+                "Background refresh dependencies trace outcome=serviceUnavailable operation=executeBackgroundAppRefresh"
+            )
+            return .failedToStart(.feedRefreshServiceUnavailable)
+        }
+
+        let result = await backgroundRefreshService.performScheduledRefresh()
+        if case .executed(let refreshResult) = result {
+            recordSourcesRefreshIfNeeded(from: refreshResult.batchResult)
+            cleanupPersistenceBoundedGrowth()
+            await refreshUnreadAppIconBadgeCount()
+        }
+        return result
+    }
+
+    @MainActor
+    private func recordSourcesRefreshIfNeeded(from result: FeedRefreshBatchResult) {
+        guard result.summary.fetchedCount + result.summary.notModifiedCount > 0 else {
+            return
+        }
+
+        do {
+            _ = try appSettingsService?.updateSettings(
+                AppSettingsPatch(
+                    lastSourcesRefreshAt: result.finishedAt,
+                    updatedAt: result.finishedAt
+                )
+            )
+        } catch {
+            logger.error("Failed to persist sources refresh timestamp: \(error)")
+        }
+    }
+
+    @MainActor
+    private func refreshFeeds(in folderName: String) async -> FeedRefreshBatchResult? {
+        guard let feedRefreshService else {
+            logger.error("Feed refresh service is unavailable")
+            return nil
+        }
+        guard let feedRepository else {
+            logger.error("Feed repository is unavailable")
+            return nil
+        }
+
+        do {
+            let folderFeedIDs = try feedRepository.fetchActiveFeeds()
+                .filter { $0.folder?.name == folderName }
+                .map(\.id)
+            let result = await feedRefreshService.refreshFeeds(folderFeedIDs)
+            cleanupArchivedArticlesUsingCurrentSettings()
+            await refreshUnreadAppIconBadgeCount()
+            return result
+        } catch {
+            logger.error("Failed to load folder feeds for refresh: \(error)")
+            return nil
+        }
+    }
+}

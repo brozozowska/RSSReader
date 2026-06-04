@@ -12,10 +12,10 @@ struct SourceManagementAppFlowTests {
         let feedID = UUID()
         let articleID = UUID()
 
-        harness.dependencies.showFeed(id: feedID, using: appState)
-        harness.dependencies.selectArticle(id: articleID, using: appState)
+        harness.dependencies.appActions.showFeed(id: feedID, using: appState)
+        harness.dependencies.appActions.selectArticle(id: articleID, using: appState)
 
-        harness.dependencies.showSourceManagement(using: appState)
+        harness.dependencies.appActions.showSourceManagement(using: appState)
 
         #expect(appState.isPresentingSourceManagementScreen)
         #expect(appState.isPresentingSettingsScreen == false)
@@ -23,7 +23,7 @@ struct SourceManagementAppFlowTests {
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))
 
-        harness.dependencies.dismissSourceManagement(using: appState)
+        harness.dependencies.appActions.dismissSourceManagement(using: appState)
 
         #expect(appState.isPresentingSourceManagementScreen == false)
         #expect(appState.isPresentingSettingsScreen == false)
@@ -40,9 +40,9 @@ struct SourceManagementAppFlowTests {
         let feedID = UUID()
         let articleID = UUID()
 
-        harness.dependencies.showFeed(id: feedID, using: appState)
-        harness.dependencies.selectArticle(id: articleID, using: appState)
-        harness.dependencies.showFeedEditor(id: feedID, using: appState)
+        harness.dependencies.appActions.showFeed(id: feedID, using: appState)
+        harness.dependencies.appActions.selectArticle(id: articleID, using: appState)
+        harness.dependencies.appActions.showFeedEditor(id: feedID, using: appState)
 
         #expect(appState.isPresentingSourceManagementScreen)
         #expect(appState.sourceManagementLaunchContext == .editFeed(feedID))
@@ -50,7 +50,7 @@ struct SourceManagementAppFlowTests {
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))
 
-        harness.dependencies.dismissSourceManagement(using: appState)
+        harness.dependencies.appActions.dismissSourceManagement(using: appState)
 
         #expect(appState.isPresentingSourceManagementScreen == false)
         #expect(appState.sourceManagementLaunchContext == .entry)

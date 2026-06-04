@@ -153,7 +153,7 @@ struct ArticleRetentionCleanupServiceTests {
             )
         )
 
-        _ = await harness.dependencies.refreshAllFeeds()
+        _ = await harness.dependencies.appActions.refreshAllFeeds()
         let remainingArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
 
         #expect(remainingArticles.isEmpty)
@@ -179,7 +179,7 @@ struct ArticleRetentionCleanupServiceTests {
             )
         )
 
-        _ = await harness.dependencies.refreshFeedsForBackground()
+        _ = await harness.dependencies.appActions.refreshFeedsForBackground()
         let remainingArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
 
         #expect(remainingArticles.isEmpty)

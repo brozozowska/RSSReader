@@ -12,31 +12,31 @@ struct ShellModalPresentationTests {
         let feedID = UUID()
         let articleID = UUID()
 
-        harness.dependencies.showFeed(id: feedID, using: appState)
-        harness.dependencies.selectArticle(id: articleID, using: appState)
-        harness.dependencies.applySourcesFilter(.unread, using: appState)
+        harness.dependencies.appActions.showFeed(id: feedID, using: appState)
+        harness.dependencies.appActions.selectArticle(id: articleID, using: appState)
+        harness.dependencies.appActions.applySourcesFilter(.unread, using: appState)
 
         #expect(appState.selectedSidebarSelection == .feed(feedID))
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))
         #expect(appState.selectedSourcesFilter == .unread)
 
-        harness.dependencies.showInbox(using: appState)
+        harness.dependencies.appActions.showInbox(using: appState)
 
         #expect(appState.selectedSidebarSelection == .inbox)
         #expect(appState.selectedArticleID == nil)
         #expect(appState.selectedDetailRoute == .none)
 
-        harness.dependencies.showFolder(named: "News", using: appState)
+        harness.dependencies.appActions.showFolder(named: "News", using: appState)
 
         #expect(appState.selectedSidebarSelection == .folder("News"))
         #expect(appState.selectedArticleID == nil)
         #expect(appState.selectedDetailRoute == .none)
 
-        harness.dependencies.showUnread(using: appState)
+        harness.dependencies.appActions.showUnread(using: appState)
         #expect(appState.selectedSidebarSelection == .unread)
 
-        harness.dependencies.showStarred(using: appState)
+        harness.dependencies.appActions.showStarred(using: appState)
         #expect(appState.selectedSidebarSelection == .starred)
     }
 
@@ -47,17 +47,17 @@ struct ShellModalPresentationTests {
         let feedID = UUID()
         let articleID = UUID()
 
-        harness.dependencies.showFeed(id: feedID, using: appState)
-        harness.dependencies.selectArticle(id: articleID, using: appState)
+        harness.dependencies.appActions.showFeed(id: feedID, using: appState)
+        harness.dependencies.appActions.selectArticle(id: articleID, using: appState)
 
-        harness.dependencies.showSettings(using: appState)
+        harness.dependencies.appActions.showSettings(using: appState)
 
         #expect(appState.isPresentingSettingsScreen)
         #expect(appState.selectedSidebarSelection == .feed(feedID))
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))
 
-        harness.dependencies.dismissSettings(using: appState)
+        harness.dependencies.appActions.dismissSettings(using: appState)
 
         #expect(appState.isPresentingSettingsScreen == false)
         #expect(appState.selectedSidebarSelection == .feed(feedID))

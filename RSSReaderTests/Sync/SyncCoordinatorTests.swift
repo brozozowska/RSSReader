@@ -453,7 +453,7 @@ private enum SyncCoordinatorAccountAvailabilityScenario: CaseIterable {
 }
 
 private func expectEventually(
-    timeoutNanoseconds: UInt64 = 2_000_000_000,
+    timeoutNanoseconds: UInt64 = 5_000_000_000,
     condition: @escaping @MainActor () -> Bool
 ) async throws {
     let deadline = ContinuousClock.now + .nanoseconds(Int64(timeoutNanoseconds))

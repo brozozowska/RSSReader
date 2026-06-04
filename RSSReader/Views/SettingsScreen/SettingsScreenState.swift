@@ -158,14 +158,14 @@ private extension SettingsScreenState {
 
     var draftSnapshot: AppSettingsSnapshot {
         AppSettingsSnapshot(
-            defaultReaderMode: settingsInput.defaultReaderMode,
+            articleOpeningMode: settingsInput.articleOpeningMode,
             selectedSourcesFilterRawValue: settingsSnapshot.selectedSourcesFilterRawValue,
             refreshIntervalPreference: settingsInput.refreshIntervalPreference,
             useiCloudSync: settingsInput.useiCloudSync,
             markAsReadOnOpen: settingsInput.markAsReadOnOpen,
             askBeforeMarkingAllAsRead: settingsInput.askBeforeMarkingAllAsRead,
             showUnreadCountBadge: settingsInput.showUnreadCountBadge,
-            unreadSortMode: settingsInput.unreadArticleSortOrder.unreadSortMode,
+            unreadArticleSortMode: settingsInput.unreadArticleSortOrder.unreadArticleSortMode,
             articleRetentionPolicy: settingsInput.articleRetentionPolicy,
             articleBodyLinkOpeningPolicy: settingsInput.articleBodyLinkOpeningPolicy,
             articleSourceLinkOpeningPolicy: settingsInput.articleSourceLinkOpeningPolicy,

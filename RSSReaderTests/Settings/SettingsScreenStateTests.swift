@@ -8,12 +8,12 @@ struct SettingsScreenStateTests {
     @Test
     func settingsScreenStateBuildsLoadedViewStateFromSnapshot() {
         let snapshot = AppSettingsSnapshot(
-            defaultReaderMode: .browser,
+            articleOpeningMode: .safariView,
             selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
             refreshIntervalPreference: .hourly,
             useiCloudSync: true,
             markAsReadOnOpen: false,
-            unreadSortMode: .publishedAtAscending,
+            unreadArticleSortMode: .publishedAtAscending,
             articleRetentionPolicy: .twoDays
         )
         var state = SettingsScreenState()
@@ -24,7 +24,7 @@ struct SettingsScreenStateTests {
         #expect(viewState.primaryLoadingState == nil)
         #expect(viewState.placeholder == nil)
         #expect(viewState.sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .notifications, .storage])
-        #expect(state.settingsInput.defaultReaderMode == .browser)
+        #expect(state.settingsInput.articleOpeningMode == .safariView)
         #expect(state.settingsInput.unreadArticleSortOrder == .oldestFirst)
         #expect(state.settingsInput.articleRetentionPolicy == .twoDays)
         #expect(state.settingsInput.iCloudSyncStatus == .disabled)
@@ -52,9 +52,9 @@ struct SettingsScreenStateTests {
     }
 
     @Test
-    func settingsScreenStateKeepsDefaultReaderModePickerInLoadedSections() throws {
+    func settingsScreenStateKeepsArticleOpeningModePickerInLoadedSections() throws {
         let state = SettingsScreenState.previewLoaded(
-            snapshot: AppSettingsSnapshot(defaultReaderMode: .embedded)
+            snapshot: AppSettingsSnapshot(articleOpeningMode: .feedReader)
         )
 
         let readingSection = try #require(
@@ -62,7 +62,7 @@ struct SettingsScreenStateTests {
         )
         let pickerItem = try #require(
             readingSection.items.compactMap { item -> SettingsPickerItemPresentation? in
-                guard case .picker(let pickerItem) = item, pickerItem.id == .defaultReaderMode else {
+                guard case .picker(let pickerItem) = item, pickerItem.id == .articleOpeningMode else {
                     return nil
                 }
                 return pickerItem
@@ -71,7 +71,7 @@ struct SettingsScreenStateTests {
         )
 
         #expect(pickerItem.selectedValueTitle == "Feed Reader")
-        #expect(pickerItem.options.count == ReaderMode.allCases.count)
+        #expect(pickerItem.options.count == ArticleOpeningMode.allCases.count)
     }
 
     @Test
