@@ -542,7 +542,7 @@
 - [x] `Source Management Service Facade Split`: оставить `DefaultSourceManagementService` публичным facade, но вынести feed preview/discovery, feed command persistence, folder command persistence, move source flow, normalization/uniqueness policy и summary mapping в отдельные focused collaborators;
 - [x] `App Action Router Area Split`: физически разделить `AppActionRouter` на navigation/Safari actions, source-management actions, refresh actions, cleanup/storage actions и badge actions, сохранив единый app-level action surface поверх `AppState` и services;
 - [x] `Feed Normalization Rule Split`: разнести `FeedNormalizationService` на metadata normalization, entry normalization / identity input, text & HTML scalar cleanup, URL normalization и icon URL policy, чтобы будущие unit tests normalizer проверяли правила без прохода через один большой static helper;
-- [ ] `Large Test Suite Boundary Split`: до эпика `Testing` разделить оставшиеся крупные suites (`ArticlesScreenControllerTests`, `ArticlesScreenStateTests`, `SourceManagementScreenControllerTests`, `SettingsScreenControllerTests`, `FeedRefreshServiceTests`) на behavior-focused files, чтобы новые тесты добавлялись рядом с соответствующим flow.
+- [x] `Large Test Suite Boundary Split`: до эпика `Testing` разделить оставшиеся крупные suites (`ArticlesScreenControllerTests`, `ArticlesScreenStateTests`, `SourceManagementScreenControllerTests`, `SettingsScreenControllerTests`, `FeedRefreshServiceTests`) на behavior-focused files, чтобы новые тесты добавлялись рядом с соответствующим flow.
 
 #### Testing
 - [ ] unit tests для normalizer;
