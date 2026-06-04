@@ -546,15 +546,26 @@
 - [x] `Source Management Screen Controller Flow Split`: после partition state/view/service разнести `SourceManagementScreenController` на focused controller extensions / helpers для launch routing, add-feed preview/save, move-source submit, create-folder submit и status mapping, чтобы root controller остался координатором `SourceManagementScreenState`, dependencies и presented scenario flow;
 - [x] `Residual Large Test Suite Split`: проверить и физически разделить оставшиеся крупные focused suites (`ArticleScreenContentRendererTests`, `BackgroundRefreshExecutionCoordinatorTests`, `AppDependenciesRemoteSyncReloadTests`, `SourceManagementScreenStateTests`, `SettingsScreenPresentationTests`) на подфайлы по behavior groups / shared doubles, если это можно сделать без изменения тестового смысла.
 
-#### Testing
-- [ ] unit tests для normalizer;
-- [ ] unit tests для date parsing;
-- [ ] unit tests для external ID generation;
-- [ ] unit tests для deduplication;
-- [ ] unit tests для article state transitions;
-- [ ] integration tests для refresh pipeline;
-- [ ] UI tests для add feed flow;
-- [ ] UI tests для read/unread flow.
+#### Feed Input And Parsing Tests
+- [ ] `Feed Date Parsing Matrix Tests`: добавить focused unit tests для `FeedDateParsingService`: ISO8601 с fractional seconds и без них, RSS/RFC822 варианты с одно- и двузначным днём, timezone offsets, fallback formats, пустые и невалидные строки;
+- [ ] `Feed XML Document Builder Tests`: покрыть `FeedXMLDocumentBuilder` / `FeedXMLDocument` контракт: empty document, malformed XML diagnostics с line/column, CDATA, attributes, namespace / qualified names и поиск child/nested text;
+- [ ] `Feed Kind Detection Tests`: добавить unit tests для `FeedKindDetection`: RSS, Atom, unknown root, namespace-qualified feeds и unsupported feed kind diagnostics;
+- [ ] `RSS Parser Fixture Tests`: покрыть `FeedRSSParser` fixtures для channel metadata, `item` payloads, `content:encoded`, `dc:creator`, `dc:date`, enclosure image URL и missing `channel` diagnostics;
+- [ ] `Atom Parser Fixture Tests`: покрыть `FeedAtomParser` fixtures для feed metadata, `entry` payloads, `alternate` / `self` / `enclosure` links, feed-level author fallback, `content` vs `summary` и missing `feed` diagnostics;
+- [ ] `Feed Entry Filtering Diagnostics Tests`: добавить unit tests для `FeedEntryFilteringService`: rejection reasons `missingExternalID`, `missingReadablePayload`, `missingUsefulReference`, сохранение порядка valid entries и diagnostic payload для rejected entries.
+
+#### Article Identity And Query Tests
+- [ ] `Article Identity Contract Tests`: покрыть `ArticleIdentityService` напрямую: приоритет `guid` → `canonicalURL` → `articleURL` → fallback hash, URL normalization, whitespace/title normalization, date normalization и стабильность external ID при эквивалентном input;
+- [ ] `Deduplication Merge Contract Tests`: добавить unit tests для `DeduplicationService`: dedup keys по `externalID` / `guid` / `canonicalURL` / `url` / `title+publishedAt`, сохранение порядка, entries без key, merge предпочтения для title, summary/content, author, URLs, image URL и published/updated dates;
+- [ ] `Article Repository Contract Tests`: покрыть `SwiftDataArticleRepository` напрямую: `upsert` create/update без дубликатов, `refreshFeedProjection`, `reconcileArticles` archive/reactivate behavior, inbox/feed sorting и delete batch semantics;
+- [ ] `Article Query Service Contract Tests`: добавить tests для `DefaultArticleQueryService`: `all` / `unread` / `starred` / `hidden` фильтры, folder filtering, state overlay из `ArticleStateRepository`, `ReaderArticleDTO` для existing/missing article и скрытые статьи в list vs reader contract;
+- [ ] `Feed Deletion Cascade Tests`: покрыть `FeedDeletionService`: удаление feed вместе с `Article`, `ArticleState` и `FeedFetchLog`, отсутствие затрагивания соседних feeds и корректное сохранение `ModelContext`.
+
+#### App Flow Regression Tests
+- [ ] `Add Feed End-To-End Service Pipeline Tests`: добавить non-UI integration tests для add-feed flow через `SourceManagementFeedPreviewService` / `DefaultSourceManagementService` / repositories: preview → create feed → initial refresh scheduling boundary, duplicate feed URL / display name и folder placement;
+- [ ] `Refresh Pipeline Diagnostics Tests`: расширить integration tests `FeedRefreshService`: rejected entry diagnostics, parse failure diagnostics, fetch log persistence, not-modified log path и batch result aggregation без сетевых side effects;
+- [ ] `Reader Opening And Safari Routing Tests`: добавить app-level tests для `ArticleOpeningMode` / `ArticleBodyLinkOpeningPolicy` / `ArticleSourceLinkOpeningPolicy`: выбор между app-owned reader и `SFSafariViewController`, body link routing, source article routing и dismissal state;
+- [ ] `Settings Side Effects Regression Tests`: покрыть non-UI side effects `SettingsScreenController`: cache clear actions, archive purge, badge preference apply, background refresh preference update и iCloud sync preference transition без изменения unrelated settings.
 
 ### Deferred Validation
 #### Sync Real-Device Validation Kit
