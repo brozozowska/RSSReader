@@ -549,7 +549,7 @@
 #### Feed Input And Parsing Tests
 - [x] `Feed Date Parsing Matrix Tests`: добавить focused unit tests для `FeedDateParsingService`: ISO8601 с fractional seconds и без них, RSS/RFC822 варианты с одно- и двузначным днём, timezone offsets, fallback formats, пустые и невалидные строки;
 - [x] `Feed XML Document Builder Tests`: покрыть `FeedXMLDocumentBuilder` / `FeedXMLDocument` контракт: empty document, malformed XML diagnostics с line/column, CDATA, attributes, namespace / qualified names и поиск child/nested text;
-- [ ] `Feed Kind Detection Tests`: добавить unit tests для `FeedKindDetection`: RSS, Atom, unknown root, namespace-qualified feeds и unsupported feed kind diagnostics;
+- [x] `Feed Kind Detection Tests`: добавить unit tests для `FeedKindDetection`: RSS, Atom, unknown root, namespace-qualified feeds и unsupported feed kind diagnostics;
 - [ ] `RSS Parser Fixture Tests`: покрыть `FeedRSSParser` fixtures для channel metadata, `item` payloads, `content:encoded`, `dc:creator`, `dc:date`, enclosure image URL и missing `channel` diagnostics;
 - [ ] `Atom Parser Fixture Tests`: покрыть `FeedAtomParser` fixtures для feed metadata, `entry` payloads, `alternate` / `self` / `enclosure` links, feed-level author fallback, `content` vs `summary` и missing `feed` diagnostics;
 - [ ] `Feed Entry Filtering Diagnostics Tests`: добавить unit tests для `FeedEntryFilteringService`: rejection reasons `missingExternalID`, `missingReadablePayload`, `missingUsefulReference`, сохранение порядка valid entries и diagnostic payload для rejected entries.
