@@ -2,6 +2,14 @@ import Foundation
 
 extension FeedParserService {
     static func parse(_ data: Data) throws -> FeedXMLDocument {
+        let isWhitespaceOnly = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty == true
+
+        if data.isEmpty || isWhitespaceOnly {
+            throw FeedParserError.emptyDocument
+        }
+
         let builder = FeedXMLTreeBuilder()
         let parser = XMLParser(data: data)
         parser.delegate = builder
