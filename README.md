@@ -552,7 +552,7 @@
 - [x] `Feed Kind Detection Tests`: добавить unit tests для `FeedKindDetection`: RSS, Atom, unknown root, namespace-qualified feeds и unsupported feed kind diagnostics;
 - [x] `RSS Parser Fixture Tests`: покрыть `FeedRSSParser` fixtures для channel metadata, `item` payloads, `content:encoded`, `dc:creator`, `dc:date`, enclosure image URL и missing `channel` diagnostics;
 - [x] `Atom Parser Fixture Tests`: покрыть `FeedAtomParser` fixtures для feed metadata, `entry` payloads, `alternate` / `self` / `enclosure` links, feed-level author fallback, `content` vs `summary` и missing `feed` diagnostics;
-- [ ] `Feed Entry Filtering Diagnostics Tests`: добавить unit tests для `FeedEntryFilteringService`: rejection reasons `missingExternalID`, `missingReadablePayload`, `missingUsefulReference`, сохранение порядка valid entries и diagnostic payload для rejected entries.
+- [x] `Feed Entry Filtering Diagnostics Tests`: добавить unit tests для `FeedEntryFilteringService`: rejection reasons `missingExternalID`, `missingReadablePayload`, `missingUsefulReference`, сохранение порядка valid entries и diagnostic payload для rejected entries.
 
 #### Article Identity And Query Tests
 - [ ] `Article Identity Contract Tests`: покрыть `ArticleIdentityService` напрямую: приоритет `guid` → `canonicalURL` → `articleURL` → fallback hash, URL normalization, whitespace/title normalization, date normalization и стабильность external ID при эквивалентном input;
