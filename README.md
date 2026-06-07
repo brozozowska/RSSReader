@@ -557,7 +557,7 @@
 #### Article Identity And Query Tests
 - [x] `Article Identity Contract Tests`: покрыть `ArticleIdentityService` напрямую: приоритет `guid` → `canonicalURL` → `articleURL` → fallback hash, URL normalization, whitespace/title normalization, date normalization и стабильность external ID при эквивалентном input;
 - [x] `Deduplication Merge Contract Tests`: добавить unit tests для `DeduplicationService`: dedup keys по `externalID` / `guid` / `canonicalURL` / `url` / `title+publishedAt`, сохранение порядка, entries без key, merge предпочтения для title, summary/content, author, URLs, image URL и published/updated dates;
-- [ ] `Article Repository Contract Tests`: покрыть `SwiftDataArticleRepository` напрямую: `upsert` create/update без дубликатов, `refreshFeedProjection`, `reconcileArticles` archive/reactivate behavior, inbox/feed sorting и delete batch semantics;
+- [x] `Article Repository Contract Tests`: покрыть `SwiftDataArticleRepository` напрямую: `upsert` create/update без дубликатов, `refreshFeedProjection`, `reconcileArticles` archive/reactivate behavior, inbox/feed sorting и delete batch semantics;
 - [ ] `Article Query Service Contract Tests`: добавить tests для `DefaultArticleQueryService`: `all` / `unread` / `starred` / `hidden` фильтры, folder filtering, state overlay из `ArticleStateRepository`, `ReaderArticleDTO` для existing/missing article и скрытые статьи в list vs reader contract;
 - [ ] `Feed Deletion Cascade Tests`: покрыть `FeedDeletionService`: удаление feed вместе с `Article`, `ArticleState` и `FeedFetchLog`, отсутствие затрагивания соседних feeds и корректное сохранение `ModelContext`.
 
