@@ -564,7 +564,7 @@
 #### App Flow Regression Tests
 - [x] `Add Feed End-To-End Service Pipeline Tests`: добавить non-UI integration tests для add-feed flow через `SourceManagementFeedPreviewService` / `DefaultSourceManagementService` / repositories: preview → create feed → initial refresh scheduling boundary, duplicate feed URL / display name и folder placement;
 - [x] `Refresh Pipeline Diagnostics Tests`: расширить integration tests `FeedRefreshService`: rejected entry diagnostics, parse failure diagnostics, fetch log persistence, not-modified log path и batch result aggregation без сетевых side effects;
-- [ ] `Reader Opening And Safari Routing Tests`: добавить app-level tests для `ArticleOpeningMode` / `ArticleBodyLinkOpeningPolicy` / `ArticleSourceLinkOpeningPolicy`: выбор между app-owned reader и `SFSafariViewController`, body link routing, source article routing и dismissal state;
+- [x] `Reader Opening And Safari Routing Tests`: добавить app-level tests для `ArticleOpeningMode` / `ArticleBodyLinkOpeningPolicy` / `ArticleSourceLinkOpeningPolicy`: выбор между app-owned reader и `SFSafariViewController`, body link routing, source article routing и dismissal state;
 - [ ] `Settings Side Effects Regression Tests`: покрыть non-UI side effects `SettingsScreenController`: cache clear actions, archive purge, badge preference apply, background refresh preference update и iCloud sync preference transition без изменения unrelated settings.
 
 ### Deferred Validation
