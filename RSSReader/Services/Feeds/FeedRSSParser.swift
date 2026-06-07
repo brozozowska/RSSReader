@@ -57,7 +57,8 @@ extension FeedParserService {
                     ?? itemElement.firstChildText(named: "dc:creator")
                     ?? itemElement.firstChildText(named: "creator"),
                 publishedAtRaw: itemElement.firstChildText(named: "pubDate"),
-                updatedAtRaw: itemElement.firstChildText(named: "dc:date"),
+                updatedAtRaw: itemElement.firstChildText(named: "dc:date")
+                    ?? itemElement.firstChildText(named: "date"),
                 imageURL: rssEnclosureURL(in: itemElement)
             )
         }
