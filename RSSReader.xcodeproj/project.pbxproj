@@ -20,6 +20,11 @@
 		4E2BA2642F6ADE3B00C1A4C7 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		4E5607FD2F69A2DF008008E4 /* RSSReader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RSSReader.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4E5A048D2F8668CB00433119 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
+		4E5A048E2F8668CB00433119 /* CURRENT_ARCHITECTURE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CURRENT_ARCHITECTURE.md; sourceTree = "<group>"; };
+		4E5A048F2F8668CB00433119 /* TASK_WORKFLOW.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = TASK_WORKFLOW.md; sourceTree = "<group>"; };
+		4E5A04902F8668CB00433119 /* COMMIT_AND_ISSUE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = COMMIT_AND_ISSUE.md; sourceTree = "<group>"; };
+		4E5A04912F8668CB00433119 /* EPIC_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = EPIC_SUMMARY.md; sourceTree = "<group>"; };
+		4E5A04922F8668CB00433119 /* XCODE_VALIDATION.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = XCODE_VALIDATION.md; sourceTree = "<group>"; };
 		4EC805A42F7EB73A004CDFE9 /* RSSReaderTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RSSReaderTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -75,7 +80,20 @@
 				4E5607FE2F69A2DF008008E4 /* Products */,
 				4E2BA2642F6ADE3B00C1A4C7 /* README.md */,
 				4E5A048D2F8668CB00433119 /* AGENTS.md */,
+				4E5A04932F8668CB00433119 /* AgentDocs */,
 			);
+			sourceTree = "<group>";
+		};
+		4E5A04932F8668CB00433119 /* AgentDocs */ = {
+			isa = PBXGroup;
+			children = (
+				4E5A048E2F8668CB00433119 /* CURRENT_ARCHITECTURE.md */,
+				4E5A048F2F8668CB00433119 /* TASK_WORKFLOW.md */,
+				4E5A04902F8668CB00433119 /* COMMIT_AND_ISSUE.md */,
+				4E5A04912F8668CB00433119 /* EPIC_SUMMARY.md */,
+				4E5A04922F8668CB00433119 /* XCODE_VALIDATION.md */,
+			);
+			path = AgentDocs;
 			sourceTree = "<group>";
 		};
 		4E5607FE2F69A2DF008008E4 /* Products */ = {

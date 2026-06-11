@@ -567,6 +567,47 @@
 - [x] `Reader Opening And Safari Routing Tests`: добавить app-level tests для `ArticleOpeningMode` / `ArticleBodyLinkOpeningPolicy` / `ArticleSourceLinkOpeningPolicy`: выбор между app-owned reader и `SFSafariViewController`, body link routing, source article routing и dismissal state;
 - [x] `Settings Side Effects Regression Tests`: покрыть non-UI side effects `SettingsScreenController`: cache clear actions, archive purge, badge preference apply, background refresh preference update и iCloud sync preference transition без изменения unrelated settings.
 
+### Pre-Validation Product Readiness
+#### Pre-Validation UX Polish
+- [ ] `Settings Live Apply Policy Audit`: разделить настройки на `live-applied`, `staged until Apply` и `requires relaunch`, чтобы `Settings Screen` явно различал мгновенные UI side effects, отложенное сохранение и настройки, которые не могут примениться в текущем runtime;
+- [ ] `Appearance Setting Live Apply`: сделать `interfaceThemeMode` мгновенно применяемым при выборе в `SettingsScreen`, без ожидания кнопки применения, с сохранением через `AppSettingsService` и обновлением `AppState` / theme policy;
+- [ ] `Settings Apply Button Scope`: после live-apply определить, остаётся ли кнопка применения общей commit-action для всех staged-настроек или должна показываться/активироваться только для настроек, которым действительно нужен отложенный apply;
+- [ ] `Settings Live Apply Regression Tests`: покрыть сценарии, где тема применяется сразу, persisted snapshot обновляется, `canApplyChanges` не остаётся включённым после live-only изменения, а sync/relaunch-настройки не начинают притворяться мгновенно применёнными;
+- [ ] `Context Menu Glyph Audit`: пройтись по `Menu` / `contextMenu` в `SettingsScreen`, `SidebarRows`, article actions и source management, определить единый icon policy для обычных, destructive и selected actions;
+- [ ] `Sidebar Context Menu Glyphs`: если audit подтверждает пользу глифов, оформить long-tap меню источников и папок через `Label` / SF Symbols для действий organize, edit, unsubscribe и delete без изменения существующих action boundaries.
+
+#### Source Portability
+- [ ] `OPML Import Contract`: определить поддерживаемый формат импорта (`OPML` 1.0 / 2.0), mapping nested `outline` в folders, duplicate policy, URL normalization и формат ошибок для invalid sources;
+- [ ] `OPML Parser Service`: добавить service-level parser DTO для OPML без UI и без прямой записи в SwiftData;
+- [ ] `OPML Import Preview Flow`: перед сохранением показывать summary найденных sources, folders, duplicates и invalid entries, чтобы пользователь понимал, что именно будет добавлено;
+- [ ] `OPML Import Persistence`: связать import с `SourceManagementService` / repositories, чтобы импорт не обходил существующие invariants folder/feed normalization и duplicate handling;
+- [ ] `OPML Export Contract`: определить export scope: active feeds, folder structure, feed metadata и правила для локальных/пустых полей;
+- [ ] `OPML Export Service`: собрать OPML XML из текущих `Feed` / `Folder` read models без зависимости от SwiftUI;
+- [ ] `Import Export UI Entry Points`: добавить import/export entry points в source/settings area, не смешивая переносимость sources с основным reading flow;
+- [ ] `OPML Import Export Tests`: покрыть parser, duplicate policy, folder mapping, persistence boundary и стабильность export output.
+
+#### Localization Foundation
+- [ ] `Localization Scope And Language Matrix`: зафиксировать initial language set: `en`, `ru`, `de`, `fr`, `es`, `it`, `pt-BR`, `ja`, `zh-Hans`, `ar`, `he`, `fa`;
+- [ ] `Localization String Extraction`: вынести user-facing strings из экранов, alerts, меню, settings footers, placeholders и accessibility labels в Xcode-native localization resources;
+- [ ] `Localization Key And Formatting Policy`: зафиксировать naming keys, pluralization / date / number formatting policy и правила для технических названий вроде `RSS`, `iCloud`, `OPML`, `SwiftData` и `CloudKit`;
+- [ ] `Russian Localization Pass`: добавить первый европейский/кириллический язык (`ru`) и проверить длинные строки на основных экранах;
+- [ ] `CJK Localization Pass`: добавить первый иероглифический язык (`ja` или `zh-Hans`) и проверить list rows, settings values, article metadata и line wrapping;
+- [ ] `RTL Localization Pass`: добавить первый RTL-язык (`ar`) и проверить layout direction, alignment, menus, toolbar placement, SF Symbols и mixed technical text;
+- [ ] `Additional Language Passes`: добавить оставшиеся языки из матрицы: `de`, `fr`, `es`, `it`, `pt-BR`, второй CJK-язык, `he`, `fa`;
+- [ ] `Localization Regression Checklist`: подготовить smoke checklist для long text, Dynamic Type, RTL, CJK, settings sheets, source management и article reader.
+
+#### Article Search Foundation
+- [ ] `Article Search Scope`: определить searchable fields, selection scope и поведение для hidden, archived и `isDeletedAtSource` статей;
+- [ ] `Article Search Query Layer`: добавить query/read-model API для поиска статей без переноса search logic во `View`;
+- [ ] `Article Search UI Contract`: определить, как `Articles Screen` подключает поиск к текущему `SidebarSelection` / `SourcesFilter` и какие empty/loading states нужны.
+
+#### iPad Adaptation
+- [ ] `iPad Layout Audit`: проверить `NavigationSplitView`, sidebar ширины, article list/detail layout, settings/source-management sheets и reader chrome в regular width;
+- [ ] `iPad NavigationSplitView Polish`: выровнять selection, fallback routes, split behavior и toolbar placement для iPad без изменения iPhone compact flow;
+- [ ] `iPad Modal Presentation Polish`: привести `Settings Screen` и `Source Management Screen` к корректной iPad presentation policy: sheet sizing, dismissal, toolbar actions и keyboard/split-view edge cases;
+- [ ] `iPad Reader And Article List Polish`: проверить reader content width, bottom toolbar, adjacent navigation controls, article row density и Dynamic Type на iPad;
+- [ ] `iPad Smoke Validation Checklist`: подготовить минимальный checklist для portrait/landscape, split screen, Stage Manager, external keyboard basics и основных flows `Sources` -> `Articles` -> `Article` -> `Safari`.
+
 ### Deferred Validation
 #### Sync Real-Device Validation Kit
 - [ ] собрать явный `validation checklist` для sync-сценариев на паре `simulator + real device`: first launch с `useiCloudSync = off`, first launch с `useiCloudSync = on`, bootstrap fallback при `noAccount` / `temporarilyUnavailable`, включение и выключение sync из `Settings Screen`, remote import после изменений на втором рантайме и повторный launch после уже включённого sync;
@@ -596,15 +637,10 @@
 
 ### Post-MVP
 #### Post-MVP backlog
-- [ ] feed discovery по URL сайта;
-- [ ] OPML import;
-- [ ] OPML export;
 - [ ] full text extraction/reader mode;
 - [ ] image prefetch;
 - [ ] advanced smart folders;
 - [ ] скрытие статьи;
-- [ ] поиск по статьям;
-- [ ] macOS/iPad polish;
 - [ ] advanced conflict UI.
 
 ## Tech Stack
