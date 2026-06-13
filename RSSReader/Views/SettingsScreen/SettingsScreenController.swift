@@ -121,6 +121,8 @@ final class SettingsScreenController {
                 .showUnreadCountBadge,
                 .useICloudSync,
                 .iCloudSyncStatus,
+                .importOPML,
+                .exportOPML,
                 .purgeArchivedArticles,
                 .clearArticleImageCache,
                 .clearSourceIconCache:
@@ -151,6 +153,8 @@ final class SettingsScreenController {
                 .refreshInterval,
                 .iCloudSyncStatus,
                 .appearance,
+                .importOPML,
+                .exportOPML,
                 .purgeArchivedArticles,
                 .clearArticleImageCache,
                 .clearSourceIconCache:
@@ -170,6 +174,9 @@ final class SettingsScreenController {
             await clearArticleImageCache(dependencies: dependencies)
         case .clearSourceIconCache:
             await clearSourceIconCache(dependencies: dependencies, appState: appState)
+        case .importOPML,
+                .exportOPML:
+            return
         case .articleOpeningMode,
                 .markAsReadOnOpen,
                 .articleSourceLinkOpeningPolicy,

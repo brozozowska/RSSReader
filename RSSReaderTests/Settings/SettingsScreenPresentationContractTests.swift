@@ -29,14 +29,15 @@ struct SettingsScreenPresentationContractTests {
 
         let sections = SettingsScreenPresentationBuilder.buildSections(from: input)
 
-        #expect(sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .notifications, .storage])
+        #expect(sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .notifications, .sourcePortability, .storage])
 
         let appearanceItems = sections[0].items
         let readingItems = sections[1].items
         let articleListItems = sections[2].items
         let updatesAndSyncItems = sections[3].items
         let notificationsItems = sections[4].items
-        let storageItems = sections[5].items
+        let sourcePortabilityItems = sections[5].items
+        let storageItems = sections[6].items
 
         #expect(
             appearanceItems == [
@@ -210,6 +211,33 @@ struct SettingsScreenPresentationContractTests {
                         title: "App Icon Badge",
                         subtitle: "Show the unread article count on the app icon.",
                         isOn: true
+                    )
+                )
+            ]
+        )
+        #expect(
+            sections[5].footer == "Import and export OPML files to move feed subscriptions between apps."
+        )
+        #expect(
+            sourcePortabilityItems == [
+                .button(
+                    SettingsButtonItemPresentation(
+                        id: .importOPML,
+                        title: "Import OPML",
+                        subtitle: "Preview subscriptions before adding them.",
+                        systemImage: "square.and.arrow.down",
+                        role: .normal,
+                        isEnabled: true
+                    )
+                ),
+                .button(
+                    SettingsButtonItemPresentation(
+                        id: .exportOPML,
+                        title: "Export OPML",
+                        subtitle: "Save active subscriptions as an OPML file.",
+                        systemImage: "square.and.arrow.up",
+                        role: .normal,
+                        isEnabled: true
                     )
                 )
             ]

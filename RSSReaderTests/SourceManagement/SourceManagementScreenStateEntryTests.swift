@@ -10,7 +10,7 @@ struct SourceManagementScreenStateEntryTests {
         let state = SourceManagementScreenState.makePreviewFixture()
         let viewState = state.derivedViewState()
 
-        #expect(viewState.summary.title == "Manage sources and folders.")
+        #expect(viewState.summary.title == "Manage sources and folders")
         #expect(viewState.sections.map(\.id) == [.startNew, .organizeExisting])
         #expect(viewState.sections.first?.items.map(\.id) == [.addFeed, .createFolder])
         #expect(viewState.sections.last?.items.map(\.id) == [.moveSource])

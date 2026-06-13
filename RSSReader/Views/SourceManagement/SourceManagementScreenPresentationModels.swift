@@ -214,7 +214,7 @@ struct SourceManagementScreenViewState: Equatable, Sendable {
 enum SourceManagementScreenPresentationBuilder {
     static func buildSummary() -> SourceManagementScreenSummaryPresentation {
         SourceManagementScreenSummaryPresentation(
-            title: "Manage sources and folders.",
+            title: "Manage sources and folders",
             description: "Add new feeds, create folders, or move existing sources when your reading list needs a different structure."
         )
     }
