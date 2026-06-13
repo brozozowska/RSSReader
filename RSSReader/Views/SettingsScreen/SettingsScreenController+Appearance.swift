@@ -19,5 +19,14 @@ extension SettingsScreenController {
         var input = screenState.settingsInput
         input.interfaceThemeMode = selectedMode
         screenState.applyDraftInput(input)
+        appState?.applyInterfaceThemeMode(selectedMode)
+    }
+
+    func discardPreviewedAppearanceChanges(appState: AppState?) {
+        guard screenState.settingsInput.interfaceThemeMode != screenState.settingsSnapshot.interfaceThemeMode else {
+            return
+        }
+
+        appState?.applyInterfaceThemeMode(screenState.settingsSnapshot.interfaceThemeMode)
     }
 }

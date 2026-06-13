@@ -183,11 +183,65 @@ struct SettingsScreenControllerPersistenceTests {
             appState: appState
         )
 
-        #expect(appState.interfaceThemeMode == .automaticLightDark)
+        let settingsBeforeApply = try repository.fetchOrCreate()
+        #expect(appState.interfaceThemeMode == .black)
+        #expect(settingsBeforeApply.interfaceThemeMode == .automaticLightDark)
+        #expect(controller.viewState().canApplyChanges)
         #expect(controller.applySettingsChanges(dependencies: harness.dependencies, appState: appState))
         let persistedSettings = try repository.fetchOrCreate()
         #expect(controller.screenState.settingsSnapshot.interfaceThemeMode == .black)
         #expect(persistedSettings.interfaceThemeMode == .black)
         #expect(appState.interfaceThemeMode == .black)
+    }
+
+    @Test
+    func settingsScreenControllerRollsBackPreviewedInterfaceThemeModeWithoutPersistingChanges() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let repository = try #require(harness.dependencies.appSettingsRepository)
+        let controller = SettingsScreenController()
+        let appState = AppState()
+
+        controller.loadSettings(dependencies: harness.dependencies, appState: appState)
+        controller.handlePickerOptionSelection(
+            itemID: .appearance,
+            optionID: InterfaceThemeMode.dark.rawValue,
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+
+        #expect(appState.interfaceThemeMode == .dark)
+        #expect(controller.viewState().canApplyChanges)
+
+        controller.discardPreviewedAppearanceChanges(appState: appState)
+
+        let persistedSettings = try repository.fetchOrCreate()
+        #expect(appState.interfaceThemeMode == .automaticLightDark)
+        #expect(persistedSettings.interfaceThemeMode == .automaticLightDark)
+        #expect(controller.screenState.settingsSnapshot.interfaceThemeMode == .automaticLightDark)
+        #expect(controller.screenState.settingsInput.interfaceThemeMode == .dark)
+    }
+
+    @Test
+    func settingsScreenControllerKeepsApplyDisabledWhenPreviewedThemeReturnsToOriginalValue() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let controller = SettingsScreenController()
+        let appState = AppState()
+
+        controller.loadSettings(dependencies: harness.dependencies, appState: appState)
+        controller.handlePickerOptionSelection(
+            itemID: .appearance,
+            optionID: InterfaceThemeMode.dark.rawValue,
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+        controller.handlePickerOptionSelection(
+            itemID: .appearance,
+            optionID: InterfaceThemeMode.automaticLightDark.rawValue,
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+
+        #expect(appState.interfaceThemeMode == .automaticLightDark)
+        #expect(controller.viewState().canApplyChanges == false)
     }
 }
