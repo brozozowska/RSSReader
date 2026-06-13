@@ -569,12 +569,9 @@
 
 ### Pre-Validation Product Readiness
 #### Pre-Validation UX Polish
-- [ ] `Settings Live Apply Policy Audit`: разделить настройки на `live-applied`, `staged until Apply` и `requires relaunch`, чтобы `Settings Screen` явно различал мгновенные UI side effects, отложенное сохранение и настройки, которые не могут примениться в текущем runtime;
-- [ ] `Appearance Setting Live Apply`: сделать `interfaceThemeMode` мгновенно применяемым при выборе в `SettingsScreen`, без ожидания кнопки применения, с сохранением через `AppSettingsService` и обновлением `AppState` / theme policy;
-- [ ] `Settings Apply Button Scope`: после live-apply определить, остаётся ли кнопка применения общей commit-action для всех staged-настроек или должна показываться/активироваться только для настроек, которым действительно нужен отложенный apply;
-- [ ] `Settings Live Apply Regression Tests`: покрыть сценарии, где тема применяется сразу, persisted snapshot обновляется, `canApplyChanges` не остаётся включённым после live-only изменения, а sync/relaunch-настройки не начинают притворяться мгновенно применёнными;
-- [ ] `Context Menu Glyph Audit`: пройтись по `Menu` / `contextMenu` в `SettingsScreen`, `SidebarRows`, article actions и source management, определить единый icon policy для обычных, destructive и selected actions;
-- [ ] `Sidebar Context Menu Glyphs`: если audit подтверждает пользу глифов, оформить long-tap меню источников и папок через `Label` / SF Symbols для действий organize, edit, unsubscribe и delete без изменения существующих action boundaries.
+- [x] `Appearance Setting Staged Preview`: сделать `interfaceThemeMode` мгновенным preview через `AppState` / theme policy, но сохранять его в `AppSettings` только после Apply; закрытие `SettingsScreen` без Apply откатывает preview, а кнопка применения остаётся общей commit-action для staged-настроек;
+- [x] `Unread Swipe Read Retention`: при swipe `Read` в текущем `Unread` списке удерживать статью видимой и серой до следующего reload / повторного входа на экран, как чтение при открытии статьи;
+- [x] `Context Menu Glyphs`: добавить `Label` / SF Symbols в меню фильтров (`All Items`, `Unread`, `Starred`) и long-tap меню источников/папок (`Organize...`, `Edit...`, `Delete`, `Unsubscribe`) без изменения существующих action boundaries.
 
 #### Source Portability
 - [ ] `OPML Import Contract`: определить поддерживаемый формат импорта (`OPML` 1.0 / 2.0), mapping nested `outline` в folders, duplicate policy, URL normalization и формат ошибок для invalid sources;

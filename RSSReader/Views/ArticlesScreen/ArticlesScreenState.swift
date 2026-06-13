@@ -236,8 +236,11 @@ struct ArticlesScreenState {
         navigationSubtitle: String
     ) {
         switch mutation {
-        case .update(let updatedArticle):
-            articleListSession.updateArticle(updatedArticle)
+        case .update(let updatedArticle, let membershipStatus):
+            articleListSession.updateArticle(
+                updatedArticle,
+                membershipStatus: membershipStatus
+            )
         case .remove:
             articleListSession.removeArticle(id: articleID)
         }

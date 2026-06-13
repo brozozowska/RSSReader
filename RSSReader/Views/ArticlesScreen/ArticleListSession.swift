@@ -52,9 +52,14 @@ struct ArticleListSession: Equatable {
         self.entries = entries
     }
 
-    mutating func updateArticle(_ article: ArticleListItemDTO) {
+    mutating func updateArticle(
+        _ article: ArticleListItemDTO,
+        membershipStatus: ArticleListEntryMembershipStatus? = nil
+    ) {
         entries = entries.map { entry in
-            entry.id == article.id ? entry.updating(article: article) : entry
+            entry.id == article.id
+                ? entry.updating(article: article, membershipStatus: membershipStatus)
+                : entry
         }
     }
 
@@ -159,10 +164,13 @@ struct ArticleListEntry: Identifiable, Equatable {
         self.membershipStatus = membershipStatus
     }
 
-    func updating(article: ArticleListItemDTO) -> ArticleListEntry {
+    func updating(
+        article: ArticleListItemDTO,
+        membershipStatus: ArticleListEntryMembershipStatus? = nil
+    ) -> ArticleListEntry {
         ArticleListEntry(
             article: article,
-            membershipStatus: membershipStatus
+            membershipStatus: membershipStatus ?? self.membershipStatus
         )
     }
 

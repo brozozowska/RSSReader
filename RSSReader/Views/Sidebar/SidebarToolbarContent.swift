@@ -50,9 +50,9 @@ private struct SidebarSourcesFilterMenu: View {
 
     var body: some View {
         Menu {
-            sourcesFilterButton("All Items", filter: .allItems)
-            sourcesFilterButton("Unread", filter: .unread)
-            sourcesFilterButton("Starred", filter: .starred)
+            sourcesFilterButton("All Items", systemImage: "tray.full", filter: .allItems)
+            sourcesFilterButton("Unread", systemImage: "circle", filter: .unread)
+            sourcesFilterButton("Starred", systemImage: "star", filter: .starred)
         } label: {
             Image(systemName: "line.3.horizontal.decrease")
         }
@@ -60,14 +60,23 @@ private struct SidebarSourcesFilterMenu: View {
     }
 
     @ViewBuilder
-    private func sourcesFilterButton(_ title: String, filter: SourcesFilter) -> some View {
+    private func sourcesFilterButton(
+        _ title: String,
+        systemImage: String,
+        filter: SourcesFilter
+    ) -> some View {
         Button {
             actionHandlers.applySourcesFilter(filter)
         } label: {
-            if selectedSourcesFilter == filter {
-                Label(title, systemImage: "checkmark")
-            } else {
-                Text(title)
+            Label {
+                HStack {
+                    Text(title)
+                    if selectedSourcesFilter == filter {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            } icon: {
+                Image(systemName: systemImage)
             }
         }
     }

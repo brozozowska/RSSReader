@@ -14,6 +14,7 @@ struct SettingsScreenView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     @Environment(AppState.self) private var appState
     @State private var controller: SettingsScreenController
+    @State private var didCommitSettingsChanges = false
     @State private var isArchivedArticlesPurgeConfirmationPresented = false
     @State private var isArticleImageCacheResetConfirmationPresented = false
     @State private var isSourceIconCacheResetConfirmationPresented = false
@@ -60,6 +61,10 @@ struct SettingsScreenView: View {
                     await controller.refreshArticleImageCacheAvailability(dependencies: dependencies)
                     await controller.refreshSourceIconCacheAvailability(dependencies: dependencies)
                 }
+                .onDisappear {
+                    guard didCommitSettingsChanges == false else { return }
+                    controller.discardPreviewedAppearanceChanges(appState: appState)
+                }
                 .alert(
                     "Clear archived articles?",
                     isPresented: $isArchivedArticlesPurgeConfirmationPresented
@@ -105,6 +110,7 @@ struct SettingsScreenView: View {
                     appState: appState
                 )
                 if didApplyChanges {
+                    didCommitSettingsChanges = true
                     dismiss()
                 }
             },

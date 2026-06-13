@@ -43,16 +43,22 @@ struct SidebarFeedRowView: View {
             selection = row.selection
         }
         .contextMenu {
-            Button("Organize...") {
+            Button {
                 actionHandlers.showFeedOrganizer(row.id)
+            } label: {
+                Label("Organize...", systemImage: "folder")
             }
 
-            Button("Edit...") {
+            Button {
                 actionHandlers.showFeedEditor(row.id)
+            } label: {
+                Label("Edit...", systemImage: "pencil")
             }
 
-            Button("Unsubscribe", role: .destructive) {
+            Button(role: .destructive) {
                 actionHandlers.unsubscribeFeed(row.id)
+            } label: {
+                Label("Unsubscribe", systemImage: "minus.circle")
             }
         }
         .listRowSeparator(.hidden)
@@ -96,12 +102,16 @@ struct SidebarFolderRowView: View {
         }
         .font(.body)
         .contextMenu {
-            Button("Edit...") {
+            Button {
                 actionHandlers.showFolderEditor(row.name)
+            } label: {
+                Label("Edit...", systemImage: "pencil")
             }
 
-            Button("Delete", role: .destructive) {
+            Button(role: .destructive) {
                 actionHandlers.deleteFolder(row.name)
+            } label: {
+                Label("Delete", systemImage: "trash")
             }
         }
         .listRowSeparator(.hidden)

@@ -119,9 +119,16 @@ struct ArticlesScreenStateMutationTests {
     }
 
     @Test
-    func articlesScreenStateRemovesArticleRowForReadActionInUnreadSelection() {
+    func articlesScreenStateRetainsArticleRowForReadActionInUnreadSelection() {
         var state = ArticlesScreenState()
         let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+        let updatedItem = makeArticleListItemDTO(
+            id: unreadItem.id,
+            feedID: unreadItem.feedID,
+            articleExternalID: unreadItem.articleExternalID,
+            isRead: true,
+            isStarred: false
+        )
 
         state.applyLoadedArticles(
             [unreadItem],
@@ -131,13 +138,19 @@ struct ArticlesScreenStateMutationTests {
         )
         state.applyArticleRowMutation(
             articleID: unreadItem.id,
-            mutation: .remove,
-            navigationSubtitle: "0 Unread Items"
+            mutation: .update(
+                updatedItem,
+                membershipStatus: .retainedAfterRead
+            ),
+            navigationSubtitle: "No Unread Items"
         )
 
-        #expect(state.phase == .empty)
-        #expect(state.navigationSubtitle == "0 Unread Items")
-        #expect(state.articles.isEmpty)
+        #expect(state.phase == .loaded)
+        #expect(state.navigationSubtitle == "No Unread Items")
+        #expect(state.articles.map(\.id) == [unreadItem.id])
+        #expect(state.articles.first?.isRead == true)
+        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
+        #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
     }
 
     @Test

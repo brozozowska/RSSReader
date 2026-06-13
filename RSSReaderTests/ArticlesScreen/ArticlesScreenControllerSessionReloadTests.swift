@@ -7,6 +7,49 @@ import Testing
 @MainActor
 struct ArticlesScreenControllerSessionReloadTests {
     @Test
+    func articlesScreenControllerRetainsUnreadArticleAfterManualReadToggleInCurrentSession() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/manual-read-retention.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "manual-read-retention-article",
+            url: "https://example.com/articles/manual-read-retention",
+            title: "Manual Read Retention"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        let loadedArticle = try #require(controller.screenState.articles.first)
+        controller.toggleArticleReadStatus(
+            loadedArticle,
+            selection: .feed(feed.id),
+            sourcesFilter: .unread,
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        let persistedState = try #require(
+            try harness.articleStateRepository.fetchState(
+                feedID: feed.id,
+                articleExternalID: article.externalID
+            )
+        )
+
+        #expect(persistedState.isRead)
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.map(\.id) == [article.id])
+        #expect(controller.screenState.articles.first?.isRead == true)
+        #expect(controller.screenState.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
+        #expect(controller.screenState.navigationSubtitle == "No Unread Items")
+        #expect(controller.screenState.toolbarActions.isMarkAllAsReadEnabled == false)
+    }
+
+    @Test
     func articlesScreenControllerRetainsSessionReadArticleOnlyForRetainingReloads() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let articleStateService = try #require(harness.dependencies.articleStateService)
