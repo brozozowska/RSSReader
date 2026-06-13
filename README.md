@@ -574,14 +574,11 @@
 - [x] `Context Menu Glyphs`: добавить `Label` / SF Symbols в меню фильтров (`All Items`, `Unread`, `Starred`) и long-tap меню источников/папок (`Organize...`, `Edit...`, `Delete`, `Unsubscribe`) без изменения существующих action boundaries.
 
 #### Source Portability
-- [ ] `OPML Import Contract`: определить поддерживаемый формат импорта (`OPML` 1.0 / 2.0), mapping nested `outline` в folders, duplicate policy, URL normalization и формат ошибок для invalid sources;
-- [ ] `OPML Parser Service`: добавить service-level parser DTO для OPML без UI и без прямой записи в SwiftData;
-- [ ] `OPML Import Preview Flow`: перед сохранением показывать summary найденных sources, folders, duplicates и invalid entries, чтобы пользователь понимал, что именно будет добавлено;
-- [ ] `OPML Import Persistence`: связать import с `SourceManagementService` / repositories, чтобы импорт не обходил существующие invariants folder/feed normalization и duplicate handling;
-- [ ] `OPML Export Contract`: определить export scope: active feeds, folder structure, feed metadata и правила для локальных/пустых полей;
-- [ ] `OPML Export Service`: собрать OPML XML из текущих `Feed` / `Folder` read models без зависимости от SwiftUI;
-- [ ] `Import Export UI Entry Points`: добавить import/export entry points в source/settings area, не смешивая переносимость sources с основным reading flow;
-- [ ] `OPML Import Export Tests`: покрыть parser, duplicate policy, folder mapping, persistence boundary и стабильность export output.
+- [x] `OPML Parser Service`: добавить service-level parser и DTO для OPML 1.0 / 2.0 без SwiftUI и без записи в SwiftData; поддержать `outline` с `xmlUrl`, `htmlUrl`, `title` / `text`, игнорировать неизвестные outline без feed URL и покрыть parser fixtures для nested folders, missing URLs, malformed XML и mixed valid/invalid entries;
+- [ ] `OPML Import Preview Planner`: построить preview model поверх parsed OPML и текущих `SourceManagementService.fetchFeeds/fetchFolders`: flatten nested folders в flat folder name через `"Parent / Child"`, нормализовать feed URLs / folder names, помечать duplicate feed URL, duplicate display title, existing folder reuse и invalid entries без side effects;
+- [ ] `OPML Import Persistence`: применить accepted import preview через существующие source-management invariants: создать недостающие folders, создать только valid non-duplicate feeds, пропустить duplicates/invalid entries, вернуть import result с created/skipped counts и покрыть persistence boundary tests без прямого обхода repository rules из UI;
+- [ ] `OPML Export Service`: собрать OPML 2.0 XML из текущих active `Feed` / `Folder` summaries без SwiftUI: экспортировать flat folders как one-level folder outlines, ungrouped feeds на root level, `xmlUrl`, `htmlUrl`, `title` / `text`, стабильный порядок и escaping; покрыть deterministic output tests;
+- [ ] `Import Export UI Entry Points`: добавить import/export entry points в source/settings area через screen-level controller flow: file import показывает preview summary перед сохранением, export отдаёт OPML document, success/failure статусы не смешиваются с основным reading flow;
 
 #### Localization Foundation
 - [ ] `Localization Scope And Language Matrix`: зафиксировать initial language set: `en`, `ru`, `de`, `fr`, `es`, `it`, `pt-BR`, `ja`, `zh-Hans`, `ar`, `he`, `fa`;

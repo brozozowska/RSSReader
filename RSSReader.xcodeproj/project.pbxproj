@@ -84,6 +84,15 @@
 			);
 			sourceTree = "<group>";
 		};
+		4E5607FE2F69A2DF008008E4 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4E5607FD2F69A2DF008008E4 /* RSSReader.app */,
+				4EC805A42F7EB73A004CDFE9 /* RSSReaderTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		4E5A04932F8668CB00433119 /* AgentDocs */ = {
 			isa = PBXGroup;
 			children = (
@@ -94,15 +103,6 @@
 				4E5A04922F8668CB00433119 /* XCODE_VALIDATION.md */,
 			);
 			path = AgentDocs;
-			sourceTree = "<group>";
-		};
-		4E5607FE2F69A2DF008008E4 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				4E5607FD2F69A2DF008008E4 /* RSSReader.app */,
-				4EC805A42F7EB73A004CDFE9 /* RSSReaderTests.xctest */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
