@@ -15,6 +15,8 @@ struct SettingsScreenState {
     private(set) var hasArticleImageCache = false
     private(set) var hasSourceIconCache = false
     private(set) var hasArchivedArticles = false
+    private(set) var opmlImportPreview: SettingsOPMLImportPreviewPresentation?
+    private(set) var opmlTransferStatus: SettingsOPMLTransferStatusPresentation?
     private(set) var sections: [SettingsScreenSectionPresentation] = []
 
     mutating func beginLoading() {
@@ -95,6 +97,22 @@ struct SettingsScreenState {
         )
     }
 
+    mutating func presentOPMLImportPreview(_ preview: SettingsOPMLImportPreviewPresentation) {
+        opmlImportPreview = preview
+    }
+
+    mutating func dismissOPMLImportPreview() {
+        opmlImportPreview = nil
+    }
+
+    mutating func applyOPMLTransferStatus(_ status: SettingsOPMLTransferStatusPresentation) {
+        opmlTransferStatus = status
+    }
+
+    mutating func dismissOPMLTransferStatus() {
+        opmlTransferStatus = nil
+    }
+
     mutating func applyLoadingFailure(_ message: String) {
         sections = []
         phase = .failed(message)
@@ -105,6 +123,8 @@ struct SettingsScreenState {
             sections: sections,
             primaryLoadingState: primaryLoadingState,
             placeholder: placeholder,
+            opmlImportPreview: opmlImportPreview,
+            opmlTransferStatus: opmlTransferStatus,
             canApplyChanges: canApplyChanges
         )
     }

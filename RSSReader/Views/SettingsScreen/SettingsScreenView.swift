@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsScreenActionHandlers {
     let dismiss: () -> Void
@@ -18,6 +19,9 @@ struct SettingsScreenView: View {
     @State private var isArchivedArticlesPurgeConfirmationPresented = false
     @State private var isArticleImageCacheResetConfirmationPresented = false
     @State private var isSourceIconCacheResetConfirmationPresented = false
+    @State private var isOPMLImporterPresented = false
+    @State private var isOPMLExporterPresented = false
+    @State private var opmlExportDocument: SettingsOPMLFileDocument?
     let dismiss: () -> Void
 
     init(
@@ -97,6 +101,52 @@ struct SettingsScreenView: View {
                     Button("Cancel", role: .cancel) {}
                 } message: {
                     Text("This removes feed icons saved on this device. Icons can be discovered and downloaded again during refresh or when the sidebar is shown.")
+                }
+                .fileImporter(
+                    isPresented: $isOPMLImporterPresented,
+                    allowedContentTypes: SettingsOPMLFileDocument.readableContentTypes
+                ) { result in
+                    handleOPMLImportResult(result)
+                }
+                .fileExporter(
+                    isPresented: $isOPMLExporterPresented,
+                    document: opmlExportDocument,
+                    contentType: SettingsOPMLFileDocument.contentType,
+                    defaultFilename: "RSSReader-Subscriptions.opml"
+                ) { result in
+                    opmlExportDocument = nil
+                    controller.applyOPMLExportCompletion(result, dependencies: dependencies)
+                }
+                .sheet(
+                    item: Binding(
+                        get: { controller.screenState.opmlImportPreview },
+                        set: { newValue in
+                            if newValue == nil {
+                                controller.dismissOPMLImportPreview()
+                            }
+                        }
+                    )
+                ) { preview in
+                    opmlImportPreviewSheet(preview)
+                }
+                .alert(
+                    statusAlertTitle(for: viewState.opmlTransferStatus),
+                    isPresented: Binding(
+                        get: { controller.screenState.opmlTransferStatus != nil },
+                        set: { isPresented in
+                            if isPresented == false {
+                                controller.dismissOPMLTransferStatus()
+                            }
+                        }
+                    )
+                ) {
+                    Button("OK", role: .cancel) {
+                        controller.dismissOPMLTransferStatus()
+                    }
+                } message: {
+                    if let status = controller.screenState.opmlTransferStatus {
+                        Text(status.message)
+                    }
                 }
         }
     }
@@ -219,6 +269,13 @@ struct SettingsScreenView: View {
 
     private func handleButtonTap(_ buttonItem: SettingsButtonItemPresentation) {
         switch buttonItem.id {
+        case .importOPML:
+            isOPMLImporterPresented = true
+        case .exportOPML:
+            if let document = controller.makeOPMLExportDocument(dependencies: dependencies) {
+                opmlExportDocument = document
+                isOPMLExporterPresented = true
+            }
         case .purgeArchivedArticles:
             isArchivedArticlesPurgeConfirmationPresented = true
         case .clearArticleImageCache:
@@ -240,6 +297,97 @@ struct SettingsScreenView: View {
                 .appearance:
             actionHandlers.tapButton(buttonItem.id)
         }
+    }
+
+    private func handleOPMLImportResult(_ result: Result<URL, any Error>) {
+        switch result {
+        case .success(let url):
+            do {
+                let didStartAccessing = url.startAccessingSecurityScopedResource()
+                defer {
+                    if didStartAccessing {
+                        url.stopAccessingSecurityScopedResource()
+                    }
+                }
+
+                let data = try Data(contentsOf: url)
+                controller.prepareOPMLImportPreview(data: data, dependencies: dependencies)
+            } catch {
+                dependencies.logger.error("Failed to read selected OPML file: \(error)")
+                controller.screenState.applyOPMLTransferStatus(
+                    SettingsOPMLTransferStatusPresentation(
+                        title: "OPML Import Failed",
+                        message: "The app could not read the selected file.",
+                        kind: .failure
+                    )
+                )
+            }
+        case .failure(let error):
+            dependencies.logger.error("OPML file importer failed: \(error)")
+            controller.screenState.applyOPMLTransferStatus(
+                SettingsOPMLTransferStatusPresentation(
+                    title: "OPML Import Failed",
+                    message: "The selected file could not be opened.",
+                    kind: .failure
+                )
+            )
+        }
+    }
+
+    private func opmlImportPreviewSheet(_ preview: SettingsOPMLImportPreviewPresentation) -> some View {
+        NavigationStack {
+            List {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Review subscriptions before import")
+                            .font(.headline)
+
+                        Text("App found subscriptions in the selected OPML file. Check the summary before adding them to your source list.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                Section {
+                    LabeledContent("Subscriptions", value: "\(preview.totalEntryCount)")
+                    LabeledContent("Ready to Import", value: "\(preview.importableEntryCount)")
+                    LabeledContent("Will Be Skipped", value: "\(preview.skippedEntryCount)")
+                    LabeledContent("New Folders", value: "\(preview.createdFolderCount)")
+                } footer: {
+                    Text("Invalid and duplicate subscriptions are skipped automatically. Existing folders are reused; missing folders are created during import.")
+                }
+            }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .background(appThemeVariant.primaryBackground)
+            .navigationTitle("Import OPML")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        controller.dismissOPMLImportPreview()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("Close Import Preview")
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Import") {
+                        controller.commitOPMLImportPreview(
+                            dependencies: dependencies,
+                            appState: appState
+                        )
+                    }
+                    .disabled(preview.importableEntryCount == 0)
+                }
+            }
+        }
+    }
+
+    private func statusAlertTitle(for status: SettingsOPMLTransferStatusPresentation?) -> String {
+        status?.title ?? "OPML"
     }
 
     @ViewBuilder
@@ -350,7 +498,7 @@ private extension SettingsButtonItemPresentation {
 
         switch role {
         case .normal:
-            return .accentColor
+            return .primary
         case .destructive:
             return .red
         }

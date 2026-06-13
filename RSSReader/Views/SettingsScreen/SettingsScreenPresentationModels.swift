@@ -6,6 +6,7 @@ enum SettingsScreenSectionID: String, Hashable, Identifiable, Sendable {
     case articleList
     case updatesAndSync
     case notifications
+    case sourcePortability
     case storage
 
     var id: String { rawValue }
@@ -25,6 +26,8 @@ enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
     case articleBodyLinkOpeningPolicy
     case readerAdjacentNavigationControlsMode
     case appearance
+    case importOPML
+    case exportOPML
     case purgeArchivedArticles
     case clearArticleImageCache
     case clearSourceIconCache
@@ -185,6 +188,8 @@ struct SettingsScreenViewState: Equatable, Sendable {
     let sections: [SettingsScreenSectionPresentation]
     let primaryLoadingState: SettingsScreenPrimaryLoadingState?
     let placeholder: SettingsScreenPlaceholderState?
+    let opmlImportPreview: SettingsOPMLImportPreviewPresentation?
+    let opmlTransferStatus: SettingsOPMLTransferStatusPresentation?
     let canApplyChanges: Bool
 }
 
@@ -261,6 +266,55 @@ enum SettingsButtonItemRole: Equatable, Sendable {
     case destructive
 }
 
+struct SettingsOPMLImportPreviewPresentation: Identifiable, Equatable, Sendable {
+    let id = UUID()
+    let plan: OPMLImportPreviewPlan
+
+    var totalEntryCount: Int {
+        plan.entries.count
+    }
+
+    var importableEntryCount: Int {
+        plan.importableEntries.count
+    }
+
+    var skippedEntryCount: Int {
+        plan.invalidEntryCount
+    }
+
+    var createdFolderCount: Int {
+        Set(plan.importableEntries.compactMap(\.normalizedFolderName)).count
+    }
+
+    static func == (
+        lhs: SettingsOPMLImportPreviewPresentation,
+        rhs: SettingsOPMLImportPreviewPresentation
+    ) -> Bool {
+        lhs.plan == rhs.plan
+    }
+}
+
+struct SettingsOPMLTransferStatusPresentation: Identifiable, Equatable, Sendable {
+    enum Kind: Equatable, Sendable {
+        case success
+        case failure
+    }
+
+    let id = UUID()
+    let title: String
+    let message: String
+    let kind: Kind
+
+    static func == (
+        lhs: SettingsOPMLTransferStatusPresentation,
+        rhs: SettingsOPMLTransferStatusPresentation
+    ) -> Bool {
+        lhs.title == rhs.title
+            && lhs.message == rhs.message
+            && lhs.kind == rhs.kind
+    }
+}
+
 enum SettingsScreenInputBuilder {
     static func build(
         from snapshot: AppSettingsSnapshot,
@@ -306,6 +360,7 @@ enum SettingsScreenPresentationBuilder {
             articleListSection(from: input),
             updatesAndSyncSection(from: input),
             notificationsSection(from: input),
+            sourcePortabilitySection(),
             storageSection(
                 hasArticleImageCache: hasArticleImageCache,
                 hasSourceIconCache: hasSourceIconCache,

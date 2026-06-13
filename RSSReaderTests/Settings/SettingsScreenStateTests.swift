@@ -23,7 +23,15 @@ struct SettingsScreenStateTests {
 
         #expect(viewState.primaryLoadingState == nil)
         #expect(viewState.placeholder == nil)
-        #expect(viewState.sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .notifications, .storage])
+        #expect(viewState.sections.map(\.id) == [
+            .appearance,
+            .reading,
+            .articleList,
+            .updatesAndSync,
+            .notifications,
+            .sourcePortability,
+            .storage
+        ])
         #expect(state.settingsInput.articleOpeningMode == .safariView)
         #expect(state.settingsInput.unreadArticleSortOrder == .oldestFirst)
         #expect(state.settingsInput.articleRetentionPolicy == .twoDays)
