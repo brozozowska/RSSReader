@@ -570,8 +570,8 @@
 ### Pre-Validation Product Readiness
 #### Pre-Validation UX Polish
 - [x] `Appearance Setting Staged Preview`: сделать `interfaceThemeMode` мгновенным preview через `AppState` / theme policy, но сохранять его в `AppSettings` только после Apply; закрытие `SettingsScreen` без Apply откатывает preview, а кнопка применения остаётся общей commit-action для staged-настроек;
-- [ ] `Context Menu Glyph Audit`: пройтись по `Menu` / `contextMenu` в `SettingsScreen`, `SidebarRows`, article actions и source management, определить единый icon policy для обычных, destructive и selected actions;
-- [ ] `Sidebar Context Menu Glyphs`: если audit подтверждает пользу глифов, оформить long-tap меню источников и папок через `Label` / SF Symbols для действий organize, edit, unsubscribe и delete без изменения существующих action boundaries.
+- [x] `Unread Swipe Read Retention`: при swipe `Read` в текущем `Unread` списке удерживать статью видимой и серой до следующего reload / повторного входа на экран, как чтение при открытии статьи;
+- [ ] `Context Menu Glyphs`: добавить `Label` / SF Symbols в меню фильтров (`All Items`, `Unread`, `Starred`) и long-tap меню источников/папок (`Organize...`, `Edit...`, `Delete`, `Unsubscribe`) без изменения существующих action boundaries.
 
 #### Source Portability
 - [ ] `OPML Import Contract`: определить поддерживаемый формат импорта (`OPML` 1.0 / 2.0), mapping nested `outline` в folders, duplicate policy, URL normalization и формат ошибок для invalid sources;

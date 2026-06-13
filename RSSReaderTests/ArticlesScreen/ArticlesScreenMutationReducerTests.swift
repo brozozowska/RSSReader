@@ -20,7 +20,7 @@ struct ArticlesScreenMutationReducerTests {
     }
 
     @Test
-    func articlesScreenMutationReducerProducesRemoveMutationWhenReadToggleHappensInUnreadFilter() {
+    func articlesScreenMutationReducerRetainsArticleWhenReadToggleHappensInUnreadFilter() {
         let unreadArticle = makeArticleListItemDTO(isRead: false, isStarred: false)
 
         let mutation = ArticlesScreenMutationReducer.mutationAfterToggleReadStatus(
@@ -28,7 +28,19 @@ struct ArticlesScreenMutationReducerTests {
             filter: ArticleListFilter.unread
         )
 
-        #expect(mutation == .remove)
+        let updatedArticle: ArticleListItemDTO?
+        let membershipStatus: ArticleListEntryMembershipStatus?
+        if case .update(let article, let status) = mutation {
+            updatedArticle = article
+            membershipStatus = status
+        } else {
+            updatedArticle = nil
+            membershipStatus = nil
+        }
+
+        #expect(updatedArticle?.isRead == true)
+        #expect(updatedArticle?.isStarred == false)
+        #expect(membershipStatus == .retainedAfterRead)
     }
 
     @Test
@@ -41,7 +53,7 @@ struct ArticlesScreenMutationReducerTests {
         )
 
         let updatedArticle: ArticleListItemDTO?
-        if case .update(let article) = mutation {
+        if case .update(let article, _) = mutation {
             updatedArticle = article
         } else {
             updatedArticle = nil

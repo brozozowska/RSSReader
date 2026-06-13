@@ -1,7 +1,7 @@
 import Foundation
 
 enum ArticleRowMutation: Equatable {
-    case update(ArticleListItemDTO)
+    case update(ArticleListItemDTO, membershipStatus: ArticleListEntryMembershipStatus? = nil)
     case remove
 }
 
@@ -48,17 +48,19 @@ enum ArticlesScreenMutationReducer {
         filter: ArticleListFilter
     ) -> ArticleRowMutation {
         let updatedIsRead = article.isRead == false
+        let updatedArticle = article.updating(
+            isRead: updatedIsRead,
+            isStarred: article.isStarred
+        )
 
         if filter == .unread && updatedIsRead {
-            return .remove
+            return .update(
+                updatedArticle,
+                membershipStatus: .retainedAfterRead
+            )
         }
 
-        return .update(
-            article.updating(
-                isRead: updatedIsRead,
-                isStarred: article.isStarred
-            )
-        )
+        return .update(updatedArticle)
     }
 
     static func mutationAfterToggleStarred(
@@ -85,7 +87,7 @@ enum ArticlesScreenMutationReducer {
         allArticles: [ArticleListItemDTO]
     ) -> [ArticleListItemDTO] {
         switch mutation {
-        case .update(let updatedArticle):
+        case .update(let updatedArticle, _):
             allArticles.map { article in
                 article.id == articleID ? updatedArticle : article
             }
