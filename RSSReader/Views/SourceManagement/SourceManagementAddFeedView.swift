@@ -30,7 +30,7 @@ struct SourceManagementAddFeedView: View {
                 TextField(
                     presentation.urlPrompt,
                     text: urlBinding,
-                    prompt: Text("example.com")
+                    prompt: Text(SourceManagementLocalization.feedURLPlaceholder)
                 )
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -45,9 +45,9 @@ struct SourceManagementAddFeedView: View {
                         .foregroundStyle(.orange)
                 }
             } header: {
-                Text("Feed URL")
+                Text(SourceManagementLocalization.feedURLPrompt)
             } footer: {
-                Text("Use a website address or a direct RSS / Atom feed link.")
+                Text(SourceManagementLocalization.feedURLFooter)
             }
 
             if presentation.showsDisplayNameInput {
@@ -55,14 +55,14 @@ struct SourceManagementAddFeedView: View {
                     TextField(
                         presentation.displayNamePrompt,
                         text: displayNameBinding,
-                        prompt: Text("Source name")
+                        prompt: Text(SourceManagementLocalization.displayNamePlaceholder)
                     )
                     .textInputAutocapitalization(.sentences)
                     .autocorrectionDisabled()
                     .submitLabel(.done)
                     .onSubmit(handlePrimaryAction)
                 } header: {
-                    Text("Display Name")
+                    Text(SourceManagementLocalization.displayNamePrompt)
                 } footer: {
                     Text(presentation.displayNameFooter)
                 }
@@ -72,10 +72,10 @@ struct SourceManagementAddFeedView: View {
                 Section {
                     SourceManagementCheckingSourceView()
                 } header: {
-                    Text("Source Preview")
+                    Text(SourceManagementLocalization.sourcePreviewTitle)
                 }
             } else if let preview = presentation.preview {
-                Section("Source Preview") {
+                Section(SourceManagementLocalization.sourcePreviewTitle) {
                     SourceManagementAddFeedPreviewCard(preview: preview)
                 }
             } else if let status = presentation.status,
@@ -85,9 +85,9 @@ struct SourceManagementAddFeedView: View {
                         feedback: .init(status: status)
                     )
                 } header: {
-                    Text("Source Preview")
+                    Text(SourceManagementLocalization.sourcePreviewTitle)
                 } footer: {
-                    Text("Try a different website address or a direct RSS / Atom feed link.")
+                    Text(SourceManagementLocalization.previewFailureFooter)
                 }
             }
 
@@ -112,7 +112,7 @@ struct SourceManagementAddFeedView: View {
                 Section {
                     Button(createFolderActionTitle, action: startCreateFolder)
                 } footer: {
-                    Text("Create a folder now if this source should live in a new group.")
+                    Text(SourceManagementLocalization.createFolderInlineDescription)
                 }
             }
 
@@ -130,7 +130,7 @@ struct SourceManagementAddFeedView: View {
                presentation.status?.kind != .failure {
                 Section {
                     Button(action: handlePreviewAction) {
-                        Text("Preview Feed")
+                        Text(SourceManagementLocalization.previewFeedAction)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.plain)
@@ -149,7 +149,7 @@ struct SourceManagementAddFeedView: View {
             if showsCloseControl {
                 ToolbarItem(placement: .cancellationAction) {
                     SourceManagementCloseButton(
-                        accessibilityLabel: "Close \(presentation.title)",
+                        accessibilityLabel: SourceManagementLocalization.closeDestinationAccessibilityLabel(presentation.title),
                         action: dismiss
                     )
                 }
@@ -173,15 +173,15 @@ private struct SourceManagementCheckingSourceView: View {
         HStack {
             Spacer()
             HStack(spacing: 8) {
-                AppRefreshIndicator(
-                    state: .refreshing,
-                    size: 18,
-                    lineWidth: 2,
-                    tint: AnyShapeStyle(.secondary),
-                    accessibilityLabel: "Checking source"
-                )
+                    AppRefreshIndicator(
+                        state: .refreshing,
+                        size: 18,
+                        lineWidth: 2,
+                        tint: AnyShapeStyle(.secondary),
+                        accessibilityLabel: SourceManagementLocalization.checkingSourceAccessibilityLabel
+                    )
 
-                Text("Checking Source...")
+                Text(SourceManagementLocalization.checkingSourceTitle)
             }
             .foregroundStyle(.secondary)
             Spacer()
@@ -197,13 +197,13 @@ private struct SourceManagementAddFeedPreviewCard: View {
             Text(preview.title)
                 .font(.body.weight(.semibold))
 
-            LabeledContent("Feed Type", value: preview.kindTitle)
+            LabeledContent(SourceManagementLocalization.feedTypeLabel, value: preview.kindTitle)
 
             if let subtitle = preview.subtitle {
-                LabeledContent("Description", value: subtitle)
+                LabeledContent(SourceManagementLocalization.descriptionLabel, value: subtitle)
             }
 
-            LabeledContent("Feed Address", value: preview.resolvedFeedURL)
+            LabeledContent(SourceManagementLocalization.feedAddressLabel, value: preview.resolvedFeedURL)
 
             if let existingFeedNotice = preview.existingFeedNotice {
                 Text(existingFeedNotice)

@@ -103,10 +103,12 @@ struct SourceManagementCreateFolderState {
         isSubmitting = false
         feedback = SourceManagementCreateFolderFeedbackPresentation(
             kind: .success,
-            title: wasEditing ? "Folder updated" : "Folder created",
+            title: wasEditing
+                ? SourceManagementLocalization.folderUpdatedTitle
+                : SourceManagementLocalization.folderCreatedTitle,
             detail: wasEditing
-                ? "\"\(folder.name)\" has been renamed."
-                : "\"\(folder.name)\" is ready for sources."
+                ? SourceManagementLocalization.folderRenamedDetail(folder.name)
+                : SourceManagementLocalization.folderCreatedDetail(folder.name)
         )
     }
 
@@ -114,7 +116,9 @@ struct SourceManagementCreateFolderState {
         isSubmitting = false
         feedback = SourceManagementCreateFolderFeedbackPresentation(
             kind: .failure,
-            title: isEditing ? "Folder could not be updated" : "Folder could not be created",
+            title: isEditing
+                ? SourceManagementLocalization.folderUpdateFailedTitle
+                : SourceManagementLocalization.folderCreateFailedTitle,
             detail: message
         )
     }
@@ -131,23 +135,31 @@ struct SourceManagementCreateFolderState {
         }
 
         return SourceManagementCreateFolderPresentation(
-            title: isEditing ? "Edit Folder" : "Create Folder",
-            summaryTitle: isEditing ? "Folder Name" : "New Folder",
+            title: isEditing
+                ? SourceManagementLocalization.editFolderTitle
+                : SourceManagementLocalization.createFolderTitle,
+            summaryTitle: isEditing
+                ? SourceManagementLocalization.folderNameSummaryTitle
+                : SourceManagementLocalization.newFolderSummaryTitle,
             summaryDescription: isEditing
-                ? "Rename this folder. Sources inside it stay in the same place."
-                : "Create a folder for sources you want to keep together.",
+                ? SourceManagementLocalization.editFolderDescription
+                : SourceManagementLocalization.newFolderDescription,
             nameInput: nameInput,
-            namePrompt: "Folder Name",
+            namePrompt: SourceManagementLocalization.folderNamePrompt,
             validationMessage: validationMessage,
             existingFolders: existingFolderPresentations,
-            emptyStateTitle: existingFolders.isEmpty ? "No folders yet" : nil,
+            emptyStateTitle: existingFolders.isEmpty ? SourceManagementLocalization.noFoldersTitle : nil,
             emptyStateDescription: existingFolders.isEmpty
-                ? "Create the first folder, then add or move sources into it."
+                ? SourceManagementLocalization.noFoldersDescription
                 : nil,
             placementDescription: placementDescription(for: nextSortOrder()),
             primaryActionTitle: isSubmitting
-                ? (isEditing ? "Saving Folder..." : "Creating Folder...")
-                : (isEditing ? "Save Folder" : "Create Folder"),
+                ? (isEditing
+                    ? SourceManagementLocalization.savingFolderAction
+                    : SourceManagementLocalization.creatingFolderAction)
+                : (isEditing
+                    ? SourceManagementLocalization.saveFolderAction
+                    : SourceManagementLocalization.createFolderTitle),
             isPrimaryActionEnabled: isServiceAvailable && validationMessage == nil && isSubmitting == false,
             isSubmitting: isSubmitting,
             feedback: feedback
@@ -156,19 +168,19 @@ struct SourceManagementCreateFolderState {
 
     func validationMessage() -> String? {
         guard isServiceAvailable else {
-            return "Folder creation is unavailable right now."
+            return SourceManagementLocalization.folderCreationUnavailableValidation
         }
 
         let normalizedValue = normalizedName()
         guard normalizedValue.isEmpty == false else {
-            return "Enter a folder name to continue."
+            return SourceManagementLocalization.enterFolderNameValidation
         }
 
         if existingFolders.contains(where: { folder in
             folder.id != editingFolder?.id
                 && folder.name.compare(normalizedValue, options: [.caseInsensitive]) == .orderedSame
         }) {
-            return "A folder with this name already exists."
+            return SourceManagementLocalization.duplicateFolderNameValidation
         }
 
         return nil
@@ -187,13 +199,13 @@ struct SourceManagementCreateFolderState {
 
     private func placementDescription(for _: Int) -> String {
         if let editingFolder {
-            return "\"\(editingFolder.name)\" keeps its current order."
+            return SourceManagementLocalization.editingFolderPlacementDescription(name: editingFolder.name)
         }
 
         if existingFolders.isEmpty {
-            return "This will be the first folder."
+            return SourceManagementLocalization.firstFolderPlacementDescription
         }
 
-        return "This folder will be added after \(existingFolders.count) existing folders."
+        return SourceManagementLocalization.existingFolderPlacementDescription(count: existingFolders.count)
     }
 }

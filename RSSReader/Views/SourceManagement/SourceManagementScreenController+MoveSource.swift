@@ -19,14 +19,14 @@ extension SourceManagementScreenController {
             let unavailableMessage = "Source management service is unavailable for source moves."
             dependencies.logger.error(unavailableMessage)
             screenState.applyMoveSourceFailure(
-                "Source moves are unavailable right now."
+                SourceManagementLocalization.sourceMovesUnavailableMessage
             )
             return
         }
 
         guard let moveCommand = screenState.moveSourceCommand() else {
             screenState.applyMoveSourceFailure(
-                "Select a source and a different destination before moving it."
+                SourceManagementLocalization.sourceMoveSelectionRequiredMessage
             )
             return
         }
@@ -64,7 +64,7 @@ extension SourceManagementScreenController {
         } catch {
             dependencies.logger.error("Failed to move source through source management flow: \(error)")
             screenState.applyMoveSourceFailure(
-                "Unable to move the source right now. Try again."
+                SourceManagementLocalization.sourceMoveGenericFailure
             )
         }
     }

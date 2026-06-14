@@ -37,7 +37,7 @@ struct SourceManagementMoveSourceView: View {
                     .padding(.vertical, 4)
                 }
             } else {
-                Section("Select Source") {
+                Section(SourceManagementLocalization.selectSourceTitle) {
                     ForEach(presentation.feeds) { feed in
                         Button {
                             selectFeed(feed.id)
@@ -80,7 +80,7 @@ struct SourceManagementMoveSourceView: View {
             if showsCloseControl {
                 ToolbarItem(placement: .cancellationAction) {
                     SourceManagementCloseButton(
-                        accessibilityLabel: "Close \(presentation.title)",
+                        accessibilityLabel: SourceManagementLocalization.closeDestinationAccessibilityLabel(presentation.title),
                         action: dismiss
                     )
                 }
@@ -117,7 +117,7 @@ private struct SourceManagementMoveSourceFeedRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
-                Text("Current location: \(feed.currentPlacementTitle)")
+                Text(SourceManagementLocalization.currentLocation(feed.currentPlacementTitle))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

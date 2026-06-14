@@ -26,7 +26,7 @@ struct SourceManagementCreateFolderView: View {
                 TextField(
                     presentation.namePrompt,
                     text: nameBinding,
-                    prompt: Text("Examples: News, Tech, Design")
+                    prompt: Text(SourceManagementLocalization.folderNamePlaceholder)
                 )
                 .textInputAutocapitalization(.words)
                 .autocorrectionDisabled()
@@ -39,9 +39,9 @@ struct SourceManagementCreateFolderView: View {
                         .foregroundStyle(.orange)
                 }
             } header: {
-                Text("Folder Name")
+                Text(SourceManagementLocalization.folderNamePrompt)
             } footer: {
-                Text("Use a name that is easy to recognize in the source list.")
+                Text(SourceManagementLocalization.folderNameFooter)
             }
 
             if let emptyStateTitle = presentation.emptyStateTitle,
@@ -66,13 +66,13 @@ struct SourceManagementCreateFolderView: View {
 
                             Spacer()
 
-                            Text(folder.feedCount == 1 ? "1 feed" : "\(folder.feedCount) feeds")
+                            Text(SourceManagementLocalization.feedCount(folder.feedCount))
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
                     }
                 } header: {
-                    Text("Existing Folders")
+                    Text(SourceManagementLocalization.existingFoldersTitle)
                 }
             }
 
@@ -94,7 +94,7 @@ struct SourceManagementCreateFolderView: View {
             if showsCloseControl {
                 ToolbarItem(placement: .cancellationAction) {
                     SourceManagementCloseButton(
-                        accessibilityLabel: "Close \(presentation.title)",
+                        accessibilityLabel: SourceManagementLocalization.closeDestinationAccessibilityLabel(presentation.title),
                         action: dismiss
                     )
                 }

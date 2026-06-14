@@ -214,8 +214,8 @@ struct SourceManagementScreenViewState: Equatable, Sendable {
 enum SourceManagementScreenPresentationBuilder {
     static func buildSummary() -> SourceManagementScreenSummaryPresentation {
         SourceManagementScreenSummaryPresentation(
-            title: "Manage sources and folders",
-            description: "Add new feeds, create folders, or move existing sources when your reading list needs a different structure."
+            title: SourceManagementLocalization.summaryTitle,
+            description: SourceManagementLocalization.summaryDescription
         )
     }
 
@@ -223,36 +223,36 @@ enum SourceManagementScreenPresentationBuilder {
         [
             SourceManagementScreenSectionPresentation(
                 id: .startNew,
-                title: "Add",
-                footer: "Start with a feed address, or create a folder first if you already know how you want to organize sources.",
+                title: SourceManagementLocalization.addSectionTitle,
+                footer: SourceManagementLocalization.addSectionFooter,
                 items: [
                     item(
                         id: .addFeed,
-                        title: "Add Feed",
-                        subtitle: "Find a feed, review its details, and choose where it belongs.",
+                        title: SourceManagementLocalization.addFeedTitle,
+                        subtitle: SourceManagementLocalization.addFeedSubtitle,
                         systemImageName: "dot.radiowaves.left.and.right",
-                        badgeTitle: "New Feed"
+                        badgeTitle: SourceManagementLocalization.newFeedBadge
                     ),
                     item(
                         id: .createFolder,
-                        title: "Create Folder",
-                        subtitle: "Group related sources under a folder name that is easy to scan.",
+                        title: SourceManagementLocalization.createFolderTitle,
+                        subtitle: SourceManagementLocalization.createFolderSubtitle,
                         systemImageName: "folder.badge.plus",
-                        badgeTitle: "New Folder"
+                        badgeTitle: SourceManagementLocalization.newFolderBadge
                     )
                 ]
             ),
             SourceManagementScreenSectionPresentation(
                 id: .organizeExisting,
-                title: "Organize",
-                footer: "Move saved feeds between folders without adding them again.",
+                title: SourceManagementLocalization.organizeSectionTitle,
+                footer: SourceManagementLocalization.organizeSectionFooter,
                 items: [
                     item(
                         id: .moveSource,
-                        title: "Move Source",
-                        subtitle: "Change where an existing feed appears in your source list.",
+                        title: SourceManagementLocalization.moveSourceTitle,
+                        subtitle: SourceManagementLocalization.moveSourceSubtitle,
                         systemImageName: "arrow.left.arrow.right.circle",
-                        badgeTitle: "Existing Sources"
+                        badgeTitle: SourceManagementLocalization.existingSourcesBadge
                     )
                 ]
             )

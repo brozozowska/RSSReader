@@ -67,8 +67,11 @@ struct SourceManagementMoveSourceState {
         isSubmitting = false
         feedback = SourceManagementMoveSourceFeedbackPresentation(
             kind: .success,
-            title: "Source moved",
-            detail: "\(feed.title) now lives in \(placementTitle(for: selectedPlacement))."
+            title: SourceManagementLocalization.sourceMovedTitle,
+            detail: SourceManagementLocalization.sourceMovedDetail(
+                feedTitle: feed.title,
+                folderTitle: placementTitle(for: selectedPlacement)
+            )
         )
     }
 
@@ -76,7 +79,7 @@ struct SourceManagementMoveSourceState {
         isSubmitting = false
         feedback = SourceManagementMoveSourceFeedbackPresentation(
             kind: .failure,
-            title: "Source could not be moved",
+            title: SourceManagementLocalization.sourceMoveFailedTitle,
             detail: message
         )
     }
@@ -88,9 +91,9 @@ struct SourceManagementMoveSourceState {
             && isSubmitting == false
 
         return SourceManagementMoveSourcePresentation(
-            title: "Move Source",
-            summaryTitle: "Source Organization",
-            summaryDescription: "Choose a saved feed and move it to the folder where it belongs.",
+            title: SourceManagementLocalization.moveSourceTitle,
+            summaryTitle: SourceManagementLocalization.sourceOrganizationTitle,
+            summaryDescription: SourceManagementLocalization.sourceOrganizationDescription,
             feeds: feeds.map { feed in
                 SourceManagementMoveSourceFeedPresentation(
                     id: feed.id,
@@ -100,14 +103,16 @@ struct SourceManagementMoveSourceState {
                     isSelected: feed.id == selectedFeedID
                 )
             },
-            emptyStateTitle: feeds.isEmpty ? "No existing feeds yet" : nil,
+            emptyStateTitle: feeds.isEmpty ? SourceManagementLocalization.noFeedsTitle : nil,
             emptyStateDescription: feeds.isEmpty
-                ? "Add a source first, then return here to move it between folders."
+                ? SourceManagementLocalization.noFeedsDescription
                 : nil,
-            placementTitle: "Target Folder",
+            placementTitle: SourceManagementLocalization.targetFolderTitle,
             placementDescription: "",
             placementOptions: placementOptions(),
-            primaryActionTitle: isSubmitting ? "Moving..." : "Move Source",
+            primaryActionTitle: isSubmitting
+                ? SourceManagementLocalization.movingSourceAction
+                : SourceManagementLocalization.moveSourceTitle,
             isPrimaryActionEnabled: canSubmit,
             isSubmitting: isSubmitting,
             feedback: feedback
@@ -133,9 +138,9 @@ struct SourceManagementMoveSourceState {
         return [
             SourceManagementFolderPlacementOptionPresentation(
                 placement: .ungrouped,
-                title: "Ungrouped",
+                title: SourceManagementLocalization.ungroupedTitle,
                 subtitle: nil,
-                trailingValue: feedCountTitle(ungroupedFeedCount()),
+                trailingValue: SourceManagementLocalization.feedCount(ungroupedFeedCount()),
                 isSelected: selectedPlacement == .ungrouped
             )
         ] + folders.map { folder in
@@ -143,7 +148,7 @@ struct SourceManagementMoveSourceState {
                 placement: .folder(folder.id),
                 title: folder.name,
                 subtitle: nil,
-                trailingValue: feedCountTitle(folder.feedCount),
+                trailingValue: SourceManagementLocalization.feedCount(folder.feedCount),
                 isSelected: selectedPlacement == .folder(folder.id)
             )
         }
@@ -151,10 +156,6 @@ struct SourceManagementMoveSourceState {
 
     private func ungroupedFeedCount() -> Int {
         feeds.filter { $0.folderID == nil }.count
-    }
-
-    private func feedCountTitle(_ count: Int) -> String {
-        count == 1 ? "1 feed" : "\(count) feeds"
     }
 
     func selectedFeed() -> SourceManagementFeedSummary? {
@@ -178,9 +179,10 @@ struct SourceManagementMoveSourceState {
     private func placementTitle(for placement: SourceManagementFolderPlacement) -> String {
         switch placement {
         case .ungrouped:
-            return "Ungrouped"
+            return SourceManagementLocalization.ungroupedTitle
         case .folder(let folderID):
-            return folders.first(where: { $0.id == folderID })?.name ?? "Selected Folder"
+            return folders.first(where: { $0.id == folderID })?.name
+                ?? SourceManagementLocalization.selectedFolderTitle
         }
     }
 

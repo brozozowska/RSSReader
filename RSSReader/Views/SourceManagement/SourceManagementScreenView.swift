@@ -60,12 +60,12 @@ struct SourceManagementScreenView: View {
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .background(appThemeVariant.primaryBackground)
-            .navigationTitle("Add Source")
+            .navigationTitle(SourceManagementLocalization.screenTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     SourceManagementCloseButton(
-                        accessibilityLabel: "Close Add Source",
+                        accessibilityLabel: SourceManagementLocalization.closeScreenAccessibilityLabel,
                         action: destinationFactory.dismiss
                     )
                 }

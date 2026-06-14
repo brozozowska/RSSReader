@@ -102,9 +102,9 @@ extension SourceManagementScreenController {
             dependencies.logger.error("Failed to update feed through source management flow: \(error)")
             screenState.applyAddFeedCreationFailure(
                 SourceManagementAddFeedStatusPresentation(
-                    title: "Feed changes could not be saved",
+                    title: String(localized: "sourceManagement.addFeed.save.editFailed.title", defaultValue: "Feed changes could not be saved", comment: "Generic failure title after feed edit save fails."),
                     kind: .failure,
-                    detail: "Unable to save the source changes right now. Try again."
+                    detail: String(localized: "sourceManagement.addFeed.save.editFailed.detail", defaultValue: "Unable to save the source changes right now. Try again.", comment: "Generic failure detail after feed edit save fails.")
                 )
             )
         }
@@ -143,9 +143,9 @@ extension SourceManagementScreenController {
             dependencies.logger.error("Failed to create feed through source management flow: \(error)")
             screenState.applyAddFeedCreationFailure(
                 SourceManagementAddFeedStatusPresentation(
-                    title: "Feed could not be added",
+                    title: String(localized: "sourceManagement.addFeed.save.addFailed.title", defaultValue: "Feed could not be added", comment: "Generic failure title after feed create save fails."),
                     kind: .failure,
-                    detail: "Unable to save the new source right now. Try again."
+                    detail: String(localized: "sourceManagement.addFeed.save.addFailed.detail", defaultValue: "Unable to save the new source right now. Try again.", comment: "Generic failure detail after feed create save fails.")
                 )
             )
         }

@@ -99,11 +99,11 @@ struct SourceManagementAddFeedState {
     func validationMessage() -> String? {
         let normalizedInput = normalizedURLInput()
         guard normalizedInput.isEmpty == false else {
-            return "Enter a feed URL to continue."
+            return SourceManagementLocalization.enterFeedURLValidation
         }
 
         guard (try? SourceManagementFeedDiscoveryPlanner.makePlan(for: normalizedInput)) != nil else {
-            return "Enter a valid site or feed URL."
+            return SourceManagementLocalization.invalidFeedURLValidation
         }
 
         return nil
@@ -237,11 +237,20 @@ struct SourceManagementAddFeedState {
         isCreatingFeed = false
         editingFeed = wasEditing ? feed : nil
         previewStatus = SourceManagementAddFeedStatusPresentation(
-            title: wasEditing ? "Feed updated" : "Feed added",
+            title: wasEditing
+                ? SourceManagementLocalization.feedUpdatedTitle
+                : SourceManagementLocalization.feedAddedTitle,
             kind: .success,
             detail: wasEditing
-                ? "\(feed.title) now points to \(feed.url) in \(feed.folderName ?? "Ungrouped")."
-                : "\(feed.title) was saved in \(feed.folderName ?? "Ungrouped")."
+                ? SourceManagementLocalization.feedUpdatedDetail(
+                    title: feed.title,
+                    url: feed.url,
+                    folderTitle: feed.folderName ?? SourceManagementLocalization.ungroupedTitle
+                )
+                : SourceManagementLocalization.feedAddedDetail(
+                    title: feed.title,
+                    folderTitle: feed.folderName ?? SourceManagementLocalization.ungroupedTitle
+                )
         )
     }
 
@@ -260,30 +269,36 @@ struct SourceManagementAddFeedState {
         let isPrimaryActionEnabled: Bool
 
         if isLoadingPreview {
-            primaryActionTitle = "Loading Preview..."
+            primaryActionTitle = SourceManagementLocalization.loadingPreviewAction
             isPrimaryActionEnabled = false
         } else if isCreatingFeed {
-            primaryActionTitle = isEditing ? "Saving Changes..." : "Adding Feed..."
+            primaryActionTitle = isEditing
+                ? SourceManagementLocalization.savingChangesAction
+                : SourceManagementLocalization.addingFeedAction
             isPrimaryActionEnabled = false
         } else if createdFeed != nil {
-            primaryActionTitle = isEditing ? "Changes Saved" : "Feed Added"
+            primaryActionTitle = isEditing
+                ? SourceManagementLocalization.changesSavedAction
+                : SourceManagementLocalization.feedAddedAction
             isPrimaryActionEnabled = false
         } else if previewStatus?.kind == .failure {
-            primaryActionTitle = "Preview Feed"
+            primaryActionTitle = SourceManagementLocalization.previewFeedAction
             isPrimaryActionEnabled = false
         } else if canUpdateDisplayNameWithoutPreview() {
-            primaryActionTitle = "Save Changes"
+            primaryActionTitle = SourceManagementLocalization.saveChangesAction
             isPrimaryActionEnabled = true
         } else if preview != nil {
             if hasDuplicateConflict {
-                primaryActionTitle = "Already Added"
+                primaryActionTitle = SourceManagementLocalization.alreadyAddedAction
                 isPrimaryActionEnabled = false
             } else {
-                primaryActionTitle = isEditing ? "Save Changes" : "Add Feed"
+                primaryActionTitle = isEditing
+                    ? SourceManagementLocalization.saveChangesAction
+                    : SourceManagementLocalization.addFeedTitle
                 isPrimaryActionEnabled = true
             }
         } else {
-            primaryActionTitle = "Preview Feed"
+            primaryActionTitle = SourceManagementLocalization.previewFeedAction
             isPrimaryActionEnabled = validationMessage == nil
         }
         let isConfirmationActionEnabled = (preview != nil || canUpdateDisplayNameWithoutPreview())
@@ -293,15 +308,19 @@ struct SourceManagementAddFeedState {
             && createdFeed == nil
 
         return SourceManagementAddFeedPresentation(
-            title: isEditing ? "Edit Feed" : "Add Feed",
-            summaryTitle: isEditing ? "Source Details" : "New Source",
+            title: isEditing
+                ? SourceManagementLocalization.editFeedTitle
+                : SourceManagementLocalization.addFeedTitle,
+            summaryTitle: isEditing
+                ? SourceManagementLocalization.sourceDetailsTitle
+                : SourceManagementLocalization.newSourceTitle,
             summaryDescription: isEditing
-                ? "Change the display name, or preview a new feed address when the source has moved."
-                : "Enter a website or feed address. The app will look for a readable feed before you add it.",
+                ? SourceManagementLocalization.sourceDetailsDescription
+                : SourceManagementLocalization.newSourceDescription,
             urlInput: urlInput,
-            urlPrompt: "Feed URL",
+            urlPrompt: SourceManagementLocalization.feedURLPrompt,
             displayNameInput: displayNameInput,
-            displayNamePrompt: "Display Name",
+            displayNamePrompt: SourceManagementLocalization.displayNamePrompt,
             displayNameFooter: displayNameFooter(),
             showsDisplayNameInput: showsDisplayNameInput(),
             validationMessage: validationMessage,
@@ -311,7 +330,7 @@ struct SourceManagementAddFeedState {
             isConfirmationActionEnabled: isConfirmationActionEnabled,
             isLoadingPreview: isLoadingPreview,
             preview: previewPresentation(),
-            placementTitle: "Destination Folder",
+            placementTitle: SourceManagementLocalization.destinationFolderTitle,
             placementDescription: placementDescription(),
             placementOptions: placementOptions(),
             createFolderActionTitle: createFolderActionTitle(),
@@ -348,9 +367,9 @@ struct SourceManagementAddFeedState {
 
     private func displayNameFooter() -> String {
         if isEditing {
-            return "Set the name shown for this source in Sources and article lists."
+            return SourceManagementLocalization.editDisplayNameFooter
         }
-        return "Leave the feed title unchanged, or choose a custom name for this source."
+        return SourceManagementLocalization.addDisplayNameFooter
     }
 
     private func canUpdateDisplayNameWithoutPreview() -> Bool {
@@ -371,7 +390,7 @@ struct SourceManagementAddFeedState {
             kindTitle: kindTitle(preview.kind),
             resolvedFeedURL: preview.resolvedFeedURL,
             existingFeedNotice: hasDuplicateConflict
-                ? "This source already exists in the library."
+                ? SourceManagementLocalization.duplicateSourceNotice
                 : nil,
             diagnosticsSummary: nil
         )
@@ -389,9 +408,9 @@ struct SourceManagementAddFeedState {
 
         if hasDuplicateConflict {
             return SourceManagementAddFeedStatusPresentation(
-                title: "This feed is already in the library",
+                title: SourceManagementLocalization.duplicateFeedTitle,
                 kind: .warning,
-                detail: "Use the existing source instead of creating a duplicate subscription."
+                detail: SourceManagementLocalization.duplicateFeedDetail
             )
         }
 
@@ -401,24 +420,24 @@ struct SourceManagementAddFeedState {
     private func placementDescription() -> String {
         if createdFeed != nil {
             return isEditing
-                ? "The source has already been updated. Edit the URL to start another edit flow."
-                : "The source has already been saved. Edit the URL to start a new add-feed flow."
+                ? SourceManagementLocalization.savedEditPlacementDescription
+                : SourceManagementLocalization.savedAddPlacementDescription
         }
 
         if preview == nil {
             if isEditing {
-                return "The current folder is preselected. Review the source before saving changes."
+                return SourceManagementLocalization.editPendingPlacementDescription
             }
-            return "Review the source first, then choose whether it should stay ungrouped or live in a folder."
+            return SourceManagementLocalization.addPendingPlacementDescription
         }
 
         if availableFolders.isEmpty {
-            return "No folders are available yet. You can keep the source ungrouped or create a folder."
+            return SourceManagementLocalization.noFoldersPlacementDescription
         }
 
         return isEditing
-            ? "Choose where this source should appear after saving."
-            : "Choose where this source should appear after adding it."
+            ? SourceManagementLocalization.editReadyPlacementDescription
+            : SourceManagementLocalization.addReadyPlacementDescription
     }
 
     private func placementOptions() -> [SourceManagementFolderPlacementOptionPresentation] {
@@ -431,8 +450,8 @@ struct SourceManagementAddFeedState {
         return [
             SourceManagementFolderPlacementOptionPresentation(
                 placement: .ungrouped,
-                title: "Ungrouped",
-                subtitle: "Keep the source outside any folder.",
+                title: SourceManagementLocalization.ungroupedTitle,
+                subtitle: SourceManagementLocalization.ungroupedSubtitle,
                 trailingValue: nil,
                 isSelected: selectedFolderPlacement == .ungrouped
             )
@@ -440,9 +459,7 @@ struct SourceManagementAddFeedState {
             SourceManagementFolderPlacementOptionPresentation(
                 placement: .folder(folder.id),
                 title: folder.name,
-                subtitle: folder.feedCount == 1
-                    ? "1 existing feed"
-                    : "\(folder.feedCount) existing feeds",
+                subtitle: SourceManagementLocalization.existingFeedCount(folder.feedCount),
                 trailingValue: nil,
                 isSelected: selectedFolderPlacement == .folder(folder.id)
             )
@@ -457,15 +474,16 @@ struct SourceManagementAddFeedState {
               preview != nil || isEditing else {
             return nil
         }
-        return "Create New Folder"
+        return SourceManagementLocalization.createNewFolderAction
     }
 
     private func selectedPlacementTitle() -> String {
         switch selectedFolderPlacement {
         case .ungrouped:
-            return "Ungrouped"
+            return SourceManagementLocalization.ungroupedTitle
         case .folder(let folderID):
-            return availableFolders.first(where: { $0.id == folderID })?.name ?? "Selected Folder"
+            return availableFolders.first(where: { $0.id == folderID })?.name
+                ?? SourceManagementLocalization.selectedFolderTitle
         }
     }
 
@@ -476,7 +494,7 @@ struct SourceManagementAddFeedState {
         case .atom:
             return "Atom"
         case .unknown:
-            return "Unknown"
+            return SourceManagementLocalization.unknownFeedKindTitle
         }
     }
 

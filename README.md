@@ -583,7 +583,7 @@
 #### Localization Foundation
 - [x] `String Catalog Baseline`: добавить Xcode-native string catalog resources, подключить initial locale matrix и зафиксировать key/comment policy для user-facing строк, plural variants, date/number formatting и технических терминов;
 - [x] `Settings Localization Extraction`: вынести строки `SettingsScreen`, settings alerts/statuses, Source Portability import/export UI и accessibility labels в string catalog без изменения screen-level action boundaries;
-- [ ] `Source Management Localization Extraction`: вынести строки `SourceManagement` flows, sidebar filters, source/folder context menus, placeholders, validation messages и accessibility labels в string catalog;
+- [x] `Source Management Localization Extraction`: вынести строки `SourceManagement` flows, sidebar filters, source/folder context menus, placeholders, validation messages и accessibility labels в string catalog;
 - [ ] `Reading Flow Localization Extraction`: вынести строки `ArticlesScreen`, `ArticleScreen`, Safari/opening actions, article metadata labels, empty/error states и swipe/menu actions в string catalog;
 - [ ] `Runtime Feedback Localization Extraction`: вынести строки refresh/background-refresh/sync/storage cleanup feedback, destructive confirmations и shared app-level error/status messages в string catalog;
 - [ ] `Russian Localization Pass`: добавить `ru` переводы для извлечённых строк и проверить длинные кириллические строки на основных экранах;

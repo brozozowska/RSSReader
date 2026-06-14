@@ -170,7 +170,7 @@ private extension SidebarScreenState {
             return nil
         }
 
-        return SidebarScreenPrimaryLoadingState(title: "Loading Sources")
+        return SidebarScreenPrimaryLoadingState(title: SidebarLocalization.loadingTitle)
     }
 
     var placeholder: SidebarScreenPlaceholderState? {
@@ -179,13 +179,13 @@ private extension SidebarScreenState {
             nil
         case .empty:
             SidebarScreenPlaceholderState(
-                title: "No Sources",
+                title: SidebarLocalization.emptyTitle,
                 systemImage: "dot.radiowaves.left.and.right",
-                description: "Add a source to populate the Sources sidebar."
+                description: SidebarLocalization.emptyDescription
             )
         case .failed(let message):
             SidebarScreenPlaceholderState(
-                title: "Unable to Load Sources",
+                title: SidebarLocalization.loadFailureTitle,
                 systemImage: "exclamationmark.triangle",
                 description: message
             )

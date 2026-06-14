@@ -10,11 +10,11 @@ struct SidebarToolbarContent: ToolbarContent {
             Button(action: actionHandlers.showSettings) {
                 Image(systemName: "gearshape")
             }
-            .accessibilityLabel("Settings")
+            .accessibilityLabel(SidebarLocalization.settingsAccessibilityLabel)
         }
 
         ToolbarItem(placement: .title) {
-            Text("Sources")
+            Text(SidebarLocalization.title)
                 .font(.title3.weight(.semibold))
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -30,7 +30,7 @@ struct SidebarToolbarContent: ToolbarContent {
             Button(action: actionHandlers.showSourceManagement) {
                 Image(systemName: "plus")
             }
-            .accessibilityLabel("Add Source")
+            .accessibilityLabel(SidebarLocalization.addSourceAccessibilityLabel)
         }
 
         ToolbarSpacer(.fixed, placement: .topBarTrailing)
@@ -50,13 +50,13 @@ private struct SidebarSourcesFilterMenu: View {
 
     var body: some View {
         Menu {
-            sourcesFilterButton("All Items", systemImage: "tray.full", filter: .allItems)
-            sourcesFilterButton("Unread", systemImage: "circle", filter: .unread)
-            sourcesFilterButton("Starred", systemImage: "star", filter: .starred)
+            sourcesFilterButton(SidebarLocalization.allItemsFilterTitle, systemImage: "tray.full", filter: .allItems)
+            sourcesFilterButton(SidebarLocalization.unreadFilterTitle, systemImage: "circle", filter: .unread)
+            sourcesFilterButton(SidebarLocalization.starredFilterTitle, systemImage: "star", filter: .starred)
         } label: {
             Image(systemName: "line.3.horizontal.decrease")
         }
-        .accessibilityLabel("Filter Sources")
+        .accessibilityLabel(SidebarLocalization.filterSourcesAccessibilityLabel)
     }
 
     @ViewBuilder

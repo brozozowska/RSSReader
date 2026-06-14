@@ -119,7 +119,7 @@ private enum SidebarPreviewFactory {
         }
 
         guard let sourcesSidebarQueryService = dependencies.sourcesSidebarQueryService else {
-            return .previewFailed(message: "Sources are unavailable in the current app environment.")
+            return .previewFailed(message: SidebarLocalization.unavailablePreviewMessage)
         }
 
         let snapshot = (try? sourcesSidebarQueryService.fetchSnapshot()) ?? SourcesSidebarSnapshotDTO(

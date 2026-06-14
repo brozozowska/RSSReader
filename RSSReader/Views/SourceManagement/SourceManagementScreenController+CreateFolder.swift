@@ -19,11 +19,11 @@ extension SourceManagementScreenController {
             dependencies.logger.error(unavailableMessage)
             screenState.applyCreateFolderServiceUnavailable(
                 title: screenState.isEditingCreateFolder()
-                    ? "Folder editing is unavailable"
-                    : "Folder creation is unavailable",
+                    ? String(localized: "sourceManagement.createFolder.unavailable.edit.title", defaultValue: "Folder editing is unavailable", comment: "Failure title when folder editing service is unavailable.")
+                    : String(localized: "sourceManagement.createFolder.unavailable.create.title", defaultValue: "Folder creation is unavailable", comment: "Failure title when folder creation service is unavailable."),
                 message: screenState.isEditingCreateFolder()
-                    ? "Folder editing is unavailable right now."
-                    : "Folder creation is unavailable right now."
+                    ? String(localized: "sourceManagement.createFolder.unavailable.edit.detail", defaultValue: "Folder editing is unavailable right now.", comment: "Failure detail when folder editing service is unavailable.")
+                    : SourceManagementLocalization.folderCreationUnavailableValidation
             )
             return
         }
@@ -70,7 +70,7 @@ extension SourceManagementScreenController {
         } catch {
             dependencies.logger.error("Failed to update folder through source management flow: \(error)")
             screenState.applyCreateFolderFailure(
-                "Unable to update the folder right now. Try again."
+                String(localized: "sourceManagement.createFolder.error.updateGeneric", defaultValue: "Unable to update the folder right now. Try again.", comment: "Generic update folder error message.")
             )
         }
     }
@@ -106,7 +106,7 @@ extension SourceManagementScreenController {
         } catch {
             dependencies.logger.error("Failed to create folder through source management flow: \(error)")
             screenState.applyCreateFolderFailure(
-                "Unable to create the folder right now. Try again."
+                String(localized: "sourceManagement.createFolder.error.generic", defaultValue: "Unable to create the folder right now. Try again.", comment: "Generic create folder error message.")
             )
         }
     }

@@ -46,19 +46,19 @@ struct SidebarFeedRowView: View {
             Button {
                 actionHandlers.showFeedOrganizer(row.id)
             } label: {
-                Label("Organize...", systemImage: "folder")
+                Label(SidebarLocalization.organizeActionTitle, systemImage: "folder")
             }
 
             Button {
                 actionHandlers.showFeedEditor(row.id)
             } label: {
-                Label("Edit...", systemImage: "pencil")
+                Label(SidebarLocalization.editActionTitle, systemImage: "pencil")
             }
 
             Button(role: .destructive) {
                 actionHandlers.unsubscribeFeed(row.id)
             } label: {
-                Label("Unsubscribe", systemImage: "minus.circle")
+                Label(SidebarLocalization.unsubscribeActionTitle, systemImage: "minus.circle")
             }
         }
         .listRowSeparator(.hidden)
@@ -105,13 +105,13 @@ struct SidebarFolderRowView: View {
             Button {
                 actionHandlers.showFolderEditor(row.name)
             } label: {
-                Label("Edit...", systemImage: "pencil")
+                Label(SidebarLocalization.editActionTitle, systemImage: "pencil")
             }
 
             Button(role: .destructive) {
                 actionHandlers.deleteFolder(row.name)
             } label: {
-                Label("Delete", systemImage: "trash")
+                Label(SidebarLocalization.deleteActionTitle, systemImage: "trash")
             }
         }
         .listRowSeparator(.hidden)

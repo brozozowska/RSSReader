@@ -60,7 +60,7 @@ private struct SidebarSections: View {
                 }
             } header: {
                 if viewState.smartRows.count > 1 {
-                    SidebarSectionHeader(title: "Smart Views")
+                    SidebarSectionHeader(title: SidebarLocalization.smartViewsSectionTitle)
                 }
             }
         }
@@ -76,7 +76,7 @@ private struct SidebarSections: View {
                     )
                 }
             } header: {
-                SidebarSectionHeader(title: "Folders")
+                SidebarSectionHeader(title: SidebarLocalization.foldersSectionTitle)
             }
         }
 
@@ -90,7 +90,7 @@ private struct SidebarSections: View {
                     )
                 }
             } header: {
-                SidebarSectionHeader(title: "Ungrouped")
+                SidebarSectionHeader(title: SidebarLocalization.ungroupedSectionTitle)
             }
         }
     }
