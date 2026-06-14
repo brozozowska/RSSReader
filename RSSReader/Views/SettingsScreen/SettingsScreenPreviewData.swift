@@ -15,7 +15,7 @@ import SwiftUI
 
 #Preview("Failed Settings") {
     SettingsScreenPreviewContainer(
-        screenState: .previewFailed(message: "Unable to load settings right now. Try again.")
+        screenState: .previewFailed(message: SettingsLocalization.genericLoadFailureMessage)
     )
 }
 

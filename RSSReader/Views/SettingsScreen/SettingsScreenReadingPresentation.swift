@@ -2,13 +2,13 @@ extension SettingsScreenPresentationBuilder {
     static func readingSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
         SettingsScreenSectionPresentation(
             id: .reading,
-            title: "Reading",
-            footer: "Choose whether articles from the list open in the feed reader or SFSafariViewController. Open Original Article controls the source web page; Open Article Links controls links inside article text.",
+            title: SettingsLocalization.readingSectionTitle,
+            footer: SettingsLocalization.readingSectionFooter,
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .articleOpeningMode,
-                        title: "Open Articles",
+                        title: SettingsLocalization.openArticlesTitle,
                         subtitle: nil,
                         selectedValueTitle: SettingsScreenPresentationFormatter.articleOpeningModeTitle(input.articleOpeningMode),
                         options: ArticleOpeningMode.allCases.map { mode in
@@ -23,7 +23,7 @@ extension SettingsScreenPresentationBuilder {
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .articleSourceLinkOpeningPolicy,
-                        title: "Open Original Article",
+                        title: SettingsLocalization.openOriginalArticleTitle,
                         subtitle: nil,
                         selectedValueTitle: SettingsScreenPresentationFormatter.articleSourceLinkOpeningPolicyTitle(input.articleSourceLinkOpeningPolicy),
                         options: ArticleSourceLinkOpeningPolicy.allCases.map { policy in
@@ -38,7 +38,7 @@ extension SettingsScreenPresentationBuilder {
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .articleBodyLinkOpeningPolicy,
-                        title: "Open Article Links",
+                        title: SettingsLocalization.openArticleLinksTitle,
                         subtitle: nil,
                         selectedValueTitle: SettingsScreenPresentationFormatter.articleBodyLinkOpeningPolicyTitle(input.articleBodyLinkOpeningPolicy),
                         options: ArticleBodyLinkOpeningPolicy.allCases.map { policy in
@@ -53,7 +53,7 @@ extension SettingsScreenPresentationBuilder {
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .readerAdjacentNavigationControlsMode,
-                        title: "Adjacent Navigation",
+                        title: SettingsLocalization.adjacentNavigationTitle,
                         subtitle: nil,
                         selectedValueTitle: SettingsScreenPresentationFormatter.readerAdjacentNavigationControlsModeTitle(input.readerAdjacentNavigationControlsMode),
                         options: ReaderAdjacentNavigationControlsMode.allCases.map { mode in
@@ -68,8 +68,8 @@ extension SettingsScreenPresentationBuilder {
                 .toggle(
                     SettingsToggleItemPresentation(
                         id: .markAsReadOnOpen,
-                        title: "Mark Read on Open",
-                        subtitle: "Automatically mark an article as read when it is opened.",
+                        title: SettingsLocalization.markReadOnOpenTitle,
+                        subtitle: SettingsLocalization.markReadOnOpenSubtitle,
                         isOn: input.markAsReadOnOpen
                     )
                 )

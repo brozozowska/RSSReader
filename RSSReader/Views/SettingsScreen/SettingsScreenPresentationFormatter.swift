@@ -2,92 +2,92 @@ enum SettingsScreenPresentationFormatter {
     static func articleOpeningModeTitle(_ mode: ArticleOpeningMode) -> String {
         switch mode {
         case .feedReader:
-            "Feed Reader"
+            SettingsLocalization.feedReaderOptionTitle
         case .safariView:
-            "Safari View"
+            SettingsLocalization.safariViewOptionTitle
         }
     }
 
     static func unreadArticleSortOrderTitle(_ order: UnreadArticleSortOrder) -> String {
         switch order {
         case .newestFirst:
-            "Newest First"
+            SettingsLocalization.newestFirstOptionTitle
         case .oldestFirst:
-            "Oldest First"
+            SettingsLocalization.oldestFirstOptionTitle
         }
     }
 
     static func articleRetentionPolicyTitle(_ policy: ArticleRetentionPolicy) -> String {
         switch policy {
         case .currentFeedOnly:
-            "None"
+            SettingsLocalization.noneOptionTitle
         case .twoDays:
-            "2 Days"
+            SettingsLocalization.twoDaysOptionTitle
         case .oneWeek:
-            "1 Week"
+            SettingsLocalization.oneWeekOptionTitle
         case .twoWeeks:
-            "2 Weeks"
+            SettingsLocalization.twoWeeksOptionTitle
         case .oneMonth:
-            "1 Month"
+            SettingsLocalization.oneMonthOptionTitle
         }
     }
 
     static func refreshPreferenceTitle(_ preference: RefreshPreference) -> String {
         switch preference {
         case .manual:
-            "Manual"
+            SettingsLocalization.manualOptionTitle
         case .every15Minutes:
-            "Every 15 Minutes"
+            SettingsLocalization.every15MinutesOptionTitle
         case .hourly:
-            "Hourly"
+            SettingsLocalization.hourlyOptionTitle
         case .every6Hours:
-            "Every 6 Hours"
+            SettingsLocalization.every6HoursOptionTitle
         case .daily:
-            "Daily"
+            SettingsLocalization.dailyOptionTitle
         }
     }
 
     static func articleBodyLinkOpeningPolicyTitle(_ policy: ArticleBodyLinkOpeningPolicy) -> String {
         switch policy {
         case .inAppBrowser:
-            "In-App Browser"
+            SettingsLocalization.inAppBrowserOptionTitle
         case .externalBrowser:
-            "External Browser"
+            SettingsLocalization.externalBrowserOptionTitle
         }
     }
 
     static func articleSourceLinkOpeningPolicyTitle(_ policy: ArticleSourceLinkOpeningPolicy) -> String {
         switch policy {
         case .inAppBrowser:
-            "In-App Browser"
+            SettingsLocalization.inAppBrowserOptionTitle
         case .externalBrowser:
-            "External Browser"
+            SettingsLocalization.externalBrowserOptionTitle
         }
     }
 
     static func readerAdjacentNavigationControlsModeTitle(_ mode: ReaderAdjacentNavigationControlsMode) -> String {
         switch mode {
         case .toolbarControlsOnly:
-            "Buttons"
+            SettingsLocalization.buttonsOptionTitle
         case .swipesOnly:
-            "Swipes"
+            SettingsLocalization.swipesOptionTitle
         case .swipesAndToolbarControls:
-            "Both"
+            SettingsLocalization.bothOptionTitle
         }
     }
 
     static func interfaceThemeModeTitle(_ mode: InterfaceThemeMode) -> String {
         switch mode {
         case .automaticLightDark:
-            "Automatic Light/Dark"
+            SettingsLocalization.automaticLightDarkOptionTitle
         case .automaticLightBlack:
-            "Automatic Light/Black"
+            SettingsLocalization.automaticLightBlackOptionTitle
         case .light:
-            "Light"
+            SettingsLocalization.lightOptionTitle
         case .dark:
-            "Dark"
+            SettingsLocalization.darkOptionTitle
         case .black:
-            "Black"
+            SettingsLocalization.blackOptionTitle
         }
     }
 }

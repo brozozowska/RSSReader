@@ -8,9 +8,9 @@ extension SettingsScreenController {
         guard let sourceManagementService = dependencies.sourceManagementService else {
             screenState.applyOPMLTransferStatus(
                 SettingsOPMLTransferStatusPresentation(
-                    title: "Import Unavailable",
+                    title: SettingsLocalization.importUnavailableTitle,
                     message: dependencies.modelContainerBootstrapFailureDescription
-                        ?? "Sources are unavailable in the current app environment.",
+                        ?? SettingsLocalization.sourcesUnavailableMessage,
                     kind: .failure
                 )
             )
@@ -30,7 +30,7 @@ extension SettingsScreenController {
             dependencies.logger.error("Failed to prepare OPML import preview: \(error)")
             screenState.applyOPMLTransferStatus(
                 SettingsOPMLTransferStatusPresentation(
-                    title: "OPML Import Failed",
+                    title: SettingsLocalization.opmlImportFailedTitle,
                     message: opmlImportFailureMessage(for: error),
                     kind: .failure
                 )
@@ -53,9 +53,9 @@ extension SettingsScreenController {
         guard let sourceManagementService = dependencies.sourceManagementService else {
             screenState.applyOPMLTransferStatus(
                 SettingsOPMLTransferStatusPresentation(
-                    title: "Import Unavailable",
+                    title: SettingsLocalization.importUnavailableTitle,
                     message: dependencies.modelContainerBootstrapFailureDescription
-                        ?? "Sources are unavailable in the current app environment.",
+                        ?? SettingsLocalization.sourcesUnavailableMessage,
                     kind: .failure
                 )
             )
@@ -74,8 +74,11 @@ extension SettingsScreenController {
             screenState.dismissOPMLImportPreview()
             screenState.applyOPMLTransferStatus(
                 SettingsOPMLTransferStatusPresentation(
-                    title: "OPML Import Complete",
-                    message: "\(result.createdFeedCount) sources imported. \(result.skippedEntryCount) skipped.",
+                    title: SettingsLocalization.opmlImportCompleteTitle,
+                    message: SettingsLocalization.opmlImportCompleteMessage(
+                        createdFeedCount: result.createdFeedCount,
+                        skippedEntryCount: result.skippedEntryCount
+                    ),
                     kind: .success
                 )
             )
@@ -87,8 +90,8 @@ extension SettingsScreenController {
             dependencies.logger.error("Failed to import OPML preview: \(error)")
             screenState.applyOPMLTransferStatus(
                 SettingsOPMLTransferStatusPresentation(
-                    title: "OPML Import Failed",
-                    message: "The app could not save the selected OPML sources. Try again.",
+                    title: SettingsLocalization.opmlImportFailedTitle,
+                    message: SettingsLocalization.opmlImportSaveFailureMessage,
                     kind: .failure
                 )
             )
@@ -100,9 +103,9 @@ extension SettingsScreenController {
               let folderRepository = dependencies.folderRepository else {
             screenState.applyOPMLTransferStatus(
                 SettingsOPMLTransferStatusPresentation(
-                    title: "Export Unavailable",
+                    title: SettingsLocalization.exportUnavailableTitle,
                     message: dependencies.modelContainerBootstrapFailureDescription
-                        ?? "Sources are unavailable in the current app environment.",
+                        ?? SettingsLocalization.sourcesUnavailableMessage,
                     kind: .failure
                 )
             )
@@ -119,8 +122,8 @@ extension SettingsScreenController {
             dependencies.logger.error("Failed to export OPML document: \(error)")
             screenState.applyOPMLTransferStatus(
                 SettingsOPMLTransferStatusPresentation(
-                    title: "OPML Export Failed",
-                    message: "The app could not build an OPML file right now. Try again.",
+                    title: SettingsLocalization.opmlExportFailedTitle,
+                    message: SettingsLocalization.opmlExportBuildFailureMessage,
                     kind: .failure
                 )
             )
@@ -133,8 +136,8 @@ extension SettingsScreenController {
         case .success:
             screenState.applyOPMLTransferStatus(
                 SettingsOPMLTransferStatusPresentation(
-                    title: "OPML Export Complete",
-                    message: "Your subscriptions were exported successfully.",
+                    title: SettingsLocalization.opmlExportCompleteTitle,
+                    message: SettingsLocalization.opmlExportCompleteMessage,
                     kind: .success
                 )
             )
@@ -142,8 +145,8 @@ extension SettingsScreenController {
             dependencies.logger.error("Failed to write OPML export document: \(error)")
             screenState.applyOPMLTransferStatus(
                 SettingsOPMLTransferStatusPresentation(
-                    title: "OPML Export Failed",
-                    message: "The app could not save the OPML file. Try again.",
+                    title: SettingsLocalization.opmlExportFailedTitle,
+                    message: SettingsLocalization.opmlExportSaveFailureMessage,
                     kind: .failure
                 )
             )
@@ -153,15 +156,15 @@ extension SettingsScreenController {
     private func opmlImportFailureMessage(for error: Error) -> String {
         switch error {
         case OPMLParserError.emptyDocument:
-            return "The selected file is empty."
+            return SettingsLocalization.selectedFileEmptyMessage
         case OPMLParserError.malformedXML:
-            return "The selected file is not valid XML."
+            return SettingsLocalization.selectedFileInvalidXMLMessage
         case OPMLParserError.unsupportedRootElement:
-            return "The selected file is not an OPML document."
+            return SettingsLocalization.selectedFileNotOPMLMessage
         case OPMLParserError.missingBody:
-            return "The selected OPML document does not contain a subscription list."
+            return SettingsLocalization.selectedOPMLMissingBodyMessage
         default:
-            return "The app could not read the selected OPML file."
+            return SettingsLocalization.selectedOPMLReadFailureMessage
         }
     }
 }

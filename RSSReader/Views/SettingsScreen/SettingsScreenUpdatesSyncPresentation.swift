@@ -7,13 +7,13 @@ extension SettingsScreenPresentationBuilder {
 
         return SettingsScreenSectionPresentation(
             id: .updatesAndSync,
-            title: "Updates & Sync",
+            title: SettingsLocalization.updatesSyncSectionTitle,
             footer: updatesAndSyncSectionFooter(input: input, syncScope: syncScope, readingScenario: readingScenario),
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .refreshInterval,
-                        title: "Background Refresh",
+                        title: SettingsLocalization.backgroundRefreshTitle,
                         subtitle: nil,
                         selectedValueTitle: SettingsScreenPresentationFormatter.refreshPreferenceTitle(input.refreshIntervalPreference),
                         options: RefreshPreference.allCases.map { preference in
@@ -28,7 +28,7 @@ extension SettingsScreenPresentationBuilder {
                 .toggle(
                     SettingsToggleItemPresentation(
                         id: .useICloudSync,
-                        title: "Enable iCloud Sync",
+                        title: SettingsLocalization.enableICloudSyncTitle,
                         subtitle: iCloudSyncPreferenceSubtitle(
                             input.useiCloudSync,
                             isUsingLocalOnlySyncFallbackForCurrentLaunch: input.isUsingLocalOnlySyncFallbackForCurrentLaunch,
@@ -40,7 +40,7 @@ extension SettingsScreenPresentationBuilder {
                 .statusRow(
                     SettingsStatusRowItemPresentation(
                         id: .iCloudSyncStatus,
-                        title: "Current Status",
+                        title: SettingsLocalization.currentStatusTitle,
                         subtitle: iCloudSyncStatusSubtitle(
                             input.syncStatusPresentation,
                             isUsingLocalOnlySyncFallbackForCurrentLaunch: input.isUsingLocalOnlySyncFallbackForCurrentLaunch
@@ -58,44 +58,46 @@ extension SettingsScreenPresentationBuilder {
         syncStatusPresentation: SettingsSyncStatusPresentation
     ) -> String {
         if isEnabled, isUsingLocalOnlySyncFallbackForCurrentLaunch {
-            return "Saved for the next launch. This session keeps using local data because \(bootstrapFallbackReason(syncStatusPresentation))."
+            return SettingsLocalization.iCloudSyncPreferenceFallbackSubtitle(
+                reason: bootstrapFallbackReason(syncStatusPresentation)
+            )
         }
 
         if isEnabled {
-            return "Applies on next launch. Supported data will sync through iCloud when available."
+            return SettingsLocalization.iCloudSyncPreferenceEnabledSubtitle
         }
 
-        return "Applies on next launch. Supported sync data will stay only on this device until iCloud sync is enabled again."
+        return SettingsLocalization.iCloudSyncPreferenceDisabledSubtitle
     }
 
     private static func iCloudSyncStatusTitle(_ status: SettingsSyncStatusPresentation) -> String {
         switch status {
         case .disabled:
-            "Off"
+            SettingsLocalization.syncStatusOffTitle
         case .statusUnavailable:
-            "Status Unavailable"
+            SettingsLocalization.syncStatusUnavailableTitle
         case .checkingAccount:
-            "Checking"
+            SettingsLocalization.syncStatusCheckingTitle
         case .ready:
-            "Ready"
+            SettingsLocalization.syncStatusReadyTitle
         case .syncing:
-            "Syncing"
+            SettingsLocalization.syncStatusSyncingTitle
         case .preparing:
-            "Preparing"
+            SettingsLocalization.syncStatusPreparingTitle
         case .importing:
-            "Importing"
+            SettingsLocalization.syncStatusImportingTitle
         case .uploading:
-            "Uploading"
+            SettingsLocalization.syncStatusUploadingTitle
         case .noAccount:
-            "Sign In Required"
+            SettingsLocalization.syncStatusNoAccountTitle
         case .restricted:
-            "Restricted"
+            SettingsLocalization.syncStatusRestrictedTitle
         case .temporarilyUnavailable:
-            "Temporarily Unavailable"
+            SettingsLocalization.syncStatusTemporarilyUnavailableTitle
         case .couldNotDetermine:
-            "Account Unavailable"
+            SettingsLocalization.syncStatusCouldNotDetermineTitle
         case .failed:
-            "Error"
+            SettingsLocalization.syncStatusErrorTitle
         }
     }
 
@@ -106,13 +108,13 @@ extension SettingsScreenPresentationBuilder {
         if isUsingLocalOnlySyncFallbackForCurrentLaunch {
             switch status {
             case .noAccount:
-                return "Sync is enabled, but this launch cannot use iCloud because the device is not signed in. Relaunch after signing in."
+                return SettingsLocalization.syncFallbackNoAccountSubtitle
             case .restricted:
-                return "Sync is enabled, but this launch cannot use iCloud because access is restricted on this device. Relaunch after the restriction is removed."
+                return SettingsLocalization.syncFallbackRestrictedSubtitle
             case .temporarilyUnavailable:
-                return "Sync is enabled, but this launch cannot use iCloud because the current account is temporarily unavailable. Relaunch after iCloud becomes available."
+                return SettingsLocalization.syncFallbackTemporarilyUnavailableSubtitle
             case .couldNotDetermine, .statusUnavailable, .checkingAccount:
-                return "Sync is enabled, but this launch could not confirm iCloud availability. Relaunch after iCloud becomes available."
+                return SettingsLocalization.syncFallbackCouldNotDetermineSubtitle
             case .disabled, .ready, .syncing, .preparing, .importing, .uploading, .failed:
                 break
             }
@@ -120,29 +122,29 @@ extension SettingsScreenPresentationBuilder {
 
         switch status {
         case .disabled:
-            return "iCloud sync is off."
+            return SettingsLocalization.syncDisabledSubtitle
         case .statusUnavailable:
-            return "The current app session could not read the live iCloud sync status."
+            return SettingsLocalization.syncStatusUnavailableSubtitle
         case .checkingAccount:
-            return "The app is checking the current iCloud account and CloudKit session status."
+            return SettingsLocalization.syncCheckingAccountSubtitle
         case .ready:
-            return "iCloud sync is available for the Apple ID currently signed in on this device."
+            return SettingsLocalization.syncReadySubtitle
         case .syncing:
-            return "Changes are currently syncing with iCloud."
+            return SettingsLocalization.syncSyncingSubtitle
         case .preparing:
-            return "The app is preparing the iCloud sync session for supported data."
+            return SettingsLocalization.syncPreparingSubtitle
         case .importing:
-            return "Changes from iCloud are currently being applied on this device."
+            return SettingsLocalization.syncImportingSubtitle
         case .uploading:
-            return "Changes from this device are currently being uploaded to iCloud."
+            return SettingsLocalization.syncUploadingSubtitle
         case .noAccount:
-            return "Sign in to iCloud with the Apple ID used on this device to enable sync."
+            return SettingsLocalization.syncNoAccountSubtitle
         case .restricted:
-            return "This device cannot use iCloud right now because account changes or CloudKit access are restricted."
+            return SettingsLocalization.syncRestrictedSubtitle
         case .temporarilyUnavailable:
-            return "The current iCloud account is temporarily unavailable. Try again later."
+            return SettingsLocalization.syncTemporarilyUnavailableSubtitle
         case .couldNotDetermine:
-            return "The app could not determine the current iCloud account status. Check the device Apple ID and iCloud availability, then try again."
+            return SettingsLocalization.syncCouldNotDetermineSubtitle
         case .failed(let message):
             return message
         }
@@ -154,11 +156,11 @@ extension SettingsScreenPresentationBuilder {
         readingScenario: CrossDeviceReadingScenario
     ) -> String {
         let scopeFooter = syncScope.settingsSectionFooter(readingScenario: readingScenario)
-        let accountFooter = "iCloud sync uses the Apple ID signed in on this device."
-        let relaunchFooter = "Changing the sync preference applies on the next app launch."
+        let accountFooter = SettingsLocalization.iCloudScopeAccountFooter
+        let relaunchFooter = SettingsLocalization.iCloudScopeRelaunchFooter
         let fallbackFooter: String
         if input.isUsingLocalOnlySyncFallbackForCurrentLaunch {
-            fallbackFooter = "Sync will try again on the next launch when iCloud is available."
+            fallbackFooter = SettingsLocalization.iCloudScopeFallbackFooter
         } else {
             fallbackFooter = ""
         }
@@ -169,15 +171,15 @@ extension SettingsScreenPresentationBuilder {
     private static func bootstrapFallbackReason(_ status: SettingsSyncStatusPresentation) -> String {
         switch status {
         case .noAccount:
-            "the device is not signed in to iCloud"
+            SettingsLocalization.bootstrapFallbackNoAccountReason
         case .restricted:
-            "iCloud access is currently restricted on this device"
+            SettingsLocalization.bootstrapFallbackRestrictedReason
         case .temporarilyUnavailable:
-            "the current iCloud account is temporarily unavailable"
+            SettingsLocalization.bootstrapFallbackTemporarilyUnavailableReason
         case .couldNotDetermine, .statusUnavailable, .checkingAccount:
-            "iCloud availability could not be confirmed"
+            SettingsLocalization.bootstrapFallbackCouldNotDetermineReason
         case .disabled, .ready, .syncing, .preparing, .importing, .uploading, .failed:
-            "iCloud is not available for this launch"
+            SettingsLocalization.bootstrapFallbackUnavailableReason
         }
     }
 }

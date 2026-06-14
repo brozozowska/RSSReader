@@ -37,14 +37,14 @@ struct SettingsScreenView: View {
 
         NavigationStack {
             content(using: viewState)
-                .navigationTitle("Settings")
+                .navigationTitle(SettingsLocalization.screenTitle)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button(action: actionHandlers.dismiss) {
                             Image(systemName: "xmark")
                         }
-                        .accessibilityLabel("Close Settings")
+                        .accessibilityLabel(SettingsLocalization.closeSettingsAccessibilityLabel)
                     }
 
                     ToolbarItem(placement: .confirmationAction) {
@@ -54,7 +54,7 @@ struct SettingsScreenView: View {
                         .buttonStyle(.borderedProminent)
                         .tint(Color.accentColor)
                         .disabled(viewState.canApplyChanges == false)
-                        .accessibilityLabel("Apply Settings")
+                        .accessibilityLabel(SettingsLocalization.applySettingsAccessibilityLabel)
                     }
                 }
                 .background(appThemeVariant.primaryBackground)
@@ -70,37 +70,37 @@ struct SettingsScreenView: View {
                     controller.discardPreviewedAppearanceChanges(appState: appState)
                 }
                 .alert(
-                    "Clear archived articles?",
+                    SettingsLocalization.clearArchivedArticlesAlertTitle,
                     isPresented: $isArchivedArticlesPurgeConfirmationPresented
                 ) {
-                    Button("Clear Articles", role: .destructive) {
+                    Button(SettingsLocalization.clearArchivedArticlesAlertAction, role: .destructive) {
                         actionHandlers.tapButton(.purgeArchivedArticles)
                     }
-                    Button("Cancel", role: .cancel) {}
+                    Button(SettingsLocalization.cancelAction, role: .cancel) {}
                 } message: {
-                    Text("This removes archived articles from this device and iCloud. Starred articles, current articles, and saved article images are not affected.")
+                    Text(SettingsLocalization.clearArchivedArticlesAlertMessage)
                 }
                 .alert(
-                    "Clear article image cache?",
+                    SettingsLocalization.clearArticleImageCacheAlertTitle,
                     isPresented: $isArticleImageCacheResetConfirmationPresented
                 ) {
-                    Button("Clear Cache", role: .destructive) {
+                    Button(SettingsLocalization.clearCacheAlertAction, role: .destructive) {
                         actionHandlers.tapButton(.clearArticleImageCache)
                     }
-                    Button("Cancel", role: .cancel) {}
+                    Button(SettingsLocalization.cancelAction, role: .cancel) {}
                 } message: {
-                    Text("This removes article images saved on this device. Images can be downloaded again when articles are opened.")
+                    Text(SettingsLocalization.clearArticleImageCacheAlertMessage)
                 }
                 .alert(
-                    "Clear source icon cache?",
+                    SettingsLocalization.clearSourceIconCacheAlertTitle,
                     isPresented: $isSourceIconCacheResetConfirmationPresented
                 ) {
-                    Button("Clear Cache", role: .destructive) {
+                    Button(SettingsLocalization.clearCacheAlertAction, role: .destructive) {
                         actionHandlers.tapButton(.clearSourceIconCache)
                     }
-                    Button("Cancel", role: .cancel) {}
+                    Button(SettingsLocalization.cancelAction, role: .cancel) {}
                 } message: {
-                    Text("This removes feed icons saved on this device. Icons can be discovered and downloaded again during refresh or when the sidebar is shown.")
+                    Text(SettingsLocalization.clearSourceIconCacheAlertMessage)
                 }
                 .fileImporter(
                     isPresented: $isOPMLImporterPresented,
@@ -140,7 +140,7 @@ struct SettingsScreenView: View {
                         }
                     )
                 ) {
-                    Button("OK", role: .cancel) {
+                    Button(SettingsLocalization.okAction, role: .cancel) {
                         controller.dismissOPMLTransferStatus()
                     }
                 } message: {
@@ -316,8 +316,8 @@ struct SettingsScreenView: View {
                 dependencies.logger.error("Failed to read selected OPML file: \(error)")
                 controller.screenState.applyOPMLTransferStatus(
                     SettingsOPMLTransferStatusPresentation(
-                        title: "OPML Import Failed",
-                        message: "The app could not read the selected file.",
+                        title: SettingsLocalization.opmlImportFailedTitle,
+                        message: SettingsLocalization.selectedFileReadFailureMessage,
                         kind: .failure
                     )
                 )
@@ -326,8 +326,8 @@ struct SettingsScreenView: View {
             dependencies.logger.error("OPML file importer failed: \(error)")
             controller.screenState.applyOPMLTransferStatus(
                 SettingsOPMLTransferStatusPresentation(
-                    title: "OPML Import Failed",
-                    message: "The selected file could not be opened.",
+                    title: SettingsLocalization.opmlImportFailedTitle,
+                    message: SettingsLocalization.selectedFileOpenFailureMessage,
                     kind: .failure
                 )
             )
@@ -339,10 +339,10 @@ struct SettingsScreenView: View {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Review subscriptions before import")
+                        Text(SettingsLocalization.importPreviewHeadline)
                             .font(.headline)
 
-                        Text("App found subscriptions in the selected OPML file. Check the summary before adding them to your source list.")
+                        Text(SettingsLocalization.importPreviewDescription)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -350,18 +350,18 @@ struct SettingsScreenView: View {
                 }
 
                 Section {
-                    LabeledContent("Subscriptions", value: "\(preview.totalEntryCount)")
-                    LabeledContent("Ready to Import", value: "\(preview.importableEntryCount)")
-                    LabeledContent("Will Be Skipped", value: "\(preview.skippedEntryCount)")
-                    LabeledContent("New Folders", value: "\(preview.createdFolderCount)")
+                    LabeledContent(SettingsLocalization.importPreviewSubscriptionsTitle, value: "\(preview.totalEntryCount)")
+                    LabeledContent(SettingsLocalization.importPreviewReadyTitle, value: "\(preview.importableEntryCount)")
+                    LabeledContent(SettingsLocalization.importPreviewSkippedTitle, value: "\(preview.skippedEntryCount)")
+                    LabeledContent(SettingsLocalization.importPreviewNewFoldersTitle, value: "\(preview.createdFolderCount)")
                 } footer: {
-                    Text("Invalid and duplicate subscriptions are skipped automatically. Existing folders are reused; missing folders are created during import.")
+                    Text(SettingsLocalization.importPreviewFooter)
                 }
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .background(appThemeVariant.primaryBackground)
-            .navigationTitle("Import OPML")
+            .navigationTitle(SettingsLocalization.importPreviewNavigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -370,11 +370,11 @@ struct SettingsScreenView: View {
                     } label: {
                         Image(systemName: "xmark")
                     }
-                    .accessibilityLabel("Close Import Preview")
+                    .accessibilityLabel(SettingsLocalization.importPreviewCloseAccessibilityLabel)
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Import") {
+                    Button(SettingsLocalization.importPreviewImportAction) {
                         controller.commitOPMLImportPreview(
                             dependencies: dependencies,
                             appState: appState
@@ -387,7 +387,7 @@ struct SettingsScreenView: View {
     }
 
     private func statusAlertTitle(for status: SettingsOPMLTransferStatusPresentation?) -> String {
-        status?.title ?? "OPML"
+        status?.title ?? SettingsLocalization.opmlStatusFallbackTitle
     }
 
     @ViewBuilder

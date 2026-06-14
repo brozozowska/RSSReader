@@ -200,7 +200,7 @@ private extension SettingsScreenState {
             return nil
         }
 
-        return SettingsScreenPrimaryLoadingState(title: "Loading Settings")
+        return SettingsScreenPrimaryLoadingState(title: SettingsLocalization.loadingTitle)
     }
 
     var placeholder: SettingsScreenPlaceholderState? {
@@ -209,10 +209,10 @@ private extension SettingsScreenState {
         }
 
         return SettingsScreenPlaceholderState(
-            title: "Unable to Load Settings",
+            title: SettingsLocalization.loadFailureTitle,
             systemImage: "exclamationmark.triangle",
             description: message,
-            actionTitle: "Retry"
+            actionTitle: SettingsLocalization.retryActionTitle
         )
     }
 }

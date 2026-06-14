@@ -24,7 +24,7 @@ final class SettingsScreenController {
 
         guard let appSettingsService = dependencies.appSettingsService else {
             let message = dependencies.modelContainerBootstrapFailureDescription
-                ?? "Settings are unavailable in the current app environment."
+                ?? SettingsLocalization.unavailableMessage
             screenState.applyLoadingFailure(message)
             return
         }
@@ -47,7 +47,7 @@ final class SettingsScreenController {
             }
         } catch {
             dependencies.logger.error("Failed to load settings snapshot: \(error)")
-            screenState.applyLoadingFailure("Unable to load settings right now. Try again.")
+            screenState.applyLoadingFailure(SettingsLocalization.genericLoadFailureMessage)
         }
     }
 

@@ -2,13 +2,13 @@ extension SettingsScreenPresentationBuilder {
     static func articleListSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
         SettingsScreenSectionPresentation(
             id: .articleList,
-            title: "Article List",
-            footer: "\"None\" removes an article from the list when it disappears from its feed. Other options keep the article for the selected time after it disappears.",
+            title: SettingsLocalization.articleListSectionTitle,
+            footer: SettingsLocalization.articleListSectionFooter,
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .unreadArticleSortOrder,
-                        title: "Sort Unread Articles",
+                        title: SettingsLocalization.sortUnreadArticlesTitle,
                         subtitle: nil,
                         selectedValueTitle: SettingsScreenPresentationFormatter.unreadArticleSortOrderTitle(input.unreadArticleSortOrder),
                         options: UnreadArticleSortOrder.allCases.map { order in
@@ -23,15 +23,15 @@ extension SettingsScreenPresentationBuilder {
                 .toggle(
                     SettingsToggleItemPresentation(
                         id: .askBeforeMarkingAllAsRead,
-                        title: "Ask Before Marking All Read",
-                        subtitle: "Show a confirmation before marking all visible articles as read.",
+                        title: SettingsLocalization.askBeforeMarkingAllReadTitle,
+                        subtitle: SettingsLocalization.askBeforeMarkingAllReadSubtitle,
                         isOn: input.askBeforeMarkingAllAsRead
                     )
                 ),
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .articleRetentionPolicy,
-                        title: "Keep Archived Articles",
+                        title: SettingsLocalization.keepArchivedArticlesTitle,
                         subtitle: nil,
                         selectedValueTitle: SettingsScreenPresentationFormatter.articleRetentionPolicyTitle(input.articleRetentionPolicy),
                         options: ArticleRetentionPolicy.allCases.map { policy in

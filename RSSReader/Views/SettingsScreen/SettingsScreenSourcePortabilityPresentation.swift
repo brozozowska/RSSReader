@@ -2,14 +2,14 @@ extension SettingsScreenPresentationBuilder {
     static func sourcePortabilitySection() -> SettingsScreenSectionPresentation {
         SettingsScreenSectionPresentation(
             id: .sourcePortability,
-            title: "Source Portability",
-            footer: "Import and export OPML files to move feed subscriptions between apps.",
+            title: SettingsLocalization.sourcePortabilitySectionTitle,
+            footer: SettingsLocalization.sourcePortabilitySectionFooter,
             items: [
                 .button(
                     SettingsButtonItemPresentation(
                         id: .importOPML,
-                        title: "Import OPML",
-                        subtitle: "Preview subscriptions before adding them.",
+                        title: SettingsLocalization.importOPMLTitle,
+                        subtitle: SettingsLocalization.importOPMLSubtitle,
                         systemImage: "square.and.arrow.down",
                         role: .normal,
                         isEnabled: true
@@ -18,8 +18,8 @@ extension SettingsScreenPresentationBuilder {
                 .button(
                     SettingsButtonItemPresentation(
                         id: .exportOPML,
-                        title: "Export OPML",
-                        subtitle: "Save active subscriptions as an OPML file.",
+                        title: SettingsLocalization.exportOPMLTitle,
+                        subtitle: SettingsLocalization.exportOPMLSubtitle,
                         systemImage: "square.and.arrow.up",
                         role: .normal,
                         isEnabled: true
