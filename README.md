@@ -581,13 +581,15 @@
 - [x] `Import Export UI Entry Points`: добавить import/export entry points в source/settings area через screen-level controller flow: file import показывает preview summary перед сохранением, export отдаёт OPML document, success/failure статусы не смешиваются с основным reading flow;
 
 #### Localization Foundation
-- [ ] `Localization Scope And Language Matrix`: зафиксировать initial language set: `en`, `ru`, `de`, `fr`, `es`, `it`, `pt-BR`, `ja`, `zh-Hans`, `ar`, `he`, `fa`;
-- [ ] `Localization String Extraction`: вынести user-facing strings из экранов, alerts, меню, settings footers, placeholders и accessibility labels в Xcode-native localization resources;
-- [ ] `Localization Key And Formatting Policy`: зафиксировать naming keys, pluralization / date / number formatting policy и правила для технических названий вроде `RSS`, `iCloud`, `OPML`, `SwiftData` и `CloudKit`;
-- [ ] `Russian Localization Pass`: добавить первый европейский/кириллический язык (`ru`) и проверить длинные строки на основных экранах;
-- [ ] `CJK Localization Pass`: добавить первый иероглифический язык (`ja` или `zh-Hans`) и проверить list rows, settings values, article metadata и line wrapping;
-- [ ] `RTL Localization Pass`: добавить первый RTL-язык (`ar`) и проверить layout direction, alignment, menus, toolbar placement, SF Symbols и mixed technical text;
-- [ ] `Additional Language Passes`: добавить оставшиеся языки из матрицы: `de`, `fr`, `es`, `it`, `pt-BR`, второй CJK-язык, `he`, `fa`;
+- [x] `String Catalog Baseline`: добавить Xcode-native string catalog resources, подключить initial locale matrix и зафиксировать key/comment policy для user-facing строк, plural variants, date/number formatting и технических терминов;
+- [ ] `Settings Localization Extraction`: вынести строки `SettingsScreen`, settings alerts/statuses, Source Portability import/export UI и accessibility labels в string catalog без изменения screen-level action boundaries;
+- [ ] `Source Management Localization Extraction`: вынести строки `SourceManagement` flows, sidebar filters, source/folder context menus, placeholders, validation messages и accessibility labels в string catalog;
+- [ ] `Reading Flow Localization Extraction`: вынести строки `ArticlesScreen`, `ArticleScreen`, Safari/opening actions, article metadata labels, empty/error states и swipe/menu actions в string catalog;
+- [ ] `Runtime Feedback Localization Extraction`: вынести строки refresh/background-refresh/sync/storage cleanup feedback, destructive confirmations и shared app-level error/status messages в string catalog;
+- [ ] `Russian Localization Pass`: добавить `ru` переводы для извлечённых строк и проверить длинные кириллические строки на основных экранах;
+- [ ] `CJK Localization Pass`: добавить `ja` и `zh-Hans` переводы и проверить list rows, settings values, article metadata и line wrapping;
+- [ ] `RTL Localization Pass`: добавить `ar`, `he`, `fa` переводы и проверить layout direction, alignment, menus, toolbar placement, SF Symbols и mixed technical text;
+- [ ] `Additional European Language Pass`: добавить `de`, `fr`, `es`, `it`, `pt-BR` переводы и проверить расширение строк в settings/source management/reader flows;
 - [ ] `Localization Regression Checklist`: подготовить smoke checklist для long text, Dynamic Type, RTL, CJK, settings sheets, source management и article reader.
 
 #### Article Search Foundation
