@@ -36,7 +36,7 @@ enum ArticleScreenContentRenderer {
             var summaryBlocks = ArticleScreenBodyPayloadRenderer.renderBodyPayload(summary, article: article)
             summaryBlocks = ArticleScreenBodyPayloadRenderer.appendLeadImageIfNeeded(summaryBlocks, article: article)
             summaryBlocks.append(
-                ArticleScreenBodyBlock.fallbackNotice("This article included only a summary in the received feed.")
+                ArticleScreenBodyBlock.fallbackNotice(ReadingLocalization.summaryOnlyFallbackNotice)
             )
 
             return ArticleScreenBodyContentState(
@@ -50,7 +50,7 @@ enum ArticleScreenContentRenderer {
             fallbackBlocks.append(imageBlock)
         }
         fallbackBlocks.append(
-            ArticleScreenBodyBlock.fallbackNotice("This article did not include body content in the received feed.")
+            ArticleScreenBodyBlock.fallbackNotice(ReadingLocalization.emptyBodyFallbackNotice)
         )
 
         return ArticleScreenBodyContentState(

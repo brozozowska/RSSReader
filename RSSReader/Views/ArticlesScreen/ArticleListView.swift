@@ -77,7 +77,7 @@ struct ArticleListView: View {
                         Image(systemName: "checkmark.circle.fill")
                     }
                     .disabled(derivedViewState.toolbarActions.isMarkAllAsReadEnabled == false)
-                    .accessibilityLabel("Mark all as read")
+                    .accessibilityLabel(ReadingLocalization.markAllAsReadAccessibilityLabel)
                 }
             }
 
@@ -91,13 +91,13 @@ struct ArticleListView: View {
             }
         }
         .alert(
-            "Mark all as read?",
+            ReadingLocalization.markAllAsReadDialogTitle,
             isPresented: markAllAsReadConfirmationIsPresented
         ) {
-            Button("Mark all as read", role: .destructive, action: confirmMarkAllAsRead)
-            Button("Cancel", role: .cancel) {}
+            Button(ReadingLocalization.markAllAsReadDialogAction, role: .destructive, action: confirmMarkAllAsRead)
+            Button(ReadingLocalization.cancelAction, role: .cancel) {}
         } message: {
-            Text("This action will mark all visible articles as read.")
+            Text(ReadingLocalization.markAllAsReadDialogMessage)
         }
         .overlay {
             overlayContent(using: derivedViewState)
@@ -369,7 +369,7 @@ struct ArticleListView: View {
             )
         } else if let primaryFailureMessage = controller.screenState.primaryFailureMessage {
             ScreenPlaceholderView(
-                title: "Unable to Load Articles",
+                title: ReadingLocalization.unableToLoadArticlesTitle,
                 systemImage: "exclamationmark.triangle",
                 description: primaryFailureMessage
             )
@@ -445,7 +445,7 @@ private struct ArticleListSearchToolbarModifier: ViewModifier {
                 .searchable(
                     text: $text,
                     placement: .toolbar,
-                    prompt: "Search Articles"
+                    prompt: ReadingLocalization.searchPrompt
                 )
                 .searchToolbarBehavior(.automatic)
         } else {

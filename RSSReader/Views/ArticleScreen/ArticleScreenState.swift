@@ -11,7 +11,7 @@ struct ArticleScreenState {
         switch phase {
         case .noSelection:
             ArticleScreenPlaceholderState(
-                title: "No Article Selected",
+                title: ReadingLocalization.noArticleSelectedTitle,
                 systemImage: "doc.text",
                 description: nil
             )
@@ -19,13 +19,13 @@ struct ArticleScreenState {
             nil
         case .notFound:
             ArticleScreenPlaceholderState(
-                title: "Article Not Found",
+                title: ReadingLocalization.articleNotFoundTitle,
                 systemImage: "doc.text.magnifyingglass",
-                description: "The selected article could not be loaded from persistence."
+                description: ReadingLocalization.articleNotFoundDescription
             )
         case .failed(let message):
             ArticleScreenPlaceholderState(
-                title: "Failed to Load Article",
+                title: ReadingLocalization.failedToLoadArticleTitle,
                 systemImage: "exclamationmark.triangle",
                 description: message
             )
@@ -102,7 +102,7 @@ struct ArticleScreenState {
         let resolvedArticle = isSelectedArticleLoaded || preservesStaleContent ? article : nil
         let showsStaleArticle = article != nil && resolvedArticle == nil && selectedArticleID != nil
         let resolvedPrimaryLoadingState = primaryLoadingState
-            ?? (showsStaleArticle ? ArticleScreenPrimaryLoadingState(title: "Loading Article") : nil)
+            ?? (showsStaleArticle ? ArticleScreenPrimaryLoadingState(title: ReadingLocalization.loadingArticleTitle) : nil)
 
         return ArticleScreenDerivedViewState(
             primaryLoadingState: resolvedPrimaryLoadingState,
@@ -125,7 +125,7 @@ struct ArticleScreenState {
             return nil
         }
 
-        return ArticleScreenPrimaryLoadingState(title: "Loading Article")
+        return ArticleScreenPrimaryLoadingState(title: ReadingLocalization.loadingArticleTitle)
     }
 }
 

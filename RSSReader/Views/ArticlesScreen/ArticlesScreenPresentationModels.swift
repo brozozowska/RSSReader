@@ -136,17 +136,17 @@ struct ArticlesScreenNavigationTitleResolver {
     ) -> String {
         switch selection {
         case .none:
-            "Articles"
+            ReadingLocalization.articlesTitle
         case .inbox:
-            "All Items"
+            ReadingLocalization.allItemsTitle
         case .unread:
-            "Unread"
+            ReadingLocalization.unreadTitle
         case .starred:
-            "Starred"
+            ReadingLocalization.starredTitle
         case .folder(let folderName):
             folderName
         case .feed:
-            selectedFeedTitle ?? "Source"
+            selectedFeedTitle ?? ReadingLocalization.sourceFallbackTitle
         }
     }
 }
@@ -157,21 +157,18 @@ struct ArticlesScreenSubtitleResolver {
         sourcesFilter: SourcesFilter
     ) -> String {
         let count: Int
-        let itemLabel: String
 
         switch sourcesFilter {
         case .allItems, .unread:
             count = articles.filter { $0.isRead == false }.count
             guard count > 0 else {
-                return "No Unread Items"
+                return ReadingLocalization.noUnreadItemsSubtitle
             }
-            itemLabel = count == 1 ? "Unread Item" : "Unread Items"
+            return ReadingLocalization.unreadItemsSubtitle(count: count)
         case .starred:
             count = articles.filter(\.isStarred).count
-            itemLabel = count == 1 ? "Starred Item" : "Starred Items"
+            return ReadingLocalization.starredItemsSubtitle(count: count)
         }
-
-        return "\(count) \(itemLabel)"
     }
 }
 
@@ -227,9 +224,9 @@ struct ArticleRowSwipeActionsState: Equatable {
     let starActionSystemImage: String
 
     init(article: ArticleListItemDTO) {
-        self.readActionTitle = article.isRead ? "Unread" : "Read"
+        self.readActionTitle = article.isRead ? ReadingLocalization.unreadAction : ReadingLocalization.readAction
         self.readActionSystemImage = article.isRead ? "circle.slash" : "circle"
-        self.starActionTitle = article.isStarred ? "Unstar" : "Star"
+        self.starActionTitle = article.isStarred ? ReadingLocalization.unstarAction : ReadingLocalization.starAction
         self.starActionSystemImage = article.isStarred ? "star.slash" : "star"
     }
 }
@@ -239,7 +236,7 @@ struct ArticleListRowContent: Equatable {
     let previewText: String?
 
     init(article: ArticleListItemDTO) {
-        let titleText = article.title.nilIfBlank ?? "Untitled Article"
+        let titleText = article.title.nilIfBlank ?? ReadingLocalization.untitledArticleTitle
         let previewText = ArticleListRowPreviewNormalizer.normalizedPreview(from: article.summary)
 
         self.titleText = titleText

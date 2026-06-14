@@ -41,11 +41,11 @@ enum ArticlesDaySectionsBuilder {
         calendar: Calendar = .current
     ) -> String {
         if calendar.isDateInToday(day) {
-            return "Today"
+            return ReadingLocalization.todaySectionTitle
         }
 
         if calendar.isDateInYesterday(day) {
-            return "Yesterday"
+            return ReadingLocalization.yesterdaySectionTitle
         }
 
         return day.formatted(

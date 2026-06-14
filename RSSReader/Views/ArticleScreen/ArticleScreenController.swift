@@ -27,7 +27,7 @@ final class ArticleScreenController {
 
         guard let articleQueryService = dependencies.articleQueryService else {
             screenState.applyLoadingFailure(
-                "Article query service is unavailable.",
+                ReadingLocalization.articleQueryUnavailableMessage,
                 articleID: articleID
             )
             return

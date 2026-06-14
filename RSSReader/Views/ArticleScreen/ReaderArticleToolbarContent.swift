@@ -16,13 +16,13 @@ struct ReaderArticleToolbarContent: ToolbarContent {
                     ShareLink(item: shareURL) {
                         Image(systemName: "square.and.arrow.up")
                     }
-                    .accessibilityLabel("Share")
+                    .accessibilityLabel(ReadingLocalization.shareActionAccessibilityLabel)
                 } else {
                     Button(action: {}) {
                         Image(systemName: "square.and.arrow.up")
                     }
                     .disabled(true)
-                    .accessibilityLabel("Share")
+                    .accessibilityLabel(ReadingLocalization.shareActionAccessibilityLabel)
                 }
             }
         }
@@ -53,7 +53,7 @@ struct ReaderArticleToolbarContent: ToolbarContent {
                         Image(systemName: "chevron.down")
                     }
                     .disabled(nextArticleID == nil)
-                    .accessibilityLabel("Next Article")
+                    .accessibilityLabel(ReadingLocalization.nextArticleAccessibilityLabel)
                 }
 
                 ToolbarSpacer(placement: .bottomBar)
@@ -63,7 +63,7 @@ struct ReaderArticleToolbarContent: ToolbarContent {
                         Image(systemName: "chevron.up")
                     }
                     .disabled(previousArticleID == nil)
-                    .accessibilityLabel("Previous Article")
+                    .accessibilityLabel(ReadingLocalization.previousArticleAccessibilityLabel)
                 }
 
                 ToolbarSpacer(placement: .bottomBar)

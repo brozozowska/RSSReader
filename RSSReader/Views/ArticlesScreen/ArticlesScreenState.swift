@@ -3,8 +3,8 @@ import Foundation
 struct ArticlesScreenState {
     private(set) var articleListSession = ArticleListSession(context: .noSelection)
     private(set) var selection: SidebarSelection?
-    private(set) var navigationTitle = "Articles"
-    private(set) var navigationSubtitle = "No Unread Items"
+    private(set) var navigationTitle = ReadingLocalization.articlesTitle
+    private(set) var navigationSubtitle = ReadingLocalization.noUnreadItemsSubtitle
     private(set) var phase: ArticlesScreenPhase = .noSelection
     private(set) var refreshState: ArticlesScreenRefreshState = .idle
     private(set) var customRefreshState: ArticlesScreenCustomRefreshState = .idle
@@ -24,21 +24,21 @@ struct ArticlesScreenState {
         switch phase {
         case .noSelection:
             ArticlesScreenPlaceholderState(
-                title: "No Source Selected",
+                title: ReadingLocalization.noSourceSelectedTitle,
                 systemImage: "sidebar.left",
-                description: "Select Inbox or a feed in the sidebar to load articles."
+                description: ReadingLocalization.noSourceSelectedDescription
             )
         case .loading, .loaded:
             nil
         case .empty:
             ArticlesScreenPlaceholderState(
-                title: "No Articles",
+                title: ReadingLocalization.noArticlesTitle,
                 systemImage: "newspaper",
                 description: emptyStateDescription
             )
         case .failed(let message):
             ArticlesScreenPlaceholderState(
-                title: "Failed to Load Articles",
+                title: ReadingLocalization.failedToLoadArticlesTitle,
                 systemImage: "exclamationmark.triangle",
                 description: message
             )
@@ -312,17 +312,17 @@ struct ArticlesScreenState {
     private var emptyStateDescription: String {
         switch selection {
         case .none:
-            "Select Inbox or a feed in the sidebar to load articles."
+            ReadingLocalization.noSourceSelectedDescription
         case .inbox:
-            "Your global inbox has no stored articles yet."
+            ReadingLocalization.inboxEmptyDescription
         case .unread:
-            "There are no unread articles in your sources."
+            ReadingLocalization.unreadEmptyDescription
         case .starred:
-            "You have not starred any articles yet."
+            ReadingLocalization.starredEmptyDescription
         case .folder(let folderName):
-            "\(folderName) has no articles for the active sources filter."
+            ReadingLocalization.folderEmptyDescription(folderName: folderName)
         case .feed:
-            "This source has no articles for the active sources filter."
+            ReadingLocalization.sourceEmptyDescription
         }
     }
 }

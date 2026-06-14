@@ -68,7 +68,7 @@ final class ArticlesScreenController {
 
         guard let articleQueryService = dependencies.articleQueryService else {
             screenState.applyLoadingFailure(
-                "Article query service is unavailable.",
+                ReadingLocalization.articleListQueryUnavailableMessage,
                 selection: selection,
                 navigationTitle: navigationTitle,
                 navigationSubtitle: loadingSubtitle,
@@ -141,7 +141,7 @@ final class ArticlesScreenController {
         }
 
         if result == nil, selection != nil {
-            screenState.presentRefreshFailure("Unable to refresh the current selection right now.")
+            screenState.presentRefreshFailure(ReadingLocalization.refreshCurrentSelectionFailed)
             return nil
         }
 
@@ -296,13 +296,16 @@ final class ArticlesScreenController {
             if result.summary.failedCount == 1 {
                 return firstError
             }
-            return "\(result.summary.failedCount) sources failed to refresh. First error: \(firstError)"
+            return ReadingLocalization.multipleSourcesRefreshFailed(
+                count: result.summary.failedCount,
+                firstError: firstError
+            )
         }
 
         if result.summary.failedCount == 1 {
-            return "The current source failed to refresh."
+            return ReadingLocalization.singleSourceRefreshFailed
         }
 
-        return "\(result.summary.failedCount) sources failed to refresh."
+        return ReadingLocalization.multipleSourcesRefreshFailed(count: result.summary.failedCount)
     }
 }

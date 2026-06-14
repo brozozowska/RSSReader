@@ -8,11 +8,11 @@ enum ArticleScreenMediaFallbackKind {
     var title: String {
         switch self {
         case .embedded:
-            "Open embedded content"
+            ReadingLocalization.openEmbeddedContentAction
         case .video:
-            "Open video"
+            ReadingLocalization.openVideoAction
         case .audio:
-            "Open audio"
+            ReadingLocalization.openAudioAction
         }
     }
 }
@@ -235,13 +235,13 @@ extension ArticleScreenBodyPayloadRenderer {
     static func unsupportedMediaFallbackTitle(for tagName: String) -> String {
         switch tagName {
         case "iframe":
-            "Open embedded content"
+            ReadingLocalization.openEmbeddedContentAction
         case "video":
-            "Open video"
+            ReadingLocalization.openVideoAction
         case "audio":
-            "Open audio"
+            ReadingLocalization.openAudioAction
         default:
-            "Open media"
+            ReadingLocalization.openMediaAction
         }
     }
 }

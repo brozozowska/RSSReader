@@ -70,9 +70,9 @@ extension ArticlesScreenState {
         }
 
         return ArticlesScreenPlaceholderState(
-            title: "No Search Results",
+            title: ReadingLocalization.noSearchResultsTitle,
             systemImage: "magnifyingglass",
-            description: "No visible articles match \"\(normalizedSearchText)\"."
+            description: ReadingLocalization.noSearchResultsDescription(query: normalizedSearchText)
         )
     }
 
@@ -83,7 +83,7 @@ extension ArticlesScreenState {
 
         return ArticlesScreenRefreshBannerState(
             style: .failed,
-            title: "Refresh Failed",
+            title: ReadingLocalization.refreshFailedTitle,
             message: refreshFeedback.message
         )
     }
@@ -93,6 +93,6 @@ extension ArticlesScreenState {
             return nil
         }
 
-        return ArticlesScreenPrimaryLoadingState(title: "Loading Articles")
+        return ArticlesScreenPrimaryLoadingState(title: ReadingLocalization.loadingArticlesTitle)
     }
 }
