@@ -19,10 +19,10 @@ extension SourceManagementScreenController {
             dependencies.logger.error(unavailableMessage)
             screenState.applyCreateFolderServiceUnavailable(
                 title: screenState.isEditingCreateFolder()
-                    ? String(localized: "sourceManagement.createFolder.unavailable.edit.title", defaultValue: "Folder editing is unavailable", comment: "Failure title when folder editing service is unavailable.")
-                    : String(localized: "sourceManagement.createFolder.unavailable.create.title", defaultValue: "Folder creation is unavailable", comment: "Failure title when folder creation service is unavailable."),
+                    ? SourceManagementLocalization.folderEditingUnavailableTitle
+                    : SourceManagementLocalization.folderCreationUnavailableTitle,
                 message: screenState.isEditingCreateFolder()
-                    ? String(localized: "sourceManagement.createFolder.unavailable.edit.detail", defaultValue: "Folder editing is unavailable right now.", comment: "Failure detail when folder editing service is unavailable.")
+                    ? SourceManagementLocalization.folderEditingUnavailableMessage
                     : SourceManagementLocalization.folderCreationUnavailableValidation
             )
             return

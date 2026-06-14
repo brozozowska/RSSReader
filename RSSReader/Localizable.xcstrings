@@ -832,6 +832,114 @@
         }
       }
     },
+    "runtime.refresh.accessibility.idle" : {
+      "comment" : "Accessibility label for an idle refresh indicator.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Refresh idle"
+          }
+        }
+      }
+    },
+    "runtime.refresh.accessibility.pulling" : {
+      "comment" : "Accessibility label while the user is pulling to refresh.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Pulling to refresh"
+          }
+        }
+      }
+    },
+    "runtime.refresh.accessibility.ready" : {
+      "comment" : "Accessibility label when releasing will trigger refresh.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Release to refresh"
+          }
+        }
+      }
+    },
+    "runtime.refresh.accessibility.refreshing" : {
+      "comment" : "Accessibility label while refresh is running.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Refreshing"
+          }
+        }
+      }
+    },
+    "runtime.refresh.status.notUpdatedYet" : {
+      "comment" : "Sidebar subtitle shown before sources have ever refreshed.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Not updated yet"
+          }
+        }
+      }
+    },
+    "runtime.refresh.status.today.format" : {
+      "comment" : "Sidebar subtitle for a refresh that happened today. Placeholder is a localized time.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Today at %@"
+          }
+        }
+      }
+    },
+    "runtime.refresh.status.yesterday.format" : {
+      "comment" : "Sidebar subtitle for a refresh that happened yesterday. Placeholder is a localized time.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Yesterday at %@"
+          }
+        }
+      }
+    },
+    "runtime.sync.status.failed" : {
+      "comment" : "Short runtime status shown when iCloud sync failed.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Sync failed"
+          }
+        }
+      }
+    },
+    "runtime.sync.status.syncing" : {
+      "comment" : "Short runtime status shown while sources or iCloud data are syncing.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Syncing..."
+          }
+        }
+      }
+    },
     "settings.accessibility.apply" : {
       "comment" : "Accessibility label for the apply button on the settings screen.",
       "localizations" : {
@@ -2590,6 +2698,18 @@
         }
       }
     },
+    "sidebar.loadFailure.genericMessage" : {
+      "comment" : "Generic failure message shown when the sources sidebar cannot load sources.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unable to load sources right now. Try again."
+          }
+        }
+      }
+    },
     "sidebar.loadFailure.title" : {
       "comment" : "Failure state title for the sources sidebar.",
       "extractionState" : "extracted_with_value",
@@ -3898,6 +4018,30 @@
         }
       }
     },
+    "sourceManagement.createFolder.error.loadDetails" : {
+      "comment" : "Failure message when folder details cannot be loaded for editing.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unable to load the folder details right now. Try again."
+          }
+        }
+      }
+    },
+    "sourceManagement.createFolder.error.loadExistingFolders" : {
+      "comment" : "Failure message when existing folders cannot be loaded for folder creation.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unable to load existing folders right now. Try again."
+          }
+        }
+      }
+    },
     "sourceManagement.createFolder.error.updateGeneric" : {
       "comment" : "Generic update folder error message.",
       "extractionState" : "extracted_with_value",
@@ -4126,6 +4270,18 @@
         }
       }
     },
+    "sourceManagement.createFolder.unavailable.create.detail" : {
+      "comment" : "Failure detail when folder creation service is unavailable in the current app environment.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Folder creation is unavailable in the current app environment."
+          }
+        }
+      }
+    },
     "sourceManagement.createFolder.unavailable.create.title" : {
       "comment" : "Failure title when folder creation service is unavailable.",
       "extractionState" : "extracted_with_value",
@@ -4139,13 +4295,13 @@
       }
     },
     "sourceManagement.createFolder.unavailable.edit.detail" : {
-      "comment" : "Failure detail when folder editing service is unavailable.",
+      "comment" : "Failure detail when folder editing service is unavailable in the current app environment.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Folder editing is unavailable right now."
+            "value" : "Folder editing is unavailable in the current app environment."
           }
         }
       }
@@ -4366,6 +4522,18 @@
         }
       }
     },
+    "sourceManagement.moveSource.error.environmentUnavailable" : {
+      "comment" : "Failure message when source moves are unavailable in the current app environment.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Source moves are unavailable in the current app environment."
+          }
+        }
+      }
+    },
     "sourceManagement.moveSource.error.feedNotFound" : {
       "comment" : "Move source error when the selected feed no longer exists.",
       "extractionState" : "extracted_with_value",
@@ -4398,6 +4566,18 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Unable to move the source right now. Try again."
+          }
+        }
+      }
+    },
+    "sourceManagement.moveSource.error.loadExistingSources" : {
+      "comment" : "Failure message when existing sources cannot be loaded for source moves.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unable to load existing sources right now. Try again."
           }
         }
       }

@@ -86,11 +86,10 @@ extension AppActionRouter {
         into screenState: inout SourceManagementScreenState
     ) {
         guard let sourceManagementService else {
-            let unavailableMessage = "Folder creation is unavailable in the current app environment."
             logger.error("Skipped create-folder context loading because source management service is unavailable")
             screenState.applyCreateFolderServiceUnavailable(
-                title: "Folder creation is unavailable",
-                message: unavailableMessage
+                title: SourceManagementLocalization.folderCreationUnavailableTitle,
+                message: SourceManagementLocalization.folderCreationUnavailableMessage
             )
             return
         }
@@ -101,7 +100,7 @@ extension AppActionRouter {
         } catch {
             logger.error("Failed to load folder context for source management screen: \(error)")
             screenState.applyCreateFolderFailure(
-                "Unable to load existing folders right now. Try again."
+                SourceManagementLocalization.existingFoldersLoadFailureMessage
             )
         }
     }
@@ -114,11 +113,10 @@ extension AppActionRouter {
         screenState.resetCreateFolderForEntry()
 
         guard let sourceManagementService else {
-            let unavailableMessage = "Folder editing is unavailable in the current app environment."
             logger.error("Skipped folder editor context loading because source management service is unavailable")
             screenState.applyCreateFolderServiceUnavailable(
-                title: "Folder editing is unavailable",
-                message: unavailableMessage
+                title: SourceManagementLocalization.folderEditingUnavailableTitle,
+                message: SourceManagementLocalization.folderEditingUnavailableMessage
             )
             return
         }
@@ -134,7 +132,7 @@ extension AppActionRouter {
         } catch {
             logger.error("Failed to load folder editor context for source management screen: \(error)")
             screenState.applyCreateFolderFailure(
-                "Unable to load the folder details right now. Try again."
+                SourceManagementLocalization.folderDetailsLoadFailureMessage
             )
         }
     }
@@ -148,7 +146,7 @@ extension AppActionRouter {
             logger.error("Skipped move-source context loading because source management service is unavailable")
             screenState.applyMoveSourceContext(feeds: [], folders: [])
             screenState.applyMoveSourceFailure(
-                "Source moves are unavailable in the current app environment."
+                SourceManagementLocalization.sourceMovesEnvironmentUnavailableMessage
             )
             return
         }
@@ -165,7 +163,7 @@ extension AppActionRouter {
             logger.error("Failed to load move-source context for source management screen: \(error)")
             screenState.applyMoveSourceContext(feeds: [], folders: [])
             screenState.applyMoveSourceFailure(
-                "Unable to load existing sources right now. Try again."
+                SourceManagementLocalization.existingSourcesLoadFailureMessage
             )
         }
     }

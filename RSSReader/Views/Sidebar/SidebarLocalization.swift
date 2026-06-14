@@ -96,4 +96,9 @@ enum SidebarLocalization {
         defaultValue: "Sources are unavailable in the current app environment.",
         comment: "Preview failure message for unavailable sources."
     )
+    static let genericLoadFailureMessage = String(
+        localized: "sidebar.loadFailure.genericMessage",
+        defaultValue: "Unable to load sources right now. Try again.",
+        comment: "Generic failure message shown when the sources sidebar cannot load sources."
+    )
 }

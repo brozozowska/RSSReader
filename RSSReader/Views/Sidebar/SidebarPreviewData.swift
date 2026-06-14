@@ -20,7 +20,7 @@ import SwiftData
     SidebarPreviewHost(
         scenario: .empty,
         selection: .inbox,
-        previewPhase: .failed("Unable to load sources right now. Try again.")
+        previewPhase: .failed(SidebarLocalization.genericLoadFailureMessage)
     )
 }
 

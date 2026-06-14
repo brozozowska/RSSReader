@@ -585,7 +585,7 @@
 - [x] `Settings Localization Extraction`: вынести строки `SettingsScreen`, settings alerts/statuses, Source Portability import/export UI и accessibility labels в string catalog без изменения screen-level action boundaries;
 - [x] `Source Management Localization Extraction`: вынести строки `SourceManagement` flows, sidebar filters, source/folder context menus, placeholders, validation messages и accessibility labels в string catalog;
 - [x] `Reading Flow Localization Extraction`: вынести строки `ArticlesScreen`, `ArticleScreen`, Safari/opening actions, article metadata labels, empty/error states и swipe/menu actions в string catalog;
-- [ ] `Runtime Feedback Localization Extraction`: вынести строки refresh/background-refresh/sync/storage cleanup feedback, destructive confirmations и shared app-level error/status messages в string catalog;
+- [x] `Runtime Feedback Localization Extraction`: вынести строки refresh/background-refresh/sync/storage cleanup feedback, destructive confirmations и shared app-level error/status messages в string catalog;
 - [ ] `Russian Localization Pass`: добавить `ru` переводы для извлечённых строк и проверить длинные кириллические строки на основных экранах;
 - [ ] `CJK Localization Pass`: добавить `ja` и `zh-Hans` переводы и проверить list rows, settings values, article metadata и line wrapping;
 - [ ] `RTL Localization Pass`: добавить `ar`, `he`, `fa` переводы и проверить layout direction, alignment, menus, toolbar placement, SF Symbols и mixed technical text;

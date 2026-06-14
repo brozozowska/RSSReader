@@ -20,39 +20,40 @@ struct SidebarToolbarState: Equatable {
 struct SidebarSubtitleFormatter {
     var now: Date = .now
     var calendar: Calendar = .current
+    var locale: Locale = .current
 
     func text(
         for refreshStatus: SidebarRefreshStatus,
         iCloudSyncStatus: ICloudSyncStatus = .disabled
     ) -> String {
         if refreshStatus.isSyncing || iCloudSyncStatus == .syncing {
-            return "Syncing..."
+            return RuntimeFeedbackLocalization.syncingStatusTitle
         }
 
         if case .failed = iCloudSyncStatus {
-            return "Sync failed"
+            return RuntimeFeedbackLocalization.syncFailedStatusTitle
         }
 
         switch refreshStatus {
         case .idle(let lastUpdatedAt):
             return lastUpdatedText(for: lastUpdatedAt)
         case .syncing:
-            return "Syncing..."
+            return RuntimeFeedbackLocalization.syncingStatusTitle
         }
     }
 
     private func lastUpdatedText(for date: Date?) -> String {
         guard let date else {
-            return "Not updated yet"
+            return RuntimeFeedbackLocalization.notUpdatedYetStatusTitle
         }
 
         if calendar.isDate(date, inSameDayAs: now) {
-            return "Today at \(timeString(for: date))"
+            return RuntimeFeedbackLocalization.todayRefreshStatus(time: timeString(for: date))
         }
 
         if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
            calendar.isDate(date, inSameDayAs: yesterday) {
-            return "Yesterday at \(timeString(for: date))"
+            return RuntimeFeedbackLocalization.yesterdayRefreshStatus(time: timeString(for: date))
         }
 
         return dateString(for: date)
@@ -71,8 +72,9 @@ struct SidebarSubtitleFormatter {
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "EEEE, d MMMM yyyy"
+        formatter.locale = locale
+        formatter.dateStyle = .full
+        formatter.timeStyle = .none
         return formatter.string(from: date)
     }
 }

@@ -35,7 +35,7 @@ final class SidebarScreenController {
         screenState.beginLoading(showsFullScreenLoading: showsFullScreenLoading)
 
         guard let sourcesSidebarQueryService = dependencies.sourcesSidebarQueryService else {
-            screenState.applyLoadingFailure("Sources are unavailable in the current app environment.")
+            screenState.applyLoadingFailure(SidebarLocalization.unavailablePreviewMessage)
             return currentSelection
         }
 
@@ -47,7 +47,7 @@ final class SidebarScreenController {
             return resolvedSelection(currentSelection: currentSelection, filter: filter)
         } catch {
             dependencies.logger.error("Failed to load sidebar feeds: \(error)")
-            screenState.applyLoadingFailure("Unable to load sources right now. Try again.")
+            screenState.applyLoadingFailure(SidebarLocalization.genericLoadFailureMessage)
             return currentSelection
         }
     }

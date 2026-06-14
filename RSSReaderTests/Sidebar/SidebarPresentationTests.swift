@@ -144,7 +144,11 @@ struct SidebarPresentationTests {
             hour: 17,
             minute: 8
         )))
-        let formatter = SidebarSubtitleFormatter(now: now, calendar: calendar)
+        let formatter = SidebarSubtitleFormatter(
+            now: now,
+            calendar: calendar,
+            locale: Locale(identifier: "en_GB")
+        )
 
         #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == "Sunday, 24 May 2026")
     }
