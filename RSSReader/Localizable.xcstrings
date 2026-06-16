@@ -1639,7 +1639,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "\"None\" removes an article from the list as soon as it disappears from its source feed. Other options keep the article for the selected time after it disappears from the feed."
+            "value" : "\"None\" removes an article from the list as soon as it disappears from its feed. Other options keep the article for the selected time after it disappears from the feed."
           }
         },
         "ru" : {

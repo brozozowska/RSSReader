@@ -143,7 +143,7 @@ extension AppActionRouter {
         into screenState: inout FeedManagementScreenState
     ) {
         guard let feedManagementService else {
-            logger.error("Skipped move-source context loading because feed management service is unavailable")
+            logger.error("Skipped move-feed context loading because feed management service is unavailable")
             screenState.applyMoveFeedContext(feeds: [], folders: [])
             screenState.applyMoveFeedFailure(
                 FeedManagementLocalization.feedMovesEnvironmentUnavailableMessage
@@ -160,7 +160,7 @@ extension AppActionRouter {
                 selectedFeedID: selectedFeedID
             )
         } catch {
-            logger.error("Failed to load move-source context for feed management screen: \(error)")
+            logger.error("Failed to load move-feed context for feed management screen: \(error)")
             screenState.applyMoveFeedContext(feeds: [], folders: [])
             screenState.applyMoveFeedFailure(
                 FeedManagementLocalization.existingFeedsLoadFailureMessage
@@ -320,7 +320,7 @@ extension AppActionRouter {
     @MainActor
     func unsubscribeFeed(id feedID: UUID, using appState: AppState) {
         guard let feedManagementService else {
-            logger.error("Source management service is unavailable for feed deletion")
+            logger.error("Feed management service is unavailable for feed deletion")
             return
         }
 
@@ -340,7 +340,7 @@ extension AppActionRouter {
             return
         }
         guard let feedManagementService else {
-            logger.error("Source management service is unavailable for folder deletion")
+            logger.error("Feed management service is unavailable for folder deletion")
             return
         }
 
@@ -367,7 +367,7 @@ extension AppActionRouter {
         using appState: AppState
     ) {
         guard let feedRefreshService else {
-            logger.error("Feed refresh service is unavailable for source save completion")
+            logger.error("Feed refresh service is unavailable for feed save completion")
             return
         }
 

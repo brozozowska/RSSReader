@@ -9,7 +9,7 @@ struct CrossDeviceReadingScenarioTests {
     func crossDeviceReadingScenarioDeclaresSyncAndMaterializationContract() {
         let scenario = CrossDeviceReadingScenario.current
 
-        #expect(scenario.syncsSourceStructure)
+        #expect(scenario.syncsFeedStructure)
         #expect(scenario.syncsArticlePayload)
         #expect(scenario.syncsArticleState)
         #expect(scenario.keepsArticleImagesLocalOnly)

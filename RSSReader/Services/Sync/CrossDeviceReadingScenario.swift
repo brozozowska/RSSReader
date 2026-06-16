@@ -1,7 +1,7 @@
 import Foundation
 
 enum CrossDeviceSyncReplicatedValue: String, CaseIterable, Hashable, Sendable {
-    case sourceStructure
+    case feedStructure
     case articlePayload
     case articleState
 }
@@ -12,15 +12,15 @@ struct CrossDeviceReadingScenario: Equatable, Sendable {
 
     static let current = CrossDeviceReadingScenario(
         replicatedValues: [
-            .sourceStructure,
+            .feedStructure,
             .articlePayload,
             .articleState
         ],
         requiresAppAuthorization: false
     )
 
-    var syncsSourceStructure: Bool {
-        replicatedValues.contains(.sourceStructure)
+    var syncsFeedStructure: Bool {
+        replicatedValues.contains(.feedStructure)
     }
 
     var syncsArticleState: Bool {

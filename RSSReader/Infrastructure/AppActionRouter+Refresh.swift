@@ -17,7 +17,7 @@ extension AppActionRouter {
     @MainActor
     func refreshAfterAddingFeed(id feedID: UUID, using appState: AppState) async -> FeedRefreshResult? {
         guard let feedRefreshService else {
-            logger.error("Feed refresh service is unavailable for source save completion")
+            logger.error("Feed refresh service is unavailable for feed save completion")
             return nil
         }
 

@@ -17,7 +17,7 @@ struct CloudKitSyncScopeTests {
         #expect(scope.syncs(.article))
         #expect(scope.syncs(.appSettings))
         #expect(scope.storesLocallyOnly(.feedFetchLog))
-        #expect(scope.syncsSourceStructure)
+        #expect(scope.syncsFeedStructure)
         #expect(scope.syncsReadingState)
         #expect(scope.syncsArticlePayload)
         #expect(scope.syncsAppSettings)

@@ -104,7 +104,7 @@ enum SettingsLocalization {
     )
     static let articleListSectionFooter = String(
         localized: "settings.articleList.section.footer",
-        defaultValue: "\"None\" removes an article from the list as soon as it disappears from its source feed. Other options keep the article for the selected time after it disappears from the feed.",
+        defaultValue: "\"None\" removes an article from the list as soon as it disappears from its feed. Other options keep the article for the selected time after it disappears from the feed.",
         comment: "Footer explaining archived article retention settings."
     )
     static let sortUnreadArticlesTitle = String(
