@@ -14,25 +14,25 @@ struct ArticlesScreenStateRefreshTests {
             [unreadItem],
             selection: .feed(unreadItem.feedID),
             navigationTitle: "Feed",
-            navigationSubtitle: "1 Unread Item"
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1)
         )
         state.beginLoading(
             for: .feed(unreadItem.feedID),
             navigationTitle: "Feed",
-            navigationSubtitle: "1 Unread Item",
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1),
             resetsContent: false
         )
         state.applyLoadingFailure(
             "Refresh failed",
             selection: .feed(unreadItem.feedID),
             navigationTitle: "Feed",
-            navigationSubtitle: "1 Unread Item",
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1),
             retainsContent: true
         )
 
         #expect(state.phase == .loaded)
         #expect(state.navigationTitle == "Feed")
-        #expect(state.navigationSubtitle == "1 Unread Item")
+        #expect(state.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 1))
         #expect(state.articles.map(\.id) == [unreadItem.id])
         #expect(state.refreshState == .idle)
         #expect(state.refreshFeedback == ArticlesScreenRefreshFeedback(message: "Refresh failed"))
@@ -53,7 +53,7 @@ struct ArticlesScreenStateRefreshTests {
             ],
             selection: .unread,
             navigationTitle: "Unread",
-            navigationSubtitle: "No Unread Items",
+            navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle,
             sessionContext: ArticleListSession.Context(
                 selection: .unread,
                 sourcesFilter: .allItems
@@ -63,7 +63,7 @@ struct ArticlesScreenStateRefreshTests {
         state.beginLoading(
             for: .unread,
             navigationTitle: "Unread",
-            navigationSubtitle: "No Unread Items",
+            navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle,
             resetsContent: false,
             sessionContext: ArticleListSession.Context(
                 selection: .unread,
@@ -174,7 +174,7 @@ struct ArticlesScreenStateRefreshTests {
             [],
             selection: .unread,
             navigationTitle: "Unread",
-            navigationSubtitle: "No Unread Items",
+            navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle,
             sessionContext: ArticleListSession.Context(
                 selection: .unread,
                 sourcesFilter: .allItems
@@ -226,7 +226,7 @@ struct ArticlesScreenStateRefreshTests {
         let derivedViewState = state.derivedViewState(searchText: "")
 
         #expect(derivedViewState.refreshBanner?.style == .failed)
-        #expect(derivedViewState.refreshBanner?.title == "Refresh Failed")
+        #expect(derivedViewState.refreshBanner?.title == ReadingLocalization.refreshFailedTitle)
         #expect(derivedViewState.refreshBanner?.message == "Refresh failed")
         #expect(derivedViewState.refreshBanner?.showsRetryAction == true)
     }

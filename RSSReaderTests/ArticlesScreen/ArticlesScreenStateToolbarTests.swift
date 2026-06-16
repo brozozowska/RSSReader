@@ -33,8 +33,8 @@ struct ArticlesScreenStateToolbarTests {
         #expect(loadedViewState.toolbarActions.isMarkAllAsReadEnabled)
         #expect(emptySearchViewState.visibleArticles.isEmpty)
         #expect(emptySearchViewState.toolbarActions.isMarkAllAsReadEnabled == false)
-        #expect(emptySearchViewState.searchPlaceholder?.title == "No Search Results")
-        #expect(emptySearchViewState.searchPlaceholder?.description == "No visible articles match \"kotlin\".")
+        #expect(emptySearchViewState.searchPlaceholder?.title == ReadingLocalization.noSearchResultsTitle)
+        #expect(emptySearchViewState.searchPlaceholder?.description == ReadingLocalization.noSearchResultsDescription(query: "kotlin"))
     }
 
     @Test
@@ -50,7 +50,7 @@ struct ArticlesScreenStateToolbarTests {
 
         let derivedViewState = state.derivedViewState(searchText: "")
 
-        #expect(derivedViewState.primaryLoadingState?.title == "Loading Articles")
+        #expect(derivedViewState.primaryLoadingState?.title == ReadingLocalization.loadingArticlesTitle)
     }
 
     @Test

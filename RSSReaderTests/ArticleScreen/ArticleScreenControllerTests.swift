@@ -74,7 +74,7 @@ struct ArticleScreenControllerTests {
         let loadedArticle = try #require(controller.screenState.article)
         #expect(loadedArticle.isRead == true)
         #expect(recordedReadArticleIDs == [article.id])
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == ReadingLocalization.markUnreadAction)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
 
         let persistedState = try harness.articleStateRepository.fetchStateSnapshot(
@@ -113,7 +113,7 @@ struct ArticleScreenControllerTests {
         let loadedArticle = try #require(controller.screenState.article)
         #expect(loadedArticle.isRead == false)
         #expect(recordedReadArticleIDs.isEmpty)
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Read")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == ReadingLocalization.markReadAction)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
 
         let persistedState = try harness.articleStateRepository.fetchStateSnapshot(
@@ -131,7 +131,7 @@ struct ArticleScreenControllerTests {
         await controller.load(articleID: UUID(), dependencies: harness.dependencies)
 
         #expect(controller.screenState.phase == .notFound)
-        #expect(controller.screenState.placeholder?.title == "Article Not Found")
+        #expect(controller.screenState.placeholder?.title == ReadingLocalization.articleNotFoundTitle)
     }
 
     @Test
@@ -141,11 +141,11 @@ struct ArticleScreenControllerTests {
 
         await controller.load(articleID: UUID(), dependencies: dependencies)
 
-        #expect(controller.screenState.phase == .failed("Article query service is unavailable."))
-        #expect(controller.screenState.placeholder?.title == "Failed to Load Article")
+        #expect(controller.screenState.phase == .failed(ReadingLocalization.articleQueryUnavailableMessage))
+        #expect(controller.screenState.placeholder?.title == ReadingLocalization.failedToLoadArticleTitle)
         #expect(
             controller.screenState.placeholder?.description
-                == "Article query service is unavailable."
+                == ReadingLocalization.articleQueryUnavailableMessage
         )
     }
 
@@ -175,7 +175,7 @@ struct ArticleScreenControllerTests {
         var updatedArticle = try #require(controller.screenState.article)
         #expect(updatedArticle.isRead == false)
         #expect(controller.screenState.phase == .loaded)
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Read")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == ReadingLocalization.markReadAction)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
 
         var persistedState = try harness.articleStateRepository.fetchStateSnapshot(
@@ -191,7 +191,7 @@ struct ArticleScreenControllerTests {
 
         updatedArticle = try #require(controller.screenState.article)
         #expect(updatedArticle.isRead == true)
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == ReadingLocalization.markUnreadAction)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
 
         persistedState = try harness.articleStateRepository.fetchStateSnapshot(
@@ -222,7 +222,7 @@ struct ArticleScreenControllerTests {
         var updatedArticle = try #require(controller.screenState.article)
         #expect(updatedArticle.isStarred == true)
         #expect(controller.screenState.phase == .loaded)
-        #expect(controller.screenState.toolbarActions.bottomActions?.starTitle == "Unstar")
+        #expect(controller.screenState.toolbarActions.bottomActions?.starTitle == ReadingLocalization.unstarAction)
         #expect(controller.screenState.toolbarActions.bottomActions?.starSystemImage == "star.slash")
 
         var persistedState = try harness.articleStateRepository.fetchStateSnapshot(
@@ -238,7 +238,7 @@ struct ArticleScreenControllerTests {
 
         updatedArticle = try #require(controller.screenState.article)
         #expect(updatedArticle.isStarred == false)
-        #expect(controller.screenState.toolbarActions.bottomActions?.starTitle == "Star")
+        #expect(controller.screenState.toolbarActions.bottomActions?.starTitle == ReadingLocalization.starAction)
         #expect(controller.screenState.toolbarActions.bottomActions?.starSystemImage == "star")
 
         persistedState = try harness.articleStateRepository.fetchStateSnapshot(

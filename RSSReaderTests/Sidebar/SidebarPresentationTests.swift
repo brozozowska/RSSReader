@@ -64,14 +64,14 @@ struct SidebarPresentationTests {
     func sidebarSubtitleFormatterReturnsSyncingTitleForSyncingState() {
         let formatter = SidebarSubtitleFormatter()
 
-        #expect(formatter.text(for: .syncing) == "Syncing...")
+        #expect(formatter.text(for: .syncing) == RuntimeFeedbackLocalization.syncingStatusTitle)
     }
 
     @Test
     func sidebarSubtitleFormatterReturnsPlaceholderWhenNoRefreshDateIsAvailable() {
         let formatter = SidebarSubtitleFormatter()
 
-        #expect(formatter.text(for: .idle(lastUpdatedAt: nil)) == "Not updated yet")
+        #expect(formatter.text(for: .idle(lastUpdatedAt: nil)) == RuntimeFeedbackLocalization.notUpdatedYetStatusTitle)
     }
 
     @Test
@@ -96,7 +96,7 @@ struct SidebarPresentationTests {
         )))
         let formatter = SidebarSubtitleFormatter(now: now, calendar: calendar)
 
-        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == "Today at 17:08")
+        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == RuntimeFeedbackLocalization.todayRefreshStatus(time: "17:08"))
     }
 
     @Test
@@ -121,7 +121,7 @@ struct SidebarPresentationTests {
         )))
         let formatter = SidebarSubtitleFormatter(now: now, calendar: calendar)
 
-        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == "Yesterday at 17:08")
+        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == RuntimeFeedbackLocalization.yesterdayRefreshStatus(time: "17:08"))
     }
 
     @Test
@@ -150,14 +150,24 @@ struct SidebarPresentationTests {
             locale: Locale(identifier: "en_GB")
         )
 
-        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == "Sunday, 24 May 2026")
+        #expect(
+            formatter.text(for: .idle(lastUpdatedAt: refreshDate))
+                == refreshDate.formatted(
+                    .dateTime
+                        .locale(Locale(identifier: "en_GB"))
+                        .weekday(.wide)
+                        .day()
+                        .month(.wide)
+                        .year()
+                )
+        )
     }
 
     @Test
     func sidebarToolbarStateMarksSyncingStateAndUsesSyncingSubtitle() {
         let state = SidebarToolbarState(refreshStatus: .syncing)
 
-        #expect(state.subtitle == "Syncing...")
+        #expect(state.subtitle == RuntimeFeedbackLocalization.syncingStatusTitle)
         #expect(state.isSyncing)
     }
 
@@ -180,7 +190,7 @@ struct SidebarPresentationTests {
             iCloudSyncStatus: .syncing
         )
 
-        #expect(state.subtitle == "Syncing...")
+        #expect(state.subtitle == RuntimeFeedbackLocalization.syncingStatusTitle)
         #expect(state.isSyncing)
     }
 
@@ -304,7 +314,7 @@ struct SidebarPresentationTests {
             iCloudSyncStatus: .failed("Setup failed.")
         )
 
-        #expect(state.subtitle == "Sync failed")
+        #expect(state.subtitle == RuntimeFeedbackLocalization.syncFailedStatusTitle)
         #expect(state.isSyncing == false)
     }
 }

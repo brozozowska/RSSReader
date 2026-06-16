@@ -16,7 +16,7 @@ struct SidebarScreenStateTests {
         )
 
         #expect(state.phase == .loading)
-        #expect(viewState.primaryLoadingState?.title == "Loading Sources")
+        #expect(viewState.primaryLoadingState?.title == SidebarLocalization.loadingTitle)
         #expect(viewState.placeholder == nil)
         #expect(viewState.shouldDisableScrolling)
         #expect(viewState.smartRows.isEmpty)

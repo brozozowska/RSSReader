@@ -41,7 +41,7 @@ struct SourceManagementScreenControllerFolderFlowTests {
         }
 
         #expect(previewBeforeFolderDestination.urlInput == feedURL)
-        #expect(previewBeforeFolderDestination.primaryActionTitle == "Add Feed")
+        #expect(previewBeforeFolderDestination.primaryActionTitle == SourceManagementLocalization.addFeedTitle)
         #expect(previewBeforeFolderDestination.isConfirmationActionEnabled)
         #expect(previewBeforeFolderDestination.preview?.title == "Example Feed")
 
@@ -63,10 +63,10 @@ struct SourceManagementScreenControllerFolderFlowTests {
         }
 
         #expect(addFeedDestination.urlInput == feedURL)
-        #expect(addFeedDestination.primaryActionTitle == "Add Feed")
+        #expect(addFeedDestination.primaryActionTitle == SourceManagementLocalization.addFeedTitle)
         #expect(addFeedDestination.isConfirmationActionEnabled)
         #expect(addFeedDestination.preview?.title == "Example Feed")
-        #expect(addFeedDestination.placementOptions.map(\.title) == ["Ungrouped", "News", "Research"])
+        #expect(addFeedDestination.placementOptions.map(\.title) == [SourceManagementLocalization.ungroupedTitle, "News", "Research"])
         #expect(addFeedDestination.placementOptions.last?.isSelected == true)
     }
 
@@ -109,7 +109,7 @@ struct SourceManagementScreenControllerFolderFlowTests {
         }
 
         #expect(addFeedDestination.urlInput == feedURL)
-        #expect(addFeedDestination.primaryActionTitle == "Add Feed")
+        #expect(addFeedDestination.primaryActionTitle == SourceManagementLocalization.addFeedTitle)
         #expect(addFeedDestination.isConfirmationActionEnabled)
         #expect(addFeedDestination.preview?.title == "Example Feed")
         #expect(addFeedDestination.placementOptions.first(where: { $0.title == "News" })?.isSelected == true)
@@ -151,7 +151,7 @@ struct SourceManagementScreenControllerFolderFlowTests {
 
         #expect(createdDestination.nameInput.isEmpty)
         #expect(createdDestination.existingFolders.map(\.name) == ["News", "Research"])
-        #expect(createdDestination.placementDescription == "This folder will be added after 2 existing folders.")
+        #expect(createdDestination.placementDescription == SourceManagementLocalization.existingFolderPlacementDescription(count: 2))
         #expect(createdDestination.feedback?.kind == .success)
 
         let folders = try harness.folderRepository.fetchAllFolders()
@@ -183,8 +183,8 @@ struct SourceManagementScreenControllerFolderFlowTests {
         #expect(appState.isPresentingSourceManagementScreen)
         #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCreation)
         #expect(appState.articleListReloadID == articleReloadIDBeforeCreation)
-        #expect(createdDestination.feedback?.title == "Folder created")
-        #expect(createdDestination.feedback?.detail == "\"Research\" is ready for sources.")
+        #expect(createdDestination.feedback?.title == SourceManagementLocalization.folderCreatedTitle)
+        #expect(createdDestination.feedback?.detail == SourceManagementLocalization.folderCreatedDetail("Research"))
         #expect(try harness.folderRepository.fetchFolder(name: "Research") != nil)
     }
 }

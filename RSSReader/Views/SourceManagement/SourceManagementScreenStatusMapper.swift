@@ -21,7 +21,7 @@ enum SourceManagementScreenStatusMapper {
     static func moveSourceErrorMessage(_ error: SourceManagementServiceError) -> String {
         switch error {
         case .feedNotFound:
-            return String(localized: "sourceManagement.moveSource.error.feedNotFound", defaultValue: "The selected source no longer exists. Reload the move flow and try again.", comment: "Move source error when the selected feed no longer exists.")
+            return String(localized: "sourceManagement.moveSource.error.feedNotFound", defaultValue: "The selected feed no longer exists. Reload the move flow and try again.", comment: "Move feed error when the selected feed no longer exists.")
         case .folderNotFound:
             return String(localized: "sourceManagement.moveSource.error.folderNotFound", defaultValue: "The selected folder no longer exists. Reload the move flow and choose another destination.", comment: "Move source error when the selected folder no longer exists.")
         case .invalidFeedURL,
@@ -44,8 +44,8 @@ enum SourceManagementScreenStatusMapper {
                 : String(localized: "sourceManagement.addFeed.saveUnavailable.add.title", defaultValue: "Feed creation is unavailable", comment: "Failure title when feed creation service is unavailable."),
             kind: .failure,
             detail: isEditing
-                ? String(localized: "sourceManagement.addFeed.saveUnavailable.edit.detail", defaultValue: "The app cannot save source changes in the current environment.", comment: "Failure detail when feed editing service is unavailable.")
-                : String(localized: "sourceManagement.addFeed.saveUnavailable.add.detail", defaultValue: "The app cannot save a new source in the current environment.", comment: "Failure detail when feed creation service is unavailable.")
+                ? String(localized: "sourceManagement.addFeed.saveUnavailable.edit.detail", defaultValue: "The app cannot save feed changes in the current environment.", comment: "Failure detail when feed editing service is unavailable.")
+                : String(localized: "sourceManagement.addFeed.saveUnavailable.add.detail", defaultValue: "The app cannot save a new feed in the current environment.", comment: "Failure detail when feed creation service is unavailable.")
         )
     }
 
@@ -59,14 +59,14 @@ enum SourceManagementScreenStatusMapper {
                 title: SourceManagementLocalization.duplicateFeedTitle,
                 kind: .warning,
                 detail: isEditing
-                    ? String(localized: "sourceManagement.addFeed.save.duplicate.edit.detail", defaultValue: "Another source already uses this normalized URL. Change the feed URL and try again.", comment: "Duplicate feed detail while editing a feed.")
-                    : String(localized: "sourceManagement.addFeed.save.duplicate.add.detail", defaultValue: "Another source with the same normalized URL was saved before this create step finished.", comment: "Duplicate feed detail while adding a feed.")
+                    ? String(localized: "sourceManagement.addFeed.save.duplicate.edit.detail", defaultValue: "Another feed already uses this normalized URL. Change the feed URL and try again.", comment: "Duplicate feed detail while editing a feed.")
+                    : String(localized: "sourceManagement.addFeed.save.duplicate.add.detail", defaultValue: "Another feed with the same normalized URL was saved before this create step finished.", comment: "Duplicate feed detail while adding a feed.")
             )
         case .duplicateFeedDisplayName:
             return SourceManagementAddFeedStatusPresentation(
                 title: String(localized: "sourceManagement.addFeed.save.duplicateDisplayName.title", defaultValue: "This display name is already in use", comment: "Warning title for duplicate feed display name."),
                 kind: .warning,
-                detail: String(localized: "sourceManagement.addFeed.save.duplicateDisplayName.detail", defaultValue: "Choose a different source name before saving.", comment: "Warning detail for duplicate feed display name.")
+                detail: String(localized: "sourceManagement.addFeed.save.duplicateDisplayName.detail", defaultValue: "Choose a different feed name before saving.", comment: "Warning detail for duplicate feed display name.")
             )
         case .folderNotFound:
             return SourceManagementAddFeedStatusPresentation(
@@ -86,17 +86,17 @@ enum SourceManagementScreenStatusMapper {
                     : String(localized: "sourceManagement.addFeed.save.addFailed.title", defaultValue: "Feed could not be added", comment: "Generic failure title after feed create save fails."),
                 kind: .failure,
                 detail: isEditing
-                    ? String(localized: "sourceManagement.addFeed.save.editFailed.detail", defaultValue: "Unable to save the source changes right now. Try again.", comment: "Generic failure detail after feed edit save fails.")
-                    : String(localized: "sourceManagement.addFeed.save.addFailed.detail", defaultValue: "Unable to save the new source right now. Try again.", comment: "Generic failure detail after feed create save fails.")
+                    ? String(localized: "sourceManagement.addFeed.save.editFailed.detail", defaultValue: "Unable to save the feed changes right now. Try again.", comment: "Generic failure detail after feed edit save fails.")
+                    : String(localized: "sourceManagement.addFeed.save.addFailed.detail", defaultValue: "Unable to save the new feed right now. Try again.", comment: "Generic failure detail after feed create save fails.")
             )
         }
     }
 
     static func addFeedPreviewUnavailableStatus() -> SourceManagementAddFeedStatusPresentation {
         SourceManagementAddFeedStatusPresentation(
-            title: String(localized: "sourceManagement.addFeed.previewUnavailable.title", defaultValue: "Source preview is unavailable", comment: "Failure title when feed preview service is unavailable."),
+            title: String(localized: "sourceManagement.addFeed.previewUnavailable.title", defaultValue: "Feed preview is unavailable", comment: "Failure title when feed preview service is unavailable."),
             kind: .failure,
-            detail: String(localized: "sourceManagement.addFeed.previewUnavailable.detail", defaultValue: "The app cannot check this source right now.", comment: "Failure detail when feed preview service is unavailable.")
+            detail: String(localized: "sourceManagement.addFeed.previewUnavailable.detail", defaultValue: "The app cannot check this feed right now.", comment: "Failure detail when feed preview service is unavailable.")
         )
     }
 
@@ -118,7 +118,7 @@ enum SourceManagementScreenStatusMapper {
         return SourceManagementAddFeedStatusPresentation(
             title: String(localized: "sourceManagement.addFeed.preview.genericFailure.title", defaultValue: "Preview could not be loaded", comment: "Generic failure title when feed preview fails."),
             kind: .failure,
-            detail: String(localized: "sourceManagement.addFeed.preview.genericFailure.detail", defaultValue: "Unable to check this source right now. Try again.", comment: "Generic failure detail when feed preview fails.")
+            detail: String(localized: "sourceManagement.addFeed.preview.genericFailure.detail", defaultValue: "Unable to check this feed right now. Try again.", comment: "Generic failure detail when feed preview fails.")
         )
     }
 
@@ -128,7 +128,7 @@ enum SourceManagementScreenStatusMapper {
         switch error {
         case .invalidFeedURL:
             return SourceManagementAddFeedStatusPresentation(
-                title: String(localized: "sourceManagement.addFeed.preview.invalidURL.title", defaultValue: "Enter a valid source address", comment: "Failure title for invalid feed preview URL."),
+                title: String(localized: "sourceManagement.addFeed.preview.invalidURL.title", defaultValue: "Enter a valid feed address", comment: "Failure title for invalid feed preview URL."),
                 kind: .failure,
                 detail: SourceManagementLocalization.feedURLFooter
             )
@@ -140,9 +140,9 @@ enum SourceManagementScreenStatusMapper {
             )
         case .previewUnavailableForNotModifiedResponse:
             return SourceManagementAddFeedStatusPresentation(
-                title: String(localized: "sourceManagement.addFeed.preview.notModified.title", defaultValue: "Source could not be checked", comment: "Failure title when feed preview cannot use not-modified response."),
+                title: String(localized: "sourceManagement.addFeed.preview.notModified.title", defaultValue: "Feed could not be checked", comment: "Failure title when feed preview cannot use not-modified response."),
                 kind: .failure,
-                detail: String(localized: "sourceManagement.addFeed.preview.notModified.detail", defaultValue: "The source did not send enough information to review it right now.", comment: "Failure detail when feed preview cannot use not-modified response.")
+                detail: String(localized: "sourceManagement.addFeed.preview.notModified.detail", defaultValue: "The feed did not send enough information to review it right now.", comment: "Failure detail when feed preview cannot use not-modified response.")
             )
         case .duplicateFeed,
                 .duplicateFeedDisplayName,
@@ -153,7 +153,7 @@ enum SourceManagementScreenStatusMapper {
             return SourceManagementAddFeedStatusPresentation(
                 title: String(localized: "sourceManagement.addFeed.preview.genericFailure.title", defaultValue: "Preview could not be loaded", comment: "Generic failure title when feed preview fails."),
                 kind: .failure,
-                detail: String(localized: "sourceManagement.addFeed.preview.genericFailure.detail", defaultValue: "Unable to check this source right now. Try again.", comment: "Generic failure detail when feed preview fails.")
+                detail: String(localized: "sourceManagement.addFeed.preview.genericFailure.detail", defaultValue: "Unable to check this feed right now. Try again.", comment: "Generic failure detail when feed preview fails.")
             )
         }
     }
@@ -173,7 +173,7 @@ enum SourceManagementScreenStatusMapper {
                 title: String(localized: "sourceManagement.addFeed.preview.genericFailure.title", defaultValue: "Preview could not be loaded", comment: "Generic failure title when feed preview fails."),
                 kind: .failure,
                 detail: String.localizedStringWithFormat(
-                    String(localized: "sourceManagement.addFeed.preview.httpStatus.detail.format", defaultValue: "The server returned HTTP %lld, so the app could not read this source.", comment: "Feed preview failure detail for HTTP status. Placeholder is HTTP status code."),
+                    String(localized: "sourceManagement.addFeed.preview.httpStatus.detail.format", defaultValue: "The server returned HTTP %lld, so the app could not read this feed.", comment: "Feed preview failure detail for HTTP status. Placeholder is HTTP status code."),
                     statusCode
                 )
             )
@@ -188,7 +188,7 @@ enum SourceManagementScreenStatusMapper {
                 detail = String(localized: "sourceManagement.addFeed.preview.unsupportedContentType.empty.detail", defaultValue: "The address responded, but it does not look like a supported RSS or Atom feed.", comment: "Feed preview failure detail for missing unsupported content type.")
             }
             return SourceManagementAddFeedStatusPresentation(
-                title: String(localized: "sourceManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "Source is not a supported feed", comment: "Failure title for unsupported feed."),
+                title: String(localized: "sourceManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "This is not a supported feed", comment: "Failure title for unsupported feed."),
                 kind: .failure,
                 detail: detail
             )
@@ -201,31 +201,31 @@ enum SourceManagementScreenStatusMapper {
         switch error {
         case .emptyDocument:
             return SourceManagementAddFeedStatusPresentation(
-                title: String(localized: "sourceManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "Source is not a supported feed", comment: "Failure title for unsupported feed."),
+                title: String(localized: "sourceManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "This is not a supported feed", comment: "Failure title for unsupported feed."),
                 kind: .failure,
                 detail: String(localized: "sourceManagement.addFeed.preview.emptyDocument.detail", defaultValue: "The address responded, but there was no feed content to read.", comment: "Feed preview failure detail for empty feed document.")
             )
         case .malformedXML:
             return SourceManagementAddFeedStatusPresentation(
-                title: String(localized: "sourceManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "Source is not a supported feed", comment: "Failure title for unsupported feed."),
+                title: String(localized: "sourceManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "This is not a supported feed", comment: "Failure title for unsupported feed."),
                 kind: .failure,
                 detail: String(localized: "sourceManagement.addFeed.preview.malformedXML.detail", defaultValue: "The address responded, but the app could not read it as RSS or Atom.", comment: "Feed preview failure detail for malformed XML.")
             )
         case .unsupportedFeedKind:
             return SourceManagementAddFeedStatusPresentation(
-                title: String(localized: "sourceManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "Source is not a supported feed", comment: "Failure title for unsupported feed."),
+                title: String(localized: "sourceManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "This is not a supported feed", comment: "Failure title for unsupported feed."),
                 kind: .failure,
                 detail: String(localized: "sourceManagement.addFeed.preview.unsupportedFeedKind.detail", defaultValue: "The address responded, but it did not contain a supported RSS or Atom feed.", comment: "Feed preview failure detail for unsupported feed kind.")
             )
         case .missingRSSElement:
             return SourceManagementAddFeedStatusPresentation(
-                title: String(localized: "sourceManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "Source is not a supported feed", comment: "Failure title for unsupported feed."),
+                title: String(localized: "sourceManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "This is not a supported feed", comment: "Failure title for unsupported feed."),
                 kind: .failure,
                 detail: String(localized: "sourceManagement.addFeed.preview.missingRSS.detail", defaultValue: "The RSS feed is missing information the app needs before adding it.", comment: "Feed preview failure detail for missing RSS element.")
             )
         case .missingAtomElement:
             return SourceManagementAddFeedStatusPresentation(
-                title: String(localized: "sourceManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "Source is not a supported feed", comment: "Failure title for unsupported feed."),
+                title: String(localized: "sourceManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "This is not a supported feed", comment: "Failure title for unsupported feed."),
                 kind: .failure,
                 detail: String(localized: "sourceManagement.addFeed.preview.missingAtom.detail", defaultValue: "The Atom feed is missing information the app needs before adding it.", comment: "Feed preview failure detail for missing Atom element.")
             )
@@ -237,11 +237,11 @@ enum SourceManagementScreenStatusMapper {
         case .timedOut:
             return String(localized: "sourceManagement.addFeed.preview.network.timedOut", defaultValue: "The request timed out before the feed preview could be loaded.", comment: "Network failure detail for timeout.")
         case .cannotFindHost, .dnsLookupFailed:
-            return String(localized: "sourceManagement.addFeed.preview.network.hostNotFound", defaultValue: "The host name could not be found for this source.", comment: "Network failure detail for host lookup failure.")
+            return String(localized: "sourceManagement.addFeed.preview.network.hostNotFound", defaultValue: "The host name could not be found for this feed.", comment: "Network failure detail for host lookup failure.")
         case .cannotConnectToHost, .resourceUnavailable:
-            return String(localized: "sourceManagement.addFeed.preview.network.cannotConnect", defaultValue: "The app could not connect to this source.", comment: "Network failure detail for connection failure.")
+            return String(localized: "sourceManagement.addFeed.preview.network.cannotConnect", defaultValue: "The app could not connect to this feed.", comment: "Network failure detail for connection failure.")
         case .networkConnectionLost:
-            return String(localized: "sourceManagement.addFeed.preview.network.connectionLost", defaultValue: "The network connection was lost while checking this source.", comment: "Network failure detail for lost connection.")
+            return String(localized: "sourceManagement.addFeed.preview.network.connectionLost", defaultValue: "The network connection was lost while checking this feed.", comment: "Network failure detail for lost connection.")
         case .notConnectedToInternet:
             return String(localized: "sourceManagement.addFeed.preview.network.offline", defaultValue: "Check the internet connection and try again.", comment: "Network failure detail for offline state.")
         case .internationalRoamingOff, .callIsActive, .dataNotAllowed:
@@ -249,7 +249,7 @@ enum SourceManagementScreenStatusMapper {
         case .invalidResponse:
             return String(localized: "sourceManagement.addFeed.preview.network.invalidResponse", defaultValue: "The server returned a response the app could not read.", comment: "Network failure detail for invalid response.")
         case .unknown:
-            return String(localized: "sourceManagement.addFeed.preview.network.unknown", defaultValue: "The source could not be checked for an unknown network reason.", comment: "Network failure detail for unknown network failure.")
+            return String(localized: "sourceManagement.addFeed.preview.network.unknown", defaultValue: "The feed could not be checked for an unknown network reason.", comment: "Network failure detail for unknown network failure.")
         }
     }
 }

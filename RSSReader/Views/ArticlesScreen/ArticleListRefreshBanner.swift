@@ -28,7 +28,6 @@ struct ArticleListRefreshBanner: View {
                 Text(state.message)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
             }
 
             Spacer(minLength: 12)

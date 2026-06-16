@@ -32,7 +32,7 @@ struct SourceManagementCreateFolderScreenStateTests {
         }
 
         #expect(initialDestination.existingFolders.map(\.name) == ["News", "Tech"])
-        #expect(initialDestination.placementDescription == "This folder will be added after 2 existing folders.")
+        #expect(initialDestination.placementDescription == SourceManagementLocalization.existingFolderPlacementDescription(count: 2))
         #expect(initialDestination.isPrimaryActionEnabled == false)
 
         state.updateCreateFolderNameInput("News")
@@ -42,7 +42,7 @@ struct SourceManagementCreateFolderScreenStateTests {
             return
         }
 
-        #expect(duplicateDestination.validationMessage == "A folder with this name already exists.")
+        #expect(duplicateDestination.validationMessage == SourceManagementLocalization.duplicateFolderNameValidation)
         #expect(duplicateDestination.isPrimaryActionEnabled == false)
 
         state.updateCreateFolderNameInput(" tEcH ")
@@ -52,7 +52,7 @@ struct SourceManagementCreateFolderScreenStateTests {
             return
         }
 
-        #expect(caseDuplicateDestination.validationMessage == "A folder with this name already exists.")
+        #expect(caseDuplicateDestination.validationMessage == SourceManagementLocalization.duplicateFolderNameValidation)
         #expect(caseDuplicateDestination.isPrimaryActionEnabled == false)
 
         state.updateCreateFolderNameInput("Research")

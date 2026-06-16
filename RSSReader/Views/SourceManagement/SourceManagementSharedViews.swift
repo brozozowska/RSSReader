@@ -33,20 +33,11 @@ struct SourceManagementScreenItemCard: View {
                     Text(item.title)
                         .font(.body.weight(.semibold))
                         .foregroundStyle(.primary)
-
-                    Text(item.badgeTitle)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(appThemeVariant.secondaryBackground)
-                        .clipShape(Capsule())
                 }
 
                 Text(item.subtitle)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.vertical, 6)

@@ -87,7 +87,7 @@ struct ReaderView: View {
         )
         .background(appThemeVariant.primaryBackground.ignoresSafeArea())
         .toolbarTitleDisplayMode(.inline)
-        .navigationTitle("")
+        .navigationTitle(Text(verbatim: ""))
         .toolbar {
             ReaderArticleToolbarContent(
                 toolbarActions: viewState.toolbarActions,

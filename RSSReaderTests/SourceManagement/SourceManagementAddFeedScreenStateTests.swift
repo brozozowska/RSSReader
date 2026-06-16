@@ -33,7 +33,7 @@ struct SourceManagementAddFeedScreenStateTests {
             return
         }
 
-        #expect(initialDestination.validationMessage == "Enter a feed URL to continue.")
+        #expect(initialDestination.validationMessage == SourceManagementLocalization.enterFeedURLValidation)
         #expect(initialDestination.isPrimaryActionEnabled == false)
 
         state.updateAddFeedURLInput("not a url")
@@ -43,7 +43,7 @@ struct SourceManagementAddFeedScreenStateTests {
             return
         }
 
-        #expect(invalidDestination.validationMessage == "Enter a valid site or feed URL.")
+        #expect(invalidDestination.validationMessage == SourceManagementLocalization.invalidFeedURLValidation)
         #expect(invalidDestination.isPrimaryActionEnabled == false)
 
         state.updateAddFeedURLInput("example.com")
@@ -91,14 +91,14 @@ struct SourceManagementAddFeedScreenStateTests {
             return
         }
 
-        #expect(previewDestination.primaryActionTitle == "Add Feed")
+        #expect(previewDestination.primaryActionTitle == SourceManagementLocalization.addFeedTitle)
         #expect(previewDestination.isPrimaryActionEnabled)
         #expect(previewDestination.isConfirmationActionEnabled)
         #expect(previewDestination.preview?.title == "Example Feed")
-        #expect(previewDestination.preview?.kindTitle == "RSS")
-        #expect(previewDestination.placementOptions.map(\.title) == ["Ungrouped", "News", "Tech"])
+        #expect(previewDestination.preview?.kindTitle == SourceManagementLocalization.rssFeedKindTitle)
+        #expect(previewDestination.placementOptions.map(\.title) == [SourceManagementLocalization.ungroupedTitle, "News", "Tech"])
         #expect(previewDestination.placementOptions.first?.isSelected == true)
-        #expect(previewDestination.createFolderActionTitle == "Create New Folder")
+        #expect(previewDestination.createFolderActionTitle == SourceManagementLocalization.createNewFolderAction)
 
         state.selectAddFeedFolderPlacement(.folder(techFolderID))
 
@@ -119,9 +119,9 @@ struct SourceManagementAddFeedScreenStateTests {
             return
         }
 
-        #expect(createdDestination.primaryActionTitle == "Feed Added")
+        #expect(createdDestination.primaryActionTitle == SourceManagementLocalization.feedAddedAction)
         #expect(createdDestination.isPrimaryActionEnabled == false)
-        #expect(createdDestination.status?.title == "Feed added")
+        #expect(createdDestination.status?.title == SourceManagementLocalization.feedAddedTitle)
     }
 
     @Test
@@ -159,7 +159,7 @@ struct SourceManagementAddFeedScreenStateTests {
             return
         }
 
-        #expect(editDestination.title == "Edit Feed")
+        #expect(editDestination.title == SourceManagementLocalization.editFeedTitle)
         #expect(editDestination.placementOptions.isEmpty)
         #expect(editDestination.createFolderActionTitle == nil)
 

@@ -22,7 +22,7 @@ struct SourceManagementScreenControllerLaunchContextTests {
             return
         }
 
-        #expect(initialDestination.title == "Edit Folder")
+        #expect(initialDestination.title == SourceManagementLocalization.editFolderTitle)
         #expect(initialDestination.nameInput == "News")
 
         controller.handleCreateFolderNameChange("World News")

@@ -21,7 +21,6 @@ enum RuntimeFeedbackLocalization {
         defaultValue: "Refreshing",
         comment: "Accessibility label while refresh is running."
     )
-
     static let syncingStatusTitle = String(
         localized: "runtime.sync.status.syncing",
         defaultValue: "Syncing...",
@@ -37,7 +36,6 @@ enum RuntimeFeedbackLocalization {
         defaultValue: "Not updated yet",
         comment: "Sidebar subtitle shown before sources have ever refreshed."
     )
-
     static func todayRefreshStatus(time: String) -> String {
         let format = String(
             localized: "runtime.refresh.status.today.format",
@@ -46,7 +44,6 @@ enum RuntimeFeedbackLocalization {
         )
         return String.localizedStringWithFormat(format, time)
     }
-
     static func yesterdayRefreshStatus(time: String) -> String {
         let format = String(
             localized: "runtime.refresh.status.yesterday.format",

@@ -490,9 +490,9 @@ struct SourceManagementAddFeedState {
     private func kindTitle(_ kind: FeedKind) -> String {
         switch kind {
         case .rss:
-            return "RSS"
+            return SourceManagementLocalization.rssFeedKindTitle
         case .atom:
-            return "Atom"
+            return SourceManagementLocalization.atomFeedKindTitle
         case .unknown:
             return SourceManagementLocalization.unknownFeedKindTitle
         }

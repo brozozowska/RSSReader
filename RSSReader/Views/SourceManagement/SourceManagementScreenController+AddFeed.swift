@@ -104,7 +104,7 @@ extension SourceManagementScreenController {
                 SourceManagementAddFeedStatusPresentation(
                     title: String(localized: "sourceManagement.addFeed.save.editFailed.title", defaultValue: "Feed changes could not be saved", comment: "Generic failure title after feed edit save fails."),
                     kind: .failure,
-                    detail: String(localized: "sourceManagement.addFeed.save.editFailed.detail", defaultValue: "Unable to save the source changes right now. Try again.", comment: "Generic failure detail after feed edit save fails.")
+                    detail: String(localized: "sourceManagement.addFeed.save.editFailed.detail", defaultValue: "Unable to save the feed changes right now. Try again.", comment: "Generic failure detail after feed edit save fails.")
                 )
             )
         }
@@ -145,7 +145,7 @@ extension SourceManagementScreenController {
                 SourceManagementAddFeedStatusPresentation(
                     title: String(localized: "sourceManagement.addFeed.save.addFailed.title", defaultValue: "Feed could not be added", comment: "Generic failure title after feed create save fails."),
                     kind: .failure,
-                    detail: String(localized: "sourceManagement.addFeed.save.addFailed.detail", defaultValue: "Unable to save the new source right now. Try again.", comment: "Generic failure detail after feed create save fails.")
+                    detail: String(localized: "sourceManagement.addFeed.save.addFailed.detail", defaultValue: "Unable to save the new feed right now. Try again.", comment: "Generic failure detail after feed create save fails.")
                 )
             )
         }

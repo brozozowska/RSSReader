@@ -110,7 +110,7 @@ struct ArticlesScreenControllerLoadingTests {
             dependencies: harness.dependencies
         )
 
-        #expect(controller.screenState.navigationSubtitle == "1 Unread Item")
+        #expect(controller.screenState.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 1))
     }
 
     @Test

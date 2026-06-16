@@ -45,7 +45,7 @@ struct ArticlesScreenControllerSessionReloadTests {
         #expect(controller.screenState.articles.map(\.id) == [article.id])
         #expect(controller.screenState.articles.first?.isRead == true)
         #expect(controller.screenState.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
-        #expect(controller.screenState.navigationSubtitle == "No Unread Items")
+        #expect(controller.screenState.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
         #expect(controller.screenState.toolbarActions.isMarkAllAsReadEnabled == false)
     }
 
@@ -86,7 +86,7 @@ struct ArticlesScreenControllerSessionReloadTests {
         #expect(controller.screenState.articles.map(\.id) == [article.id])
         #expect(controller.screenState.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
         #expect(controller.screenState.articles.first?.isRead == true)
-        #expect(controller.screenState.navigationSubtitle == "No Unread Items")
+        #expect(controller.screenState.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
 
         let newEntryController = ArticlesScreenController()
         await newEntryController.load(
@@ -136,7 +136,7 @@ struct ArticlesScreenControllerSessionReloadTests {
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.articles.map(\.id) == [article.id])
         #expect(controller.screenState.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRefresh])
-        #expect(controller.screenState.navigationSubtitle == "No Unread Items")
+        #expect(controller.screenState.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
     }
 
     @Test
@@ -176,7 +176,7 @@ struct ArticlesScreenControllerSessionReloadTests {
         #expect(controller.screenState.phase == .empty)
         #expect(controller.screenState.articles.isEmpty)
         #expect(controller.screenState.articleListSession.entries.isEmpty)
-        #expect(controller.screenState.navigationSubtitle == "No Unread Items")
+        #expect(controller.screenState.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
     }
 
     @Test

@@ -48,7 +48,6 @@ struct SourceManagementScreenItemPresentation: Identifiable, Equatable, Sendable
     let title: String
     let subtitle: String
     let systemImageName: String
-    let badgeTitle: String
 }
 
 enum SourceManagementAddFeedStatusKind: Hashable, Sendable {
@@ -230,15 +229,13 @@ enum SourceManagementScreenPresentationBuilder {
                         id: .addFeed,
                         title: SourceManagementLocalization.addFeedTitle,
                         subtitle: SourceManagementLocalization.addFeedSubtitle,
-                        systemImageName: "dot.radiowaves.left.and.right",
-                        badgeTitle: SourceManagementLocalization.newFeedBadge
+                        systemImageName: "dot.radiowaves.left.and.right"
                     ),
                     item(
                         id: .createFolder,
                         title: SourceManagementLocalization.createFolderTitle,
                         subtitle: SourceManagementLocalization.createFolderSubtitle,
-                        systemImageName: "folder.badge.plus",
-                        badgeTitle: SourceManagementLocalization.newFolderBadge
+                        systemImageName: "folder.badge.plus"
                     )
                 ]
             ),
@@ -251,8 +248,7 @@ enum SourceManagementScreenPresentationBuilder {
                         id: .moveSource,
                         title: SourceManagementLocalization.moveSourceTitle,
                         subtitle: SourceManagementLocalization.moveSourceSubtitle,
-                        systemImageName: "arrow.left.arrow.right.circle",
-                        badgeTitle: SourceManagementLocalization.existingSourcesBadge
+                        systemImageName: "arrow.left.arrow.right.circle"
                     )
                 ]
             )
@@ -262,15 +258,13 @@ enum SourceManagementScreenPresentationBuilder {
         id: SourceManagementScenarioID,
         title: String,
         subtitle: String,
-        systemImageName: String,
-        badgeTitle: String
+        systemImageName: String
     ) -> SourceManagementScreenItemPresentation {
         SourceManagementScreenItemPresentation(
             id: id,
             title: title,
             subtitle: subtitle,
-            systemImageName: systemImageName,
-            badgeTitle: badgeTitle
+            systemImageName: systemImageName
         )
     }
 }

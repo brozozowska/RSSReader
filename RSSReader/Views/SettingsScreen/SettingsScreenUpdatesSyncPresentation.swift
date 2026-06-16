@@ -155,9 +155,6 @@ extension SettingsScreenPresentationBuilder {
         syncScope: CloudKitSyncScope,
         readingScenario: CrossDeviceReadingScenario
     ) -> String {
-        let scopeFooter = syncScope.settingsSectionFooter(readingScenario: readingScenario)
-        let accountFooter = SettingsLocalization.iCloudScopeAccountFooter
-        let relaunchFooter = SettingsLocalization.iCloudScopeRelaunchFooter
         let fallbackFooter: String
         if input.isUsingLocalOnlySyncFallbackForCurrentLaunch {
             fallbackFooter = SettingsLocalization.iCloudScopeFallbackFooter
@@ -165,7 +162,11 @@ extension SettingsScreenPresentationBuilder {
             fallbackFooter = ""
         }
 
-        return "\(scopeFooter) \(accountFooter) \(relaunchFooter) \(fallbackFooter)".trimmingCharacters(in: .whitespaces)
+        _ = syncScope
+        _ = readingScenario
+
+        return "\(SettingsLocalization.iCloudScopeAccountFooter) \(fallbackFooter)"
+            .trimmingCharacters(in: .whitespaces)
     }
 
     private static func bootstrapFallbackReason(_ status: SettingsSyncStatusPresentation) -> String {

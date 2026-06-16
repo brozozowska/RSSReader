@@ -10,6 +10,9 @@ struct SourceManagementMoveSourceView: View {
     let dismiss: () -> Void
 
     var body: some View {
+        let showsEmptyState = presentation.emptyStateTitle != nil
+            && presentation.emptyStateDescription != nil
+
         List {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
@@ -23,9 +26,9 @@ struct SourceManagementMoveSourceView: View {
                 .padding(.vertical, 4)
             }
 
-            if let emptyStateTitle = presentation.emptyStateTitle,
-               let emptyStateDescription = presentation.emptyStateDescription {
-                Section {
+            Section {
+                if let emptyStateTitle = presentation.emptyStateTitle,
+                   let emptyStateDescription = presentation.emptyStateDescription {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(emptyStateTitle)
                             .font(.body.weight(.semibold))
@@ -35,9 +38,7 @@ struct SourceManagementMoveSourceView: View {
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 4)
-                }
-            } else {
-                Section(SourceManagementLocalization.selectSourceTitle) {
+                } else {
                     ForEach(presentation.feeds) { feed in
                         Button {
                             selectFeed(feed.id)
@@ -47,8 +48,14 @@ struct SourceManagementMoveSourceView: View {
                         .buttonStyle(.plain)
                     }
                 }
+            } header: {
+                if showsEmptyState == false {
+                    Text(SourceManagementLocalization.selectSourceTitle)
+                }
+            }
 
-                Section {
+            Section {
+                if showsEmptyState == false {
                     ForEach(presentation.placementOptions) { option in
                         Button {
                             selectPlacement(option.placement)
@@ -57,7 +64,9 @@ struct SourceManagementMoveSourceView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                } header: {
+                }
+            } header: {
+                if showsEmptyState == false {
                     Text(presentation.placementTitle)
                 }
             }

@@ -49,7 +49,7 @@ enum SettingsLocalization {
     )
     static let appearanceSectionFooter = String(
         localized: "settings.appearance.section.footer",
-        defaultValue: "Choose how the app renders its interface. The selected mode applies immediately.",
+        defaultValue: "Choose which theme is shown in the app interface.",
         comment: "Footer explaining the appearance settings section."
     )
     static let themePickerTitle = String(
@@ -57,7 +57,6 @@ enum SettingsLocalization {
         defaultValue: "Theme",
         comment: "Picker title for the interface theme setting."
     )
-
     static let readingSectionTitle = String(
         localized: "settings.reading.section.title",
         defaultValue: "Reading",
@@ -65,7 +64,7 @@ enum SettingsLocalization {
     )
     static let readingSectionFooter = String(
         localized: "settings.reading.section.footer",
-        defaultValue: "Choose whether articles from the list open in the feed reader or SFSafariViewController. Open Original Article controls the source web page; Open Article Links controls links inside article text.",
+        defaultValue: "Choose whether opening an article shows Reader or the in-app browser. Open Original Article controls opening the article page, and Open Article Links controls opening links inside an article. Adjacent Navigation lets you show or hide additional buttons in the interface.",
         comment: "Footer explaining reading and link opening settings."
     )
     static let openArticlesTitle = String(
@@ -98,7 +97,6 @@ enum SettingsLocalization {
         defaultValue: "Automatically mark an article as read when it is opened.",
         comment: "Toggle subtitle explaining mark-read-on-open behavior."
     )
-
     static let articleListSectionTitle = String(
         localized: "settings.articleList.section.title",
         defaultValue: "Article List",
@@ -106,7 +104,7 @@ enum SettingsLocalization {
     )
     static let articleListSectionFooter = String(
         localized: "settings.articleList.section.footer",
-        defaultValue: "\"None\" removes an article from the list when it disappears from its feed. Other options keep the article for the selected time after it disappears.",
+        defaultValue: "\"None\" removes an article from the list as soon as it disappears from its source feed. Other options keep the article for the selected time after it disappears from the feed.",
         comment: "Footer explaining archived article retention settings."
     )
     static let sortUnreadArticlesTitle = String(
@@ -129,7 +127,6 @@ enum SettingsLocalization {
         defaultValue: "Keep Archived Articles",
         comment: "Picker title for archived article retention."
     )
-
     static let updatesSyncSectionTitle = String(
         localized: "settings.updatesSync.section.title",
         defaultValue: "Updates & Sync",
@@ -157,7 +154,7 @@ enum SettingsLocalization {
     )
     static let iCloudSyncPreferenceDisabledSubtitle = String(
         localized: "settings.updatesSync.preference.disabled.subtitle",
-        defaultValue: "Applies on next launch. Supported sync data will stay only on this device until iCloud sync is enabled again.",
+        defaultValue: "Applies on next launch. When this setting is disabled, all syncable data stays on the device.",
         comment: "Subtitle for disabled iCloud sync preference."
     )
     static func iCloudSyncPreferenceFallbackSubtitle(reason: String) -> String {
@@ -170,8 +167,8 @@ enum SettingsLocalization {
     }
     static let iCloudScopeAccountFooter = String(
         localized: "settings.updatesSync.footer.account",
-        defaultValue: "iCloud sync uses the Apple ID signed in on this device.",
-        comment: "Footer sentence explaining which Apple ID iCloud sync uses."
+        defaultValue: "App settings, feeds, folders, articles, and their states sync across devices using iCloud and your Apple ID. Article images and feed icons are stored separately on each device. Changing the sync setting applies on the next app launch.",
+        comment: "Footer explaining iCloud sync scope and relaunch behavior in the Updates & Sync settings section."
     )
     static let iCloudScopeRelaunchFooter = String(
         localized: "settings.updatesSync.footer.relaunch",
@@ -183,7 +180,6 @@ enum SettingsLocalization {
         defaultValue: "Sync will try again on the next launch when iCloud is available.",
         comment: "Footer sentence shown when the current launch uses local-only sync fallback."
     )
-
     static let notificationsSectionTitle = String(
         localized: "settings.notifications.section.title",
         defaultValue: "Notifications",
@@ -191,7 +187,7 @@ enum SettingsLocalization {
     )
     static let notificationsSectionFooter = String(
         localized: "settings.notifications.section.footer",
-        defaultValue: "App does not send notifications. iOS still requires notification permission to show a badge on the app icon.",
+        defaultValue: "The app does not send notifications, but iOS still requires notification permission to show a badge on the app icon.",
         comment: "Footer explaining notification permission usage for the app icon badge."
     )
     static let appIconBadgeTitle = String(
@@ -204,16 +200,15 @@ enum SettingsLocalization {
         defaultValue: "Show the unread article count on the app icon.",
         comment: "Toggle subtitle explaining the app icon badge setting."
     )
-
     static let sourcePortabilitySectionTitle = String(
         localized: "settings.sourcePortability.section.title",
-        defaultValue: "Source Portability",
-        comment: "Settings section title for source import and export."
+        defaultValue: "Feed Portability",
+        comment: "Settings section title for feed import and export."
     )
     static let sourcePortabilitySectionFooter = String(
         localized: "settings.sourcePortability.section.footer",
-        defaultValue: "Import and export OPML files to move feed subscriptions between apps.",
-        comment: "Footer explaining source portability import and export actions."
+        defaultValue: "Import and export OPML files to move feeds between apps.",
+        comment: "Footer explaining feed portability import and export actions."
     )
     static let importOPMLTitle = String(
         localized: "settings.sourcePortability.import.title",
@@ -222,7 +217,7 @@ enum SettingsLocalization {
     )
     static let importOPMLSubtitle = String(
         localized: "settings.sourcePortability.import.subtitle",
-        defaultValue: "Preview subscriptions before adding them.",
+        defaultValue: "Preview feeds before adding them.",
         comment: "Button subtitle for importing an OPML file."
     )
     static let exportOPMLTitle = String(
@@ -232,10 +227,9 @@ enum SettingsLocalization {
     )
     static let exportOPMLSubtitle = String(
         localized: "settings.sourcePortability.export.subtitle",
-        defaultValue: "Save active subscriptions as an OPML file.",
+        defaultValue: "Save active feeds as an OPML file.",
         comment: "Button subtitle for exporting an OPML file."
     )
-
     static let storageSectionTitle = String(
         localized: "settings.storage.section.title",
         defaultValue: "Storage",
@@ -263,18 +257,17 @@ enum SettingsLocalization {
     )
     static let clearSourceIconCacheTitle = String(
         localized: "settings.storage.clearSourceIconCache.title",
-        defaultValue: "Clear Source Icon Cache",
-        comment: "Button title for deleting cached source icons."
+        defaultValue: "Clear Feed Icon Cache",
+        comment: "Button title for deleting cached feed icons."
     )
     static let clearSourceIconCacheSubtitle = String(
         localized: "settings.storage.clearSourceIconCache.subtitle",
         defaultValue: "Remove feed icons saved on this device.",
-        comment: "Button subtitle explaining source icon cache cleanup."
+        comment: "Button subtitle explaining feed icon cache cleanup."
     )
-
     static let feedReaderOptionTitle = String(
         localized: "settings.option.articleOpeningMode.feedReader",
-        defaultValue: "Feed Reader",
+        defaultValue: "Reader",
         comment: "Picker option title for opening articles in the app reader."
     )
     static let safariViewOptionTitle = String(
@@ -304,7 +297,7 @@ enum SettingsLocalization {
     )
     static let oneWeekOptionTitle = String(
         localized: "settings.option.retention.oneWeek",
-        defaultValue: "1 Week",
+        defaultValue: "1 week",
         comment: "Picker option title for one-week archived article retention."
     )
     static let twoWeeksOptionTitle = String(
@@ -344,7 +337,7 @@ enum SettingsLocalization {
     )
     static let inAppBrowserOptionTitle = String(
         localized: "settings.option.linkOpening.inAppBrowser",
-        defaultValue: "In-App Browser",
+        defaultValue: "In-app browser",
         comment: "Picker option title for opening links in the in-app browser."
     )
     static let externalBrowserOptionTitle = String(
@@ -392,7 +385,6 @@ enum SettingsLocalization {
         defaultValue: "Black",
         comment: "Picker option title for black theme."
     )
-
     static let syncStatusOffTitle = String(
         localized: "settings.syncStatus.off.title",
         defaultValue: "Off",
@@ -458,7 +450,6 @@ enum SettingsLocalization {
         defaultValue: "Error",
         comment: "Value title for failed iCloud sync status."
     )
-
     static let syncFallbackNoAccountSubtitle = String(
         localized: "settings.syncStatus.fallback.noAccount.subtitle",
         defaultValue: "Sync is enabled, but this launch cannot use iCloud because the device is not signed in. Relaunch after signing in.",
@@ -564,7 +555,6 @@ enum SettingsLocalization {
         defaultValue: "iCloud is not available for this launch",
         comment: "Fallback reason phrase used inside the iCloud sync local-only fallback preference subtitle."
     )
-
     static let clearArchivedArticlesAlertTitle = String(
         localized: "settings.alert.clearArchivedArticles.title",
         defaultValue: "Clear archived articles?",
@@ -592,13 +582,13 @@ enum SettingsLocalization {
     )
     static let clearSourceIconCacheAlertTitle = String(
         localized: "settings.alert.clearSourceIconCache.title",
-        defaultValue: "Clear source icon cache?",
-        comment: "Confirmation alert title for clearing cached source icons."
+        defaultValue: "Clear feed icon cache?",
+        comment: "Confirmation alert title for clearing cached feed icons."
     )
     static let clearSourceIconCacheAlertMessage = String(
         localized: "settings.alert.clearSourceIconCache.message",
         defaultValue: "This removes feed icons saved on this device. Icons can be discovered and downloaded again during refresh or when the sidebar is shown.",
-        comment: "Confirmation alert message for clearing cached source icons."
+        comment: "Confirmation alert message for clearing cached feed icons."
     )
     static let clearCacheAlertAction = String(
         localized: "settings.alert.clearCache.action",
@@ -615,31 +605,30 @@ enum SettingsLocalization {
         defaultValue: "OK",
         comment: "Dismiss button title in settings status alerts."
     )
-
     static let importPreviewHeadline = String(
         localized: "settings.opmlImportPreview.headline",
-        defaultValue: "Review subscriptions before import",
+        defaultValue: "Review feeds before import",
         comment: "Headline in the OPML import preview sheet."
     )
     static let importPreviewDescription = String(
         localized: "settings.opmlImportPreview.description",
-        defaultValue: "App found subscriptions in the selected OPML file. Check the summary before adding them to your source list.",
+        defaultValue: "App found feeds in the selected OPML file. Check the summary before adding them to your feed list.",
         comment: "Description in the OPML import preview sheet."
     )
     static let importPreviewSubscriptionsTitle = String(
         localized: "settings.opmlImportPreview.subscriptions.title",
-        defaultValue: "Subscriptions",
-        comment: "Summary row title for total subscriptions in OPML import preview."
+        defaultValue: "Feeds",
+        comment: "Summary row title for total feeds in OPML import preview."
     )
     static let importPreviewReadyTitle = String(
         localized: "settings.opmlImportPreview.ready.title",
         defaultValue: "Ready to Import",
-        comment: "Summary row title for importable subscriptions in OPML import preview."
+        comment: "Summary row title for importable feeds in OPML import preview."
     )
     static let importPreviewSkippedTitle = String(
         localized: "settings.opmlImportPreview.skipped.title",
         defaultValue: "Will Be Skipped",
-        comment: "Summary row title for skipped subscriptions in OPML import preview."
+        comment: "Summary row title for skipped feeds in OPML import preview."
     )
     static let importPreviewNewFoldersTitle = String(
         localized: "settings.opmlImportPreview.newFolders.title",
@@ -648,7 +637,7 @@ enum SettingsLocalization {
     )
     static let importPreviewFooter = String(
         localized: "settings.opmlImportPreview.footer",
-        defaultValue: "Invalid and duplicate subscriptions are skipped automatically. Existing folders are reused; missing folders are created during import.",
+        defaultValue: "Invalid and duplicate feeds are skipped automatically. Existing folders are reused; missing folders are created during import.",
         comment: "Footer in the OPML import preview sheet."
     )
     static let importPreviewNavigationTitle = String(
@@ -671,11 +660,10 @@ enum SettingsLocalization {
         defaultValue: "OPML",
         comment: "Fallback title for OPML import/export status alerts."
     )
-
     static let sourcesUnavailableMessage = String(
         localized: "settings.sourcePortability.sourcesUnavailable.message",
-        defaultValue: "Sources are unavailable in the current app environment.",
-        comment: "Fallback error message when source management services are unavailable."
+        defaultValue: "Feeds are unavailable in the current app environment.",
+        comment: "Fallback error message when feed management services are unavailable."
     )
     static let importUnavailableTitle = String(
         localized: "settings.sourcePortability.import.unavailable.title",
@@ -695,14 +683,14 @@ enum SettingsLocalization {
     static func opmlImportCompleteMessage(createdFeedCount: Int, skippedEntryCount: Int) -> String {
         let format = String(localized:
             "settings.sourcePortability.import.complete.message",
-            defaultValue: "%lld sources imported. %lld skipped.",
-            comment: "Status alert message after OPML import completes. The first value is imported source count; the second value is skipped entry count."
+            defaultValue: "%lld feeds imported. %lld skipped.",
+            comment: "Status alert message after OPML import completes. The first value is imported feed count; the second value is skipped entry count."
         )
         return String.localizedStringWithFormat(format, createdFeedCount, skippedEntryCount)
     }
     static let opmlImportSaveFailureMessage = String(
         localized: "settings.sourcePortability.import.saveFailure.message",
-        defaultValue: "The app could not save the selected OPML sources. Try again.",
+        defaultValue: "The app could not save the selected OPML feeds. Try again.",
         comment: "Status alert message when OPML import persistence fails."
     )
     static let selectedFileEmptyMessage = String(
@@ -722,8 +710,8 @@ enum SettingsLocalization {
     )
     static let selectedOPMLMissingBodyMessage = String(
         localized: "settings.sourcePortability.import.missingBody.message",
-        defaultValue: "The selected OPML document does not contain a subscription list.",
-        comment: "Status alert message when OPML does not contain a subscription list."
+        defaultValue: "The selected OPML document does not contain a feed list.",
+        comment: "Status alert message when OPML does not contain a feed list."
     )
     static let selectedOPMLReadFailureMessage = String(
         localized: "settings.sourcePortability.import.readFailure.message",
@@ -762,7 +750,7 @@ enum SettingsLocalization {
     )
     static let opmlExportCompleteMessage = String(
         localized: "settings.sourcePortability.export.complete.message",
-        defaultValue: "Your subscriptions were exported successfully.",
+        defaultValue: "Your feeds were exported successfully.",
         comment: "Status alert message when OPML export completes."
     )
     static let opmlExportSaveFailureMessage = String(

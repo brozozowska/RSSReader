@@ -14,14 +14,14 @@ struct SettingsScreenPresentationSourcePortabilityTests {
         #expect(sections.map(\.id).suffix(2) == [.sourcePortability, .storage])
 
         let section = try #require(sections.first(where: { $0.id == .sourcePortability }))
-        #expect(section.title == "Source Portability")
-        #expect(section.footer == "Import and export OPML files to move feed subscriptions between apps.")
+        #expect(section.title == SettingsLocalization.sourcePortabilitySectionTitle)
+        #expect(section.footer == SettingsLocalization.sourcePortabilitySectionFooter)
         #expect(section.items == [
             .button(
                 SettingsButtonItemPresentation(
                     id: .importOPML,
-                    title: "Import OPML",
-                    subtitle: "Preview subscriptions before adding them.",
+                    title: SettingsLocalization.importOPMLTitle,
+                    subtitle: SettingsLocalization.importOPMLSubtitle,
                     systemImage: "square.and.arrow.down",
                     role: .normal,
                     isEnabled: true
@@ -30,8 +30,8 @@ struct SettingsScreenPresentationSourcePortabilityTests {
             .button(
                 SettingsButtonItemPresentation(
                     id: .exportOPML,
-                    title: "Export OPML",
-                    subtitle: "Save active subscriptions as an OPML file.",
+                    title: SettingsLocalization.exportOPMLTitle,
+                    subtitle: SettingsLocalization.exportOPMLSubtitle,
                     systemImage: "square.and.arrow.up",
                     role: .normal,
                     isEnabled: true

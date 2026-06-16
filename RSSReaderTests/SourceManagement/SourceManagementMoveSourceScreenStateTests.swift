@@ -51,7 +51,7 @@ struct SourceManagementMoveSourceScreenStateTests {
 
         #expect(initialDestination.feeds.map(\.title) == ["Apple Feed", "Beta Feed"])
         #expect(initialDestination.feeds.first?.isSelected == true)
-        #expect(initialDestination.placementOptions.map(\.title) == ["Ungrouped", "News", "Tech"])
+        #expect(initialDestination.placementOptions.map(\.title) == [SourceManagementLocalization.ungroupedTitle, "News", "Tech"])
         #expect(initialDestination.isPrimaryActionEnabled == false)
 
         state.selectMoveSourcePlacement(.folder(techFolderID))

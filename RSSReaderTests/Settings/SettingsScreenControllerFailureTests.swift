@@ -16,10 +16,10 @@ struct SettingsScreenControllerFailureTests {
         #expect(controller.viewState().sections.isEmpty)
         #expect(
             controller.viewState().placeholder == SettingsScreenPlaceholderState(
-                title: "Unable to Load Settings",
+                title: SettingsLocalization.loadFailureTitle,
                 systemImage: "exclamationmark.triangle",
-                description: "Settings are unavailable in the current app environment.",
-                actionTitle: "Retry"
+                description: SettingsLocalization.unavailableMessage,
+                actionTitle: SettingsLocalization.retryActionTitle
             )
         )
     }
@@ -37,10 +37,10 @@ struct SettingsScreenControllerFailureTests {
         #expect(controller.viewState().sections.isEmpty)
         #expect(
             controller.viewState().placeholder == SettingsScreenPlaceholderState(
-                title: "Unable to Load Settings",
+                title: SettingsLocalization.loadFailureTitle,
                 systemImage: "exclamationmark.triangle",
                 description: "The app could not initialize its data store for the current sync configuration.",
-                actionTitle: "Retry"
+                actionTitle: SettingsLocalization.retryActionTitle
             )
         )
     }

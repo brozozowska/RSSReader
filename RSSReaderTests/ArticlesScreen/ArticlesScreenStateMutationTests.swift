@@ -14,7 +14,7 @@ struct ArticlesScreenStateMutationTests {
             [unreadItem],
             selection: .feed(unreadItem.feedID),
             navigationTitle: "Feed",
-            navigationSubtitle: "1 Unread Item"
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1)
         )
         state.presentMarkAllAsReadConfirmation()
         state.applyMarkAllAsRead(
@@ -27,12 +27,12 @@ struct ArticlesScreenStateMutationTests {
                     isStarred: true
                 )
             ],
-            navigationSubtitle: "0 Unread Items"
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 0)
         )
 
         #expect(state.pendingConfirmation == nil)
         #expect(state.phase == .loaded)
-        #expect(state.navigationSubtitle == "0 Unread Items")
+        #expect(state.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 0))
         #expect(state.articles.count == 1)
         #expect(state.articles.first?.isRead == true)
         #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
@@ -46,15 +46,15 @@ struct ArticlesScreenStateMutationTests {
         state.applyLoadedArticles(
             [unreadItem],
             selection: .unread,
-            navigationTitle: "Unread",
-            navigationSubtitle: "1 Unread Item"
+            navigationTitle: ReadingLocalization.unreadTitle,
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1)
         )
         state.presentMarkAllAsReadConfirmation()
-        state.applyMarkAllAsRead([], navigationSubtitle: "0 Unread Items")
+        state.applyMarkAllAsRead([], navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 0))
 
         #expect(state.pendingConfirmation == nil)
         #expect(state.phase == .empty)
-        #expect(state.navigationSubtitle == "0 Unread Items")
+        #expect(state.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 0))
         #expect(state.articles.isEmpty)
         #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
     }
@@ -75,16 +75,16 @@ struct ArticlesScreenStateMutationTests {
             [unreadItem],
             selection: .feed(unreadItem.feedID),
             navigationTitle: "Feed",
-            navigationSubtitle: "1 Unread Item"
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1)
         )
         state.applyArticleRowMutation(
             articleID: unreadItem.id,
             mutation: .update(updatedItem),
-            navigationSubtitle: "0 Unread Items"
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 0)
         )
 
         #expect(state.phase == .loaded)
-        #expect(state.navigationSubtitle == "0 Unread Items")
+        #expect(state.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 0))
         #expect(state.articleListSession.entries.count == 1)
         #expect(state.articleListSession.entries.first?.article.isRead == true)
         #expect(state.articles.count == 1)
@@ -100,8 +100,8 @@ struct ArticlesScreenStateMutationTests {
         state.applyLoadedArticles(
             [unreadItem],
             selection: .unread,
-            navigationTitle: "Unread",
-            navigationSubtitle: "1 Unread Item",
+            navigationTitle: ReadingLocalization.unreadTitle,
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1),
             sessionContext: ArticleListSession.Context(
                 selection: .unread,
                 sourcesFilter: .allItems
@@ -114,7 +114,7 @@ struct ArticlesScreenStateMutationTests {
         #expect(state.articles.map(\.id) == [unreadItem.id])
         #expect(state.articles.first?.isRead == true)
         #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
-        #expect(state.navigationSubtitle == "No Unread Items")
+        #expect(state.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
         #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
     }
 
@@ -133,8 +133,8 @@ struct ArticlesScreenStateMutationTests {
         state.applyLoadedArticles(
             [unreadItem],
             selection: .unread,
-            navigationTitle: "Unread",
-            navigationSubtitle: "1 Unread Item"
+            navigationTitle: ReadingLocalization.unreadTitle,
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1)
         )
         state.applyArticleRowMutation(
             articleID: unreadItem.id,
@@ -142,11 +142,11 @@ struct ArticlesScreenStateMutationTests {
                 updatedItem,
                 membershipStatus: .retainedAfterRead
             ),
-            navigationSubtitle: "No Unread Items"
+            navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle
         )
 
         #expect(state.phase == .loaded)
-        #expect(state.navigationSubtitle == "No Unread Items")
+        #expect(state.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
         #expect(state.articles.map(\.id) == [unreadItem.id])
         #expect(state.articles.first?.isRead == true)
         #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
@@ -169,17 +169,17 @@ struct ArticlesScreenStateMutationTests {
             [item],
             selection: .feed(item.feedID),
             navigationTitle: "Feed",
-            navigationSubtitle: "1 Unread Item"
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1)
         )
         state.applyArticleRowMutation(
             articleID: item.id,
             mutation: .update(updatedItem),
-            navigationSubtitle: "1 Unread Item"
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1)
         )
 
         #expect(state.phase == .loaded)
         #expect(state.articles.first?.isStarred == true)
-        #expect(state.navigationSubtitle == "1 Unread Item")
+        #expect(state.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 1))
     }
 
     @Test
@@ -190,17 +190,17 @@ struct ArticlesScreenStateMutationTests {
         state.applyLoadedArticles(
             [starredItem],
             selection: .starred,
-            navigationTitle: "Starred",
-            navigationSubtitle: "1 Starred Item"
+            navigationTitle: ReadingLocalization.starredTitle,
+            navigationSubtitle: ReadingLocalization.starredItemsSubtitle(count: 1)
         )
         state.applyArticleRowMutation(
             articleID: starredItem.id,
             mutation: .remove,
-            navigationSubtitle: "0 Starred Items"
+            navigationSubtitle: ReadingLocalization.starredItemsSubtitle(count: 0)
         )
 
         #expect(state.phase == .empty)
-        #expect(state.navigationSubtitle == "0 Starred Items")
+        #expect(state.navigationSubtitle == ReadingLocalization.starredItemsSubtitle(count: 0))
         #expect(state.articles.isEmpty)
     }
 }

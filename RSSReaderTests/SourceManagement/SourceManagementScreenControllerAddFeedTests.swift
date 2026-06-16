@@ -41,8 +41,8 @@ struct SourceManagementScreenControllerAddFeedTests {
 
         #expect(destination.preview?.title == "Controller Preview Feed")
         #expect(destination.preview?.siteURL == "https://example.com/")
-        #expect(destination.preview?.kindTitle == "RSS")
-        #expect(destination.primaryActionTitle == "Add Feed")
+        #expect(destination.preview?.kindTitle == SourceManagementLocalization.rssFeedKindTitle)
+        #expect(destination.primaryActionTitle == SourceManagementLocalization.addFeedTitle)
         #expect(destination.isPrimaryActionEnabled)
         #expect(destination.isConfirmationActionEnabled)
 
@@ -89,10 +89,10 @@ struct SourceManagementScreenControllerAddFeedTests {
 
         let persistedFeed = try harness.feedRepository.fetchFeed(url: feedURL)
 
-        #expect(createdDestination.primaryActionTitle == "Feed Added")
+        #expect(createdDestination.primaryActionTitle == SourceManagementLocalization.feedAddedAction)
         #expect(createdDestination.isPrimaryActionEnabled == false)
-        #expect(createdDestination.status?.title == "Feed added")
-        #expect(createdDestination.status?.detail == "Created Feed was saved in Tech.")
+        #expect(createdDestination.status?.title == SourceManagementLocalization.feedAddedTitle)
+        #expect(createdDestination.status?.detail == SourceManagementLocalization.feedAddedDetail(title: "Created Feed", folderTitle: "Tech"))
         #expect(persistedFeed?.url == feedURL)
         #expect(persistedFeed?.title == "Created Feed")
         #expect(persistedFeed?.siteURL == "https://example.com/")
@@ -230,7 +230,7 @@ struct SourceManagementScreenControllerAddFeedTests {
             return
         }
 
-        #expect(initialDestination.title == "Edit Feed")
+        #expect(initialDestination.title == SourceManagementLocalization.editFeedTitle)
         #expect(initialDestination.urlInput == initialURL)
         #expect(initialDestination.placementOptions.isEmpty)
         #expect(initialDestination.createFolderActionTitle == nil)
@@ -304,10 +304,10 @@ struct SourceManagementScreenControllerAddFeedTests {
         }
 
         #expect(destination.preview?.title == "Existing Feed")
-        #expect(destination.preview?.existingFeedNotice == "This source already exists in the library.")
+        #expect(destination.preview?.existingFeedNotice == SourceManagementLocalization.duplicateSourceNotice)
         #expect(destination.status?.kind == .warning)
-        #expect(destination.status?.title == "This feed is already in the library")
-        #expect(destination.primaryActionTitle == "Already Added")
+        #expect(destination.status?.title == SourceManagementLocalization.duplicateFeedTitle)
+        #expect(destination.primaryActionTitle == SourceManagementLocalization.alreadyAddedAction)
         #expect(destination.isPrimaryActionEnabled == false)
     }
 
@@ -334,9 +334,9 @@ struct SourceManagementScreenControllerAddFeedTests {
 
         #expect(destination.preview == nil)
         #expect(destination.status?.kind == .failure)
-        #expect(destination.status?.title == "Network error while loading preview")
-        #expect(destination.status?.detail == "Check the internet connection and try again.")
-        #expect(destination.primaryActionTitle == "Preview Feed")
+        #expect(destination.status?.title == String(localized: "sourceManagement.addFeed.preview.network.title", defaultValue: "Network error while loading preview", comment: "Failure title for network error while loading feed preview."))
+        #expect(destination.status?.detail == String(localized: "sourceManagement.addFeed.preview.network.offline", defaultValue: "Check the internet connection and try again.", comment: "Network failure detail for offline state."))
+        #expect(destination.primaryActionTitle == SourceManagementLocalization.previewFeedAction)
         #expect(destination.isPrimaryActionEnabled == false)
     }
 
@@ -367,9 +367,9 @@ struct SourceManagementScreenControllerAddFeedTests {
 
         #expect(destination.preview == nil)
         #expect(destination.status?.kind == .failure)
-        #expect(destination.status?.title == "Source is not a supported feed")
-        #expect(destination.status?.detail == "The address responded with text/html; charset=utf-8, not a supported RSS or Atom feed.")
-        #expect(destination.primaryActionTitle == "Preview Feed")
+        #expect(destination.status?.title == String(localized: "sourceManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "Source is not a supported feed", comment: "Failure title for unsupported feed."))
+        #expect(destination.status?.detail == String.localizedStringWithFormat(String(localized: "sourceManagement.addFeed.preview.unsupportedContentType.detail.format", defaultValue: "The address responded with %@, not a supported RSS or Atom feed.", comment: "Feed preview failure detail for unsupported content type. Placeholder is content type."), "text/html; charset=utf-8"))
+        #expect(destination.primaryActionTitle == SourceManagementLocalization.previewFeedAction)
         #expect(destination.isPrimaryActionEnabled == false)
     }
 }

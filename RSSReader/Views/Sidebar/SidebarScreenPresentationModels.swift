@@ -187,11 +187,11 @@ enum SmartSidebarItem: CaseIterable, Identifiable, Equatable {
     var title: String {
         switch self {
         case .allItems:
-            "All Items"
+            SidebarLocalization.allItemsFilterTitle
         case .unread:
-            "Unread"
+            SidebarLocalization.unreadFilterTitle
         case .starred:
-            "Starred"
+            SidebarLocalization.starredFilterTitle
         }
     }
 

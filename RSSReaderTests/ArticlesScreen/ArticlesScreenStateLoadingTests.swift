@@ -10,12 +10,12 @@ struct ArticlesScreenStateLoadingTests {
         let state = ArticlesScreenState()
 
         #expect(state.phase == .noSelection)
-        #expect(state.navigationTitle == "Articles")
-        #expect(state.navigationSubtitle == "No Unread Items")
+        #expect(state.navigationTitle == ReadingLocalization.articlesTitle)
+        #expect(state.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
         #expect(state.customRefreshState == .idle)
         #expect(state.articleListSession.context == .noSelection)
         #expect(state.articleListSession.entries.isEmpty)
-        #expect(state.placeholder?.title == "No Source Selected")
+        #expect(state.placeholder?.title == ReadingLocalization.noSourceSelectedTitle)
         #expect(state.toolbarActions.showsSearchAction == false)
         #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
     }
@@ -26,14 +26,14 @@ struct ArticlesScreenStateLoadingTests {
 
         state.beginLoading(
             for: .unread,
-            navigationTitle: "Unread",
-            navigationSubtitle: "3 Unread Items",
+            navigationTitle: ReadingLocalization.unreadTitle,
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 3),
             resetsContent: true
         )
 
         #expect(state.phase == .loading)
-        #expect(state.navigationTitle == "Unread")
-        #expect(state.navigationSubtitle == "3 Unread Items")
+        #expect(state.navigationTitle == ReadingLocalization.unreadTitle)
+        #expect(state.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 3))
         #expect(state.showsPrimaryLoadingIndicator)
         #expect(state.toolbarActions.showsSearchAction == false)
         #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
@@ -46,15 +46,15 @@ struct ArticlesScreenStateLoadingTests {
         state.applyLoadedArticles(
             [],
             selection: .starred,
-            navigationTitle: "Starred",
-            navigationSubtitle: "0 Starred Items"
+            navigationTitle: ReadingLocalization.starredTitle,
+            navigationSubtitle: ReadingLocalization.starredItemsSubtitle(count: 0)
         )
 
         #expect(state.phase == .empty)
-        #expect(state.navigationTitle == "Starred")
-        #expect(state.navigationSubtitle == "0 Starred Items")
-        #expect(state.placeholder?.title == "No Articles")
-        #expect(state.placeholder?.description == "You have not starred any articles yet.")
+        #expect(state.navigationTitle == ReadingLocalization.starredTitle)
+        #expect(state.navigationSubtitle == ReadingLocalization.starredItemsSubtitle(count: 0))
+        #expect(state.placeholder?.title == ReadingLocalization.noArticlesTitle)
+        #expect(state.placeholder?.description == ReadingLocalization.starredEmptyDescription)
     }
 
     @Test
@@ -70,7 +70,7 @@ struct ArticlesScreenStateLoadingTests {
             [unreadItem],
             selection: .feed(unreadItem.feedID),
             navigationTitle: "Feed",
-            navigationSubtitle: "1 Unread Item",
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1),
             sessionContext: context
         )
 
@@ -94,8 +94,8 @@ struct ArticlesScreenStateLoadingTests {
                 )
             ],
             selection: .unread,
-            navigationTitle: "Unread",
-            navigationSubtitle: "No Unread Items",
+            navigationTitle: ReadingLocalization.unreadTitle,
+            navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle,
             sessionContext: ArticleListSession.Context(
                 selection: .unread,
                 sourcesFilter: .allItems
@@ -158,15 +158,15 @@ struct ArticlesScreenStateLoadingTests {
         var state = ArticlesScreenState()
 
         state.applyLoadingFailure(
-            "Article query service is unavailable.",
+            ReadingLocalization.articleListQueryUnavailableMessage,
             selection: .inbox,
-            navigationTitle: "All Items",
-            navigationSubtitle: "0 Unread Items",
+            navigationTitle: ReadingLocalization.allItemsTitle,
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 0),
             retainsContent: false
         )
 
-        #expect(state.phase == .failed("Article query service is unavailable."))
-        #expect(state.primaryFailureMessage == "Article query service is unavailable.")
+        #expect(state.phase == .failed(ReadingLocalization.articleListQueryUnavailableMessage))
+        #expect(state.primaryFailureMessage == ReadingLocalization.articleListQueryUnavailableMessage)
         #expect(state.refreshFeedback == nil)
     }
 }

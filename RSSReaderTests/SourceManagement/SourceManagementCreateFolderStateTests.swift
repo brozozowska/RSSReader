@@ -22,12 +22,12 @@ struct SourceManagementCreateFolderStateTests {
         )
 
         state.updateNameInput(" news ")
-        #expect(state.validationMessage() == "A folder with this name already exists.")
+        #expect(state.validationMessage() == SourceManagementLocalization.duplicateFolderNameValidation)
 
         state.updateNameInput("Research")
         let presentation = state.derivedPresentation()
         #expect(presentation.validationMessage == nil)
         #expect(presentation.isPrimaryActionEnabled)
-        #expect(presentation.placementDescription == "This folder will be added after 1 existing folders.")
+        #expect(presentation.placementDescription == SourceManagementLocalization.existingFolderPlacementDescription(count: 1))
     }
 }

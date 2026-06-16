@@ -18,8 +18,8 @@ struct SettingsScreenPresentationStorageTests {
                 .button(
                     SettingsButtonItemPresentation(
                         id: .purgeArchivedArticles,
-                        title: "Clear Archived Articles",
-                        subtitle: "Remove archived articles except starred ones from this device and iCloud.",
+                        title: SettingsLocalization.clearArchivedArticlesTitle,
+                        subtitle: SettingsLocalization.clearArchivedArticlesSubtitle,
                         systemImage: "archivebox",
                         role: .destructive,
                         isEnabled: false
@@ -28,8 +28,8 @@ struct SettingsScreenPresentationStorageTests {
                 .button(
                     SettingsButtonItemPresentation(
                         id: .clearArticleImageCache,
-                        title: "Clear Article Image Cache",
-                        subtitle: "Remove article images saved on this device.",
+                        title: SettingsLocalization.clearArticleImageCacheTitle,
+                        subtitle: SettingsLocalization.clearArticleImageCacheSubtitle,
                         systemImage: "photo.stack",
                         role: .destructive,
                         isEnabled: true
@@ -38,8 +38,8 @@ struct SettingsScreenPresentationStorageTests {
                 .button(
                     SettingsButtonItemPresentation(
                         id: .clearSourceIconCache,
-                        title: "Clear Source Icon Cache",
-                        subtitle: "Remove feed icons saved on this device.",
+                        title: SettingsLocalization.clearSourceIconCacheTitle,
+                        subtitle: SettingsLocalization.clearSourceIconCacheSubtitle,
                         systemImage: "newspaper",
                         role: .destructive,
                         isEnabled: false
@@ -61,8 +61,8 @@ struct SettingsScreenPresentationStorageTests {
             storageSection.items.last == .button(
                 SettingsButtonItemPresentation(
                     id: .clearSourceIconCache,
-                    title: "Clear Source Icon Cache",
-                    subtitle: "Remove feed icons saved on this device.",
+                    title: SettingsLocalization.clearSourceIconCacheTitle,
+                    subtitle: SettingsLocalization.clearSourceIconCacheSubtitle,
                     systemImage: "newspaper",
                     role: .destructive,
                     isEnabled: true
@@ -83,8 +83,8 @@ struct SettingsScreenPresentationStorageTests {
             storageSection.items.first == .button(
                 SettingsButtonItemPresentation(
                     id: .purgeArchivedArticles,
-                    title: "Clear Archived Articles",
-                    subtitle: "Remove archived articles except starred ones from this device and iCloud.",
+                    title: SettingsLocalization.clearArchivedArticlesTitle,
+                    subtitle: SettingsLocalization.clearArchivedArticlesSubtitle,
                     systemImage: "archivebox",
                     role: .destructive,
                     isEnabled: true

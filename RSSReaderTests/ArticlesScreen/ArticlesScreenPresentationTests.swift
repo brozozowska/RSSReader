@@ -14,14 +14,14 @@ struct ArticlesScreenPresentationTests {
             article: makeArticleListItemDTO(isRead: true, isStarred: true)
         )
 
-        #expect(unreadUnstarred.readActionTitle == "Read")
+        #expect(unreadUnstarred.readActionTitle == ReadingLocalization.readAction)
         #expect(unreadUnstarred.readActionSystemImage == "circle")
-        #expect(unreadUnstarred.starActionTitle == "Star")
+        #expect(unreadUnstarred.starActionTitle == ReadingLocalization.starAction)
         #expect(unreadUnstarred.starActionSystemImage == "star")
 
-        #expect(readStarred.readActionTitle == "Unread")
+        #expect(readStarred.readActionTitle == ReadingLocalization.unreadAction)
         #expect(readStarred.readActionSystemImage == "circle.slash")
-        #expect(readStarred.starActionTitle == "Unstar")
+        #expect(readStarred.starActionTitle == ReadingLocalization.unstarAction)
         #expect(readStarred.starActionSystemImage == "star.slash")
     }
 
@@ -71,16 +71,16 @@ struct ArticlesScreenPresentationTests {
             )
         )
 
-        #expect(content.titleText == "Untitled Article")
+        #expect(content.titleText == ReadingLocalization.untitledArticleTitle)
         #expect(content.previewText == nil)
     }
 
     @Test
     func articlesScreenNavigationTitleResolverBuildsTitlesFromSidebarSelection() {
-        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: nil) == "Articles")
-        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .inbox) == "All Items")
-        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .unread) == "Unread")
-        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .starred) == "Starred")
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: nil) == ReadingLocalization.articlesTitle)
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .inbox) == ReadingLocalization.allItemsTitle)
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .unread) == ReadingLocalization.unreadTitle)
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .starred) == ReadingLocalization.starredTitle)
         #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .folder("Tech")) == "Tech")
         #expect(
             ArticlesScreenNavigationTitleResolver.resolve(
@@ -88,7 +88,7 @@ struct ArticlesScreenPresentationTests {
                 selectedFeedTitle: "The Verge"
             ) == "The Verge"
         )
-        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .feed(UUID())) == "Source")
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .feed(UUID())) == ReadingLocalization.sourceFallbackTitle)
     }
 
     @Test
@@ -102,19 +102,19 @@ struct ArticlesScreenPresentationTests {
             ArticlesScreenSubtitleResolver.resolve(
                 articles: articles,
                 sourcesFilter: .allItems
-            ) == "2 Unread Items"
+            ) == ReadingLocalization.unreadItemsSubtitle(count: 2)
         )
         #expect(
             ArticlesScreenSubtitleResolver.resolve(
                 articles: articles,
                 sourcesFilter: .unread
-            ) == "2 Unread Items"
+            ) == ReadingLocalization.unreadItemsSubtitle(count: 2)
         )
         #expect(
             ArticlesScreenSubtitleResolver.resolve(
                 articles: articles,
                 sourcesFilter: .starred
-            ) == "2 Starred Items"
+            ) == ReadingLocalization.starredItemsSubtitle(count: 2)
         )
     }
 
@@ -126,19 +126,19 @@ struct ArticlesScreenPresentationTests {
             ArticlesScreenSubtitleResolver.resolve(
                 articles: [],
                 sourcesFilter: .allItems
-            ) == "No Unread Items"
+            ) == ReadingLocalization.noUnreadItemsSubtitle
         )
         #expect(
             ArticlesScreenSubtitleResolver.resolve(
                 articles: [readItem],
                 sourcesFilter: .unread
-            ) == "No Unread Items"
+            ) == ReadingLocalization.noUnreadItemsSubtitle
         )
         #expect(
             ArticlesScreenSubtitleResolver.resolve(
                 articles: [],
                 sourcesFilter: .starred
-            ) == "0 Starred Items"
+            ) == ReadingLocalization.starredItemsSubtitle(count: 0)
         )
     }
 
@@ -265,8 +265,8 @@ struct ArticlesScreenPresentationTests {
         let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
         let older = calendar.date(byAdding: .day, value: -2, to: today) ?? today
 
-        #expect(ArticlesDaySectionsBuilder.title(for: today, calendar: calendar) == "Today")
-        #expect(ArticlesDaySectionsBuilder.title(for: yesterday, calendar: calendar) == "Yesterday")
+        #expect(ArticlesDaySectionsBuilder.title(for: today, calendar: calendar) == ReadingLocalization.todaySectionTitle)
+        #expect(ArticlesDaySectionsBuilder.title(for: yesterday, calendar: calendar) == ReadingLocalization.yesterdaySectionTitle)
         #expect(
             ArticlesDaySectionsBuilder.title(for: older, calendar: calendar)
             == older.formatted(

@@ -35,7 +35,7 @@ struct ArticleScreenContentHeaderTests {
         )
 
         #expect(content.header.publishedAtText == nil)
-        #expect(content.header.title == "Untitled Article")
+        #expect(content.header.title == ReadingLocalization.untitledArticleTitle)
         #expect(content.header.author == nil)
         #expect(content.header.feedTitle == nil)
     }

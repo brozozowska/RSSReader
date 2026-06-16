@@ -8,18 +8,18 @@ enum SidebarLocalization {
     )
     static let title = String(
         localized: "sidebar.title",
-        defaultValue: "Sources",
-        comment: "Navigation title for the sources sidebar."
+        defaultValue: "Feeds",
+        comment: "Navigation title for the feeds sidebar."
     )
     static let addSourceAccessibilityLabel = String(
         localized: "sidebar.toolbar.addSource.accessibility",
-        defaultValue: "Add Source",
-        comment: "Accessibility label for the add source toolbar button."
+        defaultValue: "Add Feed",
+        comment: "Accessibility label for the add feed toolbar button."
     )
     static let filterSourcesAccessibilityLabel = String(
         localized: "sidebar.toolbar.filter.accessibility",
-        defaultValue: "Filter Sources",
-        comment: "Accessibility label for the source filter menu."
+        defaultValue: "Filter Feeds",
+        comment: "Accessibility label for the feed filter menu."
     )
     static let allItemsFilterTitle = String(
         localized: "sidebar.filter.allItems.title",
@@ -73,32 +73,32 @@ enum SidebarLocalization {
     )
     static let loadingTitle = String(
         localized: "sidebar.loading.title",
-        defaultValue: "Loading Sources",
-        comment: "Loading state title for the sources sidebar."
+        defaultValue: "Loading Feeds",
+        comment: "Loading state title for the feeds sidebar."
     )
     static let emptyTitle = String(
         localized: "sidebar.empty.title",
-        defaultValue: "No Sources",
-        comment: "Empty state title for the sources sidebar."
+        defaultValue: "No Feeds",
+        comment: "Empty state title for the feeds sidebar."
     )
     static let emptyDescription = String(
         localized: "sidebar.empty.description",
-        defaultValue: "Add a source to populate the Sources sidebar.",
-        comment: "Empty state description for the sources sidebar."
+        defaultValue: "Add a feed to populate the Feeds sidebar.",
+        comment: "Empty state description for the feeds sidebar."
     )
     static let loadFailureTitle = String(
         localized: "sidebar.loadFailure.title",
-        defaultValue: "Unable to Load Sources",
-        comment: "Failure state title for the sources sidebar."
+        defaultValue: "Unable to Load Feeds",
+        comment: "Failure state title for the feeds sidebar."
     )
     static let unavailablePreviewMessage = String(
         localized: "sidebar.preview.unavailable.message",
-        defaultValue: "Sources are unavailable in the current app environment.",
-        comment: "Preview failure message for unavailable sources."
+        defaultValue: "Feeds are unavailable in the current app environment.",
+        comment: "Preview failure message for unavailable feeds."
     )
     static let genericLoadFailureMessage = String(
         localized: "sidebar.loadFailure.genericMessage",
-        defaultValue: "Unable to load sources right now. Try again.",
-        comment: "Generic failure message shown when the sources sidebar cannot load sources."
+        defaultValue: "Unable to load feeds right now. Try again.",
+        comment: "Generic failure message shown when the feeds sidebar cannot load feeds."
     )
 }

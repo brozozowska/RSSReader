@@ -42,7 +42,7 @@ struct SettingsScreenControllerSourcePortabilityTests {
 
         let status = try #require(controller.screenState.opmlTransferStatus)
         let feed = try #require(try harness.feedRepository.fetchFeed(url: "https://swift.org/blog/feed.xml"))
-        #expect(status.title == "OPML Import Complete")
+        #expect(status.title == SettingsLocalization.opmlImportCompleteTitle)
         #expect(feed.displayTitle == "Swift Blog")
         #expect(feed.folder?.name == "Tech")
         #expect(appState.sourcesSidebarReloadID != sidebarReloadID)
@@ -84,8 +84,8 @@ struct SettingsScreenControllerSourcePortabilityTests {
 
         #expect(controller.screenState.opmlImportPreview == nil)
         #expect(controller.screenState.opmlTransferStatus == SettingsOPMLTransferStatusPresentation(
-            title: "OPML Import Failed",
-            message: "The selected file is not valid XML.",
+            title: SettingsLocalization.opmlImportFailedTitle,
+            message: SettingsLocalization.selectedFileInvalidXMLMessage,
             kind: .failure
         ))
     }
