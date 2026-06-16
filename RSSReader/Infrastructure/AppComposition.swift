@@ -113,7 +113,7 @@ struct AppRootContainer: View {
         do {
             let settings = try appSettingsService.fetchSettings()
             let restoredFilter = SidebarArticleFilterPersistencePolicy.restoredFilter(
-                from: settings.selectedSourcesFilterRawValue
+                from: settings.selectedSidebarArticleFilterRawValue
             )
 
             if appState.selectedSidebarArticleFilter != restoredFilter {
@@ -129,7 +129,7 @@ struct AppRootContainer: View {
                 to: appState
             )
 
-            if settings.selectedSourcesFilterRawValue != restoredFilter.rawValue {
+            if settings.selectedSidebarArticleFilterRawValue != restoredFilter.rawValue {
                 _ = try appSettingsService.updateSettings(
                     SidebarArticleFilterPersistencePolicy.makeSettingsPatch(for: restoredFilter)
                 )
@@ -165,7 +165,7 @@ enum SidebarArticleFilterPersistencePolicy {
 
     static func makeSettingsPatch(for filter: SidebarArticleFilter, updatedAt: Date = .now) -> AppSettingsPatch {
         AppSettingsPatch(
-            selectedSourcesFilterRawValue: filter.rawValue,
+            selectedSidebarArticleFilterRawValue: filter.rawValue,
             updatedAt: updatedAt
         )
     }

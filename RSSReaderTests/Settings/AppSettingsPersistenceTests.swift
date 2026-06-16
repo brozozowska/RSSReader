@@ -8,10 +8,10 @@ import Testing
 struct AppSettingsPersistenceTests {
     @Test
     func sidebarArticleFilterPersistencePolicyRestoresPersistedFilterFromSettingsRawValue() {
-        let settings = AppSettings(selectedSourcesFilterRawValue: SidebarArticleFilter.starred.rawValue)
+        let settings = AppSettings(selectedSidebarArticleFilterRawValue: SidebarArticleFilter.starred.rawValue)
 
         let restoredFilter = SidebarArticleFilterPersistencePolicy.restoredFilter(
-            from: settings.selectedSourcesFilterRawValue
+            from: settings.selectedSidebarArticleFilterRawValue
         )
 
         #expect(restoredFilter == .starred)
@@ -19,11 +19,11 @@ struct AppSettingsPersistenceTests {
 
     @Test
     func sidebarArticleFilterPersistencePolicyFallsBackToAllItemsWhenRawValueIsMissing() {
-        let settings = AppSettings(selectedSourcesFilterRawValue: nil)
+        let settings = AppSettings(selectedSidebarArticleFilterRawValue: nil)
 
         #expect(
             SidebarArticleFilterPersistencePolicy.restoredFilter(
-                from: settings.selectedSourcesFilterRawValue
+                from: settings.selectedSidebarArticleFilterRawValue
             ) == .allItems
         )
     }
@@ -39,15 +39,15 @@ struct AppSettingsPersistenceTests {
             updatedAt: .distantPast
         )
 
-        #expect(starredUpdate.selectedSourcesFilterRawValue == SidebarArticleFilter.starred.rawValue)
-        #expect(unreadUpdate.selectedSourcesFilterRawValue == SidebarArticleFilter.unread.rawValue)
+        #expect(starredUpdate.selectedSidebarArticleFilterRawValue == SidebarArticleFilter.starred.rawValue)
+        #expect(unreadUpdate.selectedSidebarArticleFilterRawValue == SidebarArticleFilter.unread.rawValue)
     }
 
     @Test
-    func appSettingsDefaultsUseSelectedSourcesFilterRawValueAsPersistedSidebarArticleFilterState() {
+    func appSettingsDefaultsUseSelectedSidebarArticleFilterRawValueAsPersistedSidebarArticleFilterState() {
         let settings = AppSettings()
 
-        #expect(settings.selectedSourcesFilterRawValue == SidebarArticleFilter.allItems.rawValue)
+        #expect(settings.selectedSidebarArticleFilterRawValue == SidebarArticleFilter.allItems.rawValue)
         #expect(settings.askBeforeMarkingAllAsRead)
         #expect(settings.unreadSortMode == .publishedAtDescending)
         #expect(settings.articleBodyLinkOpeningPolicy == .inAppBrowser)
@@ -58,20 +58,20 @@ struct AppSettingsPersistenceTests {
     }
 
     @Test
-    func appSettingsRepositoryPersistsSelectedSourcesFilterRawValue() throws {
+    func appSettingsRepositoryPersistsSelectedSidebarArticleFilterRawValue() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
 
         _ = try repository.update(
             AppSettingsUpdate(
-                selectedSourcesFilterRawValue: SidebarArticleFilter.starred.rawValue,
+                selectedSidebarArticleFilterRawValue: SidebarArticleFilter.starred.rawValue,
                 updatedAt: .distantPast
             )
         )
 
         let settings = try repository.fetchOrCreate()
 
-        #expect(settings.selectedSourcesFilterRawValue == SidebarArticleFilter.starred.rawValue)
+        #expect(settings.selectedSidebarArticleFilterRawValue == SidebarArticleFilter.starred.rawValue)
     }
 
     @Test
@@ -181,11 +181,11 @@ struct AppSettingsPersistenceTests {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let modelContext = harness.modelContainer.mainContext
         let olderSettings = AppSettings(
-            selectedSourcesFilterRawValue: SidebarArticleFilter.unread.rawValue,
+            selectedSidebarArticleFilterRawValue: SidebarArticleFilter.unread.rawValue,
             updatedAt: Date(timeIntervalSince1970: 100)
         )
         let newerSettings = AppSettings(
-            selectedSourcesFilterRawValue: SidebarArticleFilter.starred.rawValue,
+            selectedSidebarArticleFilterRawValue: SidebarArticleFilter.starred.rawValue,
             updatedAt: Date(timeIntervalSince1970: 200)
         )
 
@@ -197,7 +197,7 @@ struct AppSettingsPersistenceTests {
         let canonicalSettings = try repository.fetchOrCreate()
         let persistedSettings = try modelContext.fetch(FetchDescriptor<AppSettings>())
 
-        #expect(canonicalSettings.selectedSourcesFilterRawValue == SidebarArticleFilter.starred.rawValue)
+        #expect(canonicalSettings.selectedSidebarArticleFilterRawValue == SidebarArticleFilter.starred.rawValue)
         #expect(persistedSettings.count == 1)
         #expect(persistedSettings.first?.singletonKey == AppSettings.singletonKeyValue)
     }

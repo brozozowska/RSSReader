@@ -111,9 +111,9 @@ public final class AppState {
     private var articleListScrollPositionIDs: [ArticleListScrollPositionKey: UUID] = [:]
     var articleListReloadID = UUID()
     var sidebarReloadID = UUID()
-    var sourceIconReloadID = UUID()
-    var sourceIconCacheResetID = UUID()
-    private var sourceIconNetworkLoadFeedIDs: Set<UUID> = []
+    var feedIconReloadID = UUID()
+    var feedIconCacheResetID = UUID()
+    private var feedIconNetworkLoadFeedIDs: Set<UUID> = []
     var articleScreenReloadID = UUID()
     var articleReadOnOpenEvent: ArticleReadOnOpenEvent?
     var lastContentReloadTrigger: AppContentReloadTrigger?
@@ -256,20 +256,20 @@ public final class AppState {
         sidebarReloadID = UUID()
     }
 
-    func requestSourceIconReload() {
-        sourceIconReloadID = UUID()
+    func requestFeedIconReload() {
+        feedIconReloadID = UUID()
     }
 
-    func requestSourceIconNetworkLoad(for feedID: UUID) {
-        sourceIconNetworkLoadFeedIDs.insert(feedID)
+    func requestFeedIconNetworkLoad(for feedID: UUID) {
+        feedIconNetworkLoadFeedIDs.insert(feedID)
     }
 
-    func consumeSourceIconNetworkLoadRequest(for feedID: UUID) -> Bool {
-        sourceIconNetworkLoadFeedIDs.remove(feedID) != nil
+    func consumeFeedIconNetworkLoadRequest(for feedID: UUID) -> Bool {
+        feedIconNetworkLoadFeedIDs.remove(feedID) != nil
     }
 
-    func requestSourceIconCacheReset() {
-        sourceIconCacheResetID = UUID()
+    func requestFeedIconCacheReset() {
+        feedIconCacheResetID = UUID()
     }
 
     func requestArticleScreenReload() {

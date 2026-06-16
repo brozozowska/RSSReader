@@ -9,7 +9,7 @@ struct SettingsScreenStateTests {
     func settingsScreenStateBuildsLoadedViewStateFromSnapshot() {
         let snapshot = AppSettingsSnapshot(
             articleOpeningMode: .safariView,
-            selectedSourcesFilterRawValue: SidebarArticleFilter.starred.rawValue,
+            selectedSidebarArticleFilterRawValue: SidebarArticleFilter.starred.rawValue,
             refreshIntervalPreference: .hourly,
             useiCloudSync: true,
             markAsReadOnOpen: false,
@@ -37,14 +37,14 @@ struct SettingsScreenStateTests {
         #expect(state.settingsInput.articleRetentionPolicy == .twoDays)
         #expect(state.settingsInput.iCloudSyncStatus == .disabled)
         #expect(state.hasArticleImageCache == false)
-        #expect(state.hasSourceIconCache == false)
+        #expect(state.hasFeedIconCache == false)
         #expect(state.hasArchivedArticles == false)
     }
 
     @Test
-    func settingsScreenStateDoesNotTreatLastSourcesRefreshDateAsDraftChange() {
+    func settingsScreenStateDoesNotTreatLastFeedsRefreshDateAsDraftChange() {
         let snapshot = AppSettingsSnapshot(
-            lastSourcesRefreshAt: Date(timeIntervalSinceReferenceDate: 100)
+            lastFeedsRefreshAt: Date(timeIntervalSinceReferenceDate: 100)
         )
         var state = SettingsScreenState()
 

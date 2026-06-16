@@ -1480,7 +1480,7 @@
         }
       }
     },
-    "settings.alert.clearSourceIconCache.message" : {
+    "settings.alert.clearFeedIconCache.message" : {
       "comment" : "Confirmation alert message for clearing cached feed icons.",
       "localizations" : {
         "en" : {
@@ -1497,7 +1497,7 @@
         }
       }
     },
-    "settings.alert.clearSourceIconCache.title" : {
+    "settings.alert.clearFeedIconCache.title" : {
       "comment" : "Confirmation alert title for clearing cached feed icons.",
       "localizations" : {
         "en" : {
@@ -3061,7 +3061,7 @@
         }
       }
     },
-    "settings.storage.clearSourceIconCache.subtitle" : {
+    "settings.storage.clearFeedIconCache.subtitle" : {
       "comment" : "Button subtitle explaining feed icon cache cleanup.",
       "localizations" : {
         "en" : {
@@ -3078,7 +3078,7 @@
         }
       }
     },
-    "settings.storage.clearSourceIconCache.title" : {
+    "settings.storage.clearFeedIconCache.title" : {
       "comment" : "Button title for deleting cached feed icons.",
       "localizations" : {
         "en" : {

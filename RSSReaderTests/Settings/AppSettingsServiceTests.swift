@@ -14,7 +14,7 @@ struct AppSettingsServiceTests {
         _ = try repository.update(
             AppSettingsUpdate(
                 articleOpeningMode: .safariView,
-                selectedSourcesFilterRawValue: SidebarArticleFilter.starred.rawValue,
+                selectedSidebarArticleFilterRawValue: SidebarArticleFilter.starred.rawValue,
                 refreshIntervalPreference: .hourly,
                 useiCloudSync: true,
                 markAsReadOnOpen: false,
@@ -35,7 +35,7 @@ struct AppSettingsServiceTests {
         #expect(
             snapshot == AppSettingsSnapshot(
                 articleOpeningMode: .safariView,
-                selectedSourcesFilterRawValue: SidebarArticleFilter.starred.rawValue,
+                selectedSidebarArticleFilterRawValue: SidebarArticleFilter.starred.rawValue,
                 refreshIntervalPreference: .hourly,
                 useiCloudSync: true,
                 markAsReadOnOpen: false,
@@ -58,7 +58,7 @@ struct AppSettingsServiceTests {
         let service = try #require(harness.dependencies.appSettingsService)
         let editedSettings = AppSettingsSnapshot(
             articleOpeningMode: .safariView,
-            selectedSourcesFilterRawValue: SidebarArticleFilter.unread.rawValue,
+            selectedSidebarArticleFilterRawValue: SidebarArticleFilter.unread.rawValue,
             refreshIntervalPreference: .every6Hours,
             useiCloudSync: true,
             markAsReadOnOpen: false,
@@ -80,7 +80,7 @@ struct AppSettingsServiceTests {
 
         #expect(savedSnapshot == editedSettings)
         #expect(persistedSettings.articleOpeningMode == .safariView)
-        #expect(persistedSettings.selectedSourcesFilterRawValue == SidebarArticleFilter.unread.rawValue)
+        #expect(persistedSettings.selectedSidebarArticleFilterRawValue == SidebarArticleFilter.unread.rawValue)
         #expect(persistedSettings.refreshIntervalPreference == .every6Hours)
         #expect(persistedSettings.useiCloudSync)
         #expect(persistedSettings.markAsReadOnOpen == false)
@@ -174,14 +174,14 @@ struct AppSettingsServiceTests {
         case .executed(let refreshResult):
             #expect(refreshResult.trigger == .background)
             #expect(refreshResult.batchResult.results.isEmpty == true)
-            #expect(try service.fetchSettings().lastSourcesRefreshAt == nil)
+            #expect(try service.fetchSettings().lastFeedsRefreshAt == nil)
         case .skippedManual, .failedToStart:
             Issue.record("Expected executed background refresh result")
         }
     }
 
     @Test
-    func appDependenciesPersistsLastSourcesRefreshAfterManualAllSourcesRefresh() async throws {
+    func appDependenciesPersistsLastFeedsRefreshAfterManualAllFeedsRefresh() async throws {
         let feedURL = "https://example.com/manual-all-feed.xml"
         let harness = try TestHarness.make(
             httpClient: ScriptedHTTPClient(
@@ -213,7 +213,7 @@ struct AppSettingsServiceTests {
         let snapshot = try service.fetchSettings()
 
         #expect(result.summary.fetchedCount == 1)
-        #expect(snapshot.lastSourcesRefreshAt == result.finishedAt)
+        #expect(snapshot.lastFeedsRefreshAt == result.finishedAt)
     }
 
     @Test
@@ -279,7 +279,7 @@ struct AppSettingsServiceTests {
         #expect(executedResult.trigger == .background)
         #expect(executedResult.summary.totalFeedCount == 1)
         #expect(executedResult.summary.fetchedCount == 1)
-        #expect(try service.fetchSettings().lastSourcesRefreshAt == executedResult.batchResult.finishedAt)
+        #expect(try service.fetchSettings().lastFeedsRefreshAt == executedResult.batchResult.finishedAt)
         #expect(persistedArticles.count == 1)
         #expect(persistedArticles.first?.title == "Materialized In Shared Cache")
         #expect(inboxItems.count == 1)
@@ -289,21 +289,21 @@ struct AppSettingsServiceTests {
     }
 
     @Test
-    func appSettingsServiceUpdatesSelectedSourcesFilterRawValueThroughPatch() throws {
+    func appSettingsServiceUpdatesSelectedSidebarArticleFilterRawValueThroughPatch() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
         let service = try #require(harness.dependencies.appSettingsService)
 
         let updatedSnapshot = try service.updateSettings(
             AppSettingsPatch(
-                selectedSourcesFilterRawValue: SidebarArticleFilter.starred.rawValue,
+                selectedSidebarArticleFilterRawValue: SidebarArticleFilter.starred.rawValue,
                 updatedAt: .distantPast
             )
         )
         let persistedSettings = try repository.fetchOrCreate()
 
-        #expect(updatedSnapshot.selectedSourcesFilterRawValue == SidebarArticleFilter.starred.rawValue)
-        #expect(persistedSettings.selectedSourcesFilterRawValue == SidebarArticleFilter.starred.rawValue)
+        #expect(updatedSnapshot.selectedSidebarArticleFilterRawValue == SidebarArticleFilter.starred.rawValue)
+        #expect(persistedSettings.selectedSidebarArticleFilterRawValue == SidebarArticleFilter.starred.rawValue)
     }
 
     @Test

@@ -69,13 +69,13 @@ final class SettingsScreenController {
         }
     }
 
-    func refreshSourceIconCacheAvailability(dependencies: AppDependencies) async {
+    func refreshFeedIconCacheAvailability(dependencies: AppDependencies) async {
         do {
-            let hasCache = try await dependencies.sourceIconCache.hasCachedData()
-            screenState.applySourceIconCacheAvailability(hasCache)
+            let hasCache = try await dependencies.feedIconCache.hasCachedData()
+            screenState.applyFeedIconCacheAvailability(hasCache)
         } catch {
-            dependencies.logger.error("Failed to inspect source icon cache: \(error)")
-            screenState.applySourceIconCacheAvailability(false)
+            dependencies.logger.error("Failed to inspect feed icon cache: \(error)")
+            screenState.applyFeedIconCacheAvailability(false)
         }
     }
 
@@ -125,7 +125,7 @@ final class SettingsScreenController {
                 .exportOPML,
                 .purgeArchivedArticles,
                 .clearArticleImageCache,
-                .clearSourceIconCache:
+                .clearFeedIconCache:
             return
         }
     }
@@ -157,7 +157,7 @@ final class SettingsScreenController {
                 .exportOPML,
                 .purgeArchivedArticles,
                 .clearArticleImageCache,
-                .clearSourceIconCache:
+                .clearFeedIconCache:
             return
         }
     }
@@ -172,8 +172,8 @@ final class SettingsScreenController {
             purgeArchivedArticles(dependencies: dependencies, appState: appState)
         case .clearArticleImageCache:
             await clearArticleImageCache(dependencies: dependencies)
-        case .clearSourceIconCache:
-            await clearSourceIconCache(dependencies: dependencies, appState: appState)
+        case .clearFeedIconCache:
+            await clearFeedIconCache(dependencies: dependencies, appState: appState)
         case .importOPML,
                 .exportOPML:
             return

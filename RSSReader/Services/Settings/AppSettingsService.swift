@@ -2,7 +2,7 @@ import Foundation
 
 struct AppSettingsSnapshot: Equatable, Sendable {
     var articleOpeningMode: ArticleOpeningMode
-    var selectedSourcesFilterRawValue: String?
+    var selectedSidebarArticleFilterRawValue: String?
     var refreshIntervalPreference: RefreshPreference
     var useiCloudSync: Bool
     var markAsReadOnOpen: Bool
@@ -14,11 +14,11 @@ struct AppSettingsSnapshot: Equatable, Sendable {
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy
     var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode
     var interfaceThemeMode: InterfaceThemeMode
-    var lastSourcesRefreshAt: Date?
+    var lastFeedsRefreshAt: Date?
 
     init(
         articleOpeningMode: ArticleOpeningMode = .feedReader,
-        selectedSourcesFilterRawValue: String? = SidebarArticleFilter.allItems.rawValue,
+        selectedSidebarArticleFilterRawValue: String? = SidebarArticleFilter.allItems.rawValue,
         refreshIntervalPreference: RefreshPreference = .manual,
         useiCloudSync: Bool = false,
         markAsReadOnOpen: Bool = true,
@@ -30,10 +30,10 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
         readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls,
         interfaceThemeMode: InterfaceThemeMode = .automaticLightDark,
-        lastSourcesRefreshAt: Date? = nil
+        lastFeedsRefreshAt: Date? = nil
     ) {
         self.articleOpeningMode = articleOpeningMode
-        self.selectedSourcesFilterRawValue = selectedSourcesFilterRawValue
+        self.selectedSidebarArticleFilterRawValue = selectedSidebarArticleFilterRawValue
         self.refreshIntervalPreference = refreshIntervalPreference
         self.useiCloudSync = useiCloudSync
         self.markAsReadOnOpen = markAsReadOnOpen
@@ -45,13 +45,13 @@ struct AppSettingsSnapshot: Equatable, Sendable {
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
         self.readerAdjacentNavigationControlsMode = readerAdjacentNavigationControlsMode
         self.interfaceThemeMode = interfaceThemeMode
-        self.lastSourcesRefreshAt = lastSourcesRefreshAt
+        self.lastFeedsRefreshAt = lastFeedsRefreshAt
     }
 
     init(settings: AppSettings) {
         self.init(
             articleOpeningMode: settings.articleOpeningMode,
-            selectedSourcesFilterRawValue: settings.selectedSourcesFilterRawValue,
+            selectedSidebarArticleFilterRawValue: settings.selectedSidebarArticleFilterRawValue,
             refreshIntervalPreference: settings.refreshIntervalPreference,
             useiCloudSync: settings.useiCloudSync,
             markAsReadOnOpen: settings.markAsReadOnOpen,
@@ -63,14 +63,14 @@ struct AppSettingsSnapshot: Equatable, Sendable {
             articleSourceLinkOpeningPolicy: settings.articleSourceLinkOpeningPolicy,
             readerAdjacentNavigationControlsMode: settings.readerAdjacentNavigationControlsMode,
             interfaceThemeMode: settings.interfaceThemeMode,
-            lastSourcesRefreshAt: settings.lastSourcesRefreshAt
+            lastFeedsRefreshAt: settings.lastFeedsRefreshAt
         )
     }
 }
 
 struct AppSettingsPatch: Sendable {
     var articleOpeningMode: ArticleOpeningMode? = nil
-    var selectedSourcesFilterRawValue: String? = nil
+    var selectedSidebarArticleFilterRawValue: String? = nil
     var refreshIntervalPreference: RefreshPreference? = nil
     var useiCloudSync: Bool? = nil
     var markAsReadOnOpen: Bool? = nil
@@ -82,7 +82,7 @@ struct AppSettingsPatch: Sendable {
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
     var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode? = nil
     var interfaceThemeMode: InterfaceThemeMode? = nil
-    var lastSourcesRefreshAt: Date? = nil
+    var lastFeedsRefreshAt: Date? = nil
     var updatedAt: Date = .now
 }
 
@@ -120,7 +120,7 @@ final class DefaultAppSettingsService: AppSettingsService {
         let settings = try repository.update(
             AppSettingsUpdate(
                 articleOpeningMode: snapshot.articleOpeningMode,
-                selectedSourcesFilterRawValue: snapshot.selectedSourcesFilterRawValue,
+                selectedSidebarArticleFilterRawValue: snapshot.selectedSidebarArticleFilterRawValue,
                 refreshIntervalPreference: snapshot.refreshIntervalPreference,
                 useiCloudSync: snapshot.useiCloudSync,
                 markAsReadOnOpen: snapshot.markAsReadOnOpen,
@@ -132,7 +132,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 articleSourceLinkOpeningPolicy: snapshot.articleSourceLinkOpeningPolicy,
                 readerAdjacentNavigationControlsMode: snapshot.readerAdjacentNavigationControlsMode,
                 interfaceThemeMode: snapshot.interfaceThemeMode,
-                lastSourcesRefreshAt: snapshot.lastSourcesRefreshAt,
+                lastFeedsRefreshAt: snapshot.lastFeedsRefreshAt,
                 updatedAt: updatedAt
             )
         )
@@ -144,7 +144,7 @@ final class DefaultAppSettingsService: AppSettingsService {
         let settings = try repository.update(
             AppSettingsUpdate(
                 articleOpeningMode: patch.articleOpeningMode,
-                selectedSourcesFilterRawValue: patch.selectedSourcesFilterRawValue,
+                selectedSidebarArticleFilterRawValue: patch.selectedSidebarArticleFilterRawValue,
                 refreshIntervalPreference: patch.refreshIntervalPreference,
                 useiCloudSync: patch.useiCloudSync,
                 markAsReadOnOpen: patch.markAsReadOnOpen,
@@ -156,7 +156,7 @@ final class DefaultAppSettingsService: AppSettingsService {
                 articleSourceLinkOpeningPolicy: patch.articleSourceLinkOpeningPolicy,
                 readerAdjacentNavigationControlsMode: patch.readerAdjacentNavigationControlsMode,
                 interfaceThemeMode: patch.interfaceThemeMode,
-                lastSourcesRefreshAt: patch.lastSourcesRefreshAt,
+                lastFeedsRefreshAt: patch.lastFeedsRefreshAt,
                 updatedAt: patch.updatedAt
             )
         )

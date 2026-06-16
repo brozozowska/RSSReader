@@ -48,7 +48,7 @@ extension AppActionRouter {
         }
 
         let result = await feedRefreshService.refreshAllActiveFeeds()
-        recordSourcesRefreshIfNeeded(from: result)
+        recordFeedsRefreshIfNeeded(from: result)
         cleanupArchivedArticlesUsingCurrentSettings()
         await refreshUnreadAppIconBadgeCount()
         return result
@@ -111,7 +111,7 @@ extension AppActionRouter {
     func refreshVisibleFeeds(using appState: AppState) async -> FeedRefreshBatchResult? {
         let result = await refreshAllFeeds()
         if result != nil {
-            appState.requestSourceIconReload()
+            appState.requestFeedIconReload()
             appState.requestArticleListReload()
         }
         return result
@@ -128,7 +128,7 @@ extension AppActionRouter {
 
         let result = await backgroundRefreshService.performScheduledRefresh()
         if case .executed(let refreshResult) = result {
-            recordSourcesRefreshIfNeeded(from: refreshResult.batchResult)
+            recordFeedsRefreshIfNeeded(from: refreshResult.batchResult)
             cleanupPersistenceBoundedGrowth()
             await refreshUnreadAppIconBadgeCount()
         }
@@ -136,7 +136,7 @@ extension AppActionRouter {
     }
 
     @MainActor
-    private func recordSourcesRefreshIfNeeded(from result: FeedRefreshBatchResult) {
+    private func recordFeedsRefreshIfNeeded(from result: FeedRefreshBatchResult) {
         guard result.summary.fetchedCount + result.summary.notModifiedCount > 0 else {
             return
         }
@@ -144,12 +144,12 @@ extension AppActionRouter {
         do {
             _ = try appSettingsService?.updateSettings(
                 AppSettingsPatch(
-                    lastSourcesRefreshAt: result.finishedAt,
+                    lastFeedsRefreshAt: result.finishedAt,
                     updatedAt: result.finishedAt
                 )
             )
         } catch {
-            logger.error("Failed to persist sources refresh timestamp: \(error)")
+            logger.error("Failed to persist feeds refresh timestamp: \(error)")
         }
     }
 

@@ -257,7 +257,7 @@ struct SidebarPresentationTests {
     }
 
     @Test
-    func sourceIconCandidateBuilderParsesHTMLIconLinksInPriorityOrder() throws {
+    func feedIconCandidateBuilderParsesHTMLIconLinksInPriorityOrder() throws {
         let baseURL = try #require(URL(string: "https://example.com/"))
         let html = """
         <!doctype html>
@@ -272,7 +272,7 @@ struct SidebarPresentationTests {
         </html>
         """
 
-        let candidates = SourceIconCandidateBuilder.htmlIconCandidates(in: html, baseURL: baseURL)
+        let candidates = FeedIconCandidateBuilder.htmlIconCandidates(in: html, baseURL: baseURL)
             .map(\.absoluteString)
 
         #expect(candidates == [
@@ -283,10 +283,10 @@ struct SidebarPresentationTests {
     }
 
     @Test
-    func sourceIconCandidateBuilderBuildsCommonIconCandidatesFromOrigin() throws {
+    func feedIconCandidateBuilderBuildsCommonIconCandidatesFromOrigin() throws {
         let iconURL = try #require(URL(string: "https://example.com/news/favicon.ico"))
 
-        let candidates = SourceIconCandidateBuilder.commonIconCandidates(for: iconURL)
+        let candidates = FeedIconCandidateBuilder.commonIconCandidates(for: iconURL)
             .map(\.absoluteString)
 
         #expect(candidates == [
@@ -299,11 +299,11 @@ struct SidebarPresentationTests {
     }
 
     @Test
-    func sourceIconImagePolicyRejectsWideLogoImages() {
-        #expect(SourceIconImagePolicy.isSuitableIconSize(CGSize(width: 180, height: 180)))
-        #expect(SourceIconImagePolicy.isSuitableIconSize(CGSize(width: 64, height: 32)))
-        #expect(SourceIconImagePolicy.isSuitableIconSize(CGSize(width: 240, height: 40)) == false)
-        #expect(SourceIconImagePolicy.isSuitableIconSize(CGSize(width: 0, height: 0)) == false)
+    func feedIconImagePolicyRejectsWideLogoImages() {
+        #expect(FeedIconImagePolicy.isSuitableIconSize(CGSize(width: 180, height: 180)))
+        #expect(FeedIconImagePolicy.isSuitableIconSize(CGSize(width: 64, height: 32)))
+        #expect(FeedIconImagePolicy.isSuitableIconSize(CGSize(width: 240, height: 40)) == false)
+        #expect(FeedIconImagePolicy.isSuitableIconSize(CGSize(width: 0, height: 0)) == false)
     }
 
     @Test

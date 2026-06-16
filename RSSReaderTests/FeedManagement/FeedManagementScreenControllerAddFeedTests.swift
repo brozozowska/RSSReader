@@ -155,7 +155,7 @@ struct FeedManagementScreenControllerAddFeedTests {
         #expect(appState.selectedSidebarSelection == nil)
         #expect(appState.articleListReloadID == articleReloadIDBeforeCreation)
         #expect(appState.sidebarReloadID != sidebarReloadIDBeforeCreation)
-        #expect(appState.consumeSourceIconNetworkLoadRequest(for: persistedFeed.id))
+        #expect(appState.consumeFeedIconNetworkLoadRequest(for: persistedFeed.id))
         #expect(persistedFeed.lastFetchedAt == nil)
         #expect(persistedFeed.lastSuccessfulFetchAt == nil)
         #expect(articles.isEmpty)

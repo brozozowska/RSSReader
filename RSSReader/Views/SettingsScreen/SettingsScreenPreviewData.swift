@@ -40,7 +40,7 @@ private struct SettingsScreenPreviewContainer: View {
 private enum SettingsScreenPreviewFactory {
     static let loadedSnapshot = AppSettingsSnapshot(
         articleOpeningMode: .safariView,
-        selectedSourcesFilterRawValue: SidebarArticleFilter.starred.rawValue,
+        selectedSidebarArticleFilterRawValue: SidebarArticleFilter.starred.rawValue,
         refreshIntervalPreference: .hourly,
         useiCloudSync: true,
         markAsReadOnOpen: false,

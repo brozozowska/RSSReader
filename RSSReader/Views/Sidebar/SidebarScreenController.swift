@@ -41,7 +41,7 @@ final class SidebarScreenController {
 
         do {
             let snapshot = try sidebarQueryService.fetchSnapshot()
-            let effectiveRefreshedAt = refreshedAt ?? lastSourcesRefreshAt(dependencies: dependencies)
+            let effectiveRefreshedAt = refreshedAt ?? lastFeedsRefreshAt(dependencies: dependencies)
             screenState.applyLoadedSnapshot(snapshot, refreshedAt: effectiveRefreshedAt)
             syncExpandedFolderNames(filter: filter)
             return resolvedSelection(currentSelection: currentSelection, filter: filter)
@@ -81,11 +81,11 @@ final class SidebarScreenController {
         return adjustedSelection
     }
 
-    private func lastSourcesRefreshAt(dependencies: AppDependencies) -> Date? {
+    private func lastFeedsRefreshAt(dependencies: AppDependencies) -> Date? {
         do {
-            return try dependencies.appSettingsService?.fetchSettings().lastSourcesRefreshAt
+            return try dependencies.appSettingsService?.fetchSettings().lastFeedsRefreshAt
         } catch {
-            dependencies.logger.error("Failed to load last sources refresh timestamp: \(error)")
+            dependencies.logger.error("Failed to load last feeds refresh timestamp: \(error)")
             return nil
         }
     }

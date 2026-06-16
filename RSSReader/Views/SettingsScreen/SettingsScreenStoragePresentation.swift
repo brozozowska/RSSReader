@@ -1,7 +1,7 @@
 extension SettingsScreenPresentationBuilder {
     static func storageSection(
         hasArticleImageCache: Bool,
-        hasSourceIconCache: Bool,
+        hasFeedIconCache: Bool,
         hasArchivedArticles: Bool
     ) -> SettingsScreenSectionPresentation {
         SettingsScreenSectionPresentation(
@@ -31,12 +31,12 @@ extension SettingsScreenPresentationBuilder {
                 ),
                 .button(
                     SettingsButtonItemPresentation(
-                        id: .clearSourceIconCache,
-                        title: SettingsLocalization.clearSourceIconCacheTitle,
-                        subtitle: SettingsLocalization.clearSourceIconCacheSubtitle,
+                        id: .clearFeedIconCache,
+                        title: SettingsLocalization.clearFeedIconCacheTitle,
+                        subtitle: SettingsLocalization.clearFeedIconCacheSubtitle,
                         systemImage: "newspaper",
                         role: .destructive,
-                        isEnabled: hasSourceIconCache
+                        isEnabled: hasFeedIconCache
                     )
                 )
             ]

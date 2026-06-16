@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-struct SourceIconView: View {
+struct FeedIconView: View {
     @Environment(\.appDependencies) private var dependencies
     @Environment(AppState.self) private var appState
     let feedID: UUID
@@ -23,15 +23,15 @@ struct SourceIconView: View {
         .frame(width: 20, height: 20)
         .clipShape(RoundedRectangle(cornerRadius: 5))
         .task(id: cacheOnlyLoadID) {
-            let allowsNetworkDiscovery = appState.consumeSourceIconNetworkLoadRequest(for: feedID)
+            let allowsNetworkDiscovery = appState.consumeFeedIconNetworkLoadRequest(for: feedID)
             await loadIcon(allowsNetworkDiscovery: allowsNetworkDiscovery)
         }
-        .onChange(of: appState.sourceIconReloadID) { _, _ in
+        .onChange(of: appState.feedIconReloadID) { _, _ in
             Task {
                 await loadIcon(allowsNetworkDiscovery: true)
             }
         }
-        .onChange(of: appState.sourceIconCacheResetID) { _, _ in
+        .onChange(of: appState.feedIconCacheResetID) { _, _ in
             loadTask?.cancel()
             loadTask = nil
             iconImage = nil
@@ -42,8 +42,8 @@ struct SourceIconView: View {
         }
     }
 
-    private var cacheOnlyLoadID: SourceIconCacheOnlyLoadID {
-        SourceIconCacheOnlyLoadID(
+    private var cacheOnlyLoadID: FeedIconCacheOnlyLoadID {
+        FeedIconCacheOnlyLoadID(
             siteURL: siteURL,
             iconURL: iconURL,
             sidebarReloadID: appState.sidebarReloadID
@@ -85,14 +85,14 @@ struct SourceIconView: View {
             }
 
             let fallbackOriginURL = resolvedSiteURL
-                .flatMap(SourceIconCandidateBuilder.originURL(for:))
-                ?? SourceIconCandidateBuilder.originURL(for: resolvedURL)
+                .flatMap(FeedIconCandidateBuilder.originURL(for:))
+                ?? FeedIconCandidateBuilder.originURL(for: resolvedURL)
 
             if allowsNetworkDiscovery,
                let originURL = fallbackOriginURL,
                let html = await fetchSourceHomeHTML(from: originURL),
                await loadFirstAvailableIcon(
-                from: SourceIconCandidateBuilder.htmlIconCandidates(in: html, baseURL: originURL),
+                from: FeedIconCandidateBuilder.htmlIconCandidates(in: html, baseURL: originURL),
                 allowsNetworkDiscovery: true,
                 cacheAliasURL: resolvedURL
                ) {
@@ -100,7 +100,7 @@ struct SourceIconView: View {
             }
 
             _ = await loadFirstAvailableIcon(
-                from: SourceIconCandidateBuilder.commonIconCandidates(for: fallbackOriginURL ?? resolvedURL),
+                from: FeedIconCandidateBuilder.commonIconCandidates(for: fallbackOriginURL ?? resolvedURL),
                 allowsNetworkDiscovery: allowsNetworkDiscovery,
                 cacheAliasURL: allowsNetworkDiscovery ? resolvedURL : nil
             )
@@ -119,22 +119,22 @@ struct SourceIconView: View {
             do {
                 let data: Data?
                 if allowsNetworkDiscovery {
-                    data = try await dependencies.sourceIconCache.imageData(for: iconURL)
+                    data = try await dependencies.feedIconCache.imageData(for: iconURL)
                 } else {
-                    data = try await dependencies.sourceIconCache.cachedImageData(for: iconURL)
+                    data = try await dependencies.feedIconCache.cachedImageData(for: iconURL)
                 }
                 try Task.checkCancellation()
 
                 guard let data,
                       let uiImage = UIImage(data: data),
-                      SourceIconImagePolicy.isSuitableIconSize(uiImage.size) else {
+                      FeedIconImagePolicy.isSuitableIconSize(uiImage.size) else {
                     continue
                 }
 
                 if allowsNetworkDiscovery,
                    let cacheAliasURL,
                    cacheAliasURL != iconURL {
-                    try await dependencies.sourceIconCache.storeImageData(data, for: cacheAliasURL)
+                    try await dependencies.feedIconCache.storeImageData(data, for: cacheAliasURL)
                 }
 
                 await MainActor.run {
@@ -145,7 +145,7 @@ struct SourceIconView: View {
                 return true
             } catch {
                 dependencies.logger.debug(
-                    "Failed to load source icon for \(iconURL.absoluteString): \(String(describing: error))"
+                    "Failed to load feed icon for \(iconURL.absoluteString): \(String(describing: error))"
                 )
             }
         }
@@ -160,7 +160,7 @@ struct SourceIconView: View {
                     url: url,
                     headers: [
                         "Accept": "text/html, application/xhtml+xml;q=0.9, */*;q=0.1",
-                        "User-Agent": "RSSReader/0 (Source Icon Discovery)"
+                        "User-Agent": "RSSReader/0 (Feed Icon Discovery)"
                     ],
                     timeoutInterval: 8
                 )
@@ -176,13 +176,13 @@ struct SourceIconView: View {
     }
 }
 
-private struct SourceIconCacheOnlyLoadID: Hashable {
+private struct FeedIconCacheOnlyLoadID: Hashable {
     let siteURL: String?
     let iconURL: String?
     let sidebarReloadID: UUID
 }
 
-enum SourceIconCandidateBuilder {
+enum FeedIconCandidateBuilder {
     static func originURL(for url: URL) -> URL? {
         guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               components.scheme != nil,
@@ -219,7 +219,7 @@ enum SourceIconCandidateBuilder {
         }
 
         let nsRange = NSRange(html.startIndex..<html.endIndex, in: html)
-        let candidates = linkTagExpression.matches(in: html, range: nsRange).compactMap { match -> SourceIconCandidate? in
+        let candidates = linkTagExpression.matches(in: html, range: nsRange).compactMap { match -> FeedIconCandidate? in
             guard let tagRange = Range(match.range, in: html) else { return nil }
             let attributes = linkTagAttributes(in: String(html[tagRange]))
             guard let href = attributes["href"],
@@ -230,7 +230,7 @@ enum SourceIconCandidateBuilder {
                 return nil
             }
 
-            return SourceIconCandidate(url: url, priority: priority)
+            return FeedIconCandidate(url: url, priority: priority)
         }
 
         return deduplicated(
@@ -244,7 +244,7 @@ enum SourceIconCandidateBuilder {
         )
     }
 
-    private struct SourceIconCandidate {
+    private struct FeedIconCandidate {
         let url: URL
         let priority: Int
     }
@@ -312,7 +312,7 @@ enum SourceIconCandidateBuilder {
     }
 }
 
-enum SourceIconImagePolicy {
+enum FeedIconImagePolicy {
     static func isSuitableIconSize(_ size: CGSize) -> Bool {
         guard size.width > 0, size.height > 0 else { return false }
 

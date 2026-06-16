@@ -2,15 +2,15 @@ import Foundation
 import Testing
 @testable import RSSReader
 
-@Suite("Feeds / Source Icon Cache")
+@Suite("Feeds / Feed Icon Cache")
 @MainActor
-struct SourceIconCacheServiceTests {
+struct FeedIconCacheServiceTests {
     @Test
-    func sourceIconCacheReturnsCachedDataWithoutSecondNetworkRequest() async throws {
+    func feedIconCacheReturnsCachedDataWithoutSecondNetworkRequest() async throws {
         let iconURL = try #require(URL(string: "https://example.com/favicon.ico"))
         let directoryURL = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directoryURL) }
-        let diskCache = SourceIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
+        let diskCache = FeedIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
         let httpClient = ScriptedHTTPClient(
             responsesByURL: [
                 iconURL.absoluteString: .response(
@@ -20,7 +20,7 @@ struct SourceIconCacheServiceTests {
                 )
             ]
         )
-        let service = SourceIconCacheService(httpClient: httpClient, diskCache: diskCache)
+        let service = FeedIconCacheService(httpClient: httpClient, diskCache: diskCache)
 
         let firstLoad = try await service.imageData(for: iconURL)
         let secondLoad = try await service.imageData(for: iconURL)
@@ -33,11 +33,11 @@ struct SourceIconCacheServiceTests {
     }
 
     @Test
-    func sourceIconCacheSharesInFlightRequestBetweenConcurrentConsumers() async throws {
+    func feedIconCacheSharesInFlightRequestBetweenConcurrentConsumers() async throws {
         let iconURL = try #require(URL(string: "https://example.com/favicon.ico"))
         let directoryURL = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directoryURL) }
-        let diskCache = SourceIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
+        let diskCache = FeedIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
         let httpClient = ScriptedHTTPClient(
             responsesByURL: [
                 iconURL.absoluteString: .delayedResponse(
@@ -48,7 +48,7 @@ struct SourceIconCacheServiceTests {
                 )
             ]
         )
-        let service = SourceIconCacheService(httpClient: httpClient, diskCache: diskCache)
+        let service = FeedIconCacheService(httpClient: httpClient, diskCache: diskCache)
 
         async let firstLoad = service.imageData(for: iconURL)
         async let secondLoad = service.imageData(for: iconURL)
@@ -62,11 +62,11 @@ struct SourceIconCacheServiceTests {
     }
 
     @Test
-    func sourceIconCacheRestoresDataFromDiskWithoutNetworkAfterRelaunch() async throws {
+    func feedIconCacheRestoresDataFromDiskWithoutNetworkAfterRelaunch() async throws {
         let iconURL = try #require(URL(string: "https://example.com/apple-touch-icon.png"))
         let directoryURL = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directoryURL) }
-        let diskCache = SourceIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
+        let diskCache = FeedIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
         let firstHTTPClient = ScriptedHTTPClient(
             responsesByURL: [
                 iconURL.absoluteString: .response(
@@ -76,13 +76,13 @@ struct SourceIconCacheServiceTests {
                 )
             ]
         )
-        let firstService = SourceIconCacheService(httpClient: firstHTTPClient, diskCache: diskCache)
+        let firstService = FeedIconCacheService(httpClient: firstHTTPClient, diskCache: diskCache)
 
         let firstLoad = try await firstService.imageData(for: iconURL)
 
         let secondHTTPClient = ScriptedHTTPClient()
-        let restoredDiskCache = SourceIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
-        let restoredService = SourceIconCacheService(httpClient: secondHTTPClient, diskCache: restoredDiskCache)
+        let restoredDiskCache = FeedIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
+        let restoredService = FeedIconCacheService(httpClient: secondHTTPClient, diskCache: restoredDiskCache)
         let restoredLoad = try await restoredService.imageData(for: iconURL)
         let secondRequests = await secondHTTPClient.recordedRequests()
 
@@ -93,11 +93,11 @@ struct SourceIconCacheServiceTests {
     }
 
     @Test
-    func sourceIconCacheOnlyLookupDoesNotStartNetworkRequestForMissingIcon() async throws {
+    func feedIconCacheOnlyLookupDoesNotStartNetworkRequestForMissingIcon() async throws {
         let iconURL = try #require(URL(string: "https://example.com/favicon.ico"))
         let directoryURL = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directoryURL) }
-        let diskCache = SourceIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
+        let diskCache = FeedIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
         let httpClient = ScriptedHTTPClient(
             responsesByURL: [
                 iconURL.absoluteString: .response(
@@ -107,7 +107,7 @@ struct SourceIconCacheServiceTests {
                 )
             ]
         )
-        let service = SourceIconCacheService(httpClient: httpClient, diskCache: diskCache)
+        let service = FeedIconCacheService(httpClient: httpClient, diskCache: diskCache)
 
         let cachedData = try await service.cachedImageData(for: iconURL)
         let requests = await httpClient.recordedRequests()
@@ -117,12 +117,12 @@ struct SourceIconCacheServiceTests {
     }
 
     @Test
-    func sourceIconCacheStoresDownloadedDataUnderAliasURL() async throws {
+    func feedIconCacheStoresDownloadedDataUnderAliasURL() async throws {
         let discoveredIconURL = try #require(URL(string: "https://example.com/assets/apple-touch-icon.png"))
         let stableIconURL = try #require(URL(string: "https://example.com/favicon.ico"))
         let directoryURL = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directoryURL) }
-        let diskCache = SourceIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
+        let diskCache = FeedIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
         let httpClient = ScriptedHTTPClient(
             responsesByURL: [
                 discoveredIconURL.absoluteString: .response(
@@ -132,13 +132,13 @@ struct SourceIconCacheServiceTests {
                 )
             ]
         )
-        let service = SourceIconCacheService(httpClient: httpClient, diskCache: diskCache)
+        let service = FeedIconCacheService(httpClient: httpClient, diskCache: diskCache)
 
         let downloadedData = try await service.imageData(for: discoveredIconURL)
         try await service.storeImageData(downloadedData, for: stableIconURL)
 
-        let restoredDiskCache = SourceIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
-        let restoredService = SourceIconCacheService(
+        let restoredDiskCache = FeedIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
+        let restoredService = FeedIconCacheService(
             httpClient: ScriptedHTTPClient(),
             diskCache: restoredDiskCache
         )
@@ -148,11 +148,11 @@ struct SourceIconCacheServiceTests {
     }
 
     @Test
-    func sourceIconCacheClearRemovesMemoryAndDiskData() async throws {
+    func feedIconCacheClearRemovesMemoryAndDiskData() async throws {
         let iconURL = try #require(URL(string: "https://example.com/favicon.ico"))
         let directoryURL = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directoryURL) }
-        let diskCache = SourceIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
+        let diskCache = FeedIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
         let httpClient = ScriptedHTTPClient(
             responsesByURL: [
                 iconURL.absoluteString: .response(
@@ -162,7 +162,7 @@ struct SourceIconCacheServiceTests {
                 )
             ]
         )
-        let service = SourceIconCacheService(httpClient: httpClient, diskCache: diskCache)
+        let service = FeedIconCacheService(httpClient: httpClient, diskCache: diskCache)
 
         _ = try await service.imageData(for: iconURL)
         try await service.removeAllCachedData()

@@ -6,10 +6,10 @@ import Testing
 @MainActor
 struct SidebarSelectionFlowTests {
     @Test
-    func sidebarControllerLoadsPersistedLastSourcesRefreshTimestampWithoutRewritingIt() async throws {
+    func sidebarControllerLoadsPersistedLastFeedsRefreshTimestampWithoutRewritingIt() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
-        let lastSourcesRefreshAt = try #require(Calendar.current.date(from: DateComponents(
+        let lastFeedsRefreshAt = try #require(Calendar.current.date(from: DateComponents(
             year: 2026,
             month: 5,
             day: 24,
@@ -18,7 +18,7 @@ struct SidebarSelectionFlowTests {
         )))
         _ = try repository.update(
             AppSettingsUpdate(
-                lastSourcesRefreshAt: lastSourcesRefreshAt,
+                lastFeedsRefreshAt: lastFeedsRefreshAt,
                 updatedAt: .distantPast
             )
         )
@@ -34,8 +34,8 @@ struct SidebarSelectionFlowTests {
 
         let persistedSettings = try repository.fetchOrCreate()
 
-        #expect(controller.screenState.refreshStatus == .idle(lastUpdatedAt: lastSourcesRefreshAt))
-        #expect(persistedSettings.lastSourcesRefreshAt == lastSourcesRefreshAt)
+        #expect(controller.screenState.refreshStatus == .idle(lastUpdatedAt: lastFeedsRefreshAt))
+        #expect(persistedSettings.lastFeedsRefreshAt == lastFeedsRefreshAt)
     }
 
     @Test

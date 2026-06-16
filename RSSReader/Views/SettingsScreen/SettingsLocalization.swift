@@ -255,13 +255,13 @@ enum SettingsLocalization {
         defaultValue: "Remove article images saved on this device.",
         comment: "Button subtitle explaining article image cache cleanup."
     )
-    static let clearSourceIconCacheTitle = String(
-        localized: "settings.storage.clearSourceIconCache.title",
+    static let clearFeedIconCacheTitle = String(
+        localized: "settings.storage.clearFeedIconCache.title",
         defaultValue: "Clear Feed Icon Cache",
         comment: "Button title for deleting cached feed icons."
     )
-    static let clearSourceIconCacheSubtitle = String(
-        localized: "settings.storage.clearSourceIconCache.subtitle",
+    static let clearFeedIconCacheSubtitle = String(
+        localized: "settings.storage.clearFeedIconCache.subtitle",
         defaultValue: "Remove feed icons saved on this device.",
         comment: "Button subtitle explaining feed icon cache cleanup."
     )
@@ -580,13 +580,13 @@ enum SettingsLocalization {
         defaultValue: "This removes article images saved on this device. Images can be downloaded again when articles are opened.",
         comment: "Confirmation alert message for clearing cached article images."
     )
-    static let clearSourceIconCacheAlertTitle = String(
-        localized: "settings.alert.clearSourceIconCache.title",
+    static let clearFeedIconCacheAlertTitle = String(
+        localized: "settings.alert.clearFeedIconCache.title",
         defaultValue: "Clear feed icon cache?",
         comment: "Confirmation alert title for clearing cached feed icons."
     )
-    static let clearSourceIconCacheAlertMessage = String(
-        localized: "settings.alert.clearSourceIconCache.message",
+    static let clearFeedIconCacheAlertMessage = String(
+        localized: "settings.alert.clearFeedIconCache.message",
         defaultValue: "This removes feed icons saved on this device. Icons can be discovered and downloaded again during refresh or when the sidebar is shown.",
         comment: "Confirmation alert message for clearing cached feed icons."
     )

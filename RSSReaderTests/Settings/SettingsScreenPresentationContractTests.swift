@@ -9,7 +9,7 @@ struct SettingsScreenPresentationContractTests {
     func settingsScreenPresentationBuilderBuildsSectionedContractFromSettingsSnapshot() {
         let snapshot = AppSettingsSnapshot(
             articleOpeningMode: .safariView,
-            selectedSourcesFilterRawValue: SidebarArticleFilter.starred.rawValue,
+            selectedSidebarArticleFilterRawValue: SidebarArticleFilter.starred.rawValue,
             refreshIntervalPreference: .daily,
             useiCloudSync: true,
             markAsReadOnOpen: false,
@@ -266,9 +266,9 @@ struct SettingsScreenPresentationContractTests {
                 ),
                 .button(
                     SettingsButtonItemPresentation(
-                        id: .clearSourceIconCache,
-                        title: SettingsLocalization.clearSourceIconCacheTitle,
-                        subtitle: SettingsLocalization.clearSourceIconCacheSubtitle,
+                        id: .clearFeedIconCache,
+                        title: SettingsLocalization.clearFeedIconCacheTitle,
+                        subtitle: SettingsLocalization.clearFeedIconCacheSubtitle,
                         systemImage: "newspaper",
                         role: .destructive,
                         isEnabled: false
@@ -307,7 +307,7 @@ struct SettingsScreenPresentationContractTests {
     func settingsScreenInputBuilderNormalizesSnapshotIntoScreenSpecificInput() {
         let snapshot = AppSettingsSnapshot(
             articleOpeningMode: .feedReader,
-            selectedSourcesFilterRawValue: SidebarArticleFilter.starred.rawValue,
+            selectedSidebarArticleFilterRawValue: SidebarArticleFilter.starred.rawValue,
             refreshIntervalPreference: .every6Hours,
             useiCloudSync: true,
             markAsReadOnOpen: false,

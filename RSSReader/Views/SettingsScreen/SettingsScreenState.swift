@@ -13,7 +13,7 @@ struct SettingsScreenState {
     private(set) var iCloudSyncStatus: ICloudSyncStatus = .disabled
     private(set) var syncStatusPresentation: SettingsSyncStatusPresentation = .disabled
     private(set) var hasArticleImageCache = false
-    private(set) var hasSourceIconCache = false
+    private(set) var hasFeedIconCache = false
     private(set) var hasArchivedArticles = false
     private(set) var opmlImportPreview: SettingsOPMLImportPreviewPresentation?
     private(set) var opmlTransferStatus: SettingsOPMLTransferStatusPresentation?
@@ -49,7 +49,7 @@ struct SettingsScreenState {
         sections = SettingsScreenPresentationBuilder.buildSections(
             from: input,
             hasArticleImageCache: hasArticleImageCache,
-            hasSourceIconCache: hasSourceIconCache,
+            hasFeedIconCache: hasFeedIconCache,
             hasArchivedArticles: hasArchivedArticles
         )
         phase = .loaded
@@ -62,7 +62,7 @@ struct SettingsScreenState {
         sections = SettingsScreenPresentationBuilder.buildSections(
             from: input,
             hasArticleImageCache: hasArticleImageCache,
-            hasSourceIconCache: hasSourceIconCache,
+            hasFeedIconCache: hasFeedIconCache,
             hasArchivedArticles: hasArchivedArticles
         )
     }
@@ -72,17 +72,17 @@ struct SettingsScreenState {
         sections = SettingsScreenPresentationBuilder.buildSections(
             from: settingsInput,
             hasArticleImageCache: hasArticleImageCache,
-            hasSourceIconCache: hasSourceIconCache,
+            hasFeedIconCache: hasFeedIconCache,
             hasArchivedArticles: hasArchivedArticles
         )
     }
 
-    mutating func applySourceIconCacheAvailability(_ hasCache: Bool) {
-        hasSourceIconCache = hasCache
+    mutating func applyFeedIconCacheAvailability(_ hasCache: Bool) {
+        hasFeedIconCache = hasCache
         sections = SettingsScreenPresentationBuilder.buildSections(
             from: settingsInput,
             hasArticleImageCache: hasArticleImageCache,
-            hasSourceIconCache: hasSourceIconCache,
+            hasFeedIconCache: hasFeedIconCache,
             hasArchivedArticles: hasArchivedArticles
         )
     }
@@ -92,7 +92,7 @@ struct SettingsScreenState {
         sections = SettingsScreenPresentationBuilder.buildSections(
             from: settingsInput,
             hasArticleImageCache: hasArticleImageCache,
-            hasSourceIconCache: hasSourceIconCache,
+            hasFeedIconCache: hasFeedIconCache,
             hasArchivedArticles: self.hasArchivedArticles
         )
     }
@@ -179,7 +179,7 @@ private extension SettingsScreenState {
     var draftSnapshot: AppSettingsSnapshot {
         AppSettingsSnapshot(
             articleOpeningMode: settingsInput.articleOpeningMode,
-            selectedSourcesFilterRawValue: settingsSnapshot.selectedSourcesFilterRawValue,
+            selectedSidebarArticleFilterRawValue: settingsSnapshot.selectedSidebarArticleFilterRawValue,
             refreshIntervalPreference: settingsInput.refreshIntervalPreference,
             useiCloudSync: settingsInput.useiCloudSync,
             markAsReadOnOpen: settingsInput.markAsReadOnOpen,
@@ -191,7 +191,7 @@ private extension SettingsScreenState {
             articleSourceLinkOpeningPolicy: settingsInput.articleSourceLinkOpeningPolicy,
             readerAdjacentNavigationControlsMode: settingsInput.readerAdjacentNavigationControlsMode,
             interfaceThemeMode: settingsInput.interfaceThemeMode,
-            lastSourcesRefreshAt: settingsSnapshot.lastSourcesRefreshAt
+            lastFeedsRefreshAt: settingsSnapshot.lastFeedsRefreshAt
         )
     }
 

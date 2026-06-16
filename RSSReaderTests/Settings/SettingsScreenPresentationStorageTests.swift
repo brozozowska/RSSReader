@@ -37,9 +37,9 @@ struct SettingsScreenPresentationStorageTests {
                 ),
                 .button(
                     SettingsButtonItemPresentation(
-                        id: .clearSourceIconCache,
-                        title: SettingsLocalization.clearSourceIconCacheTitle,
-                        subtitle: SettingsLocalization.clearSourceIconCacheSubtitle,
+                        id: .clearFeedIconCache,
+                        title: SettingsLocalization.clearFeedIconCacheTitle,
+                        subtitle: SettingsLocalization.clearFeedIconCacheSubtitle,
                         systemImage: "newspaper",
                         role: .destructive,
                         isEnabled: false
@@ -50,19 +50,19 @@ struct SettingsScreenPresentationStorageTests {
     }
 
     @Test
-    func settingsScreenPresentationBuilderEnablesSourceIconCacheResetWhenCacheExists() throws {
+    func settingsScreenPresentationBuilderEnablesFeedIconCacheResetWhenCacheExists() throws {
         let sections = SettingsScreenPresentationBuilder.buildSections(
             from: SettingsScreenInputBuilder.build(from: AppSettingsSnapshot()),
-            hasSourceIconCache: true
+            hasFeedIconCache: true
         )
         let storageSection = try #require(sections.first(where: { $0.id == .storage }))
 
         #expect(
             storageSection.items.last == .button(
                 SettingsButtonItemPresentation(
-                    id: .clearSourceIconCache,
-                    title: SettingsLocalization.clearSourceIconCacheTitle,
-                    subtitle: SettingsLocalization.clearSourceIconCacheSubtitle,
+                    id: .clearFeedIconCache,
+                    title: SettingsLocalization.clearFeedIconCacheTitle,
+                    subtitle: SettingsLocalization.clearFeedIconCacheSubtitle,
                     systemImage: "newspaper",
                     role: .destructive,
                     isEnabled: true

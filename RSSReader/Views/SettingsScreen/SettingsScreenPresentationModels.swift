@@ -30,7 +30,7 @@ enum SettingsScreenItemID: String, Hashable, Identifiable, Sendable {
     case exportOPML
     case purgeArchivedArticles
     case clearArticleImageCache
-    case clearSourceIconCache
+    case clearFeedIconCache
 
     var id: String { rawValue }
 }
@@ -351,7 +351,7 @@ enum SettingsScreenPresentationBuilder {
     static func buildSections(
         from input: SettingsScreenInput,
         hasArticleImageCache: Bool = false,
-        hasSourceIconCache: Bool = false,
+        hasFeedIconCache: Bool = false,
         hasArchivedArticles: Bool = false
     ) -> [SettingsScreenSectionPresentation] {
         [
@@ -363,7 +363,7 @@ enum SettingsScreenPresentationBuilder {
             sourcePortabilitySection(),
             storageSection(
                 hasArticleImageCache: hasArticleImageCache,
-                hasSourceIconCache: hasSourceIconCache,
+                hasFeedIconCache: hasFeedIconCache,
                 hasArchivedArticles: hasArchivedArticles
             )
         ]

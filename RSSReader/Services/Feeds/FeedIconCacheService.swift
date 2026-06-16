@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-public protocol SourceIconCaching: Sendable {
+public protocol FeedIconCaching: Sendable {
     func cachedImageData(for url: URL) async throws -> Data?
     func storeImageData(_ data: Data, for url: URL) async throws
     func imageData(for url: URL) async throws -> Data
@@ -9,25 +9,25 @@ public protocol SourceIconCaching: Sendable {
     func removeAllCachedData() async throws
 }
 
-public enum SourceIconCacheError: Error {
+public enum FeedIconCacheError: Error {
     case invalidResponseStatusCode(Int)
     case emptyImageData
 }
 
-public actor SourceIconCacheService: SourceIconCaching {
+public actor FeedIconCacheService: FeedIconCaching {
     private let httpClient: any HTTPClient
-    private let cache: SourceIconMemoryCache
-    private let diskCache: SourceIconDiskCache
+    private let cache: FeedIconMemoryCache
+    private let diskCache: FeedIconDiskCache
     private var inFlightTasks: [URL: Task<Data, Error>] = [:]
 
     public init(
         httpClient: any HTTPClient,
-        cache: SourceIconMemoryCache? = nil,
-        diskCache: SourceIconDiskCache? = nil
+        cache: FeedIconMemoryCache? = nil,
+        diskCache: FeedIconDiskCache? = nil
     ) {
         self.httpClient = httpClient
-        self.cache = cache ?? SourceIconMemoryCache()
-        self.diskCache = diskCache ?? SourceIconDiskCache.shared
+        self.cache = cache ?? FeedIconMemoryCache()
+        self.diskCache = diskCache ?? FeedIconDiskCache.shared
     }
 
     public func cachedImageData(for url: URL) async throws -> Data? {
@@ -45,7 +45,7 @@ public actor SourceIconCacheService: SourceIconCaching {
 
     public func storeImageData(_ data: Data, for url: URL) async throws {
         guard data.isEmpty == false else {
-            throw SourceIconCacheError.emptyImageData
+            throw FeedIconCacheError.emptyImageData
         }
 
         try await diskCache.insert(data, for: url)
@@ -65,11 +65,11 @@ public actor SourceIconCacheService: SourceIconCaching {
             let response = try await httpClient.execute(HTTPRequest(url: url))
 
             guard (200...299).contains(response.statusCode) else {
-                throw SourceIconCacheError.invalidResponseStatusCode(response.statusCode)
+                throw FeedIconCacheError.invalidResponseStatusCode(response.statusCode)
             }
 
             guard response.body.isEmpty == false else {
-                throw SourceIconCacheError.emptyImageData
+                throw FeedIconCacheError.emptyImageData
             }
 
             try await storeImageData(response.body, for: url)
@@ -97,7 +97,7 @@ public actor SourceIconCacheService: SourceIconCaching {
     }
 }
 
-public actor SourceIconMemoryCache {
+public actor FeedIconMemoryCache {
     private let storage = NSCache<NSURL, NSData>()
     private var cachedURLs: Set<URL> = []
 
@@ -125,8 +125,8 @@ public actor SourceIconMemoryCache {
     }
 }
 
-public actor SourceIconDiskCache {
-    public static let shared = SourceIconDiskCache()
+public actor FeedIconDiskCache {
+    public static let shared = FeedIconDiskCache()
 
     private let directoryURL: URL
     private let capacityLimit: Int64
@@ -186,7 +186,7 @@ public actor SourceIconDiskCache {
 
     private static func defaultDirectoryURL(fileManager: FileManager) -> URL {
         let cachesDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        return cachesDirectory.appendingPathComponent("RSSReaderSourceIcons", isDirectory: true)
+        return cachesDirectory.appendingPathComponent("RSSReaderFeedIcons", isDirectory: true)
     }
 
     private func prepareDirectoryIfNeeded() throws {
@@ -207,7 +207,7 @@ public actor SourceIconDiskCache {
     private static func cacheKey(for url: URL) -> String {
         let digest = SHA256.hash(data: Data(url.absoluteString.utf8))
         let key = digest.map { String(format: "%02x", $0) }.joined()
-        return "\(key).source-icon"
+        return "\(key).feed-icon"
     }
 
     private func touch(_ fileURL: URL) throws {
@@ -227,7 +227,7 @@ public actor SourceIconDiskCache {
         }
     }
 
-    private func cacheEntries() throws -> [SourceIconDiskCacheEntry] {
+    private func cacheEntries() throws -> [FeedIconDiskCacheEntry] {
         guard fileManager.fileExists(atPath: directoryURL.path) else {
             return []
         }
@@ -246,7 +246,7 @@ public actor SourceIconDiskCache {
             let resourceValues = try fileURL.resourceValues(forKeys: resourceKeys)
             guard resourceValues.isRegularFile == true else { return nil }
 
-            return SourceIconDiskCacheEntry(
+            return FeedIconDiskCacheEntry(
                 fileURL: fileURL,
                 size: Int64(resourceValues.fileSize ?? 0),
                 lastAccessedAt: resourceValues.contentModificationDate ?? .distantPast
@@ -255,7 +255,7 @@ public actor SourceIconDiskCache {
     }
 }
 
-private struct SourceIconDiskCacheEntry {
+private struct FeedIconDiskCacheEntry {
     let fileURL: URL
     let size: Int64
     let lastAccessedAt: Date

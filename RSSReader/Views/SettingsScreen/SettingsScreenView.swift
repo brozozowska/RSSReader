@@ -18,7 +18,7 @@ struct SettingsScreenView: View {
     @State private var didCommitSettingsChanges = false
     @State private var isArchivedArticlesPurgeConfirmationPresented = false
     @State private var isArticleImageCacheResetConfirmationPresented = false
-    @State private var isSourceIconCacheResetConfirmationPresented = false
+    @State private var isFeedIconCacheResetConfirmationPresented = false
     @State private var isOPMLImporterPresented = false
     @State private var isOPMLExporterPresented = false
     @State private var opmlExportDocument: SettingsOPMLFileDocument?
@@ -63,7 +63,7 @@ struct SettingsScreenView: View {
                     controller.loadSettings(dependencies: dependencies, appState: appState)
                     controller.refreshArchivedArticlesAvailability(dependencies: dependencies)
                     await controller.refreshArticleImageCacheAvailability(dependencies: dependencies)
-                    await controller.refreshSourceIconCacheAvailability(dependencies: dependencies)
+                    await controller.refreshFeedIconCacheAvailability(dependencies: dependencies)
                 }
                 .onDisappear {
                     guard didCommitSettingsChanges == false else { return }
@@ -92,15 +92,15 @@ struct SettingsScreenView: View {
                     Text(SettingsLocalization.clearArticleImageCacheAlertMessage)
                 }
                 .alert(
-                    SettingsLocalization.clearSourceIconCacheAlertTitle,
-                    isPresented: $isSourceIconCacheResetConfirmationPresented
+                    SettingsLocalization.clearFeedIconCacheAlertTitle,
+                    isPresented: $isFeedIconCacheResetConfirmationPresented
                 ) {
                     Button(SettingsLocalization.clearCacheAlertAction, role: .destructive) {
-                        actionHandlers.tapButton(.clearSourceIconCache)
+                        actionHandlers.tapButton(.clearFeedIconCache)
                     }
                     Button(SettingsLocalization.cancelAction, role: .cancel) {}
                 } message: {
-                    Text(SettingsLocalization.clearSourceIconCacheAlertMessage)
+                    Text(SettingsLocalization.clearFeedIconCacheAlertMessage)
                 }
                 .fileImporter(
                     isPresented: $isOPMLImporterPresented,
@@ -280,8 +280,8 @@ struct SettingsScreenView: View {
             isArchivedArticlesPurgeConfirmationPresented = true
         case .clearArticleImageCache:
             isArticleImageCacheResetConfirmationPresented = true
-        case .clearSourceIconCache:
-            isSourceIconCacheResetConfirmationPresented = true
+        case .clearFeedIconCache:
+            isFeedIconCacheResetConfirmationPresented = true
         case .articleOpeningMode,
                 .markAsReadOnOpen,
                 .showUnreadCountBadge,
