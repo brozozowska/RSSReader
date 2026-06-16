@@ -18,7 +18,7 @@ struct RootView: View {
         )
         let sidebarSelection = Binding<SidebarSelection?>(
             get: { appState.selectedSidebarSelection },
-            set: { appState.selectReadingSource($0) }
+            set: { appState.selectSidebarSelection($0) }
         )
         let articleSelection = Binding<UUID?>(
             get: { appState.selectedArticleID },
@@ -30,13 +30,13 @@ struct RootView: View {
         } content: {
             ArticleListView(
                 selectedSidebarSelection: appState.selectedSidebarSelection,
-                selectedSourcesFilter: appState.selectedSourcesFilter,
+                selectedSidebarArticleFilter: appState.selectedSidebarArticleFilter,
                 reloadID: appState.articleListReloadID,
                 showsBackButton: ReadingShellCompactNavigationState.showsArticlesBackButton(
                     horizontalSizeClass: horizontalSizeClass,
-                    sourceSelection: appState.selectedSidebarSelection
+                    sidebarSelection: appState.selectedSidebarSelection
                 ),
-                navigateBackToSources: { preferredCompactColumn = .sidebar },
+                navigateBackToSidebar: { preferredCompactColumn = .sidebar },
                 previewScreenState: nil,
                 selection: articleSelection
             )
@@ -147,7 +147,7 @@ struct RootView: View {
 
     private func syncPreferredCompactColumn() {
         preferredCompactColumn = ReadingShellCompactNavigationState.preferredCompactColumn(
-            sourceSelection: appState.selectedSidebarSelection,
+            sidebarSelection: appState.selectedSidebarSelection,
             articleSelection: appState.selectedArticleID
         )
     }

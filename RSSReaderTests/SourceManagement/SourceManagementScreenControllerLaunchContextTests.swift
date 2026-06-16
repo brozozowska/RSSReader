@@ -11,7 +11,7 @@ struct SourceManagementScreenControllerLaunchContextTests {
         let appState = AppState()
         let folder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
         let controller = SourceManagementScreenController()
-        let sidebarReloadIDBeforeEdit = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforeEdit = appState.sidebarReloadID
 
         harness.dependencies.appActions.showFolder(named: "News", using: appState)
         harness.dependencies.appActions.showFolderEditor(named: "News", using: appState)
@@ -32,7 +32,7 @@ struct SourceManagementScreenControllerLaunchContextTests {
 
         #expect(appState.isPresentingSourceManagementScreen == false)
         #expect(appState.selectedSidebarSelection == .folder("World News"))
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeEdit)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeEdit)
         #expect(renamedFolder.name == "World News")
         #expect(renamedFolder.sortOrder == 0)
     }
@@ -52,7 +52,7 @@ struct SourceManagementScreenControllerLaunchContextTests {
             )
         )
         let controller = SourceManagementScreenController()
-        let sidebarReloadIDBeforeMove = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforeMove = appState.sidebarReloadID
 
         harness.dependencies.appActions.showFeedOrganizer(id: feed.id, using: appState)
         controller.handleLaunchContext(.organizeFeed(feed.id), dependencies: harness.dependencies)
@@ -74,7 +74,7 @@ struct SourceManagementScreenControllerLaunchContextTests {
         let requests = await harness.httpClient.recordedRequests()
 
         #expect(appState.isPresentingSourceManagementScreen == false)
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeMove)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeMove)
         #expect(persistedFeed.folder?.id == techFolder.id)
         #expect(requests.isEmpty)
     }

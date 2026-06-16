@@ -20,7 +20,7 @@ struct ArticlesScreenControllerSessionReloadTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .unread,
+            sidebarArticleFilter: .unread,
             dependencies: harness.dependencies
         )
 
@@ -28,7 +28,7 @@ struct ArticlesScreenControllerSessionReloadTests {
         controller.toggleArticleReadStatus(
             loadedArticle,
             selection: .feed(feed.id),
-            sourcesFilter: .unread,
+            sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
             isPreviewMode: false
         )
@@ -64,7 +64,7 @@ struct ArticlesScreenControllerSessionReloadTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .unread,
+            sidebarArticleFilter: .unread,
             dependencies: harness.dependencies
         )
 
@@ -77,7 +77,7 @@ struct ArticlesScreenControllerSessionReloadTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .unread,
+            sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
             retainsSessionReadArticles: true
         )
@@ -91,7 +91,7 @@ struct ArticlesScreenControllerSessionReloadTests {
         let newEntryController = ArticlesScreenController()
         await newEntryController.load(
             selection: .feed(feed.id),
-            sourcesFilter: .unread,
+            sidebarArticleFilter: .unread,
             dependencies: harness.dependencies
         )
 
@@ -114,7 +114,7 @@ struct ArticlesScreenControllerSessionReloadTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .unread,
+            sidebarArticleFilter: .unread,
             dependencies: harness.dependencies
         )
 
@@ -127,7 +127,7 @@ struct ArticlesScreenControllerSessionReloadTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .unread,
+            sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
             retainsSessionReadArticles: true,
             retainedSessionReadMembershipStatus: .retainedAfterRefresh
@@ -154,7 +154,7 @@ struct ArticlesScreenControllerSessionReloadTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .unread,
+            sidebarArticleFilter: .unread,
             dependencies: harness.dependencies
         )
 
@@ -167,7 +167,7 @@ struct ArticlesScreenControllerSessionReloadTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .unread,
+            sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
             retainsSessionReadArticles: false,
             retainedSessionReadMembershipStatus: .retainedAfterRefresh
@@ -195,13 +195,13 @@ struct ArticlesScreenControllerSessionReloadTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .unread,
+            sidebarArticleFilter: .unread,
             dependencies: harness.dependencies
         )
         appState.updateArticleListScrollPosition(
             article.id,
-            sourceSelection: .feed(feed.id),
-            sourcesFilter: .unread
+            sidebarSelection: .feed(feed.id),
+            sidebarArticleFilter: .unread
         )
 
         _ = try articleStateService.markAsRead(
@@ -218,7 +218,7 @@ struct ArticlesScreenControllerSessionReloadTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .unread,
+            sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
             retainsSessionReadArticles: false,
             retainedSessionReadMembershipStatus: .retainedAfterRefresh
@@ -228,14 +228,14 @@ struct ArticlesScreenControllerSessionReloadTests {
         #expect(controller.screenState.articles.isEmpty)
         #expect(
             appState.articleListScrollPositionID(
-                sourceSelection: .feed(feed.id),
-                sourcesFilter: .unread
+                sidebarSelection: .feed(feed.id),
+                sidebarArticleFilter: .unread
             ) == article.id
         )
     }
 
     @Test
-    func articlesScreenControllerResetsSessionWhenSourcesFilterChanges() async throws {
+    func articlesScreenControllerResetsSessionWhenSidebarArticleFilterChanges() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let articleStateService = try #require(harness.dependencies.articleStateService)
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/session-filter-reset.xml"]).first)
@@ -249,7 +249,7 @@ struct ArticlesScreenControllerSessionReloadTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .unread,
+            sidebarArticleFilter: .unread,
             dependencies: harness.dependencies
         )
 
@@ -262,7 +262,7 @@ struct ArticlesScreenControllerSessionReloadTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .allItems,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
             retainsSessionReadArticles: true
         )
@@ -270,7 +270,7 @@ struct ArticlesScreenControllerSessionReloadTests {
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.articleListSession.context == ArticleListSession.Context(
             selection: .feed(feed.id),
-            sourcesFilter: .allItems
+            sidebarArticleFilter: .allItems
         ))
         #expect(controller.screenState.articles.map(\.id) == [article.id])
         #expect(controller.screenState.articleListSession.entries.map(\.membershipStatus) == [.matchesCurrentQuery])
@@ -298,7 +298,7 @@ struct ArticlesScreenControllerSessionReloadTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .unread,
+            sidebarArticleFilter: .unread,
             dependencies: harness.dependencies
         )
 
@@ -317,7 +317,7 @@ struct ArticlesScreenControllerSessionReloadTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .unread,
+            sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
             retainsSessionReadArticles: true,
             retainedSessionReadMembershipStatus: .retainedAfterRefresh

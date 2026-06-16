@@ -78,7 +78,7 @@ struct CrossDeviceReadingScenarioTests {
             )
         )
 
-        let preRefreshSidebar = try #require(try harness.dependencies.sourcesSidebarQueryService?.fetchSnapshot())
+        let preRefreshSidebar = try #require(try harness.dependencies.sidebarQueryService?.fetchSnapshot())
         let preRefreshAllItems = try #require(
             try harness.dependencies.articleQueryService?.fetchInboxListItems(
                 sortMode: .publishedAtDescending,
@@ -115,7 +115,7 @@ struct CrossDeviceReadingScenarioTests {
             )
         )
         let refreshedArticle = try #require(postRefreshAllItems.first)
-        let postRefreshSidebar = try #require(try harness.dependencies.sourcesSidebarQueryService?.fetchSnapshot())
+        let postRefreshSidebar = try #require(try harness.dependencies.sidebarQueryService?.fetchSnapshot())
 
         #expect(postRefreshAllItems.count == 1)
         #expect(refreshedArticle.feedID == feed.id)

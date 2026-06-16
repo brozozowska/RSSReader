@@ -42,7 +42,7 @@ extension SettingsScreenController {
 
         screenState.applyArchivedArticlesAvailability(false)
         if result.deletedCount > 0 {
-            appState?.requestSourcesSidebarReload()
+            appState?.requestSidebarReload()
             appState?.requestArticleListReload()
         }
     }

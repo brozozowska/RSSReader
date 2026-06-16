@@ -140,7 +140,7 @@ struct SourceManagementScreenControllerAddFeedTests {
         let appState = AppState()
         let controller = SourceManagementScreenController()
         let articleReloadIDBeforeCreation = appState.articleListReloadID
-        let sidebarReloadIDBeforeCreation = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforeCreation = appState.sidebarReloadID
 
         harness.dependencies.appActions.showSourceManagement(using: appState)
         controller.handleScenarioSelection(.addFeed, dependencies: harness.dependencies)
@@ -154,7 +154,7 @@ struct SourceManagementScreenControllerAddFeedTests {
         #expect(appState.isPresentingSourceManagementScreen == false)
         #expect(appState.selectedSidebarSelection == nil)
         #expect(appState.articleListReloadID == articleReloadIDBeforeCreation)
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCreation)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeCreation)
         #expect(appState.consumeSourceIconNetworkLoadRequest(for: persistedFeed.id))
         #expect(persistedFeed.lastFetchedAt == nil)
         #expect(persistedFeed.lastSuccessfulFetchAt == nil)

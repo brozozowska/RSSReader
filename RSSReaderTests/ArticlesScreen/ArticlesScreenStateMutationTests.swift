@@ -104,7 +104,7 @@ struct ArticlesScreenStateMutationTests {
             navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1),
             sessionContext: ArticleListSession.Context(
                 selection: .unread,
-                sourcesFilter: .allItems
+                sidebarArticleFilter: .allItems
             )
         )
 

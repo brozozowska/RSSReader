@@ -24,7 +24,7 @@ struct AppDependenciesRemoteSyncReloadMatchingTests {
             syncCoordinator: syncCoordinator
         )
         let appState = AppState()
-        let initialSidebarReloadID = appState.sourcesSidebarReloadID
+        let initialSidebarReloadID = appState.sidebarReloadID
         let initialArticleListReloadID = appState.articleListReloadID
         let initialArticleScreenReloadID = appState.articleScreenReloadID
 
@@ -53,7 +53,7 @@ struct AppDependenciesRemoteSyncReloadMatchingTests {
         )
 
         try await expectAppDependenciesEventually {
-            appState.sourcesSidebarReloadID != initialSidebarReloadID
+            appState.sidebarReloadID != initialSidebarReloadID
                 && appState.articleListReloadID != initialArticleListReloadID
                 && appState.articleScreenReloadID != initialArticleScreenReloadID
         }
@@ -78,7 +78,7 @@ struct AppDependenciesRemoteSyncReloadMatchingTests {
             syncCoordinator: syncCoordinator
         )
         let appState = AppState()
-        let initialSidebarReloadID = appState.sourcesSidebarReloadID
+        let initialSidebarReloadID = appState.sidebarReloadID
         let initialArticleListReloadID = appState.articleListReloadID
         let initialArticleScreenReloadID = appState.articleScreenReloadID
 
@@ -107,7 +107,7 @@ struct AppDependenciesRemoteSyncReloadMatchingTests {
         )
 
         try await expectAppDependenciesEventually {
-            appState.sourcesSidebarReloadID != initialSidebarReloadID
+            appState.sidebarReloadID != initialSidebarReloadID
                 && appState.articleListReloadID != initialArticleListReloadID
                 && appState.articleScreenReloadID != initialArticleScreenReloadID
         }

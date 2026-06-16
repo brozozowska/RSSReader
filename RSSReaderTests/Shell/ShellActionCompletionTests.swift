@@ -12,14 +12,14 @@ struct ShellActionCompletionTests {
 
         harness.dependencies.appActions.showInbox(using: appState)
         harness.dependencies.appActions.showSourceManagement(using: appState)
-        let sidebarReloadIDBeforeCompletion = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforeCompletion = appState.sidebarReloadID
         let articleReloadIDBeforeCompletion = appState.articleListReloadID
 
         harness.dependencies.appActions.finishCreatingFolder(named: "Research", using: appState)
 
         #expect(appState.isPresentingSourceManagementScreen)
         #expect(appState.selectedSidebarSelection == .inbox)
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCompletion)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeCompletion)
         #expect(appState.articleListReloadID == articleReloadIDBeforeCompletion)
     }
 
@@ -37,7 +37,7 @@ struct ShellActionCompletionTests {
 
         harness.dependencies.appActions.showFeed(id: feed.id, using: appState)
         harness.dependencies.appActions.showSourceManagement(using: appState)
-        let sidebarReloadIDBeforeCompletion = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforeCompletion = appState.sidebarReloadID
         let articleReloadIDBeforeCompletion = appState.articleListReloadID
 
         harness.dependencies.appActions.finishMovingSource(
@@ -49,7 +49,7 @@ struct ShellActionCompletionTests {
 
         #expect(appState.isPresentingSourceManagementScreen == false)
         #expect(appState.selectedSidebarSelection == .feed(feed.id))
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCompletion)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeCompletion)
         #expect(appState.articleListReloadID != articleReloadIDBeforeCompletion)
     }
 
@@ -60,7 +60,7 @@ struct ShellActionCompletionTests {
 
         harness.dependencies.appActions.showFolder(named: "News", using: appState)
         harness.dependencies.appActions.showSourceManagement(using: appState)
-        let sidebarReloadIDBeforeCompletion = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforeCompletion = appState.sidebarReloadID
         let articleReloadIDBeforeCompletion = appState.articleListReloadID
 
         harness.dependencies.appActions.finishFolderEditing(
@@ -71,7 +71,7 @@ struct ShellActionCompletionTests {
 
         #expect(appState.isPresentingSourceManagementScreen == false)
         #expect(appState.selectedSidebarSelection == .folder("World News"))
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCompletion)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeCompletion)
         #expect(appState.articleListReloadID != articleReloadIDBeforeCompletion)
     }
 
@@ -110,7 +110,7 @@ struct ShellActionCompletionTests {
 
         harness.dependencies.appActions.showInbox(using: appState)
         harness.dependencies.appActions.showSourceManagement(using: appState)
-        let sidebarReloadIDBeforeCompletion = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforeCompletion = appState.sidebarReloadID
         let articleReloadIDBeforeCompletion = appState.articleListReloadID
 
         let result = await harness.dependencies.appActions.finishSavingFeed(id: feed.id, using: appState)
@@ -119,7 +119,7 @@ struct ShellActionCompletionTests {
         #expect(result == nil)
         #expect(appState.isPresentingSourceManagementScreen == false)
         #expect(appState.selectedSidebarSelection == .feed(feed.id))
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCompletion)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeCompletion)
         #expect(appState.articleListReloadID != articleReloadIDBeforeCompletion)
         #expect(articles.isEmpty)
 
@@ -144,13 +144,13 @@ struct ShellActionCompletionTests {
         let removedFeedID = UUID()
 
         harness.dependencies.appActions.showFeed(id: selectedFeed.id, using: appState)
-        let sidebarReloadIDBeforeCompletion = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforeCompletion = appState.sidebarReloadID
         let articleReloadIDBeforeCompletion = appState.articleListReloadID
 
         harness.dependencies.appActions.finishUnsubscribingFeed(id: removedFeedID, using: appState)
 
         #expect(appState.selectedSidebarSelection == .feed(selectedFeed.id))
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCompletion)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeCompletion)
         #expect(appState.articleListReloadID != articleReloadIDBeforeCompletion)
     }
 
@@ -167,13 +167,13 @@ struct ShellActionCompletionTests {
         )
 
         harness.dependencies.appActions.showFeed(id: feed.id, using: appState)
-        let sidebarReloadIDBeforeCompletion = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforeCompletion = appState.sidebarReloadID
         let articleReloadIDBeforeCompletion = appState.articleListReloadID
 
         harness.dependencies.appActions.finishDeletingFolder(named: "Archived", using: appState)
 
         #expect(appState.selectedSidebarSelection == .feed(feed.id))
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCompletion)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeCompletion)
         #expect(appState.articleListReloadID != articleReloadIDBeforeCompletion)
     }
 }

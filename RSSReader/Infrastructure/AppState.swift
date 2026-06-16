@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-enum SourceSelection: Hashable, Sendable {
+enum SidebarSelection: Hashable, Sendable {
     case inbox
     case unread
     case starred
@@ -9,13 +9,11 @@ enum SourceSelection: Hashable, Sendable {
     case feed(UUID)
 }
 
-enum SourcesFilter: String, Hashable, Sendable, CaseIterable {
+enum SidebarArticleFilter: String, Hashable, Sendable, CaseIterable {
     case allItems
     case unread
     case starred
 }
-
-typealias SidebarSelection = SourceSelection
 
 struct ArticleSafariRoute: Hashable, Sendable {
     let articleID: UUID
@@ -45,12 +43,12 @@ enum ReaderAdjacentArticleNavigationDirection: Sendable {
 }
 
 struct ReadingNavigationState: Hashable, Sendable {
-    var sourceSelection: SourceSelection? = nil
+    var sidebarSelection: SidebarSelection? = nil
     var articleSelection: UUID? = nil
     var detailRoute: ReadingDetailRoute = .none
 
-    mutating func selectSource(_ sourceSelection: SourceSelection?) {
-        self.sourceSelection = sourceSelection
+    mutating func selectSidebarSelection(_ sidebarSelection: SidebarSelection?) {
+        self.sidebarSelection = sidebarSelection
         articleSelection = nil
         detailRoute = .none
     }
@@ -82,15 +80,15 @@ struct ReadingNavigationState: Hashable, Sendable {
 }
 
 struct ArticleListScrollPositionKey: Hashable, Sendable {
-    let sourceSelection: SourceSelection?
-    let sourcesFilter: SourcesFilter
+    let sidebarSelection: SidebarSelection?
+    let sidebarArticleFilter: SidebarArticleFilter
 }
 
 struct ArticleReadOnOpenEvent: Equatable, Sendable {
     let id = UUID()
     let articleID: UUID
-    let sourceSelection: SourceSelection?
-    let sourcesFilter: SourcesFilter
+    let sidebarSelection: SidebarSelection?
+    let sidebarArticleFilter: SidebarArticleFilter
 }
 
 enum AppContentReloadTrigger: Equatable, Sendable {
@@ -101,18 +99,18 @@ enum AppContentReloadTrigger: Equatable, Sendable {
 @Observable
 public final class AppState {
     var readingNavigation = ReadingNavigationState()
-    var selectedSourcesFilter: SourcesFilter = .allItems
+    var selectedSidebarArticleFilter: SidebarArticleFilter = .allItems
     var interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
     var iCloudSyncStatus: ICloudSyncStatus = .disabled
     var isPresentingSettingsScreen = false
     var isPresentingSourceManagementScreen = false
     var sourceManagementLaunchContext: SourceManagementScreenLaunchContext = .entry
     var articleNavigationContextIDs: [UUID] = []
-    private var articleNavigationContextSourceSelection: SidebarSelection?
-    private var articleNavigationContextSourcesFilter: SourcesFilter = .allItems
+    private var articleNavigationContextSidebarSelection: SidebarSelection?
+    private var articleNavigationContextSidebarArticleFilter: SidebarArticleFilter = .allItems
     private var articleListScrollPositionIDs: [ArticleListScrollPositionKey: UUID] = [:]
     var articleListReloadID = UUID()
-    var sourcesSidebarReloadID = UUID()
+    var sidebarReloadID = UUID()
     var sourceIconReloadID = UUID()
     var sourceIconCacheResetID = UUID()
     private var sourceIconNetworkLoadFeedIDs: Set<UUID> = []
@@ -121,22 +119,22 @@ public final class AppState {
     var lastContentReloadTrigger: AppContentReloadTrigger?
 
     var selectedSidebarSelection: SidebarSelection? {
-        get { readingNavigation.sourceSelection }
-        set { selectReadingSource(newValue) }
+        get { readingNavigation.sidebarSelection }
+        set { selectSidebarSelection(newValue) }
     }
 
     public var selectedFeedID: UUID? {
         get {
-            guard case .feed(let feedID) = readingNavigation.sourceSelection else {
+            guard case .feed(let feedID) = readingNavigation.sidebarSelection else {
                 return nil
             }
             return feedID
         }
         set {
             if let newValue {
-                selectReadingSource(.feed(newValue))
+                selectSidebarSelection(.feed(newValue))
             } else {
-                selectReadingSource(nil)
+                selectSidebarSelection(nil)
             }
         }
     }
@@ -186,12 +184,12 @@ public final class AppState {
         sourceManagementLaunchContext = .entry
     }
 
-    func selectSourcesFilter(_ filter: SourcesFilter) {
-        guard selectedSourcesFilter != filter else {
+    func selectSidebarArticleFilter(_ filter: SidebarArticleFilter) {
+        guard selectedSidebarArticleFilter != filter else {
             return
         }
 
-        selectedSourcesFilter = filter
+        selectedSidebarArticleFilter = filter
     }
 
     func selectArticle(_ articleID: UUID?) {
@@ -220,31 +218,31 @@ public final class AppState {
     func recordArticleReadOnOpenInCurrentListSession(_ articleID: UUID) {
         articleReadOnOpenEvent = ArticleReadOnOpenEvent(
             articleID: articleID,
-            sourceSelection: selectedSidebarSelection,
-            sourcesFilter: selectedSourcesFilter
+            sidebarSelection: selectedSidebarSelection,
+            sidebarArticleFilter: selectedSidebarArticleFilter
         )
     }
 
     func articleListScrollPositionID(
-        sourceSelection: SidebarSelection?,
-        sourcesFilter: SourcesFilter
+        sidebarSelection: SidebarSelection?,
+        sidebarArticleFilter: SidebarArticleFilter
     ) -> UUID? {
         articleListScrollPositionIDs[
             ArticleListScrollPositionKey(
-                sourceSelection: sourceSelection,
-                sourcesFilter: sourcesFilter
+                sidebarSelection: sidebarSelection,
+                sidebarArticleFilter: sidebarArticleFilter
             )
         ]
     }
 
     func updateArticleListScrollPosition(
         _ articleID: UUID?,
-        sourceSelection: SidebarSelection?,
-        sourcesFilter: SourcesFilter
+        sidebarSelection: SidebarSelection?,
+        sidebarArticleFilter: SidebarArticleFilter
     ) {
         let key = ArticleListScrollPositionKey(
-            sourceSelection: sourceSelection,
-            sourcesFilter: sourcesFilter
+            sidebarSelection: sidebarSelection,
+            sidebarArticleFilter: sidebarArticleFilter
         )
 
         if let articleID {
@@ -254,8 +252,8 @@ public final class AppState {
         }
     }
 
-    func requestSourcesSidebarReload() {
-        sourcesSidebarReloadID = UUID()
+    func requestSidebarReload() {
+        sidebarReloadID = UUID()
     }
 
     func requestSourceIconReload() {
@@ -280,23 +278,23 @@ public final class AppState {
 
     func requestRemoteSyncImportReload() {
         lastContentReloadTrigger = .remoteSyncImport
-        requestSourcesSidebarReload()
+        requestSidebarReload()
         requestArticleListReload()
         requestArticleScreenReload()
     }
 
     func requestBackgroundRefreshReload() {
         lastContentReloadTrigger = .backgroundRefresh
-        requestSourcesSidebarReload()
+        requestSidebarReload()
         requestArticleListReload()
         requestArticleScreenReload()
     }
 
-    func selectReadingSource(_ sourceSelection: SourceSelection?) {
-        let previousSourceSelection = readingNavigation.sourceSelection
-        guard previousSourceSelection != sourceSelection else { return }
+    func selectSidebarSelection(_ sidebarSelection: SidebarSelection?) {
+        let previousSidebarSelection = readingNavigation.sidebarSelection
+        guard previousSidebarSelection != sidebarSelection else { return }
 
-        readingNavigation.selectSource(sourceSelection)
+        readingNavigation.selectSidebarSelection(sidebarSelection)
         clearArticleNavigationContext()
         requestArticleListReload()
     }
@@ -304,19 +302,19 @@ public final class AppState {
     func updateArticleNavigationContext(_ articleIDs: [UUID]) {
         updateArticleNavigationContext(
             articleIDs,
-            sourceSelection: selectedSidebarSelection,
-            sourcesFilter: selectedSourcesFilter
+            sidebarSelection: selectedSidebarSelection,
+            sidebarArticleFilter: selectedSidebarArticleFilter
         )
     }
 
     func updateArticleNavigationContext(
         _ articleIDs: [UUID],
-        sourceSelection: SidebarSelection?,
-        sourcesFilter: SourcesFilter
+        sidebarSelection: SidebarSelection?,
+        sidebarArticleFilter: SidebarArticleFilter
     ) {
         var seenArticleIDs = Set<UUID>()
-        articleNavigationContextSourceSelection = sourceSelection
-        articleNavigationContextSourcesFilter = sourcesFilter
+        articleNavigationContextSidebarSelection = sidebarSelection
+        articleNavigationContextSidebarArticleFilter = sidebarArticleFilter
         articleNavigationContextIDs = articleIDs.filter { articleID in
             seenArticleIDs.insert(articleID).inserted
         }
@@ -324,8 +322,8 @@ public final class AppState {
 
     private func clearArticleNavigationContext() {
         articleNavigationContextIDs = []
-        articleNavigationContextSourceSelection = selectedSidebarSelection
-        articleNavigationContextSourcesFilter = selectedSourcesFilter
+        articleNavigationContextSidebarSelection = selectedSidebarSelection
+        articleNavigationContextSidebarArticleFilter = selectedSidebarArticleFilter
     }
 
     @discardableResult
@@ -339,8 +337,8 @@ public final class AppState {
     }
 
     func adjacentArticleID(_ direction: ReaderAdjacentArticleNavigationDirection) -> UUID? {
-        guard articleNavigationContextSourceSelection == selectedSidebarSelection,
-              articleNavigationContextSourcesFilter == selectedSourcesFilter else {
+        guard articleNavigationContextSidebarSelection == selectedSidebarSelection,
+              articleNavigationContextSidebarArticleFilter == selectedSidebarArticleFilter else {
             return nil
         }
 

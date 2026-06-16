@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-#Preview("Loading Sources") {
+#Preview("Loading Feeds") {
     SidebarPreviewHost(
         scenario: .empty,
         selection: .inbox,
@@ -9,14 +9,14 @@ import SwiftData
     )
 }
 
-#Preview("Empty Sources") {
+#Preview("Empty Feeds") {
     SidebarPreviewHost(
         scenario: .empty,
         selection: .inbox
     )
 }
 
-#Preview("Error Sources") {
+#Preview("Error Feeds") {
     SidebarPreviewHost(
         scenario: .empty,
         selection: .inbox,
@@ -24,9 +24,9 @@ import SwiftData
     )
 }
 
-#Preview("Two Sources") {
+#Preview("Two Feeds") {
     SidebarPreviewHost(
-        scenario: .twoSources,
+        scenario: .twoFeeds,
         selection: .unread
     )
 }
@@ -72,7 +72,7 @@ private struct SidebarPreviewHost: View {
 
 private enum SidebarPreviewScenario {
     case empty
-    case twoSources
+    case twoFeeds
     case foldersAndUngrouped
 }
 
@@ -118,11 +118,11 @@ private enum SidebarPreviewFactory {
             }
         }
 
-        guard let sourcesSidebarQueryService = dependencies.sourcesSidebarQueryService else {
+        guard let sidebarQueryService = dependencies.sidebarQueryService else {
             return .previewFailed(message: SidebarLocalization.unavailablePreviewMessage)
         }
 
-        let snapshot = (try? sourcesSidebarQueryService.fetchSnapshot()) ?? SourcesSidebarSnapshotDTO(
+        let snapshot = (try? sidebarQueryService.fetchSnapshot()) ?? SidebarSnapshotDTO(
             feeds: [],
             unreadSmartCount: 0,
             starredSmartCount: 0,
@@ -137,8 +137,8 @@ private enum SidebarPreviewFactory {
         switch scenario {
         case .empty:
             break
-        case .twoSources:
-            seedTwoSources(into: modelContext)
+        case .twoFeeds:
+            seedTwoFeeds(into: modelContext)
         case .foldersAndUngrouped:
             seedFoldersAndUngrouped(into: modelContext)
         }
@@ -147,7 +147,7 @@ private enum SidebarPreviewFactory {
     }
 
     @MainActor
-    private static func seedTwoSources(into modelContext: ModelContext) {
+    private static func seedTwoFeeds(into modelContext: ModelContext) {
         let verge = Feed(
             id: SampleIDs.vergeFeedID,
             url: "https://www.theverge.com/rss/index.xml",

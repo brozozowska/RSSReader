@@ -184,7 +184,7 @@ extension AppActionRouter {
         updatedFolderName: String,
         using appState: AppState
     ) {
-        appState.requestSourcesSidebarReload()
+        appState.requestSidebarReload()
         if appState.selectedSidebarSelection == .folder(previousName) {
             showFolder(named: updatedFolderName, using: appState)
         }
@@ -194,7 +194,7 @@ extension AppActionRouter {
     @MainActor
     func finishCreatingFolder(named folderName: String, using appState: AppState) {
         logger.info("Finished source management folder creation for \(folderName)")
-        appState.requestSourcesSidebarReload()
+        appState.requestSidebarReload()
     }
 
     @MainActor
@@ -204,7 +204,7 @@ extension AppActionRouter {
         updatedFolderName: String?,
         using appState: AppState
     ) {
-        appState.requestSourcesSidebarReload()
+        appState.requestSidebarReload()
 
         switch appState.selectedSidebarSelection {
         case .feed(let selectedFeedID):
@@ -229,11 +229,11 @@ extension AppActionRouter {
         selectsSavedFeed: Bool = true
     ) async -> FeedRefreshResult? {
         appState.requestSourceIconNetworkLoad(for: feedID)
-        appState.requestSourcesSidebarReload()
+        appState.requestSidebarReload()
         if selectsSavedFeed {
             showFeed(id: feedID, using: appState)
         } else {
-            appState.selectReadingSource(nil)
+            appState.selectSidebarSelection(nil)
         }
         dismissSourceManagement(using: appState)
         scheduleInitialRefreshAfterSavingFeed(id: feedID, using: appState)
@@ -299,7 +299,7 @@ extension AppActionRouter {
 
     @MainActor
     func finishUnsubscribingFeed(id feedID: UUID, using appState: AppState) {
-        appState.requestSourcesSidebarReload()
+        appState.requestSidebarReload()
         if appState.selectedSidebarSelection == .feed(feedID) {
             showInbox(using: appState)
         } else {
@@ -309,7 +309,7 @@ extension AppActionRouter {
 
     @MainActor
     func finishDeletingFolder(named folderName: String, using appState: AppState) {
-        appState.requestSourcesSidebarReload()
+        appState.requestSidebarReload()
         if appState.selectedSidebarSelection == .folder(folderName) {
             showInbox(using: appState)
         } else {
@@ -374,7 +374,7 @@ extension AppActionRouter {
         let task = Task { @MainActor in
             _ = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
             await refreshUnreadAppIconBadgeCount()
-            appState.requestSourcesSidebarReload()
+            appState.requestSidebarReload()
             appState.requestArticleListReload()
         }
         feedSaveRefreshTaskStore?.append(task)

@@ -6,7 +6,7 @@ import Testing
 @MainActor
 struct ReadingShellNavigationTests {
     @Test
-    func readingShellInitialAppStateStartsOnSourcesInCompactNavigation() {
+    func readingShellInitialAppStateStartsOnSidebarInCompactNavigation() {
         let appState = AppState()
 
         #expect(appState.selectedSidebarSelection == nil)
@@ -14,7 +14,7 @@ struct ReadingShellNavigationTests {
         #expect(appState.selectedDetailRoute == .none)
         #expect(
             ReadingShellCompactNavigationState.preferredCompactColumn(
-                sourceSelection: appState.selectedSidebarSelection,
+                sidebarSelection: appState.selectedSidebarSelection,
                 articleSelection: appState.selectedArticleID
             ) == .sidebar
         )
@@ -63,68 +63,68 @@ struct ReadingShellNavigationTests {
     func readingShellCompactNavigationStateSelectsPreferredCompactColumnForCurrentContext() {
         #expect(
             ReadingShellCompactNavigationState.preferredCompactColumn(
-                sourceSelection: nil,
+                sidebarSelection: nil,
                 articleSelection: nil
             ) == .sidebar
         )
         #expect(
             ReadingShellCompactNavigationState.preferredCompactColumn(
-                sourceSelection: .unread,
+                sidebarSelection: .unread,
                 articleSelection: nil
             ) == .content
         )
         #expect(
             ReadingShellCompactNavigationState.preferredCompactColumn(
-                sourceSelection: .feed(UUID()),
+                sidebarSelection: .feed(UUID()),
                 articleSelection: UUID()
             ) == .detail
         )
     }
 
     @Test
-    func readingShellCompactNavigationStateShowsArticlesBackButtonOnlyInCompactSourceContext() {
+    func readingShellCompactNavigationStateShowsArticlesBackButtonOnlyInCompactSidebarContext() {
         #expect(
             ReadingShellCompactNavigationState.showsArticlesBackButton(
                 horizontalSizeClass: .compact,
-                sourceSelection: .starred
+                sidebarSelection: .starred
             )
         )
         #expect(
             ReadingShellCompactNavigationState.showsArticlesBackButton(
                 horizontalSizeClass: .regular,
-                sourceSelection: .starred
+                sidebarSelection: .starred
             ) == false
         )
         #expect(
             ReadingShellCompactNavigationState.showsArticlesBackButton(
                 horizontalSizeClass: .compact,
-                sourceSelection: nil
+                sidebarSelection: nil
             ) == false
         )
     }
 
     @Test
-    func readingShellCompactNavigationStateRecognizesLeadingEdgeBackSwipeToSources() {
+    func readingShellCompactNavigationStateRecognizesLeadingEdgeBackSwipeToSidebar() {
         #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSourcesOnDrag(
+            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
                 startLocationX: 12,
                 translation: CGSize(width: 96, height: 8)
             )
         )
         #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSourcesOnDrag(
+            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
                 startLocationX: 64,
                 translation: CGSize(width: 96, height: 8)
             ) == false
         )
         #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSourcesOnDrag(
+            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
                 startLocationX: 12,
                 translation: CGSize(width: 40, height: 8)
             ) == false
         )
         #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSourcesOnDrag(
+            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
                 startLocationX: 12,
                 translation: CGSize(width: 96, height: 72)
             ) == false

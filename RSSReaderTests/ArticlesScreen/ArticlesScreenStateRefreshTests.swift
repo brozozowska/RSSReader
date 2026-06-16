@@ -56,7 +56,7 @@ struct ArticlesScreenStateRefreshTests {
             navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle,
             sessionContext: ArticleListSession.Context(
                 selection: .unread,
-                sourcesFilter: .allItems
+                sidebarArticleFilter: .allItems
             )
         )
 
@@ -67,7 +67,7 @@ struct ArticlesScreenStateRefreshTests {
             resetsContent: false,
             sessionContext: ArticleListSession.Context(
                 selection: .unread,
-                sourcesFilter: .allItems
+                sidebarArticleFilter: .allItems
             )
         )
 
@@ -177,7 +177,7 @@ struct ArticlesScreenStateRefreshTests {
             navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle,
             sessionContext: ArticleListSession.Context(
                 selection: .unread,
-                sourcesFilter: .allItems
+                sidebarArticleFilter: .allItems
             )
         )
 

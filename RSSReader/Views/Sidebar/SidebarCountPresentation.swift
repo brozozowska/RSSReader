@@ -2,7 +2,7 @@ import Foundation
 
 enum SidebarCountPresentation {
     static func smartCount(
-        for filter: SourcesFilter,
+        for filter: SidebarArticleFilter,
         unreadSmartCount: Int,
         starredSmartCount: Int
     ) -> Int? {
@@ -14,7 +14,7 @@ enum SidebarCountPresentation {
         }
     }
 
-    static func feedCount(for feed: FeedSidebarItem, filter: SourcesFilter) -> Int {
+    static func feedCount(for feed: FeedSidebarItem, filter: SidebarArticleFilter) -> Int {
         switch filter {
         case .allItems, .unread:
             feed.unreadCount
@@ -23,7 +23,7 @@ enum SidebarCountPresentation {
         }
     }
 
-    static func folderCount(for group: FolderSidebarGroup, filter: SourcesFilter) -> Int {
+    static func folderCount(for group: FolderSidebarGroup, filter: SidebarArticleFilter) -> Int {
         switch filter {
         case .allItems, .unread:
             group.unreadCount

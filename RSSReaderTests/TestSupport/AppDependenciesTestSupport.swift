@@ -238,7 +238,7 @@ func expectAppDependenciesNoReload(
 
     while ContinuousClock.now < deadline {
         let reloadOccurred = await MainActor.run {
-            appState.sourcesSidebarReloadID != sidebarReloadID
+            appState.sidebarReloadID != sidebarReloadID
                 || appState.articleListReloadID != articleListReloadID
                 || appState.articleScreenReloadID != articleScreenReloadID
         }

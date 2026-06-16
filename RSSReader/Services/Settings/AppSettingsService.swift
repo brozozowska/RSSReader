@@ -18,7 +18,7 @@ struct AppSettingsSnapshot: Equatable, Sendable {
 
     init(
         articleOpeningMode: ArticleOpeningMode = .feedReader,
-        selectedSourcesFilterRawValue: String? = SourcesFilter.allItems.rawValue,
+        selectedSourcesFilterRawValue: String? = SidebarArticleFilter.allItems.rawValue,
         refreshIntervalPreference: RefreshPreference = .manual,
         useiCloudSync: Bool = false,
         markAsReadOnOpen: Bool = true,

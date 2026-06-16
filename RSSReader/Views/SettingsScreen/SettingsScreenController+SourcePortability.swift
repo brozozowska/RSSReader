@@ -83,7 +83,7 @@ extension SettingsScreenController {
                 )
             )
             if result.createdFeedCount > 0 || result.createdFolderCount > 0 {
-                appState?.requestSourcesSidebarReload()
+                appState?.requestSidebarReload()
                 appState?.requestArticleListReload()
             }
         } catch {

@@ -28,7 +28,7 @@ struct SettingsScreenControllerLoadingSyncTests {
         _ = try service.saveSettings(
             AppSettingsSnapshot(
                 articleOpeningMode: .feedReader,
-                selectedSourcesFilterRawValue: SourcesFilter.unread.rawValue,
+                selectedSourcesFilterRawValue: SidebarArticleFilter.unread.rawValue,
                 refreshIntervalPreference: .every15Minutes,
                 useiCloudSync: false,
                 markAsReadOnOpen: true,
@@ -51,7 +51,7 @@ struct SettingsScreenControllerLoadingSyncTests {
         #expect(viewState.placeholder == nil)
         #expect(viewState.sections.isEmpty == false)
         #expect(controller.screenState.settingsSnapshot.articleOpeningMode == .feedReader)
-        #expect(controller.screenState.settingsSnapshot.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
+        #expect(controller.screenState.settingsSnapshot.selectedSourcesFilterRawValue == SidebarArticleFilter.unread.rawValue)
         #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead == false)
         #expect(controller.screenState.settingsSnapshot.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(controller.screenState.settingsSnapshot.articleSourceLinkOpeningPolicy == .externalBrowser)

@@ -24,7 +24,7 @@ extension AppActionRouter {
         let result = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
         cleanupArchivedArticlesUsingCurrentSettings()
         await refreshUnreadAppIconBadgeCount()
-        appState.requestSourcesSidebarReload()
+        appState.requestSidebarReload()
         showFeed(id: feedID, using: appState)
         dismissSourceManagement(using: appState)
         return result
@@ -55,7 +55,7 @@ extension AppActionRouter {
     }
 
     @MainActor
-    func refreshCurrentSource(using appState: AppState) async -> FeedRefreshResult? {
+    func refreshCurrentFeed(using appState: AppState) async -> FeedRefreshResult? {
         switch appState.selectedSidebarSelection {
         case .feed(let feedID):
             let result = await refreshFeed(id: feedID)
@@ -64,7 +64,7 @@ extension AppActionRouter {
             }
             return result
         case .inbox, .unread, .starred, .folder, .none:
-            logger.info("Skipped source refresh because the current source is not a single feed")
+            logger.info("Skipped feed refresh because the current sidebar selection is not a single feed")
             return nil
         }
     }
@@ -75,7 +75,7 @@ extension AppActionRouter {
         requestsArticleListReload: Bool = true
     ) async -> FeedRefreshBatchResult? {
         guard let selection = appState.selectedSidebarSelection else {
-            logger.info("Skipped selection refresh because no source is selected")
+            logger.info("Skipped selection refresh because no sidebar selection is active")
             return nil
         }
 
@@ -98,7 +98,7 @@ extension AppActionRouter {
         }
 
         if result != nil {
-            appState.requestSourcesSidebarReload()
+            appState.requestSidebarReload()
             if requestsArticleListReload {
                 appState.requestArticleListReload()
             }
@@ -108,7 +108,7 @@ extension AppActionRouter {
     }
 
     @MainActor
-    func refreshVisibleSources(using appState: AppState) async -> FeedRefreshBatchResult? {
+    func refreshVisibleFeeds(using appState: AppState) async -> FeedRefreshBatchResult? {
         let result = await refreshAllFeeds()
         if result != nil {
             appState.requestSourceIconReload()

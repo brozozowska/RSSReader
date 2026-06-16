@@ -30,7 +30,7 @@ struct ArticlesScreenControllerMarkAllReadTests {
         controller.handleMarkAllAsReadAction(
             searchText: "",
             selection: .feed(unreadItem.feedID),
-            sourcesFilter: .allItems,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
             isPreviewMode: false
         )
@@ -64,7 +64,7 @@ struct ArticlesScreenControllerMarkAllReadTests {
         controller.handleMarkAllAsReadAction(
             searchText: "",
             selection: .feed(unreadItem.feedID),
-            sourcesFilter: .allItems,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
             isPreviewMode: false
         )

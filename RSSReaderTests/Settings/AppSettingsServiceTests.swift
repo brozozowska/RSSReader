@@ -14,7 +14,7 @@ struct AppSettingsServiceTests {
         _ = try repository.update(
             AppSettingsUpdate(
                 articleOpeningMode: .safariView,
-                selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+                selectedSourcesFilterRawValue: SidebarArticleFilter.starred.rawValue,
                 refreshIntervalPreference: .hourly,
                 useiCloudSync: true,
                 markAsReadOnOpen: false,
@@ -35,7 +35,7 @@ struct AppSettingsServiceTests {
         #expect(
             snapshot == AppSettingsSnapshot(
                 articleOpeningMode: .safariView,
-                selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+                selectedSourcesFilterRawValue: SidebarArticleFilter.starred.rawValue,
                 refreshIntervalPreference: .hourly,
                 useiCloudSync: true,
                 markAsReadOnOpen: false,
@@ -58,7 +58,7 @@ struct AppSettingsServiceTests {
         let service = try #require(harness.dependencies.appSettingsService)
         let editedSettings = AppSettingsSnapshot(
             articleOpeningMode: .safariView,
-            selectedSourcesFilterRawValue: SourcesFilter.unread.rawValue,
+            selectedSourcesFilterRawValue: SidebarArticleFilter.unread.rawValue,
             refreshIntervalPreference: .every6Hours,
             useiCloudSync: true,
             markAsReadOnOpen: false,
@@ -80,7 +80,7 @@ struct AppSettingsServiceTests {
 
         #expect(savedSnapshot == editedSettings)
         #expect(persistedSettings.articleOpeningMode == .safariView)
-        #expect(persistedSettings.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
+        #expect(persistedSettings.selectedSourcesFilterRawValue == SidebarArticleFilter.unread.rawValue)
         #expect(persistedSettings.refreshIntervalPreference == .every6Hours)
         #expect(persistedSettings.useiCloudSync)
         #expect(persistedSettings.markAsReadOnOpen == false)
@@ -296,14 +296,14 @@ struct AppSettingsServiceTests {
 
         let updatedSnapshot = try service.updateSettings(
             AppSettingsPatch(
-                selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+                selectedSourcesFilterRawValue: SidebarArticleFilter.starred.rawValue,
                 updatedAt: .distantPast
             )
         )
         let persistedSettings = try repository.fetchOrCreate()
 
-        #expect(updatedSnapshot.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
-        #expect(persistedSettings.selectedSourcesFilterRawValue == SourcesFilter.starred.rawValue)
+        #expect(updatedSnapshot.selectedSourcesFilterRawValue == SidebarArticleFilter.starred.rawValue)
+        #expect(persistedSettings.selectedSourcesFilterRawValue == SidebarArticleFilter.starred.rawValue)
     }
 
     @Test

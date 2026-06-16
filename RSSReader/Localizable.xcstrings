@@ -3980,7 +3980,7 @@
       }
     },
     "sidebar.filter.allItems.title" : {
-      "comment" : "Menu item title for showing all source items.",
+      "comment" : "Menu item title for showing all feed items.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3997,7 +3997,7 @@
       }
     },
     "sidebar.filter.starred.title" : {
-      "comment" : "Menu item title for showing starred source items.",
+      "comment" : "Menu item title for showing starred feed items.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4014,7 +4014,7 @@
       }
     },
     "sidebar.filter.unread.title" : {
-      "comment" : "Menu item title for showing unread source items.",
+      "comment" : "Menu item title for showing unread feed items.",
       "localizations" : {
         "en" : {
           "stringUnit" : {

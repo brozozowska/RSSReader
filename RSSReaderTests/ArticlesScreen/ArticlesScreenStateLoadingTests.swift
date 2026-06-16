@@ -63,7 +63,7 @@ struct ArticlesScreenStateLoadingTests {
         let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
         let context = ArticleListSession.Context(
             selection: .feed(unreadItem.feedID),
-            sourcesFilter: .unread
+            sidebarArticleFilter: .unread
         )
 
         state.applyLoadedArticles(
@@ -98,7 +98,7 @@ struct ArticlesScreenStateLoadingTests {
             navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle,
             sessionContext: ArticleListSession.Context(
                 selection: .unread,
-                sourcesFilter: .allItems
+                sidebarArticleFilter: .allItems
             )
         )
 

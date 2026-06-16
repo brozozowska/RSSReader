@@ -8,7 +8,7 @@ enum ArticleRowMutation: Equatable {
 enum ArticlesScreenMutationReducer {
     static func articleListFilter(
         selection: SidebarSelection?,
-        sourcesFilter: SourcesFilter
+        sidebarArticleFilter: SidebarArticleFilter
     ) -> ArticleListFilter {
         switch selection {
         case .unread:
@@ -16,7 +16,7 @@ enum ArticlesScreenMutationReducer {
         case .starred:
             .starred
         case .inbox, .folder, .feed, .none:
-            SourcesFilterArticleListFilterResolver.resolve(for: sourcesFilter)
+            SidebarArticleFilterResolver.resolve(for: sidebarArticleFilter)
         }
     }
 
@@ -97,9 +97,9 @@ enum ArticlesScreenMutationReducer {
     }
 }
 
-enum SourcesFilterArticleListFilterResolver {
-    static func resolve(for sourcesFilter: SourcesFilter) -> ArticleListFilter {
-        switch sourcesFilter {
+enum SidebarArticleFilterResolver {
+    static func resolve(for sidebarArticleFilter: SidebarArticleFilter) -> ArticleListFilter {
+        switch sidebarArticleFilter {
         case .allItems:
             .all
         case .unread:

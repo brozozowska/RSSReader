@@ -4,9 +4,9 @@ import Testing
 
 @Suite("Sidebar / Query")
 @MainActor
-struct SourcesSidebarQueryServiceTests {
+struct SidebarQueryServiceTests {
     @Test
-    func sourcesSidebarQuerySnapshotAggregatesUnreadAndStarredStateForFeeds() throws {
+    func sidebarQuerySnapshotAggregatesUnreadAndStarredStateForFeeds() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let emptyFolder = try harness.folderRepository.insert(Folder(name: "Empty", sortOrder: 0))
         let feeds = try harness.insertFeeds(
@@ -42,7 +42,7 @@ struct SourcesSidebarQueryServiceTests {
         _ = try stateService.markAsRead(feedID: secondFeed.id, articleExternalID: "sidebar-read", at: .now)
         _ = unreadArticle
 
-        let snapshot = try harness.dependencies.sourcesSidebarQueryService?.fetchSnapshot()
+        let snapshot = try harness.dependencies.sidebarQueryService?.fetchSnapshot()
         let resolvedSnapshot = try #require(snapshot)
 
         #expect(resolvedSnapshot.folders.map(\.id) == [emptyFolder.id])

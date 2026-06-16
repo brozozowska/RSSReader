@@ -66,7 +66,7 @@ struct SourceManagementScreenControllerMoveSourceTests {
 
         harness.dependencies.appActions.showFolder(named: "News", using: appState)
         let articleReloadIDBeforeMove = appState.articleListReloadID
-        let sidebarReloadIDBeforeMove = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforeMove = appState.sidebarReloadID
 
         harness.dependencies.appActions.showSourceManagement(using: appState)
         controller.handleScenarioSelection(.moveSource, dependencies: harness.dependencies)
@@ -76,7 +76,7 @@ struct SourceManagementScreenControllerMoveSourceTests {
         let persistedFeed = try harness.feedRepository.fetchFeed(id: feed.id)
 
         #expect(appState.isPresentingSourceManagementScreen == false)
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeMove)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeMove)
         #expect(appState.articleListReloadID != articleReloadIDBeforeMove)
         #expect(persistedFeed?.folder?.id == techFolder.id)
     }

@@ -9,7 +9,7 @@ struct SettingsScreenPresentationContractTests {
     func settingsScreenPresentationBuilderBuildsSectionedContractFromSettingsSnapshot() {
         let snapshot = AppSettingsSnapshot(
             articleOpeningMode: .safariView,
-            selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+            selectedSourcesFilterRawValue: SidebarArticleFilter.starred.rawValue,
             refreshIntervalPreference: .daily,
             useiCloudSync: true,
             markAsReadOnOpen: false,
@@ -307,7 +307,7 @@ struct SettingsScreenPresentationContractTests {
     func settingsScreenInputBuilderNormalizesSnapshotIntoScreenSpecificInput() {
         let snapshot = AppSettingsSnapshot(
             articleOpeningMode: .feedReader,
-            selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+            selectedSourcesFilterRawValue: SidebarArticleFilter.starred.rawValue,
             refreshIntervalPreference: .every6Hours,
             useiCloudSync: true,
             markAsReadOnOpen: false,

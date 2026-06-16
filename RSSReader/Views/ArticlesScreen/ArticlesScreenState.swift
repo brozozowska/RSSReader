@@ -277,7 +277,7 @@ struct ArticlesScreenState {
         articleListSession.markArticleAsReadInCurrentSession(id: articleID)
         navigationSubtitle = ArticlesScreenSubtitleResolver.resolve(
             articles: articles,
-            sourcesFilter: articleListSession.context.sourcesFilter
+            sidebarArticleFilter: articleListSession.context.sidebarArticleFilter
         )
 
         if selection == nil {
@@ -305,7 +305,7 @@ struct ArticlesScreenState {
     ) -> ArticleListSession.Context {
         sessionContext ?? ArticleListSession.Context(
             selection: selection,
-            sourcesFilter: articleListSession.context.sourcesFilter
+            sidebarArticleFilter: articleListSession.context.sidebarArticleFilter
         )
     }
 

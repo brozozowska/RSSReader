@@ -11,12 +11,12 @@ enum SidebarLocalization {
         defaultValue: "Feeds",
         comment: "Navigation title for the feeds sidebar."
     )
-    static let addSourceAccessibilityLabel = String(
+    static let addFeedAccessibilityLabel = String(
         localized: "sidebar.toolbar.addSource.accessibility",
         defaultValue: "Add Feed",
         comment: "Accessibility label for the add feed toolbar button."
     )
-    static let filterSourcesAccessibilityLabel = String(
+    static let filterFeedsAccessibilityLabel = String(
         localized: "sidebar.toolbar.filter.accessibility",
         defaultValue: "Filter Feeds",
         comment: "Accessibility label for the feed filter menu."
@@ -24,17 +24,17 @@ enum SidebarLocalization {
     static let allItemsFilterTitle = String(
         localized: "sidebar.filter.allItems.title",
         defaultValue: "All Items",
-        comment: "Menu item title for showing all source items."
+        comment: "Menu item title for showing all feed items."
     )
     static let unreadFilterTitle = String(
         localized: "sidebar.filter.unread.title",
         defaultValue: "Unread",
-        comment: "Menu item title for showing unread source items."
+        comment: "Menu item title for showing unread feed items."
     )
     static let starredFilterTitle = String(
         localized: "sidebar.filter.starred.title",
         defaultValue: "Starred",
-        comment: "Menu item title for showing starred source items."
+        comment: "Menu item title for showing starred feed items."
     )
     static let smartViewsSectionTitle = String(
         localized: "sidebar.section.smartViews.title",

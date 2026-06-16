@@ -12,7 +12,7 @@ struct SettingsScreenControllerSourcePortabilityTests {
         let controller = SettingsScreenController()
         let appState = AppState()
         let initialSnapshot = try settingsService.fetchSettings()
-        let sidebarReloadID = appState.sourcesSidebarReloadID
+        let sidebarReloadID = appState.sidebarReloadID
         let articleListReloadID = appState.articleListReloadID
         let data = Data(
             """
@@ -45,7 +45,7 @@ struct SettingsScreenControllerSourcePortabilityTests {
         #expect(status.title == SettingsLocalization.opmlImportCompleteTitle)
         #expect(feed.displayTitle == "Swift Blog")
         #expect(feed.folder?.name == "Tech")
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadID)
+        #expect(appState.sidebarReloadID != sidebarReloadID)
         #expect(appState.articleListReloadID != articleListReloadID)
         #expect(try settingsService.fetchSettings() == initialSnapshot)
     }

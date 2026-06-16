@@ -59,7 +59,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)?
     let persistenceBoundedGrowthCleanupService: (any PersistenceBoundedGrowthCleanupServicing)?
     let articleQueryService: (any ArticleQueryService)?
-    let sourcesSidebarQueryService: (any SourcesSidebarQueryService)?
+    let sidebarQueryService: (any SidebarQueryService)?
     let articleStateRepository: (any ArticleStateRepository)?
     let appSettingsRepository: (any AppSettingsRepository)?
     let appSettingsService: (any AppSettingsService)?
@@ -160,7 +160,7 @@ public final class AppDependencies: AppDependenciesProtocol {
                 articleStateRepository: articleStateRepository
             )
         }()
-        let sourcesSidebarQueryService: (any SourcesSidebarQueryService)? = {
+        let sidebarQueryService: (any SidebarQueryService)? = {
             guard let feedRepository,
                   let folderRepository,
                   let articleStateRepository,
@@ -168,7 +168,7 @@ public final class AppDependencies: AppDependenciesProtocol {
                 return nil
             }
 
-            return DefaultSourcesSidebarQueryService(
+            return DefaultSidebarQueryService(
                 feedRepository: feedRepository,
                 folderRepository: folderRepository,
                 articleStateRepository: articleStateRepository,
@@ -266,7 +266,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.persistenceBoundedGrowthCleanupService = persistenceBoundedGrowthCleanupService
         self.articleStateRepository = articleStateRepository
         self.articleQueryService = articleQueryService
-        self.sourcesSidebarQueryService = sourcesSidebarQueryService
+        self.sidebarQueryService = sidebarQueryService
         self.appSettingsRepository = appSettingsRepository
         self.appSettingsService = appSettingsService
         self.backgroundRefreshService = resolvedBackgroundRefreshService

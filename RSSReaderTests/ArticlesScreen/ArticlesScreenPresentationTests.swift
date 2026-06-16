@@ -92,7 +92,7 @@ struct ArticlesScreenPresentationTests {
     }
 
     @Test
-    func articlesScreenSubtitleResolverBuildsSubtitleFromSourcesFilter() {
+    func articlesScreenSubtitleResolverBuildsSubtitleFromSidebarArticleFilter() {
         let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
         let starredItem = makeArticleListItemDTO(isRead: true, isStarred: true)
         let unreadStarredItem = makeArticleListItemDTO(isRead: false, isStarred: true)
@@ -101,19 +101,19 @@ struct ArticlesScreenPresentationTests {
         #expect(
             ArticlesScreenSubtitleResolver.resolve(
                 articles: articles,
-                sourcesFilter: .allItems
+                sidebarArticleFilter: .allItems
             ) == ReadingLocalization.unreadItemsSubtitle(count: 2)
         )
         #expect(
             ArticlesScreenSubtitleResolver.resolve(
                 articles: articles,
-                sourcesFilter: .unread
+                sidebarArticleFilter: .unread
             ) == ReadingLocalization.unreadItemsSubtitle(count: 2)
         )
         #expect(
             ArticlesScreenSubtitleResolver.resolve(
                 articles: articles,
-                sourcesFilter: .starred
+                sidebarArticleFilter: .starred
             ) == ReadingLocalization.starredItemsSubtitle(count: 2)
         )
     }
@@ -125,19 +125,19 @@ struct ArticlesScreenPresentationTests {
         #expect(
             ArticlesScreenSubtitleResolver.resolve(
                 articles: [],
-                sourcesFilter: .allItems
+                sidebarArticleFilter: .allItems
             ) == ReadingLocalization.noUnreadItemsSubtitle
         )
         #expect(
             ArticlesScreenSubtitleResolver.resolve(
                 articles: [readItem],
-                sourcesFilter: .unread
+                sidebarArticleFilter: .unread
             ) == ReadingLocalization.noUnreadItemsSubtitle
         )
         #expect(
             ArticlesScreenSubtitleResolver.resolve(
                 articles: [],
-                sourcesFilter: .starred
+                sidebarArticleFilter: .starred
             ) == ReadingLocalization.starredItemsSubtitle(count: 0)
         )
     }

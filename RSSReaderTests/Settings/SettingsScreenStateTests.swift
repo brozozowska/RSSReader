@@ -9,7 +9,7 @@ struct SettingsScreenStateTests {
     func settingsScreenStateBuildsLoadedViewStateFromSnapshot() {
         let snapshot = AppSettingsSnapshot(
             articleOpeningMode: .safariView,
-            selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+            selectedSourcesFilterRawValue: SidebarArticleFilter.starred.rawValue,
             refreshIntervalPreference: .hourly,
             useiCloudSync: true,
             markAsReadOnOpen: false,

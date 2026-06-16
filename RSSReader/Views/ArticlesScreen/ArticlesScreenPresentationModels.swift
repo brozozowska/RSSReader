@@ -154,11 +154,11 @@ struct ArticlesScreenNavigationTitleResolver {
 struct ArticlesScreenSubtitleResolver {
     static func resolve(
         articles: [ArticleListItemDTO],
-        sourcesFilter: SourcesFilter
+        sidebarArticleFilter: SidebarArticleFilter
     ) -> String {
         let count: Int
 
-        switch sourcesFilter {
+        switch sidebarArticleFilter {
         case .allItems, .unread:
             count = articles.filter { $0.isRead == false }.count
             guard count > 0 else {

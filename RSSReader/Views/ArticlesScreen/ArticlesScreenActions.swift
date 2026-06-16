@@ -5,7 +5,7 @@ extension ArticlesScreenController {
     func handleMarkAllAsReadAction(
         searchText: String,
         selection: SidebarSelection?,
-        sourcesFilter: SourcesFilter,
+        sidebarArticleFilter: SidebarArticleFilter,
         dependencies: AppDependencies,
         isPreviewMode: Bool
     ) {
@@ -13,7 +13,7 @@ extension ArticlesScreenController {
             confirmMarkAllAsRead(
                 searchText: searchText,
                 selection: selection,
-                sourcesFilter: sourcesFilter,
+                sidebarArticleFilter: sidebarArticleFilter,
                 dependencies: dependencies,
                 isPreviewMode: isPreviewMode
             )
@@ -33,7 +33,7 @@ extension ArticlesScreenController {
     func confirmMarkAllAsRead(
         searchText: String,
         selection: SidebarSelection?,
-        sourcesFilter: SourcesFilter,
+        sidebarArticleFilter: SidebarArticleFilter,
         dependencies: AppDependencies,
         isPreviewMode: Bool
     ) {
@@ -62,14 +62,14 @@ extension ArticlesScreenController {
             allArticles: screenState.articles,
             filter: currentArticleListFilter(
                 selection: selection,
-                sourcesFilter: sourcesFilter
+                sidebarArticleFilter: sidebarArticleFilter
             )
         )
         screenState.applyMarkAllAsRead(
             updatedArticles,
             navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
                 articles: updatedArticles,
-                sourcesFilter: sourcesFilter
+                sidebarArticleFilter: sidebarArticleFilter
             )
         )
     }
@@ -77,7 +77,7 @@ extension ArticlesScreenController {
     func toggleArticleReadStatus(
         _ article: ArticleListItemDTO,
         selection: SidebarSelection?,
-        sourcesFilter: SourcesFilter,
+        sidebarArticleFilter: SidebarArticleFilter,
         dependencies: AppDependencies,
         isPreviewMode: Bool
     ) {
@@ -113,16 +113,16 @@ extension ArticlesScreenController {
             article: article,
             filter: currentArticleListFilter(
                 selection: selection,
-                sourcesFilter: sourcesFilter
+                sidebarArticleFilter: sidebarArticleFilter
             )
         )
-        applyArticleRowMutation(mutation, articleID: article.id, sourcesFilter: sourcesFilter)
+        applyArticleRowMutation(mutation, articleID: article.id, sidebarArticleFilter: sidebarArticleFilter)
     }
 
     func toggleStarredState(
         for article: ArticleListItemDTO,
         selection: SidebarSelection?,
-        sourcesFilter: SourcesFilter,
+        sidebarArticleFilter: SidebarArticleFilter,
         dependencies: AppDependencies,
         isPreviewMode: Bool
     ) {
@@ -148,16 +148,16 @@ extension ArticlesScreenController {
             article: article,
             filter: currentArticleListFilter(
                 selection: selection,
-                sourcesFilter: sourcesFilter
+                sidebarArticleFilter: sidebarArticleFilter
             )
         )
-        applyArticleRowMutation(mutation, articleID: article.id, sourcesFilter: sourcesFilter)
+        applyArticleRowMutation(mutation, articleID: article.id, sidebarArticleFilter: sidebarArticleFilter)
     }
 
     private func applyArticleRowMutation(
         _ mutation: ArticleRowMutation,
         articleID: UUID,
-        sourcesFilter: SourcesFilter
+        sidebarArticleFilter: SidebarArticleFilter
     ) {
         let updatedArticles = ArticlesScreenMutationReducer.apply(
             mutation,
@@ -169,18 +169,18 @@ extension ArticlesScreenController {
             mutation: mutation,
             navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
                 articles: updatedArticles,
-                sourcesFilter: sourcesFilter
+                sidebarArticleFilter: sidebarArticleFilter
             )
         )
     }
 
     private func currentArticleListFilter(
         selection: SidebarSelection?,
-        sourcesFilter: SourcesFilter
+        sidebarArticleFilter: SidebarArticleFilter
     ) -> ArticleListFilter {
         ArticlesScreenMutationReducer.articleListFilter(
             selection: selection,
-            sourcesFilter: sourcesFilter
+            sidebarArticleFilter: sidebarArticleFilter
         )
     }
 

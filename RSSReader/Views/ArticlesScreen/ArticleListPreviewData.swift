@@ -42,10 +42,10 @@ private struct ArticlesScreenPreviewContainer: View {
         NavigationStack {
             ArticleListView(
                 selectedSidebarSelection: .unread,
-                selectedSourcesFilter: .unread,
+                selectedSidebarArticleFilter: .unread,
                 reloadID: UUID(),
                 showsBackButton: true,
-                navigateBackToSources: {},
+                navigateBackToSidebar: {},
                 previewScreenState: screenState,
                 selection: $selection
             )

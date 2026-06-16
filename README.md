@@ -593,8 +593,7 @@
 - [ ] `Localization Regression Checklist`: подготовить smoke checklist для long text, Dynamic Type, RTL, CJK, settings sheets, source management и article reader.
 
 #### Naming Contract Cleanup
-- [ ] `Feed Naming Contract Audit`: зафиксировать окончательный glossary `Feed` / «Лента» для подписки и исключение `source article` только для исходной статьи; составить rename map для legacy code names (`SourceSelection`, `SourcesFilter`, `SourcesSidebarQueryService`, `SourceManagement`, `SourceIconCache`, `selectedSourcesFilterRawValue`, `sourceManagement.*` string keys) и обновить `AgentDocs/CURRENT_ARCHITECTURE.md` целевым контрактом перед массовыми переименованиями;
-- [ ] `Sidebar Feed Naming Cleanup`: переименовать app-level selection/filter/sidebar query contracts с `Source` / `Sources` на `Feed` / `Feeds` или нейтральный `Sidebar`, включая `AppState`, `AppActionRouter`, `SourcesSidebarQueryService`, sidebar presentation/state/controller, article-list filter resolver и связанные tests; сохранить поведение selection, filters, counters и reload triggers без UI-регрессий;
+- [x] `Sidebar Feed Naming Cleanup`: переименовать app-level selection/filter/sidebar query contracts с `Source` / `Sources` на `Feed` / `Feeds` или нейтральный `Sidebar`, включая `AppState`, `AppActionRouter`, `SourcesSidebarQueryService`, sidebar presentation/state/controller, article-list filter resolver и связанные tests; сохранить поведение selection, filters, counters и reload triggers без UI-регрессий;
 - [ ] `Feed Management Naming Cleanup`: переименовать `SourceManagement` screen/service/app-flow contracts в feed-management naming, включая launch context, screen state/controller/presentation models, service DTO/commands, OPML import/export integration points, app actions, локализационные keys/comments и tests; оставить пользовательский copy на `Feed` / «Лента» и не затрагивать смысл `Open Source Article`;
 - [ ] `Feed Icon And Settings Naming Cleanup`: переименовать `SourceIconCache` и persisted settings naming вроде `selectedSourcesFilterRawValue` / `lastSourcesRefreshAt` в feed-oriented контракты, определить нужна ли transient compatibility для существующих данных или проект продолжает текущий no-legacy-migration подход, обновить repositories/services/tests и проверить persistence bootstrap;
 - [ ] `Project Terminology Documentation Cleanup`: после code rename обновить `README.md`, `AgentDocs/CURRENT_ARCHITECTURE.md`, roadmap descriptions и test/support names так, чтобы `Source` не использовался как синоним `Feed`, а исторические упоминания были явно помечены как legacy roadmap context.
@@ -602,7 +601,7 @@
 #### Article Search Foundation
 - [ ] `Article Search Scope`: определить searchable fields, selection scope и поведение для hidden, archived и `isDeletedAtSource` статей;
 - [ ] `Article Search Query Layer`: добавить query/read-model API для поиска статей без переноса search logic во `View`;
-- [ ] `Article Search UI Contract`: определить, как `Articles Screen` подключает поиск к текущему `SidebarSelection` / `SourcesFilter` и какие empty/loading states нужны.
+- [ ] `Article Search UI Contract`: определить, как `Articles Screen` подключает поиск к текущему `SidebarSelection` / `SidebarArticleFilter` и какие empty/loading states нужны.
 
 #### iPad Adaptation
 - [ ] `iPad Layout Audit`: проверить `NavigationSplitView`, sidebar ширины, article list/detail layout, settings/source-management sheets и reader chrome в regular width;

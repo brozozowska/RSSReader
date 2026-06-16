@@ -8,7 +8,7 @@ final class AppSettings {
     var id: UUID = UUID()
     var singletonKey: String = AppSettings.singletonKeyValue
     var articleOpeningMode: ArticleOpeningMode = ArticleOpeningMode.feedReader
-    var selectedSourcesFilterRawValue: String? = SourcesFilter.allItems.rawValue
+    var selectedSourcesFilterRawValue: String? = SidebarArticleFilter.allItems.rawValue
     var refreshIntervalPreference: RefreshPreference = RefreshPreference.manual
     var useiCloudSync: Bool = false
     var markAsReadOnOpen: Bool = true
@@ -28,7 +28,7 @@ final class AppSettings {
         id: UUID = UUID(),
         singletonKey: String = AppSettings.singletonKeyValue,
         articleOpeningMode: ArticleOpeningMode = .feedReader,
-        selectedSourcesFilterRawValue: String? = SourcesFilter.allItems.rawValue,
+        selectedSourcesFilterRawValue: String? = SidebarArticleFilter.allItems.rawValue,
         refreshIntervalPreference: RefreshPreference = .manual,
         useiCloudSync: Bool = false,
         markAsReadOnOpen: Bool = true,

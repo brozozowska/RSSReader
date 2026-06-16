@@ -14,7 +14,7 @@ struct ArticlesScreenDerivedViewState {
 extension ArticlesScreenState {
     func derivedViewState(
         searchText: String,
-        sourcesFilter: SourcesFilter = .allItems
+        sidebarArticleFilter: SidebarArticleFilter = .allItems
     ) -> ArticlesScreenDerivedViewState {
         let normalizedSearchText = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         let visibleArticles = filteredArticles(matching: normalizedSearchText)
@@ -24,7 +24,7 @@ extension ArticlesScreenState {
             sections: ArticlesDaySectionsBuilder.build(from: visibleArticles),
             navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
                 articles: visibleArticles,
-                sourcesFilter: sourcesFilter
+                sidebarArticleFilter: sidebarArticleFilter
             ),
             toolbarActions: ArticlesScreenToolbarActionsState(
                 selection: selection,

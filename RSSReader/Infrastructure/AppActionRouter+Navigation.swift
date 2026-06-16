@@ -3,27 +3,27 @@ import Foundation
 extension AppActionRouter {
     @MainActor
     func showInbox(using appState: AppState) {
-        appState.selectReadingSource(.inbox)
+        appState.selectSidebarSelection(.inbox)
     }
 
     @MainActor
     func showUnread(using appState: AppState) {
-        appState.selectReadingSource(.unread)
+        appState.selectSidebarSelection(.unread)
     }
 
     @MainActor
     func showStarred(using appState: AppState) {
-        appState.selectReadingSource(.starred)
+        appState.selectSidebarSelection(.starred)
     }
 
     @MainActor
     func showFeed(id feedID: UUID, using appState: AppState) {
-        appState.selectReadingSource(.feed(feedID))
+        appState.selectSidebarSelection(.feed(feedID))
     }
 
     @MainActor
     func showFolder(named folderName: String, using appState: AppState) {
-        appState.selectReadingSource(.folder(folderName))
+        appState.selectSidebarSelection(.folder(folderName))
     }
 
     @MainActor
@@ -62,8 +62,8 @@ extension AppActionRouter {
     }
 
     @MainActor
-    func applySourcesFilter(_ filter: SourcesFilter, using appState: AppState) {
-        appState.selectSourcesFilter(filter)
+    func applySidebarArticleFilter(_ filter: SidebarArticleFilter, using appState: AppState) {
+        appState.selectSidebarArticleFilter(filter)
     }
 
     @MainActor

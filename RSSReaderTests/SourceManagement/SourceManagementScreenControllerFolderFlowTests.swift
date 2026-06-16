@@ -164,7 +164,7 @@ struct SourceManagementScreenControllerFolderFlowTests {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let controller = SourceManagementScreenController()
         let appState = AppState()
-        let sidebarReloadIDBeforeCreation = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforeCreation = appState.sidebarReloadID
         let articleReloadIDBeforeCreation = appState.articleListReloadID
 
         harness.dependencies.appActions.showSourceManagement(using: appState)
@@ -181,7 +181,7 @@ struct SourceManagementScreenControllerFolderFlowTests {
         }
 
         #expect(appState.isPresentingSourceManagementScreen)
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeCreation)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeCreation)
         #expect(appState.articleListReloadID == articleReloadIDBeforeCreation)
         #expect(createdDestination.feedback?.title == SourceManagementLocalization.folderCreatedTitle)
         #expect(createdDestination.feedback?.detail == SourceManagementLocalization.folderCreatedDetail("Research"))

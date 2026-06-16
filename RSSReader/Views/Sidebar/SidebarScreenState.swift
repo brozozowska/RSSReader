@@ -46,7 +46,7 @@ struct SidebarScreenState {
     }
 
     mutating func applyLoadedSnapshot(
-        _ snapshot: SourcesSidebarSnapshotDTO,
+        _ snapshot: SidebarSnapshotDTO,
         refreshedAt: Date?
     ) {
         folders = snapshot.folders
@@ -71,7 +71,7 @@ struct SidebarScreenState {
     }
 
     func derivedViewState(
-        filter: SourcesFilter,
+        filter: SidebarArticleFilter,
         expandedFolderNames: Set<String>,
         iCloudSyncStatus: ICloudSyncStatus
     ) -> SidebarScreenDerivedViewState {
@@ -155,7 +155,7 @@ struct SidebarScreenState {
     }
 
     static func previewLoaded(
-        snapshot: SourcesSidebarSnapshotDTO,
+        snapshot: SidebarSnapshotDTO,
         refreshedAt: Date? = nil
     ) -> SidebarScreenState {
         var state = SidebarScreenState()

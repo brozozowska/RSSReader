@@ -1,12 +1,12 @@
 import Foundation
 
 @MainActor
-protocol SourcesSidebarQueryService {
-    func fetchSnapshot() throws -> SourcesSidebarSnapshotDTO
+protocol SidebarQueryService {
+    func fetchSnapshot() throws -> SidebarSnapshotDTO
 }
 
 @MainActor
-final class DefaultSourcesSidebarQueryService: SourcesSidebarQueryService {
+final class DefaultSidebarQueryService: SidebarQueryService {
     private let feedRepository: any FeedRepository
     private let folderRepository: any FolderRepository
     private let articleStateRepository: any ArticleStateRepository
@@ -24,7 +24,7 @@ final class DefaultSourcesSidebarQueryService: SourcesSidebarQueryService {
         self.articleQueryService = articleQueryService
     }
 
-    func fetchSnapshot() throws -> SourcesSidebarSnapshotDTO {
+    func fetchSnapshot() throws -> SidebarSnapshotDTO {
         let baseFeeds = try feedRepository.fetchSidebarItems()
         let folders = try folderRepository.fetchAllFolders().map(FolderSidebarItem.init(folder:))
         let unreadCounts = try articleStateRepository.fetchUnreadCounts(feedIDs: baseFeeds.map(\.id))
@@ -36,7 +36,7 @@ final class DefaultSourcesSidebarQueryService: SourcesSidebarQueryService {
             )
         }
 
-        return SourcesSidebarSnapshotDTO(
+        return SidebarSnapshotDTO(
             folders: folders,
             feeds: feeds,
             unreadSmartCount: feeds.reduce(0) { $0 + $1.unreadCount },

@@ -46,7 +46,7 @@ struct SourceIconView: View {
         SourceIconCacheOnlyLoadID(
             siteURL: siteURL,
             iconURL: iconURL,
-            sidebarReloadID: appState.sourcesSidebarReloadID
+            sidebarReloadID: appState.sidebarReloadID
         )
     }
 

@@ -20,7 +20,7 @@ struct FolderSidebarItem: Sendable, Identifiable, Hashable {
     }
 }
 
-struct SourcesSidebarSnapshotDTO: Sendable {
+struct SidebarSnapshotDTO: Sendable {
     let folders: [FolderSidebarItem]
     let feeds: [FeedSidebarItem]
     let unreadSmartCount: Int

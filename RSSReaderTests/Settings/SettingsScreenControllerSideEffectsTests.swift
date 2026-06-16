@@ -89,7 +89,7 @@ struct SettingsScreenControllerSideEffectsTests {
         let controller = SettingsScreenController()
         let appState = AppState()
         let articleListReloadIDBeforePurge = appState.articleListReloadID
-        let sourcesSidebarReloadIDBeforePurge = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforePurge = appState.sidebarReloadID
         let initialSnapshot = try settingsService.fetchSettings()
 
         controller.refreshArchivedArticlesAvailability(dependencies: harness.dependencies)
@@ -106,7 +106,7 @@ struct SettingsScreenControllerSideEffectsTests {
         #expect(try harness.articleRepository.fetchArticle(id: currentArticle.id) != nil)
         #expect(controller.screenState.hasArchivedArticles == false)
         #expect(appState.articleListReloadID != articleListReloadIDBeforePurge)
-        #expect(appState.sourcesSidebarReloadID != sourcesSidebarReloadIDBeforePurge)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforePurge)
         #expect(try settingsService.fetchSettings() == initialSnapshot)
     }
 
