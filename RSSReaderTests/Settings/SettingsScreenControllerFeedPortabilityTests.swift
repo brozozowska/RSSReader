@@ -2,9 +2,9 @@ import Foundation
 import Testing
 @testable import RSSReader
 
-@Suite("Settings Screen / Controller / Source Portability")
+@Suite("Settings Screen / Controller / Feed Portability")
 @MainActor
-struct SettingsScreenControllerSourcePortabilityTests {
+struct SettingsScreenControllerFeedPortabilityTests {
     @Test
     func settingsScreenControllerPreviewsAndImportsOPMLWithoutChangingSettings() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())

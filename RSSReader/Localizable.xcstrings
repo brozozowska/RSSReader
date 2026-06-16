@@ -563,7 +563,7 @@
       }
     },
     "reading.articles.navigation.title" : {
-      "comment" : "Default navigation title for the article list when no source-specific title is available.",
+      "comment" : "Default navigation title for the article list when no feed-specific title is available.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -613,7 +613,7 @@
         }
       }
     },
-    "reading.articles.placeholder.empty.source.description" : {
+    "reading.articles.placeholder.empty.feed.description" : {
       "comment" : "Article list empty description for a feed.",
       "localizations" : {
         "en" : {
@@ -648,7 +648,7 @@
       }
     },
     "reading.articles.placeholder.empty.title" : {
-      "comment" : "Article list placeholder title when the selected source has no articles.",
+      "comment" : "Article list placeholder title when the selected feed has no articles.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -698,7 +698,7 @@
         }
       }
     },
-    "reading.articles.placeholder.noSource.description" : {
+    "reading.articles.placeholder.noSidebarSelection.description" : {
       "comment" : "Article list placeholder description when no sidebar feed is selected.",
       "localizations" : {
         "en" : {
@@ -715,7 +715,7 @@
         }
       }
     },
-    "reading.articles.placeholder.noSource.title" : {
+    "reading.articles.placeholder.noSidebarSelection.title" : {
       "comment" : "Article list placeholder title when no sidebar feed is selected.",
       "localizations" : {
         "en" : {
@@ -800,7 +800,7 @@
         }
       }
     },
-    "reading.articles.refresh.multipleSources.failed.format" : {
+    "reading.articles.refresh.multipleFeeds.failed.format" : {
       "comment" : "Refresh failure message when multiple feeds fail without a detailed error. Placeholder is failed feed count.",
       "localizations" : {
         "en" : {
@@ -817,7 +817,7 @@
         }
       }
     },
-    "reading.articles.refresh.multipleSourcesWithFirstError.failed.format" : {
+    "reading.articles.refresh.multipleFeedsWithFirstError.failed.format" : {
       "comment" : "Refresh failure message when multiple feeds fail. Placeholders are failed feed count and first error message.",
       "localizations" : {
         "en" : {
@@ -851,7 +851,7 @@
         }
       }
     },
-    "reading.articles.refresh.singleSource.failed" : {
+    "reading.articles.refresh.singleFeed.failed" : {
       "comment" : "Refresh failure message when one feed fails without a detailed error.",
       "localizations" : {
         "en" : {
@@ -1038,7 +1038,7 @@
         }
       }
     },
-    "reading.articles.sourceFallback.title" : {
+    "reading.articles.feedFallback.title" : {
       "comment" : "Fallback title for a selected feed when the feed title is unavailable.",
       "localizations" : {
         "en" : {
@@ -1243,7 +1243,7 @@
       }
     },
     "runtime.refresh.status.notUpdatedYet" : {
-      "comment" : "Sidebar subtitle shown before sources have ever refreshed.",
+      "comment" : "Sidebar subtitle shown before feeds have ever refreshed.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1311,7 +1311,7 @@
       }
     },
     "runtime.sync.status.syncing" : {
-      "comment" : "Short runtime status shown while sources or iCloud data are syncing.",
+      "comment" : "Short runtime status shown while feeds or iCloud data are syncing.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2568,7 +2568,7 @@
         }
       }
     },
-    "settings.sourcePortability.export.buildFailure.message" : {
+    "settings.feedPortability.export.buildFailure.message" : {
       "comment" : "Status alert message when OPML export document generation fails.",
       "localizations" : {
         "en" : {
@@ -2585,7 +2585,7 @@
         }
       }
     },
-    "settings.sourcePortability.export.complete.message" : {
+    "settings.feedPortability.export.complete.message" : {
       "comment" : "Status alert message when OPML export completes.",
       "localizations" : {
         "en" : {
@@ -2602,7 +2602,7 @@
         }
       }
     },
-    "settings.sourcePortability.export.complete.title" : {
+    "settings.feedPortability.export.complete.title" : {
       "comment" : "Status alert title when OPML export completes.",
       "localizations" : {
         "en" : {
@@ -2619,7 +2619,7 @@
         }
       }
     },
-    "settings.sourcePortability.export.failed.title" : {
+    "settings.feedPortability.export.failed.title" : {
       "comment" : "Status alert title when OPML export fails.",
       "localizations" : {
         "en" : {
@@ -2636,7 +2636,7 @@
         }
       }
     },
-    "settings.sourcePortability.export.saveFailure.message" : {
+    "settings.feedPortability.export.saveFailure.message" : {
       "comment" : "Status alert message when writing the OPML export file fails.",
       "localizations" : {
         "en" : {
@@ -2653,7 +2653,7 @@
         }
       }
     },
-    "settings.sourcePortability.export.subtitle" : {
+    "settings.feedPortability.export.subtitle" : {
       "comment" : "Button subtitle for exporting an OPML file.",
       "localizations" : {
         "en" : {
@@ -2670,7 +2670,7 @@
         }
       }
     },
-    "settings.sourcePortability.export.title" : {
+    "settings.feedPortability.export.title" : {
       "comment" : "Button title for exporting an OPML file.",
       "localizations" : {
         "en" : {
@@ -2687,7 +2687,7 @@
         }
       }
     },
-    "settings.sourcePortability.export.unavailable.title" : {
+    "settings.feedPortability.export.unavailable.title" : {
       "comment" : "Status alert title when OPML export is unavailable.",
       "localizations" : {
         "en" : {
@@ -2704,7 +2704,7 @@
         }
       }
     },
-    "settings.sourcePortability.import.complete.message" : {
+    "settings.feedPortability.import.complete.message" : {
       "comment" : "Status alert message after OPML import completes. The first value is imported feed count; the second value is skipped entry count.",
       "localizations" : {
         "en" : {
@@ -2721,7 +2721,7 @@
         }
       }
     },
-    "settings.sourcePortability.import.complete.title" : {
+    "settings.feedPortability.import.complete.title" : {
       "comment" : "Status alert title when OPML import completes.",
       "localizations" : {
         "en" : {
@@ -2738,7 +2738,7 @@
         }
       }
     },
-    "settings.sourcePortability.import.emptyFile.message" : {
+    "settings.feedPortability.import.emptyFile.message" : {
       "comment" : "Status alert message when the selected OPML file is empty.",
       "localizations" : {
         "en" : {
@@ -2755,7 +2755,7 @@
         }
       }
     },
-    "settings.sourcePortability.import.failed.title" : {
+    "settings.feedPortability.import.failed.title" : {
       "comment" : "Status alert title when OPML import fails.",
       "localizations" : {
         "en" : {
@@ -2772,7 +2772,7 @@
         }
       }
     },
-    "settings.sourcePortability.import.invalidXML.message" : {
+    "settings.feedPortability.import.invalidXML.message" : {
       "comment" : "Status alert message when the selected OPML file is not valid XML.",
       "localizations" : {
         "en" : {
@@ -2789,7 +2789,7 @@
         }
       }
     },
-    "settings.sourcePortability.import.missingBody.message" : {
+    "settings.feedPortability.import.missingBody.message" : {
       "comment" : "Status alert message when OPML does not contain a feed list.",
       "localizations" : {
         "en" : {
@@ -2806,7 +2806,7 @@
         }
       }
     },
-    "settings.sourcePortability.import.notOPML.message" : {
+    "settings.feedPortability.import.notOPML.message" : {
       "comment" : "Status alert message when the selected file is not an OPML document.",
       "localizations" : {
         "en" : {
@@ -2823,7 +2823,7 @@
         }
       }
     },
-    "settings.sourcePortability.import.readFailure.message" : {
+    "settings.feedPortability.import.readFailure.message" : {
       "comment" : "Status alert message when OPML parsing fails for an unknown reason.",
       "localizations" : {
         "en" : {
@@ -2840,7 +2840,7 @@
         }
       }
     },
-    "settings.sourcePortability.import.saveFailure.message" : {
+    "settings.feedPortability.import.saveFailure.message" : {
       "comment" : "Status alert message when OPML import persistence fails.",
       "localizations" : {
         "en" : {
@@ -2857,7 +2857,7 @@
         }
       }
     },
-    "settings.sourcePortability.import.selectedFileOpenFailure.message" : {
+    "settings.feedPortability.import.selectedFileOpenFailure.message" : {
       "comment" : "Status alert message when the file importer cannot open the selected file.",
       "localizations" : {
         "en" : {
@@ -2874,7 +2874,7 @@
         }
       }
     },
-    "settings.sourcePortability.import.selectedFileReadFailure.message" : {
+    "settings.feedPortability.import.selectedFileReadFailure.message" : {
       "comment" : "Status alert message when the imported file URL cannot be read.",
       "localizations" : {
         "en" : {
@@ -2891,7 +2891,7 @@
         }
       }
     },
-    "settings.sourcePortability.import.subtitle" : {
+    "settings.feedPortability.import.subtitle" : {
       "comment" : "Button subtitle for importing an OPML file.",
       "localizations" : {
         "en" : {
@@ -2908,7 +2908,7 @@
         }
       }
     },
-    "settings.sourcePortability.import.title" : {
+    "settings.feedPortability.import.title" : {
       "comment" : "Button title for importing an OPML file.",
       "localizations" : {
         "en" : {
@@ -2925,7 +2925,7 @@
         }
       }
     },
-    "settings.sourcePortability.import.unavailable.title" : {
+    "settings.feedPortability.import.unavailable.title" : {
       "comment" : "Status alert title when OPML import is unavailable.",
       "localizations" : {
         "en" : {
@@ -2942,7 +2942,7 @@
         }
       }
     },
-    "settings.sourcePortability.section.footer" : {
+    "settings.feedPortability.section.footer" : {
       "comment" : "Footer explaining feed portability import and export actions.",
       "localizations" : {
         "en" : {
@@ -2959,7 +2959,7 @@
         }
       }
     },
-    "settings.sourcePortability.section.title" : {
+    "settings.feedPortability.section.title" : {
       "comment" : "Settings section title for feed import and export.",
       "localizations" : {
         "en" : {
@@ -2976,7 +2976,7 @@
         }
       }
     },
-    "settings.sourcePortability.sourcesUnavailable.message" : {
+    "settings.feedPortability.feedsUnavailable.message" : {
       "comment" : "Fallback error message when feed management services are unavailable.",
       "localizations" : {
         "en" : {
@@ -4166,7 +4166,7 @@
         }
       }
     },
-    "sidebar.toolbar.addSource.accessibility" : {
+    "sidebar.toolbar.addFeed.accessibility" : {
       "comment" : "Accessibility label for the add feed toolbar button.",
       "localizations" : {
         "en" : {

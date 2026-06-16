@@ -24,9 +24,9 @@ struct ArticlesScreenState {
         switch phase {
         case .noSelection:
             ArticlesScreenPlaceholderState(
-                title: ReadingLocalization.noSourceSelectedTitle,
+                title: ReadingLocalization.noSidebarSelectionTitle,
                 systemImage: "sidebar.left",
-                description: ReadingLocalization.noSourceSelectedDescription
+                description: ReadingLocalization.noSidebarSelectionDescription
             )
         case .loading, .loaded:
             nil
@@ -312,7 +312,7 @@ struct ArticlesScreenState {
     private var emptyStateDescription: String {
         switch selection {
         case .none:
-            ReadingLocalization.noSourceSelectedDescription
+            ReadingLocalization.noSidebarSelectionDescription
         case .inbox:
             ReadingLocalization.inboxEmptyDescription
         case .unread:
@@ -322,7 +322,7 @@ struct ArticlesScreenState {
         case .folder(let folderName):
             ReadingLocalization.folderEmptyDescription(folderName: folderName)
         case .feed:
-            ReadingLocalization.sourceEmptyDescription
+            ReadingLocalization.feedEmptyDescription
         }
     }
 }

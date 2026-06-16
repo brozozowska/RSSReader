@@ -24,7 +24,7 @@ enum RuntimeFeedbackLocalization {
     static let syncingStatusTitle = String(
         localized: "runtime.sync.status.syncing",
         defaultValue: "Syncing...",
-        comment: "Short runtime status shown while sources or iCloud data are syncing."
+        comment: "Short runtime status shown while feeds or iCloud data are syncing."
     )
     static let syncFailedStatusTitle = String(
         localized: "runtime.sync.status.failed",
@@ -34,7 +34,7 @@ enum RuntimeFeedbackLocalization {
     static let notUpdatedYetStatusTitle = String(
         localized: "runtime.refresh.status.notUpdatedYet",
         defaultValue: "Not updated yet",
-        comment: "Sidebar subtitle shown before sources have ever refreshed."
+        comment: "Sidebar subtitle shown before feeds have ever refreshed."
     )
     static func todayRefreshStatus(time: String) -> String {
         let format = String(

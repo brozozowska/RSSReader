@@ -29,14 +29,14 @@ struct SettingsScreenPresentationContractTests {
 
         let sections = SettingsScreenPresentationBuilder.buildSections(from: input)
 
-        #expect(sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .notifications, .sourcePortability, .storage])
+        #expect(sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .notifications, .feedPortability, .storage])
 
         let appearanceItems = sections[0].items
         let readingItems = sections[1].items
         let articleListItems = sections[2].items
         let updatesAndSyncItems = sections[3].items
         let notificationsItems = sections[4].items
-        let sourcePortabilityItems = sections[5].items
+        let feedPortabilityItems = sections[5].items
         let storageItems = sections[6].items
 
         #expect(
@@ -216,10 +216,10 @@ struct SettingsScreenPresentationContractTests {
             ]
         )
         #expect(
-            sections[5].footer == SettingsLocalization.sourcePortabilitySectionFooter
+            sections[5].footer == SettingsLocalization.feedPortabilitySectionFooter
         )
         #expect(
-            sourcePortabilityItems == [
+            feedPortabilityItems == [
                 .button(
                     SettingsButtonItemPresentation(
                         id: .importOPML,

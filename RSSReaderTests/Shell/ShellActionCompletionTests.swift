@@ -40,7 +40,7 @@ struct ShellActionCompletionTests {
         let sidebarReloadIDBeforeCompletion = appState.sidebarReloadID
         let articleReloadIDBeforeCompletion = appState.articleListReloadID
 
-        harness.dependencies.appActions.finishMovingSource(
+        harness.dependencies.appActions.finishMovingFeed(
             feedID: feed.id,
             previousFolderName: "News",
             updatedFolderName: "Tech",

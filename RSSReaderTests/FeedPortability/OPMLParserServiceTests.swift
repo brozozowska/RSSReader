@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import RSSReader
 
-@Suite("Source Portability / OPML Parser Service")
+@Suite("Feed Portability / OPML Parser Service")
 @MainActor
 struct OPMLParserServiceTests {
     @Test
@@ -13,7 +13,7 @@ struct OPMLParserServiceTests {
                 <?xml version="1.0" encoding="UTF-8"?>
                 <opml version="2.0">
                   <head>
-                    <title>My Sources</title>
+                    <title>My Feeds</title>
                   </head>
                   <body>
                     <outline text="Technology">
@@ -27,7 +27,7 @@ struct OPMLParserServiceTests {
                       </outline>
                     </outline>
                     <outline
-                      text="Ungrouped Source"
+                      text="Ungrouped Feed"
                       xmlUrl="https://example.com/feed.xml"
                       htmlUrl="https://example.com" />
                   </body>
@@ -37,7 +37,7 @@ struct OPMLParserServiceTests {
         )
 
         #expect(document.version == "2.0")
-        #expect(document.title == "My Sources")
+        #expect(document.title == "My Feeds")
         #expect(document.ignoredOutlineCount == 0)
         #expect(document.feeds.count == 2)
         #expect(document.feeds[0] == OPMLFeedOutlineDTO(
@@ -48,7 +48,7 @@ struct OPMLParserServiceTests {
             htmlURL: "https://swift.org/blog"
         ))
         #expect(document.feeds[1].folderPath.isEmpty)
-        #expect(document.feeds[1].displayTitle == "Ungrouped Source")
+        #expect(document.feeds[1].displayTitle == "Ungrouped Feed")
     }
 
     @Test

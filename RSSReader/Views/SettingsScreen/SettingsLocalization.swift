@@ -200,33 +200,33 @@ enum SettingsLocalization {
         defaultValue: "Show the unread article count on the app icon.",
         comment: "Toggle subtitle explaining the app icon badge setting."
     )
-    static let sourcePortabilitySectionTitle = String(
-        localized: "settings.sourcePortability.section.title",
+    static let feedPortabilitySectionTitle = String(
+        localized: "settings.feedPortability.section.title",
         defaultValue: "Feed Portability",
         comment: "Settings section title for feed import and export."
     )
-    static let sourcePortabilitySectionFooter = String(
-        localized: "settings.sourcePortability.section.footer",
+    static let feedPortabilitySectionFooter = String(
+        localized: "settings.feedPortability.section.footer",
         defaultValue: "Import and export OPML files to move feeds between apps.",
         comment: "Footer explaining feed portability import and export actions."
     )
     static let importOPMLTitle = String(
-        localized: "settings.sourcePortability.import.title",
+        localized: "settings.feedPortability.import.title",
         defaultValue: "Import OPML",
         comment: "Button title for importing an OPML file."
     )
     static let importOPMLSubtitle = String(
-        localized: "settings.sourcePortability.import.subtitle",
+        localized: "settings.feedPortability.import.subtitle",
         defaultValue: "Preview feeds before adding them.",
         comment: "Button subtitle for importing an OPML file."
     )
     static let exportOPMLTitle = String(
-        localized: "settings.sourcePortability.export.title",
+        localized: "settings.feedPortability.export.title",
         defaultValue: "Export OPML",
         comment: "Button title for exporting an OPML file."
     )
     static let exportOPMLSubtitle = String(
-        localized: "settings.sourcePortability.export.subtitle",
+        localized: "settings.feedPortability.export.subtitle",
         defaultValue: "Save active feeds as an OPML file.",
         comment: "Button subtitle for exporting an OPML file."
     )
@@ -660,101 +660,101 @@ enum SettingsLocalization {
         defaultValue: "OPML",
         comment: "Fallback title for OPML import/export status alerts."
     )
-    static let sourcesUnavailableMessage = String(
-        localized: "settings.sourcePortability.sourcesUnavailable.message",
+    static let feedsUnavailableMessage = String(
+        localized: "settings.feedPortability.feedsUnavailable.message",
         defaultValue: "Feeds are unavailable in the current app environment.",
         comment: "Fallback error message when feed management services are unavailable."
     )
     static let importUnavailableTitle = String(
-        localized: "settings.sourcePortability.import.unavailable.title",
+        localized: "settings.feedPortability.import.unavailable.title",
         defaultValue: "Import Unavailable",
         comment: "Status alert title when OPML import is unavailable."
     )
     static let opmlImportFailedTitle = String(
-        localized: "settings.sourcePortability.import.failed.title",
+        localized: "settings.feedPortability.import.failed.title",
         defaultValue: "OPML Import Failed",
         comment: "Status alert title when OPML import fails."
     )
     static let opmlImportCompleteTitle = String(
-        localized: "settings.sourcePortability.import.complete.title",
+        localized: "settings.feedPortability.import.complete.title",
         defaultValue: "OPML Import Complete",
         comment: "Status alert title when OPML import completes."
     )
     static func opmlImportCompleteMessage(createdFeedCount: Int, skippedEntryCount: Int) -> String {
         let format = String(localized:
-            "settings.sourcePortability.import.complete.message",
+            "settings.feedPortability.import.complete.message",
             defaultValue: "%lld feeds imported. %lld skipped.",
             comment: "Status alert message after OPML import completes. The first value is imported feed count; the second value is skipped entry count."
         )
         return String.localizedStringWithFormat(format, createdFeedCount, skippedEntryCount)
     }
     static let opmlImportSaveFailureMessage = String(
-        localized: "settings.sourcePortability.import.saveFailure.message",
+        localized: "settings.feedPortability.import.saveFailure.message",
         defaultValue: "The app could not save the selected OPML feeds. Try again.",
         comment: "Status alert message when OPML import persistence fails."
     )
     static let selectedFileEmptyMessage = String(
-        localized: "settings.sourcePortability.import.emptyFile.message",
+        localized: "settings.feedPortability.import.emptyFile.message",
         defaultValue: "The selected file is empty.",
         comment: "Status alert message when the selected OPML file is empty."
     )
     static let selectedFileInvalidXMLMessage = String(
-        localized: "settings.sourcePortability.import.invalidXML.message",
+        localized: "settings.feedPortability.import.invalidXML.message",
         defaultValue: "The selected file is not valid XML.",
         comment: "Status alert message when the selected OPML file is not valid XML."
     )
     static let selectedFileNotOPMLMessage = String(
-        localized: "settings.sourcePortability.import.notOPML.message",
+        localized: "settings.feedPortability.import.notOPML.message",
         defaultValue: "The selected file is not an OPML document.",
         comment: "Status alert message when the selected file is not an OPML document."
     )
     static let selectedOPMLMissingBodyMessage = String(
-        localized: "settings.sourcePortability.import.missingBody.message",
+        localized: "settings.feedPortability.import.missingBody.message",
         defaultValue: "The selected OPML document does not contain a feed list.",
         comment: "Status alert message when OPML does not contain a feed list."
     )
     static let selectedOPMLReadFailureMessage = String(
-        localized: "settings.sourcePortability.import.readFailure.message",
+        localized: "settings.feedPortability.import.readFailure.message",
         defaultValue: "The app could not read the selected OPML file.",
         comment: "Status alert message when OPML parsing fails for an unknown reason."
     )
     static let selectedFileReadFailureMessage = String(
-        localized: "settings.sourcePortability.import.selectedFileReadFailure.message",
+        localized: "settings.feedPortability.import.selectedFileReadFailure.message",
         defaultValue: "The app could not read the selected file.",
         comment: "Status alert message when the imported file URL cannot be read."
     )
     static let selectedFileOpenFailureMessage = String(
-        localized: "settings.sourcePortability.import.selectedFileOpenFailure.message",
+        localized: "settings.feedPortability.import.selectedFileOpenFailure.message",
         defaultValue: "The selected file could not be opened.",
         comment: "Status alert message when the file importer cannot open the selected file."
     )
     static let exportUnavailableTitle = String(
-        localized: "settings.sourcePortability.export.unavailable.title",
+        localized: "settings.feedPortability.export.unavailable.title",
         defaultValue: "Export Unavailable",
         comment: "Status alert title when OPML export is unavailable."
     )
     static let opmlExportFailedTitle = String(
-        localized: "settings.sourcePortability.export.failed.title",
+        localized: "settings.feedPortability.export.failed.title",
         defaultValue: "OPML Export Failed",
         comment: "Status alert title when OPML export fails."
     )
     static let opmlExportCompleteTitle = String(
-        localized: "settings.sourcePortability.export.complete.title",
+        localized: "settings.feedPortability.export.complete.title",
         defaultValue: "OPML Export Complete",
         comment: "Status alert title when OPML export completes."
     )
     static let opmlExportBuildFailureMessage = String(
-        localized: "settings.sourcePortability.export.buildFailure.message",
+        localized: "settings.feedPortability.export.buildFailure.message",
         defaultValue: "The app could not build an OPML file right now. Try again.",
         comment: "Status alert message when OPML export document generation fails."
     )
     static let opmlExportCompleteMessage = String(
-        localized: "settings.sourcePortability.export.complete.message",
+        localized: "settings.feedPortability.export.complete.message",
         defaultValue: "Your feeds were exported successfully.",
         comment: "Status alert message when OPML export completes."
     )
     static let opmlExportSaveFailureMessage = String(
-        localized: "settings.sourcePortability.export.saveFailure.message",
+        localized: "settings.feedPortability.export.saveFailure.message",
         defaultValue: "The app could not save the OPML file. Try again.",
         comment: "Status alert message when writing the OPML export file fails."
     )

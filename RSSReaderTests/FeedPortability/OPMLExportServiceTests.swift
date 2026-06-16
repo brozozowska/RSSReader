@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import RSSReader
 
-@Suite("Source Portability / OPML Export Service")
+@Suite("Feed Portability / OPML Export Service")
 @MainActor
 struct OPMLExportServiceTests {
     @Test
@@ -12,7 +12,7 @@ struct OPMLExportServiceTests {
         let groupedID = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
         let emptyFolderID = UUID(uuidString: "00000000-0000-0000-0000-000000000004")!
         let document = OPMLExportDocumentDTO(
-            title: "My Sources",
+            title: "My Feeds",
             feeds: [
                 OPMLExportFeedDTO(
                     id: groupedID,
@@ -43,7 +43,7 @@ struct OPMLExportServiceTests {
         <?xml version="1.0" encoding="UTF-8"?>
         <opml version="2.0">
           <head>
-            <title>My Sources</title>
+            <title>My Feeds</title>
           </head>
           <body>
             <outline text="Ungrouped Feed" title="Ungrouped Feed" type="rss" xmlUrl="https://example.com/ungrouped.xml" />
@@ -59,13 +59,13 @@ struct OPMLExportServiceTests {
     @Test
     func escapesXMLTextAndAttributes() throws {
         let document = OPMLExportDocumentDTO(
-            title: #"Sources & <Archive>"#,
+            title: #"Feeds & <Archive>"#,
             feeds: [
                 OPMLExportFeedDTO(
                     id: UUID(),
                     title: #"A&B "Quoted" 'Feed' <Title>"#,
                     xmlURL: #"https://example.com/feed?x=1&name="rss""#,
-                    htmlURL: #"https://example.com/source?label=A&B"#,
+                    htmlURL: #"https://example.com/feed?label=A&B"#,
                     kind: .unknown,
                     folderID: nil
                 )
@@ -75,13 +75,13 @@ struct OPMLExportServiceTests {
 
         let xml = OPMLExportService.exportDocument(document)
 
-        #expect(xml.contains("<title>Sources &amp; &lt;Archive&gt;</title>"))
+        #expect(xml.contains("<title>Feeds &amp; &lt;Archive&gt;</title>"))
         #expect(xml.contains(#"text="A&amp;B &quot;Quoted&quot; &apos;Feed&apos; &lt;Title&gt;""#))
         #expect(xml.contains(#"xmlUrl="https://example.com/feed?x=1&amp;name=&quot;rss&quot;""#))
-        #expect(xml.contains(#"htmlUrl="https://example.com/source?label=A&amp;B""#))
+        #expect(xml.contains(#"htmlUrl="https://example.com/feed?label=A&amp;B""#))
 
         let parsedDocument = try OPMLParserService.parse(Data(xml.utf8))
-        #expect(parsedDocument.title == "Sources & <Archive>")
+        #expect(parsedDocument.title == "Feeds & <Archive>")
         #expect(parsedDocument.feeds.first?.displayTitle == #"A&B "Quoted" 'Feed' <Title>"#)
     }
 

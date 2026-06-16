@@ -4,7 +4,7 @@ enum ReadingLocalization {
     static let articlesTitle = String(
         localized: "reading.articles.navigation.title",
         defaultValue: "Articles",
-        comment: "Default navigation title for the article list when no source-specific title is available."
+        comment: "Default navigation title for the article list when no feed-specific title is available."
     )
     static let allItemsTitle = String(
         localized: "reading.articles.smartFilter.allItems.title",
@@ -21,8 +21,8 @@ enum ReadingLocalization {
         defaultValue: "Starred",
         comment: "Article list title for the starred smart filter."
     )
-    static let sourceFallbackTitle = String(
-        localized: "reading.articles.sourceFallback.title",
+    static let feedFallbackTitle = String(
+        localized: "reading.articles.feedFallback.title",
         defaultValue: "Feed",
         comment: "Fallback title for a selected feed when the feed title is unavailable."
     )
@@ -57,20 +57,20 @@ enum ReadingLocalization {
     static func starredItemsSubtitle(count: Int) -> String {
         count == 1 ? starredItemSubtitleOne : String.localizedStringWithFormat(starredItemSubtitleFormat, count)
     }
-    static let noSourceSelectedTitle = String(
-        localized: "reading.articles.placeholder.noSource.title",
+    static let noSidebarSelectionTitle = String(
+        localized: "reading.articles.placeholder.noSidebarSelection.title",
         defaultValue: "No Feed Selected",
         comment: "Article list placeholder title when no sidebar feed is selected."
     )
-    static let noSourceSelectedDescription = String(
-        localized: "reading.articles.placeholder.noSource.description",
+    static let noSidebarSelectionDescription = String(
+        localized: "reading.articles.placeholder.noSidebarSelection.description",
         defaultValue: "Select All Items or a feed in the sidebar to load articles.",
         comment: "Article list placeholder description when no sidebar feed is selected."
     )
     static let noArticlesTitle = String(
         localized: "reading.articles.placeholder.empty.title",
         defaultValue: "No Articles",
-        comment: "Article list placeholder title when the selected source has no articles."
+        comment: "Article list placeholder title when the selected feed has no articles."
     )
     static let failedToLoadArticlesTitle = String(
         localized: "reading.articles.placeholder.failed.title",
@@ -107,8 +107,8 @@ enum ReadingLocalization {
         defaultValue: "%@ has no articles for the active feeds filter.",
         comment: "Article list empty description for a folder. Placeholder is folder name."
     )
-    static let sourceEmptyDescription = String(
-        localized: "reading.articles.placeholder.empty.source.description",
+    static let feedEmptyDescription = String(
+        localized: "reading.articles.placeholder.empty.feed.description",
         defaultValue: "This feed has no articles for the active feeds filter.",
         comment: "Article list empty description for a feed."
     )
@@ -158,26 +158,26 @@ enum ReadingLocalization {
         defaultValue: "Unable to refresh the current selection right now.",
         comment: "Refresh failure message when the current article selection cannot be refreshed."
     )
-    static let singleSourceRefreshFailed = String(
-        localized: "reading.articles.refresh.singleSource.failed",
+    static let singleFeedRefreshFailed = String(
+        localized: "reading.articles.refresh.singleFeed.failed",
         defaultValue: "The current feed failed to refresh.",
         comment: "Refresh failure message when one feed fails without a detailed error."
     )
-    static let multipleSourcesRefreshFailedFormat = String(
-        localized: "reading.articles.refresh.multipleSources.failed.format",
+    static let multipleFeedsRefreshFailedFormat = String(
+        localized: "reading.articles.refresh.multipleFeeds.failed.format",
         defaultValue: "%lld feeds failed to refresh.",
         comment: "Refresh failure message when multiple feeds fail without a detailed error. Placeholder is failed feed count."
     )
-    static let multipleSourcesRefreshFailedWithFirstErrorFormat = String(
-        localized: "reading.articles.refresh.multipleSourcesWithFirstError.failed.format",
+    static let multipleFeedsRefreshFailedWithFirstErrorFormat = String(
+        localized: "reading.articles.refresh.multipleFeedsWithFirstError.failed.format",
         defaultValue: "%1$lld feeds failed to refresh. First error: %2$@",
         comment: "Refresh failure message when multiple feeds fail. Placeholders are failed feed count and first error message."
     )
-    static func multipleSourcesRefreshFailed(count: Int) -> String {
-        String.localizedStringWithFormat(multipleSourcesRefreshFailedFormat, count)
+    static func multipleFeedsRefreshFailed(count: Int) -> String {
+        String.localizedStringWithFormat(multipleFeedsRefreshFailedFormat, count)
     }
-    static func multipleSourcesRefreshFailed(count: Int, firstError: String) -> String {
-        String.localizedStringWithFormat(multipleSourcesRefreshFailedWithFirstErrorFormat, count, firstError)
+    static func multipleFeedsRefreshFailed(count: Int, firstError: String) -> String {
+        String.localizedStringWithFormat(multipleFeedsRefreshFailedWithFirstErrorFormat, count, firstError)
     }
     static let markAllAsReadAccessibilityLabel = String(
         localized: "reading.articles.markAllRead.accessibility",

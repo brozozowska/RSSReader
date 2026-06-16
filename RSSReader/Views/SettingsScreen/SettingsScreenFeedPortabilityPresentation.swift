@@ -1,9 +1,9 @@
 extension SettingsScreenPresentationBuilder {
-    static func sourcePortabilitySection() -> SettingsScreenSectionPresentation {
+    static func feedPortabilitySection() -> SettingsScreenSectionPresentation {
         SettingsScreenSectionPresentation(
-            id: .sourcePortability,
-            title: SettingsLocalization.sourcePortabilitySectionTitle,
-            footer: SettingsLocalization.sourcePortabilitySectionFooter,
+            id: .feedPortability,
+            title: SettingsLocalization.feedPortabilitySectionTitle,
+            footer: SettingsLocalization.feedPortabilitySectionFooter,
             items: [
                 .button(
                     SettingsButtonItemPresentation(

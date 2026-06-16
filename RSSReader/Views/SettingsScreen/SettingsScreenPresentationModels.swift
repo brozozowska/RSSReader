@@ -6,7 +6,7 @@ enum SettingsScreenSectionID: String, Hashable, Identifiable, Sendable {
     case articleList
     case updatesAndSync
     case notifications
-    case sourcePortability
+    case feedPortability
     case storage
 
     var id: String { rawValue }
@@ -360,7 +360,7 @@ enum SettingsScreenPresentationBuilder {
             articleListSection(from: input),
             updatesAndSyncSection(from: input),
             notificationsSection(from: input),
-            sourcePortabilitySection(),
+            feedPortabilitySection(),
             storageSection(
                 hasArticleImageCache: hasArticleImageCache,
                 hasFeedIconCache: hasFeedIconCache,

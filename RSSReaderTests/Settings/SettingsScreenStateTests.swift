@@ -29,7 +29,7 @@ struct SettingsScreenStateTests {
             .articleList,
             .updatesAndSync,
             .notifications,
-            .sourcePortability,
+            .feedPortability,
             .storage
         ])
         #expect(state.settingsInput.articleOpeningMode == .safariView)

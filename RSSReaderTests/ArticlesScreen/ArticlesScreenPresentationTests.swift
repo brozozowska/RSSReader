@@ -88,7 +88,7 @@ struct ArticlesScreenPresentationTests {
                 selectedFeedTitle: "The Verge"
             ) == "The Verge"
         )
-        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .feed(UUID())) == ReadingLocalization.sourceFallbackTitle)
+        #expect(ArticlesScreenNavigationTitleResolver.resolve(selection: .feed(UUID())) == ReadingLocalization.feedFallbackTitle)
     }
 
     @Test

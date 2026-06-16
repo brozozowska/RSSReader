@@ -10,7 +10,7 @@ extension SettingsScreenController {
                 SettingsOPMLTransferStatusPresentation(
                     title: SettingsLocalization.importUnavailableTitle,
                     message: dependencies.modelContainerBootstrapFailureDescription
-                        ?? SettingsLocalization.sourcesUnavailableMessage,
+                        ?? SettingsLocalization.feedsUnavailableMessage,
                     kind: .failure
                 )
             )
@@ -55,7 +55,7 @@ extension SettingsScreenController {
                 SettingsOPMLTransferStatusPresentation(
                     title: SettingsLocalization.importUnavailableTitle,
                     message: dependencies.modelContainerBootstrapFailureDescription
-                        ?? SettingsLocalization.sourcesUnavailableMessage,
+                        ?? SettingsLocalization.feedsUnavailableMessage,
                     kind: .failure
                 )
             )
@@ -105,7 +105,7 @@ extension SettingsScreenController {
                 SettingsOPMLTransferStatusPresentation(
                     title: SettingsLocalization.exportUnavailableTitle,
                     message: dependencies.modelContainerBootstrapFailureDescription
-                        ?? SettingsLocalization.sourcesUnavailableMessage,
+                        ?? SettingsLocalization.feedsUnavailableMessage,
                     kind: .failure
                 )
             )

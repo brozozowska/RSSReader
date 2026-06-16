@@ -90,7 +90,7 @@ struct FeedIconView: View {
 
             if allowsNetworkDiscovery,
                let originURL = fallbackOriginURL,
-               let html = await fetchSourceHomeHTML(from: originURL),
+               let html = await fetchFeedHomeHTML(from: originURL),
                await loadFirstAvailableIcon(
                 from: FeedIconCandidateBuilder.htmlIconCandidates(in: html, baseURL: originURL),
                 allowsNetworkDiscovery: true,
@@ -153,7 +153,7 @@ struct FeedIconView: View {
         return false
     }
 
-    private func fetchSourceHomeHTML(from url: URL) async -> String? {
+    private func fetchFeedHomeHTML(from url: URL) async -> String? {
         do {
             let response = try await dependencies.httpClient.execute(
                 HTTPRequest(
@@ -169,7 +169,7 @@ struct FeedIconView: View {
             return String(data: response.body, encoding: .utf8)
         } catch {
             dependencies.logger.debug(
-                "Failed to load source homepage for icon discovery from \(url.absoluteString): \(String(describing: error))"
+                "Failed to load feed homepage for icon discovery from \(url.absoluteString): \(String(describing: error))"
             )
             return nil
         }

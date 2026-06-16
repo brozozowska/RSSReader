@@ -296,16 +296,16 @@ final class ArticlesScreenController {
             if result.summary.failedCount == 1 {
                 return firstError
             }
-            return ReadingLocalization.multipleSourcesRefreshFailed(
+            return ReadingLocalization.multipleFeedsRefreshFailed(
                 count: result.summary.failedCount,
                 firstError: firstError
             )
         }
 
         if result.summary.failedCount == 1 {
-            return ReadingLocalization.singleSourceRefreshFailed
+            return ReadingLocalization.singleFeedRefreshFailed
         }
 
-        return ReadingLocalization.multipleSourcesRefreshFailed(count: result.summary.failedCount)
+        return ReadingLocalization.multipleFeedsRefreshFailed(count: result.summary.failedCount)
     }
 }

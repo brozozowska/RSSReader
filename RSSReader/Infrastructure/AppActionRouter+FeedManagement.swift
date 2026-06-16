@@ -198,7 +198,7 @@ extension AppActionRouter {
     }
 
     @MainActor
-    func finishMovingSource(
+    func finishMovingFeed(
         feedID: UUID,
         previousFolderName: String?,
         updatedFolderName: String?,
@@ -275,7 +275,7 @@ extension AppActionRouter {
         using appState: AppState?
     ) {
         guard let appState else { return }
-        finishMovingSource(
+        finishMovingFeed(
             feedID: feedID,
             previousFolderName: previousFolderName,
             updatedFolderName: updatedFolderName,

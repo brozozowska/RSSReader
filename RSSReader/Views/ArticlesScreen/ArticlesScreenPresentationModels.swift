@@ -146,7 +146,7 @@ struct ArticlesScreenNavigationTitleResolver {
         case .folder(let folderName):
             folderName
         case .feed:
-            selectedFeedTitle ?? ReadingLocalization.sourceFallbackTitle
+            selectedFeedTitle ?? ReadingLocalization.feedFallbackTitle
         }
     }
 }

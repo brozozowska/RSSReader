@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import RSSReader
 
-@Suite("Source Portability / OPML Import Preview Planner")
+@Suite("Feed Portability / OPML Import Preview Planner")
 @MainActor
 struct OPMLImportPreviewPlannerTests {
     @Test
@@ -10,7 +10,7 @@ struct OPMLImportPreviewPlannerTests {
         let existingFolderID = UUID()
         let document = OPMLDocumentDTO(
             version: "2.0",
-            title: "Sources",
+            title: "Feeds",
             feeds: [
                 OPMLFeedOutlineDTO(
                     folderPath: [" Tech ", " Apple "],

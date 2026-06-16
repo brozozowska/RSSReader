@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import RSSReader
 
-@Suite("Source Portability / OPML Import Persistence")
+@Suite("Feed Portability / OPML Import Persistence")
 @MainActor
 struct OPMLImportPersistenceServiceTests {
     @Test
@@ -21,7 +21,7 @@ struct OPMLImportPersistenceServiceTests {
         )
         let document = OPMLDocumentDTO(
             version: "2.0",
-            title: "Imported Sources",
+            title: "Imported Feeds",
             feeds: [
                 OPMLFeedOutlineDTO(
                     folderPath: ["New", "Folder"],

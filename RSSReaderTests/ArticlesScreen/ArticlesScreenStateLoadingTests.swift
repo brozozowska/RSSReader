@@ -15,7 +15,7 @@ struct ArticlesScreenStateLoadingTests {
         #expect(state.customRefreshState == .idle)
         #expect(state.articleListSession.context == .noSelection)
         #expect(state.articleListSession.entries.isEmpty)
-        #expect(state.placeholder?.title == ReadingLocalization.noSourceSelectedTitle)
+        #expect(state.placeholder?.title == ReadingLocalization.noSidebarSelectionTitle)
         #expect(state.toolbarActions.showsSearchAction == false)
         #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
     }

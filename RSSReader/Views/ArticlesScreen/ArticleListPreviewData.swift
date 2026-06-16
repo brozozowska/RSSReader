@@ -29,7 +29,7 @@ import SwiftUI
             selection: .unread,
             navigationTitle: "Unread",
             navigationSubtitle: "No Unread Items",
-            message: "The selected source could not be loaded from persistence."
+            message: "The selected feed could not be loaded from persistence."
         )
     )
 }

@@ -12,7 +12,7 @@ enum SidebarLocalization {
         comment: "Navigation title for the feeds sidebar."
     )
     static let addFeedAccessibilityLabel = String(
-        localized: "sidebar.toolbar.addSource.accessibility",
+        localized: "sidebar.toolbar.addFeed.accessibility",
         defaultValue: "Add Feed",
         comment: "Accessibility label for the add feed toolbar button."
     )
