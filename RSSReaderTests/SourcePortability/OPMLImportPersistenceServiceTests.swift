@@ -6,9 +6,9 @@ import Testing
 @MainActor
 struct OPMLImportPersistenceServiceTests {
     @Test
-    func importsValidPreviewEntriesThroughSourceManagementServiceAndSkipsInvalidEntries() throws {
+    func importsValidPreviewEntriesThroughFeedManagementServiceAndSkipsInvalidEntries() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
-        let service = try #require(harness.dependencies.sourceManagementService)
+        let service = try #require(harness.dependencies.feedManagementService)
         let existingFeed = try #require(
             try harness.insertFeeds(urls: ["https://example.com/existing.xml"]).first
         )
@@ -17,7 +17,7 @@ struct OPMLImportPersistenceServiceTests {
             with: FeedDetailsUpdate(displayTitleOverride: "Existing Title")
         )
         let existingFolder = try service.createFolder(
-            SourceManagementCreateFolderCommand(name: "Saved Folder")
+            FeedManagementCreateFolderCommand(name: "Saved Folder")
         )
         let document = OPMLDocumentDTO(
             version: "2.0",
@@ -63,12 +63,12 @@ struct OPMLImportPersistenceServiceTests {
         )
         let plan = try OPMLImportPreviewPlanner.makePlan(
             document: document,
-            sourceManagementService: service
+            feedManagementService: service
         )
 
         let result = try OPMLImportPersistenceService.importPreview(
             plan,
-            sourceManagementService: service,
+            feedManagementService: service,
             importedAt: Date(timeIntervalSince1970: 1_700_000_000)
         )
 
@@ -86,12 +86,12 @@ struct OPMLImportPersistenceServiceTests {
     }
 
     @Test
-    func skipsSourceManagementDuplicateRejectionsFromStalePreview() throws {
+    func skipsFeedManagementDuplicateRejectionsFromStalePreview() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
-        let service = try #require(harness.dependencies.sourceManagementService)
+        let service = try #require(harness.dependencies.feedManagementService)
         let entry = OPMLImportPreviewEntryDTO(
             id: 0,
-            source: OPMLFeedOutlineDTO(
+            outline: OPMLFeedOutlineDTO(
                 folderPath: [],
                 title: "Imported Feed",
                 text: nil,
@@ -111,7 +111,7 @@ struct OPMLImportPersistenceServiceTests {
 
         let result = try OPMLImportPersistenceService.importPreview(
             stalePlan,
-            sourceManagementService: service
+            feedManagementService: service
         )
 
         #expect(result.createdFeedCount == 1)
@@ -119,7 +119,7 @@ struct OPMLImportPersistenceServiceTests {
             OPMLImportSkippedEntryDTO(
                 entryID: 0,
                 displayTitle: "Imported Feed",
-                reason: .sourceManagementRejected(
+                reason: .feedManagementRejected(
                     .duplicateFeed("https://example.com/imported.xml")
                 )
             )

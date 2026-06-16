@@ -108,7 +108,7 @@ private enum RootViewPreviewFactory {
             summary: "Use this seeded article to move from the source list into articles and the article reader.",
             contentHTML: """
             <p>This preview article includes an inline link to <a href="https://developer.apple.com/documentation/swiftui">SwiftUI documentation</a> so the root flow can exercise the in-app web transition.</p>
-            <p>The same root fixture also includes folders and grouped feeds, so Source Management actions can be reached from the sidebar without switching previews.</p>
+            <p>The same root fixture also includes folders and grouped feeds, so Feed Management actions can be reached from the sidebar without switching previews.</p>
             """,
             url: "https://example.com/articles/verge-preview-1",
             publishedAt: .now,

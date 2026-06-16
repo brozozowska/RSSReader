@@ -85,14 +85,14 @@ struct RootView: View {
                 )
             }
         }
-        .sheet(isPresented: sourceManagementPresentationBinding) {
+        .sheet(isPresented: feedManagementPresentationBinding) {
             AppThemePresentationScope(
                 interfaceThemeMode: appState.interfaceThemeMode,
                 systemColorScheme: systemColorScheme
             ) {
-                SourceManagementScreenView(
-                    dismiss: { dependencies.appActions.dismissSourceManagement(using: appState) },
-                    launchContext: appState.sourceManagementLaunchContext
+                FeedManagementScreenView(
+                    dismiss: { dependencies.appActions.dismissFeedManagement(using: appState) },
+                    launchContext: appState.feedManagementLaunchContext
                 )
             }
         }
@@ -121,14 +121,14 @@ struct RootView: View {
         )
     }
 
-    private var sourceManagementPresentationBinding: Binding<Bool> {
+    private var feedManagementPresentationBinding: Binding<Bool> {
         Binding(
-            get: { appState.isPresentingSourceManagementScreen },
+            get: { appState.isPresentingFeedManagementScreen },
             set: { isPresented in
                 if isPresented {
-                    appState.presentSourceManagementScreen()
+                    appState.presentFeedManagementScreen()
                 } else {
-                    appState.dismissSourceManagementScreen()
+                    appState.dismissFeedManagementScreen()
                 }
             }
         )

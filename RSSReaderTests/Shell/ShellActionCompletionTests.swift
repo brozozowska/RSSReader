@@ -11,20 +11,20 @@ struct ShellActionCompletionTests {
         let appState = AppState()
 
         harness.dependencies.appActions.showInbox(using: appState)
-        harness.dependencies.appActions.showSourceManagement(using: appState)
+        harness.dependencies.appActions.showFeedManagement(using: appState)
         let sidebarReloadIDBeforeCompletion = appState.sidebarReloadID
         let articleReloadIDBeforeCompletion = appState.articleListReloadID
 
         harness.dependencies.appActions.finishCreatingFolder(named: "Research", using: appState)
 
-        #expect(appState.isPresentingSourceManagementScreen)
+        #expect(appState.isPresentingFeedManagementScreen)
         #expect(appState.selectedSidebarSelection == .inbox)
         #expect(appState.sidebarReloadID != sidebarReloadIDBeforeCompletion)
         #expect(appState.articleListReloadID == articleReloadIDBeforeCompletion)
     }
 
     @Test
-    func shellActionCompletionHelpersMoveSourceReloadsSelectedFeedAndDismissesModalFlow() throws {
+    func shellActionCompletionHelpersMoveFeedReloadsSelectedFeedAndDismissesModalFlow() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
         let feed = try harness.feedRepository.insert(
@@ -36,7 +36,7 @@ struct ShellActionCompletionTests {
         )
 
         harness.dependencies.appActions.showFeed(id: feed.id, using: appState)
-        harness.dependencies.appActions.showSourceManagement(using: appState)
+        harness.dependencies.appActions.showFeedManagement(using: appState)
         let sidebarReloadIDBeforeCompletion = appState.sidebarReloadID
         let articleReloadIDBeforeCompletion = appState.articleListReloadID
 
@@ -47,7 +47,7 @@ struct ShellActionCompletionTests {
             using: appState
         )
 
-        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.isPresentingFeedManagementScreen == false)
         #expect(appState.selectedSidebarSelection == .feed(feed.id))
         #expect(appState.sidebarReloadID != sidebarReloadIDBeforeCompletion)
         #expect(appState.articleListReloadID != articleReloadIDBeforeCompletion)
@@ -59,7 +59,7 @@ struct ShellActionCompletionTests {
         let appState = AppState()
 
         harness.dependencies.appActions.showFolder(named: "News", using: appState)
-        harness.dependencies.appActions.showSourceManagement(using: appState)
+        harness.dependencies.appActions.showFeedManagement(using: appState)
         let sidebarReloadIDBeforeCompletion = appState.sidebarReloadID
         let articleReloadIDBeforeCompletion = appState.articleListReloadID
 
@@ -69,7 +69,7 @@ struct ShellActionCompletionTests {
             using: appState
         )
 
-        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.isPresentingFeedManagementScreen == false)
         #expect(appState.selectedSidebarSelection == .folder("World News"))
         #expect(appState.sidebarReloadID != sidebarReloadIDBeforeCompletion)
         #expect(appState.articleListReloadID != articleReloadIDBeforeCompletion)
@@ -109,7 +109,7 @@ struct ShellActionCompletionTests {
         )
 
         harness.dependencies.appActions.showInbox(using: appState)
-        harness.dependencies.appActions.showSourceManagement(using: appState)
+        harness.dependencies.appActions.showFeedManagement(using: appState)
         let sidebarReloadIDBeforeCompletion = appState.sidebarReloadID
         let articleReloadIDBeforeCompletion = appState.articleListReloadID
 
@@ -117,7 +117,7 @@ struct ShellActionCompletionTests {
         let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
 
         #expect(result == nil)
-        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.isPresentingFeedManagementScreen == false)
         #expect(appState.selectedSidebarSelection == .feed(feed.id))
         #expect(appState.sidebarReloadID != sidebarReloadIDBeforeCompletion)
         #expect(appState.articleListReloadID != articleReloadIDBeforeCompletion)
@@ -131,7 +131,7 @@ struct ShellActionCompletionTests {
     }
 
     @Test
-    func shellActionCompletionHelpersUnsubscribeFeedKeepsCurrentSelectionWhenAnotherSourceIsRemoved() throws {
+    func shellActionCompletionHelpersUnsubscribeFeedKeepsCurrentSelectionWhenAnotherFeedIsRemoved() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
         let selectedFeed = try harness.feedRepository.insert(

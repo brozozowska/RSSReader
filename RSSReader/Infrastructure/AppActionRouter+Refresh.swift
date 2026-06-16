@@ -26,7 +26,7 @@ extension AppActionRouter {
         await refreshUnreadAppIconBadgeCount()
         appState.requestSidebarReload()
         showFeed(id: feedID, using: appState)
-        dismissSourceManagement(using: appState)
+        dismissFeedManagement(using: appState)
         return result
     }
 

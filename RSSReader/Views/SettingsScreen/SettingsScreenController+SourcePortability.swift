@@ -5,7 +5,7 @@ extension SettingsScreenController {
         data: Data,
         dependencies: AppDependencies
     ) {
-        guard let sourceManagementService = dependencies.sourceManagementService else {
+        guard let feedManagementService = dependencies.feedManagementService else {
             screenState.applyOPMLTransferStatus(
                 SettingsOPMLTransferStatusPresentation(
                     title: SettingsLocalization.importUnavailableTitle,
@@ -21,7 +21,7 @@ extension SettingsScreenController {
             let document = try OPMLParserService.parse(data)
             let plan = try OPMLImportPreviewPlanner.makePlan(
                 document: document,
-                sourceManagementService: sourceManagementService
+                feedManagementService: feedManagementService
             )
             screenState.presentOPMLImportPreview(
                 SettingsOPMLImportPreviewPresentation(plan: plan)
@@ -50,7 +50,7 @@ extension SettingsScreenController {
         dependencies: AppDependencies,
         appState: AppState? = nil
     ) {
-        guard let sourceManagementService = dependencies.sourceManagementService else {
+        guard let feedManagementService = dependencies.feedManagementService else {
             screenState.applyOPMLTransferStatus(
                 SettingsOPMLTransferStatusPresentation(
                     title: SettingsLocalization.importUnavailableTitle,
@@ -69,7 +69,7 @@ extension SettingsScreenController {
         do {
             let result = try OPMLImportPersistenceService.importPreview(
                 preview.plan,
-                sourceManagementService: sourceManagementService
+                feedManagementService: feedManagementService
             )
             screenState.dismissOPMLImportPreview()
             screenState.applyOPMLTransferStatus(

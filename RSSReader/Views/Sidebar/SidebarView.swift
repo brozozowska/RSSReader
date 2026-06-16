@@ -137,8 +137,8 @@ struct SidebarView: View {
             showSettings: {
                 dependencies.appActions.showSettings(using: appState)
             },
-            showSourceManagement: {
-                dependencies.appActions.showSourceManagement(using: appState)
+            showFeedManagement: {
+                dependencies.appActions.showFeedManagement(using: appState)
             },
             applySidebarArticleFilter: { filter in
                 dependencies.appActions.applySidebarArticleFilter(filter, using: appState)

@@ -41,7 +41,7 @@ struct OPMLImportPreviewPlannerTests {
             document: document,
             existingFeeds: [],
             existingFolders: [
-                SourceManagementFolderSummary(
+                FeedManagementFolderSummary(
                     id: existingFolderID,
                     name: "Existing",
                     sortOrder: 0,
@@ -126,7 +126,7 @@ struct OPMLImportPreviewPlannerTests {
         let plan = OPMLImportPreviewPlanner.makePlan(
             document: document,
             existingFeeds: [
-                SourceManagementFeedSummary(
+                FeedManagementFeedSummary(
                     id: existingFeedID,
                     url: "https://example.com/feed.xml",
                     title: "Already Saved",
@@ -138,11 +138,11 @@ struct OPMLImportPreviewPlannerTests {
         )
 
         #expect(plan.entries[0].issues == [
-            .duplicateFeedURL("https://example.com/feed.xml", source: .existingFeed(id: existingFeedID))
+            .duplicateFeedURL("https://example.com/feed.xml", origin: .existingFeed(id: existingFeedID))
         ])
         #expect(plan.entries[1].issues.isEmpty)
         #expect(plan.entries[2].issues == [
-            .duplicateFeedURL("https://new.example.com/feed.xml", source: .importedEntry(index: 1))
+            .duplicateFeedURL("https://new.example.com/feed.xml", origin: .importedEntry(index: 1))
         ])
     }
 
@@ -181,7 +181,7 @@ struct OPMLImportPreviewPlannerTests {
         let plan = OPMLImportPreviewPlanner.makePlan(
             document: document,
             existingFeeds: [
-                SourceManagementFeedSummary(
+                FeedManagementFeedSummary(
                     id: existingFeedID,
                     url: "https://saved.example.com/rss",
                     title: "saved title",
@@ -193,11 +193,11 @@ struct OPMLImportPreviewPlannerTests {
         )
 
         #expect(plan.entries[0].issues == [
-            .duplicateDisplayTitle("Saved Title", source: .existingFeed(id: existingFeedID))
+            .duplicateDisplayTitle("Saved Title", origin: .existingFeed(id: existingFeedID))
         ])
         #expect(plan.entries[1].issues.isEmpty)
         #expect(plan.entries[2].issues == [
-            .duplicateDisplayTitle("unique title", source: .importedEntry(index: 1))
+            .duplicateDisplayTitle("unique title", origin: .importedEntry(index: 1))
         ])
     }
 }

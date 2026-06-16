@@ -103,8 +103,8 @@ public final class AppState {
     var interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
     var iCloudSyncStatus: ICloudSyncStatus = .disabled
     var isPresentingSettingsScreen = false
-    var isPresentingSourceManagementScreen = false
-    var sourceManagementLaunchContext: SourceManagementScreenLaunchContext = .entry
+    var isPresentingFeedManagementScreen = false
+    var feedManagementLaunchContext: FeedManagementScreenLaunchContext = .entry
     var articleNavigationContextIDs: [UUID] = []
     private var articleNavigationContextSidebarSelection: SidebarSelection?
     private var articleNavigationContextSidebarArticleFilter: SidebarArticleFilter = .allItems
@@ -172,16 +172,16 @@ public final class AppState {
         isPresentingSettingsScreen = false
     }
 
-    func presentSourceManagementScreen(
-        launchContext: SourceManagementScreenLaunchContext = .entry
+    func presentFeedManagementScreen(
+        launchContext: FeedManagementScreenLaunchContext = .entry
     ) {
-        sourceManagementLaunchContext = launchContext
-        isPresentingSourceManagementScreen = true
+        feedManagementLaunchContext = launchContext
+        isPresentingFeedManagementScreen = true
     }
 
-    func dismissSourceManagementScreen() {
-        isPresentingSourceManagementScreen = false
-        sourceManagementLaunchContext = .entry
+    func dismissFeedManagementScreen() {
+        isPresentingFeedManagementScreen = false
+        feedManagementLaunchContext = .entry
     }
 
     func selectSidebarArticleFilter(_ filter: SidebarArticleFilter) {

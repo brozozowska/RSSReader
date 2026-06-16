@@ -52,7 +52,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let feedRefreshService: FeedRefreshService?
     let feedRepository: (any FeedRepository)?
     let folderRepository: (any FolderRepository)?
-    let sourceManagementService: (any SourceManagementService)?
+    let feedManagementService: (any FeedManagementService)?
     let articleRepository: (any ArticleRepository)?
     let articleStateService: ArticleStateService?
     let unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)?
@@ -193,12 +193,12 @@ public final class AppDependencies: AppDependenciesProtocol {
         let resolvedFeedFetcher = feedFetcher ?? Self.makeFeedFetcher(
             httpClient: httpClient
         )
-        let sourceManagementService: (any SourceManagementService)? = {
+        let feedManagementService: (any FeedManagementService)? = {
             guard let feedRepository, let folderRepository, let articleRepository else {
                 return nil
             }
 
-            return DefaultSourceManagementService(
+            return DefaultFeedManagementService(
                 logger: logger,
                 httpClient: httpClient,
                 feedFetcher: FeedFetcher(
@@ -258,7 +258,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.feedRefreshService = feedRefreshService
         self.feedRepository = feedRepository
         self.folderRepository = folderRepository
-        self.sourceManagementService = sourceManagementService
+        self.feedManagementService = feedManagementService
         self.articleRepository = articleRepository
         self.articleStateService = articleStateService
         self.unreadAppIconBadgeService = resolvedUnreadAppIconBadgeService

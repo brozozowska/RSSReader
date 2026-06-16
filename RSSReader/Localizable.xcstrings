@@ -4217,7 +4217,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.action.addingFeed" : {
+    "feedManagement.addFeed.action.addingFeed" : {
       "comment" : "Primary action title while a feed is being added.",
       "localizations" : {
         "en" : {
@@ -4234,7 +4234,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.action.alreadyAdded" : {
+    "feedManagement.addFeed.action.alreadyAdded" : {
       "comment" : "Primary action title for a duplicate feed.",
       "localizations" : {
         "en" : {
@@ -4251,7 +4251,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.action.changesSaved" : {
+    "feedManagement.addFeed.action.changesSaved" : {
       "comment" : "Primary action title after feed changes were saved.",
       "localizations" : {
         "en" : {
@@ -4268,7 +4268,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.action.feedAdded" : {
+    "feedManagement.addFeed.action.feedAdded" : {
       "comment" : "Primary action title after a feed was added.",
       "localizations" : {
         "en" : {
@@ -4285,7 +4285,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.action.loadingPreview" : {
+    "feedManagement.addFeed.action.loadingPreview" : {
       "comment" : "Primary action title while feed preview is loading.",
       "localizations" : {
         "en" : {
@@ -4302,7 +4302,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.action.saveChanges" : {
+    "feedManagement.addFeed.action.saveChanges" : {
       "comment" : "Primary action title for saving feed changes.",
       "localizations" : {
         "en" : {
@@ -4319,7 +4319,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.action.savingChanges" : {
+    "feedManagement.addFeed.action.savingChanges" : {
       "comment" : "Primary action title while feed changes are saving.",
       "localizations" : {
         "en" : {
@@ -4336,7 +4336,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.checking.accessibility" : {
+    "feedManagement.addFeed.checking.accessibility" : {
       "comment" : "Accessibility label for the feed preview loading indicator.",
       "localizations" : {
         "en" : {
@@ -4353,8 +4353,8 @@
         }
       }
     },
-    "sourceManagement.addFeed.checking.title" : {
-      "comment" : "Loading title while checking a feed source.",
+    "feedManagement.addFeed.checking.title" : {
+      "comment" : "Loading title while checking a feed.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4370,7 +4370,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.createFolder.description" : {
+    "feedManagement.addFeed.createFolder.description" : {
       "comment" : "Description above the inline create folder action in add feed flow.",
       "localizations" : {
         "en" : {
@@ -4387,7 +4387,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.destinationFolder.title" : {
+    "feedManagement.addFeed.destinationFolder.title" : {
       "comment" : "Section title for choosing destination folder while adding a feed.",
       "localizations" : {
         "en" : {
@@ -4404,7 +4404,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.displayName.add.footer" : {
+    "feedManagement.addFeed.displayName.add.footer" : {
       "comment" : "Footer for display name while adding a feed.",
       "localizations" : {
         "en" : {
@@ -4421,7 +4421,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.displayName.edit.footer" : {
+    "feedManagement.addFeed.displayName.edit.footer" : {
       "comment" : "Footer for display name while editing a feed.",
       "localizations" : {
         "en" : {
@@ -4438,7 +4438,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.displayName.placeholder" : {
+    "feedManagement.addFeed.displayName.placeholder" : {
       "comment" : "Placeholder for the feed display name text field.",
       "localizations" : {
         "en" : {
@@ -4455,7 +4455,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.displayName.prompt" : {
+    "feedManagement.addFeed.displayName.prompt" : {
       "comment" : "Prompt for the feed display name text field.",
       "localizations" : {
         "en" : {
@@ -4472,7 +4472,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.duplicate.detail" : {
+    "feedManagement.addFeed.duplicate.detail" : {
       "comment" : "Warning detail for duplicate feed.",
       "localizations" : {
         "en" : {
@@ -4489,7 +4489,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.duplicate.notice" : {
+    "feedManagement.addFeed.duplicate.notice" : {
       "comment" : "Warning shown below feed preview when feed already exists.",
       "localizations" : {
         "en" : {
@@ -4506,7 +4506,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.duplicate.title" : {
+    "feedManagement.addFeed.duplicate.title" : {
       "comment" : "Warning title for duplicate feed.",
       "localizations" : {
         "en" : {
@@ -4523,7 +4523,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.edit.summary.description" : {
+    "feedManagement.addFeed.edit.summary.description" : {
       "comment" : "Summary description for editing a feed.",
       "localizations" : {
         "en" : {
@@ -4540,7 +4540,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.edit.summary.title" : {
+    "feedManagement.addFeed.edit.summary.title" : {
       "comment" : "Summary title for editing a feed.",
       "localizations" : {
         "en" : {
@@ -4557,7 +4557,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.edit.title" : {
+    "feedManagement.addFeed.edit.title" : {
       "comment" : "Navigation title for editing a feed.",
       "localizations" : {
         "en" : {
@@ -4574,7 +4574,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.new.summary.description" : {
+    "feedManagement.addFeed.new.summary.description" : {
       "comment" : "Summary description for adding a feed.",
       "localizations" : {
         "en" : {
@@ -4591,7 +4591,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.new.summary.title" : {
+    "feedManagement.addFeed.new.summary.title" : {
       "comment" : "Summary title for adding a feed.",
       "localizations" : {
         "en" : {
@@ -4608,7 +4608,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.placement.addPending.description" : {
+    "feedManagement.addFeed.placement.addPending.description" : {
       "comment" : "Placement footer before adding a feed.",
       "localizations" : {
         "en" : {
@@ -4625,7 +4625,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.placement.addReady.description" : {
+    "feedManagement.addFeed.placement.addReady.description" : {
       "comment" : "Placement footer after feed preview while adding.",
       "localizations" : {
         "en" : {
@@ -4642,7 +4642,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.placement.editPending.description" : {
+    "feedManagement.addFeed.placement.editPending.description" : {
       "comment" : "Placement footer before editing a feed.",
       "localizations" : {
         "en" : {
@@ -4659,7 +4659,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.placement.editReady.description" : {
+    "feedManagement.addFeed.placement.editReady.description" : {
       "comment" : "Placement footer after feed preview while editing.",
       "localizations" : {
         "en" : {
@@ -4676,7 +4676,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.placement.noFolders.description" : {
+    "feedManagement.addFeed.placement.noFolders.description" : {
       "comment" : "Placement footer when no folders exist.",
       "localizations" : {
         "en" : {
@@ -4693,7 +4693,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.placement.savedAdd.description" : {
+    "feedManagement.addFeed.placement.savedAdd.description" : {
       "comment" : "Placement footer after adding a feed.",
       "localizations" : {
         "en" : {
@@ -4710,7 +4710,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.placement.savedEdit.description" : {
+    "feedManagement.addFeed.placement.savedEdit.description" : {
       "comment" : "Placement footer after editing a feed.",
       "localizations" : {
         "en" : {
@@ -4727,7 +4727,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.action" : {
+    "feedManagement.addFeed.preview.action" : {
       "comment" : "Primary action title for loading a feed preview.",
       "localizations" : {
         "en" : {
@@ -4744,7 +4744,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.description.label" : {
+    "feedManagement.addFeed.preview.description.label" : {
       "comment" : "Label for the description row in feed preview.",
       "localizations" : {
         "en" : {
@@ -4761,7 +4761,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.emptyDocument.detail" : {
+    "feedManagement.addFeed.preview.emptyDocument.detail" : {
       "comment" : "Feed preview failure detail for empty feed document.",
       "localizations" : {
         "en" : {
@@ -4778,7 +4778,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.failure.footer" : {
+    "feedManagement.addFeed.preview.failure.footer" : {
       "comment" : "Footer shown after a feed preview failure.",
       "localizations" : {
         "en" : {
@@ -4795,7 +4795,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.feedAddress.label" : {
+    "feedManagement.addFeed.preview.feedAddress.label" : {
       "comment" : "Label for the feed address row in feed preview.",
       "localizations" : {
         "en" : {
@@ -4812,7 +4812,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.feedNotFound.detail" : {
+    "feedManagement.addFeed.preview.feedNotFound.detail" : {
       "comment" : "Failure detail when feed discovery fails.",
       "localizations" : {
         "en" : {
@@ -4829,7 +4829,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.feedNotFound.title" : {
+    "feedManagement.addFeed.preview.feedNotFound.title" : {
       "comment" : "Failure title when feed discovery fails.",
       "localizations" : {
         "en" : {
@@ -4846,7 +4846,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.feedType.label" : {
+    "feedManagement.addFeed.preview.feedType.label" : {
       "comment" : "Label for the feed type row in feed preview.",
       "localizations" : {
         "en" : {
@@ -4863,7 +4863,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.genericFailure.detail" : {
+    "feedManagement.addFeed.preview.genericFailure.detail" : {
       "comment" : "Generic failure detail when feed preview fails.",
       "localizations" : {
         "en" : {
@@ -4880,7 +4880,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.genericFailure.title" : {
+    "feedManagement.addFeed.preview.genericFailure.title" : {
       "comment" : "Generic failure title when feed preview fails.",
       "localizations" : {
         "en" : {
@@ -4897,7 +4897,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.httpStatus.detail.format" : {
+    "feedManagement.addFeed.preview.httpStatus.detail.format" : {
       "comment" : "Feed preview failure detail for HTTP status. Placeholder is HTTP status code.",
       "localizations" : {
         "en" : {
@@ -4914,7 +4914,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.invalidURL.title" : {
+    "feedManagement.addFeed.preview.invalidURL.title" : {
       "comment" : "Failure title for invalid feed preview URL.",
       "localizations" : {
         "en" : {
@@ -4931,7 +4931,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.malformedXML.detail" : {
+    "feedManagement.addFeed.preview.malformedXML.detail" : {
       "comment" : "Feed preview failure detail for malformed XML.",
       "localizations" : {
         "en" : {
@@ -4948,7 +4948,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.missingAtom.detail" : {
+    "feedManagement.addFeed.preview.missingAtom.detail" : {
       "comment" : "Feed preview failure detail for missing Atom element.",
       "localizations" : {
         "en" : {
@@ -4965,7 +4965,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.missingRSS.detail" : {
+    "feedManagement.addFeed.preview.missingRSS.detail" : {
       "comment" : "Feed preview failure detail for missing RSS element.",
       "localizations" : {
         "en" : {
@@ -4982,7 +4982,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.network.blocked" : {
+    "feedManagement.addFeed.preview.network.blocked" : {
       "comment" : "Network failure detail for blocked network settings.",
       "localizations" : {
         "en" : {
@@ -4999,7 +4999,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.network.cannotConnect" : {
+    "feedManagement.addFeed.preview.network.cannotConnect" : {
       "comment" : "Network failure detail for connection failure.",
       "localizations" : {
         "en" : {
@@ -5016,7 +5016,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.network.connectionLost" : {
+    "feedManagement.addFeed.preview.network.connectionLost" : {
       "comment" : "Network failure detail for lost connection.",
       "localizations" : {
         "en" : {
@@ -5033,7 +5033,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.network.hostNotFound" : {
+    "feedManagement.addFeed.preview.network.hostNotFound" : {
       "comment" : "Network failure detail for host lookup failure.",
       "localizations" : {
         "en" : {
@@ -5050,7 +5050,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.network.invalidResponse" : {
+    "feedManagement.addFeed.preview.network.invalidResponse" : {
       "comment" : "Network failure detail for invalid response.",
       "localizations" : {
         "en" : {
@@ -5067,7 +5067,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.network.offline" : {
+    "feedManagement.addFeed.preview.network.offline" : {
       "comment" : "Network failure detail for offline state.",
       "localizations" : {
         "en" : {
@@ -5084,7 +5084,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.network.timedOut" : {
+    "feedManagement.addFeed.preview.network.timedOut" : {
       "comment" : "Network failure detail for timeout.",
       "localizations" : {
         "en" : {
@@ -5101,7 +5101,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.network.title" : {
+    "feedManagement.addFeed.preview.network.title" : {
       "comment" : "Failure title for network error while loading feed preview.",
       "localizations" : {
         "en" : {
@@ -5118,7 +5118,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.network.unknown" : {
+    "feedManagement.addFeed.preview.network.unknown" : {
       "comment" : "Network failure detail for unknown network failure.",
       "localizations" : {
         "en" : {
@@ -5135,7 +5135,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.notModified.detail" : {
+    "feedManagement.addFeed.preview.notModified.detail" : {
       "comment" : "Failure detail when feed preview cannot use not-modified response.",
       "localizations" : {
         "en" : {
@@ -5152,7 +5152,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.notModified.title" : {
+    "feedManagement.addFeed.preview.notModified.title" : {
       "comment" : "Failure title when feed preview cannot use not-modified response.",
       "localizations" : {
         "en" : {
@@ -5169,7 +5169,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.title" : {
+    "feedManagement.addFeed.preview.title" : {
       "comment" : "Section title for feed preview details.",
       "localizations" : {
         "en" : {
@@ -5186,7 +5186,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.unsupportedContentType.detail.format" : {
+    "feedManagement.addFeed.preview.unsupportedContentType.detail.format" : {
       "comment" : "Feed preview failure detail for unsupported content type. Placeholder is content type.",
       "localizations" : {
         "en" : {
@@ -5203,7 +5203,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.unsupportedContentType.empty.detail" : {
+    "feedManagement.addFeed.preview.unsupportedContentType.empty.detail" : {
       "comment" : "Feed preview failure detail for missing unsupported content type.",
       "localizations" : {
         "en" : {
@@ -5220,7 +5220,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.unsupportedFeed.title" : {
+    "feedManagement.addFeed.preview.unsupportedFeed.title" : {
       "comment" : "Failure title for unsupported feed.",
       "localizations" : {
         "en" : {
@@ -5237,7 +5237,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.preview.unsupportedFeedKind.detail" : {
+    "feedManagement.addFeed.preview.unsupportedFeedKind.detail" : {
       "comment" : "Feed preview failure detail for unsupported feed kind.",
       "localizations" : {
         "en" : {
@@ -5254,7 +5254,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.previewUnavailable.detail" : {
+    "feedManagement.addFeed.previewUnavailable.detail" : {
       "comment" : "Failure detail when feed preview service is unavailable.",
       "localizations" : {
         "en" : {
@@ -5271,7 +5271,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.previewUnavailable.title" : {
+    "feedManagement.addFeed.previewUnavailable.title" : {
       "comment" : "Failure title when feed preview service is unavailable.",
       "localizations" : {
         "en" : {
@@ -5288,7 +5288,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.save.addFailed.detail" : {
+    "feedManagement.addFeed.save.addFailed.detail" : {
       "comment" : "Generic failure detail after feed create save fails.",
       "localizations" : {
         "en" : {
@@ -5305,7 +5305,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.save.addFailed.title" : {
+    "feedManagement.addFeed.save.addFailed.title" : {
       "comment" : "Generic failure title after feed create save fails.",
       "localizations" : {
         "en" : {
@@ -5322,7 +5322,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.save.duplicate.add.detail" : {
+    "feedManagement.addFeed.save.duplicate.add.detail" : {
       "comment" : "Duplicate feed detail while adding a feed.",
       "localizations" : {
         "en" : {
@@ -5339,7 +5339,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.save.duplicate.edit.detail" : {
+    "feedManagement.addFeed.save.duplicate.edit.detail" : {
       "comment" : "Duplicate feed detail while editing a feed.",
       "localizations" : {
         "en" : {
@@ -5356,7 +5356,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.save.duplicateDisplayName.detail" : {
+    "feedManagement.addFeed.save.duplicateDisplayName.detail" : {
       "comment" : "Warning detail for duplicate feed display name.",
       "localizations" : {
         "en" : {
@@ -5373,7 +5373,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.save.duplicateDisplayName.title" : {
+    "feedManagement.addFeed.save.duplicateDisplayName.title" : {
       "comment" : "Warning title for duplicate feed display name.",
       "localizations" : {
         "en" : {
@@ -5390,7 +5390,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.save.editFailed.detail" : {
+    "feedManagement.addFeed.save.editFailed.detail" : {
       "comment" : "Generic failure detail after feed edit save fails.",
       "localizations" : {
         "en" : {
@@ -5407,7 +5407,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.save.editFailed.title" : {
+    "feedManagement.addFeed.save.editFailed.title" : {
       "comment" : "Generic failure title after feed edit save fails.",
       "localizations" : {
         "en" : {
@@ -5424,7 +5424,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.save.folderUnavailable.detail" : {
+    "feedManagement.addFeed.save.folderUnavailable.detail" : {
       "comment" : "Failure detail when selected destination folder no longer exists.",
       "localizations" : {
         "en" : {
@@ -5441,7 +5441,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.save.folderUnavailable.title" : {
+    "feedManagement.addFeed.save.folderUnavailable.title" : {
       "comment" : "Failure title when selected destination folder no longer exists.",
       "localizations" : {
         "en" : {
@@ -5458,7 +5458,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.saveUnavailable.add.detail" : {
+    "feedManagement.addFeed.saveUnavailable.add.detail" : {
       "comment" : "Failure detail when feed creation service is unavailable.",
       "localizations" : {
         "en" : {
@@ -5475,7 +5475,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.saveUnavailable.add.title" : {
+    "feedManagement.addFeed.saveUnavailable.add.title" : {
       "comment" : "Failure title when feed creation service is unavailable.",
       "localizations" : {
         "en" : {
@@ -5492,7 +5492,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.saveUnavailable.edit.detail" : {
+    "feedManagement.addFeed.saveUnavailable.edit.detail" : {
       "comment" : "Failure detail when feed editing service is unavailable.",
       "localizations" : {
         "en" : {
@@ -5509,7 +5509,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.saveUnavailable.edit.title" : {
+    "feedManagement.addFeed.saveUnavailable.edit.title" : {
       "comment" : "Failure title when feed editing service is unavailable.",
       "localizations" : {
         "en" : {
@@ -5526,7 +5526,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.status.added.detail.format" : {
+    "feedManagement.addFeed.status.added.detail.format" : {
       "comment" : "Success detail after adding a feed. Placeholders are feed title and folder title.",
       "localizations" : {
         "en" : {
@@ -5543,7 +5543,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.status.added.title" : {
+    "feedManagement.addFeed.status.added.title" : {
       "comment" : "Success title after adding a feed.",
       "localizations" : {
         "en" : {
@@ -5560,7 +5560,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.status.updated.detail.format" : {
+    "feedManagement.addFeed.status.updated.detail.format" : {
       "comment" : "Success detail after updating a feed. Placeholders are feed title, URL, and folder title.",
       "localizations" : {
         "en" : {
@@ -5577,7 +5577,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.status.updated.title" : {
+    "feedManagement.addFeed.status.updated.title" : {
       "comment" : "Success title after updating a feed.",
       "localizations" : {
         "en" : {
@@ -5594,7 +5594,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.subtitle" : {
+    "feedManagement.addFeed.subtitle" : {
       "comment" : "Action subtitle for adding a feed.",
       "localizations" : {
         "en" : {
@@ -5611,7 +5611,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.title" : {
+    "feedManagement.addFeed.title" : {
       "comment" : "Action title for adding a feed.",
       "localizations" : {
         "en" : {
@@ -5628,7 +5628,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.url.footer" : {
+    "feedManagement.addFeed.url.footer" : {
       "comment" : "Footer explaining acceptable feed URL input.",
       "localizations" : {
         "en" : {
@@ -5645,7 +5645,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.url.placeholder" : {
+    "feedManagement.addFeed.url.placeholder" : {
       "comment" : "Placeholder for the feed URL text field.",
       "localizations" : {
         "en" : {
@@ -5662,7 +5662,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.url.prompt" : {
+    "feedManagement.addFeed.url.prompt" : {
       "comment" : "Prompt for the feed URL text field.",
       "localizations" : {
         "en" : {
@@ -5679,7 +5679,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.validation.emptyURL" : {
+    "feedManagement.addFeed.validation.emptyURL" : {
       "comment" : "Validation message shown when the feed URL field is empty.",
       "localizations" : {
         "en" : {
@@ -5696,7 +5696,7 @@
         }
       }
     },
-    "sourceManagement.addFeed.validation.invalidURL" : {
+    "feedManagement.addFeed.validation.invalidURL" : {
       "comment" : "Validation message shown when the feed URL field cannot be normalized.",
       "localizations" : {
         "en" : {
@@ -5713,7 +5713,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.action.creating" : {
+    "feedManagement.createFolder.action.creating" : {
       "comment" : "Primary action title while creating a folder.",
       "localizations" : {
         "en" : {
@@ -5730,7 +5730,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.action.save" : {
+    "feedManagement.createFolder.action.save" : {
       "comment" : "Primary action title for saving folder edits.",
       "localizations" : {
         "en" : {
@@ -5747,7 +5747,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.action.saving" : {
+    "feedManagement.createFolder.action.saving" : {
       "comment" : "Primary action title while saving folder edits.",
       "localizations" : {
         "en" : {
@@ -5764,7 +5764,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.edit.summary.description" : {
+    "feedManagement.createFolder.edit.summary.description" : {
       "comment" : "Summary description for editing a folder.",
       "localizations" : {
         "en" : {
@@ -5781,7 +5781,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.edit.summary.title" : {
+    "feedManagement.createFolder.edit.summary.title" : {
       "comment" : "Summary title for editing a folder.",
       "localizations" : {
         "en" : {
@@ -5798,7 +5798,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.edit.title" : {
+    "feedManagement.createFolder.edit.title" : {
       "comment" : "Navigation title for editing a folder.",
       "localizations" : {
         "en" : {
@@ -5815,7 +5815,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.empty.description" : {
+    "feedManagement.createFolder.empty.description" : {
       "comment" : "Empty description when no folders exist.",
       "localizations" : {
         "en" : {
@@ -5832,7 +5832,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.empty.title" : {
+    "feedManagement.createFolder.empty.title" : {
       "comment" : "Empty title when no folders exist.",
       "localizations" : {
         "en" : {
@@ -5849,7 +5849,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.error.generic" : {
+    "feedManagement.createFolder.error.generic" : {
       "comment" : "Generic create folder error message.",
       "localizations" : {
         "en" : {
@@ -5866,7 +5866,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.error.loadDetails" : {
+    "feedManagement.createFolder.error.loadDetails" : {
       "comment" : "Failure message when folder details cannot be loaded for editing.",
       "localizations" : {
         "en" : {
@@ -5883,7 +5883,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.error.loadExistingFolders" : {
+    "feedManagement.createFolder.error.loadExistingFolders" : {
       "comment" : "Failure message when existing folders cannot be loaded for folder creation.",
       "localizations" : {
         "en" : {
@@ -5900,7 +5900,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.error.updateGeneric" : {
+    "feedManagement.createFolder.error.updateGeneric" : {
       "comment" : "Generic update folder error message.",
       "localizations" : {
         "en" : {
@@ -5917,7 +5917,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.existingFolders.title" : {
+    "feedManagement.createFolder.existingFolders.title" : {
       "comment" : "Section title for existing folders.",
       "localizations" : {
         "en" : {
@@ -5934,7 +5934,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.name.footer" : {
+    "feedManagement.createFolder.name.footer" : {
       "comment" : "Footer explaining folder name input.",
       "localizations" : {
         "en" : {
@@ -5951,7 +5951,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.name.placeholder" : {
+    "feedManagement.createFolder.name.placeholder" : {
       "comment" : "Placeholder for the folder name text field.",
       "localizations" : {
         "en" : {
@@ -5968,7 +5968,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.name.prompt" : {
+    "feedManagement.createFolder.name.prompt" : {
       "comment" : "Prompt for the folder name text field.",
       "localizations" : {
         "en" : {
@@ -5985,8 +5985,8 @@
         }
       }
     },
-    "sourceManagement.createFolder.new.action" : {
-      "comment" : "Action title for creating a new folder from source management.",
+    "feedManagement.createFolder.new.action" : {
+      "comment" : "Action title for creating a new folder from feed management.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6002,7 +6002,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.new.summary.description" : {
+    "feedManagement.createFolder.new.summary.description" : {
       "comment" : "Summary description for creating a folder.",
       "localizations" : {
         "en" : {
@@ -6019,7 +6019,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.new.summary.title" : {
+    "feedManagement.createFolder.new.summary.title" : {
       "comment" : "Summary title for creating a folder.",
       "localizations" : {
         "en" : {
@@ -6036,7 +6036,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.placement.afterExisting.description.format" : {
+    "feedManagement.createFolder.placement.afterExisting.description.format" : {
       "comment" : "Placement description when creating a folder after existing folders. Placeholder is folder count.",
       "localizations" : {
         "en" : {
@@ -6053,7 +6053,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.placement.editing.description.format" : {
+    "feedManagement.createFolder.placement.editing.description.format" : {
       "comment" : "Placement description when editing a folder. Placeholder is folder name.",
       "localizations" : {
         "en" : {
@@ -6070,7 +6070,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.placement.first.description" : {
+    "feedManagement.createFolder.placement.first.description" : {
       "comment" : "Placement description when creating the first folder.",
       "localizations" : {
         "en" : {
@@ -6087,13 +6087,13 @@
         }
       }
     },
-    "sourceManagement.createFolder.status.created.detail.format" : {
+    "feedManagement.createFolder.status.created.detail.format" : {
       "comment" : "Success detail after creating a folder. Placeholder is folder name.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "\"%@\" is ready for sources."
+            "value" : "\"%@\" is ready for feeds."
           }
         },
         "ru" : {
@@ -6104,7 +6104,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.status.created.title" : {
+    "feedManagement.createFolder.status.created.title" : {
       "comment" : "Success title after creating a folder.",
       "localizations" : {
         "en" : {
@@ -6121,7 +6121,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.status.createFailed.title" : {
+    "feedManagement.createFolder.status.createFailed.title" : {
       "comment" : "Failure title after creating a folder fails.",
       "localizations" : {
         "en" : {
@@ -6138,7 +6138,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.status.renamed.detail.format" : {
+    "feedManagement.createFolder.status.renamed.detail.format" : {
       "comment" : "Success detail after renaming a folder. Placeholder is folder name.",
       "localizations" : {
         "en" : {
@@ -6155,7 +6155,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.status.updated.title" : {
+    "feedManagement.createFolder.status.updated.title" : {
       "comment" : "Success title after updating a folder.",
       "localizations" : {
         "en" : {
@@ -6172,7 +6172,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.status.updateFailed.title" : {
+    "feedManagement.createFolder.status.updateFailed.title" : {
       "comment" : "Failure title after updating a folder fails.",
       "localizations" : {
         "en" : {
@@ -6189,7 +6189,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.subtitle" : {
+    "feedManagement.createFolder.subtitle" : {
       "comment" : "Action subtitle for creating a folder.",
       "localizations" : {
         "en" : {
@@ -6206,7 +6206,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.title" : {
+    "feedManagement.createFolder.title" : {
       "comment" : "Action title for creating a folder.",
       "localizations" : {
         "en" : {
@@ -6223,7 +6223,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.unavailable.create.detail" : {
+    "feedManagement.createFolder.unavailable.create.detail" : {
       "comment" : "Failure detail when folder creation service is unavailable in the current app environment.",
       "localizations" : {
         "en" : {
@@ -6240,7 +6240,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.unavailable.create.title" : {
+    "feedManagement.createFolder.unavailable.create.title" : {
       "comment" : "Failure title when folder creation service is unavailable.",
       "localizations" : {
         "en" : {
@@ -6257,7 +6257,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.unavailable.edit.detail" : {
+    "feedManagement.createFolder.unavailable.edit.detail" : {
       "comment" : "Failure detail when folder editing service is unavailable in the current app environment.",
       "localizations" : {
         "en" : {
@@ -6274,7 +6274,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.unavailable.edit.title" : {
+    "feedManagement.createFolder.unavailable.edit.title" : {
       "comment" : "Failure title when folder editing service is unavailable.",
       "localizations" : {
         "en" : {
@@ -6291,7 +6291,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.validation.duplicateName" : {
+    "feedManagement.createFolder.validation.duplicateName" : {
       "comment" : "Validation message when folder name duplicates an existing folder.",
       "localizations" : {
         "en" : {
@@ -6308,7 +6308,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.validation.emptyName" : {
+    "feedManagement.createFolder.validation.emptyName" : {
       "comment" : "Validation message when folder name is empty.",
       "localizations" : {
         "en" : {
@@ -6325,7 +6325,7 @@
         }
       }
     },
-    "sourceManagement.createFolder.validation.unavailable" : {
+    "feedManagement.createFolder.validation.unavailable" : {
       "comment" : "Validation message when folder service is unavailable.",
       "localizations" : {
         "en" : {
@@ -6342,8 +6342,8 @@
         }
       }
     },
-    "sourceManagement.destination.close.accessibility.format" : {
-      "comment" : "Accessibility label for closing a source management destination. Placeholder is the destination title.",
+    "feedManagement.destination.close.accessibility.format" : {
+      "comment" : "Accessibility label for closing a feed management destination. Placeholder is the destination title.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6359,7 +6359,7 @@
         }
       }
     },
-    "sourceManagement.existingFeedCount.format" : {
+    "feedManagement.existingFeedCount.format" : {
       "comment" : "Label showing an existing feed count for a folder. The value is the number of feeds.",
       "localizations" : {
         "en" : {
@@ -6376,7 +6376,7 @@
         }
       }
     },
-    "sourceManagement.existingFeedCount.one" : {
+    "feedManagement.existingFeedCount.one" : {
       "comment" : "Label for exactly one existing feed in a folder.",
       "localizations" : {
         "en" : {
@@ -6393,7 +6393,7 @@
         }
       }
     },
-    "sourceManagement.feedCount.format" : {
+    "feedManagement.feedCount.format" : {
       "comment" : "Label showing a feed count. The value is the number of feeds.",
       "localizations" : {
         "en" : {
@@ -6410,7 +6410,7 @@
         }
       }
     },
-    "sourceManagement.feedCount.one" : {
+    "feedManagement.feedCount.one" : {
       "comment" : "Label for exactly one feed.",
       "localizations" : {
         "en" : {
@@ -6427,7 +6427,7 @@
         }
       }
     },
-    "sourceManagement.feedKind.atom.title" : {
+    "feedManagement.feedKind.atom.title" : {
       "comment" : "Technical feed kind title for Atom feeds.",
       "localizations" : {
         "en" : {
@@ -6444,7 +6444,7 @@
         }
       }
     },
-    "sourceManagement.feedKind.rss.title" : {
+    "feedManagement.feedKind.rss.title" : {
       "comment" : "Technical feed kind title for RSS feeds.",
       "localizations" : {
         "en" : {
@@ -6461,7 +6461,7 @@
         }
       }
     },
-    "sourceManagement.feedKind.unknown.title" : {
+    "feedManagement.feedKind.unknown.title" : {
       "comment" : "Fallback title for an unknown feed kind.",
       "localizations" : {
         "en" : {
@@ -6478,7 +6478,7 @@
         }
       }
     },
-    "sourceManagement.folder.selectedFallback.title" : {
+    "feedManagement.folder.selectedFallback.title" : {
       "comment" : "Fallback folder title when a selected folder cannot be resolved.",
       "localizations" : {
         "en" : {
@@ -6495,7 +6495,7 @@
         }
       }
     },
-    "sourceManagement.folder.ungrouped.subtitle" : {
+    "feedManagement.folder.ungrouped.subtitle" : {
       "comment" : "Folder placement subtitle for keeping a feed ungrouped.",
       "localizations" : {
         "en" : {
@@ -6512,8 +6512,8 @@
         }
       }
     },
-    "sourceManagement.folder.ungrouped.title" : {
-      "comment" : "Folder placement title for sources outside any folder.",
+    "feedManagement.folder.ungrouped.title" : {
+      "comment" : "Folder placement title for feeds outside any folder.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6529,8 +6529,8 @@
         }
       }
     },
-    "sourceManagement.moveSource.action.moving" : {
-      "comment" : "Primary action title while moving a source.",
+    "feedManagement.moveFeed.action.moving" : {
+      "comment" : "Primary action title while moving a feed.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6546,8 +6546,8 @@
         }
       }
     },
-    "sourceManagement.moveSource.currentLocation.format" : {
-      "comment" : "Label showing a source's current folder placement. Placeholder is the folder placement title.",
+    "feedManagement.moveFeed.currentLocation.format" : {
+      "comment" : "Label showing a feed's current folder placement. Placeholder is the folder placement title.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6563,7 +6563,7 @@
         }
       }
     },
-    "sourceManagement.moveSource.empty.description" : {
+    "feedManagement.moveFeed.empty.description" : {
       "comment" : "Empty description when no feeds exist.",
       "localizations" : {
         "en" : {
@@ -6580,7 +6580,7 @@
         }
       }
     },
-    "sourceManagement.moveSource.empty.title" : {
+    "feedManagement.moveFeed.empty.title" : {
       "comment" : "Empty title when no feeds exist.",
       "localizations" : {
         "en" : {
@@ -6597,7 +6597,7 @@
         }
       }
     },
-    "sourceManagement.moveSource.error.environmentUnavailable" : {
+    "feedManagement.moveFeed.error.environmentUnavailable" : {
       "comment" : "Failure message when feed moves are unavailable in the current app environment.",
       "localizations" : {
         "en" : {
@@ -6614,7 +6614,7 @@
         }
       }
     },
-    "sourceManagement.moveSource.error.feedNotFound" : {
+    "feedManagement.moveFeed.error.feedNotFound" : {
       "comment" : "Move feed error when the selected feed no longer exists.",
       "localizations" : {
         "en" : {
@@ -6631,8 +6631,8 @@
         }
       }
     },
-    "sourceManagement.moveSource.error.folderNotFound" : {
-      "comment" : "Move source error when the selected folder no longer exists.",
+    "feedManagement.moveFeed.error.folderNotFound" : {
+      "comment" : "Move feed error when the selected folder no longer exists.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6648,7 +6648,7 @@
         }
       }
     },
-    "sourceManagement.moveSource.error.generic" : {
+    "feedManagement.moveFeed.error.generic" : {
       "comment" : "Generic feed move failure message.",
       "localizations" : {
         "en" : {
@@ -6665,7 +6665,7 @@
         }
       }
     },
-    "sourceManagement.moveSource.error.loadExistingSources" : {
+    "feedManagement.moveFeed.error.loadExistingFeeds" : {
       "comment" : "Failure message when existing feeds cannot be loaded for feed moves.",
       "localizations" : {
         "en" : {
@@ -6682,7 +6682,7 @@
         }
       }
     },
-    "sourceManagement.moveSource.error.selectionRequired" : {
+    "feedManagement.moveFeed.error.selectionRequired" : {
       "comment" : "Failure message when move feed command is incomplete.",
       "localizations" : {
         "en" : {
@@ -6699,7 +6699,7 @@
         }
       }
     },
-    "sourceManagement.moveSource.error.unavailable" : {
+    "feedManagement.moveFeed.error.unavailable" : {
       "comment" : "Failure message when feed move service is unavailable.",
       "localizations" : {
         "en" : {
@@ -6716,7 +6716,7 @@
         }
       }
     },
-    "sourceManagement.moveSource.selectSource.title" : {
+    "feedManagement.moveFeed.selectFeed.title" : {
       "comment" : "Section title for choosing a feed to move.",
       "localizations" : {
         "en" : {
@@ -6733,7 +6733,7 @@
         }
       }
     },
-    "sourceManagement.moveSource.status.failed.title" : {
+    "feedManagement.moveFeed.status.failed.title" : {
       "comment" : "Failure title after moving a feed fails.",
       "localizations" : {
         "en" : {
@@ -6750,7 +6750,7 @@
         }
       }
     },
-    "sourceManagement.moveSource.status.moved.detail.format" : {
+    "feedManagement.moveFeed.status.moved.detail.format" : {
       "comment" : "Success detail after moving a feed. Placeholders are feed title and folder title.",
       "localizations" : {
         "en" : {
@@ -6767,7 +6767,7 @@
         }
       }
     },
-    "sourceManagement.moveSource.status.moved.title" : {
+    "feedManagement.moveFeed.status.moved.title" : {
       "comment" : "Success title after moving a feed.",
       "localizations" : {
         "en" : {
@@ -6784,7 +6784,7 @@
         }
       }
     },
-    "sourceManagement.moveSource.subtitle" : {
+    "feedManagement.moveFeed.subtitle" : {
       "comment" : "Action subtitle for moving a feed.",
       "localizations" : {
         "en" : {
@@ -6801,7 +6801,7 @@
         }
       }
     },
-    "sourceManagement.moveSource.summary.description" : {
+    "feedManagement.moveFeed.summary.description" : {
       "comment" : "Summary description for move feed flow.",
       "localizations" : {
         "en" : {
@@ -6818,7 +6818,7 @@
         }
       }
     },
-    "sourceManagement.moveSource.summary.title" : {
+    "feedManagement.moveFeed.summary.title" : {
       "comment" : "Summary title for move feed flow.",
       "localizations" : {
         "en" : {
@@ -6835,8 +6835,8 @@
         }
       }
     },
-    "sourceManagement.moveSource.targetFolder.title" : {
-      "comment" : "Section title for choosing target folder in move source flow.",
+    "feedManagement.moveFeed.targetFolder.title" : {
+      "comment" : "Section title for choosing target folder in move feed flow.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6852,7 +6852,7 @@
         }
       }
     },
-    "sourceManagement.moveSource.title" : {
+    "feedManagement.moveFeed.title" : {
       "comment" : "Action title for moving a feed.",
       "localizations" : {
         "en" : {
@@ -6869,7 +6869,7 @@
         }
       }
     },
-    "sourceManagement.screen.close.accessibility" : {
+    "feedManagement.screen.close.accessibility" : {
       "comment" : "Accessibility label for closing the feed management screen.",
       "localizations" : {
         "en" : {
@@ -6886,7 +6886,7 @@
         }
       }
     },
-    "sourceManagement.screen.title" : {
+    "feedManagement.screen.title" : {
       "comment" : "Navigation title for the feed management screen.",
       "localizations" : {
         "en" : {
@@ -6903,7 +6903,7 @@
         }
       }
     },
-    "sourceManagement.section.add.footer" : {
+    "feedManagement.section.add.footer" : {
       "comment" : "Section footer for creating new feeds and folders.",
       "localizations" : {
         "en" : {
@@ -6920,8 +6920,8 @@
         }
       }
     },
-    "sourceManagement.section.add.title" : {
-      "comment" : "Section title for creating new sources and folders.",
+    "feedManagement.section.add.title" : {
+      "comment" : "Section title for creating new feeds and folders.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6937,7 +6937,7 @@
         }
       }
     },
-    "sourceManagement.section.organize.footer" : {
+    "feedManagement.section.organize.footer" : {
       "comment" : "Section footer for organizing existing feeds.",
       "localizations" : {
         "en" : {
@@ -6954,7 +6954,7 @@
         }
       }
     },
-    "sourceManagement.section.organize.title" : {
+    "feedManagement.section.organize.title" : {
       "comment" : "Section title for organizing existing feeds.",
       "localizations" : {
         "en" : {
@@ -6971,7 +6971,7 @@
         }
       }
     },
-    "sourceManagement.summary.description" : {
+    "feedManagement.summary.description" : {
       "comment" : "Summary description on the feed management entry screen.",
       "localizations" : {
         "en" : {
@@ -6988,7 +6988,7 @@
         }
       }
     },
-    "sourceManagement.summary.title" : {
+    "feedManagement.summary.title" : {
       "comment" : "Summary title on the feed management entry screen.",
       "localizations" : {
         "en" : {

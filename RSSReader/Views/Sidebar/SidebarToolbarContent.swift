@@ -27,7 +27,7 @@ struct SidebarToolbarContent: ToolbarContent {
         }
 
         ToolbarItem(placement: .topBarTrailing) {
-            Button(action: actionHandlers.showSourceManagement) {
+            Button(action: actionHandlers.showFeedManagement) {
                 Image(systemName: "plus")
             }
             .accessibilityLabel(SidebarLocalization.addFeedAccessibilityLabel)

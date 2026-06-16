@@ -198,14 +198,14 @@ struct ShellActionEntryPointTests {
             )
         )
 
-        harness.dependencies.appActions.showSourceManagement(using: appState)
+        harness.dependencies.appActions.showFeedManagement(using: appState)
 
         let result = await harness.dependencies.appActions.refreshAfterAddingFeed(id: feed.id, using: appState)
         let refreshedFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
         let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
 
         #expect(result?.status == .fetched)
-        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.isPresentingFeedManagementScreen == false)
         #expect(appState.selectedSidebarSelection == .feed(feed.id))
         #expect(appState.articleListReloadID != articleReloadIDBeforeRefresh)
         #expect(appState.sidebarReloadID != sidebarReloadIDBeforeRefresh)
