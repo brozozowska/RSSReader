@@ -26,11 +26,7 @@ enum SettingsLocalization {
         defaultValue: "Unable to Load Settings",
         comment: "Placeholder title shown when settings cannot be loaded."
     )
-    static let retryActionTitle = String(
-        localized: "settings.retry.action",
-        defaultValue: "Retry",
-        comment: "Button title for retrying settings loading."
-    )
+    static let retryActionTitle = CommonLocalization.retryAction
     static let unavailableMessage = String(
         localized: "settings.unavailable.message",
         defaultValue: "Settings are unavailable in the current app environment.",
@@ -163,7 +159,7 @@ enum SettingsLocalization {
             defaultValue: "Saved for the next launch. This session keeps using local data because %@.",
             comment: "Subtitle for enabled iCloud sync preference when this launch uses local-only fallback. Placeholder is the fallback reason."
         )
-        return String.localizedStringWithFormat(format, reason)
+        return CommonLocalization.localizedTemplate(format, reason)
     }
     static let iCloudScopeAccountFooter = String(
         localized: "settings.updatesSync.footer.account",
@@ -595,11 +591,7 @@ enum SettingsLocalization {
         defaultValue: "Clear Cache",
         comment: "Destructive confirmation button title for clearing a cache."
     )
-    static let cancelAction = String(
-        localized: "settings.alert.cancel.action",
-        defaultValue: "Cancel",
-        comment: "Cancel button title in settings alerts."
-    )
+    static let cancelAction = CommonLocalization.cancelAction
     static let okAction = String(
         localized: "settings.alert.ok.action",
         defaultValue: "OK",
@@ -681,12 +673,74 @@ enum SettingsLocalization {
         comment: "Status alert title when OPML import completes."
     )
     static func opmlImportCompleteMessage(createdFeedCount: Int, skippedEntryCount: Int) -> String {
-        let format = String(localized:
+        let messageFormat = String(localized:
             "settings.feedPortability.import.complete.message",
-            defaultValue: "%lld feeds imported. %lld skipped.",
-            comment: "Status alert message after OPML import completes. The first value is imported feed count; the second value is skipped entry count."
+            defaultValue: "%1$@. %2$@.",
+            comment: "Status alert message after OPML import completes. The first value is the localized imported feed count phrase; the second value is the localized skipped entry count phrase."
         )
-        return String.localizedStringWithFormat(format, createdFeedCount, skippedEntryCount)
+        return CommonLocalization.localizedTemplate(
+            messageFormat,
+            opmlImportedFeedCount(createdFeedCount),
+            opmlSkippedEntryCount(skippedEntryCount)
+        )
+    }
+    private static func opmlImportedFeedCount(_ count: Int) -> String {
+        let one = String(
+            localized: "settings.feedPortability.import.complete.importedFeedCount.one",
+            defaultValue: "%@ feed imported",
+            comment: "Imported feed count phrase using the singular form. Placeholder is the localized imported feed count."
+        )
+        let few = String(
+            localized: "settings.feedPortability.import.complete.importedFeedCount.few",
+            defaultValue: "%@ feeds imported",
+            comment: "Imported feed count phrase using the Russian few form. Placeholder is the localized imported feed count."
+        )
+        let many = String(
+            localized: "settings.feedPortability.import.complete.importedFeedCount.many",
+            defaultValue: "%@ feeds imported",
+            comment: "Imported feed count phrase using the Russian many form. Placeholder is the localized imported feed count."
+        )
+        let other = String(
+            localized: "settings.feedPortability.import.complete.importedFeedCount.other",
+            defaultValue: "%@ feeds imported",
+            comment: "Imported feed count phrase using the default plural form. Placeholder is the localized imported feed count."
+        )
+        return LocalizedPluralTemplates(
+            one: one,
+            few: few,
+            many: many,
+            other: other
+        )
+        .string(for: count)
+    }
+    private static func opmlSkippedEntryCount(_ count: Int) -> String {
+        let one = String(
+            localized: "settings.feedPortability.import.complete.skippedEntryCount.one",
+            defaultValue: "%@ skipped",
+            comment: "Skipped OPML entry count phrase using the singular form. Placeholder is the localized skipped entry count."
+        )
+        let few = String(
+            localized: "settings.feedPortability.import.complete.skippedEntryCount.few",
+            defaultValue: "%@ skipped",
+            comment: "Skipped OPML entry count phrase using the Russian few form. Placeholder is the localized skipped entry count."
+        )
+        let many = String(
+            localized: "settings.feedPortability.import.complete.skippedEntryCount.many",
+            defaultValue: "%@ skipped",
+            comment: "Skipped OPML entry count phrase using the Russian many form. Placeholder is the localized skipped entry count."
+        )
+        let other = String(
+            localized: "settings.feedPortability.import.complete.skippedEntryCount.other",
+            defaultValue: "%@ skipped",
+            comment: "Skipped OPML entry count phrase using the default plural form. Placeholder is the localized skipped entry count."
+        )
+        return LocalizedPluralTemplates(
+            one: one,
+            few: few,
+            many: many,
+            other: other
+        )
+        .string(for: count)
     }
     static let opmlImportSaveFailureMessage = String(
         localized: "settings.feedPortability.import.saveFailure.message",

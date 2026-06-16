@@ -94,7 +94,11 @@ struct SidebarPresentationTests {
             hour: 17,
             minute: 8
         )))
-        let formatter = SidebarSubtitleFormatter(now: now, calendar: calendar)
+        let formatter = SidebarSubtitleFormatter(
+            now: now,
+            calendar: calendar,
+            locale: Locale(identifier: "en_GB")
+        )
 
         #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == RuntimeFeedbackLocalization.todayRefreshStatus(time: "17:08"))
     }
@@ -119,7 +123,11 @@ struct SidebarPresentationTests {
             hour: 17,
             minute: 8
         )))
-        let formatter = SidebarSubtitleFormatter(now: now, calendar: calendar)
+        let formatter = SidebarSubtitleFormatter(
+            now: now,
+            calendar: calendar,
+            locale: Locale(identifier: "en_GB")
+        )
 
         #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == RuntimeFeedbackLocalization.yesterdayRefreshStatus(time: "17:08"))
     }

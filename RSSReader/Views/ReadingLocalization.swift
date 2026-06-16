@@ -33,29 +33,61 @@ enum ReadingLocalization {
     )
     static let unreadItemSubtitleOne = String(
         localized: "reading.articles.subtitle.unread.one",
-        defaultValue: "1 Unread Item",
-        comment: "Article list subtitle for exactly one unread article."
+        defaultValue: "%@ Unread Item",
+        comment: "Article list subtitle for an unread article count using the singular form. Placeholder is the localized unread article count."
+    )
+    static let unreadItemSubtitleFew = String(
+        localized: "reading.articles.subtitle.unread.few",
+        defaultValue: "%@ Unread Items",
+        comment: "Article list subtitle for an unread article count using the Russian few form. Placeholder is the localized unread article count."
+    )
+    static let unreadItemSubtitleMany = String(
+        localized: "reading.articles.subtitle.unread.many",
+        defaultValue: "%@ Unread Items",
+        comment: "Article list subtitle for an unread article count using the Russian many form. Placeholder is the localized unread article count."
     )
     static let unreadItemSubtitleFormat = String(
         localized: "reading.articles.subtitle.unread.format",
-        defaultValue: "%lld Unread Items",
-        comment: "Article list subtitle for multiple unread articles. Placeholder is the unread article count."
+        defaultValue: "%@ Unread Items",
+        comment: "Article list subtitle for an unread article count using the default plural form. Placeholder is the localized unread article count."
     )
     static let starredItemSubtitleOne = String(
         localized: "reading.articles.subtitle.starred.one",
-        defaultValue: "1 Starred Item",
-        comment: "Article list subtitle for exactly one starred article."
+        defaultValue: "%@ Starred Item",
+        comment: "Article list subtitle for a starred article count using the singular form. Placeholder is the localized starred article count."
+    )
+    static let starredItemSubtitleFew = String(
+        localized: "reading.articles.subtitle.starred.few",
+        defaultValue: "%@ Starred Items",
+        comment: "Article list subtitle for a starred article count using the Russian few form. Placeholder is the localized starred article count."
+    )
+    static let starredItemSubtitleMany = String(
+        localized: "reading.articles.subtitle.starred.many",
+        defaultValue: "%@ Starred Items",
+        comment: "Article list subtitle for a starred article count using the Russian many form. Placeholder is the localized starred article count."
     )
     static let starredItemSubtitleFormat = String(
         localized: "reading.articles.subtitle.starred.format",
-        defaultValue: "%lld Starred Items",
-        comment: "Article list subtitle for multiple starred articles. Placeholder is the starred article count."
+        defaultValue: "%@ Starred Items",
+        comment: "Article list subtitle for a starred article count using the default plural form. Placeholder is the localized starred article count."
     )
     static func unreadItemsSubtitle(count: Int) -> String {
-        count == 1 ? unreadItemSubtitleOne : String.localizedStringWithFormat(unreadItemSubtitleFormat, count)
+        LocalizedPluralTemplates(
+            one: unreadItemSubtitleOne,
+            few: unreadItemSubtitleFew,
+            many: unreadItemSubtitleMany,
+            other: unreadItemSubtitleFormat
+        )
+        .string(for: count)
     }
     static func starredItemsSubtitle(count: Int) -> String {
-        count == 1 ? starredItemSubtitleOne : String.localizedStringWithFormat(starredItemSubtitleFormat, count)
+        LocalizedPluralTemplates(
+            one: starredItemSubtitleOne,
+            few: starredItemSubtitleFew,
+            many: starredItemSubtitleMany,
+            other: starredItemSubtitleFormat
+        )
+        .string(for: count)
     }
     static let noSidebarSelectionTitle = String(
         localized: "reading.articles.placeholder.noSidebarSelection.title",
@@ -113,7 +145,7 @@ enum ReadingLocalization {
         comment: "Article list empty description for a feed."
     )
     static func folderEmptyDescription(folderName: String) -> String {
-        String.localizedStringWithFormat(folderEmptyDescriptionFormat, folderName)
+        CommonLocalization.localizedTemplate(folderEmptyDescriptionFormat, folderName)
     }
     static let noSearchResultsTitle = String(
         localized: "reading.articles.search.empty.title",
@@ -131,7 +163,7 @@ enum ReadingLocalization {
         comment: "Search field prompt for the article list."
     )
     static func noSearchResultsDescription(query: String) -> String {
-        String.localizedStringWithFormat(noSearchResultsDescriptionFormat, query)
+        CommonLocalization.localizedTemplate(noSearchResultsDescriptionFormat, query)
     }
     static let loadingArticlesTitle = String(
         localized: "reading.articles.loading.title",
@@ -143,11 +175,7 @@ enum ReadingLocalization {
         defaultValue: "Refresh Failed",
         comment: "Inline article list refresh failure title."
     )
-    static let refreshRetryAction = String(
-        localized: "reading.articles.refresh.retry.action",
-        defaultValue: "Retry",
-        comment: "Retry action title for article refresh failure banner."
-    )
+    static let refreshRetryAction = CommonLocalization.retryAction
     static let dismissRefreshErrorAccessibilityLabel = String(
         localized: "reading.articles.refresh.dismiss.accessibility",
         defaultValue: "Dismiss refresh error",
@@ -165,19 +193,65 @@ enum ReadingLocalization {
     )
     static let multipleFeedsRefreshFailedFormat = String(
         localized: "reading.articles.refresh.multipleFeeds.failed.format",
-        defaultValue: "%lld feeds failed to refresh.",
-        comment: "Refresh failure message when multiple feeds fail without a detailed error. Placeholder is failed feed count."
+        defaultValue: "%@ feeds failed to refresh.",
+        comment: "Refresh failure message when multiple feeds fail without a detailed error using the default plural form. Placeholder is the localized failed feed count."
+    )
+    static let multipleFeedsRefreshFailedOne = String(
+        localized: "reading.articles.refresh.multipleFeeds.failed.one",
+        defaultValue: "%@ feed failed to refresh.",
+        comment: "Refresh failure message when feeds fail without a detailed error using the singular form. Placeholder is the localized failed feed count."
+    )
+    static let multipleFeedsRefreshFailedFew = String(
+        localized: "reading.articles.refresh.multipleFeeds.failed.few",
+        defaultValue: "%@ feeds failed to refresh.",
+        comment: "Refresh failure message when feeds fail without a detailed error using the Russian few form. Placeholder is the localized failed feed count."
+    )
+    static let multipleFeedsRefreshFailedMany = String(
+        localized: "reading.articles.refresh.multipleFeeds.failed.many",
+        defaultValue: "%@ feeds failed to refresh.",
+        comment: "Refresh failure message when feeds fail without a detailed error using the Russian many form. Placeholder is the localized failed feed count."
     )
     static let multipleFeedsRefreshFailedWithFirstErrorFormat = String(
         localized: "reading.articles.refresh.multipleFeedsWithFirstError.failed.format",
-        defaultValue: "%1$lld feeds failed to refresh. First error: %2$@",
-        comment: "Refresh failure message when multiple feeds fail. Placeholders are failed feed count and first error message."
+        defaultValue: "%1$@ feeds failed to refresh. First error: %2$@",
+        comment: "Refresh failure message when feeds fail using the default plural form. Placeholders are localized failed feed count and first error message."
+    )
+    static let multipleFeedsRefreshFailedWithFirstErrorOne = String(
+        localized: "reading.articles.refresh.multipleFeedsWithFirstError.failed.one",
+        defaultValue: "%1$@ feed failed to refresh. First error: %2$@",
+        comment: "Refresh failure message when feeds fail using the singular form. Placeholders are localized failed feed count and first error message."
+    )
+    static let multipleFeedsRefreshFailedWithFirstErrorFew = String(
+        localized: "reading.articles.refresh.multipleFeedsWithFirstError.failed.few",
+        defaultValue: "%1$@ feeds failed to refresh. First error: %2$@",
+        comment: "Refresh failure message when feeds fail using the Russian few form. Placeholders are localized failed feed count and first error message."
+    )
+    static let multipleFeedsRefreshFailedWithFirstErrorMany = String(
+        localized: "reading.articles.refresh.multipleFeedsWithFirstError.failed.many",
+        defaultValue: "%1$@ feeds failed to refresh. First error: %2$@",
+        comment: "Refresh failure message when feeds fail using the Russian many form. Placeholders are localized failed feed count and first error message."
     )
     static func multipleFeedsRefreshFailed(count: Int) -> String {
-        String.localizedStringWithFormat(multipleFeedsRefreshFailedFormat, count)
+        LocalizedPluralTemplates(
+            one: multipleFeedsRefreshFailedOne,
+            few: multipleFeedsRefreshFailedFew,
+            many: multipleFeedsRefreshFailedMany,
+            other: multipleFeedsRefreshFailedFormat
+        )
+        .string(for: count)
     }
     static func multipleFeedsRefreshFailed(count: Int, firstError: String) -> String {
-        String.localizedStringWithFormat(multipleFeedsRefreshFailedWithFirstErrorFormat, count, firstError)
+        let templates = LocalizedPluralTemplates(
+            one: multipleFeedsRefreshFailedWithFirstErrorOne,
+            few: multipleFeedsRefreshFailedWithFirstErrorFew,
+            many: multipleFeedsRefreshFailedWithFirstErrorMany,
+            other: multipleFeedsRefreshFailedWithFirstErrorFormat
+        )
+        return CommonLocalization.localizedTemplate(
+            templates.template(for: count),
+            CommonLocalization.formattedInteger(count),
+            firstError
+        )
     }
     static let markAllAsReadAccessibilityLabel = String(
         localized: "reading.articles.markAllRead.accessibility",
@@ -194,11 +268,7 @@ enum ReadingLocalization {
         defaultValue: "Mark all as read",
         comment: "Destructive confirmation action title for marking all visible articles as read."
     )
-    static let cancelAction = String(
-        localized: "reading.action.cancel",
-        defaultValue: "Cancel",
-        comment: "Generic cancel action title in reading flow dialogs."
-    )
+    static let cancelAction = CommonLocalization.cancelAction
     static let markAllAsReadDialogMessage = String(
         localized: "reading.articles.markAllRead.dialog.message",
         defaultValue: "This action will mark all visible articles as read.",

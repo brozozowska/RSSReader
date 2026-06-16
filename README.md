@@ -587,6 +587,7 @@
 - [x] `Reading Flow Localization Extraction`: вынести строки `ArticlesScreen`, `ArticleScreen`, Safari/opening actions, article metadata labels, empty/error states и swipe/menu actions в string catalog;
 - [x] `Runtime Feedback Localization Extraction`: вынести строки refresh/background-refresh/sync/storage cleanup feedback, destructive confirmations и shared app-level error/status messages в string catalog;
 - [x] `Russian Localization Pass`: добавить `ru` переводы для извлечённых строк и проверить длинные кириллические строки на основных экранах;
+- [x] `Russian Pluralization And Formatting Cleanup`: добавить locale-aware pluralization для русских count-based строк, централизовать truly generic actions (`Cancel`, `Retry`) без смешивания screen-specific accessibility labels и заменить ручные `%lld` / time string formatting на typed/locale-aware helpers;
 - [ ] `CJK Localization Pass`: добавить `ja` и `zh-Hans` переводы и проверить list rows, settings values, article metadata и line wrapping;
 - [ ] `RTL Localization Pass`: добавить `ar`, `he`, `fa` переводы и проверить layout direction, alignment, menus, toolbar placement, SF Symbols и mixed technical text;
 - [ ] `Additional European Language Pass`: добавить `de`, `fr`, `es`, `it`, `pt-BR` переводы и проверить расширение строк в settings/feed management/reader flows;

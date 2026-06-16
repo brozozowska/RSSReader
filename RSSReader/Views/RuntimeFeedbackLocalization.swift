@@ -42,7 +42,7 @@ enum RuntimeFeedbackLocalization {
             defaultValue: "Today at %@",
             comment: "Sidebar subtitle for a refresh that happened today. Placeholder is a localized time."
         )
-        return String.localizedStringWithFormat(format, time)
+        return CommonLocalization.localizedTemplate(format, time)
     }
     static func yesterdayRefreshStatus(time: String) -> String {
         let format = String(
@@ -50,6 +50,6 @@ enum RuntimeFeedbackLocalization {
             defaultValue: "Yesterday at %@",
             comment: "Sidebar subtitle for a refresh that happened yesterday. Placeholder is a localized time."
         )
-        return String.localizedStringWithFormat(format, time)
+        return CommonLocalization.localizedTemplate(format, time)
     }
 }

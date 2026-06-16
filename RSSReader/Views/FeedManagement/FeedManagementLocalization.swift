@@ -77,7 +77,7 @@ enum FeedManagementLocalization {
         comment: "Accessibility label for closing a feed management destination. Placeholder is the destination title."
     )
     static func closeDestinationAccessibilityLabel(_ title: String) -> String {
-        String.localizedStringWithFormat(closeDestinationAccessibilityFormat, title)
+        CommonLocalization.localizedTemplate(closeDestinationAccessibilityFormat, title)
     }
     static let feedURLPrompt = String(
         localized: "feedManagement.addFeed.url.prompt",
@@ -220,7 +220,7 @@ enum FeedManagementLocalization {
         comment: "Label showing a feed's current folder placement. Placeholder is the folder placement title."
     )
     static func currentLocation(_ title: String) -> String {
-        String.localizedStringWithFormat(currentLocationFormat, title)
+        CommonLocalization.localizedTemplate(currentLocationFormat, title)
     }
     static let targetFolderTitle = String(
         localized: "feedManagement.moveFeed.targetFolder.title",
@@ -228,30 +228,62 @@ enum FeedManagementLocalization {
         comment: "Section title for choosing target folder in move feed flow."
     )
     static func feedCount(_ count: Int) -> String {
-        let format = String(
-            localized: "feedManagement.feedCount.format",
-            defaultValue: "%lld feeds",
-            comment: "Label showing a feed count. The value is the number of feeds."
-        )
         let one = String(
             localized: "feedManagement.feedCount.one",
-            defaultValue: "1 feed",
-            comment: "Label for exactly one feed."
+            defaultValue: "%@ feed",
+            comment: "Label showing a feed count using the singular form. Placeholder is the localized feed count."
         )
-        return count == 1 ? one : String.localizedStringWithFormat(format, count)
+        let few = String(
+            localized: "feedManagement.feedCount.few",
+            defaultValue: "%@ feeds",
+            comment: "Label showing a feed count using the Russian few form. Placeholder is the localized feed count."
+        )
+        let many = String(
+            localized: "feedManagement.feedCount.many",
+            defaultValue: "%@ feeds",
+            comment: "Label showing a feed count using the Russian many form. Placeholder is the localized feed count."
+        )
+        let format = String(
+            localized: "feedManagement.feedCount.format",
+            defaultValue: "%@ feeds",
+            comment: "Label showing a feed count using the default plural form. Placeholder is the localized feed count."
+        )
+        return LocalizedPluralTemplates(
+            one: one,
+            few: few,
+            many: many,
+            other: format
+        )
+        .string(for: count)
     }
     static func existingFeedCount(_ count: Int) -> String {
-        let format = String(
-            localized: "feedManagement.existingFeedCount.format",
-            defaultValue: "%lld existing feeds",
-            comment: "Label showing an existing feed count for a folder. The value is the number of feeds."
-        )
         let one = String(
             localized: "feedManagement.existingFeedCount.one",
-            defaultValue: "1 existing feed",
-            comment: "Label for exactly one existing feed in a folder."
+            defaultValue: "%@ existing feed",
+            comment: "Label showing an existing feed count in a folder using the singular form. Placeholder is the localized feed count."
         )
-        return count == 1 ? one : String.localizedStringWithFormat(format, count)
+        let few = String(
+            localized: "feedManagement.existingFeedCount.few",
+            defaultValue: "%@ existing feeds",
+            comment: "Label showing an existing feed count in a folder using the Russian few form. Placeholder is the localized feed count."
+        )
+        let many = String(
+            localized: "feedManagement.existingFeedCount.many",
+            defaultValue: "%@ existing feeds",
+            comment: "Label showing an existing feed count in a folder using the Russian many form. Placeholder is the localized feed count."
+        )
+        let format = String(
+            localized: "feedManagement.existingFeedCount.format",
+            defaultValue: "%@ existing feeds",
+            comment: "Label showing an existing feed count in a folder using the default plural form. Placeholder is the localized feed count."
+        )
+        return LocalizedPluralTemplates(
+            one: one,
+            few: few,
+            many: many,
+            other: format
+        )
+        .string(for: count)
     }
     static let enterFeedURLValidation = String(
         localized: "feedManagement.addFeed.validation.emptyURL",
@@ -284,10 +316,10 @@ enum FeedManagementLocalization {
         comment: "Success detail after adding a feed. Placeholders are feed title and folder title."
     )
     static func feedUpdatedDetail(title: String, url: String, folderTitle: String) -> String {
-        String.localizedStringWithFormat(feedUpdatedDetailFormat, title, url, folderTitle)
+        CommonLocalization.localizedTemplate(feedUpdatedDetailFormat, title, url, folderTitle)
     }
     static func feedAddedDetail(title: String, folderTitle: String) -> String {
-        String.localizedStringWithFormat(feedAddedDetailFormat, title, folderTitle)
+        CommonLocalization.localizedTemplate(feedAddedDetailFormat, title, folderTitle)
     }
     static let loadingPreviewAction = String(
         localized: "feedManagement.addFeed.action.loadingPreview",
@@ -430,10 +462,10 @@ enum FeedManagementLocalization {
         comment: "Success detail after creating a folder. Placeholder is folder name."
     )
     static func folderRenamedDetail(_ name: String) -> String {
-        String.localizedStringWithFormat(folderRenamedDetailFormat, name)
+        CommonLocalization.localizedTemplate(folderRenamedDetailFormat, name)
     }
     static func folderCreatedDetail(_ name: String) -> String {
-        String.localizedStringWithFormat(folderCreatedDetailFormat, name)
+        CommonLocalization.localizedTemplate(folderCreatedDetailFormat, name)
     }
     static let folderUpdateFailedTitle = String(
         localized: "feedManagement.createFolder.status.updateFailed.title",
@@ -547,8 +579,23 @@ enum FeedManagementLocalization {
     )
     static let existingFolderPlacementDescriptionFormat = String(
         localized: "feedManagement.createFolder.placement.afterExisting.description.format",
-        defaultValue: "This folder will be added after %lld existing folders.",
-        comment: "Placement description when creating a folder after existing folders. Placeholder is folder count."
+        defaultValue: "This folder will be added after %@ existing folders.",
+        comment: "Placement description when creating a folder after existing folders using the default plural form. Placeholder is the localized folder count."
+    )
+    static let existingFolderPlacementDescriptionOne = String(
+        localized: "feedManagement.createFolder.placement.afterExisting.description.one",
+        defaultValue: "This folder will be added after %@ existing folder.",
+        comment: "Placement description when creating a folder after existing folders using the singular form. Placeholder is the localized folder count."
+    )
+    static let existingFolderPlacementDescriptionFew = String(
+        localized: "feedManagement.createFolder.placement.afterExisting.description.few",
+        defaultValue: "This folder will be added after %@ existing folders.",
+        comment: "Placement description when creating a folder after existing folders using the Russian few form. Placeholder is the localized folder count."
+    )
+    static let existingFolderPlacementDescriptionMany = String(
+        localized: "feedManagement.createFolder.placement.afterExisting.description.many",
+        defaultValue: "This folder will be added after %@ existing folders.",
+        comment: "Placement description when creating a folder after existing folders using the Russian many form. Placeholder is the localized folder count."
     )
     static let editingFolderPlacementDescriptionFormat = String(
         localized: "feedManagement.createFolder.placement.editing.description.format",
@@ -556,10 +603,16 @@ enum FeedManagementLocalization {
         comment: "Placement description when editing a folder. Placeholder is folder name."
     )
     static func existingFolderPlacementDescription(count: Int) -> String {
-        String.localizedStringWithFormat(existingFolderPlacementDescriptionFormat, count)
+        LocalizedPluralTemplates(
+            one: existingFolderPlacementDescriptionOne,
+            few: existingFolderPlacementDescriptionFew,
+            many: existingFolderPlacementDescriptionMany,
+            other: existingFolderPlacementDescriptionFormat
+        )
+        .string(for: count)
     }
     static func editingFolderPlacementDescription(name: String) -> String {
-        String.localizedStringWithFormat(editingFolderPlacementDescriptionFormat, name)
+        CommonLocalization.localizedTemplate(editingFolderPlacementDescriptionFormat, name)
     }
     static let feedMovedTitle = String(
         localized: "feedManagement.moveFeed.status.moved.title",
@@ -572,7 +625,7 @@ enum FeedManagementLocalization {
         comment: "Success detail after moving a feed. Placeholders are feed title and folder title."
     )
     static func feedMovedDetail(feedTitle: String, folderTitle: String) -> String {
-        String.localizedStringWithFormat(feedMovedDetailFormat, feedTitle, folderTitle)
+        CommonLocalization.localizedTemplate(feedMovedDetailFormat, feedTitle, folderTitle)
     }
     static let feedMoveFailedTitle = String(
         localized: "feedManagement.moveFeed.status.failed.title",

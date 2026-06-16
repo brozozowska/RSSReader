@@ -60,12 +60,13 @@ struct SidebarSubtitleFormatter {
     }
 
     private func timeString(for date: Date) -> String {
-        let components = calendar.dateComponents([.hour, .minute], from: date)
-        return String(
-            format: "%02d:%02d",
-            components.hour ?? 0,
-            components.minute ?? 0
-        )
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = locale
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        return formatter.string(from: date)
     }
 
     private func dateString(for date: Date) -> String {

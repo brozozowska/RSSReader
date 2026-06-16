@@ -172,15 +172,15 @@ enum FeedManagementScreenStatusMapper {
             return FeedManagementAddFeedStatusPresentation(
                 title: String(localized: "feedManagement.addFeed.preview.genericFailure.title", defaultValue: "Preview could not be loaded", comment: "Generic failure title when feed preview fails."),
                 kind: .failure,
-                detail: String.localizedStringWithFormat(
-                    String(localized: "feedManagement.addFeed.preview.httpStatus.detail.format", defaultValue: "The server returned HTTP %lld, so the app could not read this feed.", comment: "Feed preview failure detail for HTTP status. Placeholder is HTTP status code."),
-                    statusCode
+                detail: CommonLocalization.localizedTemplate(
+                    String(localized: "feedManagement.addFeed.preview.httpStatus.detail.format", defaultValue: "The server returned HTTP %@, so the app could not read this feed.", comment: "Feed preview failure detail for HTTP status. Placeholder is the localized HTTP status code."),
+                    CommonLocalization.formattedInteger(statusCode)
                 )
             )
         case .unsupportedContentType(let contentType):
             let detail: String
             if let contentType, contentType.isEmpty == false {
-                detail = String.localizedStringWithFormat(
+                detail = CommonLocalization.localizedTemplate(
                     String(localized: "feedManagement.addFeed.preview.unsupportedContentType.detail.format", defaultValue: "The address responded with %@, not a supported RSS or Atom feed.", comment: "Feed preview failure detail for unsupported content type. Placeholder is content type."),
                     contentType
                 )
