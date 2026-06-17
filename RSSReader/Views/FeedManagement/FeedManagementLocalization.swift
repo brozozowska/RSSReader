@@ -228,62 +228,20 @@ enum FeedManagementLocalization {
         comment: "Section title for choosing target folder in move feed flow."
     )
     static func feedCount(_ count: Int) -> String {
-        let one = String(
-            localized: "feedManagement.feedCount.one",
-            defaultValue: "%@ feed",
-            comment: "Label showing a feed count using the singular form. Placeholder is the localized feed count."
+        let template = String(
+            localized: "feedManagement.feedCount.count",
+            defaultValue: "%lld feeds",
+            comment: "Label showing a feed count. Placeholder is the feed count."
         )
-        let few = String(
-            localized: "feedManagement.feedCount.few",
-            defaultValue: "%@ feeds",
-            comment: "Label showing a feed count using the Russian few form. Placeholder is the localized feed count."
-        )
-        let many = String(
-            localized: "feedManagement.feedCount.many",
-            defaultValue: "%@ feeds",
-            comment: "Label showing a feed count using the Russian many form. Placeholder is the localized feed count."
-        )
-        let format = String(
-            localized: "feedManagement.feedCount.format",
-            defaultValue: "%@ feeds",
-            comment: "Label showing a feed count using the default plural form. Placeholder is the localized feed count."
-        )
-        return LocalizedPluralTemplates(
-            one: one,
-            few: few,
-            many: many,
-            other: format
-        )
-        .string(for: count)
+        return CommonLocalization.localizedCountTemplate(template, count: count)
     }
     static func existingFeedCount(_ count: Int) -> String {
-        let one = String(
-            localized: "feedManagement.existingFeedCount.one",
-            defaultValue: "%@ existing feed",
-            comment: "Label showing an existing feed count in a folder using the singular form. Placeholder is the localized feed count."
+        let template = String(
+            localized: "feedManagement.existingFeedCount.count",
+            defaultValue: "%lld existing feeds",
+            comment: "Label showing an existing feed count in a folder. Placeholder is the feed count."
         )
-        let few = String(
-            localized: "feedManagement.existingFeedCount.few",
-            defaultValue: "%@ existing feeds",
-            comment: "Label showing an existing feed count in a folder using the Russian few form. Placeholder is the localized feed count."
-        )
-        let many = String(
-            localized: "feedManagement.existingFeedCount.many",
-            defaultValue: "%@ existing feeds",
-            comment: "Label showing an existing feed count in a folder using the Russian many form. Placeholder is the localized feed count."
-        )
-        let format = String(
-            localized: "feedManagement.existingFeedCount.format",
-            defaultValue: "%@ existing feeds",
-            comment: "Label showing an existing feed count in a folder using the default plural form. Placeholder is the localized feed count."
-        )
-        return LocalizedPluralTemplates(
-            one: one,
-            few: few,
-            many: many,
-            other: format
-        )
-        .string(for: count)
+        return CommonLocalization.localizedCountTemplate(template, count: count)
     }
     static let enterFeedURLValidation = String(
         localized: "feedManagement.addFeed.validation.emptyURL",
@@ -577,39 +535,18 @@ enum FeedManagementLocalization {
         defaultValue: "This will be the first folder.",
         comment: "Placement description when creating the first folder."
     )
-    static let existingFolderPlacementDescriptionFormat = String(
-        localized: "feedManagement.createFolder.placement.afterExisting.description.format",
-        defaultValue: "This folder will be added after %@ existing folders.",
-        comment: "Placement description when creating a folder after existing folders using the default plural form. Placeholder is the localized folder count."
-    )
-    static let existingFolderPlacementDescriptionOne = String(
-        localized: "feedManagement.createFolder.placement.afterExisting.description.one",
-        defaultValue: "This folder will be added after %@ existing folder.",
-        comment: "Placement description when creating a folder after existing folders using the singular form. Placeholder is the localized folder count."
-    )
-    static let existingFolderPlacementDescriptionFew = String(
-        localized: "feedManagement.createFolder.placement.afterExisting.description.few",
-        defaultValue: "This folder will be added after %@ existing folders.",
-        comment: "Placement description when creating a folder after existing folders using the Russian few form. Placeholder is the localized folder count."
-    )
-    static let existingFolderPlacementDescriptionMany = String(
-        localized: "feedManagement.createFolder.placement.afterExisting.description.many",
-        defaultValue: "This folder will be added after %@ existing folders.",
-        comment: "Placement description when creating a folder after existing folders using the Russian many form. Placeholder is the localized folder count."
-    )
     static let editingFolderPlacementDescriptionFormat = String(
         localized: "feedManagement.createFolder.placement.editing.description.format",
         defaultValue: "\"%@\" keeps its current order.",
         comment: "Placement description when editing a folder. Placeholder is folder name."
     )
     static func existingFolderPlacementDescription(count: Int) -> String {
-        LocalizedPluralTemplates(
-            one: existingFolderPlacementDescriptionOne,
-            few: existingFolderPlacementDescriptionFew,
-            many: existingFolderPlacementDescriptionMany,
-            other: existingFolderPlacementDescriptionFormat
+        let template = String(
+            localized: "feedManagement.createFolder.placement.afterExisting.description.count",
+            defaultValue: "This folder will be added after %lld existing folders.",
+            comment: "Placement description when creating a folder after existing folders. Placeholder is the existing folder count."
         )
-        .string(for: count)
+        return CommonLocalization.localizedCountTemplate(template, count: count)
     }
     static func editingFolderPlacementDescription(name: String) -> String {
         CommonLocalization.localizedTemplate(editingFolderPlacementDescriptionFormat, name)

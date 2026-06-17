@@ -800,138 +800,108 @@
         }
       }
     },
-    "reading.articles.refresh.multipleFeeds.failed.few" : {
-      "comment" : "Refresh failure message when feeds fail without a detailed error using the Russian few form. Placeholder is the localized failed feed count.",
+    "reading.articles.refresh.multipleFeeds.failed.count" : {
+      "comment" : "Refresh failure message when feeds fail without a detailed error. Placeholder is the failed feed count.",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ feeds failed to refresh."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld feed failed to refresh."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld feeds failed to refresh."
+                }
+              }
+            }
           }
         },
         "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не удалось обновить %@ ленты."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Не удалось обновить %lld ленту."
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Не удалось обновить %lld ленты."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Не удалось обновить %lld лент."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Не удалось обновить %lld лент."
+                }
+              }
+            }
           }
         }
       }
     },
-    "reading.articles.refresh.multipleFeeds.failed.format" : {
-      "comment" : "Refresh failure message when multiple feeds fail without a detailed error using the default plural form. Placeholder is the localized failed feed count.",
+    "reading.articles.refresh.multipleFeedsWithFirstError.failed.count" : {
+      "comment" : "Refresh failure message when feeds fail with a first error. Placeholders are the failed feed count and first error message.",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ feeds failed to refresh."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$lld feed failed to refresh. First error: %2$@"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$lld feeds failed to refresh. First error: %2$@"
+                }
+              }
+            }
           }
         },
         "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не удалось обновить %@ лент."
-          }
-        }
-      }
-    },
-    "reading.articles.refresh.multipleFeeds.failed.many" : {
-      "comment" : "Refresh failure message when feeds fail without a detailed error using the Russian many form. Placeholder is the localized failed feed count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ feeds failed to refresh."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не удалось обновить %@ лент."
-          }
-        }
-      }
-    },
-    "reading.articles.refresh.multipleFeeds.failed.one" : {
-      "comment" : "Refresh failure message when feeds fail without a detailed error using the singular form. Placeholder is the localized failed feed count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ feed failed to refresh."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не удалось обновить %@ ленту."
-          }
-        }
-      }
-    },
-    "reading.articles.refresh.multipleFeedsWithFirstError.failed.few" : {
-      "comment" : "Refresh failure message when feeds fail using the Russian few form. Placeholders are localized failed feed count and first error message.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ feeds failed to refresh. First error: %2$@"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не удалось обновить %1$@ ленты. Первая ошибка: %2$@"
-          }
-        }
-      }
-    },
-    "reading.articles.refresh.multipleFeedsWithFirstError.failed.format" : {
-      "comment" : "Refresh failure message when feeds fail using the default plural form. Placeholders are localized failed feed count and first error message.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ feeds failed to refresh. First error: %2$@"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не удалось обновить %1$@ лент. Первая ошибка: %2$@"
-          }
-        }
-      }
-    },
-    "reading.articles.refresh.multipleFeedsWithFirstError.failed.many" : {
-      "comment" : "Refresh failure message when feeds fail using the Russian many form. Placeholders are localized failed feed count and first error message.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ feeds failed to refresh. First error: %2$@"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не удалось обновить %1$@ лент. Первая ошибка: %2$@"
-          }
-        }
-      }
-    },
-    "reading.articles.refresh.multipleFeedsWithFirstError.failed.one" : {
-      "comment" : "Refresh failure message when feeds fail using the singular form. Placeholders are localized failed feed count and first error message.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ feed failed to refresh. First error: %2$@"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не удалось обновить %1$@ ленту. Первая ошибка: %2$@"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Не удалось обновить %1$lld ленту. Первая ошибка: %2$@"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Не удалось обновить %1$lld ленты. Первая ошибка: %2$@"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Не удалось обновить %1$lld лент. Первая ошибка: %2$@"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Не удалось обновить %1$lld лент. Первая ошибка: %2$@"
+                }
+              }
+            }
           }
         }
       }
@@ -1174,138 +1144,108 @@
         }
       }
     },
-    "reading.articles.subtitle.starred.few" : {
-      "comment" : "Article list subtitle for a starred article count using the Russian few form. Placeholder is the localized starred article count.",
+    "reading.articles.subtitle.starred.count" : {
+      "comment" : "Article list subtitle for a starred article count. Placeholder is the starred article count.",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ Starred Items"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Starred Item"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Starred Items"
+                }
+              }
+            }
           }
         },
         "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ избранные"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld избранная"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld избранные"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld избранных"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld избранных"
+                }
+              }
+            }
           }
         }
       }
     },
-    "reading.articles.subtitle.starred.format" : {
-      "comment" : "Article list subtitle for a starred article count using the default plural form. Placeholder is the localized starred article count.",
+    "reading.articles.subtitle.unread.count" : {
+      "comment" : "Article list subtitle for an unread article count. Placeholder is the unread article count.",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ Starred Items"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Unread Item"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Unread Items"
+                }
+              }
+            }
           }
         },
         "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ избранных"
-          }
-        }
-      }
-    },
-    "reading.articles.subtitle.starred.many" : {
-      "comment" : "Article list subtitle for a starred article count using the Russian many form. Placeholder is the localized starred article count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ Starred Items"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ избранных"
-          }
-        }
-      }
-    },
-    "reading.articles.subtitle.starred.one" : {
-      "comment" : "Article list subtitle for a starred article count using the singular form. Placeholder is the localized starred article count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ Starred Item"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ избранная"
-          }
-        }
-      }
-    },
-    "reading.articles.subtitle.unread.few" : {
-      "comment" : "Article list subtitle for an unread article count using the Russian few form. Placeholder is the localized unread article count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ Unread Items"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ непрочитанные"
-          }
-        }
-      }
-    },
-    "reading.articles.subtitle.unread.format" : {
-      "comment" : "Article list subtitle for an unread article count using the default plural form. Placeholder is the localized unread article count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ Unread Items"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ непрочитанных"
-          }
-        }
-      }
-    },
-    "reading.articles.subtitle.unread.many" : {
-      "comment" : "Article list subtitle for an unread article count using the Russian many form. Placeholder is the localized unread article count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ Unread Items"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ непрочитанных"
-          }
-        }
-      }
-    },
-    "reading.articles.subtitle.unread.one" : {
-      "comment" : "Article list subtitle for an unread article count using the singular form. Placeholder is the localized unread article count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ Unread Item"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ непрочитанная"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld непрочитанная"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld непрочитанные"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld непрочитанных"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld непрочитанных"
+                }
+              }
+            }
           }
         }
       }
@@ -2857,138 +2797,108 @@
         }
       }
     },
-    "settings.feedPortability.import.complete.importedFeedCount.few" : {
-      "comment" : "Imported feed count phrase using the Russian few form. Placeholder is the localized imported feed count.",
+    "settings.feedPortability.import.complete.importedFeedCount.count" : {
+      "comment" : "Imported feed count phrase. Placeholder is the imported feed count.",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ feeds imported"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld feed imported"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld feeds imported"
+                }
+              }
+            }
           }
         },
         "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Импортированы %@ ленты"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Импортирована %lld лента"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Импортированы %lld ленты"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Импортировано %lld лент"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Импортировано %lld лент"
+                }
+              }
+            }
           }
         }
       }
     },
-    "settings.feedPortability.import.complete.importedFeedCount.many" : {
-      "comment" : "Imported feed count phrase using the Russian many form. Placeholder is the localized imported feed count.",
+    "settings.feedPortability.import.complete.skippedEntryCount.count" : {
+      "comment" : "Skipped OPML entry count phrase. Placeholder is the skipped entry count.",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ feeds imported"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld skipped"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld skipped"
+                }
+              }
+            }
           }
         },
         "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Импортировано %@ лент"
-          }
-        }
-      }
-    },
-    "settings.feedPortability.import.complete.importedFeedCount.one" : {
-      "comment" : "Imported feed count phrase using the singular form. Placeholder is the localized imported feed count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ feed imported"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Импортирована %@ лента"
-          }
-        }
-      }
-    },
-    "settings.feedPortability.import.complete.importedFeedCount.other" : {
-      "comment" : "Imported feed count phrase using the default plural form. Placeholder is the localized imported feed count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ feeds imported"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Импортировано %@ лент"
-          }
-        }
-      }
-    },
-    "settings.feedPortability.import.complete.skippedEntryCount.few" : {
-      "comment" : "Skipped OPML entry count phrase using the Russian few form. Placeholder is the localized skipped entry count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ skipped"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Пропущены %@ записи"
-          }
-        }
-      }
-    },
-    "settings.feedPortability.import.complete.skippedEntryCount.many" : {
-      "comment" : "Skipped OPML entry count phrase using the Russian many form. Placeholder is the localized skipped entry count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ skipped"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Пропущено %@ записей"
-          }
-        }
-      }
-    },
-    "settings.feedPortability.import.complete.skippedEntryCount.one" : {
-      "comment" : "Skipped OPML entry count phrase using the singular form. Placeholder is the localized skipped entry count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ skipped"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Пропущена %@ запись"
-          }
-        }
-      }
-    },
-    "settings.feedPortability.import.complete.skippedEntryCount.other" : {
-      "comment" : "Skipped OPML entry count phrase using the default plural form. Placeholder is the localized skipped entry count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ skipped"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Пропущено %@ записей"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Пропущена %lld запись"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Пропущены %lld записи"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Пропущено %lld записей"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Пропущено %lld записей"
+                }
+              }
+            }
           }
         }
       }
@@ -6308,70 +6218,55 @@
         }
       }
     },
-    "feedManagement.createFolder.placement.afterExisting.description.few" : {
-      "comment" : "Placement description when creating a folder after existing folders using the Russian few form. Placeholder is the localized folder count.",
+    "feedManagement.createFolder.placement.afterExisting.description.count" : {
+      "comment" : "Placement description when creating a folder after existing folders. Placeholder is the existing folder count.",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This folder will be added after %@ existing folders."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "This folder will be added after %lld existing folder."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "This folder will be added after %lld existing folders."
+                }
+              }
+            }
           }
         },
         "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Эта папка будет добавлена после %@ существующих папок."
-          }
-        }
-      }
-    },
-    "feedManagement.createFolder.placement.afterExisting.description.format" : {
-      "comment" : "Placement description when creating a folder after existing folders using the default plural form. Placeholder is the localized folder count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This folder will be added after %@ existing folders."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Эта папка будет добавлена после %@ существующих папок."
-          }
-        }
-      }
-    },
-    "feedManagement.createFolder.placement.afterExisting.description.many" : {
-      "comment" : "Placement description when creating a folder after existing folders using the Russian many form. Placeholder is the localized folder count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This folder will be added after %@ existing folders."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Эта папка будет добавлена после %@ существующих папок."
-          }
-        }
-      }
-    },
-    "feedManagement.createFolder.placement.afterExisting.description.one" : {
-      "comment" : "Placement description when creating a folder after existing folders using the singular form. Placeholder is the localized folder count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This folder will be added after %@ existing folder."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Эта папка будет добавлена после %@ существующей папки."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Эта папка будет добавлена после %lld существующей папки."
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Эта папка будет добавлена после %lld существующих папок."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Эта папка будет добавлена после %lld существующих папок."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Эта папка будет добавлена после %lld существующих папок."
+                }
+              }
+            }
           }
         }
       }
@@ -6682,138 +6577,108 @@
         }
       }
     },
-    "feedManagement.existingFeedCount.few" : {
-      "comment" : "Label showing an existing feed count in a folder using the Russian few form. Placeholder is the localized feed count.",
+    "feedManagement.existingFeedCount.count" : {
+      "comment" : "Label showing an existing feed count in a folder. Placeholder is the feed count.",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ existing feeds"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld existing feed"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld existing feeds"
+                }
+              }
+            }
           }
         },
         "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ существующие ленты"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld существующая лента"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld существующие ленты"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld существующих лент"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld существующих лент"
+                }
+              }
+            }
           }
         }
       }
     },
-    "feedManagement.existingFeedCount.format" : {
-      "comment" : "Label showing an existing feed count in a folder using the default plural form. Placeholder is the localized feed count.",
+    "feedManagement.feedCount.count" : {
+      "comment" : "Label showing a feed count. Placeholder is the feed count.",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ existing feeds"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld feed"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld feeds"
+                }
+              }
+            }
           }
         },
         "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ существующих лент"
-          }
-        }
-      }
-    },
-    "feedManagement.existingFeedCount.many" : {
-      "comment" : "Label showing an existing feed count in a folder using the Russian many form. Placeholder is the localized feed count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ existing feeds"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ существующих лент"
-          }
-        }
-      }
-    },
-    "feedManagement.existingFeedCount.one" : {
-      "comment" : "Label showing an existing feed count in a folder using the singular form. Placeholder is the localized feed count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ existing feed"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ существующая лента"
-          }
-        }
-      }
-    },
-    "feedManagement.feedCount.few" : {
-      "comment" : "Label showing a feed count using the Russian few form. Placeholder is the localized feed count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ feeds"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ ленты"
-          }
-        }
-      }
-    },
-    "feedManagement.feedCount.format" : {
-      "comment" : "Label showing a feed count using the default plural form. Placeholder is the localized feed count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ feeds"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ лент"
-          }
-        }
-      }
-    },
-    "feedManagement.feedCount.many" : {
-      "comment" : "Label showing a feed count using the Russian many form. Placeholder is the localized feed count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ feeds"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ лент"
-          }
-        }
-      }
-    },
-    "feedManagement.feedCount.one" : {
-      "comment" : "Label showing a feed count using the singular form. Placeholder is the localized feed count.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ feed"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ лента"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld лента"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld ленты"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld лент"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld лент"
+                }
+              }
+            }
           }
         }
       }

@@ -685,62 +685,20 @@ enum SettingsLocalization {
         )
     }
     private static func opmlImportedFeedCount(_ count: Int) -> String {
-        let one = String(
-            localized: "settings.feedPortability.import.complete.importedFeedCount.one",
-            defaultValue: "%@ feed imported",
-            comment: "Imported feed count phrase using the singular form. Placeholder is the localized imported feed count."
+        let template = String(
+            localized: "settings.feedPortability.import.complete.importedFeedCount.count",
+            defaultValue: "%lld feeds imported",
+            comment: "Imported feed count phrase. Placeholder is the imported feed count."
         )
-        let few = String(
-            localized: "settings.feedPortability.import.complete.importedFeedCount.few",
-            defaultValue: "%@ feeds imported",
-            comment: "Imported feed count phrase using the Russian few form. Placeholder is the localized imported feed count."
-        )
-        let many = String(
-            localized: "settings.feedPortability.import.complete.importedFeedCount.many",
-            defaultValue: "%@ feeds imported",
-            comment: "Imported feed count phrase using the Russian many form. Placeholder is the localized imported feed count."
-        )
-        let other = String(
-            localized: "settings.feedPortability.import.complete.importedFeedCount.other",
-            defaultValue: "%@ feeds imported",
-            comment: "Imported feed count phrase using the default plural form. Placeholder is the localized imported feed count."
-        )
-        return LocalizedPluralTemplates(
-            one: one,
-            few: few,
-            many: many,
-            other: other
-        )
-        .string(for: count)
+        return CommonLocalization.localizedCountTemplate(template, count: count)
     }
     private static func opmlSkippedEntryCount(_ count: Int) -> String {
-        let one = String(
-            localized: "settings.feedPortability.import.complete.skippedEntryCount.one",
-            defaultValue: "%@ skipped",
-            comment: "Skipped OPML entry count phrase using the singular form. Placeholder is the localized skipped entry count."
+        let template = String(
+            localized: "settings.feedPortability.import.complete.skippedEntryCount.count",
+            defaultValue: "%lld skipped",
+            comment: "Skipped OPML entry count phrase. Placeholder is the skipped entry count."
         )
-        let few = String(
-            localized: "settings.feedPortability.import.complete.skippedEntryCount.few",
-            defaultValue: "%@ skipped",
-            comment: "Skipped OPML entry count phrase using the Russian few form. Placeholder is the localized skipped entry count."
-        )
-        let many = String(
-            localized: "settings.feedPortability.import.complete.skippedEntryCount.many",
-            defaultValue: "%@ skipped",
-            comment: "Skipped OPML entry count phrase using the Russian many form. Placeholder is the localized skipped entry count."
-        )
-        let other = String(
-            localized: "settings.feedPortability.import.complete.skippedEntryCount.other",
-            defaultValue: "%@ skipped",
-            comment: "Skipped OPML entry count phrase using the default plural form. Placeholder is the localized skipped entry count."
-        )
-        return LocalizedPluralTemplates(
-            one: one,
-            few: few,
-            many: many,
-            other: other
-        )
-        .string(for: count)
+        return CommonLocalization.localizedCountTemplate(template, count: count)
     }
     static let opmlImportSaveFailureMessage = String(
         localized: "settings.feedPortability.import.saveFailure.message",

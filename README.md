@@ -588,7 +588,8 @@
 - [x] `Runtime Feedback Localization Extraction`: вынести строки refresh/background-refresh/sync/storage cleanup feedback, destructive confirmations и shared app-level error/status messages в string catalog;
 - [x] `Russian Localization Pass`: добавить `ru` переводы для извлечённых строк и проверить длинные кириллические строки на основных экранах;
 - [x] `Russian Pluralization And Formatting Cleanup`: добавить locale-aware pluralization для русских count-based строк, централизовать truly generic actions (`Cancel`, `Retry`) без смешивания screen-specific accessibility labels и заменить ручные `%lld` / time string formatting на typed/locale-aware helpers;
-- [ ] `CJK Localization Pass`: добавить `ja` и `zh-Hans` переводы и проверить list rows, settings values, article metadata и line wrapping;
+- [x] `Native String Catalog Pluralization`: мигрировать count-based строки с `LocalizedPluralTemplates` на native `.xcstrings` plural variations, покрыть `ru` регрессиями и подготовить plural foundation перед RTL-локалями;
+- [ ] `CJK Localization Pass`: добавить `ja`, `zh-Hans` и `ko` переводы и проверить list rows, settings values, article metadata и line wrapping;
 - [ ] `RTL Localization Pass`: добавить `ar`, `he`, `fa` переводы и проверить layout direction, alignment, menus, toolbar placement, SF Symbols и mixed technical text;
 - [ ] `Additional European Language Pass`: добавить `de`, `fr`, `es`, `it`, `pt-BR` переводы и проверить расширение строк в settings/feed management/reader flows;
 - [ ] `Localization Regression Checklist`: подготовить smoke checklist для long text, Dynamic Type, RTL, CJK, settings sheets, feed management и article reader.
