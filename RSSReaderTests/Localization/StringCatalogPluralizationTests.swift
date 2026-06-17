@@ -44,6 +44,32 @@ struct StringCatalogPluralizationTests {
         }
     }
 
+    @Test
+    func cjkLocalizationsCoverEveryCatalogEntry() throws {
+        let strings = try Self.catalogStrings()
+
+        for (key, entry) in strings {
+            for language in Self.cjkLanguages {
+                #expect(
+                    Self.hasTranslatedLocalization(in: entry, language: language),
+                    "Missing \(language) localization for \(key)"
+                )
+            }
+        }
+    }
+
+    @Test
+    func projectKnownRegionsIncludeCJKLocalizations() throws {
+        let projectFileURL = try #require(Self.projectFileURL())
+        let projectFile = try String(contentsOf: projectFileURL, encoding: .utf8)
+
+        #expect(projectFile.contains("developmentRegion = en;"))
+
+        for language in ["ja", "\"zh-Hans\"", "ko"] {
+            #expect(projectFile.contains("\(language),"))
+        }
+    }
+
     private static let russianPluralExpectations: [PluralExpectation] = [
         .init(key: "reading.articles.subtitle.unread.count", category: "one", value: "%lld непрочитанная"),
         .init(key: "reading.articles.subtitle.unread.count", category: "few", value: "%lld непрочитанные"),
@@ -108,6 +134,8 @@ struct StringCatalogPluralizationTests {
         "feedManagement.feedCount.format"
     ]
 
+    private static let cjkLanguages = ["ja", "zh-Hans", "ko"]
+
     private static func catalogStrings() throws -> [String: Any] {
         let catalogURL = try #require(localizableCatalogURL())
         let data = try Data(contentsOf: catalogURL)
@@ -131,6 +159,47 @@ struct StringCatalogPluralizationTests {
         }
 
         return nil
+    }
+
+    private static func projectFileURL() -> URL? {
+        let fileManager = FileManager.default
+        var directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+
+        while directory.path != "/" {
+            let candidate = directory.appendingPathComponent("RSSReader.xcodeproj/project.pbxproj")
+            if fileManager.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+
+            directory.deleteLastPathComponent()
+        }
+
+        return nil
+    }
+
+    private static func hasTranslatedLocalization(in entry: Any, language: String) -> Bool {
+        guard
+            let entry = entry as? [String: Any],
+            let localizations = entry["localizations"] as? [String: Any],
+            let localization = localizations[language] as? [String: Any]
+        else {
+            return false
+        }
+
+        if let stringUnit = localization["stringUnit"] as? [String: Any],
+           let value = stringUnit["value"] as? String {
+            return stringUnit["state"] as? String == "translated" && !value.isEmpty
+        }
+
+        if let variations = localization["variations"] as? [String: Any],
+           let plural = variations["plural"] as? [String: Any],
+           let other = plural["other"] as? [String: Any],
+           let stringUnit = other["stringUnit"] as? [String: Any],
+           let value = stringUnit["value"] as? String {
+            return stringUnit["state"] as? String == "translated" && !value.isEmpty
+        }
+
+        return false
     }
 
     private static func pluralValue(
