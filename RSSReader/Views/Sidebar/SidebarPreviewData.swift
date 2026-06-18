@@ -38,6 +38,15 @@ import SwiftData
     )
 }
 
+#Preview("RTL Folders And Ungrouped") {
+    SidebarPreviewHost(
+        scenario: .foldersAndUngrouped,
+        selection: .feed(SidebarPreviewFactory.SampleIDs.vergeFeedID)
+    )
+    .environment(\.layoutDirection, .rightToLeft)
+    .environment(\.locale, Locale(identifier: "ar"))
+}
+
 private struct SidebarPreviewHost: View {
     let dependencies: AppDependencies
     let previewScreenState: SidebarScreenState

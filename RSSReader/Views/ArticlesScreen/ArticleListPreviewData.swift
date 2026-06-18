@@ -23,6 +23,19 @@ import SwiftUI
     )
 }
 
+#Preview("RTL Articles Multi-Day") {
+    ArticlesScreenPreviewContainer(
+        screenState: .previewLoaded(
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "7 Unread Items",
+            articles: ArticlesScreenPreviewData.multiDayArticles
+        )
+    )
+    .environment(\.layoutDirection, .rightToLeft)
+    .environment(\.locale, Locale(identifier: "ar"))
+}
+
 #Preview("Loading Error") {
     ArticlesScreenPreviewContainer(
         screenState: .previewFailed(

@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import SwiftUI
 
 enum ArticlesScreenPhase: Equatable {
     case noSelection
@@ -218,6 +219,9 @@ struct ArticlesScreenRefreshBannerState: Equatable {
 }
 
 struct ArticleRowSwipeActionsState: Equatable {
+    static let readStatusEdge: HorizontalEdge = .leading
+    static let starredStatusEdge: HorizontalEdge = .trailing
+
     let readActionTitle: String
     let readActionSystemImage: String
     let starActionTitle: String

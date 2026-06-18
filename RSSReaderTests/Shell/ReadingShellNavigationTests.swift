@@ -104,29 +104,65 @@ struct ReadingShellNavigationTests {
     }
 
     @Test
-    func readingShellCompactNavigationStateRecognizesLeadingEdgeBackSwipeToSidebar() {
+    func readingShellCompactNavigationStateRecognizesLTRLeadingEdgeBackSwipeToSidebar() {
         #expect(
             ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
                 startLocationX: 12,
+                containerWidth: 390,
+                layoutDirection: .leftToRight,
                 translation: CGSize(width: 96, height: 8)
             )
         )
         #expect(
             ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
                 startLocationX: 64,
+                containerWidth: 390,
+                layoutDirection: .leftToRight,
                 translation: CGSize(width: 96, height: 8)
             ) == false
         )
         #expect(
             ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
                 startLocationX: 12,
+                containerWidth: 390,
+                layoutDirection: .leftToRight,
                 translation: CGSize(width: 40, height: 8)
             ) == false
         )
         #expect(
             ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
                 startLocationX: 12,
+                containerWidth: 390,
+                layoutDirection: .leftToRight,
                 translation: CGSize(width: 96, height: 72)
+            ) == false
+        )
+    }
+
+    @Test
+    func readingShellCompactNavigationStateRecognizesRTLLeadingEdgeBackSwipeToSidebar() {
+        #expect(
+            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
+                startLocationX: 378,
+                containerWidth: 390,
+                layoutDirection: .rightToLeft,
+                translation: CGSize(width: -96, height: 8)
+            )
+        )
+        #expect(
+            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
+                startLocationX: 12,
+                containerWidth: 390,
+                layoutDirection: .rightToLeft,
+                translation: CGSize(width: -96, height: 8)
+            ) == false
+        )
+        #expect(
+            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
+                startLocationX: 378,
+                containerWidth: 390,
+                layoutDirection: .rightToLeft,
+                translation: CGSize(width: 96, height: 8)
             ) == false
         )
     }

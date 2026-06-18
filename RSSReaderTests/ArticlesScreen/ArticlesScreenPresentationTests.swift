@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Testing
 @testable import RSSReader
 
@@ -23,6 +24,12 @@ struct ArticlesScreenPresentationTests {
         #expect(readStarred.readActionSystemImage == "circle.slash")
         #expect(readStarred.starActionTitle == ReadingLocalization.unstarAction)
         #expect(readStarred.starActionSystemImage == "star.slash")
+    }
+
+    @Test
+    func articleRowSwipeActionsUseSemanticRTLReadyEdges() {
+        #expect(ArticleRowSwipeActionsState.readStatusEdge == .leading)
+        #expect(ArticleRowSwipeActionsState.starredStatusEdge == .trailing)
     }
 
     @Test

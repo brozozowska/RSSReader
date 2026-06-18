@@ -6,27 +6,27 @@ struct SidebarToolbarContent: ToolbarContent {
     let actionHandlers: SidebarActionHandlers
 
     var body: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
+        ToolbarItem(placement: SidebarToolbarPlacement.settings) {
             Button(action: actionHandlers.showSettings) {
                 Image(systemName: "gearshape")
             }
             .accessibilityLabel(SidebarLocalization.settingsAccessibilityLabel)
         }
 
-        ToolbarItem(placement: .title) {
+        ToolbarItem(placement: SidebarToolbarPlacement.title) {
             Text(SidebarLocalization.title)
                 .font(.title3.weight(.semibold))
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
 
-        ToolbarItem(placement: .subtitle) {
+        ToolbarItem(placement: SidebarToolbarPlacement.subtitle) {
             Text(toolbarState.subtitle)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
 
-        ToolbarItem(placement: .topBarTrailing) {
+        ToolbarItem(placement: SidebarToolbarPlacement.addFeed) {
             Button(action: actionHandlers.showFeedManagement) {
                 Image(systemName: "plus")
             }
@@ -35,7 +35,7 @@ struct SidebarToolbarContent: ToolbarContent {
 
         ToolbarSpacer(.fixed, placement: .topBarTrailing)
 
-        ToolbarItem(placement: .topBarTrailing) {
+        ToolbarItem(placement: SidebarToolbarPlacement.filter) {
             SidebarArticleFilterMenu(
                 selectedSidebarArticleFilter: selectedSidebarArticleFilter,
                 actionHandlers: actionHandlers

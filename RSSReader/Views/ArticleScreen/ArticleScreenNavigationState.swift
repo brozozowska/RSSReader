@@ -16,10 +16,14 @@ enum ArticleScreenNavigationState {
 
     static func shouldNavigateBackOnDrag(
         startLocationX: CGFloat,
+        containerWidth: CGFloat,
+        layoutDirection: LayoutDirection,
         translation: CGSize
     ) -> Bool {
         CompactBackNavigationPolicy.shouldNavigateBackOnDrag(
             startLocationX: startLocationX,
+            containerWidth: containerWidth,
+            layoutDirection: layoutDirection,
             translation: translation
         )
     }

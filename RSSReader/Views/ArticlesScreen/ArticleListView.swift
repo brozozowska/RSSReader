@@ -6,6 +6,7 @@ struct ArticleListView: View {
     @Environment(\.appDependencies) private var dependencies
     @Environment(AppState.self) private var appState
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.layoutDirection) private var layoutDirection
 
     let selectedSidebarSelection: SidebarSelection?
     let selectedSidebarArticleFilter: SidebarArticleFilter
@@ -18,6 +19,7 @@ struct ArticleListView: View {
     @State private var controller: ArticlesScreenController
     @State private var searchText = ""
     @State private var refreshStartHapticTrigger = 0
+    @State private var backNavigationContainerWidth: CGFloat = 0
 
     init(
         selectedSidebarSelection: SidebarSelection?,
@@ -137,6 +139,11 @@ struct ArticleListView: View {
             .impact(flexibility: .solid, intensity: 0.65),
             trigger: refreshStartHapticTrigger
         )
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width
+        } action: { newWidth in
+            backNavigationContainerWidth = newWidth
+        }
         .simultaneousGesture(backNavigationGesture)
     }
 
@@ -308,6 +315,8 @@ struct ArticleListView: View {
                 guard showsBackButton else { return }
                 guard ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
                     startLocationX: value.startLocation.x,
+                    containerWidth: backNavigationContainerWidth,
+                    layoutDirection: layoutDirection,
                     translation: value.translation
                 ) else {
                     return

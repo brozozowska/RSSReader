@@ -4,6 +4,7 @@ struct ReaderView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appDependencies) private var dependencies
     @Environment(\.appThemeVariant) private var appThemeVariant
+    @Environment(\.layoutDirection) private var layoutDirection
     @Environment(\.openURL) private var openURL
     let articleID: UUID?
     let reloadID: UUID
@@ -17,6 +18,7 @@ struct ReaderView: View {
     @State private var adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
     @State private var adjacentArticleOverscrollReadyHapticTrigger = 0
     @State private var hasTriggeredAdjacentArticleOverscrollReadyHaptic = false
+    @State private var backNavigationContainerWidth: CGFloat = 0
 
     init(
         articleID: UUID?,
@@ -116,6 +118,11 @@ struct ReaderView: View {
             guard previewScreenState == nil, isPresentingSettingsScreen == false else { return }
             loadReaderAdjacentNavigationControlsMode()
         }
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width
+        } action: { newWidth in
+            backNavigationContainerWidth = newWidth
+        }
         .simultaneousGesture(backNavigationGesture)
     }
 
@@ -160,6 +167,8 @@ struct ReaderView: View {
                 guard showsBackButton else { return }
                 guard ArticleScreenNavigationState.shouldNavigateBackOnDrag(
                     startLocationX: value.startLocation.x,
+                    containerWidth: backNavigationContainerWidth,
+                    layoutDirection: layoutDirection,
                     translation: value.translation
                 ) else {
                     return

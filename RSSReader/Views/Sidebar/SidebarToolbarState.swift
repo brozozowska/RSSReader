@@ -1,4 +1,13 @@
 import Foundation
+import SwiftUI
+
+enum SidebarToolbarPlacement {
+    static let settings: ToolbarItemPlacement = .topBarLeading
+    static let title: ToolbarItemPlacement = .title
+    static let subtitle: ToolbarItemPlacement = .subtitle
+    static let addFeed: ToolbarItemPlacement = .topBarTrailing
+    static let filter: ToolbarItemPlacement = .topBarTrailing
+}
 
 struct SidebarToolbarState: Equatable {
     let subtitle: String

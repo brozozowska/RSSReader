@@ -28,23 +28,57 @@ struct ArticleScreenNavigationTests {
     }
 
     @Test
-    func articleScreenNavigationStateRecognizesLeadingEdgeBackSwipe() {
+    func articleScreenNavigationStateRecognizesLTRLeadingEdgeBackSwipe() {
         #expect(
             ArticleScreenNavigationState.shouldNavigateBackOnDrag(
                 startLocationX: 12,
+                containerWidth: 390,
+                layoutDirection: .leftToRight,
                 translation: CGSize(width: 96, height: 8)
             )
         )
         #expect(
             ArticleScreenNavigationState.shouldNavigateBackOnDrag(
                 startLocationX: 80,
+                containerWidth: 390,
+                layoutDirection: .leftToRight,
                 translation: CGSize(width: 96, height: 8)
             ) == false
         )
         #expect(
             ArticleScreenNavigationState.shouldNavigateBackOnDrag(
                 startLocationX: 12,
+                containerWidth: 390,
+                layoutDirection: .leftToRight,
                 translation: CGSize(width: 40, height: 8)
+            ) == false
+        )
+    }
+
+    @Test
+    func articleScreenNavigationStateRecognizesRTLLeadingEdgeBackSwipe() {
+        #expect(
+            ArticleScreenNavigationState.shouldNavigateBackOnDrag(
+                startLocationX: 378,
+                containerWidth: 390,
+                layoutDirection: .rightToLeft,
+                translation: CGSize(width: -96, height: 8)
+            )
+        )
+        #expect(
+            ArticleScreenNavigationState.shouldNavigateBackOnDrag(
+                startLocationX: 12,
+                containerWidth: 390,
+                layoutDirection: .rightToLeft,
+                translation: CGSize(width: -96, height: 8)
+            ) == false
+        )
+        #expect(
+            ArticleScreenNavigationState.shouldNavigateBackOnDrag(
+                startLocationX: 378,
+                containerWidth: 390,
+                layoutDirection: .rightToLeft,
+                translation: CGSize(width: 96, height: 8)
             ) == false
         )
     }
