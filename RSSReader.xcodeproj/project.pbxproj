@@ -25,6 +25,7 @@
 		4E5A04902F8668CB00433119 /* COMMIT_AND_ISSUE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = COMMIT_AND_ISSUE.md; sourceTree = "<group>"; };
 		4E5A04912F8668CB00433119 /* EPIC_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = EPIC_SUMMARY.md; sourceTree = "<group>"; };
 		4E5A04922F8668CB00433119 /* XCODE_VALIDATION.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = XCODE_VALIDATION.md; sourceTree = "<group>"; };
+		4EB1A1322FE7ED9D001ADFD6 /* LOCALIZATION_REGRESSION_CHECKLIST.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = LOCALIZATION_REGRESSION_CHECKLIST.md; sourceTree = "<group>"; };
 		4EC805A42F7EB73A004CDFE9 /* RSSReaderTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RSSReaderTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -101,6 +102,7 @@
 				4E5A04902F8668CB00433119 /* COMMIT_AND_ISSUE.md */,
 				4E5A04912F8668CB00433119 /* EPIC_SUMMARY.md */,
 				4E5A04922F8668CB00433119 /* XCODE_VALIDATION.md */,
+				4EB1A1322FE7ED9D001ADFD6 /* LOCALIZATION_REGRESSION_CHECKLIST.md */,
 			);
 			path = AgentDocs;
 			sourceTree = "<group>";

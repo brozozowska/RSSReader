@@ -593,7 +593,7 @@
 - [x] `RTL Readiness Cleanup`: перед добавлением RTL-переводов исправить LTR-only compact back swipe через direction-aware policy для `Articles -> Sidebar` и `Article -> Articles`, добавить RTL preview/test hooks для основных reading/sidebar экранов, зафиксировать contract для semantic `.leading` / `.trailing` swipe actions (`Read/Unread` зеркалится на физический trailing в RTL, `Star/Unstar` — на противоположную сторону) и проверить, что `SidebarToolbarContent` использует semantic toolbar placement, который должен зеркалить `Settings` / `Add` / `Filter` в RTL;
 - [x] `RTL Localization Pass`: добавить `ar`, `he`, `fa`, `ur` переводы и проверить layout direction, alignment, menus, toolbar placement, SF Symbols и mixed technical text;
 - [x] `Additional European Language Pass`: добавить `de`, `fr`, `es`, `it`, `pt-BR` переводы и проверить расширение строк в settings/feed management/reader flows;
-- [ ] `Localization Regression Checklist`: подготовить smoke checklist для long text, Dynamic Type, RTL, CJK, settings sheets, feed management и article reader.
+- [x] `Localization Regression Checklist`: подготовить smoke checklist для long text, Dynamic Type, RTL, CJK, settings sheets, feed management и article reader.
 
 #### Naming Contract Cleanup
 - [x] `Sidebar Feed Naming Cleanup`: переименовать app-level selection/filter/sidebar query contracts с legacy `Source` / `Sources` на `Feed` / `Feeds` или нейтральный `Sidebar`, включая `AppState`, `AppActionRouter`, legacy `SourcesSidebarQueryService`, sidebar presentation/state/controller, article-list filter resolver и связанные tests; сохранить поведение selection, filters, counters и reload triggers без UI-регрессий;
