@@ -16,7 +16,7 @@ struct SidebarScreenStateTests {
         )
 
         #expect(state.phase == .loading)
-        #expect(viewState.primaryLoadingState?.title == "Loading Sources")
+        #expect(viewState.primaryLoadingState?.title == SidebarLocalization.loadingTitle)
         #expect(viewState.placeholder == nil)
         #expect(viewState.shouldDisableScrolling)
         #expect(viewState.smartRows.isEmpty)
@@ -67,7 +67,7 @@ struct SidebarScreenStateTests {
             unreadCount: 2,
             starredCount: 1
         )
-        let snapshot = SourcesSidebarSnapshotDTO(
+        let snapshot = SidebarSnapshotDTO(
             feeds: [feedSidebarItem],
             unreadSmartCount: 2,
             starredSmartCount: 1,
@@ -108,7 +108,7 @@ struct SidebarScreenStateTests {
     @Test
     func sidebarScreenStateShowsEmptyFoldersFromSnapshot() {
         let emptyFolderID = UUID()
-        let snapshot = SourcesSidebarSnapshotDTO(
+        let snapshot = SidebarSnapshotDTO(
             folders: [
                 FolderSidebarItem(
                     id: emptyFolderID,
@@ -150,7 +150,7 @@ struct SidebarScreenStateTests {
     @Test
     func sidebarScreenStateHidesEmptyFoldersWhenUnreadFilterIsActive() {
         let emptyFolderID = UUID()
-        let snapshot = SourcesSidebarSnapshotDTO(
+        let snapshot = SidebarSnapshotDTO(
             folders: [
                 FolderSidebarItem(
                     id: emptyFolderID,
@@ -201,7 +201,7 @@ struct SidebarScreenStateTests {
             unreadCount: 1,
             starredCount: 0
         )
-        let snapshot = SourcesSidebarSnapshotDTO(
+        let snapshot = SidebarSnapshotDTO(
             folders: [
                 FolderSidebarItem(
                     id: emptyFolderID,

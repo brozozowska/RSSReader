@@ -20,7 +20,7 @@ struct SidebarView: View {
 
     var body: some View {
         let viewState = controller.viewState(
-            filter: appState.selectedSourcesFilter,
+            filter: appState.selectedSidebarArticleFilter,
             iCloudSyncStatus: appState.iCloudSyncStatus
         )
 
@@ -44,7 +44,7 @@ struct SidebarView: View {
         .toolbar {
             SidebarToolbarContent(
                 toolbarState: viewState.toolbarState,
-                selectedSourcesFilter: appState.selectedSourcesFilter,
+                selectedSidebarArticleFilter: appState.selectedSidebarArticleFilter,
                 actionHandlers: actionHandlers
             )
         }
@@ -55,16 +55,16 @@ struct SidebarView: View {
             guard controller.isPreviewMode == false else { return }
             await loadFeeds(showsFullScreenLoading: true, refreshedAt: nil)
         }
-        .onChange(of: appState.sourcesSidebarReloadID) { _, _ in
+        .onChange(of: appState.sidebarReloadID) { _, _ in
             guard controller.isPreviewMode == false else { return }
             Task {
                 await loadFeeds(showsFullScreenLoading: false, refreshedAt: nil)
             }
         }
-        .onChange(of: appState.selectedSourcesFilter) { _, _ in
+        .onChange(of: appState.selectedSidebarArticleFilter) { _, _ in
             selection = controller.resolvedSelection(
                 currentSelection: selection,
-                filter: appState.selectedSourcesFilter
+                filter: appState.selectedSidebarArticleFilter
             )
         }
         .sensoryFeedback(
@@ -79,7 +79,7 @@ struct SidebarView: View {
             showsFullScreenLoading: showsFullScreenLoading,
             dependencies: dependencies,
             currentSelection: selection,
-            filter: appState.selectedSourcesFilter,
+            filter: appState.selectedSidebarArticleFilter,
             refreshedAt: refreshedAt
         )
 
@@ -87,16 +87,16 @@ struct SidebarView: View {
     }
 
     @MainActor
-    private func refreshSources() async {
+    private func refreshSidebar() async {
         guard controller.isPreviewMode == false, controller.screenState.isSyncing == false else { return }
 
         refreshStartHapticTrigger += 1
 
-        let adjustedSelection = await controller.refreshSources(
+        let adjustedSelection = await controller.refreshSidebar(
             dependencies: dependencies,
             appState: appState,
             currentSelection: selection,
-            filter: appState.selectedSourcesFilter
+            filter: appState.selectedSidebarArticleFilter
         )
 
         selection = adjustedSelection
@@ -117,7 +117,7 @@ struct SidebarView: View {
             controller.screenState.endCustomRefresh()
         }
 
-        await refreshSources()
+        await refreshSidebar()
     }
 
     @MainActor
@@ -137,11 +137,11 @@ struct SidebarView: View {
             showSettings: {
                 dependencies.appActions.showSettings(using: appState)
             },
-            showSourceManagement: {
-                dependencies.appActions.showSourceManagement(using: appState)
+            showFeedManagement: {
+                dependencies.appActions.showFeedManagement(using: appState)
             },
-            applySourcesFilter: { filter in
-                dependencies.appActions.applySourcesFilter(filter, using: appState)
+            applySidebarArticleFilter: { filter in
+                dependencies.appActions.applySidebarArticleFilter(filter, using: appState)
             },
             showFeedOrganizer: { feedID in
                 dependencies.appActions.showFeedOrganizer(id: feedID, using: appState)

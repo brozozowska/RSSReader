@@ -61,7 +61,7 @@ struct ArticleScreenHeaderState: Equatable {
 
     init(article: ReaderArticleDTO) {
         self.publishedAtText = article.publishedAt.map(ArticleScreenDateFormatter.string(from:))
-        self.title = article.title.nilIfBlank ?? "Untitled Article"
+        self.title = article.title.nilIfBlank ?? ReadingLocalization.untitledArticleTitle
         self.author = article.author?.nilIfBlank
         self.feedTitle = article.feedTitle.nilIfBlank
         self.canOpenSourceArticle = ArticleScreenURLResolver.resolveExternalURL(
@@ -82,11 +82,11 @@ struct ArticleScreenBottomActionsState: Equatable {
     let canOpenSourceArticle: Bool
 
     init(article: ReaderArticleDTO) {
-        self.readToggleTitle = article.isRead ? "Mark Unread" : "Mark Read"
+        self.readToggleTitle = article.isRead ? ReadingLocalization.markUnreadAction : ReadingLocalization.markReadAction
         self.readToggleSystemImage = article.isRead ? "circle.slash" : "circle"
-        self.starTitle = article.isStarred ? "Unstar" : "Star"
+        self.starTitle = article.isStarred ? ReadingLocalization.unstarAction : ReadingLocalization.starAction
         self.starSystemImage = article.isStarred ? "star.slash" : "star"
-        self.openSourceArticleTitle = "Open Source Article"
+        self.openSourceArticleTitle = ReadingLocalization.openSourceArticleAction
         self.openSourceArticleSystemImage = "safari"
         self.canOpenSourceArticle = ArticleScreenURLResolver.resolveExternalURL(
             canonicalURL: article.canonicalURL,

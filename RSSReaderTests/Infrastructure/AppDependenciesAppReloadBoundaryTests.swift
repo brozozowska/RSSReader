@@ -26,7 +26,7 @@ struct AppDependenciesAppReloadBoundaryTests {
             syncCoordinator: syncCoordinator
         )
         let appState = AppState()
-        let initialSidebarReloadID = appState.sourcesSidebarReloadID
+        let initialSidebarReloadID = appState.sidebarReloadID
         let initialArticleListReloadID = appState.articleListReloadID
         let initialArticleScreenReloadID = appState.articleScreenReloadID
 
@@ -43,11 +43,11 @@ struct AppDependenciesAppReloadBoundaryTests {
         backgroundRefreshHandoffCoordinator.triggerBoundReloadHandler()
 
         #expect(appState.lastContentReloadTrigger == .backgroundRefresh)
-        #expect(appState.sourcesSidebarReloadID != initialSidebarReloadID)
+        #expect(appState.sidebarReloadID != initialSidebarReloadID)
         #expect(appState.articleListReloadID != initialArticleListReloadID)
         #expect(appState.articleScreenReloadID != initialArticleScreenReloadID)
 
-        let backgroundRefreshSidebarReloadID = appState.sourcesSidebarReloadID
+        let backgroundRefreshSidebarReloadID = appState.sidebarReloadID
         let backgroundRefreshArticleListReloadID = appState.articleListReloadID
         let backgroundRefreshArticleScreenReloadID = appState.articleScreenReloadID
 
@@ -71,7 +71,7 @@ struct AppDependenciesAppReloadBoundaryTests {
 
         try await expectAppDependenciesEventually {
             appState.lastContentReloadTrigger == .remoteSyncImport
-                && appState.sourcesSidebarReloadID != backgroundRefreshSidebarReloadID
+                && appState.sidebarReloadID != backgroundRefreshSidebarReloadID
                 && appState.articleListReloadID != backgroundRefreshArticleListReloadID
                 && appState.articleScreenReloadID != backgroundRefreshArticleScreenReloadID
         }

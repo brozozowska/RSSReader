@@ -17,7 +17,7 @@ struct CloudKitSyncScopeTests {
         #expect(scope.syncs(.article))
         #expect(scope.syncs(.appSettings))
         #expect(scope.storesLocallyOnly(.feedFetchLog))
-        #expect(scope.syncsSourceStructure)
+        #expect(scope.syncsFeedStructure)
         #expect(scope.syncsReadingState)
         #expect(scope.syncsArticlePayload)
         #expect(scope.syncsAppSettings)
@@ -25,7 +25,7 @@ struct CloudKitSyncScopeTests {
     }
 
     @Test
-    func updatesAndSyncSectionFooterCombinesReadingScenarioAndCloudKitScope() throws {
+    func updatesAndSyncSectionFooterUsesSettingsLevelSyncScopeCopy() throws {
         let sections = SettingsScreenPresentationBuilder.buildSections(
             from: SettingsScreenInputBuilder.build(
                 from: AppSettingsSnapshot(useiCloudSync: true),
@@ -33,11 +33,7 @@ struct CloudKitSyncScopeTests {
             )
         )
         let updatesAndSyncSection = try #require(sections.first { $0.id == .updatesAndSync })
-        let expectedFooter = CloudKitSyncScope.current.settingsSectionFooter(
-            readingScenario: CrossDeviceReadingScenario.current
-        ) + " iCloud sync uses the Apple ID signed in on this device. Changing the sync preference applies on the next app launch."
-
-        #expect(updatesAndSyncSection.footer == expectedFooter)
+        #expect(updatesAndSyncSection.footer == SettingsLocalization.iCloudScopeAccountFooter)
     }
 
     @Test

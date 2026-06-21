@@ -34,7 +34,7 @@ struct CloudKitSyncScope: Equatable, Sendable {
         localOnlyModels.contains(model)
     }
 
-    var syncsSourceStructure: Bool {
+    var syncsFeedStructure: Bool {
         syncs(.feed) && syncs(.folder)
     }
 

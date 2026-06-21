@@ -75,10 +75,10 @@ struct ArticleListContentView: View {
         ArticleListRowView(article: article)
             .id(article.id)
             .tag(article.id)
-            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            .swipeActions(edge: ArticleRowSwipeActionsState.readStatusEdge, allowsFullSwipe: true) {
                 leadingSwipeActions(for: article)
             }
-            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            .swipeActions(edge: ArticleRowSwipeActionsState.starredStatusEdge, allowsFullSwipe: true) {
                 trailingSwipeActions(for: article)
             }
             .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))

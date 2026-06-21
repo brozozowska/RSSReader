@@ -12,7 +12,7 @@ struct AppActionRouter {
     var logger: Logging { dependencies.logger }
     var articleQueryService: (any ArticleQueryService)? { dependencies.articleQueryService }
     var folderRepository: (any FolderRepository)? { dependencies.folderRepository }
-    var sourceManagementService: (any SourceManagementService)? { dependencies.sourceManagementService }
+    var feedManagementService: (any FeedManagementService)? { dependencies.feedManagementService }
     var feedRefreshService: FeedRefreshService? { dependencies.feedRefreshService }
     var feedRepository: (any FeedRepository)? { dependencies.feedRepository }
     var appSettingsService: (any AppSettingsService)? { dependencies.appSettingsService }

@@ -18,13 +18,13 @@ enum AppRefreshIndicatorState: Equatable {
     var accessibilityLabel: String {
         switch self {
         case .idle:
-            "Refresh idle"
+            RuntimeFeedbackLocalization.refreshIdleAccessibilityLabel
         case .pulling:
-            "Pulling to refresh"
+            RuntimeFeedbackLocalization.refreshPullingAccessibilityLabel
         case .ready:
-            "Release to refresh"
+            RuntimeFeedbackLocalization.refreshReadyAccessibilityLabel
         case .refreshing:
-            "Refreshing"
+            RuntimeFeedbackLocalization.refreshingAccessibilityLabel
         }
     }
 }

@@ -40,7 +40,7 @@ struct CachedArticleImageView: View {
                     size: 24,
                     lineWidth: 2.5,
                     tint: AnyShapeStyle(.secondary),
-                    accessibilityLabel: "Loading image"
+                    accessibilityLabel: ReadingLocalization.loadingImageAccessibilityLabel
                 )
             }
             .frame(maxWidth: .infinity)
@@ -61,9 +61,9 @@ struct CachedArticleImageView: View {
                     .foregroundStyle(.secondary)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Image Unavailable")
+                    Text(ReadingLocalization.imageUnavailableTitle)
                         .font(.subheadline.weight(.semibold))
-                    Text("The article image could not be loaded.")
+                    Text(ReadingLocalization.imageUnavailableDescription)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

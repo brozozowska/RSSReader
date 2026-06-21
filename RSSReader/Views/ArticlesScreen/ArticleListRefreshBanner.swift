@@ -28,13 +28,12 @@ struct ArticleListRefreshBanner: View {
                 Text(state.message)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
             }
 
             Spacer(minLength: 12)
 
             if state.showsRetryAction {
-                Button("Retry") {
+                Button(ReadingLocalization.refreshRetryAction) {
                     Task {
                         await retryAction()
                     }
@@ -51,7 +50,7 @@ struct ArticleListRefreshBanner: View {
                     }
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.secondary)
-                    .accessibilityLabel("Dismiss refresh error")
+                    .accessibilityLabel(ReadingLocalization.dismissRefreshErrorAccessibilityLabel)
                 }
             }
         }

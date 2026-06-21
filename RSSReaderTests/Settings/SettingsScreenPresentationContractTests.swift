@@ -9,7 +9,7 @@ struct SettingsScreenPresentationContractTests {
     func settingsScreenPresentationBuilderBuildsSectionedContractFromSettingsSnapshot() {
         let snapshot = AppSettingsSnapshot(
             articleOpeningMode: .safariView,
-            selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+            selectedSidebarArticleFilterRawValue: SidebarArticleFilter.starred.rawValue,
             refreshIntervalPreference: .daily,
             useiCloudSync: true,
             markAsReadOnOpen: false,
@@ -29,14 +29,14 @@ struct SettingsScreenPresentationContractTests {
 
         let sections = SettingsScreenPresentationBuilder.buildSections(from: input)
 
-        #expect(sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .notifications, .sourcePortability, .storage])
+        #expect(sections.map(\.id) == [.appearance, .reading, .articleList, .updatesAndSync, .notifications, .feedPortability, .storage])
 
         let appearanceItems = sections[0].items
         let readingItems = sections[1].items
         let articleListItems = sections[2].items
         let updatesAndSyncItems = sections[3].items
         let notificationsItems = sections[4].items
-        let sourcePortabilityItems = sections[5].items
+        let feedPortabilityItems = sections[5].items
         let storageItems = sections[6].items
 
         #expect(
@@ -44,15 +44,15 @@ struct SettingsScreenPresentationContractTests {
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .appearance,
-                        title: "Theme",
+                        title: SettingsLocalization.themePickerTitle,
                         subtitle: nil,
-                        selectedValueTitle: "Black",
+                        selectedValueTitle: SettingsLocalization.blackOptionTitle,
                         options: [
-                            SettingsPickerOptionPresentation(id: "automaticLightDark", title: "Automatic Light/Dark", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "automaticLightBlack", title: "Automatic Light/Black", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "light", title: "Light", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "dark", title: "Dark", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "black", title: "Black", isSelected: true)
+                            SettingsPickerOptionPresentation(id: "automaticLightDark", title: SettingsLocalization.automaticLightDarkOptionTitle, isSelected: false),
+                            SettingsPickerOptionPresentation(id: "automaticLightBlack", title: SettingsLocalization.automaticLightBlackOptionTitle, isSelected: false),
+                            SettingsPickerOptionPresentation(id: "light", title: SettingsLocalization.lightOptionTitle, isSelected: false),
+                            SettingsPickerOptionPresentation(id: "dark", title: SettingsLocalization.darkOptionTitle, isSelected: false),
+                            SettingsPickerOptionPresentation(id: "black", title: SettingsLocalization.blackOptionTitle, isSelected: true)
                         ]
                     )
                 )
@@ -62,12 +62,12 @@ struct SettingsScreenPresentationContractTests {
             readingItems[0] == .picker(
                 SettingsPickerItemPresentation(
                     id: .articleOpeningMode,
-                    title: "Open Articles",
+                    title: SettingsLocalization.openArticlesTitle,
                     subtitle: nil,
-                    selectedValueTitle: "Safari View",
+                    selectedValueTitle: SettingsLocalization.safariViewOptionTitle,
                     options: [
-                        SettingsPickerOptionPresentation(id: "feedReader", title: "Feed Reader", isSelected: false),
-                        SettingsPickerOptionPresentation(id: "safariView", title: "Safari View", isSelected: true)
+                        SettingsPickerOptionPresentation(id: "feedReader", title: SettingsLocalization.feedReaderOptionTitle, isSelected: false),
+                        SettingsPickerOptionPresentation(id: "safariView", title: SettingsLocalization.safariViewOptionTitle, isSelected: true)
                     ]
                 )
             )
@@ -76,12 +76,12 @@ struct SettingsScreenPresentationContractTests {
             readingItems[1] == .picker(
                 SettingsPickerItemPresentation(
                     id: .articleSourceLinkOpeningPolicy,
-                    title: "Open Original Article",
+                    title: SettingsLocalization.openOriginalArticleTitle,
                     subtitle: nil,
-                    selectedValueTitle: "External Browser",
+                    selectedValueTitle: SettingsLocalization.externalBrowserOptionTitle,
                     options: [
-                        SettingsPickerOptionPresentation(id: "inAppBrowser", title: "In-App Browser", isSelected: false),
-                        SettingsPickerOptionPresentation(id: "externalBrowser", title: "External Browser", isSelected: true)
+                        SettingsPickerOptionPresentation(id: "inAppBrowser", title: SettingsLocalization.inAppBrowserOptionTitle, isSelected: false),
+                        SettingsPickerOptionPresentation(id: "externalBrowser", title: SettingsLocalization.externalBrowserOptionTitle, isSelected: true)
                     ]
                 )
             )
@@ -90,12 +90,12 @@ struct SettingsScreenPresentationContractTests {
             readingItems[2] == .picker(
                 SettingsPickerItemPresentation(
                     id: .articleBodyLinkOpeningPolicy,
-                    title: "Open Article Links",
+                    title: SettingsLocalization.openArticleLinksTitle,
                     subtitle: nil,
-                    selectedValueTitle: "External Browser",
+                    selectedValueTitle: SettingsLocalization.externalBrowserOptionTitle,
                     options: [
-                        SettingsPickerOptionPresentation(id: "inAppBrowser", title: "In-App Browser", isSelected: false),
-                        SettingsPickerOptionPresentation(id: "externalBrowser", title: "External Browser", isSelected: true)
+                        SettingsPickerOptionPresentation(id: "inAppBrowser", title: SettingsLocalization.inAppBrowserOptionTitle, isSelected: false),
+                        SettingsPickerOptionPresentation(id: "externalBrowser", title: SettingsLocalization.externalBrowserOptionTitle, isSelected: true)
                     ]
                 )
             )
@@ -104,13 +104,13 @@ struct SettingsScreenPresentationContractTests {
             readingItems[3] == .picker(
                 SettingsPickerItemPresentation(
                     id: .readerAdjacentNavigationControlsMode,
-                    title: "Adjacent Navigation",
+                    title: SettingsLocalization.adjacentNavigationTitle,
                     subtitle: nil,
-                    selectedValueTitle: "Swipes",
+                    selectedValueTitle: SettingsLocalization.swipesOptionTitle,
                     options: [
-                        SettingsPickerOptionPresentation(id: "toolbarControlsOnly", title: "Buttons", isSelected: false),
-                        SettingsPickerOptionPresentation(id: "swipesOnly", title: "Swipes", isSelected: true),
-                        SettingsPickerOptionPresentation(id: "swipesAndToolbarControls", title: "Both", isSelected: false)
+                        SettingsPickerOptionPresentation(id: "toolbarControlsOnly", title: SettingsLocalization.buttonsOptionTitle, isSelected: false),
+                        SettingsPickerOptionPresentation(id: "swipesOnly", title: SettingsLocalization.swipesOptionTitle, isSelected: true),
+                        SettingsPickerOptionPresentation(id: "swipesAndToolbarControls", title: SettingsLocalization.bothOptionTitle, isSelected: false)
                     ]
                 )
             )
@@ -119,8 +119,8 @@ struct SettingsScreenPresentationContractTests {
             readingItems[4] == .toggle(
                 SettingsToggleItemPresentation(
                     id: .markAsReadOnOpen,
-                    title: "Mark Read on Open",
-                    subtitle: "Automatically mark an article as read when it is opened.",
+                    title: SettingsLocalization.markReadOnOpenTitle,
+                    subtitle: SettingsLocalization.markReadOnOpenSubtitle,
                     isOn: false
                 )
             )
@@ -130,35 +130,35 @@ struct SettingsScreenPresentationContractTests {
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .unreadArticleSortOrder,
-                        title: "Sort Unread Articles",
+                        title: SettingsLocalization.sortUnreadArticlesTitle,
                         subtitle: nil,
-                        selectedValueTitle: "Newest First",
+                        selectedValueTitle: SettingsLocalization.newestFirstOptionTitle,
                         options: [
-                            SettingsPickerOptionPresentation(id: "newestFirst", title: "Newest First", isSelected: true),
-                            SettingsPickerOptionPresentation(id: "oldestFirst", title: "Oldest First", isSelected: false)
+                            SettingsPickerOptionPresentation(id: "newestFirst", title: SettingsLocalization.newestFirstOptionTitle, isSelected: true),
+                            SettingsPickerOptionPresentation(id: "oldestFirst", title: SettingsLocalization.oldestFirstOptionTitle, isSelected: false)
                         ]
                     )
                 ),
                 .toggle(
                     SettingsToggleItemPresentation(
                         id: .askBeforeMarkingAllAsRead,
-                        title: "Ask Before Marking All Read",
-                        subtitle: "Show a confirmation before marking all visible articles as read.",
+                        title: SettingsLocalization.askBeforeMarkingAllReadTitle,
+                        subtitle: SettingsLocalization.askBeforeMarkingAllReadSubtitle,
                         isOn: false
                     )
                 ),
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .articleRetentionPolicy,
-                        title: "Keep Archived Articles",
+                        title: SettingsLocalization.keepArchivedArticlesTitle,
                         subtitle: nil,
-                        selectedValueTitle: "2 Weeks",
+                        selectedValueTitle: SettingsLocalization.twoWeeksOptionTitle,
                         options: [
-                            SettingsPickerOptionPresentation(id: "currentFeedOnly", title: "None", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "twoDays", title: "2 Days", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "oneWeek", title: "1 Week", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "twoWeeks", title: "2 Weeks", isSelected: true),
-                            SettingsPickerOptionPresentation(id: "oneMonth", title: "1 Month", isSelected: false)
+                            SettingsPickerOptionPresentation(id: "currentFeedOnly", title: SettingsLocalization.noneOptionTitle, isSelected: false),
+                            SettingsPickerOptionPresentation(id: "twoDays", title: SettingsLocalization.twoDaysOptionTitle, isSelected: false),
+                            SettingsPickerOptionPresentation(id: "oneWeek", title: SettingsLocalization.oneWeekOptionTitle, isSelected: false),
+                            SettingsPickerOptionPresentation(id: "twoWeeks", title: SettingsLocalization.twoWeeksOptionTitle, isSelected: true),
+                            SettingsPickerOptionPresentation(id: "oneMonth", title: SettingsLocalization.oneMonthOptionTitle, isSelected: false)
                         ]
                     )
                 )
@@ -169,15 +169,15 @@ struct SettingsScreenPresentationContractTests {
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .refreshInterval,
-                        title: "Background Refresh",
+                        title: SettingsLocalization.backgroundRefreshTitle,
                         subtitle: nil,
-                        selectedValueTitle: "Daily",
+                        selectedValueTitle: SettingsLocalization.dailyOptionTitle,
                         options: [
-                            SettingsPickerOptionPresentation(id: "manual", title: "Manual", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "every15Minutes", title: "Every 15 Minutes", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "hourly", title: "Hourly", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "every6Hours", title: "Every 6 Hours", isSelected: false),
-                            SettingsPickerOptionPresentation(id: "daily", title: "Daily", isSelected: true)
+                            SettingsPickerOptionPresentation(id: "manual", title: SettingsLocalization.manualOptionTitle, isSelected: false),
+                            SettingsPickerOptionPresentation(id: "every15Minutes", title: SettingsLocalization.every15MinutesOptionTitle, isSelected: false),
+                            SettingsPickerOptionPresentation(id: "hourly", title: SettingsLocalization.hourlyOptionTitle, isSelected: false),
+                            SettingsPickerOptionPresentation(id: "every6Hours", title: SettingsLocalization.every6HoursOptionTitle, isSelected: false),
+                            SettingsPickerOptionPresentation(id: "daily", title: SettingsLocalization.dailyOptionTitle, isSelected: true)
                         ]
                     )
                 )
@@ -188,17 +188,17 @@ struct SettingsScreenPresentationContractTests {
                 .toggle(
                     SettingsToggleItemPresentation(
                         id: .useICloudSync,
-                        title: "Enable iCloud Sync",
-                        subtitle: "Applies on next launch. Supported data will sync through iCloud when available.",
+                        title: SettingsLocalization.enableICloudSyncTitle,
+                        subtitle: SettingsLocalization.iCloudSyncPreferenceEnabledSubtitle,
                         isOn: true
                     )
                 ),
                 .statusRow(
                     SettingsStatusRowItemPresentation(
                         id: .iCloudSyncStatus,
-                        title: "Current Status",
-                        subtitle: "The current app session could not read the live iCloud sync status.",
-                        valueTitle: "Status Unavailable"
+                        title: SettingsLocalization.currentStatusTitle,
+                        subtitle: SettingsLocalization.syncStatusUnavailableSubtitle,
+                        valueTitle: SettingsLocalization.syncStatusUnavailableTitle
                     )
                 )
             ]
@@ -208,23 +208,23 @@ struct SettingsScreenPresentationContractTests {
                 .toggle(
                     SettingsToggleItemPresentation(
                         id: .showUnreadCountBadge,
-                        title: "App Icon Badge",
-                        subtitle: "Show the unread article count on the app icon.",
+                        title: SettingsLocalization.appIconBadgeTitle,
+                        subtitle: SettingsLocalization.appIconBadgeSubtitle,
                         isOn: true
                     )
                 )
             ]
         )
         #expect(
-            sections[5].footer == "Import and export OPML files to move feed subscriptions between apps."
+            sections[5].footer == SettingsLocalization.feedPortabilitySectionFooter
         )
         #expect(
-            sourcePortabilityItems == [
+            feedPortabilityItems == [
                 .button(
                     SettingsButtonItemPresentation(
                         id: .importOPML,
-                        title: "Import OPML",
-                        subtitle: "Preview subscriptions before adding them.",
+                        title: SettingsLocalization.importOPMLTitle,
+                        subtitle: SettingsLocalization.importOPMLSubtitle,
                         systemImage: "square.and.arrow.down",
                         role: .normal,
                         isEnabled: true
@@ -233,8 +233,8 @@ struct SettingsScreenPresentationContractTests {
                 .button(
                     SettingsButtonItemPresentation(
                         id: .exportOPML,
-                        title: "Export OPML",
-                        subtitle: "Save active subscriptions as an OPML file.",
+                        title: SettingsLocalization.exportOPMLTitle,
+                        subtitle: SettingsLocalization.exportOPMLSubtitle,
                         systemImage: "square.and.arrow.up",
                         role: .normal,
                         isEnabled: true
@@ -247,8 +247,8 @@ struct SettingsScreenPresentationContractTests {
                 .button(
                     SettingsButtonItemPresentation(
                         id: .purgeArchivedArticles,
-                        title: "Clear Archived Articles",
-                        subtitle: "Remove archived articles except starred ones from this device and iCloud.",
+                        title: SettingsLocalization.clearArchivedArticlesTitle,
+                        subtitle: SettingsLocalization.clearArchivedArticlesSubtitle,
                         systemImage: "archivebox",
                         role: .destructive,
                         isEnabled: false
@@ -257,8 +257,8 @@ struct SettingsScreenPresentationContractTests {
                 .button(
                     SettingsButtonItemPresentation(
                         id: .clearArticleImageCache,
-                        title: "Clear Article Image Cache",
-                        subtitle: "Remove article images saved on this device.",
+                        title: SettingsLocalization.clearArticleImageCacheTitle,
+                        subtitle: SettingsLocalization.clearArticleImageCacheSubtitle,
                         systemImage: "photo.stack",
                         role: .destructive,
                         isEnabled: false
@@ -266,9 +266,9 @@ struct SettingsScreenPresentationContractTests {
                 ),
                 .button(
                     SettingsButtonItemPresentation(
-                        id: .clearSourceIconCache,
-                        title: "Clear Source Icon Cache",
-                        subtitle: "Remove feed icons saved on this device.",
+                        id: .clearFeedIconCache,
+                        title: SettingsLocalization.clearFeedIconCacheTitle,
+                        subtitle: SettingsLocalization.clearFeedIconCacheSubtitle,
                         systemImage: "newspaper",
                         role: .destructive,
                         isEnabled: false
@@ -307,7 +307,7 @@ struct SettingsScreenPresentationContractTests {
     func settingsScreenInputBuilderNormalizesSnapshotIntoScreenSpecificInput() {
         let snapshot = AppSettingsSnapshot(
             articleOpeningMode: .feedReader,
-            selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+            selectedSidebarArticleFilterRawValue: SidebarArticleFilter.starred.rawValue,
             refreshIntervalPreference: .every6Hours,
             useiCloudSync: true,
             markAsReadOnOpen: false,

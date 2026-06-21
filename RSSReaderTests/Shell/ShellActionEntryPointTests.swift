@@ -139,7 +139,7 @@ struct ShellActionEntryPointTests {
     }
 
     @Test
-    func shellActionEntryPointsRefreshCurrentSourceTriggersReloadAfterFeedRefresh() async throws {
+    func shellActionEntryPointsRefreshCurrentFeedTriggersReloadAfterFeedRefresh() async throws {
         let client = ScriptedHTTPClient(
             responsesByURL: [
                 "https://example.com/shell-refresh-current.xml": .response(
@@ -155,17 +155,17 @@ struct ShellActionEntryPointTests {
         let reloadIDBeforeRefresh = appState.articleListReloadID
 
         harness.dependencies.appActions.showFeed(id: feed.id, using: appState)
-        let reloadIDAfterSourceSelection = appState.articleListReloadID
+        let reloadIDAfterSidebarSelection = appState.articleListReloadID
 
-        let result = await harness.dependencies.appActions.refreshCurrentSource(using: appState)
+        let result = await harness.dependencies.appActions.refreshCurrentFeed(using: appState)
 
         #expect(result?.status == .notModified)
-        #expect(appState.articleListReloadID != reloadIDAfterSourceSelection)
+        #expect(appState.articleListReloadID != reloadIDAfterSidebarSelection)
         #expect(appState.articleListReloadID != reloadIDBeforeRefresh)
     }
 
     @Test
-    func shellActionEntryPointsRefreshAfterAddingFeedRefreshesNewSourceSelectsItAndClosesModalFlow() async throws {
+    func shellActionEntryPointsRefreshAfterAddingFeedRefreshesNewFeedSelectsItAndClosesModalFlow() async throws {
         let feedURL = "https://example.com/shell-refresh-added.xml"
         let harness = try TestHarness.make(
             httpClient: ScriptedHTTPClient(
@@ -189,7 +189,7 @@ struct ShellActionEntryPointTests {
         )
         let appState = AppState()
         let articleReloadIDBeforeRefresh = appState.articleListReloadID
-        let sidebarReloadIDBeforeRefresh = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforeRefresh = appState.sidebarReloadID
         let feed = try harness.feedRepository.insert(
             Feed(
                 url: feedURL,
@@ -198,17 +198,17 @@ struct ShellActionEntryPointTests {
             )
         )
 
-        harness.dependencies.appActions.showSourceManagement(using: appState)
+        harness.dependencies.appActions.showFeedManagement(using: appState)
 
         let result = await harness.dependencies.appActions.refreshAfterAddingFeed(id: feed.id, using: appState)
         let refreshedFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
         let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
 
         #expect(result?.status == .fetched)
-        #expect(appState.isPresentingSourceManagementScreen == false)
+        #expect(appState.isPresentingFeedManagementScreen == false)
         #expect(appState.selectedSidebarSelection == .feed(feed.id))
         #expect(appState.articleListReloadID != articleReloadIDBeforeRefresh)
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeRefresh)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeRefresh)
         #expect(refreshedFeed.lastFetchedAt != nil)
         #expect(refreshedFeed.lastSuccessfulFetchAt != nil)
         #expect(articles.count == 1)
@@ -216,7 +216,7 @@ struct ShellActionEntryPointTests {
     }
 
     @Test
-    func shellActionEntryPointsUnsubscribeFeedRemovesSourceAndResetsSelection() throws {
+    func shellActionEntryPointsUnsubscribeFeedRemovesFeedAndResetsSelection() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
         let feed = try harness.feedRepository.insert(
@@ -226,7 +226,7 @@ struct ShellActionEntryPointTests {
                 kind: .rss
             )
         )
-        let sidebarReloadIDBeforeDelete = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforeDelete = appState.sidebarReloadID
         let articleReloadIDBeforeDelete = appState.articleListReloadID
 
         harness.dependencies.appActions.showFeed(id: feed.id, using: appState)
@@ -234,7 +234,7 @@ struct ShellActionEntryPointTests {
 
         #expect(try harness.feedRepository.fetchFeed(id: feed.id) == nil)
         #expect(appState.selectedSidebarSelection == .inbox)
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeDelete)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeDelete)
         #expect(appState.articleListReloadID != articleReloadIDBeforeDelete)
     }
 
@@ -251,7 +251,7 @@ struct ShellActionEntryPointTests {
                 folder: folder
             )
         )
-        let sidebarReloadIDBeforeDelete = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforeDelete = appState.sidebarReloadID
         let articleReloadIDBeforeDelete = appState.articleListReloadID
 
         harness.dependencies.appActions.showFolder(named: "Tech", using: appState)
@@ -262,12 +262,12 @@ struct ShellActionEntryPointTests {
         #expect(try harness.folderRepository.fetchFolder(name: "Tech") == nil)
         #expect(persistedFeed.folder == nil)
         #expect(appState.selectedSidebarSelection == .inbox)
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeDelete)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeDelete)
         #expect(appState.articleListReloadID != articleReloadIDBeforeDelete)
     }
 
     @Test
-    func shellActionEntryPointsRefreshVisibleSourcesTriggersReloadAfterBatchRefresh() async throws {
+    func shellActionEntryPointsRefreshVisibleFeedsTriggersReloadAfterBatchRefresh() async throws {
         let urls = [
             "https://example.com/shell-refresh-all-1.xml",
             "https://example.com/shell-refresh-all-2.xml"
@@ -289,7 +289,7 @@ struct ShellActionEntryPointTests {
         _ = try harness.insertFeeds(urls: urls)
         let reloadIDBeforeRefresh = appState.articleListReloadID
 
-        let result = await harness.dependencies.appActions.refreshVisibleSources(using: appState)
+        let result = await harness.dependencies.appActions.refreshVisibleFeeds(using: appState)
 
         #expect(result?.summary.totalFeedCount == 2)
         #expect(result?.summary.notModifiedCount == 2)
@@ -328,7 +328,7 @@ struct ShellActionEntryPointTests {
         feeds[1].folder = techFolder
         try harness.saveModelContext()
         let articleReloadIDBeforeRefresh = appState.articleListReloadID
-        let sidebarReloadIDBeforeRefresh = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforeRefresh = appState.sidebarReloadID
 
         harness.dependencies.appActions.showFolder(named: "Tech", using: appState)
 
@@ -337,7 +337,7 @@ struct ShellActionEntryPointTests {
         #expect(result?.summary.totalFeedCount == 2)
         #expect(result?.summary.notModifiedCount == 2)
         #expect(appState.articleListReloadID != articleReloadIDBeforeRefresh)
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeRefresh)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeRefresh)
     }
 
     @Test
@@ -356,7 +356,7 @@ struct ShellActionEntryPointTests {
 
         harness.dependencies.appActions.showFeed(id: feed.id, using: appState)
         let articleReloadIDBeforeRefresh = appState.articleListReloadID
-        let sidebarReloadIDBeforeRefresh = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforeRefresh = appState.sidebarReloadID
 
         let result = await harness.dependencies.appActions.refreshCurrentSelection(
             using: appState,
@@ -366,7 +366,7 @@ struct ShellActionEntryPointTests {
         #expect(result?.summary.totalFeedCount == 1)
         #expect(result?.summary.notModifiedCount == 1)
         #expect(appState.articleListReloadID == articleReloadIDBeforeRefresh)
-        #expect(appState.sourcesSidebarReloadID != sidebarReloadIDBeforeRefresh)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeRefresh)
     }
 
     @Test

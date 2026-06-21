@@ -29,7 +29,7 @@ struct ArticlesScreenControllerRefreshFeedbackTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .allItems,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies
         )
         harness.dependencies.appActions.showFeed(id: feed.id, using: appState)
@@ -58,14 +58,14 @@ struct ArticlesScreenControllerRefreshFeedbackTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .allItems,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies
         )
         controller.screenState.presentRefreshFailure("Refresh failed")
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .allItems,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
             retainsSessionReadArticles: false,
             retainedSessionReadMembershipStatus: .retainedAfterRefresh,
@@ -112,7 +112,7 @@ struct ArticlesScreenControllerRefreshFeedbackTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .allItems,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies
         )
         controller.screenState.presentRefreshFailure("Previous refresh failed")
@@ -151,14 +151,14 @@ struct ArticlesScreenControllerRefreshFeedbackTests {
 
         await controller.load(
             selection: .feed(firstFeed.id),
-            sourcesFilter: .allItems,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies
         )
         controller.screenState.presentRefreshFailure("Refresh failed for first feed")
 
         await controller.load(
             selection: .feed(secondFeed.id),
-            sourcesFilter: .allItems,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies
         )
 

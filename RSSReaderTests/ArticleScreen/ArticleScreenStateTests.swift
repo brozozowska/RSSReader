@@ -12,7 +12,7 @@ struct ArticleScreenStateTests {
 
         #expect(state.phase == .noSelection)
         #expect(viewState.primaryLoadingState == nil)
-        #expect(viewState.placeholder?.title == "No Article Selected")
+        #expect(viewState.placeholder?.title == ReadingLocalization.noArticleSelectedTitle)
         #expect(viewState.toolbarActions.showsShareAction == false)
         #expect(viewState.toolbarActions.showsBottomActions == false)
     }
@@ -26,7 +26,7 @@ struct ArticleScreenStateTests {
         let viewState = state.derivedViewState()
 
         #expect(state.phase == .loading)
-        #expect(viewState.primaryLoadingState?.title == "Loading Article")
+        #expect(viewState.primaryLoadingState?.title == ReadingLocalization.loadingArticleTitle)
         #expect(viewState.content == nil)
         #expect(viewState.placeholder == nil)
     }
@@ -55,9 +55,9 @@ struct ArticleScreenStateTests {
         #expect(viewState.toolbarActions.showsShareAction)
         #expect(viewState.toolbarActions.isShareEnabled)
         #expect(viewState.toolbarActions.showsBottomActions)
-        #expect(viewState.toolbarActions.bottomActions?.readToggleTitle == "Mark Unread")
+        #expect(viewState.toolbarActions.bottomActions?.readToggleTitle == ReadingLocalization.markUnreadAction)
         #expect(viewState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
-        #expect(viewState.toolbarActions.bottomActions?.starTitle == "Unstar")
+        #expect(viewState.toolbarActions.bottomActions?.starTitle == ReadingLocalization.unstarAction)
         #expect(viewState.toolbarActions.bottomActions?.starSystemImage == "star.slash")
     }
 
@@ -70,7 +70,7 @@ struct ArticleScreenStateTests {
         let viewState = state.derivedViewState(selectedArticleID: UUID())
 
         #expect(viewState.content == nil)
-        #expect(viewState.primaryLoadingState?.title == "Loading Article")
+        #expect(viewState.primaryLoadingState?.title == ReadingLocalization.loadingArticleTitle)
         #expect(viewState.toolbarActions.showsShareAction == false)
         #expect(viewState.toolbarActions.showsBottomActions == false)
     }
@@ -130,7 +130,7 @@ struct ArticleScreenStateTests {
         )
 
         let loadedBottomActions = loadedState.derivedViewState().toolbarActions.bottomActions
-        #expect(loadedBottomActions?.openSourceArticleTitle == "Open Source Article")
+        #expect(loadedBottomActions?.openSourceArticleTitle == ReadingLocalization.openSourceArticleAction)
         #expect(loadedBottomActions?.openSourceArticleSystemImage == "safari")
         #expect(loadedBottomActions?.canOpenSourceArticle == true)
 

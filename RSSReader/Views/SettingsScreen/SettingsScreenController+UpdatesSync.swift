@@ -89,7 +89,7 @@ extension SettingsScreenController {
                 now: .now
             )
             if cleanupResult?.deletedCount ?? 0 > 0 {
-                appState?.requestSourcesSidebarReload()
+                appState?.requestSidebarReload()
                 appState?.requestArticleListReload()
             }
         }

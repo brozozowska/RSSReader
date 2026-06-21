@@ -15,7 +15,7 @@ import SwiftUI
 
 #Preview("Failed Settings") {
     SettingsScreenPreviewContainer(
-        screenState: .previewFailed(message: "Unable to load settings right now. Try again.")
+        screenState: .previewFailed(message: SettingsLocalization.genericLoadFailureMessage)
     )
 }
 
@@ -40,7 +40,7 @@ private struct SettingsScreenPreviewContainer: View {
 private enum SettingsScreenPreviewFactory {
     static let loadedSnapshot = AppSettingsSnapshot(
         articleOpeningMode: .safariView,
-        selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+        selectedSidebarArticleFilterRawValue: SidebarArticleFilter.starred.rawValue,
         refreshIntervalPreference: .hourly,
         useiCloudSync: true,
         markAsReadOnOpen: false,

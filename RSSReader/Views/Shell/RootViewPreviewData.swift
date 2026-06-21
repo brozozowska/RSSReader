@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-#Preview("Root Flow · Sources") {
+#Preview("Root Flow · Sidebar") {
     RootViewPreviewContainer()
 }
 
@@ -105,10 +105,10 @@ private enum RootViewPreviewFactory {
             id: SampleIDs.firstArticleID,
             externalID: "verge-preview-1",
             title: "Apple updates Safari reading features for in-app web flows",
-            summary: "Use this seeded article to move from the source list into articles and the article reader.",
+            summary: "Use this seeded article to move from the feed list into articles and the article reader.",
             contentHTML: """
             <p>This preview article includes an inline link to <a href="https://developer.apple.com/documentation/swiftui">SwiftUI documentation</a> so the root flow can exercise the in-app web transition.</p>
-            <p>The same root fixture also includes folders and grouped sources, so Source Management actions can be reached from the sidebar without switching previews.</p>
+            <p>The same root fixture also includes folders and grouped feeds, so Feed Management actions can be reached from the sidebar without switching previews.</p>
             """,
             url: "https://example.com/articles/verge-preview-1",
             publishedAt: .now,
@@ -119,7 +119,7 @@ private enum RootViewPreviewFactory {
             id: SampleIDs.secondArticleID,
             externalID: "verge-preview-2",
             title: "The root preview keeps one ungrouped feed for add and edit checks",
-            summary: "The ungrouped source makes it easy to test edit, unsubscribe, and move-source flows.",
+            summary: "The ungrouped feed makes it easy to test edit, unsubscribe, and move-feed flows.",
             url: "https://example.com/articles/verge-preview-2",
             publishedAt: .now.addingTimeInterval(-3_600),
             feed: verge,
@@ -128,7 +128,7 @@ private enum RootViewPreviewFactory {
         insertArticle(
             id: SampleIDs.thirdArticleID,
             externalID: "macstories-preview-1",
-            title: "Grouped sources make folder actions visible in one root preview",
+            title: "Grouped feeds make folder actions visible in one root preview",
             summary: "This article belongs to the Tech folder fixture.",
             url: "https://example.com/articles/macstories-preview-1",
             publishedAt: .now.addingTimeInterval(-7_200),

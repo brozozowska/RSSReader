@@ -84,13 +84,13 @@ private struct SafariUnsupportedURLView: View {
     var body: some View {
         NavigationStack {
             ScreenPlaceholderView(
-                title: "Cannot Open Link",
+                title: ReadingLocalization.cannotOpenLinkTitle,
                 systemImage: "exclamationmark.triangle",
-                description: "This article link can't be opened in the in-app browser."
+                description: ReadingLocalization.cannotOpenLinkDescription
             )
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Close", action: dismissSafari)
+                    Button(ReadingLocalization.closeAction, action: dismissSafari)
                 }
             }
         }

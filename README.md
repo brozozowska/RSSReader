@@ -581,26 +581,37 @@
 - [x] `Import Export UI Entry Points`: добавить import/export entry points в source/settings area через screen-level controller flow: file import показывает preview summary перед сохранением, export отдаёт OPML document, success/failure статусы не смешиваются с основным reading flow;
 
 #### Localization Foundation
-- [ ] `Localization Scope And Language Matrix`: зафиксировать initial language set: `en`, `ru`, `de`, `fr`, `es`, `it`, `pt-BR`, `ja`, `zh-Hans`, `ar`, `he`, `fa`;
-- [ ] `Localization String Extraction`: вынести user-facing strings из экранов, alerts, меню, settings footers, placeholders и accessibility labels в Xcode-native localization resources;
-- [ ] `Localization Key And Formatting Policy`: зафиксировать naming keys, pluralization / date / number formatting policy и правила для технических названий вроде `RSS`, `iCloud`, `OPML`, `SwiftData` и `CloudKit`;
-- [ ] `Russian Localization Pass`: добавить первый европейский/кириллический язык (`ru`) и проверить длинные строки на основных экранах;
-- [ ] `CJK Localization Pass`: добавить первый иероглифический язык (`ja` или `zh-Hans`) и проверить list rows, settings values, article metadata и line wrapping;
-- [ ] `RTL Localization Pass`: добавить первый RTL-язык (`ar`) и проверить layout direction, alignment, menus, toolbar placement, SF Symbols и mixed technical text;
-- [ ] `Additional Language Passes`: добавить оставшиеся языки из матрицы: `de`, `fr`, `es`, `it`, `pt-BR`, второй CJK-язык, `he`, `fa`;
-- [ ] `Localization Regression Checklist`: подготовить smoke checklist для long text, Dynamic Type, RTL, CJK, settings sheets, source management и article reader.
+- [x] `String Catalog Baseline`: добавить Xcode-native string catalog resources, подключить initial locale matrix и зафиксировать key/comment policy для user-facing строк, plural variants, date/number formatting и технических терминов;
+- [x] `Settings Localization Extraction`: вынести строки `SettingsScreen`, settings alerts/statuses, Source Portability import/export UI и accessibility labels в string catalog без изменения screen-level action boundaries;
+- [x] `Source Management Localization Extraction`: вынести строки `SourceManagement` flows, sidebar filters, source/folder context menus, placeholders, validation messages и accessibility labels в string catalog;
+- [x] `Reading Flow Localization Extraction`: вынести строки `ArticlesScreen`, `ArticleScreen`, Safari/opening actions, article metadata labels, empty/error states и swipe/menu actions в string catalog;
+- [x] `Runtime Feedback Localization Extraction`: вынести строки refresh/background-refresh/sync/storage cleanup feedback, destructive confirmations и shared app-level error/status messages в string catalog;
+- [x] `Russian Localization Pass`: добавить `ru` переводы для извлечённых строк и проверить длинные кириллические строки на основных экранах;
+- [x] `Russian Pluralization And Formatting Cleanup`: добавить locale-aware pluralization для русских count-based строк, централизовать truly generic actions (`Cancel`, `Retry`) без смешивания screen-specific accessibility labels и заменить ручные `%lld` / time string formatting на typed/locale-aware helpers;
+- [x] `Native String Catalog Pluralization`: мигрировать count-based строки с `LocalizedPluralTemplates` на native `.xcstrings` plural variations, покрыть `ru` регрессиями и подготовить plural foundation перед RTL-локалями;
+- [x] `CJK Localization Pass`: добавить `ja`, `zh-Hans` и `ko` переводы и проверить list rows, settings values, article metadata и line wrapping;
+- [x] `RTL Readiness Cleanup`: перед добавлением RTL-переводов исправить LTR-only compact back swipe через direction-aware policy для `Articles -> Sidebar` и `Article -> Articles`, добавить RTL preview/test hooks для основных reading/sidebar экранов, зафиксировать contract для semantic `.leading` / `.trailing` swipe actions (`Read/Unread` зеркалится на физический trailing в RTL, `Star/Unstar` — на противоположную сторону) и проверить, что `SidebarToolbarContent` использует semantic toolbar placement, который должен зеркалить `Settings` / `Add` / `Filter` в RTL;
+- [x] `RTL Localization Pass`: добавить `ar`, `he`, `fa`, `ur` переводы и проверить layout direction, alignment, menus, toolbar placement, SF Symbols и mixed technical text;
+- [x] `Additional European Language Pass`: добавить `de`, `fr`, `es`, `it`, `pt-BR` переводы и проверить расширение строк в settings/feed management/reader flows;
+- [x] `Localization Regression Checklist`: подготовить smoke checklist для long text, Dynamic Type, RTL, CJK, settings sheets, feed management и article reader.
+
+#### Naming Contract Cleanup
+- [x] `Sidebar Feed Naming Cleanup`: переименовать app-level selection/filter/sidebar query contracts с legacy `Source` / `Sources` на `Feed` / `Feeds` или нейтральный `Sidebar`, включая `AppState`, `AppActionRouter`, legacy `SourcesSidebarQueryService`, sidebar presentation/state/controller, article-list filter resolver и связанные tests; сохранить поведение selection, filters, counters и reload triggers без UI-регрессий;
+- [x] `Feed Management Naming Cleanup`: переименовать legacy `SourceManagement` screen/service/app-flow contracts в feed-management naming, включая launch context, screen state/controller/presentation models, service DTO/commands, OPML import/export integration points, app actions, локализационные keys/comments и tests; оставить пользовательский copy на `Feed` / «Лента» и не затрагивать смысл `Open Source Article`;
+- [x] `Feed Icon And Settings Naming Cleanup`: переименовать legacy `SourceIconCache` и persisted settings naming вроде legacy `selectedSourcesFilterRawValue` / `lastSourcesRefreshAt` в feed-oriented контракты, определить нужна ли transient compatibility для существующих данных или проект продолжает текущий no-legacy-migration подход, обновить repositories/services/tests и проверить persistence bootstrap;
+- [x] `Project Terminology Documentation Cleanup`: после code rename обновить `README.md`, `AgentDocs/CURRENT_ARCHITECTURE.md`, roadmap descriptions и test/support names так, чтобы legacy `Source` не использовался как синоним `Feed`, а исторические упоминания были явно помечены как legacy roadmap context.
 
 #### Article Search Foundation
 - [ ] `Article Search Scope`: определить searchable fields, selection scope и поведение для hidden, archived и `isDeletedAtSource` статей;
 - [ ] `Article Search Query Layer`: добавить query/read-model API для поиска статей без переноса search logic во `View`;
-- [ ] `Article Search UI Contract`: определить, как `Articles Screen` подключает поиск к текущему `SidebarSelection` / `SourcesFilter` и какие empty/loading states нужны.
+- [ ] `Article Search UI Contract`: определить, как `Articles Screen` подключает поиск к текущему `SidebarSelection` / `SidebarArticleFilter` и какие empty/loading states нужны.
 
 #### iPad Adaptation
-- [ ] `iPad Layout Audit`: проверить `NavigationSplitView`, sidebar ширины, article list/detail layout, settings/source-management sheets и reader chrome в regular width;
+- [ ] `iPad Layout Audit`: проверить `NavigationSplitView`, sidebar ширины, article list/detail layout, settings/feed-management sheets и reader chrome в regular width;
 - [ ] `iPad NavigationSplitView Polish`: выровнять selection, fallback routes, split behavior и toolbar placement для iPad без изменения iPhone compact flow;
-- [ ] `iPad Modal Presentation Polish`: привести `Settings Screen` и `Source Management Screen` к корректной iPad presentation policy: sheet sizing, dismissal, toolbar actions и keyboard/split-view edge cases;
+- [ ] `iPad Modal Presentation Polish`: привести `Settings Screen` и `Feed Management Screen` к корректной iPad presentation policy: sheet sizing, dismissal, toolbar actions и keyboard/split-view edge cases;
 - [ ] `iPad Reader And Article List Polish`: проверить reader content width, bottom toolbar, adjacent navigation controls, article row density и Dynamic Type на iPad;
-- [ ] `iPad Smoke Validation Checklist`: подготовить минимальный checklist для portrait/landscape, split screen, Stage Manager, external keyboard basics и основных flows `Sources` -> `Articles` -> `Article` -> `Safari`.
+- [ ] `iPad Smoke Validation Checklist`: подготовить минимальный checklist для portrait/landscape, split screen, Stage Manager, external keyboard basics и основных flows `Sidebar` -> `Articles` -> `Article` -> `Safari`.
 
 ### Deferred Validation
 #### Sync Real-Device Validation Kit
@@ -618,7 +629,7 @@
 - [ ] проверить baseline single-device сценарий `automatic refresh`: request планируется на launch, background task стартует через system/dev trigger, execution публикует ожидаемые markers и после run перепланирует следующий request;
 - [ ] проверить failure-oriented single-device сценарии: отсутствие сети, системное cancellation / expiration, disabled `Background App Refresh`, Low Power Mode и `manual` policy не ломают локальное состояние и оставляют ожидаемый scheduling / logging outcome;
 - [ ] подготовить combined `sync + background refresh` validation matrix для двух девайсов: сценарии с background materialization на втором устройстве должны идти отдельным deferred шагом после закрытия single-device validation;
-- [ ] проверить сценарий “обновили источники на iPhone, прочитали часть статей, открыли iPad после background refresh”: второй девайс должен локально материализовать свежие `Article`, применить synced `ArticleState` и показать только непрочитанные статьи в `Unread`;
+- [ ] проверить сценарий “обновили ленты на iPhone, прочитали часть статей, открыли iPad после background refresh”: второй девайс должен локально материализовать свежие `Article`, применить synced `ArticleState` и показать только непрочитанные статьи в `Unread`;
 - [ ] проверить fallback-сценарий без background refresh: после тех же действий на первом устройстве второй девайс должен достигать консистентного состояния через manual refresh без расхождения с background materialization contract.
 
 ### Release Prep

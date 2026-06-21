@@ -2,76 +2,76 @@ import SwiftUI
 
 struct SidebarToolbarContent: ToolbarContent {
     let toolbarState: SidebarToolbarState
-    let selectedSourcesFilter: SourcesFilter
+    let selectedSidebarArticleFilter: SidebarArticleFilter
     let actionHandlers: SidebarActionHandlers
 
     var body: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
+        ToolbarItem(placement: SidebarToolbarPlacement.settings) {
             Button(action: actionHandlers.showSettings) {
                 Image(systemName: "gearshape")
             }
-            .accessibilityLabel("Settings")
+            .accessibilityLabel(SidebarLocalization.settingsAccessibilityLabel)
         }
 
-        ToolbarItem(placement: .title) {
-            Text("Sources")
+        ToolbarItem(placement: SidebarToolbarPlacement.title) {
+            Text(SidebarLocalization.title)
                 .font(.title3.weight(.semibold))
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
 
-        ToolbarItem(placement: .subtitle) {
+        ToolbarItem(placement: SidebarToolbarPlacement.subtitle) {
             Text(toolbarState.subtitle)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
 
-        ToolbarItem(placement: .topBarTrailing) {
-            Button(action: actionHandlers.showSourceManagement) {
+        ToolbarItem(placement: SidebarToolbarPlacement.addFeed) {
+            Button(action: actionHandlers.showFeedManagement) {
                 Image(systemName: "plus")
             }
-            .accessibilityLabel("Add Source")
+            .accessibilityLabel(SidebarLocalization.addFeedAccessibilityLabel)
         }
 
         ToolbarSpacer(.fixed, placement: .topBarTrailing)
 
-        ToolbarItem(placement: .topBarTrailing) {
-            SidebarSourcesFilterMenu(
-                selectedSourcesFilter: selectedSourcesFilter,
+        ToolbarItem(placement: SidebarToolbarPlacement.filter) {
+            SidebarArticleFilterMenu(
+                selectedSidebarArticleFilter: selectedSidebarArticleFilter,
                 actionHandlers: actionHandlers
             )
         }
     }
 }
 
-private struct SidebarSourcesFilterMenu: View {
-    let selectedSourcesFilter: SourcesFilter
+private struct SidebarArticleFilterMenu: View {
+    let selectedSidebarArticleFilter: SidebarArticleFilter
     let actionHandlers: SidebarActionHandlers
 
     var body: some View {
         Menu {
-            sourcesFilterButton("All Items", systemImage: "tray.full", filter: .allItems)
-            sourcesFilterButton("Unread", systemImage: "circle", filter: .unread)
-            sourcesFilterButton("Starred", systemImage: "star", filter: .starred)
+            sidebarArticleFilterButton(SidebarLocalization.allItemsFilterTitle, systemImage: "tray.full", filter: .allItems)
+            sidebarArticleFilterButton(SidebarLocalization.unreadFilterTitle, systemImage: "circle", filter: .unread)
+            sidebarArticleFilterButton(SidebarLocalization.starredFilterTitle, systemImage: "star", filter: .starred)
         } label: {
             Image(systemName: "line.3.horizontal.decrease")
         }
-        .accessibilityLabel("Filter Sources")
+        .accessibilityLabel(SidebarLocalization.filterFeedsAccessibilityLabel)
     }
 
     @ViewBuilder
-    private func sourcesFilterButton(
+    private func sidebarArticleFilterButton(
         _ title: String,
         systemImage: String,
-        filter: SourcesFilter
+        filter: SidebarArticleFilter
     ) -> some View {
         Button {
-            actionHandlers.applySourcesFilter(filter)
+            actionHandlers.applySidebarArticleFilter(filter)
         } label: {
             Label {
                 HStack {
                     Text(title)
-                    if selectedSourcesFilter == filter {
+                    if selectedSidebarArticleFilter == filter {
                         Image(systemName: "checkmark")
                     }
                 }

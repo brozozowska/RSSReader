@@ -8,7 +8,7 @@ final class AppSettings {
     var id: UUID = UUID()
     var singletonKey: String = AppSettings.singletonKeyValue
     var articleOpeningMode: ArticleOpeningMode = ArticleOpeningMode.feedReader
-    var selectedSourcesFilterRawValue: String? = SourcesFilter.allItems.rawValue
+    var selectedSidebarArticleFilterRawValue: String? = SidebarArticleFilter.allItems.rawValue
     var refreshIntervalPreference: RefreshPreference = RefreshPreference.manual
     var useiCloudSync: Bool = false
     var markAsReadOnOpen: Bool = true
@@ -20,7 +20,7 @@ final class AppSettings {
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = ArticleSourceLinkOpeningPolicy.inAppBrowser
     var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = ReaderAdjacentNavigationControlsMode.swipesAndToolbarControls
     var interfaceThemeMode: InterfaceThemeMode = InterfaceThemeMode.automaticLightDark
-    var lastSourcesRefreshAt: Date?
+    var lastFeedsRefreshAt: Date?
     var createdAt: Date = Date.now
     var updatedAt: Date = Date.now
 
@@ -28,7 +28,7 @@ final class AppSettings {
         id: UUID = UUID(),
         singletonKey: String = AppSettings.singletonKeyValue,
         articleOpeningMode: ArticleOpeningMode = .feedReader,
-        selectedSourcesFilterRawValue: String? = SourcesFilter.allItems.rawValue,
+        selectedSidebarArticleFilterRawValue: String? = SidebarArticleFilter.allItems.rawValue,
         refreshIntervalPreference: RefreshPreference = .manual,
         useiCloudSync: Bool = false,
         markAsReadOnOpen: Bool = true,
@@ -40,14 +40,14 @@ final class AppSettings {
         articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy = .inAppBrowser,
         readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls,
         interfaceThemeMode: InterfaceThemeMode = .automaticLightDark,
-        lastSourcesRefreshAt: Date? = nil,
+        lastFeedsRefreshAt: Date? = nil,
         createdAt: Date = .now,
         updatedAt: Date = .now
     ) {
         self.id = id
         self.singletonKey = singletonKey
         self.articleOpeningMode = articleOpeningMode
-        self.selectedSourcesFilterRawValue = selectedSourcesFilterRawValue
+        self.selectedSidebarArticleFilterRawValue = selectedSidebarArticleFilterRawValue
         self.refreshIntervalPreference = refreshIntervalPreference
         self.useiCloudSync = useiCloudSync
         self.markAsReadOnOpen = markAsReadOnOpen
@@ -59,7 +59,7 @@ final class AppSettings {
         self.articleSourceLinkOpeningPolicy = articleSourceLinkOpeningPolicy
         self.readerAdjacentNavigationControlsMode = readerAdjacentNavigationControlsMode
         self.interfaceThemeMode = interfaceThemeMode
-        self.lastSourcesRefreshAt = lastSourcesRefreshAt
+        self.lastFeedsRefreshAt = lastFeedsRefreshAt
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

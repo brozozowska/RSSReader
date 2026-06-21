@@ -6,19 +6,19 @@ import Testing
 @MainActor
 struct ReadingShellAppStateTests {
     @Test
-    func readingShellSourceSwitchResetsArticleDetailSelectionAndTriggersReload() {
+    func readingShellSidebarSelectionSwitchResetsArticleDetailSelectionAndTriggersReload() {
         let appState = AppState()
         let initialReloadID = appState.articleListReloadID
         let feedID = UUID()
         let articleID = UUID()
 
-        appState.selectReadingSource(.feed(feedID))
+        appState.selectSidebarSelection(.feed(feedID))
         appState.selectedArticleID = articleID
         appState.presentSafari(articleID: articleID, url: URL(string: "https://example.com/article")!)
 
         let reloadIDBeforeSwitch = appState.articleListReloadID
 
-        appState.selectReadingSource(.inbox)
+        appState.selectSidebarSelection(.inbox)
 
         #expect(appState.selectedSidebarSelection == .inbox)
         #expect(appState.selectedArticleID == nil)
@@ -29,17 +29,17 @@ struct ReadingShellAppStateTests {
     }
 
     @Test
-    func readingShellSelectingSameSourceDoesNotResetSelectionOrTriggerReload() {
+    func readingShellSelectingSameSidebarSelectionDoesNotResetSelectionOrTriggerReload() {
         let appState = AppState()
         let feedID = UUID()
         let articleID = UUID()
 
-        appState.selectReadingSource(.feed(feedID))
+        appState.selectSidebarSelection(.feed(feedID))
         appState.selectedArticleID = articleID
 
         let reloadIDBeforeReselect = appState.articleListReloadID
 
-        appState.selectReadingSource(.feed(feedID))
+        appState.selectSidebarSelection(.feed(feedID))
 
         #expect(appState.selectedSidebarSelection == .feed(feedID))
         #expect(appState.selectedArticleID == articleID)
@@ -79,18 +79,18 @@ struct ReadingShellAppStateTests {
     }
 
     @Test
-    func readingShellSourcesFilterSwitchUpdatesActiveFilterWithoutBreakingNavigationContext() {
+    func readingShellSidebarArticleFilterSwitchUpdatesActiveFilterWithoutBreakingNavigationContext() {
         let appState = AppState()
         let feedID = UUID()
         let articleID = UUID()
 
-        appState.selectReadingSource(.feed(feedID))
+        appState.selectSidebarSelection(.feed(feedID))
         appState.selectedArticleID = articleID
         let reloadIDBeforeFilterSwitch = appState.articleListReloadID
 
-        appState.selectSourcesFilter(.starred)
+        appState.selectSidebarArticleFilter(.starred)
 
-        #expect(appState.selectedSourcesFilter == .starred)
+        #expect(appState.selectedSidebarArticleFilter == .starred)
         #expect(appState.selectedSidebarSelection == .feed(feedID))
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))
@@ -99,20 +99,20 @@ struct ReadingShellAppStateTests {
     }
 
     @Test
-    func readingShellReapplyingSameSourcesFilterKeepsShellStateStable() {
+    func readingShellReapplyingSameSidebarArticleFilterKeepsShellStateStable() {
         let appState = AppState()
         let articleID = UUID()
         let webURL = URL(string: "https://example.com/sources-filter-article")!
 
-        appState.selectSourcesFilter(.unread)
+        appState.selectSidebarArticleFilter(.unread)
         appState.selectedArticleID = articleID
         appState.presentSafari(articleID: articleID, url: webURL)
 
         let reloadIDBeforeReapplyingFilter = appState.articleListReloadID
 
-        appState.selectSourcesFilter(.unread)
+        appState.selectSidebarArticleFilter(.unread)
 
-        #expect(appState.selectedSourcesFilter == .unread)
+        #expect(appState.selectedSidebarArticleFilter == .unread)
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .safari(ArticleSafariRoute(articleID: articleID, url: webURL)))
         #expect(appState.presentedSafariRoute == ArticleSafariRoute(articleID: articleID, url: webURL))
@@ -128,44 +128,44 @@ struct ReadingShellAppStateTests {
 
         appState.updateArticleListScrollPosition(
             allItemsPositionID,
-            sourceSelection: .feed(feedID),
-            sourcesFilter: .allItems
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .allItems
         )
         appState.updateArticleListScrollPosition(
             unreadPositionID,
-            sourceSelection: .feed(feedID),
-            sourcesFilter: .unread
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .unread
         )
 
         #expect(
             appState.articleListScrollPositionID(
-                sourceSelection: .feed(feedID),
-                sourcesFilter: .allItems
+                sidebarSelection: .feed(feedID),
+                sidebarArticleFilter: .allItems
             ) == allItemsPositionID
         )
         #expect(
             appState.articleListScrollPositionID(
-                sourceSelection: .feed(feedID),
-                sourcesFilter: .unread
+                sidebarSelection: .feed(feedID),
+                sidebarArticleFilter: .unread
             ) == unreadPositionID
         )
 
         appState.updateArticleListScrollPosition(
             nil,
-            sourceSelection: .feed(feedID),
-            sourcesFilter: .allItems
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .allItems
         )
 
         #expect(
             appState.articleListScrollPositionID(
-                sourceSelection: .feed(feedID),
-                sourcesFilter: .allItems
+                sidebarSelection: .feed(feedID),
+                sidebarArticleFilter: .allItems
             ) == nil
         )
         #expect(
             appState.articleListScrollPositionID(
-                sourceSelection: .feed(feedID),
-                sourcesFilter: .unread
+                sidebarSelection: .feed(feedID),
+                sidebarArticleFilter: .unread
             ) == unreadPositionID
         )
     }
@@ -176,13 +176,13 @@ struct ReadingShellAppStateTests {
         let feedID = UUID()
         let articleID = UUID()
 
-        appState.selectReadingSource(.feed(feedID))
-        appState.selectSourcesFilter(.unread)
+        appState.selectSidebarSelection(.feed(feedID))
+        appState.selectSidebarArticleFilter(.unread)
         appState.recordArticleReadOnOpenInCurrentListSession(articleID)
 
         #expect(appState.articleReadOnOpenEvent?.articleID == articleID)
-        #expect(appState.articleReadOnOpenEvent?.sourceSelection == .feed(feedID))
-        #expect(appState.articleReadOnOpenEvent?.sourcesFilter == .unread)
+        #expect(appState.articleReadOnOpenEvent?.sidebarSelection == .feed(feedID))
+        #expect(appState.articleReadOnOpenEvent?.sidebarArticleFilter == .unread)
     }
 
     @Test
@@ -323,30 +323,30 @@ struct ReadingShellAppStateTests {
     }
 
     @Test
-    func readingShellSourceSwitchClearsArticleNavigationContext() {
+    func readingShellSidebarSelectionSwitchClearsArticleNavigationContext() {
         let appState = AppState()
 
         appState.updateArticleNavigationContext([UUID(), UUID()])
-        appState.selectReadingSource(.unread)
+        appState.selectSidebarSelection(.unread)
 
         #expect(appState.articleNavigationContextIDs.isEmpty)
     }
 
     @Test
-    func readingShellRejectsStaleAdjacentArticleNavigationContextFromPreviousSource() {
+    func readingShellRejectsStaleAdjacentArticleNavigationContextFromPreviousSidebarSelection() {
         let appState = AppState()
         let previousFeedID = UUID()
         let currentFeedID = UUID()
         let firstArticleID = UUID()
         let secondArticleID = UUID()
 
-        appState.selectReadingSource(.feed(currentFeedID))
+        appState.selectSidebarSelection(.feed(currentFeedID))
         appState.selectedArticleID = firstArticleID
 
         appState.updateArticleNavigationContext(
             [firstArticleID, secondArticleID],
-            sourceSelection: .feed(previousFeedID),
-            sourcesFilter: .allItems
+            sidebarSelection: .feed(previousFeedID),
+            sidebarArticleFilter: .allItems
         )
 
         #expect(appState.adjacentArticleID(.next) == nil)
@@ -354,28 +354,28 @@ struct ReadingShellAppStateTests {
 
         appState.updateArticleNavigationContext(
             [firstArticleID, secondArticleID],
-            sourceSelection: .feed(currentFeedID),
-            sourcesFilter: .allItems
+            sidebarSelection: .feed(currentFeedID),
+            sidebarArticleFilter: .allItems
         )
 
         #expect(appState.adjacentArticleID(.next) == secondArticleID)
     }
 
     @Test
-    func readingShellRejectsStaleAdjacentArticleNavigationContextFromPreviousSourcesFilter() {
+    func readingShellRejectsStaleAdjacentArticleNavigationContextFromPreviousSidebarArticleFilter() {
         let appState = AppState()
         let feedID = UUID()
         let firstArticleID = UUID()
         let secondArticleID = UUID()
 
-        appState.selectReadingSource(.feed(feedID))
-        appState.selectSourcesFilter(.unread)
+        appState.selectSidebarSelection(.feed(feedID))
+        appState.selectSidebarArticleFilter(.unread)
         appState.selectedArticleID = firstArticleID
 
         appState.updateArticleNavigationContext(
             [firstArticleID, secondArticleID],
-            sourceSelection: .feed(feedID),
-            sourcesFilter: .allItems
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .allItems
         )
 
         #expect(appState.adjacentArticleID(.next) == nil)
@@ -383,8 +383,8 @@ struct ReadingShellAppStateTests {
 
         appState.updateArticleNavigationContext(
             [firstArticleID, secondArticleID],
-            sourceSelection: .feed(feedID),
-            sourcesFilter: .unread
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .unread
         )
 
         #expect(appState.adjacentArticleID(.next) == secondArticleID)
@@ -393,25 +393,25 @@ struct ReadingShellAppStateTests {
     @Test
     func readingShellAppStateKeepsRemoteSyncAndBackgroundRefreshReloadTriggersSeparate() {
         let appState = AppState()
-        let initialSidebarReloadID = appState.sourcesSidebarReloadID
+        let initialSidebarReloadID = appState.sidebarReloadID
         let initialArticleListReloadID = appState.articleListReloadID
         let initialArticleScreenReloadID = appState.articleScreenReloadID
 
         appState.requestRemoteSyncImportReload()
 
         #expect(appState.lastContentReloadTrigger == .remoteSyncImport)
-        #expect(appState.sourcesSidebarReloadID != initialSidebarReloadID)
+        #expect(appState.sidebarReloadID != initialSidebarReloadID)
         #expect(appState.articleListReloadID != initialArticleListReloadID)
         #expect(appState.articleScreenReloadID != initialArticleScreenReloadID)
 
-        let remoteSyncSidebarReloadID = appState.sourcesSidebarReloadID
+        let remoteSyncSidebarReloadID = appState.sidebarReloadID
         let remoteSyncArticleListReloadID = appState.articleListReloadID
         let remoteSyncArticleScreenReloadID = appState.articleScreenReloadID
 
         appState.requestBackgroundRefreshReload()
 
         #expect(appState.lastContentReloadTrigger == .backgroundRefresh)
-        #expect(appState.sourcesSidebarReloadID != remoteSyncSidebarReloadID)
+        #expect(appState.sidebarReloadID != remoteSyncSidebarReloadID)
         #expect(appState.articleListReloadID != remoteSyncArticleListReloadID)
         #expect(appState.articleScreenReloadID != remoteSyncArticleScreenReloadID)
     }

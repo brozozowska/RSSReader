@@ -8,7 +8,7 @@ public protocol AppDependenciesProtocol {
     var logger: Logging { get }
     var httpClient: any HTTPClient { get }
     var feedFetcher: any FeedFetching { get }
-    var sourceIconCache: any SourceIconCaching { get }
+    var feedIconCache: any FeedIconCaching { get }
     var modelContainer: ModelContainer? { get }
 }
 
@@ -48,18 +48,18 @@ public final class AppDependencies: AppDependenciesProtocol {
     public let logger: Logging
     public let httpClient: any HTTPClient
     public let feedFetcher: any FeedFetching
-    public let sourceIconCache: any SourceIconCaching
+    public let feedIconCache: any FeedIconCaching
     let feedRefreshService: FeedRefreshService?
     let feedRepository: (any FeedRepository)?
     let folderRepository: (any FolderRepository)?
-    let sourceManagementService: (any SourceManagementService)?
+    let feedManagementService: (any FeedManagementService)?
     let articleRepository: (any ArticleRepository)?
     let articleStateService: ArticleStateService?
     let unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)?
     let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)?
     let persistenceBoundedGrowthCleanupService: (any PersistenceBoundedGrowthCleanupServicing)?
     let articleQueryService: (any ArticleQueryService)?
-    let sourcesSidebarQueryService: (any SourcesSidebarQueryService)?
+    let sidebarQueryService: (any SidebarQueryService)?
     let articleStateRepository: (any ArticleStateRepository)?
     let appSettingsRepository: (any AppSettingsRepository)?
     let appSettingsService: (any AppSettingsService)?
@@ -85,7 +85,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         logger: Logging,
         httpClient: any HTTPClient = URLSessionHTTPClient(),
         feedFetcher: (any FeedFetching)? = nil,
-        sourceIconCache: (any SourceIconCaching)? = nil,
+        feedIconCache: (any FeedIconCaching)? = nil,
         modelContainer: ModelContainer? = nil,
         modelContainerBootstrapFailureDescription: String? = nil,
         syncBackedStoreReference: SyncBackedStoreReference? = nil,
@@ -160,7 +160,7 @@ public final class AppDependencies: AppDependenciesProtocol {
                 articleStateRepository: articleStateRepository
             )
         }()
-        let sourcesSidebarQueryService: (any SourcesSidebarQueryService)? = {
+        let sidebarQueryService: (any SidebarQueryService)? = {
             guard let feedRepository,
                   let folderRepository,
                   let articleStateRepository,
@@ -168,7 +168,7 @@ public final class AppDependencies: AppDependenciesProtocol {
                 return nil
             }
 
-            return DefaultSourcesSidebarQueryService(
+            return DefaultSidebarQueryService(
                 feedRepository: feedRepository,
                 folderRepository: folderRepository,
                 articleStateRepository: articleStateRepository,
@@ -193,12 +193,12 @@ public final class AppDependencies: AppDependenciesProtocol {
         let resolvedFeedFetcher = feedFetcher ?? Self.makeFeedFetcher(
             httpClient: httpClient
         )
-        let sourceManagementService: (any SourceManagementService)? = {
+        let feedManagementService: (any FeedManagementService)? = {
             guard let feedRepository, let folderRepository, let articleRepository else {
                 return nil
             }
 
-            return DefaultSourceManagementService(
+            return DefaultFeedManagementService(
                 logger: logger,
                 httpClient: httpClient,
                 feedFetcher: FeedFetcher(
@@ -210,7 +210,7 @@ public final class AppDependencies: AppDependenciesProtocol {
                 articleRepository: articleRepository
             )
         }()
-        let resolvedSourceIconCache = sourceIconCache ?? SourceIconCacheService(httpClient: httpClient)
+        let resolvedFeedIconCache = feedIconCache ?? FeedIconCacheService(httpClient: httpClient)
         let feedRefreshService: FeedRefreshService? = {
             guard let feedRepository, let articleRepository else {
                 return nil
@@ -249,7 +249,7 @@ public final class AppDependencies: AppDependenciesProtocol {
             ?? AppSyncBootstrapPreferenceStore(logger: logger)
         self.logger = logger
         self.httpClient = httpClient
-        self.sourceIconCache = resolvedSourceIconCache
+        self.feedIconCache = resolvedFeedIconCache
         self.modelContainer = modelContainer
         self.modelContainerBootstrapFailureDescription = modelContainerBootstrapFailureDescription
         self.syncBackedStoreReference = syncBackedStoreReference
@@ -258,7 +258,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.feedRefreshService = feedRefreshService
         self.feedRepository = feedRepository
         self.folderRepository = folderRepository
-        self.sourceManagementService = sourceManagementService
+        self.feedManagementService = feedManagementService
         self.articleRepository = articleRepository
         self.articleStateService = articleStateService
         self.unreadAppIconBadgeService = resolvedUnreadAppIconBadgeService
@@ -266,7 +266,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.persistenceBoundedGrowthCleanupService = persistenceBoundedGrowthCleanupService
         self.articleStateRepository = articleStateRepository
         self.articleQueryService = articleQueryService
-        self.sourcesSidebarQueryService = sourcesSidebarQueryService
+        self.sidebarQueryService = sidebarQueryService
         self.appSettingsRepository = appSettingsRepository
         self.appSettingsService = appSettingsService
         self.backgroundRefreshService = resolvedBackgroundRefreshService

@@ -1,4 +1,13 @@
 import Foundation
+import SwiftUI
+
+enum SidebarToolbarPlacement {
+    static let settings: ToolbarItemPlacement = .topBarLeading
+    static let title: ToolbarItemPlacement = .title
+    static let subtitle: ToolbarItemPlacement = .subtitle
+    static let addFeed: ToolbarItemPlacement = .topBarTrailing
+    static let filter: ToolbarItemPlacement = .topBarTrailing
+}
 
 struct SidebarToolbarState: Equatable {
     let subtitle: String
@@ -20,59 +29,62 @@ struct SidebarToolbarState: Equatable {
 struct SidebarSubtitleFormatter {
     var now: Date = .now
     var calendar: Calendar = .current
+    var locale: Locale = .current
 
     func text(
         for refreshStatus: SidebarRefreshStatus,
         iCloudSyncStatus: ICloudSyncStatus = .disabled
     ) -> String {
         if refreshStatus.isSyncing || iCloudSyncStatus == .syncing {
-            return "Syncing..."
+            return RuntimeFeedbackLocalization.syncingStatusTitle
         }
 
         if case .failed = iCloudSyncStatus {
-            return "Sync failed"
+            return RuntimeFeedbackLocalization.syncFailedStatusTitle
         }
 
         switch refreshStatus {
         case .idle(let lastUpdatedAt):
             return lastUpdatedText(for: lastUpdatedAt)
         case .syncing:
-            return "Syncing..."
+            return RuntimeFeedbackLocalization.syncingStatusTitle
         }
     }
 
     private func lastUpdatedText(for date: Date?) -> String {
         guard let date else {
-            return "Not updated yet"
+            return RuntimeFeedbackLocalization.notUpdatedYetStatusTitle
         }
 
         if calendar.isDate(date, inSameDayAs: now) {
-            return "Today at \(timeString(for: date))"
+            return RuntimeFeedbackLocalization.todayRefreshStatus(time: timeString(for: date))
         }
 
         if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
            calendar.isDate(date, inSameDayAs: yesterday) {
-            return "Yesterday at \(timeString(for: date))"
+            return RuntimeFeedbackLocalization.yesterdayRefreshStatus(time: timeString(for: date))
         }
 
         return dateString(for: date)
     }
 
     private func timeString(for date: Date) -> String {
-        let components = calendar.dateComponents([.hour, .minute], from: date)
-        return String(
-            format: "%02d:%02d",
-            components.hour ?? 0,
-            components.minute ?? 0
-        )
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = locale
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        return formatter.string(from: date)
     }
 
     private func dateString(for date: Date) -> String {
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "EEEE, d MMMM yyyy"
+        formatter.locale = locale
+        formatter.dateStyle = .full
+        formatter.timeStyle = .none
         return formatter.string(from: date)
     }
 }

@@ -20,7 +20,7 @@ struct ArticlesScreenControllerLoadingTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .allItems,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies
         )
 
@@ -52,7 +52,7 @@ struct ArticlesScreenControllerLoadingTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .allItems,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies
         )
 
@@ -81,7 +81,7 @@ struct ArticlesScreenControllerLoadingTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .allItems,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies
         )
 
@@ -106,11 +106,11 @@ struct ArticlesScreenControllerLoadingTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .allItems,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies
         )
 
-        #expect(controller.screenState.navigationSubtitle == "1 Unread Item")
+        #expect(controller.screenState.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 1))
     }
 
     @Test
@@ -150,7 +150,7 @@ struct ArticlesScreenControllerLoadingTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .allItems,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies
         )
 
@@ -194,7 +194,7 @@ struct ArticlesScreenControllerLoadingTests {
 
         await controller.load(
             selection: .feed(feed.id),
-            sourcesFilter: .unread,
+            sidebarArticleFilter: .unread,
             dependencies: harness.dependencies
         )
 

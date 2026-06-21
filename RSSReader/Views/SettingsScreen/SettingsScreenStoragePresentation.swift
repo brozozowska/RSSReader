@@ -1,19 +1,19 @@
 extension SettingsScreenPresentationBuilder {
     static func storageSection(
         hasArticleImageCache: Bool,
-        hasSourceIconCache: Bool,
+        hasFeedIconCache: Bool,
         hasArchivedArticles: Bool
     ) -> SettingsScreenSectionPresentation {
         SettingsScreenSectionPresentation(
             id: .storage,
-            title: "Storage",
+            title: SettingsLocalization.storageSectionTitle,
             footer: nil,
             items: [
                 .button(
                     SettingsButtonItemPresentation(
                         id: .purgeArchivedArticles,
-                        title: "Clear Archived Articles",
-                        subtitle: "Remove archived articles except starred ones from this device and iCloud.",
+                        title: SettingsLocalization.clearArchivedArticlesTitle,
+                        subtitle: SettingsLocalization.clearArchivedArticlesSubtitle,
                         systemImage: "archivebox",
                         role: .destructive,
                         isEnabled: hasArchivedArticles
@@ -22,8 +22,8 @@ extension SettingsScreenPresentationBuilder {
                 .button(
                     SettingsButtonItemPresentation(
                         id: .clearArticleImageCache,
-                        title: "Clear Article Image Cache",
-                        subtitle: "Remove article images saved on this device.",
+                        title: SettingsLocalization.clearArticleImageCacheTitle,
+                        subtitle: SettingsLocalization.clearArticleImageCacheSubtitle,
                         systemImage: "photo.stack",
                         role: .destructive,
                         isEnabled: hasArticleImageCache
@@ -31,12 +31,12 @@ extension SettingsScreenPresentationBuilder {
                 ),
                 .button(
                     SettingsButtonItemPresentation(
-                        id: .clearSourceIconCache,
-                        title: "Clear Source Icon Cache",
-                        subtitle: "Remove feed icons saved on this device.",
+                        id: .clearFeedIconCache,
+                        title: SettingsLocalization.clearFeedIconCacheTitle,
+                        subtitle: SettingsLocalization.clearFeedIconCacheSubtitle,
                         systemImage: "newspaper",
                         role: .destructive,
-                        isEnabled: hasSourceIconCache
+                        isEnabled: hasFeedIconCache
                     )
                 )
             ]

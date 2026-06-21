@@ -22,13 +22,13 @@ struct SettingsScreenPresentationSyncTests {
             statusRow == .statusRow(
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
-                    title: "Current Status",
-                    subtitle: "Sign in to iCloud with the Apple ID used on this device to enable sync.",
-                    valueTitle: "Sign In Required"
+                    title: SettingsLocalization.currentStatusTitle,
+                    subtitle: SettingsLocalization.syncNoAccountSubtitle,
+                    valueTitle: SettingsLocalization.syncStatusNoAccountTitle
                 )
             )
         )
-        #expect(syncSection.footer?.contains("iCloud sync uses the Apple ID signed in on this device.") == true)
+        #expect(syncSection.footer?.contains(SettingsLocalization.iCloudScopeAccountFooter) == true)
     }
 
     @Test
@@ -63,9 +63,9 @@ struct SettingsScreenPresentationSyncTests {
             restrictedSection.items.last == .statusRow(
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
-                    title: "Current Status",
-                    subtitle: "This device cannot use iCloud right now because account changes or CloudKit access are restricted.",
-                    valueTitle: "Restricted"
+                    title: SettingsLocalization.currentStatusTitle,
+                    subtitle: SettingsLocalization.syncRestrictedSubtitle,
+                    valueTitle: SettingsLocalization.syncStatusRestrictedTitle
                 )
             )
         )
@@ -73,9 +73,9 @@ struct SettingsScreenPresentationSyncTests {
             temporarilyUnavailableSection.items.last == .statusRow(
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
-                    title: "Current Status",
-                    subtitle: "The current iCloud account is temporarily unavailable. Try again later.",
-                    valueTitle: "Temporarily Unavailable"
+                    title: SettingsLocalization.currentStatusTitle,
+                    subtitle: SettingsLocalization.syncTemporarilyUnavailableSubtitle,
+                    valueTitle: SettingsLocalization.syncStatusTemporarilyUnavailableTitle
                 )
             )
         )
@@ -83,9 +83,9 @@ struct SettingsScreenPresentationSyncTests {
             couldNotDetermineSection.items.last == .statusRow(
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
-                    title: "Current Status",
-                    subtitle: "The app could not determine the current iCloud account status. Check the device Apple ID and iCloud availability, then try again.",
-                    valueTitle: "Account Unavailable"
+                    title: SettingsLocalization.currentStatusTitle,
+                    subtitle: SettingsLocalization.syncCouldNotDetermineSubtitle,
+                    valueTitle: SettingsLocalization.syncStatusCouldNotDetermineTitle
                 )
             )
         )
@@ -108,8 +108,10 @@ struct SettingsScreenPresentationSyncTests {
             syncSection.items.dropFirst().first == .toggle(
                 SettingsToggleItemPresentation(
                     id: .useICloudSync,
-                    title: "Enable iCloud Sync",
-                    subtitle: "Saved for the next launch. This session keeps using local data because the current iCloud account is temporarily unavailable.",
+                    title: SettingsLocalization.enableICloudSyncTitle,
+                    subtitle: SettingsLocalization.iCloudSyncPreferenceFallbackSubtitle(
+                        reason: SettingsLocalization.bootstrapFallbackTemporarilyUnavailableReason
+                    ),
                     isOn: true
                 )
             )
@@ -118,14 +120,14 @@ struct SettingsScreenPresentationSyncTests {
             syncSection.items.last == .statusRow(
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
-                    title: "Current Status",
-                    subtitle: "Sync is enabled, but this launch cannot use iCloud because the current account is temporarily unavailable. Relaunch after iCloud becomes available.",
-                    valueTitle: "Temporarily Unavailable"
+                    title: SettingsLocalization.currentStatusTitle,
+                    subtitle: SettingsLocalization.syncFallbackTemporarilyUnavailableSubtitle,
+                    valueTitle: SettingsLocalization.syncStatusTemporarilyUnavailableTitle
                 )
             )
         )
         #expect(
-            syncSection.footer?.contains("Sync will try again on the next launch when iCloud is available.") == true
+            syncSection.footer?.contains(SettingsLocalization.iCloudScopeFallbackFooter) == true
         )
     }
 }

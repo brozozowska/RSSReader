@@ -28,6 +28,14 @@ import SwiftUI
     )
 }
 
+#Preview("RTL Loaded Long Title") {
+    ArticleScreenPreviewContainer(
+        screenState: .previewLoaded(article: ArticleScreenPreviewData.longTitleArticle)
+    )
+    .environment(\.layoutDirection, .rightToLeft)
+    .environment(\.locale, Locale(identifier: "ar"))
+}
+
 #Preview("Loaded Summary Body") {
     ArticleScreenPreviewContainer(
         screenState: .previewLoaded(article: ArticleScreenPreviewData.summaryBodyArticle)

@@ -28,7 +28,7 @@ struct SettingsScreenControllerLoadingSyncTests {
         _ = try service.saveSettings(
             AppSettingsSnapshot(
                 articleOpeningMode: .feedReader,
-                selectedSourcesFilterRawValue: SourcesFilter.unread.rawValue,
+                selectedSidebarArticleFilterRawValue: SidebarArticleFilter.unread.rawValue,
                 refreshIntervalPreference: .every15Minutes,
                 useiCloudSync: false,
                 markAsReadOnOpen: true,
@@ -51,7 +51,7 @@ struct SettingsScreenControllerLoadingSyncTests {
         #expect(viewState.placeholder == nil)
         #expect(viewState.sections.isEmpty == false)
         #expect(controller.screenState.settingsSnapshot.articleOpeningMode == .feedReader)
-        #expect(controller.screenState.settingsSnapshot.selectedSourcesFilterRawValue == SourcesFilter.unread.rawValue)
+        #expect(controller.screenState.settingsSnapshot.selectedSidebarArticleFilterRawValue == SidebarArticleFilter.unread.rawValue)
         #expect(controller.screenState.settingsSnapshot.askBeforeMarkingAllAsRead == false)
         #expect(controller.screenState.settingsSnapshot.articleBodyLinkOpeningPolicy == .externalBrowser)
         #expect(controller.screenState.settingsSnapshot.articleSourceLinkOpeningPolicy == .externalBrowser)
@@ -90,8 +90,8 @@ struct SettingsScreenControllerLoadingSyncTests {
             syncToggle == .toggle(
                 SettingsToggleItemPresentation(
                     id: .useICloudSync,
-                    title: "Enable iCloud Sync",
-                    subtitle: "Applies on next launch. Supported data will sync through iCloud when available.",
+                    title: SettingsLocalization.enableICloudSyncTitle,
+                    subtitle: SettingsLocalization.iCloudSyncPreferenceEnabledSubtitle,
                     isOn: true
                 )
             )
@@ -100,9 +100,9 @@ struct SettingsScreenControllerLoadingSyncTests {
             syncStatusItem == .statusRow(
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
-                    title: "Current Status",
-                    subtitle: "Changes are currently syncing with iCloud.",
-                    valueTitle: "Syncing"
+                    title: SettingsLocalization.currentStatusTitle,
+                    subtitle: SettingsLocalization.syncSyncingSubtitle,
+                    valueTitle: SettingsLocalization.syncStatusSyncingTitle
                 )
             )
         )
@@ -141,9 +141,9 @@ struct SettingsScreenControllerLoadingSyncTests {
             syncStatusItem == .statusRow(
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
-                    title: "Current Status",
-                    subtitle: "Sign in to iCloud with the Apple ID used on this device to enable sync.",
-                    valueTitle: "Sign In Required"
+                    title: SettingsLocalization.currentStatusTitle,
+                    subtitle: SettingsLocalization.syncNoAccountSubtitle,
+                    valueTitle: SettingsLocalization.syncStatusNoAccountTitle
                 )
             )
         )
@@ -215,8 +215,10 @@ struct SettingsScreenControllerLoadingSyncTests {
             syncSection.items.dropFirst().first == .toggle(
                 SettingsToggleItemPresentation(
                     id: .useICloudSync,
-                    title: "Enable iCloud Sync",
-                    subtitle: "Saved for the next launch. This session keeps using local data because the current iCloud account is temporarily unavailable.",
+                    title: SettingsLocalization.enableICloudSyncTitle,
+                    subtitle: SettingsLocalization.iCloudSyncPreferenceFallbackSubtitle(
+                        reason: SettingsLocalization.bootstrapFallbackTemporarilyUnavailableReason
+                    ),
                     isOn: true
                 )
             )
@@ -225,9 +227,9 @@ struct SettingsScreenControllerLoadingSyncTests {
             syncSection.items.last == .statusRow(
                 SettingsStatusRowItemPresentation(
                     id: .iCloudSyncStatus,
-                    title: "Current Status",
-                    subtitle: "Sync is enabled, but this launch cannot use iCloud because the current account is temporarily unavailable. Relaunch after iCloud becomes available.",
-                    valueTitle: "Temporarily Unavailable"
+                    title: SettingsLocalization.currentStatusTitle,
+                    subtitle: SettingsLocalization.syncFallbackTemporarilyUnavailableSubtitle,
+                    valueTitle: SettingsLocalization.syncStatusTemporarilyUnavailableTitle
                 )
             )
         )

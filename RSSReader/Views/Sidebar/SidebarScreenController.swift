@@ -15,7 +15,7 @@ final class SidebarScreenController {
     }
 
     func viewState(
-        filter: SourcesFilter,
+        filter: SidebarArticleFilter,
         iCloudSyncStatus: ICloudSyncStatus
     ) -> SidebarScreenDerivedViewState {
         screenState.derivedViewState(
@@ -29,34 +29,34 @@ final class SidebarScreenController {
         showsFullScreenLoading: Bool,
         dependencies: AppDependencies,
         currentSelection: SidebarSelection?,
-        filter: SourcesFilter,
+        filter: SidebarArticleFilter,
         refreshedAt: Date? = nil
     ) async -> SidebarSelection? {
         screenState.beginLoading(showsFullScreenLoading: showsFullScreenLoading)
 
-        guard let sourcesSidebarQueryService = dependencies.sourcesSidebarQueryService else {
-            screenState.applyLoadingFailure("Sources are unavailable in the current app environment.")
+        guard let sidebarQueryService = dependencies.sidebarQueryService else {
+            screenState.applyLoadingFailure(SidebarLocalization.unavailablePreviewMessage)
             return currentSelection
         }
 
         do {
-            let snapshot = try sourcesSidebarQueryService.fetchSnapshot()
-            let effectiveRefreshedAt = refreshedAt ?? lastSourcesRefreshAt(dependencies: dependencies)
+            let snapshot = try sidebarQueryService.fetchSnapshot()
+            let effectiveRefreshedAt = refreshedAt ?? lastFeedsRefreshAt(dependencies: dependencies)
             screenState.applyLoadedSnapshot(snapshot, refreshedAt: effectiveRefreshedAt)
             syncExpandedFolderNames(filter: filter)
             return resolvedSelection(currentSelection: currentSelection, filter: filter)
         } catch {
             dependencies.logger.error("Failed to load sidebar feeds: \(error)")
-            screenState.applyLoadingFailure("Unable to load sources right now. Try again.")
+            screenState.applyLoadingFailure(SidebarLocalization.genericLoadFailureMessage)
             return currentSelection
         }
     }
 
-    func refreshSources(
+    func refreshSidebar(
         dependencies: AppDependencies,
         appState: AppState,
         currentSelection: SidebarSelection?,
-        filter: SourcesFilter
+        filter: SidebarArticleFilter
     ) async -> SidebarSelection? {
         guard screenState.isSyncing == false else {
             return currentSelection
@@ -64,8 +64,8 @@ final class SidebarScreenController {
 
         let previousStatus = screenState.refreshStatus
         screenState.beginRefreshing()
-        let result = await dependencies.appActions.refreshVisibleSources(using: appState)
-        let refreshedAt = result.flatMap(Self.sourcesRefreshDisplayDate)
+        let result = await dependencies.appActions.refreshVisibleFeeds(using: appState)
+        let refreshedAt = result.flatMap(Self.sidebarRefreshDisplayDate)
         let adjustedSelection = await loadFeeds(
             showsFullScreenLoading: false,
             dependencies: dependencies,
@@ -81,16 +81,16 @@ final class SidebarScreenController {
         return adjustedSelection
     }
 
-    private func lastSourcesRefreshAt(dependencies: AppDependencies) -> Date? {
+    private func lastFeedsRefreshAt(dependencies: AppDependencies) -> Date? {
         do {
-            return try dependencies.appSettingsService?.fetchSettings().lastSourcesRefreshAt
+            return try dependencies.appSettingsService?.fetchSettings().lastFeedsRefreshAt
         } catch {
-            dependencies.logger.error("Failed to load last sources refresh timestamp: \(error)")
+            dependencies.logger.error("Failed to load last feeds refresh timestamp: \(error)")
             return nil
         }
     }
 
-    private static func sourcesRefreshDisplayDate(from result: FeedRefreshBatchResult) -> Date? {
+    private static func sidebarRefreshDisplayDate(from result: FeedRefreshBatchResult) -> Date? {
         guard result.summary.fetchedCount + result.summary.notModifiedCount > 0 else {
             return nil
         }
@@ -100,7 +100,7 @@ final class SidebarScreenController {
 
     func resolvedSelection(
         currentSelection: SidebarSelection?,
-        filter: SourcesFilter
+        filter: SidebarArticleFilter
     ) -> SidebarSelection? {
         let visibleFeeds = SidebarFeedVisibility.filteredFeeds(
             feeds: screenState.feeds,
@@ -121,7 +121,7 @@ final class SidebarScreenController {
         )
     }
 
-    func visibleFolderNames(filter: SourcesFilter) -> Set<String> {
+    func visibleFolderNames(filter: SidebarArticleFilter) -> Set<String> {
         let visibleFeeds = SidebarFeedVisibility.filteredFeeds(
             feeds: screenState.feeds,
             filter: filter,
@@ -145,7 +145,7 @@ final class SidebarScreenController {
         }
     }
 
-    func syncExpandedFolderNames(filter: SourcesFilter) {
+    func syncExpandedFolderNames(filter: SidebarArticleFilter) {
         expandedFolderNames = visibleFolderNames(filter: filter)
     }
 }

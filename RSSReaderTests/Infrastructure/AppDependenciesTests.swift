@@ -15,10 +15,10 @@ struct AppDependenciesCompositionTests {
     }
 
     @Test
-    func appDependenciesExposeSourceManagementServiceWhenSwiftDataIsAvailable() throws {
+    func appDependenciesExposeFeedManagementServiceWhenSwiftDataIsAvailable() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
 
-        #expect(harness.dependencies.sourceManagementService != nil)
+        #expect(harness.dependencies.feedManagementService != nil)
     }
 
     @Test

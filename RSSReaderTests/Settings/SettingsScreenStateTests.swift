@@ -9,7 +9,7 @@ struct SettingsScreenStateTests {
     func settingsScreenStateBuildsLoadedViewStateFromSnapshot() {
         let snapshot = AppSettingsSnapshot(
             articleOpeningMode: .safariView,
-            selectedSourcesFilterRawValue: SourcesFilter.starred.rawValue,
+            selectedSidebarArticleFilterRawValue: SidebarArticleFilter.starred.rawValue,
             refreshIntervalPreference: .hourly,
             useiCloudSync: true,
             markAsReadOnOpen: false,
@@ -29,7 +29,7 @@ struct SettingsScreenStateTests {
             .articleList,
             .updatesAndSync,
             .notifications,
-            .sourcePortability,
+            .feedPortability,
             .storage
         ])
         #expect(state.settingsInput.articleOpeningMode == .safariView)
@@ -37,14 +37,14 @@ struct SettingsScreenStateTests {
         #expect(state.settingsInput.articleRetentionPolicy == .twoDays)
         #expect(state.settingsInput.iCloudSyncStatus == .disabled)
         #expect(state.hasArticleImageCache == false)
-        #expect(state.hasSourceIconCache == false)
+        #expect(state.hasFeedIconCache == false)
         #expect(state.hasArchivedArticles == false)
     }
 
     @Test
-    func settingsScreenStateDoesNotTreatLastSourcesRefreshDateAsDraftChange() {
+    func settingsScreenStateDoesNotTreatLastFeedsRefreshDateAsDraftChange() {
         let snapshot = AppSettingsSnapshot(
-            lastSourcesRefreshAt: Date(timeIntervalSinceReferenceDate: 100)
+            lastFeedsRefreshAt: Date(timeIntervalSinceReferenceDate: 100)
         )
         var state = SettingsScreenState()
 
@@ -78,7 +78,7 @@ struct SettingsScreenStateTests {
             .first
         )
 
-        #expect(pickerItem.selectedValueTitle == "Feed Reader")
+        #expect(pickerItem.selectedValueTitle == SettingsLocalization.feedReaderOptionTitle)
         #expect(pickerItem.options.count == ArticleOpeningMode.allCases.count)
     }
 
@@ -101,10 +101,16 @@ struct SettingsScreenStateTests {
             .first
         )
 
-        #expect(pickerItem.title == "Keep Archived Articles")
-        #expect(pickerItem.selectedValueTitle == "1 Week")
-        #expect(pickerItem.options.map(\.title) == ["None", "2 Days", "1 Week", "2 Weeks", "1 Month"])
+        #expect(pickerItem.title == SettingsLocalization.keepArchivedArticlesTitle)
+        #expect(pickerItem.selectedValueTitle == SettingsLocalization.oneWeekOptionTitle)
+        #expect(pickerItem.options.map(\.title) == [
+            SettingsLocalization.noneOptionTitle,
+            SettingsLocalization.twoDaysOptionTitle,
+            SettingsLocalization.oneWeekOptionTitle,
+            SettingsLocalization.twoWeeksOptionTitle,
+            SettingsLocalization.oneMonthOptionTitle
+        ])
         #expect(articleListSection.items.last?.id == .articleRetentionPolicy)
-        #expect(articleListSection.footer == "\"None\" removes an article from the list when it disappears from its feed. Other options keep the article for the selected time after it disappears.")
+        #expect(articleListSection.footer == SettingsLocalization.articleListSectionFooter)
     }
 }

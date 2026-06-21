@@ -6,33 +6,35 @@ struct ArticleListView: View {
     @Environment(\.appDependencies) private var dependencies
     @Environment(AppState.self) private var appState
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.layoutDirection) private var layoutDirection
 
     let selectedSidebarSelection: SidebarSelection?
-    let selectedSourcesFilter: SourcesFilter
+    let selectedSidebarArticleFilter: SidebarArticleFilter
     let reloadID: UUID
     let showsBackButton: Bool
-    let navigateBackToSources: () -> Void
+    let navigateBackToSidebar: () -> Void
     let previewScreenState: ArticlesScreenState?
 
     @Binding var selection: UUID?
     @State private var controller: ArticlesScreenController
     @State private var searchText = ""
     @State private var refreshStartHapticTrigger = 0
+    @State private var backNavigationContainerWidth: CGFloat = 0
 
     init(
         selectedSidebarSelection: SidebarSelection?,
-        selectedSourcesFilter: SourcesFilter,
+        selectedSidebarArticleFilter: SidebarArticleFilter,
         reloadID: UUID,
         showsBackButton: Bool,
-        navigateBackToSources: @escaping () -> Void,
+        navigateBackToSidebar: @escaping () -> Void,
         previewScreenState: ArticlesScreenState?,
         selection: Binding<UUID?>
     ) {
         self.selectedSidebarSelection = selectedSidebarSelection
-        self.selectedSourcesFilter = selectedSourcesFilter
+        self.selectedSidebarArticleFilter = selectedSidebarArticleFilter
         self.reloadID = reloadID
         self.showsBackButton = showsBackButton
-        self.navigateBackToSources = navigateBackToSources
+        self.navigateBackToSidebar = navigateBackToSidebar
         self.previewScreenState = previewScreenState
         self._selection = selection
         self._controller = State(initialValue: ArticlesScreenController(previewScreenState: previewScreenState))
@@ -43,7 +45,7 @@ struct ArticleListView: View {
     var body: some View {
         let derivedViewState = controller.screenState.derivedViewState(
             searchText: searchText,
-            sourcesFilter: selectedSourcesFilter
+            sidebarArticleFilter: selectedSidebarArticleFilter
         )
 
         ArticleListContentView(
@@ -77,7 +79,7 @@ struct ArticleListView: View {
                         Image(systemName: "checkmark.circle.fill")
                     }
                     .disabled(derivedViewState.toolbarActions.isMarkAllAsReadEnabled == false)
-                    .accessibilityLabel("Mark all as read")
+                    .accessibilityLabel(ReadingLocalization.markAllAsReadAccessibilityLabel)
                 }
             }
 
@@ -91,13 +93,13 @@ struct ArticleListView: View {
             }
         }
         .alert(
-            "Mark all as read?",
+            ReadingLocalization.markAllAsReadDialogTitle,
             isPresented: markAllAsReadConfirmationIsPresented
         ) {
-            Button("Mark all as read", role: .destructive, action: confirmMarkAllAsRead)
-            Button("Cancel", role: .cancel) {}
+            Button(ReadingLocalization.markAllAsReadDialogAction, role: .destructive, action: confirmMarkAllAsRead)
+            Button(ReadingLocalization.cancelAction, role: .cancel) {}
         } message: {
-            Text("This action will mark all visible articles as read.")
+            Text(ReadingLocalization.markAllAsReadDialogMessage)
         }
         .overlay {
             overlayContent(using: derivedViewState)
@@ -110,8 +112,8 @@ struct ArticleListView: View {
             )
         }
         .task(id: ArticleListLoadContext(
-            sourceSelection: selectedSidebarSelection,
-            sourcesFilter: selectedSourcesFilter,
+            sidebarSelection: selectedSidebarSelection,
+            sidebarArticleFilter: selectedSidebarArticleFilter,
             reloadID: reloadID
         )) {
             guard isPreviewMode == false else { return }
@@ -126,8 +128,8 @@ struct ArticleListView: View {
             guard let newValue else { return }
             appState.updateArticleListScrollPosition(
                 newValue,
-                sourceSelection: selectedSidebarSelection,
-                sourcesFilter: selectedSourcesFilter
+                sidebarSelection: selectedSidebarSelection,
+                sidebarArticleFilter: selectedSidebarArticleFilter
             )
         }
         .onChange(of: appState.articleReadOnOpenEvent) { _, event in
@@ -137,6 +139,11 @@ struct ArticleListView: View {
             .impact(flexibility: .solid, intensity: 0.65),
             trigger: refreshStartHapticTrigger
         )
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width
+        } action: { newWidth in
+            backNavigationContainerWidth = newWidth
+        }
         .simultaneousGesture(backNavigationGesture)
     }
 
@@ -149,11 +156,11 @@ struct ArticleListView: View {
         preservesRefreshFeedback: Bool = false
     ) async {
         let loadingSidebarSelection = selectedSidebarSelection
-        let loadingSourcesFilter = selectedSourcesFilter
+        let loadingSidebarArticleFilter = selectedSidebarArticleFilter
 
         await controller.load(
             selection: loadingSidebarSelection,
-            sourcesFilter: loadingSourcesFilter,
+            sidebarArticleFilter: loadingSidebarArticleFilter,
             dependencies: dependencies,
             retainsSessionReadArticles: retainsSessionReadArticles,
             retainedSessionReadMembershipStatus: retainedSessionReadMembershipStatus,
@@ -161,7 +168,7 @@ struct ArticleListView: View {
         )
 
         guard loadingSidebarSelection == appState.selectedSidebarSelection,
-              loadingSourcesFilter == appState.selectedSourcesFilter else {
+              loadingSidebarArticleFilter == appState.selectedSidebarArticleFilter else {
             return
         }
 
@@ -187,8 +194,8 @@ struct ArticleListView: View {
         reconcileArticleListScrollPosition(visibleArticleIDs: visibleArticleIDs)
         appState.updateArticleNavigationContext(
             visibleArticleIDs,
-            sourceSelection: selectedSidebarSelection,
-            sourcesFilter: selectedSourcesFilter
+            sidebarSelection: selectedSidebarSelection,
+            sidebarArticleFilter: selectedSidebarArticleFilter
         )
     }
 
@@ -196,15 +203,15 @@ struct ArticleListView: View {
         Binding(
             get: {
                 appState.articleListScrollPositionID(
-                    sourceSelection: selectedSidebarSelection,
-                    sourcesFilter: selectedSourcesFilter
+                    sidebarSelection: selectedSidebarSelection,
+                    sidebarArticleFilter: selectedSidebarArticleFilter
                 )
             },
             set: { articleID in
                 appState.updateArticleListScrollPosition(
                     articleID,
-                    sourceSelection: selectedSidebarSelection,
-                    sourcesFilter: selectedSourcesFilter
+                    sidebarSelection: selectedSidebarSelection,
+                    sidebarArticleFilter: selectedSidebarArticleFilter
                 )
             }
         )
@@ -212,8 +219,8 @@ struct ArticleListView: View {
 
     private func reconcileArticleListScrollPosition(visibleArticleIDs: [UUID]) {
         let currentScrollPositionID = appState.articleListScrollPositionID(
-            sourceSelection: selectedSidebarSelection,
-            sourcesFilter: selectedSourcesFilter
+            sidebarSelection: selectedSidebarSelection,
+            sidebarArticleFilter: selectedSidebarArticleFilter
         )
         guard let currentScrollPositionID,
               visibleArticleIDs.contains(currentScrollPositionID) == false else {
@@ -222,8 +229,8 @@ struct ArticleListView: View {
 
         appState.updateArticleListScrollPosition(
             nil,
-            sourceSelection: selectedSidebarSelection,
-            sourcesFilter: selectedSourcesFilter
+            sidebarSelection: selectedSidebarSelection,
+            sidebarArticleFilter: selectedSidebarArticleFilter
         )
     }
 
@@ -245,7 +252,7 @@ struct ArticleListView: View {
         controller.handleMarkAllAsReadAction(
             searchText: searchText,
             selection: selectedSidebarSelection,
-            sourcesFilter: selectedSourcesFilter,
+            sidebarArticleFilter: selectedSidebarArticleFilter,
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
@@ -261,7 +268,7 @@ struct ArticleListView: View {
         controller.confirmMarkAllAsRead(
             searchText: searchText,
             selection: selectedSidebarSelection,
-            sourcesFilter: selectedSourcesFilter,
+            sidebarArticleFilter: selectedSidebarArticleFilter,
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
@@ -277,7 +284,7 @@ struct ArticleListView: View {
         controller.toggleArticleReadStatus(
             article,
             selection: selectedSidebarSelection,
-            sourcesFilter: selectedSourcesFilter,
+            sidebarArticleFilter: selectedSidebarArticleFilter,
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
@@ -291,7 +298,7 @@ struct ArticleListView: View {
         controller.toggleStarredState(
             for: article,
             selection: selectedSidebarSelection,
-            sourcesFilter: selectedSourcesFilter,
+            sidebarArticleFilter: selectedSidebarArticleFilter,
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
@@ -306,14 +313,16 @@ struct ArticleListView: View {
         DragGesture(minimumDistance: 20)
             .onEnded { value in
                 guard showsBackButton else { return }
-                guard ReadingShellCompactNavigationState.shouldNavigateBackToSourcesOnDrag(
+                guard ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
                     startLocationX: value.startLocation.x,
+                    containerWidth: backNavigationContainerWidth,
+                    layoutDirection: layoutDirection,
                     translation: value.translation
                 ) else {
                     return
                 }
                 endCurrentArticleListSession()
-                navigateBackToSources()
+                navigateBackToSidebar()
             }
     }
 
@@ -325,8 +334,8 @@ struct ArticleListView: View {
     @MainActor
     private func applyArticleReadOnOpenEvent(_ event: ArticleReadOnOpenEvent?) {
         guard let event else { return }
-        guard event.sourceSelection == selectedSidebarSelection,
-              event.sourcesFilter == selectedSourcesFilter else {
+        guard event.sidebarSelection == selectedSidebarSelection,
+              event.sidebarArticleFilter == selectedSidebarArticleFilter else {
             return
         }
 
@@ -369,7 +378,7 @@ struct ArticleListView: View {
             )
         } else if let primaryFailureMessage = controller.screenState.primaryFailureMessage {
             ScreenPlaceholderView(
-                title: "Unable to Load Articles",
+                title: ReadingLocalization.unableToLoadArticlesTitle,
                 systemImage: "exclamationmark.triangle",
                 description: primaryFailureMessage
             )
@@ -445,7 +454,7 @@ private struct ArticleListSearchToolbarModifier: ViewModifier {
                 .searchable(
                     text: $text,
                     placement: .toolbar,
-                    prompt: "Search Articles"
+                    prompt: ReadingLocalization.searchPrompt
                 )
                 .searchToolbarBehavior(.automatic)
         } else {
@@ -463,7 +472,7 @@ private extension View {
 // MARK: - Helpers
 
 private struct ArticleListLoadContext: Hashable {
-    let sourceSelection: SidebarSelection?
-    let sourcesFilter: SourcesFilter
+    let sidebarSelection: SidebarSelection?
+    let sidebarArticleFilter: SidebarArticleFilter
     let reloadID: UUID
 }

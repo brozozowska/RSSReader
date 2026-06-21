@@ -17,16 +17,16 @@ extension AppActionRouter {
     @MainActor
     func refreshAfterAddingFeed(id feedID: UUID, using appState: AppState) async -> FeedRefreshResult? {
         guard let feedRefreshService else {
-            logger.error("Feed refresh service is unavailable for source save completion")
+            logger.error("Feed refresh service is unavailable for feed save completion")
             return nil
         }
 
         let result = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
         cleanupArchivedArticlesUsingCurrentSettings()
         await refreshUnreadAppIconBadgeCount()
-        appState.requestSourcesSidebarReload()
+        appState.requestSidebarReload()
         showFeed(id: feedID, using: appState)
-        dismissSourceManagement(using: appState)
+        dismissFeedManagement(using: appState)
         return result
     }
 
@@ -48,14 +48,14 @@ extension AppActionRouter {
         }
 
         let result = await feedRefreshService.refreshAllActiveFeeds()
-        recordSourcesRefreshIfNeeded(from: result)
+        recordFeedsRefreshIfNeeded(from: result)
         cleanupArchivedArticlesUsingCurrentSettings()
         await refreshUnreadAppIconBadgeCount()
         return result
     }
 
     @MainActor
-    func refreshCurrentSource(using appState: AppState) async -> FeedRefreshResult? {
+    func refreshCurrentFeed(using appState: AppState) async -> FeedRefreshResult? {
         switch appState.selectedSidebarSelection {
         case .feed(let feedID):
             let result = await refreshFeed(id: feedID)
@@ -64,7 +64,7 @@ extension AppActionRouter {
             }
             return result
         case .inbox, .unread, .starred, .folder, .none:
-            logger.info("Skipped source refresh because the current source is not a single feed")
+            logger.info("Skipped feed refresh because the current sidebar selection is not a single feed")
             return nil
         }
     }
@@ -75,7 +75,7 @@ extension AppActionRouter {
         requestsArticleListReload: Bool = true
     ) async -> FeedRefreshBatchResult? {
         guard let selection = appState.selectedSidebarSelection else {
-            logger.info("Skipped selection refresh because no source is selected")
+            logger.info("Skipped selection refresh because no sidebar selection is active")
             return nil
         }
 
@@ -98,7 +98,7 @@ extension AppActionRouter {
         }
 
         if result != nil {
-            appState.requestSourcesSidebarReload()
+            appState.requestSidebarReload()
             if requestsArticleListReload {
                 appState.requestArticleListReload()
             }
@@ -108,10 +108,10 @@ extension AppActionRouter {
     }
 
     @MainActor
-    func refreshVisibleSources(using appState: AppState) async -> FeedRefreshBatchResult? {
+    func refreshVisibleFeeds(using appState: AppState) async -> FeedRefreshBatchResult? {
         let result = await refreshAllFeeds()
         if result != nil {
-            appState.requestSourceIconReload()
+            appState.requestFeedIconReload()
             appState.requestArticleListReload()
         }
         return result
@@ -128,7 +128,7 @@ extension AppActionRouter {
 
         let result = await backgroundRefreshService.performScheduledRefresh()
         if case .executed(let refreshResult) = result {
-            recordSourcesRefreshIfNeeded(from: refreshResult.batchResult)
+            recordFeedsRefreshIfNeeded(from: refreshResult.batchResult)
             cleanupPersistenceBoundedGrowth()
             await refreshUnreadAppIconBadgeCount()
         }
@@ -136,7 +136,7 @@ extension AppActionRouter {
     }
 
     @MainActor
-    private func recordSourcesRefreshIfNeeded(from result: FeedRefreshBatchResult) {
+    private func recordFeedsRefreshIfNeeded(from result: FeedRefreshBatchResult) {
         guard result.summary.fetchedCount + result.summary.notModifiedCount > 0 else {
             return
         }
@@ -144,12 +144,12 @@ extension AppActionRouter {
         do {
             _ = try appSettingsService?.updateSettings(
                 AppSettingsPatch(
-                    lastSourcesRefreshAt: result.finishedAt,
+                    lastFeedsRefreshAt: result.finishedAt,
                     updatedAt: result.finishedAt
                 )
             )
         } catch {
-            logger.error("Failed to persist sources refresh timestamp: \(error)")
+            logger.error("Failed to persist feeds refresh timestamp: \(error)")
         }
     }
 

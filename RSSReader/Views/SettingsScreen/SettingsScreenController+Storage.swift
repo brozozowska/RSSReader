@@ -16,18 +16,18 @@ extension SettingsScreenController {
         }
     }
 
-    func clearSourceIconCache(
+    func clearFeedIconCache(
         dependencies: AppDependencies,
         appState: AppState?
     ) async {
         do {
-            try await dependencies.sourceIconCache.removeAllCachedData()
-            screenState.applySourceIconCacheAvailability(false)
-            appState?.requestSourceIconCacheReset()
-            dependencies.logger.info("Cleared source icon cache")
+            try await dependencies.feedIconCache.removeAllCachedData()
+            screenState.applyFeedIconCacheAvailability(false)
+            appState?.requestFeedIconCacheReset()
+            dependencies.logger.info("Cleared feed icon cache")
         } catch {
-            dependencies.logger.error("Failed to clear source icon cache: \(error)")
-            await refreshSourceIconCacheAvailability(dependencies: dependencies)
+            dependencies.logger.error("Failed to clear feed icon cache: \(error)")
+            await refreshFeedIconCacheAvailability(dependencies: dependencies)
         }
     }
 
@@ -42,7 +42,7 @@ extension SettingsScreenController {
 
         screenState.applyArchivedArticlesAvailability(false)
         if result.deletedCount > 0 {
-            appState?.requestSourcesSidebarReload()
+            appState?.requestSidebarReload()
             appState?.requestArticleListReload()
         }
     }

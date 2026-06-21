@@ -248,7 +248,7 @@ struct ArticleScreenHTMLBlockRenderingTests {
                     ArticleScreenTextBlock(
                         spans: [
                             ArticleScreenTextSpan(
-                                text: "Open video",
+                                text: ReadingLocalization.openVideoAction,
                                 linkURL: URL(string: "https://cdn.example.com/video/figure-shift.mp4")!
                             )
                         ]
@@ -273,7 +273,7 @@ struct ArticleScreenHTMLBlockRenderingTests {
                     ArticleScreenTextBlock(
                         spans: [
                             ArticleScreenTextSpan(
-                                text: "Open video",
+                                text: ReadingLocalization.openVideoAction,
                                 linkURL: URL(string: "https://cdn.example.com/video/lead-video.webm")!
                             )
                         ]
@@ -342,7 +342,7 @@ struct ArticleScreenHTMLBlockRenderingTests {
                     ArticleScreenTextBlock(
                         spans: [
                             ArticleScreenTextSpan(
-                                text: "Open embedded content",
+                                text: ReadingLocalization.openEmbeddedContentAction,
                                 linkURL: URL(string: "https://www.youtube.com/embed/video-id")!
                             )
                         ]
@@ -352,7 +352,7 @@ struct ArticleScreenHTMLBlockRenderingTests {
                     ArticleScreenTextBlock(
                         spans: [
                             ArticleScreenTextSpan(
-                                text: "Open video",
+                                text: ReadingLocalization.openVideoAction,
                                 linkURL: URL(string: "https://example.com/media/movie.mp4")!
                             )
                         ]
@@ -362,7 +362,7 @@ struct ArticleScreenHTMLBlockRenderingTests {
                     ArticleScreenTextBlock(
                         spans: [
                             ArticleScreenTextSpan(
-                                text: "Open audio",
+                                text: ReadingLocalization.openAudioAction,
                                 linkURL: URL(string: "https://example.com/media/audio.mp3")!
                             )
                         ]
@@ -372,7 +372,7 @@ struct ArticleScreenHTMLBlockRenderingTests {
                     ArticleScreenTextBlock(
                         spans: [
                             ArticleScreenTextSpan(
-                                text: "Open media",
+                                text: ReadingLocalization.openMediaAction,
                                 linkURL: URL(string: "https://example.com/media/widget")!
                             )
                         ]

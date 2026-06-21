@@ -3,16 +3,16 @@ import Foundation
 struct ArticleListSession: Equatable {
     struct Context: Equatable {
         let selection: SidebarSelection?
-        let sourcesFilter: SourcesFilter
+        let sidebarArticleFilter: SidebarArticleFilter
 
         var articleListFilter: ArticleListFilter {
             ArticlesScreenMutationReducer.articleListFilter(
                 selection: selection,
-                sourcesFilter: sourcesFilter
+                sidebarArticleFilter: sidebarArticleFilter
             )
         }
 
-        static let noSelection = Context(selection: nil, sourcesFilter: .allItems)
+        static let noSelection = Context(selection: nil, sidebarArticleFilter: .allItems)
     }
 
     private(set) var context: Context

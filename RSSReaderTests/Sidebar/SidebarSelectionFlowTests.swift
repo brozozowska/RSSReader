@@ -6,10 +6,10 @@ import Testing
 @MainActor
 struct SidebarSelectionFlowTests {
     @Test
-    func sidebarControllerLoadsPersistedLastSourcesRefreshTimestampWithoutRewritingIt() async throws {
+    func sidebarControllerLoadsPersistedLastFeedsRefreshTimestampWithoutRewritingIt() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
-        let lastSourcesRefreshAt = try #require(Calendar.current.date(from: DateComponents(
+        let lastFeedsRefreshAt = try #require(Calendar.current.date(from: DateComponents(
             year: 2026,
             month: 5,
             day: 24,
@@ -18,7 +18,7 @@ struct SidebarSelectionFlowTests {
         )))
         _ = try repository.update(
             AppSettingsUpdate(
-                lastSourcesRefreshAt: lastSourcesRefreshAt,
+                lastFeedsRefreshAt: lastFeedsRefreshAt,
                 updatedAt: .distantPast
             )
         )
@@ -34,12 +34,12 @@ struct SidebarSelectionFlowTests {
 
         let persistedSettings = try repository.fetchOrCreate()
 
-        #expect(controller.screenState.refreshStatus == .idle(lastUpdatedAt: lastSourcesRefreshAt))
-        #expect(persistedSettings.lastSourcesRefreshAt == lastSourcesRefreshAt)
+        #expect(controller.screenState.refreshStatus == .idle(lastUpdatedAt: lastFeedsRefreshAt))
+        #expect(persistedSettings.lastFeedsRefreshAt == lastFeedsRefreshAt)
     }
 
     @Test
-    func folderSelectionInheritsActiveSourcesFilterForSelectedFolder() throws {
+    func folderSelectionInheritsActiveSidebarArticleFilterForSelectedFolder() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feeds = try harness.insertFeeds(
             urls: [
@@ -163,7 +163,7 @@ struct SidebarSelectionFlowTests {
     }
 
     @Test
-    func feedSelectionInheritsActiveSourcesFilterForSelectedSource() throws {
+    func feedSelectionInheritsActiveSidebarArticleFilterForSelectedFeed() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(
             try harness.insertFeeds(urls: ["https://example.com/filter-feed.xml"]).first
@@ -260,7 +260,7 @@ struct SidebarSelectionFlowTests {
     }
 
     @Test
-    func sourcesSelectionBehaviorKeepsCurrentFeedSelectionWhenItRemainsVisible() {
+    func sidebarSelectionBehaviorKeepsCurrentFeedSelectionWhenItRemainsVisible() {
         let visibleFeedID = UUID()
 
         let selection = SidebarSelectionBehavior.resolvedSelection(
@@ -274,7 +274,7 @@ struct SidebarSelectionFlowTests {
     }
 
     @Test
-    func sourcesSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentFeedBecomesHidden() {
+    func sidebarSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentFeedBecomesHidden() {
         let hiddenFeedID = UUID()
 
         let selection = SidebarSelectionBehavior.resolvedSelection(
@@ -288,7 +288,7 @@ struct SidebarSelectionFlowTests {
     }
 
     @Test
-    func sourcesSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentSmartSelectionDoesNotMatchFilter() {
+    func sidebarSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentSmartSelectionDoesNotMatchFilter() {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: .inbox,
             filter: .starred,
@@ -300,7 +300,7 @@ struct SidebarSelectionFlowTests {
     }
 
     @Test
-    func sourcesSelectionBehaviorKeepsNoSelectionWhenThereIsNoCurrentSelection() {
+    func sidebarSelectionBehaviorKeepsNoSelectionWhenThereIsNoCurrentSelection() {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: nil,
             filter: .allItems,
@@ -312,7 +312,7 @@ struct SidebarSelectionFlowTests {
     }
 
     @Test
-    func sourcesSelectionBehaviorKeepsCurrentFolderSelectionWhenItRemainsVisible() {
+    func sidebarSelectionBehaviorKeepsCurrentFolderSelectionWhenItRemainsVisible() {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: .folder("News"),
             filter: .unread,
@@ -324,7 +324,7 @@ struct SidebarSelectionFlowTests {
     }
 
     @Test
-    func sourcesSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentFolderBecomesHidden() {
+    func sidebarSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentFolderBecomesHidden() {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: .folder("News"),
             filter: .starred,

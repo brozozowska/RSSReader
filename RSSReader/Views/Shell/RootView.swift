@@ -18,7 +18,7 @@ struct RootView: View {
         )
         let sidebarSelection = Binding<SidebarSelection?>(
             get: { appState.selectedSidebarSelection },
-            set: { appState.selectReadingSource($0) }
+            set: { appState.selectSidebarSelection($0) }
         )
         let articleSelection = Binding<UUID?>(
             get: { appState.selectedArticleID },
@@ -30,13 +30,13 @@ struct RootView: View {
         } content: {
             ArticleListView(
                 selectedSidebarSelection: appState.selectedSidebarSelection,
-                selectedSourcesFilter: appState.selectedSourcesFilter,
+                selectedSidebarArticleFilter: appState.selectedSidebarArticleFilter,
                 reloadID: appState.articleListReloadID,
                 showsBackButton: ReadingShellCompactNavigationState.showsArticlesBackButton(
                     horizontalSizeClass: horizontalSizeClass,
-                    sourceSelection: appState.selectedSidebarSelection
+                    sidebarSelection: appState.selectedSidebarSelection
                 ),
-                navigateBackToSources: { preferredCompactColumn = .sidebar },
+                navigateBackToSidebar: { preferredCompactColumn = .sidebar },
                 previewScreenState: nil,
                 selection: articleSelection
             )
@@ -85,14 +85,14 @@ struct RootView: View {
                 )
             }
         }
-        .sheet(isPresented: sourceManagementPresentationBinding) {
+        .sheet(isPresented: feedManagementPresentationBinding) {
             AppThemePresentationScope(
                 interfaceThemeMode: appState.interfaceThemeMode,
                 systemColorScheme: systemColorScheme
             ) {
-                SourceManagementScreenView(
-                    dismiss: { dependencies.appActions.dismissSourceManagement(using: appState) },
-                    launchContext: appState.sourceManagementLaunchContext
+                FeedManagementScreenView(
+                    dismiss: { dependencies.appActions.dismissFeedManagement(using: appState) },
+                    launchContext: appState.feedManagementLaunchContext
                 )
             }
         }
@@ -121,14 +121,14 @@ struct RootView: View {
         )
     }
 
-    private var sourceManagementPresentationBinding: Binding<Bool> {
+    private var feedManagementPresentationBinding: Binding<Bool> {
         Binding(
-            get: { appState.isPresentingSourceManagementScreen },
+            get: { appState.isPresentingFeedManagementScreen },
             set: { isPresented in
                 if isPresented {
-                    appState.presentSourceManagementScreen()
+                    appState.presentFeedManagementScreen()
                 } else {
-                    appState.dismissSourceManagementScreen()
+                    appState.dismissFeedManagementScreen()
                 }
             }
         )
@@ -147,7 +147,7 @@ struct RootView: View {
 
     private func syncPreferredCompactColumn() {
         preferredCompactColumn = ReadingShellCompactNavigationState.preferredCompactColumn(
-            sourceSelection: appState.selectedSidebarSelection,
+            sidebarSelection: appState.selectedSidebarSelection,
             articleSelection: appState.selectedArticleID
         )
     }

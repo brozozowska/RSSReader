@@ -6,28 +6,28 @@ import Testing
 @MainActor
 struct SidebarFilteringTests {
     @Test
-    func sourcesFilterArticleListFilterResolverMapsSourcesFilterToExpectedArticleFilter() {
-        #expect(SourcesFilterArticleListFilterResolver.resolve(for: .allItems) == .all)
-        #expect(SourcesFilterArticleListFilterResolver.resolve(for: .unread) == .unread)
-        #expect(SourcesFilterArticleListFilterResolver.resolve(for: .starred) == .starred)
+    func sidebarArticleFilterArticleListFilterResolverMapsSidebarArticleFilterToExpectedArticleFilter() {
+        #expect(SidebarArticleFilterResolver.resolve(for: .allItems) == .all)
+        #expect(SidebarArticleFilterResolver.resolve(for: .unread) == .unread)
+        #expect(SidebarArticleFilterResolver.resolve(for: .starred) == .starred)
     }
 
     @Test
-    func sourcesSmartViewsShowOnlyActiveFilterRow() {
+    func sidebarSmartViewsShowOnlyActiveFilterRow() {
         #expect(SmartSidebarItem.visibleItems(for: .allItems, hasFeeds: true) == [.allItems])
         #expect(SmartSidebarItem.visibleItems(for: .unread, hasFeeds: true) == [.unread])
         #expect(SmartSidebarItem.visibleItems(for: .starred, hasFeeds: true) == [.starred])
     }
 
     @Test
-    func sourcesSmartViewsAreHiddenWhenThereAreNoFeeds() {
+    func sidebarSmartViewsAreHiddenWhenThereAreNoFeeds() {
         #expect(SmartSidebarItem.visibleItems(for: .allItems, hasFeeds: false).isEmpty)
         #expect(SmartSidebarItem.visibleItems(for: .unread, hasFeeds: false).isEmpty)
         #expect(SmartSidebarItem.visibleItems(for: .starred, hasFeeds: false).isEmpty)
     }
 
     @Test
-    func sourcesSidebarShowsOnlyFeedsWithStarredArticlesWhenStarredFilterIsActive() {
+    func sidebarShowsOnlyFeedsWithStarredArticlesWhenStarredFilterIsActive() {
         let feedOneID = UUID()
         let feedTwoID = UUID()
         let newsFolder = Folder(name: "News")
@@ -52,7 +52,7 @@ struct SidebarFilteringTests {
     }
 
     @Test
-    func sourcesSidebarKeepsAllFeedsVisibleForAllItemsFilter() {
+    func sidebarKeepsAllFeedsVisibleForAllItemsFilter() {
         let feedOneID = UUID()
         let feedTwoID = UUID()
         let newsFolder = Folder(name: "News")
@@ -78,7 +78,7 @@ struct SidebarFilteringTests {
     }
 
     @Test
-    func sourcesSidebarShowsOnlyFeedsWithUnreadArticlesWhenUnreadFilterIsActive() {
+    func sidebarShowsOnlyFeedsWithUnreadArticlesWhenUnreadFilterIsActive() {
         let feedOneID = UUID()
         let feedTwoID = UUID()
         let newsFolder = Folder(name: "News")
@@ -103,7 +103,7 @@ struct SidebarFilteringTests {
     }
 
     @Test
-    func sourcesSidebarHidesFoldersSectionWhenFilteredFeedsDoNotContainFolders() {
+    func sidebarHidesFoldersSectionWhenFilteredFeedsDoNotContainFolders() {
         let ungroupedFeed = FeedSidebarItem(
             feed: Feed(id: UUID(), url: "https://example.com/feed.xml", title: "Ungrouped Feed"),
             unreadCount: 1
@@ -115,7 +115,7 @@ struct SidebarFilteringTests {
     }
 
     @Test
-    func sourcesSidebarKeepsEmptyFoldersForAllItemsFilter() {
+    func sidebarKeepsEmptyFoldersForAllItemsFilter() {
         let emptyFolderID = UUID()
         let groups = FolderSidebarGroup.groups(
             from: [
@@ -135,7 +135,7 @@ struct SidebarFilteringTests {
     }
 
     @Test
-    func sourcesSidebarHidesEmptyFoldersForUnreadAndStarredFilters() {
+    func sidebarHidesEmptyFoldersForUnreadAndStarredFilters() {
         let folders = [
             FolderSidebarItem(
                 id: UUID(),
@@ -149,7 +149,7 @@ struct SidebarFilteringTests {
     }
 
     @Test
-    func sourcesSidebarHidesUngroupedSectionWhenFilteredFeedsDoNotContainUngroupedSources() {
+    func sidebarHidesUngroupedSectionWhenFilteredFeedsDoNotContainUngroupedFeeds() {
         let folder = Folder(name: "News")
         let groupedFeed = FeedSidebarItem(
             feed: Feed(id: UUID(), url: "https://example.com/feed.xml", title: "Grouped Feed", folder: folder),

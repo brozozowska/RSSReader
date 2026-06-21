@@ -28,35 +28,35 @@ struct SettingsScreenControllerSideEffectsTests {
     }
 
     @Test
-    func settingsScreenControllerClearsSourceIconCacheAndRequestsIconResetWithoutChangingSettings() async throws {
+    func settingsScreenControllerClearsFeedIconCacheAndRequestsIconResetWithoutChangingSettings() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
-        let sourceIconCache = SettingsRecordingSourceIconCache(hasCachedDataValue: true)
+        let feedIconCache = SettingsRecordingFeedIconCache(hasCachedDataValue: true)
         let dependencies = AppDependencies(
             logger: TestLogger(),
             httpClient: harness.httpClient,
             feedFetcher: harness.dependencies.feedFetcher,
-            sourceIconCache: sourceIconCache,
+            feedIconCache: feedIconCache,
             modelContainer: harness.modelContainer,
             unreadAppIconBadgeService: NoOpUnreadAppIconBadgeService()
         )
         let settingsService = try #require(dependencies.appSettingsService)
         let controller = SettingsScreenController()
         let appState = AppState()
-        let resetIDBeforeClear = appState.sourceIconCacheResetID
+        let resetIDBeforeClear = appState.feedIconCacheResetID
         let initialSnapshot = try settingsService.fetchSettings()
 
-        await controller.refreshSourceIconCacheAvailability(dependencies: dependencies)
-        #expect(controller.screenState.hasSourceIconCache)
+        await controller.refreshFeedIconCacheAvailability(dependencies: dependencies)
+        #expect(controller.screenState.hasFeedIconCache)
 
         await controller.handleButtonTap(
-            itemID: .clearSourceIconCache,
+            itemID: .clearFeedIconCache,
             dependencies: dependencies,
             appState: appState
         )
 
-        #expect(await sourceIconCache.removeAllCallCount() == 1)
-        #expect(controller.screenState.hasSourceIconCache == false)
-        #expect(appState.sourceIconCacheResetID != resetIDBeforeClear)
+        #expect(await feedIconCache.removeAllCallCount() == 1)
+        #expect(controller.screenState.hasFeedIconCache == false)
+        #expect(appState.feedIconCacheResetID != resetIDBeforeClear)
         #expect(try settingsService.fetchSettings() == initialSnapshot)
     }
 
@@ -89,7 +89,7 @@ struct SettingsScreenControllerSideEffectsTests {
         let controller = SettingsScreenController()
         let appState = AppState()
         let articleListReloadIDBeforePurge = appState.articleListReloadID
-        let sourcesSidebarReloadIDBeforePurge = appState.sourcesSidebarReloadID
+        let sidebarReloadIDBeforePurge = appState.sidebarReloadID
         let initialSnapshot = try settingsService.fetchSettings()
 
         controller.refreshArchivedArticlesAvailability(dependencies: harness.dependencies)
@@ -106,7 +106,7 @@ struct SettingsScreenControllerSideEffectsTests {
         #expect(try harness.articleRepository.fetchArticle(id: currentArticle.id) != nil)
         #expect(controller.screenState.hasArchivedArticles == false)
         #expect(appState.articleListReloadID != articleListReloadIDBeforePurge)
-        #expect(appState.sourcesSidebarReloadID != sourcesSidebarReloadIDBeforePurge)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforePurge)
         #expect(try settingsService.fetchSettings() == initialSnapshot)
     }
 
@@ -223,7 +223,7 @@ struct SettingsScreenControllerSideEffectsTests {
     }
 }
 
-private actor SettingsRecordingSourceIconCache: SourceIconCaching {
+private actor SettingsRecordingFeedIconCache: FeedIconCaching {
     private var hasCachedDataValue: Bool
     private var removeAllCount = 0
 

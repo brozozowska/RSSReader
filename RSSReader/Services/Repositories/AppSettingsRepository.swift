@@ -3,7 +3,7 @@ import SwiftData
 
 struct AppSettingsUpdate: Sendable {
     var articleOpeningMode: ArticleOpeningMode? = nil
-    var selectedSourcesFilterRawValue: String? = nil
+    var selectedSidebarArticleFilterRawValue: String? = nil
     var refreshIntervalPreference: RefreshPreference? = nil
     var useiCloudSync: Bool? = nil
     var markAsReadOnOpen: Bool? = nil
@@ -15,7 +15,7 @@ struct AppSettingsUpdate: Sendable {
     var articleSourceLinkOpeningPolicy: ArticleSourceLinkOpeningPolicy? = nil
     var readerAdjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode? = nil
     var interfaceThemeMode: InterfaceThemeMode? = nil
-    var lastSourcesRefreshAt: Date? = nil
+    var lastFeedsRefreshAt: Date? = nil
     var updatedAt: Date = .now
 }
 
@@ -62,8 +62,8 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
             settings.articleOpeningMode = articleOpeningMode
         }
 
-        if let selectedSourcesFilterRawValue = update.selectedSourcesFilterRawValue {
-            settings.selectedSourcesFilterRawValue = selectedSourcesFilterRawValue
+        if let selectedSidebarArticleFilterRawValue = update.selectedSidebarArticleFilterRawValue {
+            settings.selectedSidebarArticleFilterRawValue = selectedSidebarArticleFilterRawValue
         }
 
         if let refreshIntervalPreference = update.refreshIntervalPreference {
@@ -110,8 +110,8 @@ final class SwiftDataAppSettingsRepository: AppSettingsRepository, SwiftDataRepo
             settings.interfaceThemeMode = interfaceThemeMode
         }
 
-        if let lastSourcesRefreshAt = update.lastSourcesRefreshAt {
-            settings.lastSourcesRefreshAt = lastSourcesRefreshAt
+        if let lastFeedsRefreshAt = update.lastFeedsRefreshAt {
+            settings.lastFeedsRefreshAt = lastFeedsRefreshAt
         }
 
         settings.updatedAt = update.updatedAt

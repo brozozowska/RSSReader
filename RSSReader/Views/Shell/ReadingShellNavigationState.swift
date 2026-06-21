@@ -2,14 +2,14 @@ import SwiftUI
 
 enum ReadingShellCompactNavigationState {
     static func preferredCompactColumn(
-        sourceSelection: SidebarSelection?,
+        sidebarSelection: SidebarSelection?,
         articleSelection: UUID?
     ) -> NavigationSplitViewColumn {
         if articleSelection != nil {
             return .detail
         }
 
-        if sourceSelection != nil {
+        if sidebarSelection != nil {
             return .content
         }
 
@@ -18,20 +18,24 @@ enum ReadingShellCompactNavigationState {
 
     static func showsArticlesBackButton(
         horizontalSizeClass: UserInterfaceSizeClass?,
-        sourceSelection: SidebarSelection?
+        sidebarSelection: SidebarSelection?
     ) -> Bool {
         CompactBackNavigationPolicy.showsBackButton(
             horizontalSizeClass: horizontalSizeClass,
-            hasSelection: sourceSelection != nil
+            hasSelection: sidebarSelection != nil
         )
     }
 
-    static func shouldNavigateBackToSourcesOnDrag(
+    static func shouldNavigateBackToSidebarOnDrag(
         startLocationX: CGFloat,
+        containerWidth: CGFloat,
+        layoutDirection: LayoutDirection,
         translation: CGSize
     ) -> Bool {
         CompactBackNavigationPolicy.shouldNavigateBackOnDrag(
             startLocationX: startLocationX,
+            containerWidth: containerWidth,
+            layoutDirection: layoutDirection,
             translation: translation
         )
     }

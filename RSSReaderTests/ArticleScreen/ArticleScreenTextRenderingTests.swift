@@ -62,7 +62,7 @@ struct ArticleScreenTextRenderingTests {
                         ]
                     )
                 ),
-                .fallbackNotice("This article included only a summary in the received feed.")
+                .fallbackNotice(ReadingLocalization.summaryOnlyFallbackNotice)
             ]
         )
         #expect(content.body.source == .summary)
@@ -166,7 +166,7 @@ struct ArticleScreenTextRenderingTests {
             content.body.blocks == [
                 .paragraph(.plainText("Short summary paragraph.")),
                 .paragraph(.plainText("Another summary paragraph.")),
-                .fallbackNotice("This article included only a summary in the received feed.")
+                .fallbackNotice(ReadingLocalization.summaryOnlyFallbackNotice)
             ]
         )
         #expect(content.body.source == .summary)
@@ -184,7 +184,7 @@ struct ArticleScreenTextRenderingTests {
 
         #expect(
             content.body.blocks == [
-                .fallbackNotice("This article did not include body content in the received feed.")
+                .fallbackNotice(ReadingLocalization.emptyBodyFallbackNotice)
             ]
         )
         #expect(content.body.source == .empty)

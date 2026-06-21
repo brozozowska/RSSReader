@@ -187,11 +187,11 @@ enum SmartSidebarItem: CaseIterable, Identifiable, Equatable {
     var title: String {
         switch self {
         case .allItems:
-            "All Items"
+            SidebarLocalization.allItemsFilterTitle
         case .unread:
-            "Unread"
+            SidebarLocalization.unreadFilterTitle
         case .starred:
-            "Starred"
+            SidebarLocalization.starredFilterTitle
         }
     }
 
@@ -217,7 +217,7 @@ enum SmartSidebarItem: CaseIterable, Identifiable, Equatable {
         }
     }
 
-    static func visibleItems(for filter: SourcesFilter, hasFeeds: Bool) -> [SmartSidebarItem] {
+    static func visibleItems(for filter: SidebarArticleFilter, hasFeeds: Bool) -> [SmartSidebarItem] {
         guard hasFeeds else { return [] }
 
         return switch filter {
@@ -230,7 +230,7 @@ enum SmartSidebarItem: CaseIterable, Identifiable, Equatable {
         }
     }
 
-    static func selection(for filter: SourcesFilter) -> SidebarSelection {
+    static func selection(for filter: SidebarArticleFilter) -> SidebarSelection {
         switch filter {
         case .allItems:
             .inbox
@@ -245,7 +245,7 @@ enum SmartSidebarItem: CaseIterable, Identifiable, Equatable {
 enum SidebarFeedVisibility {
     static func filteredFeeds(
         feeds: [FeedSidebarItem],
-        filter: SourcesFilter,
+        filter: SidebarArticleFilter,
         starredFeedIDs: Set<UUID>
     ) -> [FeedSidebarItem] {
         switch filter {
@@ -270,7 +270,7 @@ enum SidebarUngroupedFeeds {
 enum SidebarSelectionBehavior {
     static func resolvedSelection(
         currentSelection: SidebarSelection?,
-        filter: SourcesFilter,
+        filter: SidebarArticleFilter,
         visibleFeedIDs: Set<UUID>,
         visibleFolderNames: Set<String>
     ) -> SidebarSelection? {
@@ -316,7 +316,7 @@ struct FolderSidebarGroup: Identifiable {
     static func groups(
         from folders: [FolderSidebarItem],
         feeds: [FeedSidebarItem],
-        filter: SourcesFilter = .allItems
+        filter: SidebarArticleFilter = .allItems
     ) -> [FolderSidebarGroup] {
         let groupedFeeds = Dictionary(
             grouping: feeds.filter { $0.folderName != nil },

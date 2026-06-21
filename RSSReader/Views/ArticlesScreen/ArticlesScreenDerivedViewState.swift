@@ -14,7 +14,7 @@ struct ArticlesScreenDerivedViewState {
 extension ArticlesScreenState {
     func derivedViewState(
         searchText: String,
-        sourcesFilter: SourcesFilter = .allItems
+        sidebarArticleFilter: SidebarArticleFilter = .allItems
     ) -> ArticlesScreenDerivedViewState {
         let normalizedSearchText = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         let visibleArticles = filteredArticles(matching: normalizedSearchText)
@@ -24,7 +24,7 @@ extension ArticlesScreenState {
             sections: ArticlesDaySectionsBuilder.build(from: visibleArticles),
             navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
                 articles: visibleArticles,
-                sourcesFilter: sourcesFilter
+                sidebarArticleFilter: sidebarArticleFilter
             ),
             toolbarActions: ArticlesScreenToolbarActionsState(
                 selection: selection,
@@ -70,9 +70,9 @@ extension ArticlesScreenState {
         }
 
         return ArticlesScreenPlaceholderState(
-            title: "No Search Results",
+            title: ReadingLocalization.noSearchResultsTitle,
             systemImage: "magnifyingglass",
-            description: "No visible articles match \"\(normalizedSearchText)\"."
+            description: ReadingLocalization.noSearchResultsDescription(query: normalizedSearchText)
         )
     }
 
@@ -83,7 +83,7 @@ extension ArticlesScreenState {
 
         return ArticlesScreenRefreshBannerState(
             style: .failed,
-            title: "Refresh Failed",
+            title: ReadingLocalization.refreshFailedTitle,
             message: refreshFeedback.message
         )
     }
@@ -93,6 +93,6 @@ extension ArticlesScreenState {
             return nil
         }
 
-        return ArticlesScreenPrimaryLoadingState(title: "Loading Articles")
+        return ArticlesScreenPrimaryLoadingState(title: ReadingLocalization.loadingArticlesTitle)
     }
 }

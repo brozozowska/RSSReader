@@ -24,7 +24,7 @@ struct AppDependenciesRemoteSyncReloadLifecycleTests {
             syncCoordinator: syncCoordinator
         )
         let appState = AppState()
-        let initialSidebarReloadID = appState.sourcesSidebarReloadID
+        let initialSidebarReloadID = appState.sidebarReloadID
         let initialArticleListReloadID = appState.articleListReloadID
         let initialArticleScreenReloadID = appState.articleScreenReloadID
 
@@ -51,7 +51,7 @@ struct AppDependenciesRemoteSyncReloadLifecycleTests {
 
         try await Task.sleep(for: .milliseconds(100))
 
-        #expect(appState.sourcesSidebarReloadID == initialSidebarReloadID)
+        #expect(appState.sidebarReloadID == initialSidebarReloadID)
         #expect(appState.articleListReloadID == initialArticleListReloadID)
         #expect(appState.articleScreenReloadID == initialArticleScreenReloadID)
     }

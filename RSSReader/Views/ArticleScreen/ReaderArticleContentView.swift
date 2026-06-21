@@ -41,7 +41,7 @@ private struct ReaderArticleHeaderView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Open Original Article")
+                .accessibilityLabel(ReadingLocalization.openOriginalArticleAccessibilityLabel)
             } else {
                 Text(header.title)
                     .font(.title2.weight(.semibold))

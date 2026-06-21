@@ -30,7 +30,7 @@ struct ArticlesScreenControllerMarkAllReadTests {
         controller.handleMarkAllAsReadAction(
             searchText: "",
             selection: .feed(unreadItem.feedID),
-            sourcesFilter: .allItems,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
             isPreviewMode: false
         )
@@ -64,7 +64,7 @@ struct ArticlesScreenControllerMarkAllReadTests {
         controller.handleMarkAllAsReadAction(
             searchText: "",
             selection: .feed(unreadItem.feedID),
-            sourcesFilter: .allItems,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
             isPreviewMode: false
         )
@@ -76,7 +76,7 @@ struct ArticlesScreenControllerMarkAllReadTests {
 
         #expect(controller.screenState.pendingConfirmation == nil)
         #expect(controller.screenState.articles.first?.isRead == true)
-        #expect(controller.screenState.navigationSubtitle == "No Unread Items")
+        #expect(controller.screenState.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
         #expect(persistedState?.isRead == true)
     }
 }

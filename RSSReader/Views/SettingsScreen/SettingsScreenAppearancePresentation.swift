@@ -2,13 +2,13 @@ extension SettingsScreenPresentationBuilder {
     static func appearanceSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
         SettingsScreenSectionPresentation(
             id: .appearance,
-            title: "Appearance",
-            footer: "Choose how the app renders its interface. The selected mode applies immediately.",
+            title: SettingsLocalization.appearanceSectionTitle,
+            footer: SettingsLocalization.appearanceSectionFooter,
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .appearance,
-                        title: "Theme",
+                        title: SettingsLocalization.themePickerTitle,
                         subtitle: nil,
                         selectedValueTitle: SettingsScreenPresentationFormatter.interfaceThemeModeTitle(input.interfaceThemeMode),
                         options: InterfaceThemeMode.allCases.map { mode in

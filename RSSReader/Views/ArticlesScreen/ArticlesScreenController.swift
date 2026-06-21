@@ -31,7 +31,7 @@ final class ArticlesScreenController {
 
     func load(
         selection: SidebarSelection?,
-        sourcesFilter: SourcesFilter,
+        sidebarArticleFilter: SidebarArticleFilter,
         dependencies: AppDependencies,
         retainsSessionReadArticles: Bool = false,
         retainedSessionReadMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead,
@@ -41,7 +41,7 @@ final class ArticlesScreenController {
         let currentLoadGeneration = loadGeneration
         let sessionContext = ArticleListSession.Context(
             selection: selection,
-            sourcesFilter: sourcesFilter
+            sidebarArticleFilter: sidebarArticleFilter
         )
         let sessionContextChanged = shouldResetArticleSession(for: sessionContext)
         let navigationTitle = resolveNavigationTitle(
@@ -50,7 +50,7 @@ final class ArticlesScreenController {
         )
         let loadingSubtitle = resolveNavigationSubtitle(
             for: screenState.articles,
-            sourcesFilter: sourcesFilter
+            sidebarArticleFilter: sidebarArticleFilter
         )
         screenState.beginLoading(
             for: selection,
@@ -68,7 +68,7 @@ final class ArticlesScreenController {
 
         guard let articleQueryService = dependencies.articleQueryService else {
             screenState.applyLoadingFailure(
-                "Article query service is unavailable.",
+                ReadingLocalization.articleListQueryUnavailableMessage,
                 selection: selection,
                 navigationTitle: navigationTitle,
                 navigationSubtitle: loadingSubtitle,
@@ -83,14 +83,14 @@ final class ArticlesScreenController {
         do {
             let loadedArticles = try loadArticles(
                 for: selection,
-                sourcesFilter: sourcesFilter,
+                sidebarArticleFilter: sidebarArticleFilter,
                 unreadArticleSortMode: unreadArticleSortMode,
                 articleQueryService: articleQueryService
             )
             let resolvedEntries = entriesByRetainingSessionReadItems(
                 loadedArticles,
                 selection: selection,
-                sourcesFilter: sourcesFilter,
+                sidebarArticleFilter: sidebarArticleFilter,
                 retainsCurrentContent: sessionContextChanged == false && retainsSessionReadArticles,
                 retainedMembershipStatus: retainedSessionReadMembershipStatus
             )
@@ -103,7 +103,7 @@ final class ArticlesScreenController {
                 navigationTitle: navigationTitle,
                 navigationSubtitle: resolveNavigationSubtitle(
                     for: subtitleArticles,
-                    sourcesFilter: sourcesFilter
+                    sidebarArticleFilter: sidebarArticleFilter
                 ),
                 sessionContext: sessionContext,
                 preservesRefreshFeedback: preservesRefreshFeedback
@@ -141,7 +141,7 @@ final class ArticlesScreenController {
         }
 
         if result == nil, selection != nil {
-            screenState.presentRefreshFailure("Unable to refresh the current selection right now.")
+            screenState.presentRefreshFailure(ReadingLocalization.refreshCurrentSelectionFailed)
             return nil
         }
 
@@ -167,11 +167,11 @@ final class ArticlesScreenController {
 
     private func resolveNavigationSubtitle(
         for articles: [ArticleListItemDTO],
-        sourcesFilter: SourcesFilter
+        sidebarArticleFilter: SidebarArticleFilter
     ) -> String {
         ArticlesScreenSubtitleResolver.resolve(
             articles: articles,
-            sourcesFilter: sourcesFilter
+            sidebarArticleFilter: sidebarArticleFilter
         )
     }
 
@@ -190,13 +190,13 @@ final class ArticlesScreenController {
 
     private func loadArticles(
         for selection: SidebarSelection?,
-        sourcesFilter: SourcesFilter,
+        sidebarArticleFilter: SidebarArticleFilter,
         unreadArticleSortMode: ArticleSortMode,
         articleQueryService: any ArticleQueryService
     ) throws -> [ArticleListItemDTO] {
         let articleListFilter = articleListFilter(
             for: selection,
-            sourcesFilter: sourcesFilter
+            sidebarArticleFilter: sidebarArticleFilter
         )
         let articleListSortMode = articleListSortMode(
             for: articleListFilter,
@@ -238,7 +238,7 @@ final class ArticlesScreenController {
 
     private func articleListFilter(
         for selection: SidebarSelection?,
-        sourcesFilter: SourcesFilter
+        sidebarArticleFilter: SidebarArticleFilter
     ) -> ArticleListFilter {
         switch selection {
         case .unread:
@@ -246,7 +246,7 @@ final class ArticlesScreenController {
         case .starred:
             .starred
         case .inbox, .folder, .feed, .none:
-            SourcesFilterArticleListFilterResolver.resolve(for: sourcesFilter)
+            SidebarArticleFilterResolver.resolve(for: sidebarArticleFilter)
         }
     }
 
@@ -260,14 +260,14 @@ final class ArticlesScreenController {
     private func entriesByRetainingSessionReadItems(
         _ loadedArticles: [ArticleListItemDTO],
         selection: SidebarSelection?,
-        sourcesFilter: SourcesFilter,
+        sidebarArticleFilter: SidebarArticleFilter,
         retainsCurrentContent: Bool,
         retainedMembershipStatus: ArticleListEntryMembershipStatus
     ) -> [ArticleListEntry] {
         guard retainsCurrentContent,
               ArticlesScreenMutationReducer.articleListFilter(
                 selection: selection,
-                sourcesFilter: sourcesFilter
+                sidebarArticleFilter: sidebarArticleFilter
               ) == .unread else {
             return ArticleListSessionMergePolicy.merge(
                 currentEntries: screenState.articleListSession.entries,
@@ -296,13 +296,16 @@ final class ArticlesScreenController {
             if result.summary.failedCount == 1 {
                 return firstError
             }
-            return "\(result.summary.failedCount) sources failed to refresh. First error: \(firstError)"
+            return ReadingLocalization.multipleFeedsRefreshFailed(
+                count: result.summary.failedCount,
+                firstError: firstError
+            )
         }
 
         if result.summary.failedCount == 1 {
-            return "The current source failed to refresh."
+            return ReadingLocalization.singleFeedRefreshFailed
         }
 
-        return "\(result.summary.failedCount) sources failed to refresh."
+        return ReadingLocalization.multipleFeedsRefreshFailed(count: result.summary.failedCount)
     }
 }

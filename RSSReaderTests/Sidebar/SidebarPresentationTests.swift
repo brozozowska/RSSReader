@@ -64,14 +64,14 @@ struct SidebarPresentationTests {
     func sidebarSubtitleFormatterReturnsSyncingTitleForSyncingState() {
         let formatter = SidebarSubtitleFormatter()
 
-        #expect(formatter.text(for: .syncing) == "Syncing...")
+        #expect(formatter.text(for: .syncing) == RuntimeFeedbackLocalization.syncingStatusTitle)
     }
 
     @Test
     func sidebarSubtitleFormatterReturnsPlaceholderWhenNoRefreshDateIsAvailable() {
         let formatter = SidebarSubtitleFormatter()
 
-        #expect(formatter.text(for: .idle(lastUpdatedAt: nil)) == "Not updated yet")
+        #expect(formatter.text(for: .idle(lastUpdatedAt: nil)) == RuntimeFeedbackLocalization.notUpdatedYetStatusTitle)
     }
 
     @Test
@@ -94,9 +94,13 @@ struct SidebarPresentationTests {
             hour: 17,
             minute: 8
         )))
-        let formatter = SidebarSubtitleFormatter(now: now, calendar: calendar)
+        let formatter = SidebarSubtitleFormatter(
+            now: now,
+            calendar: calendar,
+            locale: Locale(identifier: "en_GB")
+        )
 
-        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == "Today at 17:08")
+        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == RuntimeFeedbackLocalization.todayRefreshStatus(time: "17:08"))
     }
 
     @Test
@@ -119,9 +123,13 @@ struct SidebarPresentationTests {
             hour: 17,
             minute: 8
         )))
-        let formatter = SidebarSubtitleFormatter(now: now, calendar: calendar)
+        let formatter = SidebarSubtitleFormatter(
+            now: now,
+            calendar: calendar,
+            locale: Locale(identifier: "en_GB")
+        )
 
-        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == "Yesterday at 17:08")
+        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == RuntimeFeedbackLocalization.yesterdayRefreshStatus(time: "17:08"))
     }
 
     @Test
@@ -144,16 +152,30 @@ struct SidebarPresentationTests {
             hour: 17,
             minute: 8
         )))
-        let formatter = SidebarSubtitleFormatter(now: now, calendar: calendar)
+        let formatter = SidebarSubtitleFormatter(
+            now: now,
+            calendar: calendar,
+            locale: Locale(identifier: "en_GB")
+        )
 
-        #expect(formatter.text(for: .idle(lastUpdatedAt: refreshDate)) == "Sunday, 24 May 2026")
+        #expect(
+            formatter.text(for: .idle(lastUpdatedAt: refreshDate))
+                == refreshDate.formatted(
+                    .dateTime
+                        .locale(Locale(identifier: "en_GB"))
+                        .weekday(.wide)
+                        .day()
+                        .month(.wide)
+                        .year()
+                )
+        )
     }
 
     @Test
     func sidebarToolbarStateMarksSyncingStateAndUsesSyncingSubtitle() {
         let state = SidebarToolbarState(refreshStatus: .syncing)
 
-        #expect(state.subtitle == "Syncing...")
+        #expect(state.subtitle == RuntimeFeedbackLocalization.syncingStatusTitle)
         #expect(state.isSyncing)
     }
 
@@ -176,7 +198,7 @@ struct SidebarPresentationTests {
             iCloudSyncStatus: .syncing
         )
 
-        #expect(state.subtitle == "Syncing...")
+        #expect(state.subtitle == RuntimeFeedbackLocalization.syncingStatusTitle)
         #expect(state.isSyncing)
     }
 
@@ -243,7 +265,7 @@ struct SidebarPresentationTests {
     }
 
     @Test
-    func sourceIconCandidateBuilderParsesHTMLIconLinksInPriorityOrder() throws {
+    func feedIconCandidateBuilderParsesHTMLIconLinksInPriorityOrder() throws {
         let baseURL = try #require(URL(string: "https://example.com/"))
         let html = """
         <!doctype html>
@@ -258,7 +280,7 @@ struct SidebarPresentationTests {
         </html>
         """
 
-        let candidates = SourceIconCandidateBuilder.htmlIconCandidates(in: html, baseURL: baseURL)
+        let candidates = FeedIconCandidateBuilder.htmlIconCandidates(in: html, baseURL: baseURL)
             .map(\.absoluteString)
 
         #expect(candidates == [
@@ -269,10 +291,10 @@ struct SidebarPresentationTests {
     }
 
     @Test
-    func sourceIconCandidateBuilderBuildsCommonIconCandidatesFromOrigin() throws {
+    func feedIconCandidateBuilderBuildsCommonIconCandidatesFromOrigin() throws {
         let iconURL = try #require(URL(string: "https://example.com/news/favicon.ico"))
 
-        let candidates = SourceIconCandidateBuilder.commonIconCandidates(for: iconURL)
+        let candidates = FeedIconCandidateBuilder.commonIconCandidates(for: iconURL)
             .map(\.absoluteString)
 
         #expect(candidates == [
@@ -285,11 +307,11 @@ struct SidebarPresentationTests {
     }
 
     @Test
-    func sourceIconImagePolicyRejectsWideLogoImages() {
-        #expect(SourceIconImagePolicy.isSuitableIconSize(CGSize(width: 180, height: 180)))
-        #expect(SourceIconImagePolicy.isSuitableIconSize(CGSize(width: 64, height: 32)))
-        #expect(SourceIconImagePolicy.isSuitableIconSize(CGSize(width: 240, height: 40)) == false)
-        #expect(SourceIconImagePolicy.isSuitableIconSize(CGSize(width: 0, height: 0)) == false)
+    func feedIconImagePolicyRejectsWideLogoImages() {
+        #expect(FeedIconImagePolicy.isSuitableIconSize(CGSize(width: 180, height: 180)))
+        #expect(FeedIconImagePolicy.isSuitableIconSize(CGSize(width: 64, height: 32)))
+        #expect(FeedIconImagePolicy.isSuitableIconSize(CGSize(width: 240, height: 40)) == false)
+        #expect(FeedIconImagePolicy.isSuitableIconSize(CGSize(width: 0, height: 0)) == false)
     }
 
     @Test
@@ -300,7 +322,7 @@ struct SidebarPresentationTests {
             iCloudSyncStatus: .failed("Setup failed.")
         )
 
-        #expect(state.subtitle == "Sync failed")
+        #expect(state.subtitle == RuntimeFeedbackLocalization.syncFailedStatusTitle)
         #expect(state.isSyncing == false)
     }
 }

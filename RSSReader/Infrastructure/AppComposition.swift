@@ -94,9 +94,9 @@ struct AppRootContainer: View {
                 to: appState
             )
         }
-        .onChange(of: appState.selectedSourcesFilter) { _, newFilter in
+        .onChange(of: appState.selectedSidebarArticleFilter) { _, newFilter in
             guard hasRestoredPersistedAppSettings else { return }
-            persistSourcesFilter(newFilter)
+            persistSidebarArticleFilter(newFilter)
         }
         .onDisappear {
             AppComposition.unbindBackgroundRefreshForegroundReloadHandler(using: dependencies)
@@ -112,12 +112,12 @@ struct AppRootContainer: View {
 
         do {
             let settings = try appSettingsService.fetchSettings()
-            let restoredFilter = SourcesFilterPersistencePolicy.restoredFilter(
-                from: settings.selectedSourcesFilterRawValue
+            let restoredFilter = SidebarArticleFilterPersistencePolicy.restoredFilter(
+                from: settings.selectedSidebarArticleFilterRawValue
             )
 
-            if appState.selectedSourcesFilter != restoredFilter {
-                appState.selectSourcesFilter(restoredFilter)
+            if appState.selectedSidebarArticleFilter != restoredFilter {
+                appState.selectSidebarArticleFilter(restoredFilter)
             }
 
             if appState.interfaceThemeMode != settings.interfaceThemeMode {
@@ -129,9 +129,9 @@ struct AppRootContainer: View {
                 to: appState
             )
 
-            if settings.selectedSourcesFilterRawValue != restoredFilter.rawValue {
+            if settings.selectedSidebarArticleFilterRawValue != restoredFilter.rawValue {
                 _ = try appSettingsService.updateSettings(
-                    SourcesFilterPersistencePolicy.makeSettingsPatch(for: restoredFilter)
+                    SidebarArticleFilterPersistencePolicy.makeSettingsPatch(for: restoredFilter)
                 )
             }
         } catch {
@@ -140,32 +140,32 @@ struct AppRootContainer: View {
     }
 
     @MainActor
-    private func persistSourcesFilter(_ filter: SourcesFilter) {
+    private func persistSidebarArticleFilter(_ filter: SidebarArticleFilter) {
         guard let appSettingsService = dependencies.appSettingsService else { return }
 
         do {
             _ = try appSettingsService.updateSettings(
-                SourcesFilterPersistencePolicy.makeSettingsPatch(for: filter)
+                SidebarArticleFilterPersistencePolicy.makeSettingsPatch(for: filter)
             )
         } catch {
-            dependencies.logger.error("Failed to persist sources filter \(filter.rawValue): \(error)")
+            dependencies.logger.error("Failed to persist sidebar article filter \(filter.rawValue): \(error)")
         }
     }
 }
 
-enum SourcesFilterPersistencePolicy {
-    static func restoredFilter(from persistedRawValue: String?) -> SourcesFilter {
+enum SidebarArticleFilterPersistencePolicy {
+    static func restoredFilter(from persistedRawValue: String?) -> SidebarArticleFilter {
         if let rawValue = persistedRawValue,
-           let persistedFilter = SourcesFilter(rawValue: rawValue) {
+           let persistedFilter = SidebarArticleFilter(rawValue: rawValue) {
             return persistedFilter
         }
 
         return .allItems
     }
 
-    static func makeSettingsPatch(for filter: SourcesFilter, updatedAt: Date = .now) -> AppSettingsPatch {
+    static func makeSettingsPatch(for filter: SidebarArticleFilter, updatedAt: Date = .now) -> AppSettingsPatch {
         AppSettingsPatch(
-            selectedSourcesFilterRawValue: filter.rawValue,
+            selectedSidebarArticleFilterRawValue: filter.rawValue,
             updatedAt: updatedAt
         )
     }

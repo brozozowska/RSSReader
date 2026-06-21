@@ -80,14 +80,14 @@ struct FeedNormalizationTests {
             metadata: ParsedFeedMetadataDTO(
                 title: "Example Feed",
                 siteURL: "https://example.com/news/",
-                iconURL: "/assets/source-icon-64x64.png"
+                iconURL: "/assets/feed-icon-64x64.png"
             ),
             entries: []
         )
 
         let normalized = FeedNormalizationService.normalize(feed, feedURL: "https://example.com/feed.xml")
 
-        #expect(normalized.metadata.iconURL == "https://example.com/assets/source-icon-64x64.png")
+        #expect(normalized.metadata.iconURL == "https://example.com/assets/feed-icon-64x64.png")
     }
 
     @Test

@@ -14,12 +14,12 @@ struct ShellModalPresentationTests {
 
         harness.dependencies.appActions.showFeed(id: feedID, using: appState)
         harness.dependencies.appActions.selectArticle(id: articleID, using: appState)
-        harness.dependencies.appActions.applySourcesFilter(.unread, using: appState)
+        harness.dependencies.appActions.applySidebarArticleFilter(.unread, using: appState)
 
         #expect(appState.selectedSidebarSelection == .feed(feedID))
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))
-        #expect(appState.selectedSourcesFilter == .unread)
+        #expect(appState.selectedSidebarArticleFilter == .unread)
 
         harness.dependencies.appActions.showInbox(using: appState)
 

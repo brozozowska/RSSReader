@@ -23,13 +23,26 @@ import SwiftUI
     )
 }
 
+#Preview("RTL Articles Multi-Day") {
+    ArticlesScreenPreviewContainer(
+        screenState: .previewLoaded(
+            selection: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "7 Unread Items",
+            articles: ArticlesScreenPreviewData.multiDayArticles
+        )
+    )
+    .environment(\.layoutDirection, .rightToLeft)
+    .environment(\.locale, Locale(identifier: "ar"))
+}
+
 #Preview("Loading Error") {
     ArticlesScreenPreviewContainer(
         screenState: .previewFailed(
             selection: .unread,
             navigationTitle: "Unread",
             navigationSubtitle: "No Unread Items",
-            message: "The selected source could not be loaded from persistence."
+            message: "The selected feed could not be loaded from persistence."
         )
     )
 }
@@ -42,10 +55,10 @@ private struct ArticlesScreenPreviewContainer: View {
         NavigationStack {
             ArticleListView(
                 selectedSidebarSelection: .unread,
-                selectedSourcesFilter: .unread,
+                selectedSidebarArticleFilter: .unread,
                 reloadID: UUID(),
                 showsBackButton: true,
-                navigateBackToSources: {},
+                navigateBackToSidebar: {},
                 previewScreenState: screenState,
                 selection: $selection
             )
