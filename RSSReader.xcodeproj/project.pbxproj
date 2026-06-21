@@ -194,6 +194,11 @@
 				he,
 				fa,
 				ur,
+				de,
+				fr,
+				it,
+				"pt-BR",
+				es,
 			);
 			mainGroup = 4E5607F42F69A2DF008008E4;
 			minimizedProjectReferenceProxies = 1;
