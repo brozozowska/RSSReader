@@ -32,6 +32,7 @@ final class ArticlesScreenController {
     func load(
         selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter,
+        searchText: String = "",
         dependencies: AppDependencies,
         retainsSessionReadArticles: Bool = false,
         retainedSessionReadMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead,
@@ -39,9 +40,11 @@ final class ArticlesScreenController {
     ) async {
         loadGeneration += 1
         let currentLoadGeneration = loadGeneration
+        let normalizedSearchText = ArticleSearchScope.normalizedSearchText(searchText)
         let sessionContext = ArticleListSession.Context(
             selection: selection,
-            sidebarArticleFilter: sidebarArticleFilter
+            sidebarArticleFilter: sidebarArticleFilter,
+            normalizedSearchText: normalizedSearchText
         )
         let sessionContextChanged = shouldResetArticleSession(for: sessionContext)
         let navigationTitle = resolveNavigationTitle(
@@ -84,6 +87,7 @@ final class ArticlesScreenController {
             let loadedArticles = try loadArticles(
                 for: selection,
                 sidebarArticleFilter: sidebarArticleFilter,
+                normalizedSearchText: normalizedSearchText,
                 unreadArticleSortMode: unreadArticleSortMode,
                 articleQueryService: articleQueryService
             )
@@ -191,6 +195,7 @@ final class ArticlesScreenController {
     private func loadArticles(
         for selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter,
+        normalizedSearchText: String,
         unreadArticleSortMode: ArticleSortMode,
         articleQueryService: any ArticleQueryService
     ) throws -> [ArticleListItemDTO] {
@@ -203,37 +208,14 @@ final class ArticlesScreenController {
             unreadArticleSortMode: unreadArticleSortMode
         )
 
-        return switch selection {
-        case .inbox:
-            try articleQueryService.fetchInboxListItems(
-                sortMode: articleListSortMode,
-                filter: articleListFilter
+        return try articleQueryService.fetchArticleSearchResults(
+            ArticleSearchRequest(
+                selection: selection,
+                sidebarArticleFilter: sidebarArticleFilter,
+                query: normalizedSearchText,
+                sortMode: articleListSortMode
             )
-        case .unread:
-            try articleQueryService.fetchInboxListItems(
-                sortMode: articleListSortMode,
-                filter: articleListFilter
-            )
-        case .starred:
-            try articleQueryService.fetchInboxListItems(
-                sortMode: articleListSortMode,
-                filter: articleListFilter
-            )
-        case .folder(let folderName):
-            try articleQueryService.fetchFolderListItems(
-                folderName: folderName,
-                sortMode: articleListSortMode,
-                filter: articleListFilter
-            )
-        case .feed(let selectedFeedID):
-            try articleQueryService.fetchArticleListItems(
-                feedID: selectedFeedID,
-                sortMode: articleListSortMode,
-                filter: articleListFilter
-            )
-        case .none:
-            []
-        }
+        )
     }
 
     private func articleListFilter(

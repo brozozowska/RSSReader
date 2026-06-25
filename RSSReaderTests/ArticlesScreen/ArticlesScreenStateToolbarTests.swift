@@ -6,31 +6,41 @@ import Testing
 @MainActor
 struct ArticlesScreenStateToolbarTests {
     @Test
-    func articlesScreenStateBuildsDerivedToolbarActionsAndSearchPlaceholderForFilteredResults() {
+    func articlesScreenStateBuildsDerivedToolbarActionsFromLoadedSearchSnapshot() {
         var state = ArticlesScreenState()
         let unreadItem = makeArticleListItemDTO(
             title: "SwiftUI Weekly",
             isRead: false,
             isStarred: false
         )
-        let readItem = makeArticleListItemDTO(
-            title: "Architecture Digest",
-            isRead: true,
-            isStarred: false
-        )
 
         state.applyLoadedArticles(
-            [unreadItem, readItem],
+            [unreadItem],
             selection: .feed(unreadItem.feedID),
             navigationTitle: "Feed",
             navigationSubtitle: "1 Unread Item"
         )
 
         let loadedViewState = state.derivedViewState(searchText: "swift")
-        let emptySearchViewState = state.derivedViewState(searchText: "kotlin")
 
         #expect(loadedViewState.visibleArticles.map(\.id) == [unreadItem.id])
         #expect(loadedViewState.toolbarActions.isMarkAllAsReadEnabled)
+        #expect(loadedViewState.searchPlaceholder == nil)
+    }
+
+    @Test
+    func articlesScreenStateBuildsSearchPlaceholderForEmptyLoadedSearchSnapshot() {
+        var state = ArticlesScreenState()
+
+        state.applyLoadedArticles(
+            [],
+            selection: .inbox,
+            navigationTitle: ReadingLocalization.allItemsTitle,
+            navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle
+        )
+
+        let emptySearchViewState = state.derivedViewState(searchText: "kotlin")
+
         #expect(emptySearchViewState.visibleArticles.isEmpty)
         #expect(emptySearchViewState.toolbarActions.isMarkAllAsReadEnabled == false)
         #expect(emptySearchViewState.searchPlaceholder?.title == ReadingLocalization.noSearchResultsTitle)

@@ -187,6 +187,132 @@ struct ArticleQueryServiceTests {
         #expect(missingReaderArticle == nil)
     }
 
+    @Test
+    func articleQueryServiceSearchesDocumentedFieldsWithinSelectionScope() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let newsFeed = try insertFeed(
+            into: harness,
+            url: "https://example.com/news.xml",
+            title: "News Feed",
+            folderName: "News"
+        )
+        let techFeed = try insertFeed(
+            into: harness,
+            url: "https://example.com/tech.xml",
+            title: "Tech Feed",
+            folderName: "Tech"
+        )
+        let queryService = makeQueryService(harness)
+
+        _ = try insertArticle(
+            into: harness,
+            feed: newsFeed,
+            externalID: "title-match",
+            title: "Needle in title",
+            publishedAt: Date(timeIntervalSince1970: 600)
+        )
+        _ = try insertArticle(
+            into: harness,
+            feed: newsFeed,
+            externalID: "content-text-match",
+            title: "Article",
+            contentText: "Needle in content text",
+            publishedAt: Date(timeIntervalSince1970: 500)
+        )
+        _ = try insertArticle(
+            into: harness,
+            feed: newsFeed,
+            externalID: "content-html-match",
+            title: "Article",
+            contentHTML: "<p>Needle in <strong>HTML</strong></p>",
+            publishedAt: Date(timeIntervalSince1970: 400)
+        )
+        _ = try insertArticle(
+            into: harness,
+            feed: techFeed,
+            externalID: "outside-folder-match",
+            title: "Needle outside folder",
+            publishedAt: Date(timeIntervalSince1970: 300)
+        )
+
+        let results = try queryService.fetchArticleSearchResults(
+            ArticleSearchRequest(
+                selection: .folder("News"),
+                sidebarArticleFilter: .allItems,
+                query: "needle",
+                sortMode: .publishedAtDescending
+            )
+        )
+
+        #expect(results.map(\.articleExternalID) == ["title-match", "content-text-match", "content-html-match"])
+    }
+
+    @Test
+    func articleQueryServiceSearchRespectsFilterLimitAndEmptyQueryBehavior() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(into: harness)
+        let queryService = makeQueryService(harness)
+
+        _ = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "newer",
+            title: "Needle Newer",
+            publishedAt: Date(timeIntervalSince1970: 300)
+        )
+        _ = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "older",
+            title: "Needle Older",
+            publishedAt: Date(timeIntervalSince1970: 200)
+        )
+        _ = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "read",
+            title: "Needle Read",
+            publishedAt: Date(timeIntervalSince1970: 100)
+        )
+        try harness.articleStateRepository.upsert(
+            feedID: feed.id,
+            articleExternalID: "read",
+            update: ArticleStateUpsert(isRead: true, updatedAt: Date(timeIntervalSince1970: 10))
+        )
+
+        let limitedUnreadResults = try queryService.fetchArticleSearchResults(
+            ArticleSearchRequest(
+                selection: .unread,
+                sidebarArticleFilter: .allItems,
+                query: "needle",
+                sortMode: .publishedAtDescending,
+                limit: 1
+            )
+        )
+        let emptyQueryResults = try queryService.fetchArticleSearchResults(
+            ArticleSearchRequest(
+                selection: .inbox,
+                sidebarArticleFilter: .allItems,
+                query: "   ",
+                sortMode: .publishedAtDescending,
+                emptyQueryBehavior: .returnsEmpty
+            )
+        )
+        let defaultEmptyQueryResults = try queryService.fetchArticleSearchResults(
+            ArticleSearchRequest(
+                selection: .inbox,
+                sidebarArticleFilter: .allItems,
+                query: "   ",
+                sortMode: .publishedAtDescending,
+                limit: 2
+            )
+        )
+
+        #expect(limitedUnreadResults.map(\.articleExternalID) == ["newer"])
+        #expect(emptyQueryResults.isEmpty)
+        #expect(defaultEmptyQueryResults.map(\.articleExternalID) == ["newer", "older"])
+    }
+
     private func makeQueryService(_ harness: TestHarness) -> DefaultArticleQueryService {
         DefaultArticleQueryService(
             articleRepository: harness.articleRepository,

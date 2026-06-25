@@ -7,6 +7,7 @@ protocol ArticleQueryService {
     func fetchFolderListItems(folderName: String, sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO]
     func fetchInboxListItems(sortMode: ArticleSortMode) throws -> [ArticleListItemDTO]
     func fetchInboxListItems(sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO]
+    func fetchArticleSearchResults(_ request: ArticleSearchRequest) throws -> [ArticleListItemDTO]
     func fetchReaderArticle(id: UUID) throws -> ReaderArticleDTO?
 }
 
@@ -56,6 +57,31 @@ final class DefaultArticleQueryService: ArticleQueryService {
         return try makeListItems(from: articles, filter: filter)
     }
 
+    func fetchArticleSearchResults(_ request: ArticleSearchRequest) throws -> [ArticleListItemDTO] {
+        guard request.shouldReturnEmptyForBlankQuery == false else {
+            return []
+        }
+
+        let articles = try fetchArticles(for: request)
+        let listItems = try makeListItems(from: articles, filter: request.listFilter)
+        let searchResults = ArticleSearchScope.filteredArticles(
+            listItems,
+            searchText: request.normalizedQuery,
+            selection: request.selection,
+            sidebarArticleFilter: request.sidebarArticleFilter
+        )
+
+        guard let limit = request.limit else {
+            return searchResults
+        }
+
+        guard limit > 0 else {
+            return []
+        }
+
+        return Array(searchResults.prefix(limit))
+    }
+
     private func makeListItems(from articles: [Article], filter: ArticleListFilter) throws -> [ArticleListItemDTO] {
         let stateByCompositeKey = try fetchStateByCompositeKey(for: articles)
 
@@ -78,6 +104,20 @@ final class DefaultArticleQueryService: ArticleQueryService {
         guard articles.isEmpty == false else { return [:] }
 
         return try articleStateRepository.fetchStateSnapshots(for: articles)
+    }
+
+    private func fetchArticles(for request: ArticleSearchRequest) throws -> [Article] {
+        switch request.selection {
+        case .inbox, .unread, .starred:
+            try articleRepository.fetchInbox(sortMode: request.sortMode)
+        case .folder(let folderName):
+            try articleRepository.fetchInbox(sortMode: request.sortMode)
+                .filter { $0.feedFolderName == folderName }
+        case .feed(let feedID):
+            try articleRepository.fetchArticles(feedID: feedID, sortMode: request.sortMode)
+        case .none:
+            []
+        }
     }
 
     private func articleCompositeKey(feedID: UUID, articleExternalID: String) -> String {

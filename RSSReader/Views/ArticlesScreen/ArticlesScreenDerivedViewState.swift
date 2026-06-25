@@ -17,12 +17,7 @@ extension ArticlesScreenState {
         sidebarArticleFilter: SidebarArticleFilter = .allItems
     ) -> ArticlesScreenDerivedViewState {
         let normalizedSearchText = ArticleSearchScope.normalizedSearchText(searchText)
-        let visibleArticles = ArticleSearchScope.filteredEntries(
-            articleListSession.entries,
-            searchText: normalizedSearchText,
-            selection: selection,
-            sidebarArticleFilter: sidebarArticleFilter
-        )
+        let visibleArticles = articleListSession.articles
 
         return ArticlesScreenDerivedViewState(
             visibleArticles: visibleArticles,

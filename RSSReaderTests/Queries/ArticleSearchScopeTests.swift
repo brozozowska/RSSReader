@@ -105,32 +105,6 @@ struct ArticleSearchScopeTests {
         #expect(results.map(\.articleExternalID) == ["unread"])
     }
 
-    @Test
-    func articleSearchScopeKeepsRetainedEntriesVisibleInCurrentScreenSession() {
-        let retainedRead = makeArticleListItemDTO(
-            articleExternalID: "retained-read",
-            title: "Needle",
-            isRead: true
-        )
-        let ordinaryRead = makeArticleListItemDTO(
-            articleExternalID: "ordinary-read",
-            title: "Needle",
-            isRead: true
-        )
-
-        let results = ArticleSearchScope.filteredEntries(
-            [
-                ArticleListEntry(article: retainedRead, membershipStatus: .retainedAfterRead),
-                ArticleListEntry(article: ordinaryRead)
-            ],
-            searchText: "",
-            selection: .unread,
-            sidebarArticleFilter: .allItems
-        )
-
-        #expect(results.map(\.articleExternalID) == ["retained-read"])
-    }
-
     private func matchingExternalIDs(
         in articles: [ArticleListItemDTO],
         query: String,

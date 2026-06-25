@@ -114,15 +114,11 @@ struct ArticleListView: View {
         .task(id: ArticleListLoadContext(
             sidebarSelection: selectedSidebarSelection,
             sidebarArticleFilter: selectedSidebarArticleFilter,
+            normalizedSearchText: ArticleSearchScope.normalizedSearchText(searchText),
             reloadID: reloadID
         )) {
             guard isPreviewMode == false else { return }
             await loadArticles(retainsSessionReadArticles: true)
-        }
-        .onChange(of: searchText) { _, _ in
-            let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
-            selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
-            syncArticleNavigationContext(visibleArticleIDs)
         }
         .onChange(of: selection) { _, newValue in
             guard let newValue else { return }
@@ -161,6 +157,7 @@ struct ArticleListView: View {
         await controller.load(
             selection: loadingSidebarSelection,
             sidebarArticleFilter: loadingSidebarArticleFilter,
+            searchText: searchText,
             dependencies: dependencies,
             retainsSessionReadArticles: retainsSessionReadArticles,
             retainedSessionReadMembershipStatus: retainedSessionReadMembershipStatus,
@@ -474,5 +471,6 @@ private extension View {
 private struct ArticleListLoadContext: Hashable {
     let sidebarSelection: SidebarSelection?
     let sidebarArticleFilter: SidebarArticleFilter
+    let normalizedSearchText: String
     let reloadID: UUID
 }

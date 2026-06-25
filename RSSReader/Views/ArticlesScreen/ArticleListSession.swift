@@ -4,6 +4,17 @@ struct ArticleListSession: Equatable {
     struct Context: Equatable {
         let selection: SidebarSelection?
         let sidebarArticleFilter: SidebarArticleFilter
+        let normalizedSearchText: String
+
+        init(
+            selection: SidebarSelection?,
+            sidebarArticleFilter: SidebarArticleFilter,
+            normalizedSearchText: String = ""
+        ) {
+            self.selection = selection
+            self.sidebarArticleFilter = sidebarArticleFilter
+            self.normalizedSearchText = normalizedSearchText
+        }
 
         var articleListFilter: ArticleListFilter {
             ArticlesScreenMutationReducer.articleListFilter(

@@ -51,27 +51,6 @@ struct ArticleSearchScope: Sendable, Equatable {
         return articles.filter { scope.contains($0) }
     }
 
-    static func filteredEntries(
-        _ entries: [ArticleListEntry],
-        searchText: String,
-        selection: SidebarSelection?,
-        sidebarArticleFilter: SidebarArticleFilter
-    ) -> [ArticleListItemDTO] {
-        let scope = ArticleSearchScope(
-            searchText: searchText,
-            selection: selection,
-            sidebarArticleFilter: sidebarArticleFilter
-        )
-
-        return entries.compactMap { entry in
-            if entry.isRetained {
-                return scope.containsRetained(entry.article) ? entry.article : nil
-            }
-
-            return scope.contains(entry.article) ? entry.article : nil
-        }
-    }
-
     static func listFilter(
         selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter
@@ -119,20 +98,6 @@ struct ArticleSearchScope: Sendable, Equatable {
         case .hidden:
             return article.isHidden
         }
-    }
-
-    private func containsRetained(_ article: ArticleListItemDTO) -> Bool {
-        guard article.archivedAt == nil,
-              article.isHidden == false else {
-            return false
-        }
-
-        guard isSearching else {
-            return true
-        }
-
-        return Self.searchableValues(for: article)
-            .contains { $0.localizedCaseInsensitiveContains(normalizedQuery) }
     }
 
     private static func searchableValues(for article: ArticleListItemDTO) -> [String] {
