@@ -40,6 +40,14 @@ struct ArticleQueryServiceTests {
             title: "Hidden Article",
             publishedAt: Date(timeIntervalSince1970: 50)
         )
+        _ = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "archived",
+            title: "Archived Article",
+            publishedAt: Date(timeIntervalSince1970: 25),
+            archivedAt: Date(timeIntervalSince1970: 400)
+        )
 
         try harness.articleStateRepository.upsert(
             feedID: feed.id,
@@ -73,6 +81,7 @@ struct ArticleQueryServiceTests {
         #expect(unreadItems.map { $0.articleExternalID } == ["unread"])
         #expect(starredItems.map { $0.articleExternalID } == ["starred"])
         #expect(hiddenItems.map { $0.articleExternalID } == ["hidden"])
+        #expect(allItems.contains { $0.archivedAt != nil } == false)
 
         let readItem = try #require(allItems.first { $0.articleExternalID == "read" })
         let starredItem = try #require(allItems.first { $0.articleExternalID == "starred" })
@@ -220,7 +229,8 @@ struct ArticleQueryServiceTests {
         publishedAt: Date? = nil,
         updatedAtSource: Date? = nil,
         canonicalURL: String? = nil,
-        imageURL: String? = nil
+        imageURL: String? = nil,
+        archivedAt: Date? = nil
     ) throws -> Article {
         let article = Article(
             feedID: feed.id,
@@ -238,6 +248,7 @@ struct ArticleQueryServiceTests {
             publishedAt: publishedAt,
             updatedAtSource: updatedAtSource,
             imageURL: imageURL,
+            archivedAt: archivedAt,
             fetchedAt: publishedAt ?? Date(timeIntervalSince1970: 0)
         )
         harness.modelContainer.mainContext.insert(article)

@@ -119,6 +119,8 @@ extension ArticleListItemDTO {
             articleExternalID: articleExternalID,
             title: title,
             summary: summary,
+            contentHTML: contentHTML,
+            contentText: contentText,
             author: author,
             publishedAt: publishedAt,
             fetchedAt: fetchedAt,

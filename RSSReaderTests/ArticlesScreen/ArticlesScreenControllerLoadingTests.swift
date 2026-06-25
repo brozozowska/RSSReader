@@ -31,7 +31,7 @@ struct ArticlesScreenControllerLoadingTests {
     }
 
     @Test
-    func articlesScreenControllerLoadsArchivedAndCurrentArticlesForCurrentSelection() async throws {
+    func articlesScreenControllerExcludesArchivedArticlesForCurrentSelection() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-archive.xml"]).first)
         let archivedAt = try #require(Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1)))
@@ -57,8 +57,8 @@ struct ArticlesScreenControllerLoadingTests {
         )
 
         #expect(controller.screenState.phase == .loaded)
-        #expect(controller.screenState.articles.count == 2)
-        #expect(controller.screenState.articles.contains { $0.title == "Controller Archived" && $0.archivedAt == archivedAt })
+        #expect(controller.screenState.articles.count == 1)
+        #expect(controller.screenState.articles.contains { $0.title == "Controller Archived" } == false)
         #expect(controller.screenState.articles.contains { $0.title == "Controller Current" && $0.archivedAt == nil })
     }
 

@@ -16,8 +16,13 @@ extension ArticlesScreenState {
         searchText: String,
         sidebarArticleFilter: SidebarArticleFilter = .allItems
     ) -> ArticlesScreenDerivedViewState {
-        let normalizedSearchText = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let visibleArticles = filteredArticles(matching: normalizedSearchText)
+        let normalizedSearchText = ArticleSearchScope.normalizedSearchText(searchText)
+        let visibleArticles = ArticleSearchScope.filteredEntries(
+            articleListSession.entries,
+            searchText: normalizedSearchText,
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter
+        )
 
         return ArticlesScreenDerivedViewState(
             visibleArticles: visibleArticles,
@@ -39,18 +44,6 @@ extension ArticlesScreenState {
             refreshBanner: refreshBannerState,
             primaryLoadingState: primaryLoadingState
         )
-    }
-
-    private func filteredArticles(matching normalizedSearchText: String) -> [ArticleListItemDTO] {
-        guard normalizedSearchText.isEmpty == false else {
-            return articles
-        }
-
-        return articles.filter { article in
-            [article.feedTitle, article.title, article.summary, article.author]
-                .compactMap { $0 }
-                .contains { $0.localizedCaseInsensitiveContains(normalizedSearchText) }
-        }
     }
 
     private func searchPlaceholder(

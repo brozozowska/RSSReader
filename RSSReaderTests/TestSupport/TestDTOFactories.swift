@@ -8,9 +8,14 @@ func makeArticleListItemDTO(
     articleExternalID: String = "article",
     title: String = "Article",
     summary: String? = "Summary",
+    contentHTML: String? = nil,
+    contentText: String? = nil,
+    author: String? = nil,
     publishedAt: Date? = nil,
+    archivedAt: Date? = nil,
     isRead: Bool = false,
-    isStarred: Bool = false
+    isStarred: Bool = false,
+    isHidden: Bool = false
 ) -> ArticleListItemDTO {
     ArticleListItemDTO(
         id: id,
@@ -19,12 +24,15 @@ func makeArticleListItemDTO(
         articleExternalID: articleExternalID,
         title: title,
         summary: summary,
-        author: nil,
+        contentHTML: contentHTML,
+        contentText: contentText,
+        author: author,
         publishedAt: publishedAt,
         fetchedAt: .now,
+        archivedAt: archivedAt,
         isRead: isRead,
         isStarred: isStarred,
-        isHidden: false
+        isHidden: isHidden
     )
 }
 

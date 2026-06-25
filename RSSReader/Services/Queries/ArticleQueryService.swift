@@ -85,15 +85,19 @@ final class DefaultArticleQueryService: ArticleQueryService {
     }
 
     private func matches(filter: ArticleListFilter, item: ArticleListItemDTO) -> Bool {
+        guard item.archivedAt == nil else {
+            return false
+        }
+
         switch filter {
         case .all:
-            item.isHidden == false
+            return item.isHidden == false
         case .unread:
-            item.isHidden == false && item.isRead == false
+            return item.isHidden == false && item.isRead == false
         case .starred:
-            item.isHidden == false && item.isStarred
+            return item.isHidden == false && item.isStarred
         case .hidden:
-            item.isHidden
+            return item.isHidden
         }
     }
 }
