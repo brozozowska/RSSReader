@@ -23,9 +23,9 @@ extension ArticlesScreenController {
         screenState.presentMarkAllAsReadConfirmation()
     }
 
-    func visibleArticleIDs(searchText: String) -> [UUID] {
+    func visibleArticleIDs() -> [UUID] {
         screenState
-            .derivedViewState(searchText: searchText)
+            .derivedViewState()
             .visibleArticles
             .map(\.id)
     }
@@ -38,7 +38,7 @@ extension ArticlesScreenController {
         isPreviewMode: Bool
     ) {
         let visibleArticles = screenState
-            .derivedViewState(searchText: searchText)
+            .derivedViewState()
             .visibleArticles
 
         if isPreviewMode == false {

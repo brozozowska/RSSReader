@@ -21,7 +21,7 @@ struct ArticlesScreenStateToolbarTests {
             navigationSubtitle: "1 Unread Item"
         )
 
-        let loadedViewState = state.derivedViewState(searchText: "swift")
+        let loadedViewState = state.derivedViewState()
 
         #expect(loadedViewState.visibleArticles.map(\.id) == [unreadItem.id])
         #expect(loadedViewState.toolbarActions.isMarkAllAsReadEnabled)
@@ -37,10 +37,15 @@ struct ArticlesScreenStateToolbarTests {
             selection: .inbox,
             navigationTitle: ReadingLocalization.allItemsTitle,
             navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle,
+            sessionContext: ArticleListSession.Context(
+                selection: .inbox,
+                sidebarArticleFilter: .allItems,
+                normalizedSearchText: "kotlin"
+            ),
             emptyContentKind: .searchResults
         )
 
-        let emptySearchViewState = state.derivedViewState(searchText: "kotlin")
+        let emptySearchViewState = state.derivedViewState()
 
         #expect(emptySearchViewState.visibleArticles.isEmpty)
         #expect(emptySearchViewState.toolbarActions.isMarkAllAsReadEnabled == false)
@@ -57,10 +62,15 @@ struct ArticlesScreenStateToolbarTests {
             selection: .inbox,
             navigationTitle: ReadingLocalization.allItemsTitle,
             navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle,
+            sessionContext: ArticleListSession.Context(
+                selection: .inbox,
+                sidebarArticleFilter: .allItems,
+                normalizedSearchText: "kotlin"
+            ),
             emptyContentKind: .selection
         )
 
-        let emptySelectionViewState = state.derivedViewState(searchText: "kotlin")
+        let emptySelectionViewState = state.derivedViewState()
 
         #expect(emptySelectionViewState.searchPlaceholder == nil)
         #expect(state.placeholder?.title == ReadingLocalization.noArticlesTitle)
@@ -77,7 +87,7 @@ struct ArticlesScreenStateToolbarTests {
             resetsContent: true
         )
 
-        let derivedViewState = state.derivedViewState(searchText: "")
+        let derivedViewState = state.derivedViewState()
 
         #expect(derivedViewState.primaryLoadingState?.title == ReadingLocalization.loadingArticlesTitle)
     }

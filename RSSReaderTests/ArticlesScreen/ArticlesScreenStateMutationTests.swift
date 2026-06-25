@@ -117,7 +117,7 @@ struct ArticlesScreenStateMutationTests {
         #expect(state.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
         #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
 
-        let derivedViewState = state.derivedViewState(searchText: "")
+        let derivedViewState = state.derivedViewState()
 
         #expect(derivedViewState.visibleArticles.map(\.id) == [unreadItem.id])
         #expect(derivedViewState.visibleArticles.first?.isRead == true)

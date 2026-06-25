@@ -138,12 +138,12 @@ struct ArticlesScreenControllerLoadingTests {
             dependencies: harness.dependencies
         )
 
-        let derivedViewState = controller.screenState.derivedViewState(searchText: "needle")
+        let derivedViewState = controller.screenState.derivedViewState()
 
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.articleListSession.context.normalizedSearchText == "needle")
         #expect(controller.screenState.articles.map(\.id) == [matchingArticle.id])
-        #expect(controller.visibleArticleIDs(searchText: "needle") == [matchingArticle.id])
+        #expect(controller.visibleArticleIDs() == [matchingArticle.id])
         #expect(derivedViewState.visibleArticles.map(\.id) == [matchingArticle.id])
         #expect(derivedViewState.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 1))
         #expect(derivedViewState.toolbarActions.isMarkAllAsReadEnabled)
@@ -176,8 +176,8 @@ struct ArticlesScreenControllerLoadingTests {
             dependencies: harness.dependencies
         )
 
-        let emptySearchViewState = searchController.screenState.derivedViewState(searchText: "missing")
-        let emptySelectionViewState = emptySelectionController.screenState.derivedViewState(searchText: "missing")
+        let emptySearchViewState = searchController.screenState.derivedViewState()
+        let emptySelectionViewState = emptySelectionController.screenState.derivedViewState()
 
         #expect(searchController.screenState.phase == .empty)
         #expect(emptySearchViewState.searchPlaceholder?.title == ReadingLocalization.noSearchResultsTitle)

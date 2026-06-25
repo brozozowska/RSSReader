@@ -44,7 +44,6 @@ struct ArticleListView: View {
 
     var body: some View {
         let derivedViewState = controller.screenState.derivedViewState(
-            searchText: searchText,
             sidebarArticleFilter: selectedSidebarArticleFilter
         )
 
@@ -169,7 +168,7 @@ struct ArticleListView: View {
             return
         }
 
-        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        let visibleArticleIDs = controller.visibleArticleIDs()
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
     }
@@ -253,7 +252,7 @@ struct ArticleListView: View {
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
-        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        let visibleArticleIDs = controller.visibleArticleIDs()
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
     }
@@ -269,7 +268,7 @@ struct ArticleListView: View {
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
-        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        let visibleArticleIDs = controller.visibleArticleIDs()
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
     }
@@ -285,7 +284,7 @@ struct ArticleListView: View {
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
-        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        let visibleArticleIDs = controller.visibleArticleIDs()
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
     }
@@ -299,7 +298,7 @@ struct ArticleListView: View {
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
-        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        let visibleArticleIDs = controller.visibleArticleIDs()
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
     }
@@ -337,7 +336,7 @@ struct ArticleListView: View {
         }
 
         controller.markArticleAsReadInCurrentSession(event.articleID)
-        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        let visibleArticleIDs = controller.visibleArticleIDs()
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
     }

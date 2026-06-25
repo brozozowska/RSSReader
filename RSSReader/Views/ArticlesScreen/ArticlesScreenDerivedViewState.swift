@@ -13,10 +13,8 @@ struct ArticlesScreenDerivedViewState {
 
 extension ArticlesScreenState {
     func derivedViewState(
-        searchText: String,
         sidebarArticleFilter: SidebarArticleFilter = .allItems
     ) -> ArticlesScreenDerivedViewState {
-        let normalizedSearchText = ArticleSearchScope.normalizedSearchText(searchText)
         let visibleArticles = articleListSession.articles
 
         return ArticlesScreenDerivedViewState(
@@ -32,7 +30,7 @@ extension ArticlesScreenState {
                 phase: phase
             ),
             searchPlaceholder: searchPlaceholder(
-                normalizedSearchText: normalizedSearchText,
+                normalizedSearchText: articleListSession.context.normalizedSearchText,
                 visibleArticles: visibleArticles
             ),
             customRefreshState: customRefreshState,
