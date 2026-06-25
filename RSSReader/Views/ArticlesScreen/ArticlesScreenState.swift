@@ -9,6 +9,7 @@ struct ArticlesScreenState {
     private(set) var refreshState: ArticlesScreenRefreshState = .idle
     private(set) var customRefreshState: ArticlesScreenCustomRefreshState = .idle
     private(set) var refreshFeedback: ArticlesScreenRefreshFeedback?
+    private(set) var emptyContentKind: ArticlesScreenEmptyContentKind = .selection
     private(set) var toolbarActions = ArticlesScreenToolbarActionsState(
         selection: nil,
         visibleArticles: [],
@@ -64,6 +65,7 @@ struct ArticlesScreenState {
         sessionContext: ArticleListSession.Context? = nil
     ) {
         pendingConfirmation = nil
+        emptyContentKind = .selection
         self.selection = selection
         self.navigationTitle = navigationTitle
         self.navigationSubtitle = navigationSubtitle
@@ -107,7 +109,8 @@ struct ArticlesScreenState {
         navigationTitle: String,
         navigationSubtitle: String,
         sessionContext: ArticleListSession.Context? = nil,
-        preservesRefreshFeedback: Bool = false
+        preservesRefreshFeedback: Bool = false,
+        emptyContentKind: ArticlesScreenEmptyContentKind = .selection
     ) {
         applyLoadedEntries(
             loadedArticles.map { ArticleListEntry(article: $0) },
@@ -115,7 +118,8 @@ struct ArticlesScreenState {
             navigationTitle: navigationTitle,
             navigationSubtitle: navigationSubtitle,
             sessionContext: sessionContext,
-            preservesRefreshFeedback: preservesRefreshFeedback
+            preservesRefreshFeedback: preservesRefreshFeedback,
+            emptyContentKind: emptyContentKind
         )
     }
 
@@ -125,11 +129,13 @@ struct ArticlesScreenState {
         navigationTitle: String,
         navigationSubtitle: String,
         sessionContext: ArticleListSession.Context? = nil,
-        preservesRefreshFeedback: Bool = false
+        preservesRefreshFeedback: Bool = false,
+        emptyContentKind: ArticlesScreenEmptyContentKind = .selection
     ) {
         self.selection = selection
         self.navigationTitle = navigationTitle
         self.navigationSubtitle = navigationSubtitle
+        self.emptyContentKind = loadedEntries.isEmpty ? emptyContentKind : .selection
         articleListSession.replaceEntries(
             loadedEntries,
             context: resolvedContext(
@@ -165,6 +171,7 @@ struct ArticlesScreenState {
         self.selection = selection
         self.navigationTitle = navigationTitle
         self.navigationSubtitle = navigationSubtitle
+        emptyContentKind = .selection
         let resolvedSessionContext = resolvedContext(
             selection: selection,
             sessionContext: sessionContext
@@ -208,13 +215,19 @@ struct ArticlesScreenState {
 
     mutating func applyMarkAllAsRead(
         _ updatedArticles: [ArticleListItemDTO],
-        navigationSubtitle: String
+        navigationSubtitle: String,
+        emptyContentKind: ArticlesScreenEmptyContentKind? = nil
     ) {
         articleListSession.replaceArticles(
             updatedArticles,
             context: articleListSession.context
         )
         self.navigationSubtitle = navigationSubtitle
+        if updatedArticles.isEmpty {
+            self.emptyContentKind = emptyContentKind ?? inferredEmptyContentKind()
+        } else {
+            self.emptyContentKind = .selection
+        }
         pendingConfirmation = nil
         refreshState = .idle
         customRefreshState = .idle
@@ -248,6 +261,11 @@ struct ArticlesScreenState {
         self.navigationSubtitle = navigationSubtitle
         refreshState = .idle
         customRefreshState = .idle
+        if articles.isEmpty {
+            emptyContentKind = inferredEmptyContentKind()
+        } else {
+            emptyContentKind = .selection
+        }
 
         if selection == nil {
             phase = .noSelection
@@ -307,6 +325,10 @@ struct ArticlesScreenState {
             selection: selection,
             sidebarArticleFilter: articleListSession.context.sidebarArticleFilter
         )
+    }
+
+    private func inferredEmptyContentKind() -> ArticlesScreenEmptyContentKind {
+        articleListSession.context.normalizedSearchText.isEmpty ? .selection : .searchResults
     }
 
     private var emptyStateDescription: String {

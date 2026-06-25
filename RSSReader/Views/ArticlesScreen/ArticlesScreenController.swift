@@ -84,7 +84,7 @@ final class ArticlesScreenController {
         let unreadArticleSortMode = loadUnreadArticleSortMode(dependencies: dependencies)
 
         do {
-            let loadedArticles = try loadArticles(
+            let loadResult = try loadArticles(
                 for: selection,
                 sidebarArticleFilter: sidebarArticleFilter,
                 normalizedSearchText: normalizedSearchText,
@@ -92,7 +92,7 @@ final class ArticlesScreenController {
                 articleQueryService: articleQueryService
             )
             let resolvedEntries = entriesByRetainingSessionReadItems(
-                loadedArticles,
+                loadResult.articles,
                 selection: selection,
                 sidebarArticleFilter: sidebarArticleFilter,
                 retainsCurrentContent: sessionContextChanged == false && retainsSessionReadArticles,
@@ -110,7 +110,8 @@ final class ArticlesScreenController {
                     sidebarArticleFilter: sidebarArticleFilter
                 ),
                 sessionContext: sessionContext,
-                preservesRefreshFeedback: preservesRefreshFeedback
+                preservesRefreshFeedback: preservesRefreshFeedback,
+                emptyContentKind: loadResult.emptyContentKind
             )
         } catch {
             guard currentLoadGeneration == loadGeneration else { return }
@@ -198,7 +199,7 @@ final class ArticlesScreenController {
         normalizedSearchText: String,
         unreadArticleSortMode: ArticleSortMode,
         articleQueryService: any ArticleQueryService
-    ) throws -> [ArticleListItemDTO] {
+    ) throws -> ArticleListLoadResult {
         let articleListFilter = articleListFilter(
             for: selection,
             sidebarArticleFilter: sidebarArticleFilter
@@ -208,14 +209,46 @@ final class ArticlesScreenController {
             unreadArticleSortMode: unreadArticleSortMode
         )
 
-        return try articleQueryService.fetchArticleSearchResults(
+        let request = ArticleSearchRequest(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter,
+            query: normalizedSearchText,
+            sortMode: articleListSortMode
+        )
+        let articles = try articleQueryService.fetchArticleSearchResults(request)
+        let emptyContentKind = try emptyContentKind(
+            articles: articles,
+            request: request,
+            articleQueryService: articleQueryService
+        )
+
+        return ArticleListLoadResult(
+            articles: articles,
+            emptyContentKind: emptyContentKind
+        )
+    }
+
+    private func emptyContentKind(
+        articles: [ArticleListItemDTO],
+        request: ArticleSearchRequest,
+        articleQueryService: any ArticleQueryService
+    ) throws -> ArticlesScreenEmptyContentKind {
+        guard articles.isEmpty,
+              request.normalizedQuery.isEmpty == false else {
+            return .selection
+        }
+
+        let scopeProbe = try articleQueryService.fetchArticleSearchResults(
             ArticleSearchRequest(
-                selection: selection,
-                sidebarArticleFilter: sidebarArticleFilter,
-                query: normalizedSearchText,
-                sortMode: articleListSortMode
+                selection: request.selection,
+                sidebarArticleFilter: request.sidebarArticleFilter,
+                query: "",
+                sortMode: request.sortMode,
+                limit: 1
             )
         )
+
+        return scopeProbe.isEmpty ? .selection : .searchResults
     }
 
     private func articleListFilter(
@@ -286,4 +319,9 @@ final class ArticlesScreenController {
 
         return ReadingLocalization.multipleFeedsRefreshFailed(count: result.summary.failedCount)
     }
+}
+
+private struct ArticleListLoadResult {
+    let articles: [ArticleListItemDTO]
+    let emptyContentKind: ArticlesScreenEmptyContentKind
 }

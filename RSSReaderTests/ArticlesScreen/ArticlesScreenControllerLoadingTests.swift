@@ -114,6 +114,81 @@ struct ArticlesScreenControllerLoadingTests {
     }
 
     @Test
+    func articlesScreenControllerLoadsSearchResultsIntoSessionSnapshotAndDerivedState() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/search-ui.xml"]).first)
+        let matchingArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "search-ui-match",
+            url: "https://example.com/articles/search-ui-match",
+            title: "Needle Result"
+        )
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "search-ui-miss",
+            url: "https://example.com/articles/search-ui-miss",
+            title: "Other Result"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            searchText: "needle",
+            dependencies: harness.dependencies
+        )
+
+        let derivedViewState = controller.screenState.derivedViewState(searchText: "needle")
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articleListSession.context.normalizedSearchText == "needle")
+        #expect(controller.screenState.articles.map(\.id) == [matchingArticle.id])
+        #expect(controller.visibleArticleIDs(searchText: "needle") == [matchingArticle.id])
+        #expect(derivedViewState.visibleArticles.map(\.id) == [matchingArticle.id])
+        #expect(derivedViewState.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 1))
+        #expect(derivedViewState.toolbarActions.isMarkAllAsReadEnabled)
+    }
+
+    @Test
+    func articlesScreenControllerDistinguishesEmptySelectionFromEmptySearchResults() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feedWithArticles = try #require(try harness.insertFeeds(urls: ["https://example.com/search-empty.xml"]).first)
+        let emptyFeed = try #require(try harness.insertFeeds(urls: ["https://example.com/search-empty-selection.xml"]).first)
+        _ = try harness.insertArticle(
+            feed: feedWithArticles,
+            externalID: "search-empty-article",
+            url: "https://example.com/articles/search-empty-article",
+            title: "Existing Article"
+        )
+        let searchController = ArticlesScreenController()
+        let emptySelectionController = ArticlesScreenController()
+
+        await searchController.load(
+            selection: .feed(feedWithArticles.id),
+            sidebarArticleFilter: .allItems,
+            searchText: "missing",
+            dependencies: harness.dependencies
+        )
+        await emptySelectionController.load(
+            selection: .feed(emptyFeed.id),
+            sidebarArticleFilter: .allItems,
+            searchText: "missing",
+            dependencies: harness.dependencies
+        )
+
+        let emptySearchViewState = searchController.screenState.derivedViewState(searchText: "missing")
+        let emptySelectionViewState = emptySelectionController.screenState.derivedViewState(searchText: "missing")
+
+        #expect(searchController.screenState.phase == .empty)
+        #expect(emptySearchViewState.searchPlaceholder?.title == ReadingLocalization.noSearchResultsTitle)
+        #expect(emptySearchViewState.searchPlaceholder?.description == ReadingLocalization.noSearchResultsDescription(query: "missing"))
+
+        #expect(emptySelectionController.screenState.phase == .empty)
+        #expect(emptySelectionViewState.searchPlaceholder == nil)
+        #expect(emptySelectionController.screenState.placeholder?.title == ReadingLocalization.noArticlesTitle)
+    }
+
+    @Test
     func articlesScreenControllerUsesNewestFirstForAllItemsRegardlessOfUnreadSortSetting() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)

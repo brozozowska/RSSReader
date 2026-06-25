@@ -36,7 +36,8 @@ struct ArticlesScreenStateToolbarTests {
             [],
             selection: .inbox,
             navigationTitle: ReadingLocalization.allItemsTitle,
-            navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle
+            navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle,
+            emptyContentKind: .searchResults
         )
 
         let emptySearchViewState = state.derivedViewState(searchText: "kotlin")
@@ -45,6 +46,24 @@ struct ArticlesScreenStateToolbarTests {
         #expect(emptySearchViewState.toolbarActions.isMarkAllAsReadEnabled == false)
         #expect(emptySearchViewState.searchPlaceholder?.title == ReadingLocalization.noSearchResultsTitle)
         #expect(emptySearchViewState.searchPlaceholder?.description == ReadingLocalization.noSearchResultsDescription(query: "kotlin"))
+    }
+
+    @Test
+    func articlesScreenStateKeepsSelectionEmptyPlaceholderWhenSearchScopeHasNoArticles() {
+        var state = ArticlesScreenState()
+
+        state.applyLoadedArticles(
+            [],
+            selection: .inbox,
+            navigationTitle: ReadingLocalization.allItemsTitle,
+            navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle,
+            emptyContentKind: .selection
+        )
+
+        let emptySelectionViewState = state.derivedViewState(searchText: "kotlin")
+
+        #expect(emptySelectionViewState.searchPlaceholder == nil)
+        #expect(state.placeholder?.title == ReadingLocalization.noArticlesTitle)
     }
 
     @Test

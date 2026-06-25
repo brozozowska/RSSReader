@@ -70,7 +70,10 @@ extension ArticlesScreenController {
             navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
                 articles: updatedArticles,
                 sidebarArticleFilter: sidebarArticleFilter
-            )
+            ),
+            emptyContentKind: ArticleSearchScope.normalizedSearchText(searchText).isEmpty
+                ? .selection
+                : .searchResults
         )
     }
 

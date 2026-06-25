@@ -45,6 +45,10 @@ extension ArticlesScreenState {
         normalizedSearchText: String,
         visibleArticles: [ArticleListItemDTO]
     ) -> ArticlesScreenPlaceholderState? {
+        guard emptyContentKind == .searchResults else {
+            return nil
+        }
+
         guard normalizedSearchText.isEmpty == false else {
             return nil
         }

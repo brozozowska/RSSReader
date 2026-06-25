@@ -10,6 +10,11 @@ enum ArticlesScreenPhase: Equatable {
     case failed(String)
 }
 
+enum ArticlesScreenEmptyContentKind: Equatable {
+    case selection
+    case searchResults
+}
+
 enum ArticlesScreenRefreshState: Equatable {
     case idle
     case refreshing
