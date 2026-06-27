@@ -37,7 +37,7 @@ enum ReadingDetailRoute: Hashable, Sendable {
     case safari(ArticleSafariRoute)
 }
 
-enum ReaderAdjacentArticleNavigationDirection: Sendable {
+enum ReaderAdjacentArticleNavigationDirection: Equatable, Sendable {
     case previous
     case next
 }

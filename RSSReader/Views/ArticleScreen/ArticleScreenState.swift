@@ -96,10 +96,13 @@ struct ArticleScreenState {
 
     func derivedViewState(
         selectedArticleID: UUID?,
-        preservesStaleContent: Bool = false
+        preservesStaleContent: Bool = false,
+        preservedStaleArticleID: UUID? = nil
     ) -> ArticleScreenDerivedViewState {
         let isSelectedArticleLoaded = article?.id == selectedArticleID
-        let resolvedArticle = isSelectedArticleLoaded || preservesStaleContent ? article : nil
+        let canPreserveStaleArticle = preservesStaleContent
+            && (preservedStaleArticleID == nil || article?.id == preservedStaleArticleID)
+        let resolvedArticle = isSelectedArticleLoaded || canPreserveStaleArticle ? article : nil
         let showsStaleArticle = article != nil && resolvedArticle == nil && selectedArticleID != nil
         let resolvedPrimaryLoadingState = primaryLoadingState
             ?? (showsStaleArticle ? ArticleScreenPrimaryLoadingState(title: ReadingLocalization.loadingArticleTitle) : nil)

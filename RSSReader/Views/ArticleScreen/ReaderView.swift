@@ -13,7 +13,8 @@ struct ReaderView: View {
     let previewScreenState: ArticleScreenState?
     @State private var controller = ArticleScreenController()
     @State private var adjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls
-    @State private var adjacentArticleTransitionDirection: ReaderAdjacentArticleNavigationDirection?
+    @State private var adjacentArticleTransitionContext: AdjacentArticleTransitionContext?
+    @State private var adjacentArticleTransitionGeneration = 0
     @State private var pendingAdjacentArticleOverscrollDirection: ReaderAdjacentArticleNavigationDirection?
     @State private var adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
     @State private var adjacentArticleOverscrollReadyHapticTrigger = 0
@@ -37,10 +38,14 @@ struct ReaderView: View {
 
     var body: some View {
         let currentArticleID = resolvedArticleID
-        let preservesStaleContent = adjacentArticleTransitionDirection != nil
+        let adjacentTransitionContext = activeAdjacentArticleTransitionContext(
+            targetArticleID: currentArticleID
+        )
+        let preservesStaleContent = adjacentTransitionContext != nil
         let viewState = controller.screenState.derivedViewState(
             selectedArticleID: currentArticleID,
-            preservesStaleContent: preservesStaleContent
+            preservesStaleContent: preservesStaleContent,
+            preservedStaleArticleID: adjacentTransitionContext?.sourceArticleID
         )
         let contentTransitionID = viewState.content?.articleID ?? currentArticleID
         let chromeUnderlayEdges: Edge.Set = viewState.content == nil ? [] : [.top, .bottom]
@@ -82,7 +87,7 @@ struct ReaderView: View {
             .clipped()
             .ignoresSafeArea(.container, edges: chromeUnderlayEdges)
         }
-        .animation(.snappy(duration: 0.28), value: contentTransitionID)
+        .animation(adjacentArticleAnimation, value: contentTransitionID)
         .sensoryFeedback(
             .impact(flexibility: .solid, intensity: 0.75),
             trigger: adjacentArticleOverscrollReadyHapticTrigger
@@ -103,16 +108,19 @@ struct ReaderView: View {
         }
         .task(id: ArticleScreenLoadContext(articleID: currentArticleID, reloadID: reloadID)) {
             guard previewScreenState == nil else { return }
+            let adjacentTransitionContext = adjacentTransitionContext
             loadReaderAdjacentNavigationControlsMode()
             await controller.load(
                 articleID: currentArticleID,
                 dependencies: dependencies,
-                preservesCurrentArticleDuringLoading: adjacentArticleTransitionDirection != nil,
+                preservesCurrentArticleDuringLoading: adjacentTransitionContext != nil,
                 articleReadOnOpenHandler: recordArticleReadOnOpenInCurrentListSession
             )
             pendingAdjacentArticleOverscrollDirection = nil
             adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
-            await resetAdjacentArticleTransitionDirectionAfterAnimation()
+            await resetAdjacentArticleTransitionDirectionAfterAnimation(
+                transitionContext: adjacentTransitionContext
+            )
         }
         .onChange(of: appState.isPresentingSettingsScreen) { _, isPresentingSettingsScreen in
             guard previewScreenState == nil, isPresentingSettingsScreen == false else { return }
@@ -145,20 +153,36 @@ struct ReaderView: View {
     }
 
     private var articleTransition: AnyTransition {
-        switch adjacentArticleTransitionDirection {
+        switch adjacentArticleTransitionContext?.direction {
         case .next:
-            .asymmetric(
-                insertion: .move(edge: .bottom).combined(with: .opacity),
-                removal: .move(edge: .top).combined(with: .opacity)
-            )
+            adjacentArticleTransition(insertionEdge: .bottom, removalEdge: .top)
         case .previous:
-            .asymmetric(
-                insertion: .move(edge: .top).combined(with: .opacity),
-                removal: .move(edge: .bottom).combined(with: .opacity)
-            )
+            adjacentArticleTransition(insertionEdge: .top, removalEdge: .bottom)
         case .none:
             .opacity
         }
+    }
+
+    private func adjacentArticleTransition(insertionEdge: Edge, removalEdge: Edge) -> AnyTransition {
+        .asymmetric(
+            insertion: .move(edge: insertionEdge).combined(with: .opacity),
+            removal: .move(edge: removalEdge).combined(with: .opacity)
+        )
+    }
+
+    private var adjacentArticleAnimation: Animation {
+        .snappy(duration: 0.28)
+    }
+
+    private func activeAdjacentArticleTransitionContext(
+        targetArticleID: UUID?
+    ) -> AdjacentArticleTransitionContext? {
+        guard let adjacentArticleTransitionContext,
+              adjacentArticleTransitionContext.targetArticleID == targetArticleID else {
+            return nil
+        }
+
+        return adjacentArticleTransitionContext
     }
 
     private var backNavigationGesture: some Gesture {
@@ -236,47 +260,92 @@ struct ReaderView: View {
     }
 
     private func navigateToAdjacentArticle(_ direction: ReaderAdjacentArticleNavigationDirection) {
-        adjacentArticleTransitionDirection = direction
+        guard let sourceArticleID = resolvedArticleID,
+              let targetArticleID = appState.adjacentArticleID(direction) else {
+            return
+        }
+
+        adjacentArticleTransitionGeneration += 1
+        let transitionContext = AdjacentArticleTransitionContext(
+            generation: adjacentArticleTransitionGeneration,
+            direction: direction,
+            sourceArticleID: sourceArticleID,
+            targetArticleID: targetArticleID
+        )
+        adjacentArticleTransitionContext = transitionContext
 
         var didSelectAdjacentArticle = false
-        withAnimation(.snappy(duration: 0.28)) {
+        withAnimation(adjacentArticleAnimation) {
             didSelectAdjacentArticle = appState.selectAdjacentArticle(direction)
         }
 
         if didSelectAdjacentArticle == false {
-            adjacentArticleTransitionDirection = nil
+            clearAdjacentArticleTransitionContext(transitionContext)
             return
         }
 
         Task {
-            await loadCurrentArticleAfterAdjacentNavigationIfNeeded()
+            await loadCurrentArticleAfterAdjacentNavigationIfNeeded(
+                transitionContext: transitionContext
+            )
         }
     }
 
     @MainActor
-    private func loadCurrentArticleAfterAdjacentNavigationIfNeeded() async {
-        try? await Task.sleep(for: .milliseconds(80))
-        let currentArticleID = resolvedArticleID
-        guard controller.screenState.article?.id != currentArticleID else {
-            await resetAdjacentArticleTransitionDirectionAfterAnimation()
+    private func loadCurrentArticleAfterAdjacentNavigationIfNeeded(
+        transitionContext: AdjacentArticleTransitionContext
+    ) async {
+        do {
+            try await Task.sleep(for: .milliseconds(80))
+        } catch {
+            return
+        }
+        guard adjacentArticleTransitionContext == transitionContext,
+              resolvedArticleID == transitionContext.targetArticleID else {
+            return
+        }
+
+        guard controller.screenState.article?.id != transitionContext.targetArticleID else {
+            await resetAdjacentArticleTransitionDirectionAfterAnimation(
+                transitionContext: transitionContext
+            )
             return
         }
 
         await controller.load(
-            articleID: currentArticleID,
+            articleID: transitionContext.targetArticleID,
             dependencies: dependencies,
             preservesCurrentArticleDuringLoading: true,
             articleReadOnOpenHandler: recordArticleReadOnOpenInCurrentListSession
         )
         pendingAdjacentArticleOverscrollDirection = nil
         adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
-        await resetAdjacentArticleTransitionDirectionAfterAnimation()
+        await resetAdjacentArticleTransitionDirectionAfterAnimation(
+            transitionContext: transitionContext
+        )
     }
 
-    private func resetAdjacentArticleTransitionDirectionAfterAnimation() async {
-        guard adjacentArticleTransitionDirection != nil else { return }
-        try? await Task.sleep(for: .milliseconds(320))
-        adjacentArticleTransitionDirection = nil
+    private func resetAdjacentArticleTransitionDirectionAfterAnimation(
+        transitionContext: AdjacentArticleTransitionContext?
+    ) async {
+        guard let transitionContext,
+              adjacentArticleTransitionContext == transitionContext else {
+            return
+        }
+
+        do {
+            try await Task.sleep(for: .milliseconds(320))
+        } catch {
+            return
+        }
+        clearAdjacentArticleTransitionContext(transitionContext)
+    }
+
+    private func clearAdjacentArticleTransitionContext(
+        _ transitionContext: AdjacentArticleTransitionContext
+    ) {
+        guard adjacentArticleTransitionContext == transitionContext else { return }
+        adjacentArticleTransitionContext = nil
     }
 
     @MainActor
@@ -334,4 +403,11 @@ struct ReaderView: View {
 private struct ArticleScreenLoadContext: Hashable {
     let articleID: UUID?
     let reloadID: UUID
+}
+
+private struct AdjacentArticleTransitionContext: Equatable {
+    let generation: Int
+    let direction: ReaderAdjacentArticleNavigationDirection
+    let sourceArticleID: UUID
+    let targetArticleID: UUID
 }
