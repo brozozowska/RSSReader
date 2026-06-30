@@ -77,21 +77,22 @@ struct ArticleQueryServiceTests {
         let starredItems = try queryService.fetchInboxListItems(sortMode: .publishedAtDescending, filter: .starred)
         let hiddenItems = try queryService.fetchInboxListItems(sortMode: .publishedAtDescending, filter: .hidden)
 
-        #expect(allItems.map { $0.articleExternalID } == ["unread", "read", "starred"])
-        #expect(unreadItems.map { $0.articleExternalID } == ["unread"])
+        #expect(allItems.map { $0.articleExternalID } == ["unread", "read", "starred", "archived"])
+        #expect(unreadItems.map { $0.articleExternalID } == ["unread", "archived"])
         #expect(starredItems.map { $0.articleExternalID } == ["starred"])
         #expect(hiddenItems.map { $0.articleExternalID } == ["hidden"])
-        #expect(allItems.contains { $0.archivedAt != nil } == false)
 
         let readItem = try #require(allItems.first { $0.articleExternalID == "read" })
         let starredItem = try #require(allItems.first { $0.articleExternalID == "starred" })
         let hiddenItem = try #require(hiddenItems.first)
+        let archivedItem = try #require(allItems.first { $0.articleExternalID == "archived" })
 
         #expect(readItem.isRead)
         #expect(readItem.isStarred == false)
         #expect(starredItem.isRead)
         #expect(starredItem.isStarred)
         #expect(hiddenItem.isHidden)
+        #expect(archivedItem.archivedAt != nil)
     }
 
     @Test

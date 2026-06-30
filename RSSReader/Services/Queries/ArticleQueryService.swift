@@ -125,10 +125,6 @@ final class DefaultArticleQueryService: ArticleQueryService {
     }
 
     private func matches(filter: ArticleListFilter, item: ArticleListItemDTO) -> Bool {
-        guard item.archivedAt == nil else {
-            return false
-        }
-
         switch filter {
         case .all:
             return item.isHidden == false

@@ -112,6 +112,7 @@ extension AppActionRouter {
         let result = await refreshAllFeeds()
         if result != nil {
             appState.requestFeedIconReload()
+            appState.requestSidebarReload()
             appState.requestArticleListReload()
         }
         return result

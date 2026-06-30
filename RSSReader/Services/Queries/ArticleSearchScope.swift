@@ -84,10 +84,6 @@ struct ArticleSearchScope: Sendable, Equatable {
         _ article: ArticleListItemDTO,
         listFilter: ArticleListFilter
     ) -> Bool {
-        guard article.archivedAt == nil else {
-            return false
-        }
-
         switch listFilter {
         case .all:
             return article.isHidden == false

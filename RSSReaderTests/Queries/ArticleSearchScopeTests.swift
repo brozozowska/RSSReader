@@ -57,7 +57,7 @@ struct ArticleSearchScopeTests {
                 query: "needle",
                 selection: .inbox,
                 sidebarArticleFilter: .allItems
-            ) == ["unread", "read", "starred"]
+            ) == ["unread", "read", "starred", "archived"]
         )
         #expect(
             matchingExternalIDs(
@@ -65,7 +65,7 @@ struct ArticleSearchScopeTests {
                 query: "needle",
                 selection: .unread,
                 sidebarArticleFilter: .allItems
-            ) == ["unread"]
+            ) == ["unread", "archived"]
         )
         #expect(
             matchingExternalIDs(
@@ -102,7 +102,7 @@ struct ArticleSearchScopeTests {
             sidebarArticleFilter: .unread
         )
 
-        #expect(results.map(\.articleExternalID) == ["unread"])
+        #expect(results.map(\.articleExternalID) == ["unread", "archived"])
     }
 
     private func matchingExternalIDs(
