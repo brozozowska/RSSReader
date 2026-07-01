@@ -91,6 +91,13 @@ struct ArticleReadOnOpenEvent: Equatable, Sendable {
     let sidebarArticleFilter: SidebarArticleFilter
 }
 
+struct PendingFeedUnsubscribeConfirmation: Identifiable, Equatable, Sendable {
+    let feedID: UUID
+    let feedTitle: String
+
+    var id: UUID { feedID }
+}
+
 enum AppContentReloadTrigger: Equatable, Sendable {
     case remoteSyncImport
     case backgroundRefresh
@@ -117,6 +124,7 @@ public final class AppState {
     var articleScreenReloadID = UUID()
     var articleReadOnOpenEvent: ArticleReadOnOpenEvent?
     var lastContentReloadTrigger: AppContentReloadTrigger?
+    var pendingFeedUnsubscribeConfirmation: PendingFeedUnsubscribeConfirmation?
 
     var selectedSidebarSelection: SidebarSelection? {
         get { readingNavigation.sidebarSelection }
@@ -288,6 +296,17 @@ public final class AppState {
         requestSidebarReload()
         requestArticleListReload()
         requestArticleScreenReload()
+    }
+
+    func presentFeedUnsubscribeConfirmation(feedID: UUID, feedTitle: String) {
+        pendingFeedUnsubscribeConfirmation = PendingFeedUnsubscribeConfirmation(
+            feedID: feedID,
+            feedTitle: feedTitle
+        )
+    }
+
+    func dismissFeedUnsubscribeConfirmation() {
+        pendingFeedUnsubscribeConfirmation = nil
     }
 
     func selectSidebarSelection(_ sidebarSelection: SidebarSelection?) {

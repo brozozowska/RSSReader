@@ -15,7 +15,10 @@ struct TestHarness {
     let httpClient: ScriptedHTTPClient
 
     @MainActor
-    static func make(httpClient: ScriptedHTTPClient) throws -> TestHarness {
+    static func make(
+        httpClient: ScriptedHTTPClient,
+        unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = nil
+    ) throws -> TestHarness {
         let schema = AppComposition.persistenceModelPartition.schema
         let configurationPlan = AppPersistenceConfigurationPlan.make(
             modelPartition: AppComposition.persistenceModelPartition,
@@ -35,7 +38,7 @@ struct TestHarness {
             httpClient: httpClient,
             feedFetcher: feedFetcher,
             modelContainer: modelContainer,
-            unreadAppIconBadgeService: NoOpUnreadAppIconBadgeService(),
+            unreadAppIconBadgeService: unreadAppIconBadgeService ?? NoOpUnreadAppIconBadgeService(),
             tracksFeedSaveRefreshTasks: true
         )
 

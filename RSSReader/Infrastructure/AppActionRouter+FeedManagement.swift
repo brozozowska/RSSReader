@@ -308,6 +308,33 @@ extension AppActionRouter {
     }
 
     @MainActor
+    func requestFeedUnsubscribeConfirmation(
+        id feedID: UUID,
+        title feedTitle: String,
+        using appState: AppState
+    ) {
+        appState.presentFeedUnsubscribeConfirmation(
+            feedID: feedID,
+            feedTitle: feedTitle
+        )
+    }
+
+    @MainActor
+    func cancelFeedUnsubscribeConfirmation(using appState: AppState) {
+        appState.dismissFeedUnsubscribeConfirmation()
+    }
+
+    @MainActor
+    func confirmPendingFeedUnsubscribe(using appState: AppState) {
+        guard let pendingConfirmation = appState.pendingFeedUnsubscribeConfirmation else {
+            return
+        }
+
+        appState.dismissFeedUnsubscribeConfirmation()
+        unsubscribeFeed(id: pendingConfirmation.feedID, using: appState)
+    }
+
+    @MainActor
     func finishDeletingFolder(named folderName: String, using appState: AppState) {
         appState.requestSidebarReload()
         if appState.selectedSidebarSelection == .folder(folderName) {

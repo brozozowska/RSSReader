@@ -56,7 +56,7 @@ struct SidebarFeedRowView: View {
             }
 
             Button(role: .destructive) {
-                actionHandlers.unsubscribeFeed(row.id)
+                actionHandlers.requestFeedUnsubscribeConfirmation(row.id, row.title)
             } label: {
                 Label(SidebarLocalization.unsubscribeActionTitle, systemImage: "minus.circle")
             }

@@ -6,7 +6,7 @@ struct SidebarActionHandlers {
     let applySidebarArticleFilter: (SidebarArticleFilter) -> Void
     let showFeedOrganizer: (UUID) -> Void
     let showFeedEditor: (UUID) -> Void
-    let unsubscribeFeed: (UUID) -> Void
+    let requestFeedUnsubscribeConfirmation: (UUID, String) -> Void
     let showFolder: (String) -> Void
     let showFolderEditor: (String) -> Void
     let deleteFolder: (String) -> Void

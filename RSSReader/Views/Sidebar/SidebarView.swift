@@ -51,6 +51,25 @@ struct SidebarView: View {
         .overlay {
             SidebarOverlayContent(viewState: viewState)
         }
+        .alert(
+            SidebarLocalization.unsubscribeConfirmationTitle,
+            isPresented: feedUnsubscribeConfirmationIsPresented
+        ) {
+            Button(SidebarLocalization.unsubscribeConfirmationActionTitle, role: .destructive) {
+                dependencies.appActions.confirmPendingFeedUnsubscribe(using: appState)
+            }
+            Button(SidebarLocalization.cancelActionTitle, role: .cancel) {
+                dependencies.appActions.cancelFeedUnsubscribeConfirmation(using: appState)
+            }
+        } message: {
+            if let pendingConfirmation = appState.pendingFeedUnsubscribeConfirmation {
+                Text(
+                    SidebarLocalization.unsubscribeConfirmationMessage(
+                        feedTitle: pendingConfirmation.feedTitle
+                    )
+                )
+            }
+        }
         .task {
             guard controller.isPreviewMode == false else { return }
             await loadFeeds(showsFullScreenLoading: true, refreshedAt: nil)
@@ -149,8 +168,12 @@ struct SidebarView: View {
             showFeedEditor: { feedID in
                 dependencies.appActions.showFeedEditor(id: feedID, using: appState)
             },
-            unsubscribeFeed: { feedID in
-                dependencies.appActions.unsubscribeFeed(id: feedID, using: appState)
+            requestFeedUnsubscribeConfirmation: { feedID, feedTitle in
+                dependencies.appActions.requestFeedUnsubscribeConfirmation(
+                    id: feedID,
+                    title: feedTitle,
+                    using: appState
+                )
             },
             showFolder: { folderName in
                 dependencies.appActions.showFolder(named: folderName, using: appState)
@@ -160,6 +183,17 @@ struct SidebarView: View {
             },
             deleteFolder: { folderName in
                 dependencies.appActions.deleteFolder(named: folderName, using: appState)
+            }
+        )
+    }
+
+    private var feedUnsubscribeConfirmationIsPresented: Binding<Bool> {
+        Binding(
+            get: { appState.pendingFeedUnsubscribeConfirmation != nil },
+            set: { isPresented in
+                if isPresented == false {
+                    dependencies.appActions.cancelFeedUnsubscribeConfirmation(using: appState)
+                }
             }
         )
     }

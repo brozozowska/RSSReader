@@ -66,6 +66,25 @@ enum SidebarLocalization {
         defaultValue: "Unsubscribe",
         comment: "Destructive context menu action title for unsubscribing from a feed."
     )
+    static let unsubscribeConfirmationTitle = String(
+        localized: "sidebar.unsubscribeConfirmation.title",
+        defaultValue: "Unsubscribe Feed?",
+        comment: "Alert title asking the user to confirm unsubscribing from a feed."
+    )
+    static let unsubscribeConfirmationActionTitle = String(
+        localized: "sidebar.unsubscribeConfirmation.action.title",
+        defaultValue: "Unsubscribe",
+        comment: "Destructive alert action title for confirming feed unsubscribe."
+    )
+    static let cancelActionTitle = CommonLocalization.cancelAction
+    static func unsubscribeConfirmationMessage(feedTitle: String) -> String {
+        let format = String(
+            localized: "sidebar.unsubscribeConfirmation.message",
+            defaultValue: "Unsubscribe from \"%@\"? Articles from this feed will be removed from this device.",
+            comment: "Alert message asking the user to confirm unsubscribing from a feed. The placeholder is the feed title."
+        )
+        return String(format: format, feedTitle)
+    }
     static let deleteActionTitle = String(
         localized: "sidebar.contextMenu.delete.title",
         defaultValue: "Delete",
