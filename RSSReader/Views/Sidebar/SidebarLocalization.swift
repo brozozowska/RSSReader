@@ -90,6 +90,24 @@ enum SidebarLocalization {
         defaultValue: "Delete",
         comment: "Destructive context menu action title for deleting a folder."
     )
+    static let folderDeleteConfirmationTitle = String(
+        localized: "sidebar.folderDeleteConfirmation.title",
+        defaultValue: "Delete Folder?",
+        comment: "Alert title asking the user to confirm deleting a folder."
+    )
+    static let folderDeleteConfirmationActionTitle = String(
+        localized: "sidebar.folderDeleteConfirmation.action.title",
+        defaultValue: "Delete Folder",
+        comment: "Destructive alert action title for confirming folder deletion."
+    )
+    static func folderDeleteConfirmationMessage(folderName: String) -> String {
+        let format = String(
+            localized: "sidebar.folderDeleteConfirmation.message",
+            defaultValue: "Delete \"%@\"? Feeds inside this folder will not be deleted. They will move to Ungrouped.",
+            comment: "Alert message asking the user to confirm deleting a folder. The placeholder is the folder name."
+        )
+        return String(format: format, folderName)
+    }
     static let loadingTitle = String(
         localized: "sidebar.loading.title",
         defaultValue: "Loading Feeds",

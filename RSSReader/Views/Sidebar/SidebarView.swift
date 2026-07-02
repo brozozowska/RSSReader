@@ -70,6 +70,25 @@ struct SidebarView: View {
                 )
             }
         }
+        .alert(
+            SidebarLocalization.folderDeleteConfirmationTitle,
+            isPresented: folderDeleteConfirmationIsPresented
+        ) {
+            Button(SidebarLocalization.folderDeleteConfirmationActionTitle, role: .destructive) {
+                dependencies.appActions.confirmPendingFolderDelete(using: appState)
+            }
+            Button(SidebarLocalization.cancelActionTitle, role: .cancel) {
+                dependencies.appActions.cancelFolderDeleteConfirmation(using: appState)
+            }
+        } message: {
+            if let pendingConfirmation = appState.pendingFolderDeleteConfirmation {
+                Text(
+                    SidebarLocalization.folderDeleteConfirmationMessage(
+                        folderName: pendingConfirmation.folderName
+                    )
+                )
+            }
+        }
         .task {
             guard controller.isPreviewMode == false else { return }
             await loadFeeds(showsFullScreenLoading: true, refreshedAt: nil)
@@ -181,8 +200,11 @@ struct SidebarView: View {
             showFolderEditor: { folderName in
                 dependencies.appActions.showFolderEditor(named: folderName, using: appState)
             },
-            deleteFolder: { folderName in
-                dependencies.appActions.deleteFolder(named: folderName, using: appState)
+            requestFolderDeleteConfirmation: { folderName in
+                dependencies.appActions.requestFolderDeleteConfirmation(
+                    named: folderName,
+                    using: appState
+                )
             }
         )
     }
@@ -193,6 +215,17 @@ struct SidebarView: View {
             set: { isPresented in
                 if isPresented == false {
                     dependencies.appActions.cancelFeedUnsubscribeConfirmation(using: appState)
+                }
+            }
+        )
+    }
+
+    private var folderDeleteConfirmationIsPresented: Binding<Bool> {
+        Binding(
+            get: { appState.pendingFolderDeleteConfirmation != nil },
+            set: { isPresented in
+                if isPresented == false {
+                    dependencies.appActions.cancelFolderDeleteConfirmation(using: appState)
                 }
             }
         )

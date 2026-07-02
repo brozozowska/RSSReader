@@ -109,7 +109,7 @@ struct SidebarFolderRowView: View {
             }
 
             Button(role: .destructive) {
-                actionHandlers.deleteFolder(row.name)
+                actionHandlers.requestFolderDeleteConfirmation(row.name)
             } label: {
                 Label(SidebarLocalization.deleteActionTitle, systemImage: "trash")
             }

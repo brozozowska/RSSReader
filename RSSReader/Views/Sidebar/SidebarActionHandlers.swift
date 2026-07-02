@@ -9,5 +9,5 @@ struct SidebarActionHandlers {
     let requestFeedUnsubscribeConfirmation: (UUID, String) -> Void
     let showFolder: (String) -> Void
     let showFolderEditor: (String) -> Void
-    let deleteFolder: (String) -> Void
+    let requestFolderDeleteConfirmation: (String) -> Void
 }

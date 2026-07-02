@@ -98,6 +98,12 @@ struct PendingFeedUnsubscribeConfirmation: Identifiable, Equatable, Sendable {
     var id: UUID { feedID }
 }
 
+struct PendingFolderDeleteConfirmation: Identifiable, Equatable, Sendable {
+    let folderName: String
+
+    var id: String { folderName }
+}
+
 enum AppContentReloadTrigger: Equatable, Sendable {
     case remoteSyncImport
     case backgroundRefresh
@@ -125,6 +131,7 @@ public final class AppState {
     var articleReadOnOpenEvent: ArticleReadOnOpenEvent?
     var lastContentReloadTrigger: AppContentReloadTrigger?
     var pendingFeedUnsubscribeConfirmation: PendingFeedUnsubscribeConfirmation?
+    var pendingFolderDeleteConfirmation: PendingFolderDeleteConfirmation?
 
     var selectedSidebarSelection: SidebarSelection? {
         get { readingNavigation.sidebarSelection }
@@ -299,6 +306,7 @@ public final class AppState {
     }
 
     func presentFeedUnsubscribeConfirmation(feedID: UUID, feedTitle: String) {
+        pendingFolderDeleteConfirmation = nil
         pendingFeedUnsubscribeConfirmation = PendingFeedUnsubscribeConfirmation(
             feedID: feedID,
             feedTitle: feedTitle
@@ -307,6 +315,17 @@ public final class AppState {
 
     func dismissFeedUnsubscribeConfirmation() {
         pendingFeedUnsubscribeConfirmation = nil
+    }
+
+    func presentFolderDeleteConfirmation(folderName: String) {
+        pendingFeedUnsubscribeConfirmation = nil
+        pendingFolderDeleteConfirmation = PendingFolderDeleteConfirmation(
+            folderName: folderName
+        )
+    }
+
+    func dismissFolderDeleteConfirmation() {
+        pendingFolderDeleteConfirmation = nil
     }
 
     func selectSidebarSelection(_ sidebarSelection: SidebarSelection?) {

@@ -335,6 +335,29 @@ extension AppActionRouter {
     }
 
     @MainActor
+    func requestFolderDeleteConfirmation(
+        named folderName: String,
+        using appState: AppState
+    ) {
+        appState.presentFolderDeleteConfirmation(folderName: folderName)
+    }
+
+    @MainActor
+    func cancelFolderDeleteConfirmation(using appState: AppState) {
+        appState.dismissFolderDeleteConfirmation()
+    }
+
+    @MainActor
+    func confirmPendingFolderDelete(using appState: AppState) {
+        guard let pendingConfirmation = appState.pendingFolderDeleteConfirmation else {
+            return
+        }
+
+        appState.dismissFolderDeleteConfirmation()
+        deleteFolder(named: pendingConfirmation.folderName, using: appState)
+    }
+
+    @MainActor
     func finishDeletingFolder(named folderName: String, using appState: AppState) {
         appState.requestSidebarReload()
         if appState.selectedSidebarSelection == .folder(folderName) {
