@@ -47,4 +47,49 @@ struct FeedManagementAddFeedStateTests {
         #expect(createCommand?.folderPlacement == .folder(folderID))
         #expect(createCommand?.displayTitleOverride == nil)
     }
+
+    @Test
+    func editFeedStateUsesLoadedPreviewForChangedURLWhenResolvedURLDiffersFromInput() {
+        var state = FeedManagementAddFeedState()
+        let feedID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let initialFeed = FeedManagementFeedSummary(
+            id: feedID,
+            url: "https://example.com/original.xml",
+            title: "Original Feed",
+            folderID: nil,
+            folderName: nil
+        )
+
+        state.applyEditingFeed(initialFeed)
+        state.updateURLInput("https://example.com")
+
+        let previewCommand = state.beginPreviewLoading()
+        #expect(previewCommand?.urlString == "https://example.com")
+
+        if let previewCommand {
+            state.applyLoadedPreview(
+                FeedManagementFeedPreview(
+                    requestedURL: "https://example.com/feed",
+                    resolvedFeedURL: "https://example.com/feed",
+                    title: "Resolved Feed",
+                    subtitle: nil,
+                    siteURL: "https://example.com/",
+                    iconURL: nil,
+                    language: "en",
+                    kind: .rss,
+                    parserAnomalyCount: 0,
+                    rejectedEntryCount: 0,
+                    existingFeedID: nil
+                ),
+                command: previewCommand
+            )
+        }
+
+        #expect(state.shouldPreviewBeforeSaving() == false)
+
+        let updateCommand = state.beginFeedUpdate()
+        #expect(updateCommand?.feedID == feedID)
+        #expect(updateCommand?.preview?.resolvedFeedURL == "https://example.com/feed")
+        #expect(updateCommand?.displayTitleOverride == "Original Feed")
+    }
 }

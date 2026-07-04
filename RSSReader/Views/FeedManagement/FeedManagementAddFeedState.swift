@@ -7,6 +7,7 @@ struct FeedManagementAddFeedState {
     private(set) var isCreatingFeed = false
     private(set) var activePreviewRequestURL: String? = nil
     private(set) var activePreviewRequestID: UUID? = nil
+    private(set) var loadedPreviewRequestURL: String? = nil
     private(set) var preview: FeedManagementFeedPreview? = nil
     private(set) var createdFeed: FeedManagementFeedSummary? = nil
     private(set) var previewStatus: FeedManagementAddFeedStatusPresentation? = nil
@@ -29,6 +30,7 @@ struct FeedManagementAddFeedState {
         isCreatingFeed = false
         activePreviewRequestURL = nil
         activePreviewRequestID = nil
+        loadedPreviewRequestURL = nil
         preview = nil
         createdFeed = nil
         previewStatus = nil
@@ -59,6 +61,7 @@ struct FeedManagementAddFeedState {
         isCreatingFeed = false
         activePreviewRequestURL = nil
         activePreviewRequestID = nil
+        loadedPreviewRequestURL = nil
         preview = nil
         createdFeed = nil
         previewStatus = nil
@@ -77,6 +80,7 @@ struct FeedManagementAddFeedState {
         isCreatingFeed = false
         activePreviewRequestURL = nil
         activePreviewRequestID = nil
+        loadedPreviewRequestURL = nil
         preview = nil
         createdFeed = nil
         previewStatus = nil
@@ -132,9 +136,8 @@ struct FeedManagementAddFeedState {
         guard let normalizedURL = normalizedValidatedURL() else { return false }
         guard normalizedURL != editingFeed.url else { return false }
 
-        if let preview {
-            return preview.requestedURL != normalizedURL
-                && preview.resolvedFeedURL != normalizedURL
+        if preview != nil {
+            return loadedPreviewRequestURL != normalizedURL
         }
 
         return true
@@ -152,6 +155,7 @@ struct FeedManagementAddFeedState {
         isCreatingFeed = false
         activePreviewRequestURL = normalizedURL
         activePreviewRequestID = requestID
+        loadedPreviewRequestURL = nil
         preview = nil
         createdFeed = nil
         previewStatus = nil
@@ -171,6 +175,7 @@ struct FeedManagementAddFeedState {
         }
 
         self.preview = preview
+        loadedPreviewRequestURL = command.urlString
         if isEditing == false {
             displayNameInput = preview.title
         }
@@ -197,6 +202,7 @@ struct FeedManagementAddFeedState {
         isCreatingFeed = false
         activePreviewRequestURL = nil
         activePreviewRequestID = nil
+        loadedPreviewRequestURL = nil
         preview = nil
         createdFeed = nil
         previewStatus = status
