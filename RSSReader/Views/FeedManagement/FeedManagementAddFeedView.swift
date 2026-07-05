@@ -14,40 +14,44 @@ struct FeedManagementAddFeedView: View {
 
     var body: some View {
         List {
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(presentation.summaryTitle)
-                        .font(.headline)
+            if presentation.showsSummary {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(presentation.summaryTitle)
+                            .font(.headline)
 
-                    Text(presentation.summaryDescription)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        Text(presentation.summaryDescription)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
                 }
-                .padding(.vertical, 4)
             }
 
-            Section {
-                TextField(
-                    presentation.urlPrompt,
-                    text: urlBinding,
-                    prompt: Text(FeedManagementLocalization.feedURLPlaceholder)
-                )
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .keyboardType(.URL)
-                .textContentType(.URL)
-                .submitLabel(.done)
-                .onSubmit(handlePreviewAction)
+            if presentation.showsURLInput {
+                Section {
+                    TextField(
+                        presentation.urlPrompt,
+                        text: urlBinding,
+                        prompt: Text(FeedManagementLocalization.feedURLPlaceholder)
+                    )
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+                    .textContentType(.URL)
+                    .submitLabel(.done)
+                    .onSubmit(handlePreviewAction)
 
-                if let validationMessage = presentation.validationMessage {
-                    Text(validationMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.orange)
+                    if let validationMessage = presentation.validationMessage {
+                        Text(validationMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                    }
+                } header: {
+                    Text(FeedManagementLocalization.feedURLPrompt)
+                } footer: {
+                    Text(FeedManagementLocalization.feedURLFooter)
                 }
-            } header: {
-                Text(FeedManagementLocalization.feedURLPrompt)
-            } footer: {
-                Text(FeedManagementLocalization.feedURLFooter)
             }
 
             if presentation.showsDisplayNameInput {
@@ -68,17 +72,18 @@ struct FeedManagementAddFeedView: View {
                 }
             }
 
-            if presentation.isLoadingPreview {
+            if presentation.allowsPreviewAction, presentation.isLoadingPreview {
                 Section {
                     FeedManagementCheckingFeedView()
                 } header: {
                     Text(FeedManagementLocalization.feedPreviewTitle)
                 }
-            } else if let preview = presentation.preview {
+            } else if presentation.allowsPreviewAction, let preview = presentation.preview {
                 Section(FeedManagementLocalization.feedPreviewTitle) {
                     FeedManagementAddFeedPreviewCard(preview: preview)
                 }
-            } else if let status = presentation.status,
+            } else if presentation.allowsPreviewAction,
+                      let status = presentation.status,
                       status.kind == .failure {
                 Section {
                     FeedManagementFeedbackCard(
@@ -117,7 +122,7 @@ struct FeedManagementAddFeedView: View {
             }
 
             if let status = presentation.status,
-               status.kind != .failure || presentation.preview != nil {
+               presentation.allowsPreviewAction == false || status.kind != .failure || presentation.preview != nil {
                 Section {
                     FeedManagementFeedbackCard(
                         feedback: .init(status: status)

@@ -30,7 +30,7 @@ import SwiftUI
     )
 }
 
-#Preview("Feed Management · Edit Feed") {
+#Preview("Feed Management · Rename Feed") {
     FeedManagementScreenPreviewContainer(
         screenState: FeedManagementScreenPreviewFactory.makeEditFeedState()
     )

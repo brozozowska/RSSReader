@@ -6,6 +6,7 @@ struct RootView: View {
     @Environment(\.colorScheme) private var systemColorScheme
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var preferredCompactColumn: NavigationSplitViewColumn = .sidebar
+    @State private var presentedFeedManagementLaunchContext: FeedManagementScreenLaunchContext = .entry
 
     var body: some View {
         let themeApplicationPolicy = AppThemeApplicationPolicy(
@@ -92,7 +93,7 @@ struct RootView: View {
             ) {
                 FeedManagementScreenView(
                     dismiss: { dependencies.appActions.dismissFeedManagement(using: appState) },
-                    launchContext: appState.feedManagementLaunchContext
+                    launchContext: feedManagementLaunchContextForPresentation
                 )
             }
         }
@@ -105,6 +106,16 @@ struct RootView: View {
         }
         .onChange(of: appState.selectedArticleID) { _, _ in
             syncPreferredCompactColumn()
+        }
+        .onChange(of: appState.isPresentingFeedManagementScreen) { _, isPresenting in
+            if isPresenting {
+                presentedFeedManagementLaunchContext = appState.feedManagementLaunchContext
+            }
+        }
+        .onChange(of: appState.feedManagementLaunchContext) { _, launchContext in
+            if appState.isPresentingFeedManagementScreen {
+                presentedFeedManagementLaunchContext = launchContext
+            }
         }
     }
 
@@ -126,12 +137,21 @@ struct RootView: View {
             get: { appState.isPresentingFeedManagementScreen },
             set: { isPresented in
                 if isPresented {
+                    presentedFeedManagementLaunchContext = appState.feedManagementLaunchContext
                     appState.presentFeedManagementScreen()
                 } else {
                     appState.dismissFeedManagementScreen()
                 }
             }
         )
+    }
+
+    private var feedManagementLaunchContextForPresentation: FeedManagementScreenLaunchContext {
+        if appState.isPresentingFeedManagementScreen {
+            return appState.feedManagementLaunchContext
+        }
+
+        return presentedFeedManagementLaunchContext
     }
 
     private var safariPresentationBinding: Binding<Bool> {

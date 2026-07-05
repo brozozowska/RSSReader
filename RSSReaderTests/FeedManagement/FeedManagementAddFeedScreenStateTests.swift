@@ -159,7 +159,9 @@ struct FeedManagementAddFeedScreenStateTests {
             return
         }
 
-        #expect(editDestination.title == FeedManagementLocalization.editFeedTitle)
+        #expect(editDestination.title == FeedManagementLocalization.renameFeedTitle)
+        #expect(editDestination.showsSummary == false)
+        #expect(editDestination.showsURLInput == false)
         #expect(editDestination.placementOptions.isEmpty)
         #expect(editDestination.createFolderActionTitle == nil)
         #expect(editDestination.allowsPreviewAction == false)

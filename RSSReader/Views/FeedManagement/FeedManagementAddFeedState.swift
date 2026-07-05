@@ -309,7 +309,7 @@ struct FeedManagementAddFeedState {
 
         return FeedManagementAddFeedPresentation(
             title: isEditing
-                ? FeedManagementLocalization.editFeedTitle
+                ? FeedManagementLocalization.renameFeedTitle
                 : FeedManagementLocalization.addFeedTitle,
             summaryTitle: isEditing
                 ? FeedManagementLocalization.feedDetailsTitle
@@ -317,8 +317,10 @@ struct FeedManagementAddFeedState {
             summaryDescription: isEditing
                 ? FeedManagementLocalization.feedDetailsDescription
                 : FeedManagementLocalization.newFeedDescription,
+            showsSummary: isEditing == false,
             urlInput: urlInput,
             urlPrompt: FeedManagementLocalization.feedURLPrompt,
+            showsURLInput: isEditing == false,
             displayNameInput: displayNameInput,
             displayNamePrompt: FeedManagementLocalization.displayNamePrompt,
             displayNameFooter: displayNameFooter(),

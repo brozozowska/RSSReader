@@ -52,7 +52,7 @@ struct SidebarFeedRowView: View {
             Button {
                 actionHandlers.showFeedEditor(row.id)
             } label: {
-                Label(SidebarLocalization.editActionTitle, systemImage: "pencil")
+                Label(SidebarLocalization.renameFeedActionTitle, systemImage: "pencil")
             }
 
             Button(role: .destructive) {

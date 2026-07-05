@@ -314,10 +314,10 @@ enum FeedManagementLocalization {
         defaultValue: "Already Added",
         comment: "Primary action title for a duplicate feed."
     )
-    static let editFeedTitle = String(
-        localized: "feedManagement.addFeed.edit.title",
-        defaultValue: "Edit Feed",
-        comment: "Navigation title for editing a feed."
+    static let renameFeedTitle = String(
+        localized: "feedManagement.renameFeed.title",
+        defaultValue: "Переименовать ленту",
+        comment: "Navigation title for renaming a feed."
     )
     static let feedDetailsTitle = String(
         localized: "feedManagement.addFeed.edit.summary.title",
@@ -340,9 +340,9 @@ enum FeedManagementLocalization {
         comment: "Summary description for adding a feed."
     )
     static let editDisplayNameFooter = String(
-        localized: "feedManagement.addFeed.displayName.edit.footer",
-        defaultValue: "Set the name shown in the feed list and article lists.",
-        comment: "Footer for display name while editing a feed."
+        localized: "feedManagement.renameFeed.displayName.footer",
+        defaultValue: "Задайте имя, которое будет отображаться в списке лент и статей.",
+        comment: "Footer for display name while renaming a feed."
     )
     static let addDisplayNameFooter = String(
         localized: "feedManagement.addFeed.displayName.add.footer",

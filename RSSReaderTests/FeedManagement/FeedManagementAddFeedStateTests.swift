@@ -63,7 +63,15 @@ struct FeedManagementAddFeedStateTests {
         state.applyEditingFeed(initialFeed)
         state.updateURLInput("https://example.com")
         state.updateDisplayNameInput("Renamed Feed")
+        let presentation = state.derivedPresentation()
 
+        #expect(presentation.title == FeedManagementLocalization.renameFeedTitle)
+        #expect(presentation.showsSummary == false)
+        #expect(presentation.showsURLInput == false)
+        #expect(presentation.showsDisplayNameInput)
+        #expect(presentation.allowsPreviewAction == false)
+        #expect(presentation.placementOptions.isEmpty)
+        #expect(presentation.createFolderActionTitle == nil)
         #expect(state.beginPreviewLoading() == nil)
         #expect(state.shouldPreviewBeforeSaving() == false)
 

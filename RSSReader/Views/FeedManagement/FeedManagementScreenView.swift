@@ -77,6 +77,16 @@ struct FeedManagementScreenView: View {
                 destinationFactory.handleLaunchContext(launchContext)
             }
         }
+        .presentationDetents(feedManagementPresentationDetents)
+    }
+
+    private var feedManagementPresentationDetents: Set<PresentationDetent> {
+        switch launchContext {
+        case .editFeed:
+            return [.height(260)]
+        case .entry, .editFolder, .organizeFeed:
+            return [.large]
+        }
     }
 
     private var destinationPathBinding: Binding<[FeedManagementScenarioID]> {

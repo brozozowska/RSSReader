@@ -216,7 +216,9 @@ struct FeedManagementScreenControllerAddFeedTests {
             return
         }
 
-        #expect(initialDestination.title == FeedManagementLocalization.editFeedTitle)
+        #expect(initialDestination.title == FeedManagementLocalization.renameFeedTitle)
+        #expect(initialDestination.showsSummary == false)
+        #expect(initialDestination.showsURLInput == false)
         #expect(initialDestination.urlInput == initialURL)
         #expect(initialDestination.placementOptions.isEmpty)
         #expect(initialDestination.createFolderActionTitle == nil)

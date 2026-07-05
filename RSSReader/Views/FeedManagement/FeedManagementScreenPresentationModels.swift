@@ -95,8 +95,10 @@ struct FeedManagementAddFeedPresentation: Hashable, Sendable {
     let title: String
     let summaryTitle: String
     let summaryDescription: String
+    let showsSummary: Bool
     let urlInput: String
     let urlPrompt: String
+    let showsURLInput: Bool
     let displayNameInput: String
     let displayNamePrompt: String
     let displayNameFooter: String

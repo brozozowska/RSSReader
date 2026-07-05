@@ -1249,6 +1249,7 @@
     },
     "feedManagement.addFeed.displayName.edit.footer" : {
       "comment" : "Footer for display name while editing a feed.",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -1961,6 +1962,7 @@
     },
     "feedManagement.addFeed.edit.title" : {
       "comment" : "Navigation title for editing a feed.",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -14439,6 +14441,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "移动订阅源"
+          }
+        }
+      }
+    },
+    "feedManagement.renameFeed.displayName.footer" : {
+      "comment" : "Footer for display name while renaming a feed.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Задайте имя, которое будет отображаться в списке лент и статей."
+          }
+        }
+      }
+    },
+    "feedManagement.renameFeed.title" : {
+      "comment" : "Navigation title for renaming a feed.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Переименовать ленту"
           }
         }
       }
@@ -36470,6 +36496,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "整理..."
+          }
+        }
+      }
+    },
+    "sidebar.contextMenu.renameFeed.title" : {
+      "comment" : "Context menu action title for renaming a feed.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Переименовать..."
           }
         }
       }
