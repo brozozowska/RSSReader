@@ -162,6 +162,13 @@ struct FeedManagementMoveFeedFeedPresentation: Identifiable, Hashable, Sendable 
     let isSelected: Bool
 }
 
+enum FeedManagementMoveFeedSectionID: String, Hashable, Identifiable, Sendable {
+    case destinationFolder
+    case selectedFeed
+
+    var id: String { rawValue }
+}
+
 enum FeedManagementMoveFeedFeedbackKind: Hashable, Sendable {
     case success
     case failure
@@ -178,6 +185,7 @@ struct FeedManagementMoveFeedPresentation: Hashable, Sendable {
     let title: String
     let summaryTitle: String
     let summaryDescription: String
+    let sectionOrder: [FeedManagementMoveFeedSectionID]
     let feeds: [FeedManagementMoveFeedFeedPresentation]
     let emptyStateTitle: String?
     let emptyStateDescription: String?

@@ -48,7 +48,7 @@ import SwiftUI
     )
 }
 
-#Preview("Feed Management · Edit Folder") {
+#Preview("Feed Management · Rename Folder") {
     FeedManagementScreenPreviewContainer(
         screenState: FeedManagementScreenPreviewFactory.makeEditFolderState()
     )

@@ -49,6 +49,10 @@ struct FeedManagementMoveFeedScreenStateTests {
             return
         }
 
+        #expect(FeedManagementLocalization.targetFolderTitle == "Папка назначения")
+        #expect(FeedManagementLocalization.selectFeedTitle == "Выбранная лента")
+        #expect(initialDestination.sectionOrder == [.destinationFolder, .selectedFeed])
+        #expect(initialDestination.placementTitle == FeedManagementLocalization.targetFolderTitle)
         #expect(initialDestination.feeds.map(\.title) == ["Apple Feed", "Beta Feed"])
         #expect(initialDestination.feeds.first?.isSelected == true)
         #expect(initialDestination.placementOptions.map(\.title) == [FeedManagementLocalization.ungroupedTitle, "News", "Tech"])

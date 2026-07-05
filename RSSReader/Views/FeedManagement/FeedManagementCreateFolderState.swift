@@ -136,7 +136,7 @@ struct FeedManagementCreateFolderState {
 
         return FeedManagementCreateFolderPresentation(
             title: isEditing
-                ? FeedManagementLocalization.editFolderTitle
+                ? FeedManagementLocalization.renameFolderTitle
                 : FeedManagementLocalization.createFolderTitle,
             summaryTitle: isEditing
                 ? FeedManagementLocalization.folderNameSummaryTitle

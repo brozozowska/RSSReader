@@ -23,7 +23,7 @@ struct FeedManagementScreenControllerLaunchContextTests {
         }
 
         #expect(SidebarLocalization.renameFolderActionTitle == "Переименовать...")
-        #expect(initialDestination.title == FeedManagementLocalization.editFolderTitle)
+        #expect(initialDestination.title == FeedManagementLocalization.renameFolderTitle)
         #expect(initialDestination.title == "Переименовать папку")
         #expect(initialDestination.nameInput == "News")
         #expect(initialDestination.summaryTitle == FeedManagementLocalization.folderNameSummaryTitle)

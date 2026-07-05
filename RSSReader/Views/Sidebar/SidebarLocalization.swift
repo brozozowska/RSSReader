@@ -58,12 +58,12 @@ enum SidebarLocalization {
     )
     static let renameFeedActionTitle = String(
         localized: "sidebar.contextMenu.renameFeed.title",
-        defaultValue: "Переименовать...",
+        defaultValue: "Rename...",
         comment: "Context menu action title for renaming a feed."
     )
     static let renameFolderActionTitle = String(
         localized: "sidebar.contextMenu.renameFolder.title",
-        defaultValue: "Переименовать...",
+        defaultValue: "Rename...",
         comment: "Context menu action title for renaming a folder."
     )
     static let unsubscribeActionTitle = String(

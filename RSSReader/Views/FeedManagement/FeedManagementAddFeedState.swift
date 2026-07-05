@@ -421,15 +421,10 @@ struct FeedManagementAddFeedState {
 
     private func placementDescription() -> String {
         if createdFeed != nil {
-            return isEditing
-                ? FeedManagementLocalization.savedEditPlacementDescription
-                : FeedManagementLocalization.savedAddPlacementDescription
+            return FeedManagementLocalization.savedAddPlacementDescription
         }
 
         if preview == nil {
-            if isEditing {
-                return FeedManagementLocalization.editPendingPlacementDescription
-            }
             return FeedManagementLocalization.addPendingPlacementDescription
         }
 
@@ -437,9 +432,7 @@ struct FeedManagementAddFeedState {
             return FeedManagementLocalization.noFoldersPlacementDescription
         }
 
-        return isEditing
-            ? FeedManagementLocalization.editReadyPlacementDescription
-            : FeedManagementLocalization.addReadyPlacementDescription
+        return FeedManagementLocalization.addReadyPlacementDescription
     }
 
     private func placementOptions() -> [FeedManagementFolderPlacementOptionPresentation] {

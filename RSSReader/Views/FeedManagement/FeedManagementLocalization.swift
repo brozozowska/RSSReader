@@ -210,9 +210,9 @@ enum FeedManagementLocalization {
         comment: "Section title for existing folders."
     )
     static let selectFeedTitle = String(
-        localized: "feedManagement.moveFeed.selectFeed.title",
-        defaultValue: "Select Feed",
-        comment: "Section title for choosing a feed to move."
+        localized: "feedManagement.moveFeed.selectedFeed.title",
+        defaultValue: "Selected Feed",
+        comment: "Section title for the selected feed in move feed flow."
     )
     static let currentLocationFormat = String(
         localized: "feedManagement.moveFeed.currentLocation.format",
@@ -225,7 +225,7 @@ enum FeedManagementLocalization {
     static let targetFolderTitle = String(
         localized: "feedManagement.moveFeed.targetFolder.title",
         defaultValue: "Target Folder",
-        comment: "Section title for choosing target folder in move feed flow."
+        comment: "Section title for choosing destination folder in move feed flow."
     )
     static func feedCount(_ count: Int) -> String {
         let template = String(
@@ -316,7 +316,7 @@ enum FeedManagementLocalization {
     )
     static let renameFeedTitle = String(
         localized: "feedManagement.renameFeed.title",
-        defaultValue: "Переименовать ленту",
+        defaultValue: "Rename Feed",
         comment: "Navigation title for renaming a feed."
     )
     static let feedDetailsTitle = String(
@@ -341,7 +341,7 @@ enum FeedManagementLocalization {
     )
     static let editDisplayNameFooter = String(
         localized: "feedManagement.renameFeed.displayName.footer",
-        defaultValue: "Задайте имя, которое будет отображаться в списке лент и статей.",
+        defaultValue: "Set the name shown in the feeds and articles lists.",
         comment: "Footer for display name while renaming a feed."
     )
     static let addDisplayNameFooter = String(
@@ -364,20 +364,10 @@ enum FeedManagementLocalization {
         defaultValue: "Use the existing feed instead of creating a duplicate.",
         comment: "Warning detail for duplicate feed."
     )
-    static let savedEditPlacementDescription = String(
-        localized: "feedManagement.addFeed.placement.savedEdit.description",
-        defaultValue: "The feed has already been updated. Edit the URL to start another edit flow.",
-        comment: "Placement footer after editing a feed."
-    )
     static let savedAddPlacementDescription = String(
         localized: "feedManagement.addFeed.placement.savedAdd.description",
         defaultValue: "The feed has already been saved. Edit the URL to start a new add-feed flow.",
         comment: "Placement footer after adding a feed."
-    )
-    static let editPendingPlacementDescription = String(
-        localized: "feedManagement.addFeed.placement.editPending.description",
-        defaultValue: "The current folder is preselected. Review the feed before saving changes.",
-        comment: "Placement footer before editing a feed."
     )
     static let addPendingPlacementDescription = String(
         localized: "feedManagement.addFeed.placement.addPending.description",
@@ -388,11 +378,6 @@ enum FeedManagementLocalization {
         localized: "feedManagement.addFeed.placement.noFolders.description",
         defaultValue: "No folders are available yet. You can keep the feed ungrouped or create a folder.",
         comment: "Placement footer when no folders exist."
-    )
-    static let editReadyPlacementDescription = String(
-        localized: "feedManagement.addFeed.placement.editReady.description",
-        defaultValue: "Choose where this feed should appear after saving.",
-        comment: "Placement footer after feed preview while editing."
     )
     static let addReadyPlacementDescription = String(
         localized: "feedManagement.addFeed.placement.addReady.description",
@@ -465,9 +450,9 @@ enum FeedManagementLocalization {
         defaultValue: "Unable to load the folder details right now. Try again.",
         comment: "Failure message when folder details cannot be loaded for editing."
     )
-    static let editFolderTitle = String(
+    static let renameFolderTitle = String(
         localized: "feedManagement.createFolder.rename.title",
-        defaultValue: "Переименовать папку",
+        defaultValue: "Rename Folder",
         comment: "Navigation title for renaming an existing folder."
     )
     static let folderNameSummaryTitle = String(

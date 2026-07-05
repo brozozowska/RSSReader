@@ -26,48 +26,12 @@ struct FeedManagementMoveFeedView: View {
                 .padding(.vertical, 4)
             }
 
-            Section {
-                if let emptyStateTitle = presentation.emptyStateTitle,
-                   let emptyStateDescription = presentation.emptyStateDescription {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(emptyStateTitle)
-                            .font(.body.weight(.semibold))
-
-                        Text(emptyStateDescription)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                } else {
-                    ForEach(presentation.feeds) { feed in
-                        Button {
-                            selectFeed(feed.id)
-                        } label: {
-                            FeedManagementMoveFeedFeedRow(feed: feed)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            } header: {
-                if showsEmptyState == false {
-                    Text(FeedManagementLocalization.selectFeedTitle)
-                }
-            }
-
-            Section {
-                if showsEmptyState == false {
-                    ForEach(presentation.placementOptions) { option in
-                        Button {
-                            selectPlacement(option.placement)
-                        } label: {
-                            FeedManagementFolderPlacementRow(option: option)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            } header: {
-                if showsEmptyState == false {
-                    Text(presentation.placementTitle)
+            ForEach(presentation.sectionOrder) { sectionID in
+                switch sectionID {
+                case .destinationFolder:
+                    destinationFolderSection(showsEmptyState: showsEmptyState)
+                case .selectedFeed:
+                    selectedFeedSection(showsEmptyState: showsEmptyState)
                 }
             }
 
@@ -103,6 +67,55 @@ struct FeedManagementMoveFeedView: View {
                 .tint(Color.accentColor)
                 .accessibilityLabel(presentation.primaryActionTitle)
                 .disabled(presentation.isPrimaryActionEnabled == false)
+            }
+        }
+    }
+
+    private func destinationFolderSection(showsEmptyState: Bool) -> some View {
+        Section {
+            if showsEmptyState == false {
+                ForEach(presentation.placementOptions) { option in
+                    Button {
+                        selectPlacement(option.placement)
+                    } label: {
+                        FeedManagementFolderPlacementRow(option: option)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        } header: {
+            if showsEmptyState == false {
+                Text(presentation.placementTitle)
+            }
+        }
+    }
+
+    private func selectedFeedSection(showsEmptyState: Bool) -> some View {
+        Section {
+            if let emptyStateTitle = presentation.emptyStateTitle,
+               let emptyStateDescription = presentation.emptyStateDescription {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(emptyStateTitle)
+                        .font(.body.weight(.semibold))
+
+                    Text(emptyStateDescription)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            } else {
+                ForEach(presentation.feeds) { feed in
+                    Button {
+                        selectFeed(feed.id)
+                    } label: {
+                        FeedManagementMoveFeedFeedRow(feed: feed)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        } header: {
+            if showsEmptyState == false {
+                Text(FeedManagementLocalization.selectFeedTitle)
             }
         }
     }

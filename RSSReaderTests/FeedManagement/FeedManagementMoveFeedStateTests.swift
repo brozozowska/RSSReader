@@ -32,6 +32,13 @@ struct FeedManagementMoveFeedStateTests {
             selectedFeedID: feedID
         )
 
+        let initialPresentation = state.derivedPresentation()
+
+        #expect(FeedManagementLocalization.targetFolderTitle == "Папка назначения")
+        #expect(FeedManagementLocalization.selectFeedTitle == "Выбранная лента")
+        #expect(initialPresentation.sectionOrder == [.destinationFolder, .selectedFeed])
+        #expect(initialPresentation.placementTitle == FeedManagementLocalization.targetFolderTitle)
+        #expect(initialPresentation.feeds.first?.isSelected == true)
         #expect(state.moveCommand() == nil)
 
         state.selectPlacement(.folder(folderID))
