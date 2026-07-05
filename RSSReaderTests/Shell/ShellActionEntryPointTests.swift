@@ -303,6 +303,7 @@ struct ShellActionEntryPointTests {
         )
         let reloadIDBeforeRefresh = appState.articleListReloadID
         let sidebarReloadIDBeforeRefresh = appState.sidebarReloadID
+        let missingFeedIconReloadIDBeforeRefresh = appState.missingFeedIconReloadID
         let unreadCountsBeforeRefresh = try harness.articleStateRepository.fetchUnreadCounts(feedIDs: [firstFeed.id])
 
         let result = await harness.dependencies.appActions.refreshVisibleFeeds(using: appState)
@@ -314,6 +315,7 @@ struct ShellActionEntryPointTests {
         #expect(unreadCountsAfterRefresh[firstFeed.id] == 1)
         #expect(appState.articleListReloadID != reloadIDBeforeRefresh)
         #expect(appState.sidebarReloadID != sidebarReloadIDBeforeRefresh)
+        #expect(appState.missingFeedIconReloadID != missingFeedIconReloadIDBeforeRefresh)
     }
 
     @Test

@@ -81,6 +81,7 @@ func makeReaderArticleDTO(
 func makeValidRSSFeedXML(
     channelTitle: String,
     channelLink: String,
+    channelImageURL: String? = nil,
     language: String,
     itemTitle: String,
     itemLink: String,
@@ -95,6 +96,7 @@ func makeValidRSSFeedXML(
         <title>\(channelTitle)</title>
         <link>\(channelLink)</link>
         <description>Integration test feed</description>
+        \(channelImageXML(channelImageURL, title: channelTitle, link: channelLink))
         <language>\(language)</language>
         <item>
           <title>\(itemTitle)</title>
@@ -105,5 +107,17 @@ func makeValidRSSFeedXML(
         </item>
       </channel>
     </rss>
+    """
+}
+
+private func channelImageXML(_ imageURL: String?, title: String, link: String) -> String {
+    guard let imageURL else { return "" }
+
+    return """
+        <image>
+          <url>\(imageURL)</url>
+          <title>\(title)</title>
+          <link>\(link)</link>
+        </image>
     """
 }

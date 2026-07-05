@@ -24,17 +24,25 @@ struct FeedIconView: View {
         .clipShape(RoundedRectangle(cornerRadius: 5))
         .task(id: cacheOnlyLoadID) {
             let allowsNetworkDiscovery = appState.consumeFeedIconNetworkLoadRequest(for: feedID)
-            await loadIcon(allowsNetworkDiscovery: allowsNetworkDiscovery)
-        }
-        .onChange(of: appState.feedIconReloadID) { _, _ in
-            Task {
-                await loadIcon(allowsNetworkDiscovery: true)
-            }
+            await loadIcon(
+                allowsNetworkDiscovery: allowsNetworkDiscovery,
+                clearsMissingIcon: true
+            )
         }
         .onChange(of: appState.feedIconCacheResetID) { _, _ in
             loadTask?.cancel()
             loadTask = nil
             iconImage = nil
+        }
+        .onChange(of: appState.missingFeedIconReloadID) { _, _ in
+            guard iconImage == nil else { return }
+
+            Task {
+                await loadIcon(
+                    allowsNetworkDiscovery: true,
+                    clearsMissingIcon: true
+                )
+            }
         }
         .onDisappear {
             loadTask?.cancel()
@@ -45,8 +53,7 @@ struct FeedIconView: View {
     private var cacheOnlyLoadID: FeedIconCacheOnlyLoadID {
         FeedIconCacheOnlyLoadID(
             siteURL: siteURL,
-            iconURL: iconURL,
-            sidebarReloadID: appState.sidebarReloadID
+            iconURL: iconURL
         )
     }
 
@@ -67,11 +74,16 @@ struct FeedIconView: View {
     }
 
     @MainActor
-    private func loadIcon(allowsNetworkDiscovery: Bool) async {
+    private func loadIcon(
+        allowsNetworkDiscovery: Bool,
+        clearsMissingIcon: Bool
+    ) async {
         loadTask?.cancel()
-        iconImage = nil
 
         guard let resolvedURL else {
+            if clearsMissingIcon {
+                iconImage = nil
+            }
             return
         }
 
@@ -99,11 +111,16 @@ struct FeedIconView: View {
                 return
             }
 
-            _ = await loadFirstAvailableIcon(
+            let didLoadIcon = await loadFirstAvailableIcon(
                 from: FeedIconCandidateBuilder.commonIconCandidates(for: fallbackOriginURL ?? resolvedURL),
                 allowsNetworkDiscovery: allowsNetworkDiscovery,
                 cacheAliasURL: allowsNetworkDiscovery ? resolvedURL : nil
             )
+            if didLoadIcon == false, clearsMissingIcon {
+                await MainActor.run {
+                    iconImage = nil
+                }
+            }
         }
 
         loadTask = task
@@ -179,7 +196,6 @@ struct FeedIconView: View {
 private struct FeedIconCacheOnlyLoadID: Hashable {
     let siteURL: String?
     let iconURL: String?
-    let sidebarReloadID: UUID
 }
 
 enum FeedIconCandidateBuilder {

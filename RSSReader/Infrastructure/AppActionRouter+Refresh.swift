@@ -111,7 +111,7 @@ extension AppActionRouter {
     func refreshVisibleFeeds(using appState: AppState) async -> FeedRefreshBatchResult? {
         let result = await refreshAllFeeds()
         if result != nil {
-            appState.requestFeedIconReload()
+            appState.requestMissingFeedIconReload()
             appState.requestSidebarReload()
             appState.requestArticleListReload()
         }

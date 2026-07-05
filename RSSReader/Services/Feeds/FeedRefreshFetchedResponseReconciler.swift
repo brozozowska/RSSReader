@@ -95,11 +95,12 @@ extension FeedRefreshService {
         saveAfterOperation: Bool = true
     ) throws {
         let metadata = parsedFeed.metadata
+        let currentMetadata = try feedRepository.fetchMetadata(for: feedID)
         let update = FeedMetadataUpdate(
             siteURL: metadata.siteURL,
             title: metadata.title,
             subtitle: metadata.subtitle,
-            iconURL: metadata.iconURL,
+            iconURL: currentMetadata?.iconURL == nil ? metadata.iconURL : nil,
             language: metadata.language,
             kind: parsedFeed.kind,
             updatedAt: updatedAt

@@ -80,6 +80,81 @@ struct FeedRefreshServiceSingleFeedTests {
     }
 
     @Test
+    func singleFeedRefreshPreservesExistingIconURL() async throws {
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                steps: [
+                    .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: makeValidRSSFeedXML(
+                            channelTitle: "Updated Feed Title",
+                            channelLink: "https://example.com/",
+                            channelImageURL: "https://example.com/new-icon.png",
+                            language: "en",
+                            itemTitle: "Article One",
+                            itemLink: "https://example.com/articles/1",
+                            itemGUID: "article-1",
+                            itemDescription: "Readable summary",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+
+        let feed = Feed(
+            url: "https://example.com/feed.xml",
+            title: "Old Feed Title",
+            iconURL: "https://example.com/original-icon.png"
+        )
+        try harness.feedRepository.insert(feed)
+
+        let result = await harness.service.refresh(feedID: feed.id)
+
+        #expect(result.status == .fetched)
+        let refreshedFeed = try #require(try harness.fetchFeed(id: feed.id))
+        #expect(refreshedFeed.iconURL == "https://example.com/original-icon.png")
+    }
+
+    @Test
+    func singleFeedRefreshFillsMissingIconURLFromParsedMetadata() async throws {
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                steps: [
+                    .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: makeValidRSSFeedXML(
+                            channelTitle: "Updated Feed Title",
+                            channelLink: "https://example.com/",
+                            channelImageURL: "https://example.com/new-icon.png",
+                            language: "en",
+                            itemTitle: "Article One",
+                            itemLink: "https://example.com/articles/1",
+                            itemGUID: "article-1",
+                            itemDescription: "Readable summary",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            )
+        )
+
+        let feed = Feed(
+            url: "https://example.com/feed.xml",
+            title: "Old Feed Title"
+        )
+        try harness.feedRepository.insert(feed)
+
+        let result = await harness.service.refresh(feedID: feed.id)
+
+        #expect(result.status == .fetched)
+        let refreshedFeed = try #require(try harness.fetchFeed(id: feed.id))
+        #expect(refreshedFeed.iconURL == "https://example.com/new-icon.png")
+    }
+
+    @Test
     func singleFeedRefreshNotModifiedUpdatesFetchStateWithoutParsingPipeline() async throws {
         let oldSuccessAt = Date(timeIntervalSince1970: 1_700_000_000)
         let harness = try TestHarness.make(

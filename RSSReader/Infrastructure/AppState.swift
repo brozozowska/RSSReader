@@ -124,7 +124,7 @@ public final class AppState {
     private var articleListScrollPositionIDs: [ArticleListScrollPositionKey: UUID] = [:]
     var articleListReloadID = UUID()
     var sidebarReloadID = UUID()
-    var feedIconReloadID = UUID()
+    var missingFeedIconReloadID = UUID()
     var feedIconCacheResetID = UUID()
     private var feedIconNetworkLoadFeedIDs: Set<UUID> = []
     var articleScreenReloadID = UUID()
@@ -271,8 +271,8 @@ public final class AppState {
         sidebarReloadID = UUID()
     }
 
-    func requestFeedIconReload() {
-        feedIconReloadID = UUID()
+    func requestMissingFeedIconReload() {
+        missingFeedIconReloadID = UUID()
     }
 
     func requestFeedIconNetworkLoad(for feedID: UUID) {
