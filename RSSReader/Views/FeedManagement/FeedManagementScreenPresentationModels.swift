@@ -106,6 +106,7 @@ struct FeedManagementAddFeedPresentation: Hashable, Sendable {
     let primaryActionTitle: String
     let isPrimaryActionEnabled: Bool
     let isConfirmationActionEnabled: Bool
+    let allowsPreviewAction: Bool
     let isLoadingPreview: Bool
     let preview: FeedManagementAddFeedPreviewPresentation?
     let placementTitle: String

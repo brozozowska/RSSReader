@@ -162,35 +162,19 @@ struct FeedManagementAddFeedScreenStateTests {
         #expect(editDestination.title == FeedManagementLocalization.editFeedTitle)
         #expect(editDestination.placementOptions.isEmpty)
         #expect(editDestination.createFolderActionTitle == nil)
+        #expect(editDestination.allowsPreviewAction == false)
 
         state.updateAddFeedURLInput("https://example.com/updated.xml")
-        guard let previewCommand = state.beginAddFeedPreviewLoading() else {
-            Issue.record("Expected preview command for edited feed URL")
-            return
-        }
-        state.applyLoadedAddFeedPreview(
-            FeedManagementFeedPreview(
-                requestedURL: previewCommand.urlString,
-                resolvedFeedURL: previewCommand.urlString,
-                title: "Updated Feed",
-                subtitle: nil,
-                siteURL: "https://example.com/",
-                iconURL: nil,
-                language: "en",
-                kind: .rss,
-                parserAnomalyCount: 0,
-                rejectedEntryCount: 0,
-                existingFeedID: nil
-            ),
-            command: previewCommand
-        )
+        state.updateAddFeedDisplayNameInput("Renamed Feed")
 
         let updateCommand = state.beginAddFeedUpdate()
+        #expect(updateCommand?.preview == nil)
+        #expect(updateCommand?.displayTitleOverride == "Renamed Feed")
         #expect(updateCommand?.folderPlacement == .folder(newsFolderID))
     }
 
     @Test
-    func feedManagementScreenStateRequiresPreviewBeforeSavingChangedEditFeedURL() {
+    func feedManagementScreenStateIgnoresChangedEditFeedURLAndSavesDisplayNameOnly() {
         var state = FeedManagementScreenState.makePreviewFixture()
         state.applyAddFeedEditContext(
             feed: FeedManagementFeedSummary(
@@ -207,18 +191,12 @@ struct FeedManagementAddFeedScreenStateTests {
         state.updateAddFeedDisplayNameInput("Renamed Feed")
         let displayNameOnlyCommand = state.beginAddFeedUpdate()
         #expect(displayNameOnlyCommand?.preview == nil)
+        #expect(displayNameOnlyCommand?.displayTitleOverride == "Renamed Feed")
 
         state.updateAddFeedURLInput("https://example.com/changed.xml")
 
-        #expect(state.shouldPreviewAddFeedBeforeSaving())
-        #expect(state.beginAddFeedUpdate() == nil)
-
-        guard let previewCommand = state.beginAddFeedPreviewLoading() else {
-            Issue.record("Expected preview command for changed edit URL")
-            return
-        }
-
-        #expect(previewCommand.urlString == "https://example.com/changed.xml")
+        #expect(state.shouldPreviewAddFeedBeforeSaving() == false)
+        #expect(state.beginAddFeedPreviewLoading() == nil)
     }
 
     @Test

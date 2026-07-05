@@ -45,33 +45,17 @@ struct FeedManagementFeedCommandPersistence {
             throw FeedManagementServiceError.feedNotFound(command.feedID)
         }
 
-        if let preview = command.preview,
-           let duplicateFeed = try normalizationPolicy.existingFeed(
-            resolvedFeedURL: preview.resolvedFeedURL,
-            requestedURL: preview.requestedURL
-           ), duplicateFeed.id != command.feedID {
-            logger.error("Skipped feed update because another feed already uses URL: \(preview.resolvedFeedURL)")
-            throw FeedManagementServiceError.duplicateFeed(preview.resolvedFeedURL)
-        }
-
         let folder = try normalizationPolicy.resolveFolder(for: command.folderPlacement)
         let displayTitleOverride = normalizationPolicy.normalizedDisplayTitle(command.displayTitleOverride)
-        let metadataTitle = command.preview?.title ?? currentFeed.title
+        let metadataTitle = currentFeed.title
         try normalizationPolicy.ensureUniqueFeedDisplayTitle(displayTitleOverride ?? metadataTitle, excluding: command.feedID)
 
         do {
             let updatedFeed = try feedRepository.updateDetails(
                 for: command.feedID,
                 with: FeedDetailsUpdate(
-                    url: command.preview?.resolvedFeedURL,
-                    siteURL: command.preview?.siteURL,
-                    title: command.preview?.title,
                     displayTitleOverride: displayTitleOverride,
                     clearsDisplayTitleOverride: displayTitleOverride == nil,
-                    subtitle: command.preview?.subtitle,
-                    iconURL: command.preview?.iconURL,
-                    language: command.preview?.language,
-                    kind: command.preview?.kind,
                     updatedAt: command.updatedAt
                 ),
                 saveAfterOperation: false

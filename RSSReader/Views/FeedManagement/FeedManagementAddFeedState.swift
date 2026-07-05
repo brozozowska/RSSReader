@@ -21,11 +21,10 @@ struct FeedManagementAddFeedState {
 
     mutating func updateURLInput(_ value: String) {
         guard value != urlInput else { return }
+        guard isEditing == false else { return }
 
         urlInput = value
-        if isEditing == false {
-            displayNameInput = ""
-        }
+        displayNameInput = ""
         isLoadingPreview = false
         isCreatingFeed = false
         activePreviewRequestURL = nil
@@ -123,28 +122,20 @@ struct FeedManagementAddFeedState {
     }
 
     func canUpdateFeed() -> Bool {
-        (preview != nil || canUpdateDisplayNameWithoutPreview())
+        canUpdateDisplayNameWithoutPreview()
             && editingFeed != nil
-            && hasDuplicateConflict == false
             && isLoadingPreview == false
             && isCreatingFeed == false
             && createdFeed == nil
     }
 
     func shouldPreviewBeforeSaving() -> Bool {
-        guard let editingFeed else { return false }
-        guard let normalizedURL = normalizedValidatedURL() else { return false }
-        guard normalizedURL != editingFeed.url else { return false }
-
-        if preview != nil {
-            return loadedPreviewRequestURL != normalizedURL
-        }
-
-        return true
+        false
     }
 
     mutating func beginPreviewLoading() -> FeedManagementAddFeedPreviewCommand? {
         guard isLoadingPreview == false,
+              isEditing == false,
               isCreatingFeed == false,
               let normalizedURL = normalizedValidatedURL() else {
             return nil
@@ -229,9 +220,9 @@ struct FeedManagementAddFeedState {
 
         return FeedManagementUpdateFeedCommand(
             feedID: editingFeed.id,
-            preview: preview,
+            preview: nil,
             displayTitleOverride: displayTitleOverride(
-                metadataTitle: preview?.title ?? editingFeed.metadataTitle
+                metadataTitle: editingFeed.metadataTitle
             ),
             folderPlacement: selectedFolderPlacement
         )
@@ -303,6 +294,9 @@ struct FeedManagementAddFeedState {
                     : FeedManagementLocalization.addFeedTitle
                 isPrimaryActionEnabled = true
             }
+        } else if isEditing {
+            primaryActionTitle = FeedManagementLocalization.saveChangesAction
+            isPrimaryActionEnabled = false
         } else {
             primaryActionTitle = FeedManagementLocalization.previewFeedAction
             isPrimaryActionEnabled = validationMessage == nil
@@ -334,6 +328,7 @@ struct FeedManagementAddFeedState {
             primaryActionTitle: primaryActionTitle,
             isPrimaryActionEnabled: isPrimaryActionEnabled,
             isConfirmationActionEnabled: isConfirmationActionEnabled,
+            allowsPreviewAction: isEditing == false,
             isLoadingPreview: isLoadingPreview,
             preview: previewPresentation(),
             placementTitle: FeedManagementLocalization.destinationFolderTitle,
@@ -381,7 +376,6 @@ struct FeedManagementAddFeedState {
     private func canUpdateDisplayNameWithoutPreview() -> Bool {
         guard let editingFeed else { return false }
         guard preview == nil else { return false }
-        guard normalizedValidatedURL() == editingFeed.url else { return false }
         return normalizedDisplayNameInput() != editingFeed.title
     }
 

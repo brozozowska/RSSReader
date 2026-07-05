@@ -126,6 +126,7 @@ struct FeedManagementAddFeedView: View {
             }
 
             if presentation.isLoadingPreview == false,
+               presentation.allowsPreviewAction,
                presentation.preview == nil,
                presentation.status?.kind != .failure {
                 Section {
