@@ -105,7 +105,7 @@ struct SidebarFolderRowView: View {
             Button {
                 actionHandlers.showFolderEditor(row.name)
             } label: {
-                Label(SidebarLocalization.editActionTitle, systemImage: "pencil")
+                Label(SidebarLocalization.renameFolderActionTitle, systemImage: "pencil")
             }
 
             Button(role: .destructive) {

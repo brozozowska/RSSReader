@@ -8460,6 +8460,7 @@
     },
     "feedManagement.createFolder.edit.title" : {
       "comment" : "Navigation title for editing a folder.",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -10153,6 +10154,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这将是第一个文件夹。"
+          }
+        }
+      }
+    },
+    "feedManagement.createFolder.rename.title" : {
+      "comment" : "Navigation title for renaming an existing folder.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Переименовать папку"
           }
         }
       }
@@ -36324,6 +36337,7 @@
     },
     "sidebar.contextMenu.edit.title" : {
       "comment" : "Context menu action title for editing a feed or folder.",
+      "extractionState" : "stale",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -36502,6 +36516,18 @@
     },
     "sidebar.contextMenu.renameFeed.title" : {
       "comment" : "Context menu action title for renaming a feed.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Переименовать..."
+          }
+        }
+      }
+    },
+    "sidebar.contextMenu.renameFolder.title" : {
+      "comment" : "Context menu action title for renaming a folder.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "en" : {

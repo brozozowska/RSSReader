@@ -466,9 +466,9 @@ enum FeedManagementLocalization {
         comment: "Failure message when folder details cannot be loaded for editing."
     )
     static let editFolderTitle = String(
-        localized: "feedManagement.createFolder.edit.title",
-        defaultValue: "Edit Folder",
-        comment: "Navigation title for editing a folder."
+        localized: "feedManagement.createFolder.rename.title",
+        defaultValue: "Переименовать папку",
+        comment: "Navigation title for renaming an existing folder."
     )
     static let folderNameSummaryTitle = String(
         localized: "feedManagement.createFolder.edit.summary.title",
