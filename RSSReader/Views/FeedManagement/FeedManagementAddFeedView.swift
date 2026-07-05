@@ -2,6 +2,8 @@ import SwiftUI
 
 struct FeedManagementAddFeedView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
+    @FocusState private var focusedField: FocusedField?
+    @State private var didRequestInitialDisplayNameFocus = false
     let presentation: FeedManagementAddFeedPresentation
     let urlBinding: Binding<String>
     let displayNameBinding: Binding<String>
@@ -11,6 +13,10 @@ struct FeedManagementAddFeedView: View {
     let handlePrimaryAction: () -> Void
     let handlePreviewAction: () -> Void
     let dismiss: () -> Void
+
+    private enum FocusedField {
+        case displayName
+    }
 
     var body: some View {
         List {
@@ -63,8 +69,12 @@ struct FeedManagementAddFeedView: View {
                     )
                     .textInputAutocapitalization(.sentences)
                     .autocorrectionDisabled()
+                    .focused($focusedField, equals: .displayName)
                     .submitLabel(.done)
                     .onSubmit(handlePrimaryAction)
+                    .task {
+                        await requestInitialDisplayNameFocusIfNeeded()
+                    }
                 } header: {
                     Text(FeedManagementLocalization.displayNamePrompt)
                 } footer: {
@@ -171,6 +181,24 @@ struct FeedManagementAddFeedView: View {
                 .disabled(presentation.isConfirmationActionEnabled == false)
             }
         }
+    }
+
+    private var shouldFocusDisplayNameOnAppear: Bool {
+        presentation.showsDisplayNameInput
+        && presentation.showsURLInput == false
+        && presentation.allowsPreviewAction == false
+    }
+
+    @MainActor
+    private func requestInitialDisplayNameFocusIfNeeded() async {
+        guard shouldFocusDisplayNameOnAppear,
+              didRequestInitialDisplayNameFocus == false else {
+            return
+        }
+
+        didRequestInitialDisplayNameFocus = true
+        await Task.yield()
+        focusedField = .displayName
     }
 }
 
