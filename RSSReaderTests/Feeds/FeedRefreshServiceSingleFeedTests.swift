@@ -118,7 +118,8 @@ struct FeedRefreshServiceSingleFeedTests {
     }
 
     @Test
-    func singleFeedRefreshFillsMissingIconURLFromParsedMetadata() async throws {
+    func singleFeedRefreshFillsMissingIconURLFromDiscovery() async throws {
+        let discoveredIconURL = try #require(URL(string: "https://example.com/discovered-icon.png"))
         let harness = try TestHarness.make(
             httpClient: ScriptedHTTPClient(
                 steps: [
@@ -138,7 +139,8 @@ struct FeedRefreshServiceSingleFeedTests {
                         )
                     )
                 ]
-            )
+            ),
+            feedIconDiscoveryService: StubFeedIconDiscoveryService(iconURL: discoveredIconURL)
         )
 
         let feed = Feed(
@@ -151,7 +153,85 @@ struct FeedRefreshServiceSingleFeedTests {
 
         #expect(result.status == .fetched)
         let refreshedFeed = try #require(try harness.fetchFeed(id: feed.id))
-        #expect(refreshedFeed.iconURL == "https://example.com/new-icon.png")
+        #expect(refreshedFeed.iconURL == discoveredIconURL.absoluteString)
+    }
+
+    @Test
+    func singleFeedRefreshReplacesExistingIconURLWhenDiscoveryFindsWorkingAlternative() async throws {
+        let discoveredIconURL = try #require(URL(string: "https://example.com/discovered-icon.png"))
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                steps: [
+                    .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: makeValidRSSFeedXML(
+                            channelTitle: "Updated Feed Title",
+                            channelLink: "https://example.com/",
+                            language: "en",
+                            itemTitle: "Article One",
+                            itemLink: "https://example.com/articles/1",
+                            itemGUID: "article-1",
+                            itemDescription: "Readable summary",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            ),
+            feedIconDiscoveryService: StubFeedIconDiscoveryService(iconURL: discoveredIconURL)
+        )
+
+        let feed = Feed(
+            url: "https://example.com/feed.xml",
+            title: "Old Feed Title",
+            iconURL: "https://example.com/stale-icon.png"
+        )
+        try harness.feedRepository.insert(feed)
+
+        let result = await harness.service.refresh(feedID: feed.id)
+
+        #expect(result.status == .fetched)
+        let refreshedFeed = try #require(try harness.fetchFeed(id: feed.id))
+        #expect(refreshedFeed.iconURL == discoveredIconURL.absoluteString)
+    }
+
+    @Test
+    func singleFeedRefreshNotModifiedRunsIconDiscoveryForExistingIconURL() async throws {
+        let iconURL = try #require(URL(string: "https://example.com/original-icon.png"))
+        let discoveryService = RecordingFeedIconDiscoveryService(iconURL: iconURL)
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                steps: [
+                    .response(
+                        statusCode: 304,
+                        headers: [
+                            "ETag": "\"etag-304\"",
+                            "Last-Modified": "Wed, 03 Jan 2024 12:00:00 GMT"
+                        ],
+                        body: ""
+                    )
+                ]
+            ),
+            feedIconDiscoveryService: discoveryService
+        )
+
+        let feed = Feed(
+            url: "https://example.com/feed.xml",
+            siteURL: "https://example.com/",
+            title: "Stable Feed Title",
+            iconURL: iconURL.absoluteString,
+            lastETag: "\"etag-old\""
+        )
+        try harness.feedRepository.insert(feed)
+
+        let result = await harness.service.refresh(feedID: feed.id)
+
+        #expect(result.status == .notModified)
+        let refreshedFeed = try #require(try harness.fetchFeed(id: feed.id))
+        #expect(refreshedFeed.iconURL == iconURL.absoluteString)
+        #expect(discoveryService.calls.count == 1)
+        #expect(discoveryService.calls.first?.metadataIconURL == iconURL)
+        #expect(discoveryService.calls.first?.siteURL == URL(string: "https://example.com/"))
     }
 
     @Test

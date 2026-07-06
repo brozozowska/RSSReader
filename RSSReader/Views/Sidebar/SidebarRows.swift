@@ -25,7 +25,7 @@ struct SidebarFeedRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            FeedIconView(feedID: row.id, siteURL: row.siteURL, iconURL: row.iconURL)
+            FeedIconView(siteURL: row.siteURL, iconURL: row.iconURL)
 
             Text(row.title)
                 .lineLimit(1)

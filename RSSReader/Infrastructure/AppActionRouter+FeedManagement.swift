@@ -228,7 +228,6 @@ extension AppActionRouter {
         using appState: AppState,
         selectsSavedFeed: Bool = true
     ) async -> FeedRefreshResult? {
-        appState.requestFeedIconNetworkLoad(for: feedID)
         appState.requestSidebarReload()
         if selectsSavedFeed {
             showFeed(id: feedID, using: appState)

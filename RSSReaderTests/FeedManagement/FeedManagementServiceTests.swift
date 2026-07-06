@@ -208,6 +208,7 @@ struct FeedManagementServiceTests {
         let createdPersistedFeed = try harness.feedRepository.fetchFeed(id: createdFeed.id)
         var persistedFeed = try #require(createdPersistedFeed)
         #expect(persistedFeed.folder?.name == "Tech")
+        #expect(persistedFeed.iconURL == nil)
 
         let movedFeed = try service.moveFeed(
             FeedManagementMoveFeedCommand(

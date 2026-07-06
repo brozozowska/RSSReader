@@ -17,8 +17,10 @@ struct TestHarness {
     @MainActor
     static func make(
         httpClient: ScriptedHTTPClient,
+        feedIconDiscoveryService: (any FeedIconDiscovering)? = nil,
         unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = nil
     ) throws -> TestHarness {
+        let resolvedFeedIconDiscoveryService = feedIconDiscoveryService ?? NoOpFeedIconDiscoveryService()
         let schema = AppComposition.persistenceModelPartition.schema
         let configurationPlan = AppPersistenceConfigurationPlan.make(
             modelPartition: AppComposition.persistenceModelPartition,
@@ -38,6 +40,7 @@ struct TestHarness {
             httpClient: httpClient,
             feedFetcher: feedFetcher,
             modelContainer: modelContainer,
+            feedIconDiscoveryService: resolvedFeedIconDiscoveryService,
             unreadAppIconBadgeService: unreadAppIconBadgeService ?? NoOpUnreadAppIconBadgeService(),
             tracksFeedSaveRefreshTasks: true
         )
@@ -59,6 +62,7 @@ struct TestHarness {
             ),
             feedRepository: feedRepository,
             articleRepository: articleRepository,
+            feedIconDiscoveryService: resolvedFeedIconDiscoveryService,
             feedFetchLogRepository: feedFetchLogRepository
         )
 

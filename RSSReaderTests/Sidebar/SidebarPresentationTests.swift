@@ -265,56 +265,6 @@ struct SidebarPresentationTests {
     }
 
     @Test
-    func feedIconCandidateBuilderParsesHTMLIconLinksInPriorityOrder() throws {
-        let baseURL = try #require(URL(string: "https://example.com/"))
-        let html = """
-        <!doctype html>
-        <html>
-          <head>
-            <link rel="icon" sizes="32x32" href="/favicon-32x32.png">
-            <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-            <link rel="mask-icon" href="/mask.svg">
-            <link rel="shortcut icon" href="/favicon.ico">
-          </head>
-          <body></body>
-        </html>
-        """
-
-        let candidates = FeedIconCandidateBuilder.htmlIconCandidates(in: html, baseURL: baseURL)
-            .map(\.absoluteString)
-
-        #expect(candidates == [
-            "https://example.com/apple-touch-icon.png",
-            "https://example.com/favicon-32x32.png",
-            "https://example.com/favicon.ico"
-        ])
-    }
-
-    @Test
-    func feedIconCandidateBuilderBuildsCommonIconCandidatesFromOrigin() throws {
-        let iconURL = try #require(URL(string: "https://example.com/news/favicon.ico"))
-
-        let candidates = FeedIconCandidateBuilder.commonIconCandidates(for: iconURL)
-            .map(\.absoluteString)
-
-        #expect(candidates == [
-            "https://example.com/apple-touch-icon.png",
-            "https://example.com/apple-touch-icon-precomposed.png",
-            "https://example.com/favicon-32x32.png",
-            "https://example.com/favicon.png",
-            "https://example.com/favicon.ico"
-        ])
-    }
-
-    @Test
-    func feedIconImagePolicyRejectsWideLogoImages() {
-        #expect(FeedIconImagePolicy.isSuitableIconSize(CGSize(width: 180, height: 180)))
-        #expect(FeedIconImagePolicy.isSuitableIconSize(CGSize(width: 64, height: 32)))
-        #expect(FeedIconImagePolicy.isSuitableIconSize(CGSize(width: 240, height: 40)) == false)
-        #expect(FeedIconImagePolicy.isSuitableIconSize(CGSize(width: 0, height: 0)) == false)
-    }
-
-    @Test
     func sidebarToolbarStateUsesRuntimeFailureStatusForShellToolbar() {
         let refreshDate = Calendar.current.date(byAdding: .hour, value: -2, to: Date()) ?? Date()
         let state = SidebarToolbarState(

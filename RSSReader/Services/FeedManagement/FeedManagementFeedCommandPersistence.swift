@@ -27,7 +27,7 @@ struct FeedManagementFeedCommandPersistence {
                 title: command.preview.title,
                 displayTitleOverride: normalizationPolicy.normalizedDisplayTitle(command.displayTitleOverride),
                 subtitle: command.preview.subtitle,
-                iconURL: command.preview.iconURL,
+                iconURL: nil,
                 language: command.preview.language,
                 kind: command.preview.kind,
                 folder: folder,

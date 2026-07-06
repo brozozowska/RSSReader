@@ -32,6 +32,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     let feedFetcher: any FeedFetching
     let feedRepository: any FeedRepository
     let articleRepository: any ArticleRepository
+    let feedIconDiscoveryService: (any FeedIconDiscovering)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
     var inFlightRefreshTasks: [UUID: Task<FeedRefreshResult, Never>] = [:]
 
@@ -40,12 +41,14 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         feedFetcher: any FeedFetching,
         feedRepository: any FeedRepository,
         articleRepository: any ArticleRepository,
+        feedIconDiscoveryService: (any FeedIconDiscovering)? = nil,
         feedFetchLogRepository: (any FeedFetchLogRepository)? = nil
     ) {
         self.logger = logger
         self.feedFetcher = feedFetcher
         self.feedRepository = feedRepository
         self.articleRepository = articleRepository
+        self.feedIconDiscoveryService = feedIconDiscoveryService
         self.feedFetchLogRepository = feedFetchLogRepository
     }
 }

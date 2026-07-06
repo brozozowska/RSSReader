@@ -92,6 +92,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         syncBootstrapPreferenceStore: (any AppSyncBootstrapPreferenceStoring)? = nil,
         syncBootstrapContext: AppSyncBootstrapContext? = nil,
         backgroundRefreshService: (any BackgroundRefreshService)? = nil,
+        feedIconDiscoveryService: (any FeedIconDiscovering)? = nil,
         backgroundRefreshForegroundHandoffCoordinator: (any BackgroundRefreshForegroundHandoffCoordinating)? = nil,
         backgroundRefreshScheduler: (any BackgroundRefreshScheduling)? = nil,
         iCloudAccountAvailabilityService: (any ICloudAccountAvailabilityService)? = nil,
@@ -211,6 +212,11 @@ public final class AppDependencies: AppDependenciesProtocol {
             )
         }()
         let resolvedFeedIconCache = feedIconCache ?? FeedIconCacheService(httpClient: httpClient)
+        let resolvedFeedIconDiscoveryService = feedIconDiscoveryService ?? FeedIconDiscoveryService(
+            logger: logger,
+            httpClient: httpClient,
+            feedIconCache: resolvedFeedIconCache
+        )
         let feedRefreshService: FeedRefreshService? = {
             guard let feedRepository, let articleRepository else {
                 return nil
@@ -221,6 +227,7 @@ public final class AppDependencies: AppDependenciesProtocol {
                 feedFetcher: resolvedFeedFetcher,
                 feedRepository: feedRepository,
                 articleRepository: articleRepository,
+                feedIconDiscoveryService: resolvedFeedIconDiscoveryService,
                 feedFetchLogRepository: feedFetchLogRepository
             )
         }()

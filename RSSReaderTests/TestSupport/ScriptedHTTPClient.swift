@@ -4,6 +4,7 @@ import Foundation
 actor ScriptedHTTPClient: HTTPClient {
     enum Step: Sendable {
         case response(statusCode: Int, headers: [String: String], body: String)
+        case dataResponse(statusCode: Int, headers: [String: String], body: Data)
         case delayedResponse(statusCode: Int, headers: [String: String], body: String, delayNanoseconds: UInt64)
         case invalidResponse
         case urlError(URLError.Code)
@@ -37,14 +38,14 @@ actor ScriptedHTTPClient: HTTPClient {
         request: HTTPRequest,
         statusCode: Int,
         headers: [String: String],
-        body: String
+        body: Data
     ) async -> HTTPResponse {
         await MainActor.run {
             HTTPResponse(
                 url: request.url,
                 statusCode: statusCode,
                 headers: headers,
-                body: Data(body.utf8)
+                body: body
             )
         }
     }
@@ -73,6 +74,13 @@ actor ScriptedHTTPClient: HTTPClient {
                 request: request,
                 statusCode: statusCode,
                 headers: headers,
+                body: Data(body.utf8)
+            )
+        case .dataResponse(let statusCode, let headers, let body):
+            return await makeResponse(
+                request: request,
+                statusCode: statusCode,
+                headers: headers,
                 body: body
             )
         case .delayedResponse(let statusCode, let headers, let body, let delayNanoseconds):
@@ -81,7 +89,7 @@ actor ScriptedHTTPClient: HTTPClient {
                 request: request,
                 statusCode: statusCode,
                 headers: headers,
-                body: body
+                body: Data(body.utf8)
             )
         case .invalidResponse:
             throw HTTPClientError.invalidResponse
