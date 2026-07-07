@@ -4,22 +4,26 @@ import UIKit
 struct FeedIconView: View {
     @Environment(\.appDependencies) private var dependencies
     @Environment(AppState.self) private var appState
-    let siteURL: String?
+    @Environment(\.colorScheme) private var colorScheme
     let iconURL: String?
     @State private var iconImage: Image?
 
     var body: some View {
-        Group {
-            if let iconImage {
-                iconImage
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                placeholder
-            }
+        let policy = FeedIconRenderingPolicy.sidebar(colorScheme: colorScheme)
+        let containerShape = RoundedRectangle(cornerRadius: policy.cornerRadius, style: .continuous)
+
+        ZStack {
+            containerShape
+                .fill(.secondary.opacity(policy.backgroundOpacity))
+
+            iconContent(policy: policy)
         }
-        .frame(width: 20, height: 20)
-        .clipShape(RoundedRectangle(cornerRadius: 5))
+        .frame(width: policy.containerSize, height: policy.containerSize)
+        .clipShape(containerShape)
+        .overlay {
+            containerShape
+                .stroke(.secondary.opacity(policy.borderOpacity), lineWidth: policy.borderWidth)
+        }
         .task(id: cacheOnlyLoadID) {
             await loadCachedIcon()
         }
@@ -30,7 +34,6 @@ struct FeedIconView: View {
 
     private var cacheOnlyLoadID: FeedIconCacheOnlyLoadID {
         FeedIconCacheOnlyLoadID(
-            siteURL: siteURL,
             iconURL: iconURL,
             sidebarReloadID: appState.sidebarReloadID
         )
@@ -41,9 +44,23 @@ struct FeedIconView: View {
         return URL(string: iconURL)
     }
 
+    private func iconContent(policy: FeedIconRenderingPolicy) -> some View {
+        Group {
+            if let iconImage {
+                iconImage
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                placeholder
+            }
+        }
+        .frame(width: policy.iconSize, height: policy.iconSize)
+        .clipShape(RoundedRectangle(cornerRadius: policy.iconCornerRadius, style: .continuous))
+    }
+
     private var placeholder: some View {
         Image(systemName: "newspaper")
-            .font(.body.weight(.medium))
+            .font(.caption.weight(.medium))
             .foregroundStyle(.secondary)
     }
 
@@ -73,7 +90,6 @@ struct FeedIconView: View {
 }
 
 private struct FeedIconCacheOnlyLoadID: Hashable {
-    let siteURL: String?
     let iconURL: String?
     let sidebarReloadID: UUID
 }

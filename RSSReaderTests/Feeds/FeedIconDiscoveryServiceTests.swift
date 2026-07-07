@@ -232,7 +232,8 @@ struct FeedIconDiscoveryServiceTests {
         let discoveryService = FeedIconDiscoveryService(
             logger: TestLogger(),
             httpClient: httpClient,
-            feedIconCache: feedIconCache
+            feedIconCache: feedIconCache,
+            discoveryBudgetInterval: 60
         )
 
         return FeedIconDiscoveryServiceHarness(

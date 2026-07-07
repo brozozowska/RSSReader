@@ -15,15 +15,21 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
     private let logger: Logging
     private let httpClient: any HTTPClient
     private let feedIconCache: any FeedIconCaching
+    private let discoveryBudgetInterval: TimeInterval
+    private let requestTimeoutInterval: TimeInterval
 
     init(
         logger: Logging,
         httpClient: any HTTPClient,
-        feedIconCache: any FeedIconCaching
+        feedIconCache: any FeedIconCaching,
+        discoveryBudgetInterval: TimeInterval = 4,
+        requestTimeoutInterval: TimeInterval = 2
     ) {
         self.logger = logger
         self.httpClient = httpClient
         self.feedIconCache = feedIconCache
+        self.discoveryBudgetInterval = discoveryBudgetInterval
+        self.requestTimeoutInterval = requestTimeoutInterval
     }
 
     func discoverIconURL(
@@ -31,7 +37,7 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
         siteURL: URL?,
         metadataIconURL: URL?
     ) async -> URL? {
-        let budget = FeedIconDiscoveryBudget(duration: Self.discoveryBudgetInterval)
+        let budget = FeedIconDiscoveryBudget(duration: discoveryBudgetInterval)
         let originURL = siteURL
             .flatMap(FeedIconCandidateBuilder.originURL(for:))
             ?? FeedIconCandidateBuilder.originURL(for: feedURL)
@@ -96,7 +102,7 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
         if let cachedData = try await feedIconCache.cachedImageData(for: iconURL) {
             return FeedIconImagePolicy.isSuitableRasterIcon(cachedData) ? cachedData : nil
         }
-        guard let timeoutInterval = budget.requestTimeoutInterval(max: Self.requestTimeoutInterval) else {
+        guard let timeoutInterval = budget.requestTimeoutInterval(max: requestTimeoutInterval) else {
             return nil
         }
 
@@ -123,7 +129,7 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
         from url: URL,
         budget: FeedIconDiscoveryBudget
     ) async -> FeedIconHTMLDocument? {
-        guard let timeoutInterval = budget.requestTimeoutInterval(max: Self.requestTimeoutInterval) else {
+        guard let timeoutInterval = budget.requestTimeoutInterval(max: requestTimeoutInterval) else {
             return nil
         }
 
@@ -150,9 +156,6 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
             return nil
         }
     }
-
-    private static let discoveryBudgetInterval: TimeInterval = 4
-    private static let requestTimeoutInterval: TimeInterval = 2
 }
 
 private struct FeedIconDiscoveryBudget {
