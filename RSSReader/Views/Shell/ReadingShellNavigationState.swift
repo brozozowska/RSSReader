@@ -41,6 +41,10 @@ enum ReadingShellCompactNavigationState {
     }
 }
 
+enum ReadingShellTransitionAnimation {
+    static let screen: Animation = .snappy(duration: 0.32)
+}
+
 enum ReadingShellDetailDestination: Equatable {
     case none
     case article(UUID?)

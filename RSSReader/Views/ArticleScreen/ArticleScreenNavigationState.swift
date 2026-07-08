@@ -3,6 +3,9 @@ import SwiftUI
 enum ArticleScreenNavigationState {
     private static let previousArticleOverscrollThresholdFraction: CGFloat = 0.1
     private static let nextArticleOverscrollThresholdFraction: CGFloat = 0.1
+    private static let openSourceArticleHorizontalTranslationThreshold: CGFloat = 96
+    private static let openSourceArticleVerticalTranslationTolerance: CGFloat = 48
+    private static let openSourceArticleCommitProgressThreshold: CGFloat = 0.33
 
     static func showsBackButton(
         horizontalSizeClass: UserInterfaceSizeClass?,
@@ -26,6 +29,54 @@ enum ArticleScreenNavigationState {
             layoutDirection: layoutDirection,
             translation: translation
         )
+    }
+
+    static func shouldOpenSourceArticleOnDrag(
+        layoutDirection: LayoutDirection,
+        containerWidth: CGFloat,
+        translation: CGSize
+    ) -> Bool {
+        let progress = openSourceArticleSwipeProgress(
+            layoutDirection: layoutDirection,
+            containerWidth: containerWidth,
+            translation: translation
+        )
+        return openSourceArticleDirectionalTranslation(
+            layoutDirection: layoutDirection,
+            translation: translation
+        ) >= openSourceArticleHorizontalTranslationThreshold
+            && progress >= openSourceArticleCommitProgressThreshold
+    }
+
+    static func openSourceArticleSwipeProgress(
+        layoutDirection: LayoutDirection,
+        containerWidth: CGFloat,
+        translation: CGSize
+    ) -> CGFloat {
+        guard containerWidth > 0 else { return 0 }
+        guard abs(translation.height) <= openSourceArticleVerticalTranslationTolerance else {
+            return 0
+        }
+
+        let directionalTranslation = openSourceArticleDirectionalTranslation(
+            layoutDirection: layoutDirection,
+            translation: translation
+        )
+        return min(max(directionalTranslation / containerWidth, 0), 1)
+    }
+
+    private static func openSourceArticleDirectionalTranslation(
+        layoutDirection: LayoutDirection,
+        translation: CGSize
+    ) -> CGFloat {
+        switch layoutDirection {
+        case .leftToRight:
+            -translation.width
+        case .rightToLeft:
+            translation.width
+        @unknown default:
+            -translation.width
+        }
     }
 
     static func adjacentArticleOverscrollState(

@@ -10,6 +10,7 @@ struct ReaderView: View {
     let reloadID: UUID
     let showsBackButton: Bool
     let navigateBackToArticles: () -> Void
+    let sourceArticleSafariInteraction: ReaderSourceArticleSafariInteractionHandlers
     let previewScreenState: ArticleScreenState?
     @State private var controller = ArticleScreenController()
     @State private var adjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls
@@ -26,12 +27,14 @@ struct ReaderView: View {
         reloadID: UUID = UUID(),
         showsBackButton: Bool,
         navigateBackToArticles: @escaping () -> Void,
+        sourceArticleSafariInteraction: ReaderSourceArticleSafariInteractionHandlers = .inactive,
         previewScreenState: ArticleScreenState? = nil
     ) {
         self.articleID = articleID
         self.reloadID = reloadID
         self.showsBackButton = showsBackButton
         self.navigateBackToArticles = navigateBackToArticles
+        self.sourceArticleSafariInteraction = sourceArticleSafariInteraction
         self.previewScreenState = previewScreenState
         self._controller = State(initialValue: ArticleScreenController(previewScreenState: previewScreenState))
     }
@@ -132,6 +135,7 @@ struct ReaderView: View {
             backNavigationContainerWidth = newWidth
         }
         .simultaneousGesture(backNavigationGesture)
+        .simultaneousGesture(openSourceArticleGesture)
     }
 
     private var resolvedArticleID: UUID? {
@@ -199,6 +203,50 @@ struct ReaderView: View {
                 }
                 navigateBackToArticles()
             }
+    }
+
+    private var openSourceArticleGesture: some Gesture {
+        DragGesture(minimumDistance: 20)
+            .onChanged { value in
+                handleOpenSourceArticleDragChange(value)
+            }
+            .onEnded { value in
+                handleOpenSourceArticleDragEnd(value)
+            }
+    }
+
+    private func handleOpenSourceArticleDragChange(_ value: DragGesture.Value) {
+        let progress = ArticleScreenNavigationState.openSourceArticleSwipeProgress(
+            layoutDirection: layoutDirection,
+            containerWidth: backNavigationContainerWidth,
+            translation: value.translation
+        )
+        guard progress > 0 else {
+            sourceArticleSafariInteraction.cancel()
+            return
+        }
+
+        guard case .inAppBrowser(let route) = controller.sourceArticleOpeningRequest(
+            dependencies: dependencies
+        ) else {
+            return
+        }
+
+        sourceArticleSafariInteraction.update(route, progress)
+    }
+
+    private func handleOpenSourceArticleDragEnd(_ value: DragGesture.Value) {
+        guard ArticleScreenNavigationState.shouldOpenSourceArticleOnDrag(
+            layoutDirection: layoutDirection,
+            containerWidth: backNavigationContainerWidth,
+            translation: value.translation
+        ) else {
+            sourceArticleSafariInteraction.cancel()
+            return
+        }
+
+        actionHandlers.openSourceArticle()
+        sourceArticleSafariInteraction.finish()
     }
 
     private func handleArticleScrollGeometryChange(_ scrollGeometry: ReaderArticleScrollGeometry) {
@@ -410,4 +458,16 @@ private struct AdjacentArticleTransitionContext: Equatable {
     let direction: ReaderAdjacentArticleNavigationDirection
     let sourceArticleID: UUID
     let targetArticleID: UUID
+}
+
+struct ReaderSourceArticleSafariInteractionHandlers {
+    let update: (ArticleSafariRoute, CGFloat) -> Void
+    let cancel: () -> Void
+    let finish: () -> Void
+
+    static let inactive = ReaderSourceArticleSafariInteractionHandlers(
+        update: { _, _ in },
+        cancel: {},
+        finish: {}
+    )
 }

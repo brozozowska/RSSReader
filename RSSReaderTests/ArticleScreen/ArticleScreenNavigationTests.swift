@@ -84,6 +84,88 @@ struct ArticleScreenNavigationTests {
     }
 
     @Test
+    func articleScreenNavigationStateRecognizesLTRTrailingToLeadingOpenSourceSwipe() {
+        #expect(
+            ArticleScreenNavigationState.shouldOpenSourceArticleOnDrag(
+                layoutDirection: .leftToRight,
+                containerWidth: 320,
+                translation: CGSize(width: -128, height: 8)
+            )
+        )
+        #expect(
+            ArticleScreenNavigationState.shouldOpenSourceArticleOnDrag(
+                layoutDirection: .leftToRight,
+                containerWidth: 320,
+                translation: CGSize(width: -64, height: 8)
+            ) == false
+        )
+        #expect(
+            ArticleScreenNavigationState.shouldOpenSourceArticleOnDrag(
+                layoutDirection: .leftToRight,
+                containerWidth: 320,
+                translation: CGSize(width: 112, height: 8)
+            ) == false
+        )
+        #expect(
+            ArticleScreenNavigationState.openSourceArticleSwipeProgress(
+                layoutDirection: .leftToRight,
+                containerWidth: 320,
+                translation: CGSize(width: -160, height: 8)
+            ) == 0.5
+        )
+    }
+
+    @Test
+    func articleScreenNavigationStateMirrorsOpenSourceSwipeInRTL() {
+        #expect(
+            ArticleScreenNavigationState.shouldOpenSourceArticleOnDrag(
+                layoutDirection: .rightToLeft,
+                containerWidth: 320,
+                translation: CGSize(width: 128, height: 8)
+            )
+        )
+        #expect(
+            ArticleScreenNavigationState.shouldOpenSourceArticleOnDrag(
+                layoutDirection: .rightToLeft,
+                containerWidth: 320,
+                translation: CGSize(width: -112, height: 8)
+            ) == false
+        )
+        #expect(
+            ArticleScreenNavigationState.openSourceArticleSwipeProgress(
+                layoutDirection: .rightToLeft,
+                containerWidth: 320,
+                translation: CGSize(width: 160, height: 8)
+            ) == 0.5
+        )
+    }
+
+    @Test
+    func articleScreenNavigationStateDoesNotTreatVerticalOverscrollAsOpenSourceSwipe() {
+        #expect(
+            ArticleScreenNavigationState.shouldOpenSourceArticleOnDrag(
+                layoutDirection: .leftToRight,
+                containerWidth: 320,
+                translation: CGSize(width: -112, height: 72)
+            ) == false
+        )
+        #expect(
+            ArticleScreenNavigationState.shouldOpenSourceArticleOnDrag(
+                layoutDirection: .rightToLeft,
+                containerWidth: 320,
+                translation: CGSize(width: 112, height: 72)
+            ) == false
+        )
+        #expect(
+            ArticleScreenNavigationState.openSourceArticleSwipeProgress(
+                layoutDirection: .leftToRight,
+                containerWidth: 320,
+                translation: CGSize(width: -160, height: 72)
+            ) == 0
+        )
+    }
+
+    @Test
     func articleScreenNavigationStateReportsBottomOverscrollProgressForNextArticle() {
         let shortPullState = ArticleScreenNavigationState.adjacentArticleOverscrollState(
             scrollGeometry: ReaderArticleScrollGeometry(
