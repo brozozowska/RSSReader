@@ -28,7 +28,7 @@ struct ReaderOpeningAndSafariRoutingTests {
     }
 
     @Test
-    func readerOpeningModeSafariViewPresentsSafariAndDismissalRestoresReaderArticle() throws {
+    func readerOpeningModeSafariViewPresentsSafariAndDismissalRestoresArticleList() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
         let article = try insertArticle(
@@ -45,14 +45,19 @@ struct ReaderOpeningAndSafariRoutingTests {
 
         harness.dependencies.appActions.selectArticle(id: article.id, using: appState)
 
-        #expect(appState.selectedArticleID == article.id)
-        #expect(appState.selectedDetailRoute == .safari(ArticleSafariRoute(articleID: article.id, url: safariURL)))
+        #expect(appState.selectedArticleID == nil)
+        #expect(
+            appState.selectedDetailRoute == .safari(
+                ArticleSafariRoute(articleID: article.id, url: safariURL),
+                dismissalTarget: .articleList
+            )
+        )
         #expect(appState.presentedSafariRoute == ArticleSafariRoute(articleID: article.id, url: safariURL))
 
         harness.dependencies.appActions.closePresentedArticleSafari(using: appState)
 
-        #expect(appState.selectedArticleID == article.id)
-        #expect(appState.selectedDetailRoute == .article(article.id))
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
         #expect(appState.presentedSafariRoute == nil)
     }
 

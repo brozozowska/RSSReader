@@ -25,7 +25,12 @@ struct ShellActionEntryPointTests {
         harness.dependencies.appActions.selectArticle(id: article.id, using: appState)
         harness.dependencies.appActions.openArticleInSafari(article, using: appState)
 
-        #expect(appState.selectedDetailRoute == .safari(ArticleSafariRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!)))
+        #expect(
+            appState.selectedDetailRoute == .safari(
+                ArticleSafariRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!),
+                dismissalTarget: .article
+            )
+        )
         #expect(appState.presentedSafariRoute == ArticleSafariRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!))
 
         harness.dependencies.appActions.closePresentedArticleSafari(using: appState)
@@ -96,13 +101,14 @@ struct ShellActionEntryPointTests {
 
         harness.dependencies.appActions.selectArticle(id: articleModel.id, using: appState)
 
-        #expect(appState.selectedArticleID == articleModel.id)
+        #expect(appState.selectedArticleID == nil)
         #expect(
             appState.selectedDetailRoute == .safari(
                 ArticleSafariRoute(
                     articleID: articleModel.id,
                     url: URL(string: "https://example.com/articles/safari-view-mode/canonical")!
-                )
+                ),
+                dismissalTarget: .articleList
             )
         )
         #expect(

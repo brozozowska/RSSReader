@@ -53,9 +53,24 @@ struct ReadingShellNavigationTests {
 
         #expect(
             ReadingShellDetailNavigationState.detailDestination(
-                route: .safari(route),
+                route: .safari(route, dismissalTarget: .article),
                 selectedArticleID: route.articleID
             ) == .article(route.articleID)
+        )
+    }
+
+    @Test
+    func readingShellNavigationStateDoesNotBuildReaderDestinationBehindDirectSafariRoute() {
+        let route = ArticleSafariRoute(
+            articleID: UUID(),
+            url: URL(string: "https://example.com/direct-safari-shell-destination")!
+        )
+
+        #expect(
+            ReadingShellDetailNavigationState.detailDestination(
+                route: .safari(route, dismissalTarget: .articleList),
+                selectedArticleID: nil
+            ) == .none
         )
     }
 

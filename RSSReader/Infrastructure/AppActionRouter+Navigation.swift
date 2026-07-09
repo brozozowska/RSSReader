@@ -51,7 +51,7 @@ extension AppActionRouter {
                 return
             }
 
-            guard openArticleInSafari(article, using: appState) else {
+            guard openArticleDirectlyInSafari(article, using: appState) else {
                 appState.selectedArticleID = articleID
                 return
             }
@@ -76,6 +76,22 @@ extension AppActionRouter {
 
         guard appState.presentSafari(articleID: article.id, url: url) else {
             logger.error("Skipped opening article in Safari because URL is unsupported for article \(article.id)")
+            return false
+        }
+
+        return true
+    }
+
+    @MainActor
+    @discardableResult
+    private func openArticleDirectlyInSafari(_ article: ReaderArticleDTO, using appState: AppState) -> Bool {
+        guard let url = URL(string: article.canonicalURL ?? article.articleURL) else {
+            logger.error("Skipped opening article directly in Safari because URL is invalid for article \(article.id)")
+            return false
+        }
+
+        guard appState.presentSafariFromArticleList(articleID: article.id, url: url) else {
+            logger.error("Skipped opening article directly in Safari because URL is unsupported for article \(article.id)")
             return false
         }
 
