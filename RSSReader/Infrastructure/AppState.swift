@@ -245,12 +245,11 @@ public final class AppState {
 
     func selectArticle(_ articleID: UUID?) {
         let previousArticleID = readingNavigation.articleSelection
-        readingNavigation.selectArticle(articleID)
-
         guard previousArticleID != articleID else {
             return
         }
 
+        readingNavigation.selectArticle(articleID)
         requestArticleScreenReload()
     }
 

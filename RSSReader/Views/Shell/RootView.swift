@@ -10,6 +10,8 @@ struct RootView: View {
     @State private var presentedFeedManagementLaunchContext: FeedManagementScreenLaunchContext = .entry
     @State private var interactiveSafariRoute: ArticleSafariRoute?
     @State private var interactiveSafariProgress: CGFloat = 0
+    @State private var interactiveSafariDismissalRoute: ArticleSafariRoute?
+    @State private var interactiveSafariDismissalProgress: CGFloat = 0
 
     var body: some View {
         let themeApplicationPolicy = AppThemeApplicationPolicy(
@@ -78,7 +80,8 @@ struct RootView: View {
                 if let route = currentSafariPresentationRoute {
                     SafariBrowserView(
                         route: route,
-                        dismissSafari: dismissPresentedSafari
+                        dismissSafari: dismissPresentedSafari,
+                        backNavigationInteraction: safariBackNavigationInteraction
                     )
                     .background(themeApplicationPolicy.resolvedTheme.primaryBackground.ignoresSafeArea())
                     .offset(x: safariPresentationOffset(containerWidth: geometryProxy.size.width))
@@ -172,7 +175,9 @@ struct RootView: View {
     }
 
     private var currentSafariPresentationRoute: ArticleSafariRoute? {
-        appState.presentedSafariRoute ?? interactiveSafariRoute
+        appState.presentedSafariRoute
+            ?? interactiveSafariDismissalRoute
+            ?? interactiveSafariRoute
     }
 
     private var safariPresentationAnimation: Animation {
@@ -187,10 +192,57 @@ struct RootView: View {
         )
     }
 
+    private var safariBackNavigationInteraction: SafariBrowserBackNavigationInteractionHandlers {
+        SafariBrowserBackNavigationInteractionHandlers(
+            update: updateInteractiveSafariDismissal,
+            cancel: cancelInteractiveSafariDismissal,
+            finish: finishInteractiveSafariDismissal
+        )
+    }
+
     private func dismissPresentedSafari() {
+        interactiveSafariDismissalProgress = 0
         withAnimation(safariPresentationAnimation) {
             appState.dismissPresentedSafari()
         }
+    }
+
+    private func updateInteractiveSafariDismissal(progress: CGFloat) {
+        guard isPresentingDirectArticleSafari else { return }
+        interactiveSafariDismissalProgress = min(max(progress, 0), 1)
+    }
+
+    private func cancelInteractiveSafariDismissal() {
+        guard isPresentingDirectArticleSafari else { return }
+        withAnimation(safariPresentationAnimation) {
+            interactiveSafariDismissalProgress = 0
+        }
+    }
+
+    private func finishInteractiveSafariDismissal() {
+        guard case .safari(let route, dismissalTarget: .articleList) = appState.selectedDetailRoute else {
+            dismissPresentedSafari()
+            return
+        }
+
+        interactiveSafariDismissalRoute = route
+        appState.dismissPresentedSafari()
+        withAnimation(
+            safariPresentationAnimation,
+            completionCriteria: .logicallyComplete
+        ) {
+            interactiveSafariDismissalProgress = 1
+        } completion: {
+            interactiveSafariDismissalRoute = nil
+            interactiveSafariDismissalProgress = 0
+        }
+    }
+
+    private var isPresentingDirectArticleSafari: Bool {
+        guard case .safari(_, dismissalTarget: .articleList) = appState.selectedDetailRoute else {
+            return false
+        }
+        return true
     }
 
     private func updateInteractiveSafariPresentation(route: ArticleSafariRoute, progress: CGFloat) {
@@ -215,7 +267,18 @@ struct RootView: View {
     }
 
     private func safariPresentationOffset(containerWidth: CGFloat) -> CGFloat {
-        guard appState.presentedSafariRoute == nil else { return 0 }
+        if appState.presentedSafariRoute != nil || interactiveSafariDismissalRoute != nil {
+            let visibleOffset = containerWidth * interactiveSafariDismissalProgress
+            switch layoutDirection {
+            case .leftToRight:
+                return visibleOffset
+            case .rightToLeft:
+                return -visibleOffset
+            @unknown default:
+                return visibleOffset
+            }
+        }
+
         guard interactiveSafariRoute != nil else { return 0 }
 
         let hiddenOffset = containerWidth * (1 - interactiveSafariProgress)
