@@ -117,7 +117,7 @@ struct ArticleListView: View {
             reloadID: reloadID
         )) {
             guard isPreviewMode == false else { return }
-            await loadArticles(retainsSessionReadArticles: true)
+            await loadArticles(retainsSessionFilterMutations: true)
         }
         .onChange(of: selection) { _, newValue in
             guard let newValue else { return }
@@ -146,8 +146,8 @@ struct ArticleListView: View {
 
     @MainActor
     private func loadArticles(
-        retainsSessionReadArticles: Bool = true,
-        retainedSessionReadMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead,
+        retainsSessionFilterMutations: Bool = true,
+        retainedSessionMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterFilterMutation,
         preservesRefreshFeedback: Bool = false
     ) async {
         let loadingSidebarSelection = selectedSidebarSelection
@@ -158,8 +158,8 @@ struct ArticleListView: View {
             sidebarArticleFilter: loadingSidebarArticleFilter,
             searchText: searchText,
             dependencies: dependencies,
-            retainsSessionReadArticles: retainsSessionReadArticles,
-            retainedSessionReadMembershipStatus: retainedSessionReadMembershipStatus,
+            retainsSessionFilterMutations: retainsSessionFilterMutations,
+            retainedSessionMembershipStatus: retainedSessionMembershipStatus,
             preservesRefreshFeedback: preservesRefreshFeedback
         )
 
@@ -389,7 +389,7 @@ struct ArticleListView: View {
 
     private func retryPrimaryLoad() {
         Task {
-            await loadArticles(retainsSessionReadArticles: true)
+            await loadArticles(retainsSessionFilterMutations: true)
         }
     }
 
@@ -410,8 +410,8 @@ struct ArticleListView: View {
         let preservesRefreshFeedback = controller.screenState.refreshFeedback != nil
 
         await loadArticles(
-            retainsSessionReadArticles: false,
-            retainedSessionReadMembershipStatus: .retainedAfterRefresh,
+            retainsSessionFilterMutations: false,
+            retainedSessionMembershipStatus: .retainedAfterRefresh,
             preservesRefreshFeedback: preservesRefreshFeedback
         )
     }

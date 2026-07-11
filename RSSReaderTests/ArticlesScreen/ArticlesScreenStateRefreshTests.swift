@@ -48,7 +48,7 @@ struct ArticlesScreenStateRefreshTests {
             [
                 ArticleListEntry(
                     article: unreadItem,
-                    membershipStatus: .retainedAfterRead
+                    membershipStatus: .retainedAfterFilterMutation
                 )
             ],
             selection: .unread,
@@ -73,7 +73,7 @@ struct ArticlesScreenStateRefreshTests {
 
         #expect(state.refreshState == .refreshing)
         #expect(state.articleListSession.entries.map(\.id) == [unreadItem.id])
-        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
+        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterFilterMutation])
     }
 
     @Test

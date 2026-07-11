@@ -67,8 +67,8 @@ struct ArticlesScreenControllerRefreshFeedbackTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
-            retainsSessionReadArticles: false,
-            retainedSessionReadMembershipStatus: .retainedAfterRefresh,
+            retainsSessionFilterMutations: false,
+            retainedSessionMembershipStatus: .retainedAfterRefresh,
             preservesRefreshFeedback: true
         )
 

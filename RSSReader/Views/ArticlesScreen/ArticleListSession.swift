@@ -76,7 +76,7 @@ struct ArticleListSession: Equatable {
 
     mutating func markArticleAsReadInCurrentSession(
         id articleID: UUID,
-        retainedMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead
+        retainedMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterFilterMutation
     ) {
         entries = entries.map { entry in
             guard entry.id == articleID else {
@@ -157,7 +157,7 @@ enum ArticleListSessionMergePolicy {
 
 enum ArticleListEntryMembershipStatus: Equatable {
     case matchesCurrentQuery
-    case retainedAfterRead
+    case retainedAfterFilterMutation
     case retainedAfterRefresh
 }
 
@@ -189,7 +189,7 @@ struct ArticleListEntry: Identifiable, Equatable {
         switch membershipStatus {
         case .matchesCurrentQuery:
             false
-        case .retainedAfterRead, .retainedAfterRefresh:
+        case .retainedAfterFilterMutation, .retainedAfterRefresh:
             true
         }
     }

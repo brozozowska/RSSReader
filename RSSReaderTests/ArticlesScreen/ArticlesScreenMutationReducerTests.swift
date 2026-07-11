@@ -40,7 +40,7 @@ struct ArticlesScreenMutationReducerTests {
 
         #expect(updatedArticle?.isRead == true)
         #expect(updatedArticle?.isStarred == false)
-        #expect(membershipStatus == .retainedAfterRead)
+        #expect(membershipStatus == .retainedAfterFilterMutation)
     }
 
     @Test
@@ -64,7 +64,7 @@ struct ArticlesScreenMutationReducerTests {
     }
 
     @Test
-    func articlesScreenMutationReducerProducesRemoveMutationWhenUnstarringInsideStarredFilter() {
+    func articlesScreenMutationReducerRetainsArticleWhenUnstarringInsideStarredFilter() {
         let starredArticle = makeArticleListItemDTO(isRead: true, isStarred: true)
 
         let mutation = ArticlesScreenMutationReducer.mutationAfterToggleStarred(
@@ -72,6 +72,19 @@ struct ArticlesScreenMutationReducerTests {
             filter: ArticleListFilter.starred
         )
 
-        #expect(mutation == .remove)
+        let updatedArticle: ArticleListItemDTO?
+        let membershipStatus: ArticleListEntryMembershipStatus?
+        if case .update(let article, let status) = mutation {
+            updatedArticle = article
+            membershipStatus = status
+        } else {
+            updatedArticle = nil
+            membershipStatus = nil
+        }
+
+        #expect(updatedArticle?.id == starredArticle.id)
+        #expect(updatedArticle?.isRead == true)
+        #expect(updatedArticle?.isStarred == false)
+        #expect(membershipStatus == .retainedAfterFilterMutation)
     }
 }

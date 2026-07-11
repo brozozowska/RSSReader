@@ -137,7 +137,7 @@ struct ArticlesScreenStateLoadingTests {
             currentEntries: [
                 ArticleListEntry(
                     article: retainedArticle,
-                    membershipStatus: .retainedAfterRead
+                    membershipStatus: .retainedAfterFilterMutation
                 ),
                 ArticleListEntry(article: staleArticle)
             ],

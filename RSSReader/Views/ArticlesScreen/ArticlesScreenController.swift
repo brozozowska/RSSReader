@@ -34,8 +34,8 @@ final class ArticlesScreenController {
         sidebarArticleFilter: SidebarArticleFilter,
         searchText: String = "",
         dependencies: AppDependencies,
-        retainsSessionReadArticles: Bool = false,
-        retainedSessionReadMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead,
+        retainsSessionFilterMutations: Bool = false,
+        retainedSessionMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterFilterMutation,
         preservesRefreshFeedback: Bool = false
     ) async {
         loadGeneration += 1
@@ -91,12 +91,12 @@ final class ArticlesScreenController {
                 unreadArticleSortMode: unreadArticleSortMode,
                 articleQueryService: articleQueryService
             )
-            let resolvedEntries = entriesByRetainingSessionReadItems(
+            let resolvedEntries = entriesByRetainingSessionItems(
                 loadResult.articles,
                 selection: selection,
                 sidebarArticleFilter: sidebarArticleFilter,
-                retainsCurrentContent: sessionContextChanged == false && retainsSessionReadArticles,
-                retainedMembershipStatus: retainedSessionReadMembershipStatus
+                retainsCurrentContent: sessionContextChanged == false && retainsSessionFilterMutations,
+                retainedMembershipStatus: retainedSessionMembershipStatus
             )
             let subtitleArticles = resolvedEntries.map(\.article)
 
@@ -268,18 +268,19 @@ final class ArticlesScreenController {
         filter == .unread ? unreadArticleSortMode : .publishedAtDescending
     }
 
-    private func entriesByRetainingSessionReadItems(
+    private func entriesByRetainingSessionItems(
         _ loadedArticles: [ArticleListItemDTO],
         selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter,
         retainsCurrentContent: Bool,
         retainedMembershipStatus: ArticleListEntryMembershipStatus
     ) -> [ArticleListEntry] {
+        let filter = ArticlesScreenMutationReducer.articleListFilter(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter
+        )
         guard retainsCurrentContent,
-              ArticlesScreenMutationReducer.articleListFilter(
-                selection: selection,
-                sidebarArticleFilter: sidebarArticleFilter
-              ) == .unread else {
+              filter == .unread || filter == .starred else {
             return ArticleListSessionMergePolicy.merge(
                 currentEntries: screenState.articleListSession.entries,
                 loadedArticles: loadedArticles,

@@ -56,7 +56,7 @@ enum ArticlesScreenMutationReducer {
         if filter == .unread && updatedIsRead {
             return .update(
                 updatedArticle,
-                membershipStatus: .retainedAfterRead
+                membershipStatus: .retainedAfterFilterMutation
             )
         }
 
@@ -68,17 +68,19 @@ enum ArticlesScreenMutationReducer {
         filter: ArticleListFilter
     ) -> ArticleRowMutation {
         let updatedIsStarred = article.isStarred == false
+        let updatedArticle = article.updating(
+            isRead: article.isRead,
+            isStarred: updatedIsStarred
+        )
 
         if filter == .starred && updatedIsStarred == false {
-            return .remove
+            return .update(
+                updatedArticle,
+                membershipStatus: .retainedAfterFilterMutation
+            )
         }
 
-        return .update(
-            article.updating(
-                isRead: article.isRead,
-                isStarred: updatedIsStarred
-            )
-        )
+        return .update(updatedArticle)
     }
 
     static func apply(
