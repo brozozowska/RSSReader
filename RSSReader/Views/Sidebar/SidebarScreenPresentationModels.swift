@@ -127,7 +127,7 @@ struct SidebarSmartRowState: Identifiable, Equatable {
     let item: SmartSidebarItem
     let count: Int?
 
-    var id: String { item.id }
+    var id: SmartSidebarItem { item.id }
     var title: String { item.title }
     var iconSystemName: String { item.iconSystemName }
     var selection: SidebarSelection { item.selection }
@@ -175,12 +175,12 @@ enum SidebarFolderSectionRowState: Identifiable, Equatable {
     }
 }
 
-enum SmartSidebarItem: CaseIterable, Identifiable, Equatable {
+enum SmartSidebarItem: CaseIterable, Identifiable, Hashable {
     case allItems
     case unread
     case starred
 
-    var id: String { title }
+    var id: SmartSidebarItem { self }
 
     var title: String {
         switch self {
