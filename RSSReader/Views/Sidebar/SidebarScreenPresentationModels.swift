@@ -127,7 +127,7 @@ struct SidebarSmartRowState: Identifiable, Equatable {
     let item: SmartSidebarItem
     let count: Int?
 
-    var id: String { item.id }
+    var id: SmartSidebarItem { item.id }
     var title: String { item.title }
     var iconSystemName: String { item.iconSystemName }
     var selection: SidebarSelection { item.selection }
@@ -136,7 +136,6 @@ struct SidebarSmartRowState: Identifiable, Equatable {
 struct SidebarFeedRowState: Identifiable, Equatable {
     let id: UUID
     let title: String
-    let siteURL: String?
     let iconURL: String?
     let count: Int
     let selection: SidebarSelection
@@ -145,7 +144,6 @@ struct SidebarFeedRowState: Identifiable, Equatable {
     init(feed: FeedSidebarItem, count: Int, isIndented: Bool) {
         self.id = feed.id
         self.title = feed.title
-        self.siteURL = feed.siteURL
         self.iconURL = feed.iconURL
         self.count = count
         self.selection = .feed(feed.id)
@@ -177,12 +175,12 @@ enum SidebarFolderSectionRowState: Identifiable, Equatable {
     }
 }
 
-enum SmartSidebarItem: CaseIterable, Identifiable, Equatable {
+enum SmartSidebarItem: CaseIterable, Identifiable, Hashable {
     case allItems
     case unread
     case starred
 
-    var id: String { title }
+    var id: SmartSidebarItem { self }
 
     var title: String {
         switch self {

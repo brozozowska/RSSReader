@@ -5,12 +5,18 @@ extension FeedRefreshService {
         _ response: FeedResponse,
         metadata: FeedFetchMetadata,
         startedAt: Date
-    ) throws -> FeedRefreshResult {
+    ) async throws -> FeedRefreshResult {
         let pipelineResult = try FeedParserService.parsePipelineResult(response)
         try Task.checkCancellation()
         let diagnostics = pipelineResult.diagnostics
         let diagnosticsSummary = diagnosticsSummary(for: diagnostics)
         let fetchedAt = Date()
+        let currentMetadata = try feedRepository.fetchMetadata(for: metadata.id)
+        let discoveredIconURL = await discoverIconURLIfNeeded(
+            feedURL: response.sourceURL,
+            currentMetadata: currentMetadata,
+            parsedMetadata: pipelineResult.feed.metadata
+        )
 
         logDiagnosticsIfNeeded(diagnostics, feedID: metadata.id)
         try updateCacheValidators(
@@ -22,6 +28,7 @@ extension FeedRefreshService {
         try updateFeedContentMetadata(
             for: metadata.id,
             parsedFeed: pipelineResult.feed,
+            discoveredIconURL: discoveredIconURL,
             updatedAt: fetchedAt,
             saveAfterOperation: false
         )
@@ -91,15 +98,20 @@ extension FeedRefreshService {
     func updateFeedContentMetadata(
         for feedID: UUID,
         parsedFeed: ParsedFeedDTO,
+        discoveredIconURL: URL? = nil,
         updatedAt: Date,
         saveAfterOperation: Bool = true
     ) throws {
         let metadata = parsedFeed.metadata
+        let currentMetadata = try feedRepository.fetchMetadata(for: feedID)
         let update = FeedMetadataUpdate(
             siteURL: metadata.siteURL,
             title: metadata.title,
             subtitle: metadata.subtitle,
-            iconURL: metadata.iconURL,
+            iconURL: updatedIconURL(
+                currentIconURL: currentMetadata?.iconURL,
+                discoveredIconURL: discoveredIconURL
+            ),
             language: metadata.language,
             kind: parsedFeed.kind,
             updatedAt: updatedAt
@@ -111,6 +123,43 @@ extension FeedRefreshService {
             saveAfterOperation: saveAfterOperation
         )
         logger.info("Feed \(feedID.uuidString) content metadata updated from parsed payload")
+    }
+
+    func discoverIconURLIfNeeded(
+        feedURL: URL,
+        currentMetadata: FeedFetchMetadata?,
+        parsedMetadata: ParsedFeedMetadataDTO?
+    ) async -> URL? {
+        guard let feedIconDiscoveryService else {
+            return nil
+        }
+
+        let siteURL = (parsedMetadata?.siteURL ?? currentMetadata?.siteURL).flatMap(URL.init(string:))
+        let metadataIconURLString = currentMetadata?.iconURL ?? parsedMetadata?.iconURL
+        let metadataIconURL = metadataIconURLString.flatMap { iconURL in
+            URL(string: iconURL, relativeTo: siteURL ?? feedURL)?.absoluteURL
+        }
+
+        return await feedIconDiscoveryService.discoverIconURL(
+            feedURL: feedURL,
+            siteURL: siteURL,
+            metadataIconURL: metadataIconURL
+        )
+    }
+
+    func updatedIconURL(
+        currentIconURL: String?,
+        discoveredIconURL: URL?
+    ) -> String? {
+        guard let discoveredIconURLString = discoveredIconURL?.absoluteString else {
+            return nil
+        }
+
+        guard currentIconURL != discoveredIconURLString else {
+            return nil
+        }
+
+        return discoveredIconURLString
     }
 
     func reconcileArticles(

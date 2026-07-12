@@ -36,6 +36,13 @@ struct SidebarQueryServiceTests {
             url: "https://example.com/articles/read",
             title: "Read Article"
         )
+        _ = try harness.insertArticle(
+            feed: firstFeed,
+            externalID: "sidebar-archived-unread",
+            url: "https://example.com/articles/archived-unread",
+            title: "Archived Unread Article",
+            archivedAt: .distantPast
+        )
 
         let stateService = try #require(harness.dependencies.articleStateService)
         _ = try stateService.toggleStarred(article: starredArticle, at: .now)
@@ -48,9 +55,9 @@ struct SidebarQueryServiceTests {
         #expect(resolvedSnapshot.folders.map(\.id) == [emptyFolder.id])
         #expect(resolvedSnapshot.folders.map(\.name) == ["Empty"])
         #expect(resolvedSnapshot.feeds.map(\.id) == feeds.map(\.id))
-        #expect(resolvedSnapshot.feeds.map(\.unreadCount) == [1, 1])
+        #expect(resolvedSnapshot.feeds.map(\.unreadCount) == [2, 1])
         #expect(resolvedSnapshot.feeds.map(\.starredCount) == [0, 1])
-        #expect(resolvedSnapshot.unreadSmartCount == 2)
+        #expect(resolvedSnapshot.unreadSmartCount == 3)
         #expect(resolvedSnapshot.starredSmartCount == 1)
         #expect(resolvedSnapshot.starredFeedIDs == [secondFeed.id])
     }

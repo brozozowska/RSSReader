@@ -134,15 +134,30 @@ final class ArticleScreenController {
         appState: AppState,
         openExternalURL: (URL) -> Void
     ) {
-        guard let article = screenState.article else { return }
+        guard let request = sourceArticleOpeningRequest(dependencies: dependencies) else { return }
+        switch request {
+        case .inAppBrowser(_):
+            guard let article = screenState.article else { return }
+            dependencies.appActions.openArticleInSafari(article, using: appState)
+        case .externalBrowser(let url):
+            openExternalURL(url)
+        }
+    }
+
+    func sourceArticleOpeningRequest(
+        dependencies: AppDependencies
+    ) -> ArticleSourceOpeningRequest? {
+        guard let article = screenState.article else { return nil }
+        guard let url = ArticleScreenShareURLResolver.resolveShareURL(article: article) else {
+            return nil
+        }
+
         switch articleSourceLinkOpeningPolicy(dependencies: dependencies) {
         case .inAppBrowser:
-            dependencies.appActions.openArticleInSafari(article, using: appState)
+            guard ArticleSafariRoute.canOpen(url) else { return nil }
+            return .inAppBrowser(ArticleSafariRoute(articleID: article.id, url: url))
         case .externalBrowser:
-            guard let url = ArticleScreenShareURLResolver.resolveShareURL(article: article) else {
-                return
-            }
-            openExternalURL(url)
+            return .externalBrowser(url)
         }
     }
 
@@ -236,4 +251,9 @@ final class ArticleScreenController {
             return .inAppBrowser
         }
     }
+}
+
+enum ArticleSourceOpeningRequest: Equatable {
+    case inAppBrowser(ArticleSafariRoute)
+    case externalBrowser(URL)
 }

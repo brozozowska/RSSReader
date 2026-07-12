@@ -113,9 +113,15 @@ struct ArticlesScreenStateMutationTests {
         #expect(state.phase == .loaded)
         #expect(state.articles.map(\.id) == [unreadItem.id])
         #expect(state.articles.first?.isRead == true)
-        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
+        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterFilterMutation])
         #expect(state.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
         #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
+
+        let derivedViewState = state.derivedViewState()
+
+        #expect(derivedViewState.visibleArticles.map(\.id) == [unreadItem.id])
+        #expect(derivedViewState.visibleArticles.first?.isRead == true)
+        #expect(derivedViewState.toolbarActions.isMarkAllAsReadEnabled == false)
     }
 
     @Test
@@ -140,7 +146,7 @@ struct ArticlesScreenStateMutationTests {
             articleID: unreadItem.id,
             mutation: .update(
                 updatedItem,
-                membershipStatus: .retainedAfterRead
+                membershipStatus: .retainedAfterFilterMutation
             ),
             navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle
         )
@@ -149,7 +155,7 @@ struct ArticlesScreenStateMutationTests {
         #expect(state.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
         #expect(state.articles.map(\.id) == [unreadItem.id])
         #expect(state.articles.first?.isRead == true)
-        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
+        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterFilterMutation])
         #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
     }
 
@@ -183,9 +189,16 @@ struct ArticlesScreenStateMutationTests {
     }
 
     @Test
-    func articlesScreenStateRemovesArticleRowWhenUnstarredInsideStarredSelection() {
+    func articlesScreenStateRetainsArticleRowWhenUnstarredInsideStarredSelection() {
         var state = ArticlesScreenState()
         let starredItem = makeArticleListItemDTO(isRead: true, isStarred: true)
+        let updatedItem = makeArticleListItemDTO(
+            id: starredItem.id,
+            feedID: starredItem.feedID,
+            articleExternalID: starredItem.articleExternalID,
+            isRead: true,
+            isStarred: false
+        )
 
         state.applyLoadedArticles(
             [starredItem],
@@ -195,12 +208,20 @@ struct ArticlesScreenStateMutationTests {
         )
         state.applyArticleRowMutation(
             articleID: starredItem.id,
-            mutation: .remove,
+            mutation: .update(
+                updatedItem,
+                membershipStatus: .retainedAfterFilterMutation
+            ),
             navigationSubtitle: ReadingLocalization.starredItemsSubtitle(count: 0)
         )
 
-        #expect(state.phase == .empty)
+        #expect(state.phase == .loaded)
         #expect(state.navigationSubtitle == ReadingLocalization.starredItemsSubtitle(count: 0))
-        #expect(state.articles.isEmpty)
+        #expect(state.articles.map(\.id) == [starredItem.id])
+        #expect(state.articles.first?.isStarred == false)
+        #expect(state.derivedViewState().visibleArticles.map(\.id) == [starredItem.id])
+        #expect(
+            state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterFilterMutation]
+        )
     }
 }

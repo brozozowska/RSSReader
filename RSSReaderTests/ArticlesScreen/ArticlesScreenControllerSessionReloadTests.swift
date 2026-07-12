@@ -44,7 +44,10 @@ struct ArticlesScreenControllerSessionReloadTests {
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.articles.map(\.id) == [article.id])
         #expect(controller.screenState.articles.first?.isRead == true)
-        #expect(controller.screenState.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
+        #expect(
+            controller.screenState.articleListSession.entries.map(\.membershipStatus)
+                == [.retainedAfterFilterMutation]
+        )
         #expect(controller.screenState.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
         #expect(controller.screenState.toolbarActions.isMarkAllAsReadEnabled == false)
     }
@@ -79,12 +82,15 @@ struct ArticlesScreenControllerSessionReloadTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
-            retainsSessionReadArticles: true
+            retainsSessionFilterMutations: true
         )
 
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.articles.map(\.id) == [article.id])
-        #expect(controller.screenState.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
+        #expect(
+            controller.screenState.articleListSession.entries.map(\.membershipStatus)
+                == [.retainedAfterFilterMutation]
+        )
         #expect(controller.screenState.articles.first?.isRead == true)
         #expect(controller.screenState.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
 
@@ -129,8 +135,8 @@ struct ArticlesScreenControllerSessionReloadTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
-            retainsSessionReadArticles: true,
-            retainedSessionReadMembershipStatus: .retainedAfterRefresh
+            retainsSessionFilterMutations: true,
+            retainedSessionMembershipStatus: .retainedAfterRefresh
         )
 
         #expect(controller.screenState.phase == .loaded)
@@ -169,8 +175,8 @@ struct ArticlesScreenControllerSessionReloadTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
-            retainsSessionReadArticles: false,
-            retainedSessionReadMembershipStatus: .retainedAfterRefresh
+            retainsSessionFilterMutations: false,
+            retainedSessionMembershipStatus: .retainedAfterRefresh
         )
 
         #expect(controller.screenState.phase == .empty)
@@ -214,14 +220,17 @@ struct ArticlesScreenControllerSessionReloadTests {
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.articles.map(\.id) == [article.id])
         #expect(controller.screenState.articles.first?.isRead == true)
-        #expect(controller.screenState.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
+        #expect(
+            controller.screenState.articleListSession.entries.map(\.membershipStatus)
+                == [.retainedAfterFilterMutation]
+        )
 
         await controller.load(
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
-            retainsSessionReadArticles: false,
-            retainedSessionReadMembershipStatus: .retainedAfterRefresh
+            retainsSessionFilterMutations: false,
+            retainedSessionMembershipStatus: .retainedAfterRefresh
         )
 
         #expect(controller.screenState.phase == .empty)
@@ -264,7 +273,7 @@ struct ArticlesScreenControllerSessionReloadTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
-            retainsSessionReadArticles: true
+            retainsSessionFilterMutations: true
         )
 
         #expect(controller.screenState.phase == .loaded)
@@ -319,8 +328,8 @@ struct ArticlesScreenControllerSessionReloadTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
-            retainsSessionReadArticles: true,
-            retainedSessionReadMembershipStatus: .retainedAfterRefresh
+            retainsSessionFilterMutations: true,
+            retainedSessionMembershipStatus: .retainedAfterRefresh
         )
 
         #expect(controller.screenState.phase == .loaded)

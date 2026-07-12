@@ -87,7 +87,7 @@ struct ArticleStateRepositoryTests {
     }
 
     @Test
-    func articleStateRepositoryCountsArchivedArticlesAsUnread() throws {
+    func articleStateRepositoryCountsArchivedArticlesAsUnreadWhileTheyRemainOnDevice() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/state-counts.xml"]).first)
         _ = try harness.insertArticle(

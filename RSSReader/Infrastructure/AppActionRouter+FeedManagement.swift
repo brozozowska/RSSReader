@@ -228,7 +228,6 @@ extension AppActionRouter {
         using appState: AppState,
         selectsSavedFeed: Bool = true
     ) async -> FeedRefreshResult? {
-        appState.requestFeedIconNetworkLoad(for: feedID)
         appState.requestSidebarReload()
         if selectsSavedFeed {
             showFeed(id: feedID, using: appState)
@@ -305,6 +304,56 @@ extension AppActionRouter {
         } else {
             appState.requestArticleListReload()
         }
+    }
+
+    @MainActor
+    func requestFeedUnsubscribeConfirmation(
+        id feedID: UUID,
+        title feedTitle: String,
+        using appState: AppState
+    ) {
+        appState.presentFeedUnsubscribeConfirmation(
+            feedID: feedID,
+            feedTitle: feedTitle
+        )
+    }
+
+    @MainActor
+    func cancelFeedUnsubscribeConfirmation(using appState: AppState) {
+        appState.dismissFeedUnsubscribeConfirmation()
+    }
+
+    @MainActor
+    func confirmPendingFeedUnsubscribe(using appState: AppState) {
+        guard let pendingConfirmation = appState.pendingFeedUnsubscribeConfirmation else {
+            return
+        }
+
+        appState.dismissFeedUnsubscribeConfirmation()
+        unsubscribeFeed(id: pendingConfirmation.feedID, using: appState)
+    }
+
+    @MainActor
+    func requestFolderDeleteConfirmation(
+        named folderName: String,
+        using appState: AppState
+    ) {
+        appState.presentFolderDeleteConfirmation(folderName: folderName)
+    }
+
+    @MainActor
+    func cancelFolderDeleteConfirmation(using appState: AppState) {
+        appState.dismissFolderDeleteConfirmation()
+    }
+
+    @MainActor
+    func confirmPendingFolderDelete(using appState: AppState) {
+        guard let pendingConfirmation = appState.pendingFolderDeleteConfirmation else {
+            return
+        }
+
+        appState.dismissFolderDeleteConfirmation()
+        deleteFolder(named: pendingConfirmation.folderName, using: appState)
     }
 
     @MainActor

@@ -58,6 +58,98 @@ struct ArticleRetentionCleanupServiceTests {
     }
 
     @Test
+    func cleanupAppliesRetentionPolicyToUnreadArchivedArticles() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/retention-unread.xml"]).first)
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let expiredArchivedAt = now.addingTimeInterval(-(8 * 24 * 60 * 60))
+        let retainedArchivedAt = now.addingTimeInterval(-(6 * 24 * 60 * 60))
+        let expiredUnreadArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "expired-unread-archived",
+            url: "https://example.com/articles/expired-unread",
+            title: "Expired Unread Archived",
+            archivedAt: expiredArchivedAt
+        )
+        let retainedUnreadArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "retained-unread-archived",
+            url: "https://example.com/articles/retained-unread",
+            title: "Retained Unread Archived",
+            archivedAt: retainedArchivedAt
+        )
+        _ = try harness.articleStateRepository.upsert(
+            feedID: expiredUnreadArticle.feedID,
+            articleExternalID: expiredUnreadArticle.externalID,
+            update: ArticleStateUpsert(
+                isRead: false,
+                updatedAt: now
+            )
+        )
+        _ = try harness.articleStateRepository.upsert(
+            feedID: retainedUnreadArticle.feedID,
+            articleExternalID: retainedUnreadArticle.externalID,
+            update: ArticleStateUpsert(
+                isRead: false,
+                updatedAt: now
+            )
+        )
+        let service = ArticleRetentionCleanupService(
+            logger: TestLogger(),
+            articleRepository: harness.articleRepository,
+            articleStateRepository: harness.articleStateRepository
+        )
+
+        let result = try service.cleanupArchivedArticles(policy: .oneWeek, now: now)
+        let remainingArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+
+        #expect(result.deletedCount == 1)
+        #expect(remainingArticles.map(\.externalID) == ["retained-unread-archived"])
+    }
+
+    @Test
+    func cleanupDropsUnreadCountsOnlyAfterArchivedArticlesAreDeleted() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/retention-counts.xml"]).first)
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let expiredArchivedAt = now.addingTimeInterval(-(8 * 24 * 60 * 60))
+        let archivedUnreadArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "expired-archived-unread",
+            url: "https://example.com/articles/expired-archived-unread",
+            title: "Expired Archived Unread",
+            archivedAt: expiredArchivedAt
+        )
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "current-unread",
+            url: "https://example.com/articles/current-unread",
+            title: "Current Unread"
+        )
+        _ = try harness.articleStateRepository.upsert(
+            feedID: archivedUnreadArticle.feedID,
+            articleExternalID: archivedUnreadArticle.externalID,
+            update: ArticleStateUpsert(
+                isRead: false,
+                updatedAt: now
+            )
+        )
+        let service = ArticleRetentionCleanupService(
+            logger: TestLogger(),
+            articleRepository: harness.articleRepository,
+            articleStateRepository: harness.articleStateRepository
+        )
+
+        let countsBeforeCleanup = try harness.articleStateRepository.fetchUnreadCounts(feedIDs: [feed.id])
+        let result = try service.cleanupArchivedArticles(policy: .oneWeek, now: now)
+        let countsAfterCleanup = try harness.articleStateRepository.fetchUnreadCounts(feedIDs: [feed.id])
+
+        #expect(countsBeforeCleanup[feed.id] == 2)
+        #expect(result.deletedCount == 1)
+        #expect(countsAfterCleanup[feed.id] == 1)
+    }
+
+    @Test
     func cleanupWithNoneDeletesUnstarredArchivedArticlesImmediately() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/retention-none.xml"]).first)

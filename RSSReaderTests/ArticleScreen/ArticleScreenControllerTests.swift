@@ -285,7 +285,8 @@ struct ArticleScreenControllerTests {
                 ArticleSafariRoute(
                     articleID: articleModel.id,
                     url: URL(string: "https://example.com/articles/article-screen-open-web/canonical")!
-                )
+                ),
+                dismissalTarget: .article
             )
         )
         #expect(
@@ -372,7 +373,8 @@ struct ArticleScreenControllerTests {
                 ArticleSafariRoute(
                     articleID: articleModel.id,
                     url: tappedURL
-                )
+                ),
+                dismissalTarget: .article
             )
         )
         #expect(

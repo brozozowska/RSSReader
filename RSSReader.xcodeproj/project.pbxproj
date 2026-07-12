@@ -24,7 +24,9 @@
 		4E5A048F2F8668CB00433119 /* TASK_WORKFLOW.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = TASK_WORKFLOW.md; sourceTree = "<group>"; };
 		4E5A04902F8668CB00433119 /* COMMIT_AND_ISSUE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = COMMIT_AND_ISSUE.md; sourceTree = "<group>"; };
 		4E5A04912F8668CB00433119 /* EPIC_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = EPIC_SUMMARY.md; sourceTree = "<group>"; };
-		4E5A04922F8668CB00433119 /* XCODE_VALIDATION.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = XCODE_VALIDATION.md; sourceTree = "<group>"; };
+		4E5A04922F8668CB00433119 /* VALIDATION_AND_TOOLING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = VALIDATION_AND_TOOLING.md; sourceTree = "<group>"; };
+		4E5A04942F8668CB00433119 /* NAVIGATION_CONTRACTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NAVIGATION_CONTRACTS.md; sourceTree = "<group>"; };
+		4E5A04952F8668CB00433119 /* DATA_LIFECYCLE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DATA_LIFECYCLE.md; sourceTree = "<group>"; };
 		4EB1A1322FE7ED9D001ADFD6 /* LOCALIZATION_REGRESSION_CHECKLIST.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = LOCALIZATION_REGRESSION_CHECKLIST.md; sourceTree = "<group>"; };
 		4EC805A42F7EB73A004CDFE9 /* RSSReaderTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RSSReaderTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -98,10 +100,12 @@
 			isa = PBXGroup;
 			children = (
 				4E5A048E2F8668CB00433119 /* CURRENT_ARCHITECTURE.md */,
+				4E5A04942F8668CB00433119 /* NAVIGATION_CONTRACTS.md */,
+				4E5A04952F8668CB00433119 /* DATA_LIFECYCLE.md */,
 				4E5A048F2F8668CB00433119 /* TASK_WORKFLOW.md */,
 				4E5A04902F8668CB00433119 /* COMMIT_AND_ISSUE.md */,
 				4E5A04912F8668CB00433119 /* EPIC_SUMMARY.md */,
-				4E5A04922F8668CB00433119 /* XCODE_VALIDATION.md */,
+				4E5A04922F8668CB00433119 /* VALIDATION_AND_TOOLING.md */,
 				4EB1A1322FE7ED9D001ADFD6 /* LOCALIZATION_REGRESSION_CHECKLIST.md */,
 			);
 			path = AgentDocs;

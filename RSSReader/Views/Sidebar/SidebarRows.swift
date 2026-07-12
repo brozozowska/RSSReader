@@ -25,7 +25,7 @@ struct SidebarFeedRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            FeedIconView(feedID: row.id, siteURL: row.siteURL, iconURL: row.iconURL)
+            FeedIconView(iconURL: row.iconURL)
 
             Text(row.title)
                 .lineLimit(1)
@@ -52,11 +52,11 @@ struct SidebarFeedRowView: View {
             Button {
                 actionHandlers.showFeedEditor(row.id)
             } label: {
-                Label(SidebarLocalization.editActionTitle, systemImage: "pencil")
+                Label(SidebarLocalization.renameFeedActionTitle, systemImage: "pencil")
             }
 
             Button(role: .destructive) {
-                actionHandlers.unsubscribeFeed(row.id)
+                actionHandlers.requestFeedUnsubscribeConfirmation(row.id, row.title)
             } label: {
                 Label(SidebarLocalization.unsubscribeActionTitle, systemImage: "minus.circle")
             }
@@ -105,11 +105,11 @@ struct SidebarFolderRowView: View {
             Button {
                 actionHandlers.showFolderEditor(row.name)
             } label: {
-                Label(SidebarLocalization.editActionTitle, systemImage: "pencil")
+                Label(SidebarLocalization.renameFolderActionTitle, systemImage: "pencil")
             }
 
             Button(role: .destructive) {
-                actionHandlers.deleteFolder(row.name)
+                actionHandlers.requestFolderDeleteConfirmation(row.name)
             } label: {
                 Label(SidebarLocalization.deleteActionTitle, systemImage: "trash")
             }

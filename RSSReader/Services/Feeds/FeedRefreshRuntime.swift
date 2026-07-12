@@ -41,7 +41,7 @@ extension FeedRefreshService {
 
             switch fetchResult {
             case .notModified(let response):
-                let result = try handleNotModifiedResponse(
+                let result = try await handleNotModifiedResponse(
                     response,
                     metadata: context.metadata,
                     startedAt: startedAt
@@ -57,7 +57,7 @@ extension FeedRefreshService {
                 )
                 return result
             case .fetched(let response):
-                let result = try handleFetchedResponse(
+                let result = try await handleFetchedResponse(
                     response,
                     metadata: context.metadata,
                     startedAt: startedAt

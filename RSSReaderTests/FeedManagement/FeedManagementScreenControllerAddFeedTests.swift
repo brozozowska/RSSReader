@@ -155,7 +155,6 @@ struct FeedManagementScreenControllerAddFeedTests {
         #expect(appState.selectedSidebarSelection == nil)
         #expect(appState.articleListReloadID == articleReloadIDBeforeCreation)
         #expect(appState.sidebarReloadID != sidebarReloadIDBeforeCreation)
-        #expect(appState.consumeFeedIconNetworkLoadRequest(for: persistedFeed.id))
         #expect(persistedFeed.lastFetchedAt == nil)
         #expect(persistedFeed.lastSuccessfulFetchAt == nil)
         #expect(articles.isEmpty)
@@ -174,40 +173,26 @@ struct FeedManagementScreenControllerAddFeedTests {
     }
 
     @Test
-    func feedManagementScreenControllerEditsFeedDismissesThenRefreshesUpdatedFeed() async throws {
+    func feedManagementScreenControllerRenamesFeedAndIgnoresEditedURLInput() async throws {
         let initialURL = "https://example.com/original-feed.xml"
         let updatedURL = "https://example.com/updated-feed.xml"
-        let previewStep = ScriptedHTTPClient.Step.response(
-            statusCode: 200,
-            headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
-            body: makeValidRSSFeedXML(
-                channelTitle: "Updated Feed Title",
-                channelLink: "https://example.com/",
-                language: "en",
-                itemTitle: "Updated Feed Article",
-                itemLink: "https://example.com/articles/updated-feed",
-                itemGUID: "updated-feed-article",
-                itemDescription: "Updated feed description",
-                pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
-            )
-        )
         let refreshStep = ScriptedHTTPClient.Step.delayedResponse(
             statusCode: 200,
             headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
             body: makeValidRSSFeedXML(
-                channelTitle: "Updated Feed Title",
+                channelTitle: "Original Feed",
                 channelLink: "https://example.com/",
                 language: "en",
-                itemTitle: "Updated Feed Article",
-                itemLink: "https://example.com/articles/updated-feed",
-                itemGUID: "updated-feed-article",
-                itemDescription: "Updated feed description",
+                itemTitle: "Original Feed Article",
+                itemLink: "https://example.com/articles/original-feed",
+                itemGUID: "original-feed-article",
+                itemDescription: "Original feed description",
                 pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
             ),
             delayNanoseconds: 200_000_000
         )
         let harness = try TestHarness.make(
-            httpClient: ScriptedHTTPClient(steps: [previewStep, refreshStep])
+            httpClient: ScriptedHTTPClient(steps: [refreshStep])
         )
         let originalFolder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
         let feed = try harness.feedRepository.insert(
@@ -230,13 +215,16 @@ struct FeedManagementScreenControllerAddFeedTests {
             return
         }
 
-        #expect(initialDestination.title == FeedManagementLocalization.editFeedTitle)
+        #expect(initialDestination.title == FeedManagementLocalization.renameFeedTitle)
+        #expect(initialDestination.showsSummary == false)
+        #expect(initialDestination.showsURLInput == false)
         #expect(initialDestination.urlInput == initialURL)
         #expect(initialDestination.placementOptions.isEmpty)
         #expect(initialDestination.createFolderActionTitle == nil)
+        #expect(initialDestination.allowsPreviewAction == false)
 
         controller.handleAddFeedURLChange(updatedURL)
-        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
+        controller.handleAddFeedDisplayNameChange("Renamed Feed")
         await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies, appState: appState)
 
         let persistedFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
@@ -244,8 +232,9 @@ struct FeedManagementScreenControllerAddFeedTests {
 
         #expect(appState.isPresentingFeedManagementScreen == false)
         #expect(appState.selectedSidebarSelection == nil)
-        #expect(persistedFeed.url == updatedURL)
-        #expect(persistedFeed.title == "Updated Feed Title")
+        #expect(persistedFeed.url == initialURL)
+        #expect(persistedFeed.title == "Original Feed")
+        #expect(persistedFeed.displayTitleOverride == "Renamed Feed")
         #expect(persistedFeed.folder?.id == originalFolder.id)
         #expect(persistedFeed.lastSuccessfulFetchAt == nil)
         #expect(articles.isEmpty)
@@ -258,8 +247,8 @@ struct FeedManagementScreenControllerAddFeedTests {
 
         #expect(refreshedFeed.lastSuccessfulFetchAt != nil)
         #expect(refreshedArticles.count == 1)
-        #expect(refreshedArticles.first?.title == "Updated Feed Article")
-        #expect(requests.map(\.url.absoluteString) == [updatedURL, updatedURL])
+        #expect(refreshedArticles.first?.title == "Original Feed Article")
+        #expect(requests.map(\.url.absoluteString) == [initialURL])
     }
 
     @Test

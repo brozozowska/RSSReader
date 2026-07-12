@@ -22,8 +22,13 @@ struct FeedManagementScreenControllerLaunchContextTests {
             return
         }
 
-        #expect(initialDestination.title == FeedManagementLocalization.editFolderTitle)
+        #expect(SidebarLocalization.renameFolderActionTitle == "Переименовать...")
+        #expect(initialDestination.title == FeedManagementLocalization.renameFolderTitle)
+        #expect(initialDestination.title == "Переименовать папку")
         #expect(initialDestination.nameInput == "News")
+        #expect(initialDestination.summaryTitle == FeedManagementLocalization.folderNameSummaryTitle)
+        #expect(initialDestination.summaryDescription == FeedManagementLocalization.editFolderDescription)
+        #expect(initialDestination.existingFolders.contains(where: { $0.id == folder.id && $0.name == "News" }))
 
         controller.handleCreateFolderNameChange("World News")
         controller.submitCreateFolder(dependencies: harness.dependencies, appState: appState)

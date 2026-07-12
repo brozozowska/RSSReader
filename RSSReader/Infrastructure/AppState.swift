@@ -34,10 +34,15 @@ struct ArticleSafariRoute: Hashable, Sendable {
 enum ReadingDetailRoute: Hashable, Sendable {
     case none
     case article(UUID)
-    case safari(ArticleSafariRoute)
+    case safari(ArticleSafariRoute, dismissalTarget: ArticleSafariDismissalTarget)
 }
 
-enum ReaderAdjacentArticleNavigationDirection: Sendable {
+enum ArticleSafariDismissalTarget: Hashable, Sendable {
+    case article
+    case articleList
+}
+
+enum ReaderAdjacentArticleNavigationDirection: Equatable, Sendable {
     case previous
     case next
 }
@@ -69,13 +74,41 @@ struct ReadingNavigationState: Hashable, Sendable {
             ArticleSafariRoute(
                 articleID: articleID,
                 url: url
-            )
+            ),
+            dismissalTarget: .article
+        )
+        return true
+    }
+
+    @discardableResult
+    mutating func presentSafariFromArticleList(articleID: UUID, url: URL) -> Bool {
+        guard ArticleSafariRoute.canOpen(url) else {
+            return false
+        }
+
+        articleSelection = nil
+        detailRoute = .safari(
+            ArticleSafariRoute(
+                articleID: articleID,
+                url: url
+            ),
+            dismissalTarget: .articleList
         )
         return true
     }
 
     mutating func dismissSafari() {
-        detailRoute = articleSelection.map(ReadingDetailRoute.article) ?? .none
+        guard case .safari(_, let dismissalTarget) = detailRoute else {
+            return
+        }
+
+        switch dismissalTarget {
+        case .article:
+            detailRoute = articleSelection.map(ReadingDetailRoute.article) ?? .none
+        case .articleList:
+            articleSelection = nil
+            detailRoute = .none
+        }
     }
 }
 
@@ -89,6 +122,19 @@ struct ArticleReadOnOpenEvent: Equatable, Sendable {
     let articleID: UUID
     let sidebarSelection: SidebarSelection?
     let sidebarArticleFilter: SidebarArticleFilter
+}
+
+struct PendingFeedUnsubscribeConfirmation: Identifiable, Equatable, Sendable {
+    let feedID: UUID
+    let feedTitle: String
+
+    var id: UUID { feedID }
+}
+
+struct PendingFolderDeleteConfirmation: Identifiable, Equatable, Sendable {
+    let folderName: String
+
+    var id: String { folderName }
 }
 
 enum AppContentReloadTrigger: Equatable, Sendable {
@@ -111,12 +157,12 @@ public final class AppState {
     private var articleListScrollPositionIDs: [ArticleListScrollPositionKey: UUID] = [:]
     var articleListReloadID = UUID()
     var sidebarReloadID = UUID()
-    var feedIconReloadID = UUID()
     var feedIconCacheResetID = UUID()
-    private var feedIconNetworkLoadFeedIDs: Set<UUID> = []
     var articleScreenReloadID = UUID()
     var articleReadOnOpenEvent: ArticleReadOnOpenEvent?
     var lastContentReloadTrigger: AppContentReloadTrigger?
+    var pendingFeedUnsubscribeConfirmation: PendingFeedUnsubscribeConfirmation?
+    var pendingFolderDeleteConfirmation: PendingFolderDeleteConfirmation?
 
     var selectedSidebarSelection: SidebarSelection? {
         get { readingNavigation.sidebarSelection }
@@ -149,7 +195,7 @@ public final class AppState {
     }
 
     var presentedSafariRoute: ArticleSafariRoute? {
-        guard case .safari(let route) = readingNavigation.detailRoute else {
+        guard case .safari(let route, _) = readingNavigation.detailRoute else {
             return nil
         }
         return route
@@ -158,6 +204,11 @@ public final class AppState {
     @discardableResult
     func presentSafari(articleID: UUID, url: URL) -> Bool {
         readingNavigation.presentSafari(articleID: articleID, url: url)
+    }
+
+    @discardableResult
+    func presentSafariFromArticleList(articleID: UUID, url: URL) -> Bool {
+        readingNavigation.presentSafariFromArticleList(articleID: articleID, url: url)
     }
 
     func dismissPresentedSafari() {
@@ -194,12 +245,11 @@ public final class AppState {
 
     func selectArticle(_ articleID: UUID?) {
         let previousArticleID = readingNavigation.articleSelection
-        readingNavigation.selectArticle(articleID)
-
         guard previousArticleID != articleID else {
             return
         }
 
+        readingNavigation.selectArticle(articleID)
         requestArticleScreenReload()
     }
 
@@ -256,18 +306,6 @@ public final class AppState {
         sidebarReloadID = UUID()
     }
 
-    func requestFeedIconReload() {
-        feedIconReloadID = UUID()
-    }
-
-    func requestFeedIconNetworkLoad(for feedID: UUID) {
-        feedIconNetworkLoadFeedIDs.insert(feedID)
-    }
-
-    func consumeFeedIconNetworkLoadRequest(for feedID: UUID) -> Bool {
-        feedIconNetworkLoadFeedIDs.remove(feedID) != nil
-    }
-
     func requestFeedIconCacheReset() {
         feedIconCacheResetID = UUID()
     }
@@ -288,6 +326,29 @@ public final class AppState {
         requestSidebarReload()
         requestArticleListReload()
         requestArticleScreenReload()
+    }
+
+    func presentFeedUnsubscribeConfirmation(feedID: UUID, feedTitle: String) {
+        pendingFolderDeleteConfirmation = nil
+        pendingFeedUnsubscribeConfirmation = PendingFeedUnsubscribeConfirmation(
+            feedID: feedID,
+            feedTitle: feedTitle
+        )
+    }
+
+    func dismissFeedUnsubscribeConfirmation() {
+        pendingFeedUnsubscribeConfirmation = nil
+    }
+
+    func presentFolderDeleteConfirmation(folderName: String) {
+        pendingFeedUnsubscribeConfirmation = nil
+        pendingFolderDeleteConfirmation = PendingFolderDeleteConfirmation(
+            folderName: folderName
+        )
+    }
+
+    func dismissFolderDeleteConfirmation() {
+        pendingFolderDeleteConfirmation = nil
     }
 
     func selectSidebarSelection(_ sidebarSelection: SidebarSelection?) {

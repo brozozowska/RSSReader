@@ -6,6 +6,7 @@ struct FeedManagementScreenView: View {
     @Environment(AppState.self) private var appState
     @State private var controller: FeedManagementScreenController
     @State private var destinationPath: [FeedManagementScenarioID] = []
+    @State private var activeLaunchContext: FeedManagementScreenLaunchContext
     let dismiss: () -> Void
     let launchContext: FeedManagementScreenLaunchContext
 
@@ -16,6 +17,7 @@ struct FeedManagementScreenView: View {
     ) {
         self.dismiss = dismiss
         self.launchContext = launchContext
+        self._activeLaunchContext = State(initialValue: launchContext)
         self._controller = State(
             initialValue: FeedManagementScreenController(previewScreenState: previewScreenState)
         )
@@ -28,7 +30,7 @@ struct FeedManagementScreenView: View {
             dependencies: dependencies,
             appState: appState,
             dismiss: dismiss,
-            showsDirectLaunchCloseControl: launchContext.opensDirectDestination,
+            showsDirectLaunchCloseControl: activeLaunchContext.opensDirectDestination,
             destinationPath: $destinationPath
         )
 
@@ -73,9 +75,22 @@ struct FeedManagementScreenView: View {
             .navigationDestination(for: FeedManagementScenarioID.self) { scenarioID in
                 destinationFactory.destinationView(for: scenarioID)
             }
-            .task(id: launchContext) {
-                destinationFactory.handleLaunchContext(launchContext)
+            .task(id: activeLaunchContext) {
+                destinationFactory.handleLaunchContext(activeLaunchContext)
             }
+            .onChange(of: launchContext) { _, newValue in
+                updateActiveLaunchContext(newValue)
+            }
+        }
+        .presentationDetents(feedManagementPresentationDetents)
+    }
+
+    private var feedManagementPresentationDetents: Set<PresentationDetent> {
+        switch activeLaunchContext {
+        case .editFeed:
+            return [.height(260)]
+        case .entry, .editFolder, .organizeFeed:
+            return [.large]
         }
     }
 
@@ -107,5 +122,13 @@ struct FeedManagementScreenView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
+    }
+
+    private func updateActiveLaunchContext(_ newValue: FeedManagementScreenLaunchContext) {
+        guard newValue != .entry || activeLaunchContext == .entry else {
+            return
+        }
+
+        activeLaunchContext = newValue
     }
 }

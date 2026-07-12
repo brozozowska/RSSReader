@@ -7,6 +7,8 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
     let articleExternalID: String
     let title: String
     let summary: String?
+    let contentHTML: String?
+    let contentText: String?
     let author: String?
     let publishedAt: Date?
     let fetchedAt: Date
@@ -22,6 +24,8 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
         articleExternalID: String,
         title: String,
         summary: String?,
+        contentHTML: String? = nil,
+        contentText: String? = nil,
         author: String?,
         publishedAt: Date?,
         fetchedAt: Date,
@@ -36,6 +40,8 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
         self.articleExternalID = articleExternalID
         self.title = title
         self.summary = summary
+        self.contentHTML = contentHTML
+        self.contentText = contentText
         self.author = author
         self.publishedAt = publishedAt
         self.fetchedAt = fetchedAt
@@ -52,6 +58,8 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
         self.articleExternalID = article.externalID
         self.title = article.title
         self.summary = article.summary
+        self.contentHTML = article.contentHTML
+        self.contentText = article.contentText
         self.author = article.author
         self.publishedAt = article.publishedAt
         self.fetchedAt = article.fetchedAt
@@ -68,6 +76,8 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
         self.articleExternalID = article.externalID
         self.title = article.title
         self.summary = article.summary
+        self.contentHTML = article.contentHTML
+        self.contentText = article.contentText
         self.author = article.author
         self.publishedAt = article.publishedAt
         self.fetchedAt = article.fetchedAt

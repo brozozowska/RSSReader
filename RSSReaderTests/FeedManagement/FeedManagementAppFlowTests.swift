@@ -250,4 +250,175 @@ struct FeedManagementAppFlowTests {
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))
     }
+
+    @Test
+    func feedUnsubscribeRequestCreatesPendingConfirmationWithoutDeletingFeedOrTriggeringSideEffects() throws {
+        let badgeService = RecordingUnreadAppIconBadgeService()
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(),
+            unreadAppIconBadgeService: badgeService
+        )
+        let appState = AppState()
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: "https://example.com/pending-unsubscribe.xml",
+                title: "Pending Feed",
+                kind: .rss
+            )
+        )
+
+        harness.dependencies.appActions.showFeed(id: feed.id, using: appState)
+        let sidebarReloadIDBeforeRequest = appState.sidebarReloadID
+        let articleReloadIDBeforeRequest = appState.articleListReloadID
+        let selectedSidebarSelectionBeforeRequest = appState.selectedSidebarSelection
+
+        harness.dependencies.appActions.requestFeedUnsubscribeConfirmation(
+            id: feed.id,
+            title: feed.displayTitle,
+            using: appState
+        )
+
+        #expect(appState.pendingFeedUnsubscribeConfirmation?.feedID == feed.id)
+        #expect(appState.pendingFeedUnsubscribeConfirmation?.feedTitle == "Pending Feed")
+        #expect(try harness.feedRepository.fetchFeed(id: feed.id) != nil)
+        #expect(appState.selectedSidebarSelection == selectedSidebarSelectionBeforeRequest)
+        #expect(appState.sidebarReloadID == sidebarReloadIDBeforeRequest)
+        #expect(appState.articleListReloadID == articleReloadIDBeforeRequest)
+        #expect(badgeService.refreshBadgeCountCallCount == 0)
+
+        harness.dependencies.appActions.cancelFeedUnsubscribeConfirmation(using: appState)
+
+        #expect(appState.pendingFeedUnsubscribeConfirmation == nil)
+        #expect(try harness.feedRepository.fetchFeed(id: feed.id) != nil)
+        #expect(appState.selectedSidebarSelection == selectedSidebarSelectionBeforeRequest)
+        #expect(appState.sidebarReloadID == sidebarReloadIDBeforeRequest)
+        #expect(appState.articleListReloadID == articleReloadIDBeforeRequest)
+        #expect(badgeService.refreshBadgeCountCallCount == 0)
+    }
+
+    @Test
+    func feedUnsubscribeConfirmationDeletesFeedThroughAppActionBoundary() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: "https://example.com/confirmed-unsubscribe.xml",
+                title: "Confirmed Feed",
+                kind: .rss
+            )
+        )
+
+        harness.dependencies.appActions.showFeed(id: feed.id, using: appState)
+        let sidebarReloadIDBeforeConfirmation = appState.sidebarReloadID
+        let articleReloadIDBeforeConfirmation = appState.articleListReloadID
+
+        harness.dependencies.appActions.requestFeedUnsubscribeConfirmation(
+            id: feed.id,
+            title: feed.displayTitle,
+            using: appState
+        )
+        harness.dependencies.appActions.confirmPendingFeedUnsubscribe(using: appState)
+
+        #expect(appState.pendingFeedUnsubscribeConfirmation == nil)
+        #expect(try harness.feedRepository.fetchFeed(id: feed.id) == nil)
+        #expect(appState.selectedSidebarSelection == .inbox)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeConfirmation)
+        #expect(appState.articleListReloadID != articleReloadIDBeforeConfirmation)
+    }
+
+    @Test
+    func folderDeleteRequestCreatesPendingConfirmationWithoutDeletingFolderOrTriggeringSideEffects() throws {
+        let badgeService = RecordingUnreadAppIconBadgeService()
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(),
+            unreadAppIconBadgeService: badgeService
+        )
+        let appState = AppState()
+        let folder = try harness.folderRepository.insert(Folder(name: "Tech", sortOrder: 0))
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: "https://example.com/folder-delete-pending.xml",
+                title: "Folder Feed",
+                kind: .rss,
+                folder: folder
+            )
+        )
+
+        harness.dependencies.appActions.showFolder(named: "Tech", using: appState)
+        let sidebarReloadIDBeforeRequest = appState.sidebarReloadID
+        let articleReloadIDBeforeRequest = appState.articleListReloadID
+        let selectedSidebarSelectionBeforeRequest = appState.selectedSidebarSelection
+
+        harness.dependencies.appActions.requestFolderDeleteConfirmation(
+            named: "Tech",
+            using: appState
+        )
+
+        let persistedFeedAfterRequest = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
+        #expect(appState.pendingFolderDeleteConfirmation?.folderName == "Tech")
+        #expect(try harness.folderRepository.fetchFolder(name: "Tech") != nil)
+        #expect(persistedFeedAfterRequest.folder?.name == "Tech")
+        #expect(appState.selectedSidebarSelection == selectedSidebarSelectionBeforeRequest)
+        #expect(appState.sidebarReloadID == sidebarReloadIDBeforeRequest)
+        #expect(appState.articleListReloadID == articleReloadIDBeforeRequest)
+        #expect(badgeService.refreshBadgeCountCallCount == 0)
+
+        harness.dependencies.appActions.cancelFolderDeleteConfirmation(using: appState)
+
+        let persistedFeedAfterCancel = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
+        #expect(appState.pendingFolderDeleteConfirmation == nil)
+        #expect(try harness.folderRepository.fetchFolder(name: "Tech") != nil)
+        #expect(persistedFeedAfterCancel.folder?.name == "Tech")
+        #expect(appState.selectedSidebarSelection == selectedSidebarSelectionBeforeRequest)
+        #expect(appState.sidebarReloadID == sidebarReloadIDBeforeRequest)
+        #expect(appState.articleListReloadID == articleReloadIDBeforeRequest)
+        #expect(badgeService.refreshBadgeCountCallCount == 0)
+    }
+
+    @Test
+    func folderDeleteConfirmationDeletesFolderWithoutDeletingContainedFeeds() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let folder = try harness.folderRepository.insert(Folder(name: "Design", sortOrder: 0))
+        let feed = try harness.feedRepository.insert(
+            Feed(
+                url: "https://example.com/folder-delete-confirmed.xml",
+                title: "Design Feed",
+                kind: .rss,
+                folder: folder
+            )
+        )
+
+        harness.dependencies.appActions.showFolder(named: "Design", using: appState)
+        let sidebarReloadIDBeforeConfirmation = appState.sidebarReloadID
+        let articleReloadIDBeforeConfirmation = appState.articleListReloadID
+
+        harness.dependencies.appActions.requestFolderDeleteConfirmation(
+            named: "Design",
+            using: appState
+        )
+        harness.dependencies.appActions.confirmPendingFolderDelete(using: appState)
+
+        let persistedFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
+        #expect(appState.pendingFolderDeleteConfirmation == nil)
+        #expect(try harness.folderRepository.fetchFolder(name: "Design") == nil)
+        #expect(persistedFeed.folder == nil)
+        #expect(appState.selectedSidebarSelection == .inbox)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeConfirmation)
+        #expect(appState.articleListReloadID != articleReloadIDBeforeConfirmation)
+    }
+}
+
+@MainActor
+private final class RecordingUnreadAppIconBadgeService: UnreadAppIconBadgeServicing {
+    private(set) var refreshBadgeCountCallCount = 0
+    private(set) var appliedPreferences: [Bool] = []
+
+    func refreshBadgeCount() async {
+        refreshBadgeCountCallCount += 1
+    }
+
+    func applyBadgePreference(isEnabled: Bool) async {
+        appliedPreferences.append(isEnabled)
+    }
 }

@@ -7,6 +7,7 @@ struct FeedManagementAddFeedState {
     private(set) var isCreatingFeed = false
     private(set) var activePreviewRequestURL: String? = nil
     private(set) var activePreviewRequestID: UUID? = nil
+    private(set) var loadedPreviewRequestURL: String? = nil
     private(set) var preview: FeedManagementFeedPreview? = nil
     private(set) var createdFeed: FeedManagementFeedSummary? = nil
     private(set) var previewStatus: FeedManagementAddFeedStatusPresentation? = nil
@@ -20,15 +21,15 @@ struct FeedManagementAddFeedState {
 
     mutating func updateURLInput(_ value: String) {
         guard value != urlInput else { return }
+        guard isEditing == false else { return }
 
         urlInput = value
-        if isEditing == false {
-            displayNameInput = ""
-        }
+        displayNameInput = ""
         isLoadingPreview = false
         isCreatingFeed = false
         activePreviewRequestURL = nil
         activePreviewRequestID = nil
+        loadedPreviewRequestURL = nil
         preview = nil
         createdFeed = nil
         previewStatus = nil
@@ -59,6 +60,7 @@ struct FeedManagementAddFeedState {
         isCreatingFeed = false
         activePreviewRequestURL = nil
         activePreviewRequestID = nil
+        loadedPreviewRequestURL = nil
         preview = nil
         createdFeed = nil
         previewStatus = nil
@@ -77,6 +79,7 @@ struct FeedManagementAddFeedState {
         isCreatingFeed = false
         activePreviewRequestURL = nil
         activePreviewRequestID = nil
+        loadedPreviewRequestURL = nil
         preview = nil
         createdFeed = nil
         previewStatus = nil
@@ -119,29 +122,20 @@ struct FeedManagementAddFeedState {
     }
 
     func canUpdateFeed() -> Bool {
-        (preview != nil || canUpdateDisplayNameWithoutPreview())
+        canUpdateDisplayNameWithoutPreview()
             && editingFeed != nil
-            && hasDuplicateConflict == false
             && isLoadingPreview == false
             && isCreatingFeed == false
             && createdFeed == nil
     }
 
     func shouldPreviewBeforeSaving() -> Bool {
-        guard let editingFeed else { return false }
-        guard let normalizedURL = normalizedValidatedURL() else { return false }
-        guard normalizedURL != editingFeed.url else { return false }
-
-        if let preview {
-            return preview.requestedURL != normalizedURL
-                && preview.resolvedFeedURL != normalizedURL
-        }
-
-        return true
+        false
     }
 
     mutating func beginPreviewLoading() -> FeedManagementAddFeedPreviewCommand? {
         guard isLoadingPreview == false,
+              isEditing == false,
               isCreatingFeed == false,
               let normalizedURL = normalizedValidatedURL() else {
             return nil
@@ -152,6 +146,7 @@ struct FeedManagementAddFeedState {
         isCreatingFeed = false
         activePreviewRequestURL = normalizedURL
         activePreviewRequestID = requestID
+        loadedPreviewRequestURL = nil
         preview = nil
         createdFeed = nil
         previewStatus = nil
@@ -171,6 +166,7 @@ struct FeedManagementAddFeedState {
         }
 
         self.preview = preview
+        loadedPreviewRequestURL = command.urlString
         if isEditing == false {
             displayNameInput = preview.title
         }
@@ -197,6 +193,7 @@ struct FeedManagementAddFeedState {
         isCreatingFeed = false
         activePreviewRequestURL = nil
         activePreviewRequestID = nil
+        loadedPreviewRequestURL = nil
         preview = nil
         createdFeed = nil
         previewStatus = status
@@ -223,9 +220,9 @@ struct FeedManagementAddFeedState {
 
         return FeedManagementUpdateFeedCommand(
             feedID: editingFeed.id,
-            preview: preview,
+            preview: nil,
             displayTitleOverride: displayTitleOverride(
-                metadataTitle: preview?.title ?? editingFeed.metadataTitle
+                metadataTitle: editingFeed.metadataTitle
             ),
             folderPlacement: selectedFolderPlacement
         )
@@ -297,6 +294,9 @@ struct FeedManagementAddFeedState {
                     : FeedManagementLocalization.addFeedTitle
                 isPrimaryActionEnabled = true
             }
+        } else if isEditing {
+            primaryActionTitle = FeedManagementLocalization.saveChangesAction
+            isPrimaryActionEnabled = false
         } else {
             primaryActionTitle = FeedManagementLocalization.previewFeedAction
             isPrimaryActionEnabled = validationMessage == nil
@@ -309,7 +309,7 @@ struct FeedManagementAddFeedState {
 
         return FeedManagementAddFeedPresentation(
             title: isEditing
-                ? FeedManagementLocalization.editFeedTitle
+                ? FeedManagementLocalization.renameFeedTitle
                 : FeedManagementLocalization.addFeedTitle,
             summaryTitle: isEditing
                 ? FeedManagementLocalization.feedDetailsTitle
@@ -317,8 +317,10 @@ struct FeedManagementAddFeedState {
             summaryDescription: isEditing
                 ? FeedManagementLocalization.feedDetailsDescription
                 : FeedManagementLocalization.newFeedDescription,
+            showsSummary: isEditing == false,
             urlInput: urlInput,
             urlPrompt: FeedManagementLocalization.feedURLPrompt,
+            showsURLInput: isEditing == false,
             displayNameInput: displayNameInput,
             displayNamePrompt: FeedManagementLocalization.displayNamePrompt,
             displayNameFooter: displayNameFooter(),
@@ -328,6 +330,7 @@ struct FeedManagementAddFeedState {
             primaryActionTitle: primaryActionTitle,
             isPrimaryActionEnabled: isPrimaryActionEnabled,
             isConfirmationActionEnabled: isConfirmationActionEnabled,
+            allowsPreviewAction: isEditing == false,
             isLoadingPreview: isLoadingPreview,
             preview: previewPresentation(),
             placementTitle: FeedManagementLocalization.destinationFolderTitle,
@@ -375,7 +378,6 @@ struct FeedManagementAddFeedState {
     private func canUpdateDisplayNameWithoutPreview() -> Bool {
         guard let editingFeed else { return false }
         guard preview == nil else { return false }
-        guard normalizedValidatedURL() == editingFeed.url else { return false }
         return normalizedDisplayNameInput() != editingFeed.title
     }
 
@@ -419,15 +421,10 @@ struct FeedManagementAddFeedState {
 
     private func placementDescription() -> String {
         if createdFeed != nil {
-            return isEditing
-                ? FeedManagementLocalization.savedEditPlacementDescription
-                : FeedManagementLocalization.savedAddPlacementDescription
+            return FeedManagementLocalization.savedAddPlacementDescription
         }
 
         if preview == nil {
-            if isEditing {
-                return FeedManagementLocalization.editPendingPlacementDescription
-            }
             return FeedManagementLocalization.addPendingPlacementDescription
         }
 
@@ -435,9 +432,7 @@ struct FeedManagementAddFeedState {
             return FeedManagementLocalization.noFoldersPlacementDescription
         }
 
-        return isEditing
-            ? FeedManagementLocalization.editReadyPlacementDescription
-            : FeedManagementLocalization.addReadyPlacementDescription
+        return FeedManagementLocalization.addReadyPlacementDescription
     }
 
     private func placementOptions() -> [FeedManagementFolderPlacementOptionPresentation] {

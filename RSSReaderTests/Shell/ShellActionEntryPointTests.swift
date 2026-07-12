@@ -25,7 +25,12 @@ struct ShellActionEntryPointTests {
         harness.dependencies.appActions.selectArticle(id: article.id, using: appState)
         harness.dependencies.appActions.openArticleInSafari(article, using: appState)
 
-        #expect(appState.selectedDetailRoute == .safari(ArticleSafariRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!)))
+        #expect(
+            appState.selectedDetailRoute == .safari(
+                ArticleSafariRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!),
+                dismissalTarget: .article
+            )
+        )
         #expect(appState.presentedSafariRoute == ArticleSafariRoute(articleID: article.id, url: URL(string: "https://example.com/articles/1/canonical")!))
 
         harness.dependencies.appActions.closePresentedArticleSafari(using: appState)
@@ -96,13 +101,14 @@ struct ShellActionEntryPointTests {
 
         harness.dependencies.appActions.selectArticle(id: articleModel.id, using: appState)
 
-        #expect(appState.selectedArticleID == articleModel.id)
+        #expect(appState.selectedArticleID == nil)
         #expect(
             appState.selectedDetailRoute == .safari(
                 ArticleSafariRoute(
                     articleID: articleModel.id,
                     url: URL(string: "https://example.com/articles/safari-view-mode/canonical")!
-                )
+                ),
+                dismissalTarget: .articleList
             )
         )
         #expect(
@@ -286,14 +292,34 @@ struct ShellActionEntryPointTests {
         ]
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient(responsesByURL: responses))
         let appState = AppState()
-        _ = try harness.insertFeeds(urls: urls)
+        let feeds = try harness.insertFeeds(urls: urls)
+        let firstFeed = try #require(feeds.first)
+        _ = try harness.insertArticle(
+            feed: firstFeed,
+            externalID: "expired-archived-unread",
+            url: "https://example.com/articles/expired-archived-unread",
+            title: "Expired Archived Unread",
+            archivedAt: .distantPast
+        )
+        _ = try harness.insertArticle(
+            feed: firstFeed,
+            externalID: "current-unread",
+            url: "https://example.com/articles/current-unread",
+            title: "Current Unread"
+        )
         let reloadIDBeforeRefresh = appState.articleListReloadID
+        let sidebarReloadIDBeforeRefresh = appState.sidebarReloadID
+        let unreadCountsBeforeRefresh = try harness.articleStateRepository.fetchUnreadCounts(feedIDs: [firstFeed.id])
 
         let result = await harness.dependencies.appActions.refreshVisibleFeeds(using: appState)
+        let unreadCountsAfterRefresh = try harness.articleStateRepository.fetchUnreadCounts(feedIDs: [firstFeed.id])
 
         #expect(result?.summary.totalFeedCount == 2)
         #expect(result?.summary.notModifiedCount == 2)
+        #expect(unreadCountsBeforeRefresh[firstFeed.id] == 2)
+        #expect(unreadCountsAfterRefresh[firstFeed.id] == 1)
         #expect(appState.articleListReloadID != reloadIDBeforeRefresh)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeRefresh)
     }
 
     @Test

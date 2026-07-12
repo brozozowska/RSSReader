@@ -51,10 +51,15 @@ extension AppActionRouter {
                 return
             }
 
-            guard openArticleInSafari(article, using: appState) else {
+            guard openArticleDirectlyInSafari(article, using: appState) else {
                 appState.selectedArticleID = articleID
                 return
             }
+
+            applyMarkAsReadOnDirectSafariOpenPolicy(
+                to: article,
+                using: appState
+            )
         } catch {
             logger.error("Failed to apply article opening mode policy for article \(articleID): \(error)")
             appState.selectedArticleID = articleID
@@ -76,6 +81,22 @@ extension AppActionRouter {
 
         guard appState.presentSafari(articleID: article.id, url: url) else {
             logger.error("Skipped opening article in Safari because URL is unsupported for article \(article.id)")
+            return false
+        }
+
+        return true
+    }
+
+    @MainActor
+    @discardableResult
+    private func openArticleDirectlyInSafari(_ article: ReaderArticleDTO, using appState: AppState) -> Bool {
+        guard let url = URL(string: article.canonicalURL ?? article.articleURL) else {
+            logger.error("Skipped opening article directly in Safari because URL is invalid for article \(article.id)")
+            return false
+        }
+
+        guard appState.presentSafariFromArticleList(articleID: article.id, url: url) else {
+            logger.error("Skipped opening article directly in Safari because URL is unsupported for article \(article.id)")
             return false
         }
 
@@ -116,6 +137,45 @@ extension AppActionRouter {
         } catch {
             logger.error("Failed to load app settings for article opening mode policy: \(error)")
             return false
+        }
+    }
+
+    @MainActor
+    private func applyMarkAsReadOnDirectSafariOpenPolicy(
+        to article: ReaderArticleDTO,
+        using appState: AppState
+    ) {
+        guard article.isRead == false else { return }
+        guard shouldMarkAsReadOnOpen() else { return }
+
+        guard let articleStateService else {
+            logger.error("Article state service is unavailable for direct Safari mark-as-read-on-open policy")
+            return
+        }
+
+        do {
+            _ = try articleStateService.markAsRead(
+                feedID: article.feedID,
+                articleExternalID: article.articleExternalID,
+                at: .now
+            )
+            appState.recordArticleReadOnOpenInCurrentListSession(article.id)
+        } catch {
+            logger.error("Failed to apply direct Safari mark-as-read-on-open policy: \(error)")
+        }
+    }
+
+    @MainActor
+    private func shouldMarkAsReadOnOpen() -> Bool {
+        guard let appSettingsService else {
+            return true
+        }
+
+        do {
+            return try appSettingsService.fetchSettings().markAsReadOnOpen
+        } catch {
+            logger.error("Failed to load app settings for direct Safari mark-as-read-on-open policy: \(error)")
+            return true
         }
     }
 }

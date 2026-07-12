@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct SidebarContentList: View {
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     @Binding var selection: SidebarSelection?
     let viewState: SidebarScreenDerivedViewState
     let customRefreshState: SidebarCustomRefreshState
@@ -23,6 +25,10 @@ struct SidebarContentList: View {
         .scrollContentBackground(.hidden)
         .background(appThemeVariant.primaryBackground)
         .scrollDisabled(viewState.shouldDisableScrolling)
+        .animation(
+            accessibilityReduceMotion ? nil : .snappy(duration: 0.24),
+            value: SidebarVisibleContentIdentity(viewState: viewState)
+        )
         .onScrollGeometryChange(for: SidebarCustomRefreshGeometry.self) { geometry in
             SidebarCustomRefreshGeometry(
                 contentOffsetY: geometry.contentOffset.y,
@@ -43,6 +49,18 @@ struct SidebarContentList: View {
 
             onCustomRefreshRelease()
         }
+    }
+}
+
+private struct SidebarVisibleContentIdentity: Equatable {
+    let smartRowIDs: [SmartSidebarItem]
+    let folderRowIDs: [String]
+    let ungroupedFeedRowIDs: [UUID]
+
+    init(viewState: SidebarScreenDerivedViewState) {
+        self.smartRowIDs = viewState.smartRows.map(\.id)
+        self.folderRowIDs = viewState.folderRows.map(\.id)
+        self.ungroupedFeedRowIDs = viewState.ungroupedFeedRows.map(\.id)
     }
 }
 

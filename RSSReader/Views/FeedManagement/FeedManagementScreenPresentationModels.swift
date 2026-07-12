@@ -95,8 +95,10 @@ struct FeedManagementAddFeedPresentation: Hashable, Sendable {
     let title: String
     let summaryTitle: String
     let summaryDescription: String
+    let showsSummary: Bool
     let urlInput: String
     let urlPrompt: String
+    let showsURLInput: Bool
     let displayNameInput: String
     let displayNamePrompt: String
     let displayNameFooter: String
@@ -106,6 +108,7 @@ struct FeedManagementAddFeedPresentation: Hashable, Sendable {
     let primaryActionTitle: String
     let isPrimaryActionEnabled: Bool
     let isConfirmationActionEnabled: Bool
+    let allowsPreviewAction: Bool
     let isLoadingPreview: Bool
     let preview: FeedManagementAddFeedPreviewPresentation?
     let placementTitle: String
@@ -159,6 +162,13 @@ struct FeedManagementMoveFeedFeedPresentation: Identifiable, Hashable, Sendable 
     let isSelected: Bool
 }
 
+enum FeedManagementMoveFeedSectionID: String, Hashable, Identifiable, Sendable {
+    case destinationFolder
+    case selectedFeed
+
+    var id: String { rawValue }
+}
+
 enum FeedManagementMoveFeedFeedbackKind: Hashable, Sendable {
     case success
     case failure
@@ -175,6 +185,7 @@ struct FeedManagementMoveFeedPresentation: Hashable, Sendable {
     let title: String
     let summaryTitle: String
     let summaryDescription: String
+    let sectionOrder: [FeedManagementMoveFeedSectionID]
     let feeds: [FeedManagementMoveFeedFeedPresentation]
     let emptyStateTitle: String?
     let emptyStateDescription: String?

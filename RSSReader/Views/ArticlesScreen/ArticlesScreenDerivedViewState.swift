@@ -13,11 +13,9 @@ struct ArticlesScreenDerivedViewState {
 
 extension ArticlesScreenState {
     func derivedViewState(
-        searchText: String,
         sidebarArticleFilter: SidebarArticleFilter = .allItems
     ) -> ArticlesScreenDerivedViewState {
-        let normalizedSearchText = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let visibleArticles = filteredArticles(matching: normalizedSearchText)
+        let visibleArticles = articleListSession.articles
 
         return ArticlesScreenDerivedViewState(
             visibleArticles: visibleArticles,
@@ -32,7 +30,7 @@ extension ArticlesScreenState {
                 phase: phase
             ),
             searchPlaceholder: searchPlaceholder(
-                normalizedSearchText: normalizedSearchText,
+                normalizedSearchText: articleListSession.context.normalizedSearchText,
                 visibleArticles: visibleArticles
             ),
             customRefreshState: customRefreshState,
@@ -41,22 +39,14 @@ extension ArticlesScreenState {
         )
     }
 
-    private func filteredArticles(matching normalizedSearchText: String) -> [ArticleListItemDTO] {
-        guard normalizedSearchText.isEmpty == false else {
-            return articles
-        }
-
-        return articles.filter { article in
-            [article.feedTitle, article.title, article.summary, article.author]
-                .compactMap { $0 }
-                .contains { $0.localizedCaseInsensitiveContains(normalizedSearchText) }
-        }
-    }
-
     private func searchPlaceholder(
         normalizedSearchText: String,
         visibleArticles: [ArticleListItemDTO]
     ) -> ArticlesScreenPlaceholderState? {
+        guard emptyContentKind == .searchResults else {
+            return nil
+        }
+
         guard normalizedSearchText.isEmpty == false else {
             return nil
         }

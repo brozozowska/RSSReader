@@ -94,6 +94,7 @@ struct FeedManagementMoveFeedState {
             title: FeedManagementLocalization.moveFeedTitle,
             summaryTitle: FeedManagementLocalization.feedOrganizationTitle,
             summaryDescription: FeedManagementLocalization.feedOrganizationDescription,
+            sectionOrder: [.destinationFolder, .selectedFeed],
             feeds: feeds.map { feed in
                 FeedManagementMoveFeedFeedPresentation(
                     id: feed.id,

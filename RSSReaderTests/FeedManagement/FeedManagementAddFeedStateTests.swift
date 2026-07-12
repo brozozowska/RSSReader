@@ -47,4 +47,37 @@ struct FeedManagementAddFeedStateTests {
         #expect(createCommand?.folderPlacement == .folder(folderID))
         #expect(createCommand?.displayTitleOverride == nil)
     }
+
+    @Test
+    func editFeedStateIgnoresURLChangesAndBuildsRenameOnlyUpdateCommand() {
+        var state = FeedManagementAddFeedState()
+        let feedID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let initialFeed = FeedManagementFeedSummary(
+            id: feedID,
+            url: "https://example.com/original.xml",
+            title: "Original Feed",
+            folderID: nil,
+            folderName: nil
+        )
+
+        state.applyEditingFeed(initialFeed)
+        state.updateURLInput("https://example.com")
+        state.updateDisplayNameInput("Renamed Feed")
+        let presentation = state.derivedPresentation()
+
+        #expect(presentation.title == FeedManagementLocalization.renameFeedTitle)
+        #expect(presentation.showsSummary == false)
+        #expect(presentation.showsURLInput == false)
+        #expect(presentation.showsDisplayNameInput)
+        #expect(presentation.allowsPreviewAction == false)
+        #expect(presentation.placementOptions.isEmpty)
+        #expect(presentation.createFolderActionTitle == nil)
+        #expect(state.beginPreviewLoading() == nil)
+        #expect(state.shouldPreviewBeforeSaving() == false)
+
+        let updateCommand = state.beginFeedUpdate()
+        #expect(updateCommand?.feedID == feedID)
+        #expect(updateCommand?.preview == nil)
+        #expect(updateCommand?.displayTitleOverride == "Renamed Feed")
+    }
 }

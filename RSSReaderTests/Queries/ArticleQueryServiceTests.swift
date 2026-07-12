@@ -40,6 +40,14 @@ struct ArticleQueryServiceTests {
             title: "Hidden Article",
             publishedAt: Date(timeIntervalSince1970: 50)
         )
+        _ = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "archived",
+            title: "Archived Article",
+            publishedAt: Date(timeIntervalSince1970: 25),
+            archivedAt: Date(timeIntervalSince1970: 400)
+        )
 
         try harness.articleStateRepository.upsert(
             feedID: feed.id,
@@ -69,20 +77,22 @@ struct ArticleQueryServiceTests {
         let starredItems = try queryService.fetchInboxListItems(sortMode: .publishedAtDescending, filter: .starred)
         let hiddenItems = try queryService.fetchInboxListItems(sortMode: .publishedAtDescending, filter: .hidden)
 
-        #expect(allItems.map { $0.articleExternalID } == ["unread", "read", "starred"])
-        #expect(unreadItems.map { $0.articleExternalID } == ["unread"])
+        #expect(allItems.map { $0.articleExternalID } == ["unread", "read", "starred", "archived"])
+        #expect(unreadItems.map { $0.articleExternalID } == ["unread", "archived"])
         #expect(starredItems.map { $0.articleExternalID } == ["starred"])
         #expect(hiddenItems.map { $0.articleExternalID } == ["hidden"])
 
         let readItem = try #require(allItems.first { $0.articleExternalID == "read" })
         let starredItem = try #require(allItems.first { $0.articleExternalID == "starred" })
         let hiddenItem = try #require(hiddenItems.first)
+        let archivedItem = try #require(allItems.first { $0.articleExternalID == "archived" })
 
         #expect(readItem.isRead)
         #expect(readItem.isStarred == false)
         #expect(starredItem.isRead)
         #expect(starredItem.isStarred)
         #expect(hiddenItem.isHidden)
+        #expect(archivedItem.archivedAt != nil)
     }
 
     @Test
@@ -178,6 +188,132 @@ struct ArticleQueryServiceTests {
         #expect(missingReaderArticle == nil)
     }
 
+    @Test
+    func articleQueryServiceSearchesDocumentedFieldsWithinSelectionScope() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let newsFeed = try insertFeed(
+            into: harness,
+            url: "https://example.com/news.xml",
+            title: "News Feed",
+            folderName: "News"
+        )
+        let techFeed = try insertFeed(
+            into: harness,
+            url: "https://example.com/tech.xml",
+            title: "Tech Feed",
+            folderName: "Tech"
+        )
+        let queryService = makeQueryService(harness)
+
+        _ = try insertArticle(
+            into: harness,
+            feed: newsFeed,
+            externalID: "title-match",
+            title: "Needle in title",
+            publishedAt: Date(timeIntervalSince1970: 600)
+        )
+        _ = try insertArticle(
+            into: harness,
+            feed: newsFeed,
+            externalID: "content-text-match",
+            title: "Article",
+            contentText: "Needle in content text",
+            publishedAt: Date(timeIntervalSince1970: 500)
+        )
+        _ = try insertArticle(
+            into: harness,
+            feed: newsFeed,
+            externalID: "content-html-match",
+            title: "Article",
+            contentHTML: "<p>Needle in <strong>HTML</strong></p>",
+            publishedAt: Date(timeIntervalSince1970: 400)
+        )
+        _ = try insertArticle(
+            into: harness,
+            feed: techFeed,
+            externalID: "outside-folder-match",
+            title: "Needle outside folder",
+            publishedAt: Date(timeIntervalSince1970: 300)
+        )
+
+        let results = try queryService.fetchArticleSearchResults(
+            ArticleSearchRequest(
+                selection: .folder("News"),
+                sidebarArticleFilter: .allItems,
+                query: "needle",
+                sortMode: .publishedAtDescending
+            )
+        )
+
+        #expect(results.map(\.articleExternalID) == ["title-match", "content-text-match", "content-html-match"])
+    }
+
+    @Test
+    func articleQueryServiceSearchRespectsFilterLimitAndEmptyQueryBehavior() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(into: harness)
+        let queryService = makeQueryService(harness)
+
+        _ = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "newer",
+            title: "Needle Newer",
+            publishedAt: Date(timeIntervalSince1970: 300)
+        )
+        _ = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "older",
+            title: "Needle Older",
+            publishedAt: Date(timeIntervalSince1970: 200)
+        )
+        _ = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "read",
+            title: "Needle Read",
+            publishedAt: Date(timeIntervalSince1970: 100)
+        )
+        try harness.articleStateRepository.upsert(
+            feedID: feed.id,
+            articleExternalID: "read",
+            update: ArticleStateUpsert(isRead: true, updatedAt: Date(timeIntervalSince1970: 10))
+        )
+
+        let limitedUnreadResults = try queryService.fetchArticleSearchResults(
+            ArticleSearchRequest(
+                selection: .unread,
+                sidebarArticleFilter: .allItems,
+                query: "needle",
+                sortMode: .publishedAtDescending,
+                limit: 1
+            )
+        )
+        let emptyQueryResults = try queryService.fetchArticleSearchResults(
+            ArticleSearchRequest(
+                selection: .inbox,
+                sidebarArticleFilter: .allItems,
+                query: "   ",
+                sortMode: .publishedAtDescending,
+                emptyQueryBehavior: .returnsEmpty
+            )
+        )
+        let defaultEmptyQueryResults = try queryService.fetchArticleSearchResults(
+            ArticleSearchRequest(
+                selection: .inbox,
+                sidebarArticleFilter: .allItems,
+                query: "   ",
+                sortMode: .publishedAtDescending,
+                limit: 2
+            )
+        )
+
+        #expect(limitedUnreadResults.map(\.articleExternalID) == ["newer"])
+        #expect(emptyQueryResults.isEmpty)
+        #expect(defaultEmptyQueryResults.map(\.articleExternalID) == ["newer", "older"])
+    }
+
     private func makeQueryService(_ harness: TestHarness) -> DefaultArticleQueryService {
         DefaultArticleQueryService(
             articleRepository: harness.articleRepository,
@@ -220,7 +356,8 @@ struct ArticleQueryServiceTests {
         publishedAt: Date? = nil,
         updatedAtSource: Date? = nil,
         canonicalURL: String? = nil,
-        imageURL: String? = nil
+        imageURL: String? = nil,
+        archivedAt: Date? = nil
     ) throws -> Article {
         let article = Article(
             feedID: feed.id,
@@ -238,6 +375,7 @@ struct ArticleQueryServiceTests {
             publishedAt: publishedAt,
             updatedAtSource: updatedAtSource,
             imageURL: imageURL,
+            archivedAt: archivedAt,
             fetchedAt: publishedAt ?? Date(timeIntervalSince1970: 0)
         )
         harness.modelContainer.mainContext.insert(article)

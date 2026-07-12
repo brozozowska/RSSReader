@@ -56,21 +56,63 @@ enum SidebarLocalization {
         defaultValue: "Organize...",
         comment: "Context menu action title for moving a feed."
     )
-    static let editActionTitle = String(
-        localized: "sidebar.contextMenu.edit.title",
-        defaultValue: "Edit...",
-        comment: "Context menu action title for editing a feed or folder."
+    static let renameFeedActionTitle = String(
+        localized: "sidebar.contextMenu.renameFeed.title",
+        defaultValue: "Rename...",
+        comment: "Context menu action title for renaming a feed."
+    )
+    static let renameFolderActionTitle = String(
+        localized: "sidebar.contextMenu.renameFolder.title",
+        defaultValue: "Rename...",
+        comment: "Context menu action title for renaming a folder."
     )
     static let unsubscribeActionTitle = String(
         localized: "sidebar.contextMenu.unsubscribe.title",
         defaultValue: "Unsubscribe",
         comment: "Destructive context menu action title for unsubscribing from a feed."
     )
+    static let unsubscribeConfirmationTitle = String(
+        localized: "sidebar.unsubscribeConfirmation.title",
+        defaultValue: "Unsubscribe Feed?",
+        comment: "Alert title asking the user to confirm unsubscribing from a feed."
+    )
+    static let unsubscribeConfirmationActionTitle = String(
+        localized: "sidebar.unsubscribeConfirmation.action.title",
+        defaultValue: "Unsubscribe",
+        comment: "Destructive alert action title for confirming feed unsubscribe."
+    )
+    static let cancelActionTitle = CommonLocalization.cancelAction
+    static func unsubscribeConfirmationMessage(feedTitle: String) -> String {
+        let format = String(
+            localized: "sidebar.unsubscribeConfirmation.message",
+            defaultValue: "Unsubscribe from \"%@\"? Articles from this feed will be removed from this device.",
+            comment: "Alert message asking the user to confirm unsubscribing from a feed. The placeholder is the feed title."
+        )
+        return String(format: format, feedTitle)
+    }
     static let deleteActionTitle = String(
         localized: "sidebar.contextMenu.delete.title",
         defaultValue: "Delete",
         comment: "Destructive context menu action title for deleting a folder."
     )
+    static let folderDeleteConfirmationTitle = String(
+        localized: "sidebar.folderDeleteConfirmation.title",
+        defaultValue: "Delete Folder?",
+        comment: "Alert title asking the user to confirm deleting a folder."
+    )
+    static let folderDeleteConfirmationActionTitle = String(
+        localized: "sidebar.folderDeleteConfirmation.action.title",
+        defaultValue: "Delete Folder",
+        comment: "Destructive alert action title for confirming folder deletion."
+    )
+    static func folderDeleteConfirmationMessage(folderName: String) -> String {
+        let format = String(
+            localized: "sidebar.folderDeleteConfirmation.message",
+            defaultValue: "Delete \"%@\"? Feeds inside this folder will not be deleted. They will move to Ungrouped.",
+            comment: "Alert message asking the user to confirm deleting a folder. The placeholder is the folder name."
+        )
+        return String(format: format, folderName)
+    }
     static let loadingTitle = String(
         localized: "sidebar.loading.title",
         defaultValue: "Loading Feeds",

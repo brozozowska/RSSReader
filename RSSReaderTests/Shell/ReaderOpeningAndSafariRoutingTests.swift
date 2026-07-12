@@ -28,7 +28,7 @@ struct ReaderOpeningAndSafariRoutingTests {
     }
 
     @Test
-    func readerOpeningModeSafariViewPresentsSafariAndDismissalRestoresReaderArticle() throws {
+    func readerOpeningModeSafariViewPresentsSafariAndDismissalRestoresArticleList() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
         let article = try insertArticle(
@@ -45,15 +45,113 @@ struct ReaderOpeningAndSafariRoutingTests {
 
         harness.dependencies.appActions.selectArticle(id: article.id, using: appState)
 
-        #expect(appState.selectedArticleID == article.id)
-        #expect(appState.selectedDetailRoute == .safari(ArticleSafariRoute(articleID: article.id, url: safariURL)))
+        #expect(appState.selectedArticleID == nil)
+        #expect(
+            appState.selectedDetailRoute == .safari(
+                ArticleSafariRoute(articleID: article.id, url: safariURL),
+                dismissalTarget: .articleList
+            )
+        )
         #expect(appState.presentedSafariRoute == ArticleSafariRoute(articleID: article.id, url: safariURL))
 
         harness.dependencies.appActions.closePresentedArticleSafari(using: appState)
 
-        #expect(appState.selectedArticleID == article.id)
-        #expect(appState.selectedDetailRoute == .article(article.id))
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
         #expect(appState.presentedSafariRoute == nil)
+    }
+
+    @Test
+    func readerOpeningModeSafariViewMarksArticleAsReadAndPublishesCurrentListSessionEvent() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let article = try insertArticle(
+            into: harness,
+            feedURL: "https://example.com/safari-read-on-open.xml",
+            externalID: "safari-read-on-open",
+            articleURL: "https://example.com/articles/safari-read-on-open"
+        )
+        try harness.dependencies.appSettingsRepository?.update(
+            AppSettingsUpdate(
+                articleOpeningMode: .safariView,
+                markAsReadOnOpen: true
+            )
+        )
+        appState.selectSidebarSelection(.feed(article.feedID))
+        appState.selectSidebarArticleFilter(.unread)
+
+        harness.dependencies.appActions.selectArticle(id: article.id, using: appState)
+
+        let persistedState = try harness.articleStateRepository.fetchStateSnapshot(
+            feedID: article.feedID,
+            articleExternalID: article.externalID
+        )
+        #expect(persistedState?.isRead == true)
+        #expect(appState.articleReadOnOpenEvent?.articleID == article.id)
+        #expect(appState.articleReadOnOpenEvent?.sidebarSelection == .feed(article.feedID))
+        #expect(appState.articleReadOnOpenEvent?.sidebarArticleFilter == .unread)
+    }
+
+    @Test
+    func readerOpeningModeSafariViewSurvivesRedundantNilSelectionAfterReadEvent() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let article = try insertArticle(
+            into: harness,
+            feedURL: "https://example.com/safari-redundant-selection.xml",
+            externalID: "safari-redundant-selection",
+            articleURL: "https://example.com/articles/safari-redundant-selection"
+        )
+        let safariRoute = ArticleSafariRoute(
+            articleID: article.id,
+            url: URL(string: article.url)!
+        )
+        try harness.dependencies.appSettingsRepository?.update(
+            AppSettingsUpdate(
+                articleOpeningMode: .safariView,
+                markAsReadOnOpen: true
+            )
+        )
+
+        harness.dependencies.appActions.selectArticle(id: article.id, using: appState)
+        harness.dependencies.appActions.selectArticle(id: nil, using: appState)
+
+        #expect(appState.selectedArticleID == nil)
+        #expect(
+            appState.selectedDetailRoute == .safari(
+                safariRoute,
+                dismissalTarget: .articleList
+            )
+        )
+        #expect(appState.presentedSafariRoute == safariRoute)
+    }
+
+    @Test
+    func readerOpeningModeSafariViewRespectsDisabledMarkAsReadOnOpenPolicy() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let article = try insertArticle(
+            into: harness,
+            feedURL: "https://example.com/safari-read-on-open-disabled.xml",
+            externalID: "safari-read-on-open-disabled",
+            articleURL: "https://example.com/articles/safari-read-on-open-disabled"
+        )
+        try harness.dependencies.appSettingsRepository?.update(
+            AppSettingsUpdate(
+                articleOpeningMode: .safariView,
+                markAsReadOnOpen: false
+            )
+        )
+
+        harness.dependencies.appActions.selectArticle(id: article.id, using: appState)
+
+        let persistedState = try harness.articleStateRepository.fetchStateSnapshot(
+            feedID: article.feedID,
+            articleExternalID: article.externalID
+        )
+        #expect(persistedState == nil)
+        #expect(appState.articleReadOnOpenEvent == nil)
+        #expect(appState.presentedSafariRoute?.articleID == article.id)
     }
 
     @Test

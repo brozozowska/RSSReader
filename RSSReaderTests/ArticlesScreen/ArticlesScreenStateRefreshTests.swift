@@ -48,7 +48,7 @@ struct ArticlesScreenStateRefreshTests {
             [
                 ArticleListEntry(
                     article: unreadItem,
-                    membershipStatus: .retainedAfterRead
+                    membershipStatus: .retainedAfterFilterMutation
                 )
             ],
             selection: .unread,
@@ -73,7 +73,7 @@ struct ArticlesScreenStateRefreshTests {
 
         #expect(state.refreshState == .refreshing)
         #expect(state.articleListSession.entries.map(\.id) == [unreadItem.id])
-        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterRead])
+        #expect(state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterFilterMutation])
     }
 
     @Test
@@ -94,7 +94,7 @@ struct ArticlesScreenStateRefreshTests {
             resetsContent: false
         )
 
-        let derivedViewState = state.derivedViewState(searchText: "")
+        let derivedViewState = state.derivedViewState()
 
         #expect(state.refreshState == .refreshing)
         #expect(derivedViewState.primaryLoadingState == nil)
@@ -139,7 +139,7 @@ struct ArticlesScreenStateRefreshTests {
 
         state.updateCustomRefreshPullProgress(0.7)
 
-        let viewState = state.derivedViewState(searchText: "")
+        let viewState = state.derivedViewState()
 
         #expect(viewState.customRefreshState.phase == .pulling)
         #expect(viewState.customRefreshState.pullProgress == 0.7)
@@ -223,7 +223,7 @@ struct ArticlesScreenStateRefreshTests {
         )
         state.presentRefreshFailure("Refresh failed")
 
-        let derivedViewState = state.derivedViewState(searchText: "")
+        let derivedViewState = state.derivedViewState()
 
         #expect(derivedViewState.refreshBanner?.style == .failed)
         #expect(derivedViewState.refreshBanner?.title == ReadingLocalization.refreshFailedTitle)

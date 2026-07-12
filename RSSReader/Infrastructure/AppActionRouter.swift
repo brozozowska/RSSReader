@@ -11,6 +11,7 @@ struct AppActionRouter {
 
     var logger: Logging { dependencies.logger }
     var articleQueryService: (any ArticleQueryService)? { dependencies.articleQueryService }
+    var articleStateService: (any ArticleStateServicing)? { dependencies.articleStateService }
     var folderRepository: (any FolderRepository)? { dependencies.folderRepository }
     var feedManagementService: (any FeedManagementService)? { dependencies.feedManagementService }
     var feedRefreshService: FeedRefreshService? { dependencies.feedRefreshService }

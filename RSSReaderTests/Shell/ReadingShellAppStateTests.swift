@@ -114,7 +114,12 @@ struct ReadingShellAppStateTests {
 
         #expect(appState.selectedSidebarArticleFilter == .unread)
         #expect(appState.selectedArticleID == articleID)
-        #expect(appState.selectedDetailRoute == .safari(ArticleSafariRoute(articleID: articleID, url: webURL)))
+        #expect(
+            appState.selectedDetailRoute == .safari(
+                ArticleSafariRoute(articleID: articleID, url: webURL),
+                dismissalTarget: .article
+            )
+        )
         #expect(appState.presentedSafariRoute == ArticleSafariRoute(articleID: articleID, url: webURL))
         #expect(appState.articleListReloadID == reloadIDBeforeReapplyingFilter)
     }
@@ -211,8 +216,37 @@ struct ReadingShellAppStateTests {
         appState.presentSafari(articleID: articleID, url: webURL)
 
         #expect(appState.selectedArticleID == articleID)
-        #expect(appState.selectedDetailRoute == .safari(ArticleSafariRoute(articleID: articleID, url: webURL)))
+        #expect(
+            appState.selectedDetailRoute == .safari(
+                ArticleSafariRoute(articleID: articleID, url: webURL),
+                dismissalTarget: .article
+            )
+        )
         #expect(appState.presentedSafariRoute == ArticleSafariRoute(articleID: articleID, url: webURL))
+    }
+
+    @Test
+    func readingShellOpenArticleSafariFromArticleListDoesNotSelectReaderArticle() {
+        let appState = AppState()
+        let articleID = UUID()
+        let webURL = URL(string: "https://example.com/direct-safari")!
+
+        appState.presentSafariFromArticleList(articleID: articleID, url: webURL)
+
+        #expect(appState.selectedArticleID == nil)
+        #expect(
+            appState.selectedDetailRoute == .safari(
+                ArticleSafariRoute(articleID: articleID, url: webURL),
+                dismissalTarget: .articleList
+            )
+        )
+        #expect(appState.presentedSafariRoute == ArticleSafariRoute(articleID: articleID, url: webURL))
+
+        appState.dismissPresentedSafari()
+
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
+        #expect(appState.presentedSafariRoute == nil)
     }
 
     @Test

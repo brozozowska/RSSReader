@@ -32,16 +32,19 @@ final class ArticlesScreenController {
     func load(
         selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter,
+        searchText: String = "",
         dependencies: AppDependencies,
-        retainsSessionReadArticles: Bool = false,
-        retainedSessionReadMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead,
+        retainsSessionFilterMutations: Bool = false,
+        retainedSessionMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterFilterMutation,
         preservesRefreshFeedback: Bool = false
     ) async {
         loadGeneration += 1
         let currentLoadGeneration = loadGeneration
+        let normalizedSearchText = ArticleSearchScope.normalizedSearchText(searchText)
         let sessionContext = ArticleListSession.Context(
             selection: selection,
-            sidebarArticleFilter: sidebarArticleFilter
+            sidebarArticleFilter: sidebarArticleFilter,
+            normalizedSearchText: normalizedSearchText
         )
         let sessionContextChanged = shouldResetArticleSession(for: sessionContext)
         let navigationTitle = resolveNavigationTitle(
@@ -81,18 +84,19 @@ final class ArticlesScreenController {
         let unreadArticleSortMode = loadUnreadArticleSortMode(dependencies: dependencies)
 
         do {
-            let loadedArticles = try loadArticles(
+            let loadResult = try loadArticles(
                 for: selection,
                 sidebarArticleFilter: sidebarArticleFilter,
+                normalizedSearchText: normalizedSearchText,
                 unreadArticleSortMode: unreadArticleSortMode,
                 articleQueryService: articleQueryService
             )
-            let resolvedEntries = entriesByRetainingSessionReadItems(
-                loadedArticles,
+            let resolvedEntries = entriesByRetainingSessionItems(
+                loadResult.articles,
                 selection: selection,
                 sidebarArticleFilter: sidebarArticleFilter,
-                retainsCurrentContent: sessionContextChanged == false && retainsSessionReadArticles,
-                retainedMembershipStatus: retainedSessionReadMembershipStatus
+                retainsCurrentContent: sessionContextChanged == false && retainsSessionFilterMutations,
+                retainedMembershipStatus: retainedSessionMembershipStatus
             )
             let subtitleArticles = resolvedEntries.map(\.article)
 
@@ -106,7 +110,8 @@ final class ArticlesScreenController {
                     sidebarArticleFilter: sidebarArticleFilter
                 ),
                 sessionContext: sessionContext,
-                preservesRefreshFeedback: preservesRefreshFeedback
+                preservesRefreshFeedback: preservesRefreshFeedback,
+                emptyContentKind: loadResult.emptyContentKind
             )
         } catch {
             guard currentLoadGeneration == loadGeneration else { return }
@@ -191,9 +196,10 @@ final class ArticlesScreenController {
     private func loadArticles(
         for selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter,
+        normalizedSearchText: String,
         unreadArticleSortMode: ArticleSortMode,
         articleQueryService: any ArticleQueryService
-    ) throws -> [ArticleListItemDTO] {
+    ) throws -> ArticleListLoadResult {
         let articleListFilter = articleListFilter(
             for: selection,
             sidebarArticleFilter: sidebarArticleFilter
@@ -203,51 +209,56 @@ final class ArticlesScreenController {
             unreadArticleSortMode: unreadArticleSortMode
         )
 
-        return switch selection {
-        case .inbox:
-            try articleQueryService.fetchInboxListItems(
-                sortMode: articleListSortMode,
-                filter: articleListFilter
-            )
-        case .unread:
-            try articleQueryService.fetchInboxListItems(
-                sortMode: articleListSortMode,
-                filter: articleListFilter
-            )
-        case .starred:
-            try articleQueryService.fetchInboxListItems(
-                sortMode: articleListSortMode,
-                filter: articleListFilter
-            )
-        case .folder(let folderName):
-            try articleQueryService.fetchFolderListItems(
-                folderName: folderName,
-                sortMode: articleListSortMode,
-                filter: articleListFilter
-            )
-        case .feed(let selectedFeedID):
-            try articleQueryService.fetchArticleListItems(
-                feedID: selectedFeedID,
-                sortMode: articleListSortMode,
-                filter: articleListFilter
-            )
-        case .none:
-            []
+        let request = ArticleSearchRequest(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter,
+            query: normalizedSearchText,
+            sortMode: articleListSortMode
+        )
+        let articles = try articleQueryService.fetchArticleSearchResults(request)
+        let emptyContentKind = try emptyContentKind(
+            articles: articles,
+            request: request,
+            articleQueryService: articleQueryService
+        )
+
+        return ArticleListLoadResult(
+            articles: articles,
+            emptyContentKind: emptyContentKind
+        )
+    }
+
+    private func emptyContentKind(
+        articles: [ArticleListItemDTO],
+        request: ArticleSearchRequest,
+        articleQueryService: any ArticleQueryService
+    ) throws -> ArticlesScreenEmptyContentKind {
+        guard articles.isEmpty,
+              request.normalizedQuery.isEmpty == false else {
+            return .selection
         }
+
+        let scopeProbe = try articleQueryService.fetchArticleSearchResults(
+            ArticleSearchRequest(
+                selection: request.selection,
+                sidebarArticleFilter: request.sidebarArticleFilter,
+                query: "",
+                sortMode: request.sortMode,
+                limit: 1
+            )
+        )
+
+        return scopeProbe.isEmpty ? .selection : .searchResults
     }
 
     private func articleListFilter(
         for selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter
     ) -> ArticleListFilter {
-        switch selection {
-        case .unread:
-            .unread
-        case .starred:
-            .starred
-        case .inbox, .folder, .feed, .none:
-            SidebarArticleFilterResolver.resolve(for: sidebarArticleFilter)
-        }
+        ArticleSearchScope.listFilter(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter
+        )
     }
 
     private func articleListSortMode(
@@ -257,18 +268,19 @@ final class ArticlesScreenController {
         filter == .unread ? unreadArticleSortMode : .publishedAtDescending
     }
 
-    private func entriesByRetainingSessionReadItems(
+    private func entriesByRetainingSessionItems(
         _ loadedArticles: [ArticleListItemDTO],
         selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter,
         retainsCurrentContent: Bool,
         retainedMembershipStatus: ArticleListEntryMembershipStatus
     ) -> [ArticleListEntry] {
+        let filter = ArticlesScreenMutationReducer.articleListFilter(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter
+        )
         guard retainsCurrentContent,
-              ArticlesScreenMutationReducer.articleListFilter(
-                selection: selection,
-                sidebarArticleFilter: sidebarArticleFilter
-              ) == .unread else {
+              filter == .unread || filter == .starred else {
             return ArticleListSessionMergePolicy.merge(
                 currentEntries: screenState.articleListSession.entries,
                 loadedArticles: loadedArticles,
@@ -308,4 +320,9 @@ final class ArticlesScreenController {
 
         return ReadingLocalization.multipleFeedsRefreshFailed(count: result.summary.failedCount)
     }
+}
+
+private struct ArticleListLoadResult {
+    let articles: [ArticleListItemDTO]
+    let emptyContentKind: ArticlesScreenEmptyContentKind
 }

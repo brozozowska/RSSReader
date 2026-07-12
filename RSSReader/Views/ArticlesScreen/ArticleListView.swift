@@ -44,7 +44,6 @@ struct ArticleListView: View {
 
     var body: some View {
         let derivedViewState = controller.screenState.derivedViewState(
-            searchText: searchText,
             sidebarArticleFilter: selectedSidebarArticleFilter
         )
 
@@ -114,15 +113,11 @@ struct ArticleListView: View {
         .task(id: ArticleListLoadContext(
             sidebarSelection: selectedSidebarSelection,
             sidebarArticleFilter: selectedSidebarArticleFilter,
+            normalizedSearchText: ArticleSearchScope.normalizedSearchText(searchText),
             reloadID: reloadID
         )) {
             guard isPreviewMode == false else { return }
-            await loadArticles(retainsSessionReadArticles: true)
-        }
-        .onChange(of: searchText) { _, _ in
-            let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
-            selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
-            syncArticleNavigationContext(visibleArticleIDs)
+            await loadArticles(retainsSessionFilterMutations: true)
         }
         .onChange(of: selection) { _, newValue in
             guard let newValue else { return }
@@ -151,8 +146,8 @@ struct ArticleListView: View {
 
     @MainActor
     private func loadArticles(
-        retainsSessionReadArticles: Bool = true,
-        retainedSessionReadMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterRead,
+        retainsSessionFilterMutations: Bool = true,
+        retainedSessionMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterFilterMutation,
         preservesRefreshFeedback: Bool = false
     ) async {
         let loadingSidebarSelection = selectedSidebarSelection
@@ -161,9 +156,10 @@ struct ArticleListView: View {
         await controller.load(
             selection: loadingSidebarSelection,
             sidebarArticleFilter: loadingSidebarArticleFilter,
+            searchText: searchText,
             dependencies: dependencies,
-            retainsSessionReadArticles: retainsSessionReadArticles,
-            retainedSessionReadMembershipStatus: retainedSessionReadMembershipStatus,
+            retainsSessionFilterMutations: retainsSessionFilterMutations,
+            retainedSessionMembershipStatus: retainedSessionMembershipStatus,
             preservesRefreshFeedback: preservesRefreshFeedback
         )
 
@@ -172,7 +168,7 @@ struct ArticleListView: View {
             return
         }
 
-        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        let visibleArticleIDs = controller.visibleArticleIDs()
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
     }
@@ -256,7 +252,7 @@ struct ArticleListView: View {
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
-        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        let visibleArticleIDs = controller.visibleArticleIDs()
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
     }
@@ -272,7 +268,7 @@ struct ArticleListView: View {
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
-        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        let visibleArticleIDs = controller.visibleArticleIDs()
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
     }
@@ -288,7 +284,7 @@ struct ArticleListView: View {
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
-        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        let visibleArticleIDs = controller.visibleArticleIDs()
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
     }
@@ -302,7 +298,7 @@ struct ArticleListView: View {
             dependencies: dependencies,
             isPreviewMode: isPreviewMode
         )
-        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        let visibleArticleIDs = controller.visibleArticleIDs()
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
     }
@@ -340,7 +336,7 @@ struct ArticleListView: View {
         }
 
         controller.markArticleAsReadInCurrentSession(event.articleID)
-        let visibleArticleIDs = controller.visibleArticleIDs(searchText: searchText)
+        let visibleArticleIDs = controller.visibleArticleIDs()
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
     }
@@ -393,7 +389,7 @@ struct ArticleListView: View {
 
     private func retryPrimaryLoad() {
         Task {
-            await loadArticles(retainsSessionReadArticles: true)
+            await loadArticles(retainsSessionFilterMutations: true)
         }
     }
 
@@ -414,8 +410,8 @@ struct ArticleListView: View {
         let preservesRefreshFeedback = controller.screenState.refreshFeedback != nil
 
         await loadArticles(
-            retainsSessionReadArticles: false,
-            retainedSessionReadMembershipStatus: .retainedAfterRefresh,
+            retainsSessionFilterMutations: false,
+            retainedSessionMembershipStatus: .retainedAfterRefresh,
             preservesRefreshFeedback: preservesRefreshFeedback
         )
     }
@@ -474,5 +470,6 @@ private extension View {
 private struct ArticleListLoadContext: Hashable {
     let sidebarSelection: SidebarSelection?
     let sidebarArticleFilter: SidebarArticleFilter
+    let normalizedSearchText: String
     let reloadID: UUID
 }
