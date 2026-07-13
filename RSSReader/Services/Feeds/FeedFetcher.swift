@@ -145,6 +145,13 @@ public struct FeedFetcher: FeedFetching {
             switch httpClientError {
             case .invalidResponse:
                 return .transport(.invalidResponse)
+            case .responseBodyTooLarge(let maximumBytes, let actualBytes):
+                return .transport(
+                    .responseBodyTooLarge(
+                        maximumBytes: maximumBytes,
+                        actualBytes: actualBytes
+                    )
+                )
             }
         }
 

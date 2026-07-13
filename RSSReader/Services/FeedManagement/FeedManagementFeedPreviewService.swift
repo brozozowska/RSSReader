@@ -100,7 +100,10 @@ struct FeedManagementFeedPreviewService {
                         "Accept": "text/html, application/xhtml+xml;q=0.9, */*;q=0.1",
                         "User-Agent": "RSSReader/0 (Feed Discovery)"
                     ],
-                    timeoutInterval: Self.previewRequestTimeoutInterval
+                    timeoutInterval: Self.previewRequestTimeoutInterval,
+                    maximumResponseBodyBytes: AppComposition.resourceBudgetContract
+                        .discoveryHTML
+                        .maximumCompressedBodyBytes
                 )
             )
             guard (200...299).contains(response.statusCode),

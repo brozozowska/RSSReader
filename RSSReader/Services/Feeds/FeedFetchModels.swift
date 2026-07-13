@@ -4,13 +4,13 @@ public enum FeedRequestError: Error {
     case invalidURL(String)
 }
 
-public enum FeedFetchError: Error {
+public nonisolated enum FeedFetchError: Error, Equatable, Sendable {
     case transport(FeedTransportError)
     case invalidStatusCode(Int)
     case unsupportedContentType(String?)
 }
 
-public enum FeedTransportError: Error, Sendable {
+public nonisolated enum FeedTransportError: Error, Equatable, Sendable {
     case timedOut
     case cannotFindHost
     case cannotConnectToHost
@@ -22,6 +22,7 @@ public enum FeedTransportError: Error, Sendable {
     case callIsActive
     case dataNotAllowed
     case invalidResponse
+    case responseBodyTooLarge(maximumBytes: Int64, actualBytes: Int64)
     case unknown
 }
 
@@ -108,7 +109,11 @@ public struct FeedRequest: Sendable {
         HTTPRequest(
             url: url,
             headers: headers,
-            timeoutInterval: timeoutInterval
+            timeoutInterval: timeoutInterval,
+            maximumResponseBodyBytes: AppComposition.resourceBudgetContract
+                .feedXML
+                .body
+                .maximumCompressedBodyBytes
         )
     }
 

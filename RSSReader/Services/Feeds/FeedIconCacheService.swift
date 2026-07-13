@@ -62,7 +62,15 @@ public actor FeedIconCacheService: FeedIconCaching {
         }
 
         let task = Task<Data, Error> {
-            let response = try await httpClient.execute(HTTPRequest(url: url))
+            let response = try await httpClient.execute(
+                HTTPRequest(
+                    url: url,
+                    maximumResponseBodyBytes: AppComposition.resourceBudgetContract
+                        .feedIcon
+                        .body
+                        .maximumCompressedBodyBytes
+                )
+            )
 
             guard (200...299).contains(response.statusCode) else {
                 throw FeedIconCacheError.invalidResponseStatusCode(response.statusCode)

@@ -7,6 +7,7 @@ actor ScriptedHTTPClient: HTTPClient {
         case dataResponse(statusCode: Int, headers: [String: String], body: Data)
         case delayedResponse(statusCode: Int, headers: [String: String], body: String, delayNanoseconds: UInt64)
         case invalidResponse
+        case responseBodyTooLarge(maximumBytes: Int64, actualBytes: Int64)
         case urlError(URLError.Code)
         case cancelled
     }
@@ -93,6 +94,11 @@ actor ScriptedHTTPClient: HTTPClient {
             )
         case .invalidResponse:
             throw HTTPClientError.invalidResponse
+        case .responseBodyTooLarge(let maximumBytes, let actualBytes):
+            throw HTTPClientError.responseBodyTooLarge(
+                maximumBytes: maximumBytes,
+                actualBytes: actualBytes
+            )
         case .urlError(let code):
             throw URLError(code)
         case .cancelled:

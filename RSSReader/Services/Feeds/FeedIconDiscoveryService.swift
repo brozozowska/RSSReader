@@ -113,7 +113,11 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
                     "Accept": "image/png, image/jpeg, image/x-icon, image/*;q=0.9, */*;q=0.1",
                     "User-Agent": "RSSReader/0 (Feed Icon Discovery)"
                 ],
-                timeoutInterval: timeoutInterval
+                timeoutInterval: timeoutInterval,
+                maximumResponseBodyBytes: AppComposition.resourceBudgetContract
+                    .feedIcon
+                    .body
+                    .maximumCompressedBodyBytes
             )
         )
         guard (200...299).contains(response.statusCode),
@@ -141,7 +145,10 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
                         "Accept": "text/html, application/xhtml+xml;q=0.9, */*;q=0.1",
                         "User-Agent": "RSSReader/0 (Feed Icon Discovery)"
                     ],
-                    timeoutInterval: timeoutInterval
+                    timeoutInterval: timeoutInterval,
+                    maximumResponseBodyBytes: AppComposition.resourceBudgetContract
+                        .discoveryHTML
+                        .maximumCompressedBodyBytes
                 )
             )
             guard (200...299).contains(response.statusCode),
