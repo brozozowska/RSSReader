@@ -6,6 +6,7 @@ import Observation
 /// Для app bootstrap всегда использует единый `makeAppDependencies()` path.
 /// - Parameter modelPartition: Partition SwiftData моделей. Если `nil`, используется `current` partition.
 enum AppComposition {
+    static let resourceBudgetContract = AppResourceBudgetContract.current
     static let persistenceModelPartition = AppPersistenceModelPartition.current
     static let syncEnablementPolicy = AppSyncEnablementPolicy.current
     static let syncBackedModels = persistenceModelPartition.syncBackedModels
