@@ -211,6 +211,12 @@ enum FeedManagementScreenStatusMapper {
                 kind: .failure,
                 detail: String(localized: "feedManagement.addFeed.preview.malformedXML.detail", defaultValue: "The address responded, but the app could not read it as RSS or Atom.", comment: "Feed preview failure detail for malformed XML.")
             )
+        case .resourceLimitExceeded:
+            return FeedManagementAddFeedStatusPresentation(
+                title: String(localized: "feedManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "This is not a supported feed", comment: "Failure title for unsupported feed."),
+                kind: .failure,
+                detail: String(localized: "feedManagement.addFeed.preview.malformedXML.detail", defaultValue: "The address responded, but the app could not read it as RSS or Atom.", comment: "Feed preview failure detail for malformed XML.")
+            )
         case .unsupportedFeedKind:
             return FeedManagementAddFeedStatusPresentation(
                 title: String(localized: "feedManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "This is not a supported feed", comment: "Failure title for unsupported feed."),

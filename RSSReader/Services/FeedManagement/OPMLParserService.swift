@@ -3,6 +3,7 @@ import Foundation
 enum OPMLParserError: Error, Equatable {
     case emptyDocument
     case malformedXML(line: Int, column: Int, message: String)
+    case resourceLimitExceeded(AppResourceBudgetViolation)
     case unsupportedRootElement(String)
     case missingBody
 }
@@ -27,15 +28,20 @@ struct OPMLFeedOutlineDTO: Equatable, Sendable {
 }
 
 enum OPMLParserService {
-    static func parse(_ data: Data) throws -> OPMLDocumentDTO {
+    static func parse(
+        _ data: Data,
+        structuralPolicy: XMLParserStructuralPolicy = .opml
+    ) throws -> OPMLDocumentDTO {
         let document: FeedXMLDocument
 
         do {
-            document = try FeedParserService.parse(data)
+            document = try FeedParserService.parse(data, structuralPolicy: structuralPolicy)
         } catch FeedParserError.emptyDocument {
             throw OPMLParserError.emptyDocument
         } catch FeedParserError.malformedXML(let line, let column, let message) {
             throw OPMLParserError.malformedXML(line: line, column: column, message: message)
+        } catch FeedParserError.resourceLimitExceeded(let violation) {
+            throw OPMLParserError.resourceLimitExceeded(violation)
         }
 
         let root = document.rootElement

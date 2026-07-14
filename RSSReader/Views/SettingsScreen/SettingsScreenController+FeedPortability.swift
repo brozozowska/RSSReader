@@ -159,6 +159,8 @@ extension SettingsScreenController {
             return SettingsLocalization.selectedFileEmptyMessage
         case OPMLParserError.malformedXML:
             return SettingsLocalization.selectedFileInvalidXMLMessage
+        case OPMLParserError.resourceLimitExceeded:
+            return SettingsLocalization.selectedFileInvalidXMLMessage
         case OPMLParserError.unsupportedRootElement:
             return SettingsLocalization.selectedFileNotOPMLMessage
         case OPMLParserError.missingBody:

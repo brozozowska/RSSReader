@@ -3,6 +3,7 @@ import Foundation
 enum FeedParserError: Error {
     case emptyDocument
     case malformedXML(line: Int, column: Int, message: String)
+    case resourceLimitExceeded(AppResourceBudgetViolation)
     case unsupportedFeedKind(FeedKind)
     case missingRSSElement(String)
     case missingAtomElement(String)
