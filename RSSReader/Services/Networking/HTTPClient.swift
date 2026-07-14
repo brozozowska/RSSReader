@@ -50,6 +50,16 @@ public nonisolated struct HTTPResponse: Sendable {
         self.headers = headers
         self.body = body
     }
+
+    var contentType: String? {
+        headerValue(named: "Content-Type")
+    }
+
+    func headerValue(named name: String) -> String? {
+        headers.first { key, _ in
+            key.caseInsensitiveCompare(name) == .orderedSame
+        }?.value
+    }
 }
 
 public nonisolated enum HTTPClientError: Error, Equatable, Sendable {

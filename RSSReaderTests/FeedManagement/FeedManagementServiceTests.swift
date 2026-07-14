@@ -119,13 +119,21 @@ struct FeedManagementServiceTests {
         let service = try #require(harness.dependencies.feedManagementService)
 
         let preview = try await service.previewFeed(urlString: "example.com")
-        let requests = await harness.httpClient.recordedRequests().map(\.url.absoluteString)
+        let requests = await harness.httpClient.recordedRequests()
 
         #expect(preview.requestedURL == discoveredFeedURL)
         #expect(preview.resolvedFeedURL == discoveredFeedURL)
         #expect(preview.title == "HTML Linked Feed")
-        #expect(requests.contains(siteURL))
-        #expect(requests.contains(discoveredFeedURL))
+        #expect(requests.map(\.url.absoluteString).contains(siteURL))
+        #expect(requests.map(\.url.absoluteString).contains(discoveredFeedURL))
+        #expect(
+            requests.first { $0.url.absoluteString == siteURL }?.maximumResponseBodyBytes
+                == AppResourceBudgetContract.current.discoveryHTML.body.maximumCompressedBodyBytes
+        )
+        #expect(
+            requests.first { $0.url.absoluteString == discoveredFeedURL }?.maximumResponseBodyBytes
+                == AppResourceBudgetContract.current.feedXML.body.maximumCompressedBodyBytes
+        )
     }
 
     @Test

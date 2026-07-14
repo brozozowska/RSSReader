@@ -92,6 +92,8 @@ struct FeedRefreshDiagnosticsPolicy: Sendable, Equatable {
     let logsRejectedEntries: Bool
     let parserAnomaliesAreSoftFailures: Bool
     let rejectedEntriesAreSoftFailures: Bool
+    let maximumLoggedParserAnomalyDetails: Int
+    let maximumLoggedRejectedEntryDetails: Int
 
     static let `default` = FeedRefreshDiagnosticsPolicy(
         includesParserAnomaliesInDiagnostics: true,
@@ -99,7 +101,9 @@ struct FeedRefreshDiagnosticsPolicy: Sendable, Equatable {
         logsParserAnomalies: true,
         logsRejectedEntries: true,
         parserAnomaliesAreSoftFailures: true,
-        rejectedEntriesAreSoftFailures: true
+        rejectedEntriesAreSoftFailures: true,
+        maximumLoggedParserAnomalyDetails: 10,
+        maximumLoggedRejectedEntryDetails: 10
     )
 
     func makeSummary(from diagnostics: FeedParsePipelineDiagnostics) -> FeedRefreshDiagnosticsSummary {

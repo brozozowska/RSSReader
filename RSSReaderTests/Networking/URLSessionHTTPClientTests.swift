@@ -124,7 +124,7 @@ struct URLSessionHTTPClientTests {
         let contract = AppResourceBudgetContract.current
         let profiles = [
             contract.feedXML.body,
-            contract.discoveryHTML,
+            contract.discoveryHTML.body,
             contract.feedIcon.body,
             contract.articleImage.body,
             contract.opml.body

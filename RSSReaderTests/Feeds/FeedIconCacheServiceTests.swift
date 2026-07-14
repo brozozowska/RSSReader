@@ -6,6 +6,45 @@ import Testing
 @MainActor
 struct FeedIconCacheServiceTests {
     @Test
+    func feedIconCacheRejectsOversizedResponseBeforeStorage() async throws {
+        let iconURL = try #require(URL(string: "https://example.com/oversized-icon.png"))
+        let budget = AppResourceBudgetContract.current.feedIcon.body
+        let directoryURL = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        let diskCache = FeedIconDiskCache(directoryURL: directoryURL, capacityLimit: 4 * 1024 * 1024)
+        let httpClient = ScriptedHTTPClient(
+            responsesByURL: [
+                iconURL.absoluteString: .dataResponse(
+                    statusCode: 200,
+                    headers: ["Content-Type": "image/png"],
+                    body: Data(repeating: 0, count: Int(budget.maximumCompressedBodyBytes + 1))
+                )
+            ]
+        )
+        let service = FeedIconCacheService(httpClient: httpClient, diskCache: diskCache)
+
+        do {
+            _ = try await service.imageData(for: iconURL)
+            Issue.record("Expected oversized icon failure")
+        } catch let error as AppResourceBudgetViolation {
+            #expect(
+                error == .compressedBodySizeExceeded(
+                    input: .feedIcon,
+                    maximumBytes: budget.maximumCompressedBodyBytes,
+                    actualBytes: budget.maximumCompressedBodyBytes + 1
+                )
+            )
+        } catch {
+            Issue.record("Expected AppResourceBudgetViolation, got \(error)")
+        }
+
+        #expect(try await service.cachedImageData(for: iconURL) == nil)
+        #expect(try await diskCache.isEmpty())
+        let request = try #require(await httpClient.recordedRequests().first)
+        #expect(request.maximumResponseBodyBytes == budget.maximumCompressedBodyBytes)
+    }
+
+    @Test
     func feedIconCacheReturnsCachedDataWithoutSecondNetworkRequest() async throws {
         let iconURL = try #require(URL(string: "https://example.com/favicon.ico"))
         let directoryURL = try makeTemporaryDirectory()

@@ -45,17 +45,11 @@ enum FeedManagementFeedDiscoveryPlanner {
     }
 
     static func autodiscoveredFeedURLs(in html: String, baseURL: URL) -> [URL] {
-        guard let linkTagExpression = try? NSRegularExpression(
-            pattern: #"<link\b[^>]*>"#,
-            options: [.caseInsensitive]
-        ) else {
-            return []
-        }
-
-        let nsRange = NSRange(html.startIndex..<html.endIndex, in: html)
-        let urls = linkTagExpression.matches(in: html, range: nsRange).compactMap { match -> URL? in
-            guard let tagRange = Range(match.range, in: html) else { return nil }
-            let attributes = linkTagAttributes(in: String(html[tagRange]))
+        let budget = AppComposition.resourceBudgetContract.discoveryHTML
+        let urls = HTMLLinkDiscoveryParser.linkTagAttributes(
+            in: html,
+            maximumLinkTagCount: budget.maximumLinkTagCountToInspect
+        ).compactMap { attributes -> URL? in
             guard let href = attributes["href"],
                   let rel = attributes["rel"]?.lowercased(),
                   rel.split(whereSeparator: \.isWhitespace).contains("alternate"),
@@ -66,7 +60,7 @@ enum FeedManagementFeedDiscoveryPlanner {
             return URL(string: href, relativeTo: baseURL)?.absoluteURL
         }
 
-        return deduplicate(urls)
+        return Array(deduplicate(urls).prefix(budget.maximumDiscoveryCandidateCount))
     }
 
     private static let commonFeedPaths = [
@@ -135,39 +129,6 @@ enum FeedManagementFeedDiscoveryPlanner {
 
         let path = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         return path.isEmpty && components.query == nil && components.fragment == nil
-    }
-
-    private static func linkTagAttributes(in tag: String) -> [String: String] {
-        guard let attributeExpression = try? NSRegularExpression(
-            pattern: #"([A-Za-z_:][-A-Za-z0-9_:.]*)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)"#,
-            options: [.caseInsensitive]
-        ) else {
-            return [:]
-        }
-
-        let nsRange = NSRange(tag.startIndex..<tag.endIndex, in: tag)
-        return attributeExpression.matches(in: tag, range: nsRange).reduce(into: [String: String]()) { result, match in
-            guard match.numberOfRanges == 3,
-                  let nameRange = Range(match.range(at: 1), in: tag),
-                  let valueRange = Range(match.range(at: 2), in: tag) else {
-                return
-            }
-
-            let name = String(tag[nameRange]).lowercased()
-            let rawValue = String(tag[valueRange])
-            result[name] = unquotedAttributeValue(rawValue)
-        }
-    }
-
-    private static func unquotedAttributeValue(_ value: String) -> String {
-        guard value.count >= 2,
-              let first = value.first,
-              let last = value.last,
-              (first == "\"" && last == "\"") || (first == "'" && last == "'") else {
-            return value
-        }
-
-        return String(value.dropFirst().dropLast())
     }
 
     private static func isSupportedFeedLinkType(_ value: String?) -> Bool {

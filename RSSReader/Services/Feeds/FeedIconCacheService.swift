@@ -80,6 +80,10 @@ public actor FeedIconCacheService: FeedIconCaching {
                 throw FeedIconCacheError.emptyImageData
             }
 
+            let iconBodyBudget = AppComposition.resourceBudgetContract.feedIcon.body
+            try iconBodyBudget.validateCompressedBodyByteCount(Int64(response.body.count))
+            try iconBodyBudget.validateMIMEType(response.contentType)
+
             try await storeImageData(response.body, for: url)
             return response.body
         }

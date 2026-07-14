@@ -14,8 +14,10 @@ struct AppResourceBudgetContractTests {
     func contractDefinesIndependentBodyBudgetsForEveryRuntimeInput() {
         #expect(contract.feedXML.body.input == .feedXML)
         #expect(contract.feedXML.body.maximumCompressedBodyBytes == 8 * 1024 * 1024)
-        #expect(contract.discoveryHTML.input == .discoveryHTML)
-        #expect(contract.discoveryHTML.maximumCompressedBodyBytes == 2 * 1024 * 1024)
+        #expect(contract.discoveryHTML.body.input == .discoveryHTML)
+        #expect(contract.discoveryHTML.body.maximumCompressedBodyBytes == 2 * 1024 * 1024)
+        #expect(contract.discoveryHTML.maximumLinkTagCountToInspect == 256)
+        #expect(contract.discoveryHTML.maximumDiscoveryCandidateCount == 16)
         #expect(contract.feedIcon.body.input == .feedIcon)
         #expect(contract.feedIcon.body.maximumCompressedBodyBytes == 2 * 1024 * 1024)
         #expect(contract.articleImage.body.input == .articleImage)
@@ -28,7 +30,7 @@ struct AppResourceBudgetContractTests {
     func bodyBudgetsAcceptBoundaryAndThrowTypedViolationsForEveryInput() throws {
         let budgets = [
             contract.feedXML.body,
-            contract.discoveryHTML,
+            contract.discoveryHTML.body,
             contract.feedIcon.body,
             contract.articleImage.body,
             contract.opml.body
@@ -62,7 +64,7 @@ struct AppResourceBudgetContractTests {
     func mimePoliciesNormalizeParametersAndAllowDeclaredXMLSuffixes() throws {
         try contract.feedXML.body.validateMIMEType("Application/RSS+XML; charset=utf-8")
         try contract.feedXML.body.validateMIMEType("application/custom+xml")
-        try contract.discoveryHTML.validateMIMEType("TEXT/HTML; charset=UTF-8")
+        try contract.discoveryHTML.body.validateMIMEType("TEXT/HTML; charset=UTF-8")
         try contract.feedIcon.body.validateMIMEType("image/png")
         try contract.articleImage.body.validateMIMEType("image/avif")
         try contract.opml.body.validateMIMEType("application/opml+xml")

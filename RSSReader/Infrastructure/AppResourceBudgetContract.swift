@@ -151,6 +151,24 @@ nonisolated struct RuntimeXMLInputBudget: Equatable, Sendable {
     }
 }
 
+nonisolated struct RuntimeHTMLInputBudget: Equatable, Sendable {
+    let body: RuntimeInputBodyBudget
+    let maximumLinkTagCountToInspect: Int
+    let maximumDiscoveryCandidateCount: Int
+
+    init(
+        body: RuntimeInputBodyBudget,
+        maximumLinkTagCountToInspect: Int,
+        maximumDiscoveryCandidateCount: Int
+    ) {
+        precondition(maximumLinkTagCountToInspect > 0)
+        precondition(maximumDiscoveryCandidateCount > 0)
+        self.body = body
+        self.maximumLinkTagCountToInspect = maximumLinkTagCountToInspect
+        self.maximumDiscoveryCandidateCount = maximumDiscoveryCandidateCount
+    }
+}
+
 nonisolated struct RuntimeImageInputBudget: Equatable, Sendable {
     let body: RuntimeInputBodyBudget
     let maximumPixelWidth: Int
@@ -193,7 +211,7 @@ nonisolated struct RuntimeImageInputBudget: Equatable, Sendable {
 
 nonisolated struct AppResourceBudgetContract: Equatable, Sendable {
     let feedXML: RuntimeXMLInputBudget
-    let discoveryHTML: RuntimeInputBodyBudget
+    let discoveryHTML: RuntimeHTMLInputBudget
     let feedIcon: RuntimeImageInputBudget
     let articleImage: RuntimeImageInputBudget
     let opml: RuntimeXMLInputBudget
@@ -216,13 +234,17 @@ nonisolated struct AppResourceBudgetContract: Equatable, Sendable {
             maximumDepth: 64,
             maximumEntryCount: 5_000
         ),
-        discoveryHTML: RuntimeInputBodyBudget(
-            input: .discoveryHTML,
-            maximumCompressedBodyBytes: 2 * 1024 * 1024,
-            allowedMIMETypes: [
-                "application/xhtml+xml",
-                "text/html"
-            ]
+        discoveryHTML: RuntimeHTMLInputBudget(
+            body: RuntimeInputBodyBudget(
+                input: .discoveryHTML,
+                maximumCompressedBodyBytes: 2 * 1024 * 1024,
+                allowedMIMETypes: [
+                    "application/xhtml+xml",
+                    "text/html"
+                ]
+            ),
+            maximumLinkTagCountToInspect: 256,
+            maximumDiscoveryCandidateCount: 16
         ),
         feedIcon: RuntimeImageInputBudget(
             body: RuntimeInputBodyBudget(

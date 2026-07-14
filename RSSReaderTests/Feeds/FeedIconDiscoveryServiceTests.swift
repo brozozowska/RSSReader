@@ -7,6 +7,34 @@ import UIKit
 @MainActor
 struct FeedIconDiscoveryServiceTests {
     @Test
+    func discoveryRejectsUnsupportedIconMIMEBeforeImageDecodeOrCache() async throws {
+        let iconURL = try makeURL("https://example.com/wrong-mime.png")
+        let service = try makeService(
+            responsesByURL: [
+                iconURL.absoluteString: .dataResponse(
+                    statusCode: 200,
+                    headers: ["Content-Type": "text/html"],
+                    body: makePNGData()
+                )
+            ]
+        )
+
+        let discoveredURL = await service.discoveryService.discoverIconURL(
+            feedURL: try makeURL("https://example.com/feed.xml"),
+            siteURL: nil,
+            metadataIconURL: iconURL
+        )
+
+        #expect(discoveredURL == nil)
+        #expect(try await service.feedIconCache.cachedImageData(for: iconURL) == nil)
+        let request = try #require(await service.httpClient.recordedRequests().first)
+        #expect(
+            request.maximumResponseBodyBytes
+                == AppResourceBudgetContract.current.feedIcon.body.maximumCompressedBodyBytes
+        )
+    }
+
+    @Test
     func discoveryUsesMetadataIconURLWhenItContainsRasterImage() async throws {
         let iconURL = try makeURL("https://example.com/feed-icon.png")
         let service = try makeService(
@@ -222,6 +250,13 @@ struct FeedIconDiscoveryServiceTests {
         #expect(FeedIconImagePolicy.isSuitableIconSize(CGSize(width: 0, height: 0)) == false)
     }
 
+    @Test
+    func imagePolicyRejectsRasterDimensionsOverFeedIconBudget() {
+        let oversizedData = makePNGData(size: CGSize(width: 1_025, height: 1_024))
+
+        #expect(FeedIconImagePolicy.isSuitableRasterIcon(oversizedData) == false)
+    }
+
     private func makeService(
         responsesByURL: [String: ScriptedHTTPClient.Step]
     ) throws -> FeedIconDiscoveryServiceHarness {
@@ -258,11 +293,11 @@ struct FeedIconDiscoveryServiceTests {
         return directoryURL
     }
 
-    private func makePNGData() -> Data {
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 16, height: 16))
+    private func makePNGData(size: CGSize = CGSize(width: 16, height: 16)) -> Data {
+        let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.pngData { context in
             UIColor.systemBlue.setFill()
-            context.fill(CGRect(x: 0, y: 0, width: 16, height: 16))
+            context.fill(CGRect(origin: .zero, size: size))
         }
     }
 }

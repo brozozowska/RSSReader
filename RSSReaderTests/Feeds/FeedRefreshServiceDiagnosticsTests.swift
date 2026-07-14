@@ -6,6 +6,55 @@ import Testing
 @MainActor
 struct FeedRefreshServiceDiagnosticsTests {
     @Test
+    func diagnosticsLoggingCapsDetailsAndReportsTruncationWithoutChangingCounts() throws {
+        let logger = RecordingLogger()
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(),
+            logger: logger
+        )
+        let policy = FeedRefreshDiagnosticsPolicy.default
+        let anomalyCount = policy.maximumLoggedParserAnomalyDetails + 3
+        let rejectedCount = policy.maximumLoggedRejectedEntryDetails + 4
+        let diagnostics = FeedParsePipelineDiagnostics(
+            parserAnomalies: (0..<anomalyCount).map { index in
+                FeedParserAnomaly(
+                    kind: .entryMissingTitle,
+                    entryIndex: index,
+                    message: "Missing title \(index)"
+                )
+            },
+            rejectedEntries: (0..<rejectedCount).map { _ in
+                RejectedFeedEntryDiagnostic(
+                    entry: ParsedFeedEntryDTO(),
+                    reasons: [.missingExternalID]
+                )
+            }
+        )
+        let feedID = UUID()
+
+        harness.service.logDiagnosticsIfNeeded(diagnostics, feedID: feedID)
+
+        let anomalyDetails = logger.entries.filter { $0.message.contains(" anomaly [") }
+        let rejectedDetails = logger.entries.filter { $0.message.contains("rejected entry reasons:") }
+        #expect(anomalyDetails.count == policy.maximumLoggedParserAnomalyDetails)
+        #expect(rejectedDetails.count == policy.maximumLoggedRejectedEntryDetails)
+        #expect(logger.contains("parser anomalies: \(anomalyCount)", level: .info))
+        #expect(logger.contains("rejected entries: \(rejectedCount)", level: .info))
+        #expect(
+            logger.contains(
+                "parser anomaly details truncated: logged \(policy.maximumLoggedParserAnomalyDetails) of \(anomalyCount)",
+                level: .info
+            )
+        )
+        #expect(
+            logger.contains(
+                "rejected entry details truncated: logged \(policy.maximumLoggedRejectedEntryDetails) of \(rejectedCount)",
+                level: .info
+            )
+        )
+    }
+
+    @Test
     func refreshFetchedPayloadPersistsRejectedEntryDiagnosticsAndFetchLogMessage() async throws {
         let feedURL = "https://example.com/diagnostics.xml"
         let harness = try TestHarness.make(
