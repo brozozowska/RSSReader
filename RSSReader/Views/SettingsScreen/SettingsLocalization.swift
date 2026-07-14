@@ -710,6 +710,11 @@ enum SettingsLocalization {
         defaultValue: "The selected file is empty.",
         comment: "Status alert message when the selected OPML file is empty."
     )
+    static let selectedFileTooLargeMessage = String(
+        localized: "settings.feedPortability.import.fileTooLarge.message",
+        defaultValue: "The selected OPML file is too large to import.",
+        comment: "Status alert message when the selected OPML file exceeds the import size limit."
+    )
     static let selectedFileInvalidXMLMessage = String(
         localized: "settings.feedPortability.import.invalidXML.message",
         defaultValue: "The selected file is not valid XML.",

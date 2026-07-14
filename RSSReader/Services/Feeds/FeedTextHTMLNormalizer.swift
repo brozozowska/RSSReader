@@ -1,6 +1,6 @@
 import Foundation
 
-enum FeedTextHTMLNormalizer {
+nonisolated enum FeedTextHTMLNormalizer {
     static func normalizeScalar(_ value: String?) -> String? {
         guard let value else { return nil }
 

@@ -1,6 +1,6 @@
 import Foundation
 
-enum FeedParserError: Error {
+nonisolated enum FeedParserError: Error {
     case emptyDocument
     case malformedXML(line: Int, column: Int, message: String)
     case resourceLimitExceeded(AppResourceBudgetViolation)
@@ -9,7 +9,7 @@ enum FeedParserError: Error {
     case missingAtomElement(String)
 }
 
-struct FeedXMLDocument: Sendable {
+nonisolated struct FeedXMLDocument: Sendable {
     let rootElement: FeedXMLElement
 
     var detectedFeedKind: FeedKind {
@@ -17,7 +17,7 @@ struct FeedXMLDocument: Sendable {
     }
 }
 
-struct FeedXMLElement: Sendable {
+nonisolated struct FeedXMLElement: Sendable {
     let name: String
     let qualifiedName: String?
     let namespaceURI: String?

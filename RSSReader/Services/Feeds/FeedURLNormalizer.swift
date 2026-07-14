@@ -1,6 +1,6 @@
 import Foundation
 
-enum FeedURLNormalizer {
+nonisolated enum FeedURLNormalizer {
     static func normalizeSourceURL(_ value: String?) -> String? {
         normalizeSourceURL(value, baseURL: nil)
     }

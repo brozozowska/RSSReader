@@ -1,7 +1,7 @@
 import Foundation
 
 extension FeedParserService {
-    static func detectFeedKind(in document: FeedXMLDocument) -> FeedKind {
+    nonisolated static func detectFeedKind(in document: FeedXMLDocument) -> FeedKind {
         let rootElement = document.rootElement
         let rootName = rootElement.name.lowercased()
         let qualifiedName = rootElement.qualifiedName?.lowercased()

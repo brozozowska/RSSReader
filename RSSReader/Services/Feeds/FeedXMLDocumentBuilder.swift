@@ -21,7 +21,7 @@ nonisolated struct XMLParserStructuralPolicy: Equatable, Sendable {
 }
 
 extension FeedParserService {
-    static func parse(
+    nonisolated static func parse(
         _ data: Data,
         structuralPolicy: XMLParserStructuralPolicy = .feed
     ) throws -> FeedXMLDocument {
@@ -44,6 +44,10 @@ extension FeedParserService {
             return document
         }
 
+        if builder.wasCancelled {
+            throw CancellationError()
+        }
+
         if let error = builder.error {
             throw error
         }
@@ -61,7 +65,7 @@ extension FeedParserService {
     }
 }
 
-private final class FeedXMLTreeBuilder: NSObject, XMLParserDelegate {
+private nonisolated final class FeedXMLTreeBuilder: NSObject, XMLParserDelegate {
     private final class Node {
         let name: String
         let qualifiedName: String?
@@ -100,6 +104,7 @@ private final class FeedXMLTreeBuilder: NSObject, XMLParserDelegate {
     private var materializedEntryCount = 0
     private(set) var document: FeedXMLDocument?
     private(set) var error: FeedParserError?
+    private(set) var wasCancelled = false
 
     init(structuralPolicy: XMLParserStructuralPolicy) {
         self.structuralPolicy = structuralPolicy
@@ -112,6 +117,8 @@ private final class FeedXMLTreeBuilder: NSObject, XMLParserDelegate {
         qualifiedName qName: String?,
         attributes attributeDict: [String : String] = [:]
     ) {
+        guard abortIfCancelled(parser) == false else { return }
+
         let resolvedName = elementName.isEmpty == false ? elementName : (qName ?? "")
         let nextElementCount = elementCount + 1
         let nextDepth = stack.count + 1
@@ -149,11 +156,13 @@ private final class FeedXMLTreeBuilder: NSObject, XMLParserDelegate {
     }
 
     func parser(_ parser: XMLParser, foundCharacters string: String) {
+        guard abortIfCancelled(parser) == false else { return }
         guard stack.isEmpty == false else { return }
         stack[stack.count - 1].textFragments.append(string)
     }
 
     func parser(_ parser: XMLParser, foundCDATA CDATABlock: Data) {
+        guard abortIfCancelled(parser) == false else { return }
         guard stack.isEmpty == false else { return }
         guard let value = String(data: CDATABlock, encoding: .utf8) else { return }
         stack[stack.count - 1].textFragments.append(value)
@@ -176,7 +185,7 @@ private final class FeedXMLTreeBuilder: NSObject, XMLParserDelegate {
     }
 
     func parser(_ parser: XMLParser, parseErrorOccurred parseError: any Error) {
-        guard error == nil else { return }
+        guard wasCancelled == false, error == nil else { return }
         error = FeedParserError.malformedXML(
             line: parser.lineNumber,
             column: parser.columnNumber,
@@ -185,7 +194,7 @@ private final class FeedXMLTreeBuilder: NSObject, XMLParserDelegate {
     }
 
     func parser(_ parser: XMLParser, validationErrorOccurred validationError: any Error) {
-        guard error == nil else { return }
+        guard wasCancelled == false, error == nil else { return }
         error = FeedParserError.malformedXML(
             line: parser.lineNumber,
             column: parser.columnNumber,
@@ -222,6 +231,13 @@ private final class FeedXMLTreeBuilder: NSObject, XMLParserDelegate {
 
             return normalizedFeedURL(in: attributes) != nil
         }
+    }
+
+    private func abortIfCancelled(_ parser: XMLParser) -> Bool {
+        guard Task.isCancelled else { return false }
+        wasCancelled = true
+        parser.abortParsing()
+        return true
     }
 
     private func hasFeedURL(_ node: Node) -> Bool {

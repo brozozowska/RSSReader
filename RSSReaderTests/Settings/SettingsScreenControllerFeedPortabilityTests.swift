@@ -6,7 +6,7 @@ import Testing
 @MainActor
 struct SettingsScreenControllerFeedPortabilityTests {
     @Test
-    func settingsScreenControllerPreviewsAndImportsOPMLWithoutChangingSettings() throws {
+    func settingsScreenControllerPreviewsAndImportsOPMLWithoutChangingSettings() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let settingsService = try #require(harness.dependencies.appSettingsService)
         let controller = SettingsScreenController()
@@ -14,7 +14,7 @@ struct SettingsScreenControllerFeedPortabilityTests {
         let initialSnapshot = try settingsService.fetchSettings()
         let sidebarReloadID = appState.sidebarReloadID
         let articleListReloadID = appState.articleListReloadID
-        let data = Data(
+        let fileURL = try makeTemporaryFile(data: Data(
             """
             <opml version="2.0">
               <body>
@@ -24,10 +24,11 @@ struct SettingsScreenControllerFeedPortabilityTests {
               </body>
             </opml>
             """.utf8
-        )
+        ))
+        defer { try? FileManager.default.removeItem(at: fileURL) }
 
-        controller.prepareOPMLImportPreview(
-            data: data,
+        await controller.prepareOPMLImportPreview(
+            fileURL: fileURL,
             dependencies: harness.dependencies
         )
 
@@ -73,12 +74,14 @@ struct SettingsScreenControllerFeedPortabilityTests {
     }
 
     @Test
-    func settingsScreenControllerShowsImportFailureForMalformedOPML() throws {
+    func settingsScreenControllerShowsImportFailureForMalformedOPML() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let controller = SettingsScreenController()
+        let fileURL = try makeTemporaryFile(data: Data("<opml><body></opml>".utf8))
+        defer { try? FileManager.default.removeItem(at: fileURL) }
 
-        controller.prepareOPMLImportPreview(
-            data: Data("<opml><body></opml>".utf8),
+        await controller.prepareOPMLImportPreview(
+            fileURL: fileURL,
             dependencies: harness.dependencies
         )
 
@@ -88,5 +91,91 @@ struct SettingsScreenControllerFeedPortabilityTests {
             message: SettingsLocalization.selectedFileInvalidXMLMessage,
             kind: .failure
         ))
+    }
+
+    @Test
+    func settingsScreenControllerShowsDedicatedFailureForOversizedOPML() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let controller = SettingsScreenController()
+        let maximumBytes = 64
+        let fileURL = try makeTemporaryFile(
+            data: Data(repeating: 0x20, count: maximumBytes + 1)
+        )
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        await controller.prepareOPMLImportPreview(
+            fileURL: fileURL,
+            dependencies: harness.dependencies,
+            fileLoader: makeLoader(maximumBytes: maximumBytes)
+        )
+
+        #expect(controller.screenState.opmlImportPreview == nil)
+        #expect(controller.screenState.opmlTransferStatus == SettingsOPMLTransferStatusPresentation(
+            title: SettingsLocalization.opmlImportFailedTitle,
+            message: SettingsLocalization.selectedFileTooLargeMessage,
+            kind: .failure
+        ))
+    }
+
+    @Test
+    func settingsScreenControllerIgnoresCancellationWithoutLoggingFailureStatus() async throws {
+        let logger = RecordingLogger()
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(),
+            logger: logger
+        )
+        let controller = SettingsScreenController()
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("opml")
+
+        let task = Task {
+            await controller.prepareOPMLImportPreview(
+                fileURL: fileURL,
+                dependencies: harness.dependencies,
+                fileLoader: SuspendedOPMLImportFileLoader()
+            )
+        }
+        await Task.yield()
+        task.cancel()
+        await task.value
+
+        #expect(controller.screenState.opmlImportPreview == nil)
+        #expect(controller.screenState.opmlTransferStatus == nil)
+        #expect(logger.entries.isEmpty)
+    }
+
+    private func makeLoader(maximumBytes: Int) -> BoundedOPMLImportFileLoader {
+        BoundedOPMLImportFileLoader(
+            budget: RuntimeXMLInputBudget(
+                body: RuntimeInputBodyBudget(
+                    input: .opml,
+                    maximumCompressedBodyBytes: Int64(maximumBytes),
+                    allowedMIMETypes: ["application/xml"]
+                ),
+                maximumElementCount: 100,
+                maximumDepth: 10,
+                maximumEntryCount: 10
+            )
+        )
+    }
+
+    private func makeTemporaryFile(data: Data) throws -> URL {
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("opml")
+        try data.write(to: fileURL)
+        return fileURL
+    }
+}
+
+private nonisolated struct SuspendedOPMLImportFileLoader: OPMLImportFileLoading {
+    func loadPreview(
+        fileURL: URL,
+        existingFeeds: [FeedManagementFeedSummary],
+        existingFolders: [FeedManagementFolderSummary]
+    ) async throws -> OPMLImportPreviewPlan {
+        try await Task.sleep(for: .seconds(60))
+        throw CancellationError()
     }
 }

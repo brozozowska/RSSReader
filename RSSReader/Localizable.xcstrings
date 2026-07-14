@@ -25705,6 +25705,95 @@
         }
       }
     },
+    "settings.feedPortability.import.fileTooLarge.message" : {
+      "comment" : "Status alert message when the selected OPML file exceeds the import size limit.",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ملف OPML المحدد كبير جدًا بحيث لا يمكن استيراده."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die ausgewählte OPML-Datei ist zu groß für den Import."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected OPML file is too large to import."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El archivo OPML seleccionado es demasiado grande para importarlo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فایل OPML انتخاب‌شده برای وارد کردن بیش از حد بزرگ است."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le fichier OPML sélectionné est trop volumineux pour être importé."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "קובץ ה-OPML שנבחר גדול מדי לייבוא."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il file OPML selezionato è troppo grande per essere importato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選択した OPML ファイルは大きすぎるため、インポートできません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "선택한 OPML 파일은 너무 커서 가져올 수 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O arquivo OPML selecionado é grande demais para ser importado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выбранный OPML-файл слишком большой для импорта."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "منتخب OPML فائل درآمد کرنے کے لیے بہت بڑی ہے۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所选 OPML 文件过大，无法导入。"
+          }
+        }
+      }
+    },
     "settings.feedPortability.import.invalidXML.message" : {
       "comment" : "Status alert message when the selected OPML file is not valid XML.",
       "localizations" : {

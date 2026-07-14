@@ -1,6 +1,6 @@
 import Foundation
 
-enum FeedKind: String, Codable, CaseIterable, Sendable {
+nonisolated enum FeedKind: String, Codable, CaseIterable, Sendable {
     case rss
     case atom
     case unknown

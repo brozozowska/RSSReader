@@ -1,6 +1,6 @@
 import Foundation
 
-enum OPMLParserError: Error, Equatable {
+nonisolated enum OPMLParserError: Error, Equatable {
     case emptyDocument
     case malformedXML(line: Int, column: Int, message: String)
     case resourceLimitExceeded(AppResourceBudgetViolation)
@@ -8,14 +8,14 @@ enum OPMLParserError: Error, Equatable {
     case missingBody
 }
 
-struct OPMLDocumentDTO: Equatable, Sendable {
+nonisolated struct OPMLDocumentDTO: Equatable, Sendable {
     let version: String?
     let title: String?
     let feeds: [OPMLFeedOutlineDTO]
     let ignoredOutlineCount: Int
 }
 
-struct OPMLFeedOutlineDTO: Equatable, Sendable {
+nonisolated struct OPMLFeedOutlineDTO: Equatable, Sendable {
     let folderPath: [String]
     let title: String?
     let text: String?
@@ -27,8 +27,8 @@ struct OPMLFeedOutlineDTO: Equatable, Sendable {
     }
 }
 
-enum OPMLParserService {
-    static func parse(
+nonisolated enum OPMLParserService {
+    nonisolated static func parse(
         _ data: Data,
         structuralPolicy: XMLParserStructuralPolicy = .opml
     ) throws -> OPMLDocumentDTO {
@@ -67,7 +67,7 @@ enum OPMLParserService {
     }
 }
 
-private struct OPMLOutlineCollector {
+private nonisolated struct OPMLOutlineCollector {
     private(set) var feeds: [OPMLFeedOutlineDTO] = []
     private(set) var ignoredOutlineCount = 0
 
@@ -107,7 +107,7 @@ private struct OPMLOutlineCollector {
 }
 
 private extension FeedXMLElement {
-    func normalizedAttribute(_ name: String) -> String? {
+    nonisolated func normalizedAttribute(_ name: String) -> String? {
         guard let value = attributes[name]?.trimmingCharacters(in: .whitespacesAndNewlines) else {
             return nil
         }

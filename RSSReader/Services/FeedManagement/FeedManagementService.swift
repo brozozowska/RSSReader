@@ -17,14 +17,14 @@ enum FeedManagementFolderPlacement: Hashable, Sendable {
     case folder(UUID)
 }
 
-struct FeedManagementFolderSummary: Identifiable, Equatable, Sendable {
+nonisolated struct FeedManagementFolderSummary: Identifiable, Equatable, Sendable {
     let id: UUID
     let name: String
     let sortOrder: Int
     let feedCount: Int
 }
 
-struct FeedManagementFeedSummary: Identifiable, Equatable, Sendable {
+nonisolated struct FeedManagementFeedSummary: Identifiable, Equatable, Sendable {
     let id: UUID
     let url: String
     let title: String
