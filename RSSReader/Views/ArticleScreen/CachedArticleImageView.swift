@@ -3,7 +3,9 @@ import UIKit
 
 struct CachedArticleImageView: View {
     let url: URL
+    @Environment(\.displayScale) private var displayScale
     @State private var phase: CachedArticleImagePhase
+    @State private var displayWidth: CGFloat = 0
 
     @MainActor
     init(url: URL) {
@@ -23,9 +25,26 @@ struct CachedArticleImageView: View {
 
     var body: some View {
         content
-            .task(id: url) {
-                await loadImage()
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.width
+            } action: { newWidth in
+                displayWidth = newWidth
             }
+            .task(id: loadRequest) {
+                guard let loadRequest else { return }
+                await loadImage(displayTarget: loadRequest.displayTarget)
+            }
+    }
+
+    private var loadRequest: CachedArticleImageLoadRequest? {
+        guard displayWidth > 0, displayScale > 0 else { return nil }
+        return CachedArticleImageLoadRequest(
+            url: url,
+            displayTarget: ArticleImageDisplayTarget(
+                displayWidth: Double(displayWidth),
+                displayScale: Double(displayScale)
+            )
+        )
     }
 
     @ViewBuilder
@@ -75,37 +94,14 @@ struct CachedArticleImageView: View {
     }
 
     @MainActor
-    private func loadImage() async {
-        let memoryCache = ArticleImageMemoryCache.shared
-        let diskCache = ArticleImageDiskCache.shared
-
-        if let cachedImage = memoryCache.image(for: url) {
-            phase = .success(cachedImage)
-            return
-        }
-
+    private func loadImage(displayTarget: ArticleImageDisplayTarget) async {
         phase = .loading
 
         do {
-            if let cachedData = try? await diskCache.data(for: url),
-               let diskImage = UIImage(data: cachedData) {
-                memoryCache.insert(diskImage, for: url, cost: cachedData.count)
-                phase = .success(diskImage)
-                return
-            }
-
-            let (data, response) = try await URLSession.shared.data(from: url)
-            try Task.checkCancellation()
-
-            guard let httpResponse = response as? HTTPURLResponse,
-                  (200...299).contains(httpResponse.statusCode),
-                  let image = UIImage(data: data) else {
-                phase = .failure
-                return
-            }
-
-            try? await diskCache.insert(data, for: url)
-            memoryCache.insert(image, for: url, cost: data.count)
+            let image = try await ArticleImageLoader.shared.loadImage(
+                from: url,
+                displayTarget: displayTarget
+            )
             phase = .success(image)
         } catch is CancellationError {
             return
@@ -113,6 +109,11 @@ struct CachedArticleImageView: View {
             phase = .failure
         }
     }
+}
+
+private struct CachedArticleImageLoadRequest: Hashable {
+    let url: URL
+    let displayTarget: ArticleImageDisplayTarget
 }
 
 enum CachedArticleImagePhase {
@@ -160,41 +161,5 @@ enum CachedArticleImageLayoutPolicy {
             maxImageWidth: nil,
             horizontalAlignment: .center
         )
-    }
-}
-
-@MainActor
-final class ArticleImageMemoryCache {
-    static let shared = ArticleImageMemoryCache()
-
-    private let storage = NSCache<NSURL, UIImage>()
-    private var storedURLs: Set<URL> = []
-
-    init(countLimit: Int = 256, totalCostLimit: Int = 80 * 1024 * 1024) {
-        storage.countLimit = countLimit
-        storage.totalCostLimit = totalCostLimit
-    }
-
-    func image(for url: URL) -> UIImage? {
-        guard let image = storage.object(forKey: url as NSURL) else {
-            storedURLs.remove(url)
-            return nil
-        }
-
-        return image
-    }
-
-    func insert(_ image: UIImage, for url: URL, cost: Int = 0) {
-        storage.setObject(image, forKey: url as NSURL, cost: cost)
-        storedURLs.insert(url)
-    }
-
-    var hasImages: Bool {
-        storedURLs.isEmpty == false
-    }
-
-    func removeAllImages() {
-        storage.removeAllObjects()
-        storedURLs.removeAll()
     }
 }
