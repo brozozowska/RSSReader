@@ -100,8 +100,8 @@ enum SettingsLocalization {
     )
     static let articleListSectionFooter = String(
         localized: "settings.articleList.section.footer",
-        defaultValue: "\"None\" removes an article from the list as soon as it disappears from its feed. Other options keep the article for the selected time after it disappears from the feed.",
-        comment: "Footer explaining archived article retention settings."
+        defaultValue: "Retention applies to all unstarred articles, including entries still in the feed: keep them from their feed date for the selected time, up to 2,000 per feed. \"While in Feed\" removes entries after they disappear. Missing-date entries use the count limit. Starred articles are kept until unstarred.",
+        comment: "Footer explaining the time, count, missing-date, and starred article retention rules."
     )
     static let sortUnreadArticlesTitle = String(
         localized: "settings.articleList.sortUnread.title",
@@ -118,10 +118,10 @@ enum SettingsLocalization {
         defaultValue: "Show a confirmation before marking all visible articles as read.",
         comment: "Toggle subtitle explaining confirmation before marking all visible articles read."
     )
-    static let keepArchivedArticlesTitle = String(
-        localized: "settings.articleList.keepArchivedArticles.title",
-        defaultValue: "Keep Archived Articles",
-        comment: "Picker title for archived article retention."
+    static let keepArticlesTitle = String(
+        localized: "settings.articleList.keepArticles.title",
+        defaultValue: "Keep Articles",
+        comment: "Picker title for current and archived article retention."
     )
     static let updatesSyncSectionTitle = String(
         localized: "settings.updatesSync.section.title",
@@ -281,30 +281,30 @@ enum SettingsLocalization {
         defaultValue: "Oldest First",
         comment: "Picker option title for oldest-first sort order."
     )
-    static let noneOptionTitle = String(
-        localized: "settings.option.retention.none",
-        defaultValue: "None",
-        comment: "Picker option title for no archived article retention."
+    static let currentFeedOnlyOptionTitle = String(
+        localized: "settings.option.retention.currentFeedOnly",
+        defaultValue: "While in Feed",
+        comment: "Picker option that keeps unstarred articles only while their feed continues returning them."
     )
     static let twoDaysOptionTitle = String(
         localized: "settings.option.retention.twoDays",
         defaultValue: "2 Days",
-        comment: "Picker option title for two-day archived article retention."
+        comment: "Picker option title for a two-day article retention window."
     )
     static let oneWeekOptionTitle = String(
         localized: "settings.option.retention.oneWeek",
-        defaultValue: "1 week",
-        comment: "Picker option title for one-week archived article retention."
+        defaultValue: "1 Week",
+        comment: "Picker option title for a one-week article retention window."
     )
     static let twoWeeksOptionTitle = String(
         localized: "settings.option.retention.twoWeeks",
         defaultValue: "2 Weeks",
-        comment: "Picker option title for two-week archived article retention."
+        comment: "Picker option title for a two-week article retention window."
     )
     static let oneMonthOptionTitle = String(
         localized: "settings.option.retention.oneMonth",
         defaultValue: "1 Month",
-        comment: "Picker option title for one-month archived article retention."
+        comment: "Picker option title for a one-month article retention window."
     )
     static let manualOptionTitle = String(
         localized: "settings.option.refresh.manual",

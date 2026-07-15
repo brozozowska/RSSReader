@@ -150,7 +150,7 @@ struct ArticleRetentionCleanupServiceTests {
     }
 
     @Test
-    func cleanupWithNoneDeletesUnstarredArchivedArticlesImmediately() throws {
+    func cleanupWithCurrentFeedOnlyDeletesUnstarredArchivedArticlesImmediately() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/retention-none.xml"]).first)
         let now = Date(timeIntervalSince1970: 1_700_000_000)

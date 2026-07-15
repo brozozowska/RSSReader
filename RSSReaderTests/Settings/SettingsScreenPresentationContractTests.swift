@@ -150,11 +150,11 @@ struct SettingsScreenPresentationContractTests {
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .articleRetentionPolicy,
-                        title: SettingsLocalization.keepArchivedArticlesTitle,
+                        title: SettingsLocalization.keepArticlesTitle,
                         subtitle: nil,
                         selectedValueTitle: SettingsLocalization.twoWeeksOptionTitle,
                         options: [
-                            SettingsPickerOptionPresentation(id: "currentFeedOnly", title: SettingsLocalization.noneOptionTitle, isSelected: false),
+                            SettingsPickerOptionPresentation(id: "currentFeedOnly", title: SettingsLocalization.currentFeedOnlyOptionTitle, isSelected: false),
                             SettingsPickerOptionPresentation(id: "twoDays", title: SettingsLocalization.twoDaysOptionTitle, isSelected: false),
                             SettingsPickerOptionPresentation(id: "oneWeek", title: SettingsLocalization.oneWeekOptionTitle, isSelected: false),
                             SettingsPickerOptionPresentation(id: "twoWeeks", title: SettingsLocalization.twoWeeksOptionTitle, isSelected: true),

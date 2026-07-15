@@ -119,21 +119,11 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
 
 private extension ArticleRetentionPolicy {
     func retentionCutoffDate(now: Date) -> Date {
-        now.addingTimeInterval(-retentionInterval)
-    }
-
-    var retentionInterval: TimeInterval {
-        switch self {
-        case .currentFeedOnly:
-            0
-        case .twoDays:
-            2 * 24 * 60 * 60
-        case .oneWeek:
-            7 * 24 * 60 * 60
-        case .twoWeeks:
-            14 * 24 * 60 * 60
-        case .oneMonth:
-            30 * 24 * 60 * 60
+        switch ArticleRetentionContract.current.timeRule(for: self) {
+        case .whileReturnedByFeed:
+            now
+        case .sourceAge(let maximumAge):
+            now.addingTimeInterval(-maximumAge)
         }
     }
 }

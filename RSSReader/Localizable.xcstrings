@@ -23642,180 +23642,180 @@
         }
       }
     },
-    "settings.articleList.keepArchivedArticles.title" : {
-      "comment" : "Picker title for archived article retention.",
+    "settings.articleList.keepArticles.title" : {
+      "comment" : "Picker title for current and archived article retention.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "الاحتفاظ بالمقالات المؤرشفة"
+            "value" : "الاحتفاظ بالمقالات"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Archivierte Artikel behalten"
+            "value" : "Artikel behalten"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Keep Archived Articles"
+            "value" : "Keep Articles"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Conservar artículos archivados"
+            "value" : "Conservar artículos"
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "نگهداری مقاله‌های بایگانی‌شده"
+            "value" : "نگهداری مقاله‌ها"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Conserver les articles archivés"
+            "value" : "Conserver les articles"
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "שמור כתבות בארכיון"
+            "value" : "שמירת כתבות"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Conserva articoli archiviati"
+            "value" : "Conserva articoli"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "アーカイブ済みの記事を保持"
+            "value" : "記事を保持"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "보관된 기사 유지"
+            "value" : "기사 보관"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Manter artigos arquivados"
+            "value" : "Manter artigos"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Хранить архивные статьи"
+            "value" : "Хранить статьи"
           }
         },
         "ur" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "آرکائیو شدہ مضامین رکھیں"
+            "value" : "مضامین رکھیں"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "保留已归档文章"
+            "value" : "保留文章"
           }
         }
       }
     },
     "settings.articleList.section.footer" : {
-      "comment" : "Footer explaining archived article retention settings.",
+      "comment" : "Footer explaining the time, count, missing-date, and starred article retention rules.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "يؤدي الخيار \"لا شيء\" إلى إزالة المقالة من القائمة بمجرد اختفائها من خلاصتها. تحتفظ الخيارات الأخرى بالمقالة للوقت المحدد بعد اختفائها من الخلاصة."
+            "value" : "ينطبق الاحتفاظ على جميع المقالات غير المميزة بنجمة، بما فيها العناصر التي لا تزال في الخلاصة: تُحفظ من تاريخها في الخلاصة للمدة المحددة، بحد أقصى ٢٬٠٠٠ مقال لكل خلاصة. يزيل خيار «ما دامت في الخلاصة» العناصر بعد اختفائها. تخضع العناصر بلا تاريخ لحد العدد. تُحفظ المقالات المميزة بنجمة حتى إزالة النجمة."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "„Keine“ entfernt einen Artikel aus der Liste, sobald er aus seinem Feed verschwindet. Andere Optionen behalten den Artikel für die ausgewählte Zeit, nachdem er aus dem Feed verschwunden ist."
+            "value" : "Die Aufbewahrung gilt für alle Artikel ohne Stern, auch wenn sie noch im Feed stehen: Sie werden ab ihrem Feed-Datum für die gewählte Dauer aufbewahrt, höchstens 2.000 pro Feed. „Solange im Feed“ entfernt Einträge nach ihrem Verschwinden. Einträge ohne Datum unterliegen dem Anzahl-Limit. Artikel mit Stern bleiben bis zum Entfernen des Sterns erhalten."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "\"None\" removes an article from the list as soon as it disappears from its feed. Other options keep the article for the selected time after it disappears from the feed."
+            "value" : "Retention applies to all unstarred articles, including entries still in the feed: keep them from their feed date for the selected time, up to 2,000 per feed. \"While in Feed\" removes entries after they disappear. Missing-date entries use the count limit. Starred articles are kept until unstarred."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "«Ninguno» elimina un artículo de la lista en cuanto desaparece de su fuente. Las demás opciones conservan el artículo durante el tiempo elegido después de que desaparezca de la fuente."
+            "value" : "La retención se aplica a todos los artículos sin estrella, incluidos los que aún aparecen en el feed: se conservan desde su fecha en el feed durante el tiempo elegido, con un máximo de 2.000 por feed. «Mientras esté en el feed» elimina las entradas cuando desaparecen. Las entradas sin fecha usan el límite de cantidad. Los artículos con estrella se conservan hasta quitarles la estrella."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "«هیچ‌کدام» مقاله را به‌محض ناپدید شدن از فیدش از فهرست حذف می‌کند. گزینه‌های دیگر مقاله را پس از ناپدید شدن از فید، تا مدت انتخاب‌شده نگه می‌دارند."
+            "value" : "نگهداری برای همهٔ مقاله‌های بدون ستاره، از جمله مواردی که هنوز در فید هستند، اعمال می‌شود: آن‌ها از تاریخ درج‌شده در فید تا مدت انتخابی و حداکثر ۲٬۰۰۰ مورد برای هر فید نگه داشته می‌شوند. «تا وقتی در فید است» موارد ناپدیدشده را حذف می‌کند. موارد بدون تاریخ فقط تابع سقف تعداد هستند. مقاله‌های ستاره‌دار تا برداشتن ستاره نگه داشته می‌شوند."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "« Aucun » retire un article de la liste dès qu’il disparaît de son flux. Les autres options conservent l’article pendant la durée choisie après sa disparition du flux."
+            "value" : "La conservation s’applique à tous les articles non marqués, y compris ceux encore présents dans le flux : ils sont conservés depuis leur date dans le flux pendant la durée choisie, dans la limite de 2 000 par flux. « Tant que présent » supprime les entrées après leur disparition. Les entrées sans date utilisent la limite de nombre. Les articles marqués sont conservés jusqu’au retrait de l’étoile."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "״ללא״ מסיר כתבה מהרשימה מיד כשהיא נעלמת מהפיד שלה. האפשרויות האחרות שומרות את הכתבה למשך הזמן שנבחר אחרי שהיא נעלמת מהפיד."
+            "value" : "השמירה חלה על כל הכתבות ללא כוכב, כולל פריטים שעדיין מופיעים בפיד: הן נשמרות מתאריך הפיד למשך הזמן שנבחר, עד 2,000 בכל פיד. ״כל עוד בפיד״ מסיר פריטים לאחר שהם נעלמים. פריטים ללא תאריך כפופים למגבלת הכמות. כתבות עם כוכב נשמרות עד להסרת הכוכב."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "“Nessuno” rimuove un articolo dall’elenco appena scompare dalla sua fonte. Le altre opzioni conservano l’articolo per il periodo scelto dopo la scomparsa dalla fonte."
+            "value" : "La conservazione si applica a tutti gli articoli senza stella, inclusi quelli ancora presenti nel feed: vengono conservati dalla data nel feed per il periodo scelto, fino a 2.000 per feed. “Finché nel feed” rimuove le voci quando scompaiono. Le voci senza data usano il limite numerico. Gli articoli con stella restano finché la stella non viene rimossa."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "「なし」は、記事がフィードから消えた時点でリストから削除します。ほかのオプションは、記事がフィードから消えた後も選択した期間だけ保持します。"
+            "value" : "保持期間は、フィードにまだある項目を含むスターなしの記事すべてに適用されます。フィードの日付から選択した期間、1フィードにつき最大2,000件を保持します。「フィードにある間」は、消えた項目を削除します。日付のない項目には件数上限のみが適用されます。スター付きの記事はスターを外すまで保持されます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "“없음”은 기사가 피드에서 사라지면 즉시 목록에서 제거합니다. 다른 옵션은 기사가 피드에서 사라진 뒤 선택한 기간 동안 유지합니다."
+            "value" : "보관 정책은 피드에 아직 있는 항목을 포함한 별표 없는 모든 기사에 적용됩니다. 피드 날짜부터 선택한 기간 동안 피드당 최대 2,000개를 보관합니다. ‘피드에 있는 동안’은 사라진 항목을 삭제합니다. 날짜가 없는 항목에는 개수 제한만 적용됩니다. 별표 표시한 기사는 별표를 해제할 때까지 보관됩니다."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "“Nenhum” remove um artigo da lista assim que ele desaparece do feed. As outras opções mantêm o artigo pelo período escolhido depois que ele desaparece do feed."
+            "value" : "A retenção vale para todos os artigos sem estrela, inclusive os que ainda estão no feed: eles são mantidos desde a data no feed pelo período escolhido, até 2.000 por feed. “Enquanto estiver no feed” remove itens após desaparecerem. Itens sem data usam o limite de quantidade. Artigos com estrela são mantidos até você remover a estrela."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Опция «Нет» удаляет статью из списка сразу как она пропадает из выдачи ленты. Другие опции позволяют хранить статью выбранное время после её пропажи из выдачи."
+            "value" : "Срок хранения применяется ко всем статьям без звезды, включая те, которые ещё есть в ленте: они хранятся выбранное время от даты в ленте, но не более 2 000 на ленту. «Пока есть в ленте» удаляет пропавшие записи. Для записей без даты действует лимит количества. Статьи со звездой хранятся, пока звезда не снята."
           }
         },
         "ur" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "\"کوئی نہیں\" مضمون کو اس کی فیڈ سے غائب ہوتے ہی فہرست سے ہٹا دیتا ہے۔ دوسرے اختیارات مضمون کو فیڈ سے غائب ہونے کے بعد منتخب مدت تک رکھتے ہیں۔"
+            "value" : "حفاظت کا اصول ستارے کے بغیر تمام مضامین پر لاگو ہوتا ہے، ان پر بھی جو ابھی فیڈ میں ہیں: انہیں فیڈ کی تاریخ سے منتخب مدت تک، ہر فیڈ میں زیادہ سے زیادہ 2,000، رکھا جاتا ہے۔ ”جب تک فیڈ میں ہو“ غائب ہونے والی اندراجات ہٹا دیتا ہے۔ بغیر تاریخ اندراجات پر تعداد کی حد لاگو ہوتی ہے۔ ستارے والے مضامین ستارہ ہٹانے تک محفوظ رہتے ہیں۔"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "“无”会在文章从订阅源中消失后立即将其从列表中移除。其他选项会在文章从订阅源中消失后按所选时间继续保留。"
+            "value" : "保留规则适用于所有未加星标的文章，包括仍在订阅源中的条目：从订阅源日期起按所选时长保留，每个订阅源最多 2,000 篇。“仍在订阅源中”会在条目消失后将其删除。无日期条目仅受数量上限约束。加星标文章会保留到取消星标为止。"
           }
         }
       }
@@ -29532,97 +29532,97 @@
         }
       }
     },
-    "settings.option.retention.none" : {
-      "comment" : "Picker option title for no archived article retention.",
+    "settings.option.retention.currentFeedOnly" : {
+      "comment" : "Picker option that keeps unstarred articles only while their feed continues returning them.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "لا شيء"
+            "value" : "ما دامت في الخلاصة"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Keine"
+            "value" : "Solange im Feed"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "None"
+            "value" : "While in Feed"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ninguno"
+            "value" : "Mientras esté en el feed"
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "هیچ‌کدام"
+            "value" : "تا وقتی در فید است"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucun"
+            "value" : "Tant que présent"
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ללא"
+            "value" : "כל עוד בפיד"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nessuno"
+            "value" : "Finché nel feed"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "なし"
+            "value" : "フィードにある間"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "없음"
+            "value" : "피드에 있는 동안"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nenhum"
+            "value" : "Enquanto estiver no feed"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Нет"
+            "value" : "Пока есть в ленте"
           }
         },
         "ur" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "کوئی نہیں"
+            "value" : "جب تک فیڈ میں ہو"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "无"
+            "value" : "仍在订阅源中"
           }
         }
       }
     },
     "settings.option.retention.oneMonth" : {
-      "comment" : "Picker option title for one-month archived article retention.",
+      "comment" : "Picker option title for a one-month article retention window.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -29711,7 +29711,7 @@
       }
     },
     "settings.option.retention.oneWeek" : {
-      "comment" : "Picker option title for one-week archived article retention.",
+      "comment" : "Picker option title for a one-week article retention window.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -29800,7 +29800,7 @@
       }
     },
     "settings.option.retention.twoDays" : {
-      "comment" : "Picker option title for two-day archived article retention.",
+      "comment" : "Picker option title for a two-day article retention window.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -29889,7 +29889,7 @@
       }
     },
     "settings.option.retention.twoWeeks" : {
-      "comment" : "Picker option title for two-week archived article retention.",
+      "comment" : "Picker option title for a two-week article retention window.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {

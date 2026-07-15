@@ -101,10 +101,10 @@ struct SettingsScreenStateTests {
             .first
         )
 
-        #expect(pickerItem.title == SettingsLocalization.keepArchivedArticlesTitle)
+        #expect(pickerItem.title == SettingsLocalization.keepArticlesTitle)
         #expect(pickerItem.selectedValueTitle == SettingsLocalization.oneWeekOptionTitle)
         #expect(pickerItem.options.map(\.title) == [
-            SettingsLocalization.noneOptionTitle,
+            SettingsLocalization.currentFeedOnlyOptionTitle,
             SettingsLocalization.twoDaysOptionTitle,
             SettingsLocalization.oneWeekOptionTitle,
             SettingsLocalization.twoWeeksOptionTitle,
