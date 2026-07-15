@@ -1,6 +1,11 @@
 import Foundation
 import SwiftData
 
+enum ArticleRetentionBatchScope: Sendable {
+    case all
+    case archived
+}
+
 @MainActor
 protocol ArticleRepository {
     func refreshFeedProjection(for feed: Feed, saveAfterOperation: Bool) throws -> Int
@@ -10,6 +15,12 @@ protocol ArticleRepository {
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article]
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
     func fetchArchivedArticles() throws -> [Article]
+    func fetchRetentionBatch(
+        feedID: UUID,
+        scope: ArticleRetentionBatchScope,
+        offset: Int,
+        limit: Int
+    ) throws -> [Article]
     func fetchArticleStateIdentities() throws -> Set<ArticleStateIdentity>
     func reconcileArticles(
         feedID: UUID,
@@ -159,6 +170,37 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
                 article.archivedAt != nil
             }
         )
+        return try modelContext.fetch(descriptor)
+    }
+
+    func fetchRetentionBatch(
+        feedID: UUID,
+        scope: ArticleRetentionBatchScope,
+        offset: Int,
+        limit: Int
+    ) throws -> [Article] {
+        precondition(offset >= 0)
+        precondition(limit > 0)
+
+        var descriptor: FetchDescriptor<Article>
+        switch scope {
+        case .all:
+            descriptor = FetchDescriptor<Article>(
+                predicate: #Predicate<Article> { article in
+                    article.feedID == feedID
+                },
+                sortBy: retentionBatchSortDescriptors
+            )
+        case .archived:
+            descriptor = FetchDescriptor<Article>(
+                predicate: #Predicate<Article> { article in
+                    article.feedID == feedID && article.archivedAt != nil
+                },
+                sortBy: retentionBatchSortDescriptors
+            )
+        }
+        descriptor.fetchOffset = offset
+        descriptor.fetchLimit = limit
         return try modelContext.fetch(descriptor)
     }
 
@@ -335,5 +377,12 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
                 SortDescriptor(\Article.fetchedAt, order: .forward)
             ]
         }
+    }
+
+    private var retentionBatchSortDescriptors: [SortDescriptor<Article>] {
+        [
+            SortDescriptor(\Article.createdAt, order: .forward),
+            SortDescriptor(\Article.id, order: .forward)
+        ]
     }
 }

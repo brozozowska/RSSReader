@@ -151,12 +151,13 @@ public final class AppDependencies: AppDependenciesProtocol {
             )
         }
         let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)? = {
-            guard let articleRepository, let articleStateRepository else {
+            guard let feedRepository, let articleRepository, let articleStateRepository else {
                 return nil
             }
 
             return ArticleRetentionCleanupService(
                 logger: logger,
+                feedRepository: feedRepository,
                 articleRepository: articleRepository,
                 articleStateRepository: articleStateRepository
             )

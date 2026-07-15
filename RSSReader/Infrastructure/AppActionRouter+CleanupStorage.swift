@@ -3,7 +3,7 @@ import Foundation
 extension AppActionRouter {
     @MainActor
     @discardableResult
-    func cleanupArchivedArticles(
+    func cleanupArticles(
         policy: ArticleRetentionPolicy,
         now: Date = .now
     ) -> ArticleRetentionCleanupResult? {
@@ -13,18 +13,18 @@ extension AppActionRouter {
         }
 
         do {
-            let result = try articleRetentionCleanupService.cleanupArchivedArticles(policy: policy, now: now)
+            let result = try articleRetentionCleanupService.cleanupArticles(policy: policy, now: now)
             cleanupPersistenceBoundedGrowth(now: now)
             return result
         } catch {
-            logger.error("Failed to clean up archived articles: \(error)")
+            logger.error("Failed to apply article retention cleanup: \(error)")
             return nil
         }
     }
 
     @MainActor
     @discardableResult
-    func cleanupArchivedArticlesUsingCurrentSettings(now: Date = .now) -> ArticleRetentionCleanupResult? {
+    func cleanupArticlesUsingCurrentSettings(now: Date = .now) -> ArticleRetentionCleanupResult? {
         guard let appSettingsService else {
             logger.debug("App settings service is unavailable for article retention cleanup")
             return nil
@@ -32,7 +32,7 @@ extension AppActionRouter {
 
         do {
             let settings = try appSettingsService.fetchSettings()
-            return cleanupArchivedArticles(policy: settings.articleRetentionPolicy, now: now)
+            return cleanupArticles(policy: settings.articleRetentionPolicy, now: now)
         } catch {
             logger.error("Failed to load article retention settings for cleanup: \(error)")
             return nil

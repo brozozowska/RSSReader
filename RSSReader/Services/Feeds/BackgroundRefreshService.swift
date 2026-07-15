@@ -108,19 +108,19 @@ final class DefaultBackgroundRefreshService: BackgroundRefreshService {
         }
 
         let refreshResult = await feedRefreshService.refreshAllActiveFeedsForBackground()
-        cleanupArchivedArticles(policy: configuration.settingsSnapshot.articleRetentionPolicy)
+        cleanupArticles(policy: configuration.settingsSnapshot.articleRetentionPolicy)
         return .executed(refreshResult)
     }
 
-    private func cleanupArchivedArticles(policy: ArticleRetentionPolicy) {
+    private func cleanupArticles(policy: ArticleRetentionPolicy) {
         guard let articleRetentionCleanupService else {
             return
         }
 
         do {
-            try articleRetentionCleanupService.cleanupArchivedArticles(policy: policy, now: .now)
+            try articleRetentionCleanupService.cleanupArticles(policy: policy, now: .now)
         } catch {
-            logger.error("Failed to clean up archived articles after background refresh: \(error)")
+            logger.error("Failed to apply article retention after background refresh: \(error)")
         }
     }
 }

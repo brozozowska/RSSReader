@@ -84,13 +84,14 @@ extension SettingsScreenController {
         }
 
         if previousSnapshot.articleRetentionPolicy != updatedSnapshot.articleRetentionPolicy {
-            let cleanupResult = dependencies.appActions.cleanupArchivedArticles(
+            let cleanupResult = dependencies.appActions.cleanupArticles(
                 policy: updatedSnapshot.articleRetentionPolicy,
                 now: .now
             )
             if cleanupResult?.deletedCount ?? 0 > 0 {
                 appState?.requestSidebarReload()
                 appState?.requestArticleListReload()
+                dependencies.appActions.scheduleUnreadAppIconBadgeRefresh()
             }
         }
 

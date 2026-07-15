@@ -60,10 +60,16 @@ protocol ArticleStateRepository {
     func fetchStateSnapshot(feedID: UUID, articleExternalID: String) throws -> ArticleUserStateSnapshot?
     func fetchStateSnapshots(feedID: UUID, articleExternalIDs: [String]) throws -> [String: ArticleUserStateSnapshot]
     func fetchStateSnapshots(for articles: [Article]) throws -> [String: ArticleUserStateSnapshot]
+    func fetchStarredArticleExternalIDs(feedID: UUID) throws -> Set<String>
     func fetchUnreadCounts(feedIDs: [UUID]) throws -> [UUID: Int]
     func deleteOrphanStates(
         keepingArticleIdentities articleIdentities: Set<ArticleStateIdentity>,
         saveAfterOperation: Bool
+    ) throws -> ArticleStateOrphanCleanupResult
+    func deleteOrphanStates(
+        feedID: UUID,
+        keepingArticleExternalIDs articleExternalIDs: Set<String>,
+        batchSize: Int
     ) throws -> ArticleStateOrphanCleanupResult
 
     @discardableResult
@@ -141,6 +147,15 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
         return snapshotsByCompositeKey
     }
 
+    func fetchStarredArticleExternalIDs(feedID: UUID) throws -> Set<String> {
+        let descriptor = FetchDescriptor<ArticleState>(
+            predicate: #Predicate<ArticleState> { articleState in
+                articleState.feedID == feedID && articleState.isStarred
+            }
+        )
+        return Set(try modelContext.fetch(descriptor).map(\.articleExternalID))
+    }
+
     func fetchUnreadCounts(feedIDs: [UUID]) throws -> [UUID: Int] {
         let normalizedFeedIDs = Set(feedIDs)
         guard normalizedFeedIDs.isEmpty == false else { return [:] }
@@ -202,6 +217,60 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
 
         return ArticleStateOrphanCleanupResult(
             inspectedCount: states.count,
+            deletedCount: deletedCount,
+            retainedStarredCount: retainedStarredCount
+        )
+    }
+
+    func deleteOrphanStates(
+        feedID: UUID,
+        keepingArticleExternalIDs articleExternalIDs: Set<String>,
+        batchSize: Int
+    ) throws -> ArticleStateOrphanCleanupResult {
+        precondition(batchSize > 0)
+        var offset = 0
+        var inspectedCount = 0
+        var deletedCount = 0
+        var retainedStarredCount = 0
+
+        while true {
+            var descriptor = FetchDescriptor<ArticleState>(
+                predicate: #Predicate<ArticleState> { articleState in
+                    articleState.feedID == feedID
+                },
+                sortBy: [
+                    SortDescriptor(\ArticleState.updatedAt, order: .forward),
+                    SortDescriptor(\ArticleState.id, order: .forward)
+                ]
+            )
+            descriptor.fetchOffset = offset
+            descriptor.fetchLimit = batchSize
+            let states = try modelContext.fetch(descriptor)
+            guard states.isEmpty == false else { break }
+
+            var retainedCount = 0
+            for state in states {
+                inspectedCount += 1
+                if articleExternalIDs.contains(state.articleExternalID) {
+                    retainedCount += 1
+                    continue
+                }
+                if state.isStarred {
+                    retainedCount += 1
+                    retainedStarredCount += 1
+                    continue
+                }
+
+                modelContext.delete(state)
+                deletedCount += 1
+            }
+
+            try saveIfNeeded()
+            offset += retainedCount
+        }
+
+        return ArticleStateOrphanCleanupResult(
+            inspectedCount: inspectedCount,
             deletedCount: deletedCount,
             retainedStarredCount: retainedStarredCount
         )

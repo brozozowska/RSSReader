@@ -6,274 +6,359 @@ import Testing
 @MainActor
 struct ArticleRetentionCleanupServiceTests {
     @Test
-    func cleanupDeletesArchivedArticlesOlderThanPolicyAndKeepsStarredArticles() throws {
+    func cleanupAppliesSourceAgeToCurrentAndArchivedArticlesAndProtectsStarredState() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/retention.xml"]).first)
         let now = Date(timeIntervalSince1970: 1_700_000_000)
-        let expiredArchivedAt = now.addingTimeInterval(-(8 * 24 * 60 * 60))
-        let retainedArchivedAt = now.addingTimeInterval(-(6 * 24 * 60 * 60))
-        _ = try harness.insertArticle(
+        let expiredSourceDate = now.addingTimeInterval(-(8 * 24 * 60 * 60))
+        let retainedSourceDate = now.addingTimeInterval(-(6 * 24 * 60 * 60))
+        let expiredCurrent = try insertArticle(
+            harness: harness,
+            feed: feed,
+            externalID: "expired-current",
+            publishedAt: expiredSourceDate,
+            createdAt: expiredSourceDate
+        )
+        _ = try insertArticle(
+            harness: harness,
             feed: feed,
             externalID: "expired-archived",
-            url: "https://example.com/articles/expired",
-            title: "Expired Archived",
-            archivedAt: expiredArchivedAt
+            publishedAt: expiredSourceDate,
+            archivedAt: now,
+            createdAt: expiredSourceDate
         )
-        let starredArticle = try harness.insertArticle(
+        _ = try insertArticle(
+            harness: harness,
             feed: feed,
-            externalID: "starred-expired-archived",
-            url: "https://example.com/articles/starred-expired",
-            title: "Starred Expired Archived",
-            archivedAt: expiredArchivedAt
+            externalID: "retained-current",
+            publishedAt: retainedSourceDate,
+            createdAt: retainedSourceDate
         )
-        _ = try harness.insertArticle(
+        _ = try insertArticle(
+            harness: harness,
             feed: feed,
             externalID: "retained-archived",
-            url: "https://example.com/articles/retained",
-            title: "Retained Archived",
-            archivedAt: retainedArchivedAt
+            publishedAt: retainedSourceDate,
+            archivedAt: now,
+            createdAt: retainedSourceDate
+        )
+        let starredCurrent = try insertArticle(
+            harness: harness,
+            feed: feed,
+            externalID: "starred-expired-current",
+            publishedAt: expiredSourceDate,
+            createdAt: expiredSourceDate
+        )
+        let starredArchived = try insertArticle(
+            harness: harness,
+            feed: feed,
+            externalID: "starred-expired-archived",
+            publishedAt: expiredSourceDate,
+            archivedAt: now,
+            createdAt: expiredSourceDate
         )
         _ = try harness.articleStateRepository.upsert(
-            feedID: starredArticle.feedID,
-            articleExternalID: starredArticle.externalID,
-            update: ArticleStateUpsert(
-                isStarred: true,
-                starredAt: now,
-                updatedAt: now
+            feedID: expiredCurrent.feedID,
+            articleExternalID: expiredCurrent.externalID,
+            update: ArticleStateUpsert(isRead: true, readAt: now, updatedAt: now)
+        )
+        for article in [starredCurrent, starredArchived] {
+            _ = try harness.articleStateRepository.upsert(
+                feedID: article.feedID,
+                articleExternalID: article.externalID,
+                update: ArticleStateUpsert(isStarred: true, starredAt: now, updatedAt: now)
             )
-        )
-        let service = ArticleRetentionCleanupService(
-            logger: TestLogger(),
-            articleRepository: harness.articleRepository,
-            articleStateRepository: harness.articleStateRepository
+        }
+        let service = makeService(harness: harness, maximumCount: 10, batchSize: 2)
+
+        let result = try service.cleanupArticles(policy: .oneWeek, now: now)
+        let remainingIDs = try harness.articleRepository.fetchArticles(feedID: feed.id).map(\.externalID)
+        let expiredState = try harness.articleStateRepository.fetchState(
+            feedID: feed.id,
+            articleExternalID: expiredCurrent.externalID
         )
 
-        let result = try service.cleanupArchivedArticles(policy: .oneWeek, now: now)
-        let remainingArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
-
-        #expect(result.inspectedArchivedCount == 3)
-        #expect(result.deletedCount == 1)
-        #expect(result.retainedStarredCount == 1)
-        #expect(remainingArticles.map(\.externalID).sorted() == ["retained-archived", "starred-expired-archived"])
+        #expect(result.inspectedArticleCount == 6)
+        #expect(result.deletedCount == 2)
+        #expect(result.deletedByTimeOrMembershipCount == 2)
+        #expect(result.deletedByCountLimitCount == 0)
+        #expect(result.retainedStarredCount == 2)
+        #expect(result.deletedOrphanArticleStateCount == 1)
+        #expect(Set(remainingIDs) == Set([
+            "retained-current",
+            "retained-archived",
+            "starred-expired-current",
+            "starred-expired-archived"
+        ]))
+        #expect(expiredState == nil)
     }
 
     @Test
-    func cleanupAppliesRetentionPolicyToUnreadArchivedArticles() throws {
+    func cleanupBoundsAFeedThatKeepsReturningMultiYearCurrentHistory() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
-        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/retention-unread.xml"]).first)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/multi-year.xml"]).first)
         let now = Date(timeIntervalSince1970: 1_700_000_000)
-        let expiredArchivedAt = now.addingTimeInterval(-(8 * 24 * 60 * 60))
-        let retainedArchivedAt = now.addingTimeInterval(-(6 * 24 * 60 * 60))
-        let expiredUnreadArticle = try harness.insertArticle(
-            feed: feed,
-            externalID: "expired-unread-archived",
-            url: "https://example.com/articles/expired-unread",
-            title: "Expired Unread Archived",
-            archivedAt: expiredArchivedAt
-        )
-        let retainedUnreadArticle = try harness.insertArticle(
-            feed: feed,
-            externalID: "retained-unread-archived",
-            url: "https://example.com/articles/retained-unread",
-            title: "Retained Unread Archived",
-            archivedAt: retainedArchivedAt
-        )
-        _ = try harness.articleStateRepository.upsert(
-            feedID: expiredUnreadArticle.feedID,
-            articleExternalID: expiredUnreadArticle.externalID,
-            update: ArticleStateUpsert(
-                isRead: false,
-                updatedAt: now
-            )
-        )
-        _ = try harness.articleStateRepository.upsert(
-            feedID: retainedUnreadArticle.feedID,
-            articleExternalID: retainedUnreadArticle.externalID,
-            update: ArticleStateUpsert(
-                isRead: false,
-                updatedAt: now
-            )
-        )
-        let service = ArticleRetentionCleanupService(
-            logger: TestLogger(),
-            articleRepository: harness.articleRepository,
-            articleStateRepository: harness.articleStateRepository
-        )
+        let year: TimeInterval = 365 * 24 * 60 * 60
 
-        let result = try service.cleanupArchivedArticles(policy: .oneWeek, now: now)
-        let remainingArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        for index in 1...5 {
+            let sourceDate = now.addingTimeInterval(-(TimeInterval(index) * year))
+            _ = try insertArticle(
+                harness: harness,
+                feed: feed,
+                externalID: "year-\(index)",
+                publishedAt: sourceDate,
+                createdAt: sourceDate
+            )
+        }
+        _ = try insertArticle(
+            harness: harness,
+            feed: feed,
+            externalID: "recent",
+            publishedAt: now.addingTimeInterval(-(10 * 24 * 60 * 60)),
+            createdAt: now.addingTimeInterval(-(10 * 24 * 60 * 60))
+        )
+        let service = makeService(harness: harness, maximumCount: 10, batchSize: 2)
 
-        #expect(result.deletedCount == 1)
-        #expect(remainingArticles.map(\.externalID) == ["retained-unread-archived"])
+        let result = try service.cleanupArticles(policy: .oneMonth, now: now)
+        let remainingIDs = try harness.articleRepository.fetchArticles(feedID: feed.id).map(\.externalID)
+
+        #expect(result.deletedByTimeOrMembershipCount == 5)
+        #expect(remainingIDs == ["recent"])
     }
 
     @Test
-    func cleanupDropsUnreadCountsOnlyAfterArchivedArticlesAreDeleted() throws {
+    func cleanupUsesCountBudgetForMissingDatesAndKeepsNewestMaterializedArticlesPerFeed() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
-        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/retention-counts.xml"]).first)
-        let now = Date(timeIntervalSince1970: 1_700_000_000)
-        let expiredArchivedAt = now.addingTimeInterval(-(8 * 24 * 60 * 60))
-        let archivedUnreadArticle = try harness.insertArticle(
-            feed: feed,
-            externalID: "expired-archived-unread",
-            url: "https://example.com/articles/expired-archived-unread",
-            title: "Expired Archived Unread",
-            archivedAt: expiredArchivedAt
+        let firstFeed = try #require(try harness.insertFeeds(urls: ["https://example.com/missing-first.xml"]).first)
+        let secondFeed = try #require(try harness.insertFeeds(urls: ["https://example.com/missing-second.xml"]).first)
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+
+        for index in 0..<5 {
+            _ = try insertArticle(
+                harness: harness,
+                feed: firstFeed,
+                externalID: "first-\(index)",
+                createdAt: baseDate.addingTimeInterval(TimeInterval(index))
+            )
+        }
+        for index in 0..<3 {
+            _ = try insertArticle(
+                harness: harness,
+                feed: secondFeed,
+                externalID: "second-\(index)",
+                createdAt: baseDate.addingTimeInterval(TimeInterval(index))
+            )
+        }
+        _ = try harness.articleStateRepository.upsert(
+            feedID: firstFeed.id,
+            articleExternalID: "first-0",
+            update: ArticleStateUpsert(isStarred: true, starredAt: baseDate, updatedAt: baseDate)
         )
-        _ = try harness.insertArticle(
+        let service = makeService(harness: harness, maximumCount: 3, batchSize: 2)
+
+        let result = try service.cleanupArticles(policy: .oneWeek, now: baseDate.addingTimeInterval(100))
+        let firstRemainingIDs = try harness.articleRepository.fetchArticles(feedID: firstFeed.id).map(\.externalID)
+        let secondRemainingIDs = try harness.articleRepository.fetchArticles(feedID: secondFeed.id).map(\.externalID)
+
+        #expect(result.deletedByTimeOrMembershipCount == 0)
+        #expect(result.deletedByCountLimitCount == 1)
+        #expect(Set(firstRemainingIDs) == Set(["first-0", "first-2", "first-3", "first-4"]))
+        #expect(Set(secondRemainingIDs) == Set(["second-0", "second-1", "second-2"]))
+    }
+
+    @Test
+    func currentFeedOnlyDeletesOnlyArchivedUnstarredArticlesBeforeApplyingCountBudget() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/current-only.xml"]).first)
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        _ = try insertArticle(
+            harness: harness,
             feed: feed,
-            externalID: "current-unread",
-            url: "https://example.com/articles/current-unread",
-            title: "Current Unread"
+            externalID: "old-current",
+            publishedAt: .distantPast,
+            createdAt: .distantPast
+        )
+        _ = try insertArticle(
+            harness: harness,
+            feed: feed,
+            externalID: "archived",
+            archivedAt: now,
+            createdAt: now
+        )
+        let starredArchived = try insertArticle(
+            harness: harness,
+            feed: feed,
+            externalID: "starred-archived",
+            archivedAt: now,
+            createdAt: now
         )
         _ = try harness.articleStateRepository.upsert(
-            feedID: archivedUnreadArticle.feedID,
-            articleExternalID: archivedUnreadArticle.externalID,
-            update: ArticleStateUpsert(
-                isRead: false,
-                updatedAt: now
-            )
+            feedID: feed.id,
+            articleExternalID: starredArchived.externalID,
+            update: ArticleStateUpsert(isStarred: true, starredAt: now, updatedAt: now)
         )
-        let service = ArticleRetentionCleanupService(
-            logger: TestLogger(),
-            articleRepository: harness.articleRepository,
-            articleStateRepository: harness.articleStateRepository
-        )
+        let service = makeService(harness: harness, maximumCount: 10, batchSize: 1)
 
-        let countsBeforeCleanup = try harness.articleStateRepository.fetchUnreadCounts(feedIDs: [feed.id])
-        let result = try service.cleanupArchivedArticles(policy: .oneWeek, now: now)
-        let countsAfterCleanup = try harness.articleStateRepository.fetchUnreadCounts(feedIDs: [feed.id])
+        let result = try service.cleanupArticles(policy: .currentFeedOnly, now: now)
+        let remainingIDs = try harness.articleRepository.fetchArticles(feedID: feed.id).map(\.externalID)
 
-        #expect(countsBeforeCleanup[feed.id] == 2)
-        #expect(result.deletedCount == 1)
-        #expect(countsAfterCleanup[feed.id] == 1)
+        #expect(result.deletedByTimeOrMembershipCount == 1)
+        #expect(Set(remainingIDs) == Set(["old-current", "starred-archived"]))
     }
 
     @Test
-    func cleanupWithCurrentFeedOnlyDeletesUnstarredArchivedArticlesImmediately() throws {
+    func repeatedCleanupIsIdempotentForArticlesAndOrphanStates() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
-        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/retention-none.xml"]).first)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/idempotent.xml"]).first)
         let now = Date(timeIntervalSince1970: 1_700_000_000)
-        _ = try harness.insertArticle(
+        let expired = try insertArticle(
+            harness: harness,
             feed: feed,
-            externalID: "archived-now",
-            url: "https://example.com/articles/archived-now",
-            title: "Archived Now",
-            archivedAt: now
+            externalID: "expired",
+            publishedAt: now.addingTimeInterval(-(8 * 24 * 60 * 60)),
+            createdAt: now.addingTimeInterval(-(8 * 24 * 60 * 60))
         )
-        let service = ArticleRetentionCleanupService(
-            logger: TestLogger(),
-            articleRepository: harness.articleRepository,
-            articleStateRepository: harness.articleStateRepository
+        _ = try harness.articleStateRepository.upsert(
+            feedID: feed.id,
+            articleExternalID: expired.externalID,
+            update: ArticleStateUpsert(isRead: true, readAt: now, updatedAt: now)
         )
+        let service = makeService(harness: harness, maximumCount: 10, batchSize: 1)
 
-        let result = try service.cleanupArchivedArticles(policy: .currentFeedOnly, now: now)
-        let remainingArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        let firstResult = try service.cleanupArticles(policy: .oneWeek, now: now)
+        let secondResult = try service.cleanupArticles(policy: .oneWeek, now: now)
 
-        #expect(result.deletedCount == 1)
-        #expect(remainingArticles.isEmpty)
+        #expect(firstResult.deletedCount == 1)
+        #expect(firstResult.deletedOrphanArticleStateCount == 1)
+        #expect(secondResult.deletedCount == 0)
+        #expect(secondResult.deletedOrphanArticleStateCount == 0)
+        #expect(try harness.articleRepository.fetchArticles(feedID: feed.id).isEmpty)
+        #expect(try harness.articleStateRepository.fetchState(
+            feedID: feed.id,
+            articleExternalID: expired.externalID
+        ) == nil)
     }
 
     @Test
-    func purgeDeletesUnstarredArchivedArticlesAndRetainsStarredAndCurrentArticles() throws {
+    func purgeDeletesArchivedArticlesInBatchesAndRetainsStarredAndCurrentArticles() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/archive-purge.xml"]).first)
         let now = Date(timeIntervalSince1970: 1_700_000_000)
-        let currentArticle = try harness.insertArticle(
-            feed: feed,
-            externalID: "current",
-            url: "https://example.com/articles/current",
-            title: "Current"
-        )
-        let starredArchivedArticle = try harness.insertArticle(
+        _ = try insertArticle(harness: harness, feed: feed, externalID: "current")
+        let starredArchived = try insertArticle(
+            harness: harness,
             feed: feed,
             externalID: "starred-archived",
-            url: "https://example.com/articles/starred-archived",
-            title: "Starred Archived",
             archivedAt: now
         )
-        _ = try harness.insertArticle(
+        let archived = try insertArticle(
+            harness: harness,
             feed: feed,
             externalID: "archived",
-            url: "https://example.com/articles/archived",
-            title: "Archived",
             archivedAt: now
         )
         _ = try harness.articleStateRepository.upsert(
-            feedID: starredArchivedArticle.feedID,
-            articleExternalID: starredArchivedArticle.externalID,
-            update: ArticleStateUpsert(
-                isStarred: true,
-                starredAt: now,
-                updatedAt: now
-            )
+            feedID: feed.id,
+            articleExternalID: starredArchived.externalID,
+            update: ArticleStateUpsert(isStarred: true, starredAt: now, updatedAt: now)
         )
-        let service = ArticleRetentionCleanupService(
-            logger: TestLogger(),
-            articleRepository: harness.articleRepository,
-            articleStateRepository: harness.articleStateRepository
+        _ = try harness.articleStateRepository.upsert(
+            feedID: feed.id,
+            articleExternalID: archived.externalID,
+            update: ArticleStateUpsert(isRead: true, readAt: now, updatedAt: now)
         )
+        let service = makeService(harness: harness, maximumCount: 10, batchSize: 1)
 
         let result = try service.purgeArchivedArticles()
-        let remainingArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        let remainingIDs = try harness.articleRepository.fetchArticles(feedID: feed.id).map(\.externalID)
 
         #expect(result.inspectedArchivedCount == 2)
         #expect(result.deletedCount == 1)
         #expect(result.retainedStarredCount == 1)
-
-        let remainingArticleIDs = remainingArticles.map(\.id)
-        let expectedArticleIDs = [currentArticle.id, starredArchivedArticle.id]
-        #expect(Set(remainingArticleIDs) == Set(expectedArticleIDs))
+        #expect(result.deletedOrphanArticleStateCount == 1)
+        #expect(Set(remainingIDs) == Set(["current", "starred-archived"]))
     }
 
     @Test
-    func manualRefreshRunsArticleRetentionCleanup() async throws {
+    func manualRefreshRunsRetentionForCurrentSourceAgedArticles() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/manual-retention.xml"]).first)
-        _ = try harness.insertArticle(
+        _ = try insertArticle(
+            harness: harness,
             feed: feed,
             externalID: "manual-retention-expired",
-            url: "https://example.com/articles/manual-retention-expired",
-            title: "Manual Retention Expired",
-            archivedAt: .distantPast
+            publishedAt: .distantPast,
+            createdAt: .distantPast
         )
         _ = try appSettingsRepository.update(
-            AppSettingsUpdate(
-                articleRetentionPolicy: .currentFeedOnly,
-                updatedAt: .distantPast
-            )
+            AppSettingsUpdate(articleRetentionPolicy: .oneWeek, updatedAt: .distantPast)
         )
 
         _ = await harness.dependencies.appActions.refreshAllFeeds()
-        let remainingArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
 
-        #expect(remainingArticles.isEmpty)
+        #expect(try harness.articleRepository.fetchArticles(feedID: feed.id).isEmpty)
     }
 
     @Test
-    func backgroundRefreshRunsArticleRetentionCleanup() async throws {
+    func backgroundRefreshRunsRetentionForCurrentSourceAgedArticles() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/background-retention.xml"]).first)
-        _ = try harness.insertArticle(
+        _ = try insertArticle(
+            harness: harness,
             feed: feed,
             externalID: "background-retention-expired",
-            url: "https://example.com/articles/background-retention-expired",
-            title: "Background Retention Expired",
-            archivedAt: .distantPast
+            publishedAt: .distantPast,
+            createdAt: .distantPast
         )
         _ = try appSettingsRepository.update(
             AppSettingsUpdate(
                 refreshIntervalPreference: .hourly,
-                articleRetentionPolicy: .currentFeedOnly,
+                articleRetentionPolicy: .oneWeek,
                 updatedAt: .distantPast
             )
         )
 
         _ = await harness.dependencies.appActions.refreshFeedsForBackground()
-        let remainingArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
 
-        #expect(remainingArticles.isEmpty)
+        #expect(try harness.articleRepository.fetchArticles(feedID: feed.id).isEmpty)
+    }
+
+    private func makeService(
+        harness: TestHarness,
+        maximumCount: Int,
+        batchSize: Int
+    ) -> ArticleRetentionCleanupService {
+        ArticleRetentionCleanupService(
+            logger: TestLogger(),
+            feedRepository: harness.feedRepository,
+            articleRepository: harness.articleRepository,
+            articleStateRepository: harness.articleStateRepository,
+            contract: ArticleRetentionContract(maximumUnstarredArticleCountPerFeed: maximumCount),
+            batchSize: batchSize
+        )
+    }
+
+    private func insertArticle(
+        harness: TestHarness,
+        feed: Feed,
+        externalID: String,
+        publishedAt: Date? = nil,
+        updatedAtSource: Date? = nil,
+        archivedAt: Date? = nil,
+        createdAt: Date = .now
+    ) throws -> Article {
+        try harness.insertArticle(
+            feed: feed,
+            externalID: externalID,
+            url: "https://example.com/articles/\(externalID)",
+            title: externalID,
+            publishedAt: publishedAt,
+            updatedAtSource: updatedAtSource,
+            archivedAt: archivedAt,
+            fetchedAt: createdAt,
+            createdAt: createdAt
+        )
     }
 }
