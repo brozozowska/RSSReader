@@ -2,10 +2,16 @@ import Foundation
 
 struct PersistenceBoundedGrowthCleanupResult: Equatable, Sendable {
     let feedFetchLogCutoffDate: Date
-    let deletedFeedFetchLogCount: Int
+    let maximumFeedFetchLogCountPerFeed: Int
+    let deletedExpiredFeedFetchLogCount: Int
+    let deletedFeedFetchLogCountExceedingCountLimit: Int
     let inspectedArticleStateCount: Int
     let deletedArticleStateCount: Int
     let retainedStarredArticleStateCount: Int
+
+    var deletedFeedFetchLogCount: Int {
+        deletedExpiredFeedFetchLogCount + deletedFeedFetchLogCountExceedingCountLimit
+    }
 }
 
 @MainActor
@@ -20,29 +26,34 @@ final class PersistenceBoundedGrowthCleanupService: PersistenceBoundedGrowthClea
     private let articleRepository: any ArticleRepository
     private let articleStateRepository: any ArticleStateRepository
     private let feedFetchLogRepository: any FeedFetchLogRepository
-    private let feedFetchLogRetentionInterval: TimeInterval
+    private let feedFetchLogRetentionContract: FeedFetchLogRetentionContract
 
     init(
         logger: Logging,
         articleRepository: any ArticleRepository,
         articleStateRepository: any ArticleStateRepository,
         feedFetchLogRepository: any FeedFetchLogRepository,
-        feedFetchLogRetentionInterval: TimeInterval = 604_800
+        feedFetchLogRetentionContract: FeedFetchLogRetentionContract = .current
     ) {
         self.logger = logger
         self.articleRepository = articleRepository
         self.articleStateRepository = articleStateRepository
         self.feedFetchLogRepository = feedFetchLogRepository
-        self.feedFetchLogRetentionInterval = feedFetchLogRetentionInterval
+        self.feedFetchLogRetentionContract = feedFetchLogRetentionContract
     }
 
     @discardableResult
     func cleanupBoundedGrowth(now: Date = .now) throws -> PersistenceBoundedGrowthCleanupResult {
-        let feedFetchLogCutoffDate = now.addingTimeInterval(-feedFetchLogRetentionInterval)
-        let deletedFeedFetchLogCount = try feedFetchLogRepository.deleteLogs(
+        let feedFetchLogCutoffDate = feedFetchLogRetentionContract.cutoffDate(now: now)
+        let deletedExpiredFeedFetchLogCount = try feedFetchLogRepository.deleteLogs(
             olderThan: feedFetchLogCutoffDate,
             saveAfterOperation: true
         )
+        let deletedFeedFetchLogCountExceedingCountLimit = try feedFetchLogRepository
+            .deleteLogsExceedingPerFeedCount(
+                feedFetchLogRetentionContract.maximumLogCountPerFeed,
+                saveAfterOperation: true
+            )
         let articleIdentities = try articleRepository.fetchArticleStateIdentities()
         let articleStateCleanupResult = try articleStateRepository.deleteOrphanStates(
             keepingArticleIdentities: articleIdentities,
@@ -51,13 +62,15 @@ final class PersistenceBoundedGrowthCleanupService: PersistenceBoundedGrowthClea
 
         let result = PersistenceBoundedGrowthCleanupResult(
             feedFetchLogCutoffDate: feedFetchLogCutoffDate,
-            deletedFeedFetchLogCount: deletedFeedFetchLogCount,
+            maximumFeedFetchLogCountPerFeed: feedFetchLogRetentionContract.maximumLogCountPerFeed,
+            deletedExpiredFeedFetchLogCount: deletedExpiredFeedFetchLogCount,
+            deletedFeedFetchLogCountExceedingCountLimit: deletedFeedFetchLogCountExceedingCountLimit,
             inspectedArticleStateCount: articleStateCleanupResult.inspectedCount,
             deletedArticleStateCount: articleStateCleanupResult.deletedCount,
             retainedStarredArticleStateCount: articleStateCleanupResult.retainedStarredCount
         )
         logger.info(
-            "Persistence bounded growth cleanup finished deletedFeedFetchLogs=\(result.deletedFeedFetchLogCount) inspectedArticleStates=\(result.inspectedArticleStateCount) deletedArticleStates=\(result.deletedArticleStateCount) retainedStarredArticleStates=\(result.retainedStarredArticleStateCount)"
+            "Persistence bounded growth cleanup finished deletedFeedFetchLogs=\(result.deletedFeedFetchLogCount) deletedExpiredFeedFetchLogs=\(result.deletedExpiredFeedFetchLogCount) deletedFeedFetchLogsByCount=\(result.deletedFeedFetchLogCountExceedingCountLimit) maximumFeedFetchLogsPerFeed=\(result.maximumFeedFetchLogCountPerFeed) inspectedArticleStates=\(result.inspectedArticleStateCount) deletedArticleStates=\(result.deletedArticleStateCount) retainedStarredArticleStates=\(result.retainedStarredArticleStateCount)"
         )
         return result
     }

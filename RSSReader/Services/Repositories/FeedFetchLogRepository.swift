@@ -19,6 +19,10 @@ protocol FeedFetchLogRepository {
     func insert(_ logs: [FeedFetchLog]) throws -> [FeedFetchLog]
 
     func deleteLogs(olderThan cutoffDate: Date, saveAfterOperation: Bool) throws -> Int
+    func deleteLogsExceedingPerFeedCount(
+        _ maximumCountPerFeed: Int,
+        saveAfterOperation: Bool
+    ) throws -> Int
     func save() throws
 }
 
@@ -36,7 +40,8 @@ final class SwiftDataFeedFetchLogRepository: FeedFetchLogRepository, SwiftDataRe
                 log.feedID == feedID
             },
             sortBy: [
-                SortDescriptor(\FeedFetchLog.createdAt, order: .reverse)
+                SortDescriptor(\FeedFetchLog.createdAt, order: .reverse),
+                SortDescriptor(\FeedFetchLog.id, order: .reverse)
             ]
         )
 
@@ -102,6 +107,40 @@ final class SwiftDataFeedFetchLogRepository: FeedFetchLogRepository, SwiftDataRe
         }
 
         return logs.count
+    }
+
+    func deleteLogsExceedingPerFeedCount(
+        _ maximumCountPerFeed: Int,
+        saveAfterOperation: Bool = true
+    ) throws -> Int {
+        precondition(maximumCountPerFeed > 0)
+
+        let descriptor = FetchDescriptor<FeedFetchLog>(
+            sortBy: [
+                SortDescriptor(\FeedFetchLog.createdAt, order: .reverse),
+                SortDescriptor(\FeedFetchLog.id, order: .reverse)
+            ]
+        )
+        let logs = try modelContext.fetch(descriptor)
+        var retainedCountByFeedID: [UUID: Int] = [:]
+        var deletedCount = 0
+
+        for log in logs {
+            let retainedCount = retainedCountByFeedID[log.feedID, default: 0]
+            guard retainedCount < maximumCountPerFeed else {
+                modelContext.delete(log)
+                deletedCount += 1
+                continue
+            }
+
+            retainedCountByFeedID[log.feedID] = retainedCount + 1
+        }
+
+        if saveAfterOperation {
+            try saveIfNeeded()
+        }
+
+        return deletedCount
     }
 
     func save() throws {
