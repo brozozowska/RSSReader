@@ -11,6 +11,7 @@ protocol ArticleRepository {
     func refreshFeedProjection(for feed: Feed, saveAfterOperation: Bool) throws -> Int
     func fetchArticle(id: UUID) throws -> Article?
     func fetchArticle(feedID: UUID, externalID: String) throws -> Article?
+    func containsArticle(feedID: UUID, externalID: String) throws -> Bool
     func fetchArticles(feedID: UUID) throws -> [Article]
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article]
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
@@ -21,7 +22,6 @@ protocol ArticleRepository {
         offset: Int,
         limit: Int
     ) throws -> [Article]
-    func fetchArticleStateIdentities() throws -> Set<ArticleStateIdentity>
     func reconcileArticles(
         feedID: UUID,
         keepingExternalIDs: Set<String>,
@@ -138,6 +138,15 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         return try fetchFirst(descriptor)
     }
 
+    func containsArticle(feedID: UUID, externalID: String) throws -> Bool {
+        let descriptor = FetchDescriptor<Article>(
+            predicate: #Predicate<Article> { article in
+                article.feedID == feedID && article.externalID == externalID
+            }
+        )
+        return try modelContext.fetchCount(descriptor) > 0
+    }
+
     func fetchArticles(feedID: UUID) throws -> [Article] {
         let descriptor = FetchDescriptor<Article>(
             predicate: #Predicate<Article> { article in
@@ -202,19 +211,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         descriptor.fetchOffset = offset
         descriptor.fetchLimit = limit
         return try modelContext.fetch(descriptor)
-    }
-
-    func fetchArticleStateIdentities() throws -> Set<ArticleStateIdentity> {
-        let descriptor = FetchDescriptor<Article>()
-        let articles = try modelContext.fetch(descriptor)
-        return Set(
-            articles.map { article in
-                ArticleStateIdentity(
-                    feedID: article.feedID,
-                    articleExternalID: article.externalID
-                )
-            }
-        )
     }
 
     @discardableResult

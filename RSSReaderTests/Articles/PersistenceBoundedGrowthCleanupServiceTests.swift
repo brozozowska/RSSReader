@@ -224,7 +224,154 @@ struct PersistenceBoundedGrowthCleanupServiceTests {
     }
 
     @Test
-    func appDependenciesPurgeRunsBoundedGrowthCleanupForDeletedArchivedArticles() throws {
+    func largeStoreCleanupNeverMaterializesMoreThanConfiguredBatchSize() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/large-sweep.xml"]).first)
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let contract = FeedFetchLogRetentionContract(
+            maximumAge: 7 * 24 * 60 * 60,
+            maximumLogCountPerFeed: 2
+        )
+        let batchSize = 3
+        try insertLogs(
+            harness: harness,
+            feedID: feed.id,
+            createdAtDates: (0..<8).map { now.addingTimeInterval(-TimeInterval($0)) }
+                + (0..<7).map { contract.cutoffDate(now: now).addingTimeInterval(-TimeInterval($0 + 1)) }
+        )
+
+        for index in 0..<5 {
+            let externalID = "linked-\(index)"
+            _ = try harness.insertArticle(
+                feed: feed,
+                externalID: externalID,
+                url: "https://example.com/articles/\(externalID)",
+                title: externalID
+            )
+            _ = try harness.articleStateRepository.upsert(
+                feedID: feed.id,
+                articleExternalID: externalID,
+                update: ArticleStateUpsert(isRead: true, updatedAt: now)
+            )
+        }
+        for index in 0..<7 {
+            _ = try harness.articleStateRepository.upsert(
+                feedID: feed.id,
+                articleExternalID: "orphan-\(index)",
+                update: ArticleStateUpsert(isRead: true, updatedAt: now)
+            )
+        }
+        for index in 0..<4 {
+            _ = try harness.articleStateRepository.upsert(
+                feedID: feed.id,
+                articleExternalID: "starred-orphan-\(index)",
+                update: ArticleStateUpsert(isStarred: true, updatedAt: now)
+            )
+        }
+
+        let result = try makeService(
+            harness: harness,
+            contract: contract,
+            batchSize: batchSize
+        ).cleanupBoundedGrowth(now: now)
+
+        #expect(result.deletedExpiredFeedFetchLogCount == 7)
+        #expect(result.deletedFeedFetchLogCountExceedingCountLimit == 6)
+        #expect(result.feedFetchLogProcessedBatchCount > 1)
+        #expect(result.maximumMaterializedFeedFetchLogBatchCount == batchSize)
+        #expect(result.inspectedArticleStateCount == 16)
+        #expect(result.deletedArticleStateCount == 7)
+        #expect(result.retainedStarredArticleStateCount == 4)
+        #expect(result.articleStateProcessedBatchCount > 1)
+        #expect(result.maximumMaterializedArticleStateBatchCount == batchSize)
+    }
+
+    @Test
+    func repeatedGlobalOrphanSweepIsIdempotentAndPreservesStarredState() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feedID = UUID()
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        _ = try harness.articleStateRepository.upsert(
+            feedID: feedID,
+            articleExternalID: "orphan",
+            update: ArticleStateUpsert(isRead: true, updatedAt: now)
+        )
+        _ = try harness.articleStateRepository.upsert(
+            feedID: feedID,
+            articleExternalID: "starred-orphan",
+            update: ArticleStateUpsert(isStarred: true, updatedAt: now)
+        )
+        let service = makeService(harness: harness, batchSize: 1)
+
+        let firstResult = try service.cleanupBoundedGrowth(now: now)
+        let secondResult = try service.cleanupBoundedGrowth(now: now)
+
+        #expect(firstResult.deletedArticleStateCount == 1)
+        #expect(firstResult.retainedStarredArticleStateCount == 1)
+        #expect(secondResult.deletedArticleStateCount == 0)
+        #expect(secondResult.retainedStarredArticleStateCount == 1)
+        #expect(try harness.articleStateRepository.fetchState(
+            feedID: feedID,
+            articleExternalID: "starred-orphan"
+        )?.isStarred == true)
+    }
+
+    @Test
+    func foregroundRefreshRunsBoundedLogCleanupWithoutRedundantGlobalOrphanSweep() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/foreground-sweep.xml"]).first)
+        let expiredDate = Date.distantPast
+        _ = try harness.feedFetchLogRepository.insert(
+            FeedFetchLogEntry(feedID: feed.id, status: "fetched", createdAt: expiredDate)
+        )
+        let unrelatedFeedID = UUID()
+        _ = try harness.articleStateRepository.upsert(
+            feedID: unrelatedFeedID,
+            articleExternalID: "unrelated-orphan",
+            update: ArticleStateUpsert(isRead: true, updatedAt: .distantPast)
+        )
+
+        _ = await harness.dependencies.appActions.refreshAllFeeds()
+
+        #expect(try harness.feedFetchLogRepository.fetchLogs(feedID: feed.id, limit: nil)
+            .contains { $0.createdAt == expiredDate } == false)
+        #expect(try harness.articleStateRepository.fetchState(
+            feedID: unrelatedFeedID,
+            articleExternalID: "unrelated-orphan"
+        ) != nil)
+    }
+
+    @Test
+    func backgroundRefreshRunsBoundedLogCleanupWithoutRedundantGlobalOrphanSweep() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/background-sweep.xml"]).first)
+        let expiredDate = Date.distantPast
+        _ = try harness.feedFetchLogRepository.insert(
+            FeedFetchLogEntry(feedID: feed.id, status: "fetched", createdAt: expiredDate)
+        )
+        let unrelatedFeedID = UUID()
+        _ = try harness.articleStateRepository.upsert(
+            feedID: unrelatedFeedID,
+            articleExternalID: "unrelated-orphan",
+            update: ArticleStateUpsert(isRead: true, updatedAt: .distantPast)
+        )
+        _ = try appSettingsRepository.update(
+            AppSettingsUpdate(refreshIntervalPreference: .hourly, updatedAt: .distantPast)
+        )
+
+        _ = await harness.dependencies.appActions.refreshFeedsForBackground()
+
+        #expect(try harness.feedFetchLogRepository.fetchLogs(feedID: feed.id, limit: nil)
+            .contains { $0.createdAt == expiredDate } == false)
+        #expect(try harness.articleStateRepository.fetchState(
+            feedID: unrelatedFeedID,
+            articleExternalID: "unrelated-orphan"
+        ) != nil)
+    }
+
+    @Test
+    func appDependenciesPurgeUsesFeedScopedCleanupForDeletedArchivedArticles() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/purge-state-cleanup.xml"]).first)
         let now = Date(timeIntervalSince1970: 1_700_000_000)
@@ -262,14 +409,16 @@ struct PersistenceBoundedGrowthCleanupServiceTests {
 
     private func makeService(
         harness: TestHarness,
-        contract: FeedFetchLogRetentionContract = .current
+        contract: FeedFetchLogRetentionContract = .current,
+        batchSize: Int = 256
     ) -> PersistenceBoundedGrowthCleanupService {
         PersistenceBoundedGrowthCleanupService(
             logger: TestLogger(),
             articleRepository: harness.articleRepository,
             articleStateRepository: harness.articleStateRepository,
             feedFetchLogRepository: harness.feedFetchLogRepository,
-            feedFetchLogRetentionContract: contract
+            feedFetchLogRetentionContract: contract,
+            batchSize: batchSize
         )
     }
 

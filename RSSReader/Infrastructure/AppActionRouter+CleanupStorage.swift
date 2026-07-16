@@ -14,7 +14,7 @@ extension AppActionRouter {
 
         do {
             let result = try articleRetentionCleanupService.cleanupArticles(policy: policy, now: now)
-            cleanupPersistenceBoundedGrowth(now: now)
+            cleanupFeedFetchLogs(now: now)
             return result
         } catch {
             logger.error("Failed to apply article retention cleanup: \(error)")
@@ -49,10 +49,26 @@ extension AppActionRouter {
 
         do {
             let result = try articleRetentionCleanupService.purgeArchivedArticles()
-            cleanupPersistenceBoundedGrowth()
+            cleanupFeedFetchLogs()
             return result
         } catch {
             logger.error("Failed to purge archived articles: \(error)")
+            return nil
+        }
+    }
+
+    @MainActor
+    @discardableResult
+    func cleanupFeedFetchLogs(now: Date = .now) -> FeedFetchLogCleanupResult? {
+        guard let persistenceBoundedGrowthCleanupService else {
+            logger.debug("Persistence bounded growth cleanup service is unavailable")
+            return nil
+        }
+
+        do {
+            return try persistenceBoundedGrowthCleanupService.cleanupFeedFetchLogs(now: now)
+        } catch {
+            logger.error("Failed to clean up feed fetch logs: \(error)")
             return nil
         }
     }

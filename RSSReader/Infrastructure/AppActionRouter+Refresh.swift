@@ -129,7 +129,7 @@ extension AppActionRouter {
         let result = await backgroundRefreshService.performScheduledRefresh()
         if case .executed(let refreshResult) = result {
             recordFeedsRefreshIfNeeded(from: refreshResult.batchResult)
-            cleanupPersistenceBoundedGrowth()
+            cleanupFeedFetchLogs()
             await refreshUnreadAppIconBadgeCount()
         }
         return result
