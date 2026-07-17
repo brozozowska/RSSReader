@@ -232,6 +232,10 @@ struct ArticleRetentionCleanupServiceTests {
         #expect(firstResult.deletedOrphanArticleStateCount == 1)
         #expect(secondResult.deletedCount == 0)
         #expect(secondResult.deletedOrphanArticleStateCount == 0)
+        #expect(firstResult.diagnostics.maximumMaterializedFeedBatchCount == 1)
+        #expect(firstResult.diagnostics.maximumMaterializedArticleBatchCount == 1)
+        #expect(firstResult.diagnostics.maximumMaterializedArticleStateBatchCount == 1)
+        #expect(secondResult.diagnostics.maximumMaterializedFeedBatchCount == 1)
         #expect(try harness.articleRepository.fetchArticles(feedID: feed.id).isEmpty)
         #expect(try harness.articleStateRepository.fetchState(
             feedID: feed.id,
@@ -277,6 +281,210 @@ struct ArticleRetentionCleanupServiceTests {
         #expect(result.retainedStarredCount == 1)
         #expect(result.deletedOrphanArticleStateCount == 1)
         #expect(Set(remainingIDs) == Set(["current", "starred-archived"]))
+    }
+
+    @Test
+    func globalCleanupEnumeratesManyFeedsInBoundedBatches() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let batchSize = 3
+        let feedCount = 8
+        let feeds = try harness.insertFeeds(
+            urls: (0..<feedCount).map { "https://example.com/many-feeds-\($0).xml" }
+        )
+
+        for (index, feed) in feeds.enumerated() {
+            _ = try insertArticle(
+                harness: harness,
+                feed: feed,
+                externalID: "expired-\(index)",
+                publishedAt: .distantPast,
+                createdAt: .distantPast
+            )
+        }
+        let service = makeService(harness: harness, maximumCount: 10, batchSize: batchSize)
+
+        let result = try service.cleanupArticles(
+            policy: .oneWeek,
+            scope: .allFeeds,
+            now: now
+        )
+
+        #expect(result.deletedCount == feedCount)
+        #expect(result.diagnostics.processedFeedCount == feedCount)
+        #expect(result.diagnostics.processedFeedBatchCount == 3)
+        #expect(result.diagnostics.maximumMaterializedFeedBatchCount == batchSize)
+        #expect(result.diagnostics.maximumMaterializedArticleBatchCount <= batchSize)
+        #expect(result.diagnostics.maximumMaterializedArticleStateBatchCount <= batchSize)
+    }
+
+    @Test
+    func cleanupKeepsManyStarredArticlesWithoutMaterializingMoreThanBatchSize() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/many-starred.xml"]).first)
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let batchSize = 3
+        let starredCount = 11
+
+        for index in 0..<starredCount {
+            let article = try insertArticle(
+                harness: harness,
+                feed: feed,
+                externalID: "starred-\(index)",
+                publishedAt: .distantPast,
+                archivedAt: index.isMultiple(of: 2) ? now : nil,
+                createdAt: .distantPast
+            )
+            _ = try harness.articleStateRepository.upsert(
+                feedID: feed.id,
+                articleExternalID: article.externalID,
+                update: ArticleStateUpsert(isStarred: true, starredAt: now, updatedAt: now)
+            )
+        }
+        let service = makeService(harness: harness, maximumCount: 2, batchSize: batchSize)
+
+        let result = try service.cleanupArticles(policy: .oneWeek, now: now)
+        let remainingArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+
+        #expect(result.deletedCount == 0)
+        #expect(result.retainedStarredCount == starredCount)
+        #expect(remainingArticles.count == starredCount)
+        #expect(result.diagnostics.processedArticleBatchCount > 1)
+        #expect(result.diagnostics.processedArticleStateBatchCount > 1)
+        #expect(result.diagnostics.maximumMaterializedArticleBatchCount == batchSize)
+        #expect(result.diagnostics.maximumMaterializedArticleStateBatchCount == batchSize)
+    }
+
+    @Test
+    func manualPurgeKeepsManyStarredArticlesAndBoundsIdentityBatches() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/many-purge.xml"]).first)
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let batchSize = 3
+        let starredCount = 7
+        let unstarredCount = 5
+
+        for index in 0..<starredCount {
+            let article = try insertArticle(
+                harness: harness,
+                feed: feed,
+                externalID: "purge-starred-\(index)",
+                archivedAt: now
+            )
+            _ = try harness.articleStateRepository.upsert(
+                feedID: feed.id,
+                articleExternalID: article.externalID,
+                update: ArticleStateUpsert(isStarred: true, starredAt: now, updatedAt: now)
+            )
+        }
+        for index in 0..<unstarredCount {
+            let article = try insertArticle(
+                harness: harness,
+                feed: feed,
+                externalID: "purge-unstarred-\(index)",
+                archivedAt: now
+            )
+            _ = try harness.articleStateRepository.upsert(
+                feedID: feed.id,
+                articleExternalID: article.externalID,
+                update: ArticleStateUpsert(isRead: true, readAt: now, updatedAt: now)
+            )
+        }
+        let service = makeService(harness: harness, maximumCount: 2, batchSize: batchSize)
+
+        let result = try service.purgeArchivedArticles()
+        let remainingArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+
+        #expect(result.deletedCount == unstarredCount)
+        #expect(result.retainedStarredCount == starredCount)
+        #expect(result.deletedOrphanArticleStateCount == unstarredCount)
+        #expect(remainingArticles.count == starredCount)
+        #expect(result.diagnostics.maximumMaterializedFeedBatchCount == 1)
+        #expect(result.diagnostics.maximumMaterializedArticleBatchCount == batchSize)
+        #expect(result.diagnostics.maximumMaterializedArticleStateBatchCount == batchSize)
+    }
+
+    @Test
+    func singleFeedRefreshRunsRetentionOnlyForRefreshedFeed() async throws {
+        let targetURL = "https://example.com/scoped-single-target.xml"
+        let otherURL = "https://example.com/scoped-single-other.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    targetURL: .response(statusCode: 304, headers: [:], body: "")
+                ]
+            )
+        )
+        let feeds = try harness.insertFeeds(urls: [targetURL, otherURL])
+        let targetFeed = feeds[0]
+        let otherFeed = feeds[1]
+        _ = try insertArticle(
+            harness: harness,
+            feed: targetFeed,
+            externalID: "target-expired",
+            publishedAt: .distantPast,
+            createdAt: .distantPast
+        )
+        _ = try insertArticle(
+            harness: harness,
+            feed: otherFeed,
+            externalID: "other-expired",
+            publishedAt: .distantPast,
+            createdAt: .distantPast
+        )
+        _ = try harness.dependencies.appSettingsRepository?.update(
+            AppSettingsUpdate(articleRetentionPolicy: .oneWeek, updatedAt: .distantPast)
+        )
+
+        _ = await harness.dependencies.appActions.refreshFeed(id: targetFeed.id)
+
+        #expect(try harness.articleRepository.fetchArticles(feedID: targetFeed.id).isEmpty)
+        #expect(try harness.articleRepository.fetchArticles(feedID: otherFeed.id).map(\.externalID) == ["other-expired"])
+    }
+
+    @Test
+    func folderRefreshRunsRetentionOnlyForFeedsReturnedByFolderRefresh() async throws {
+        let folderURLs = [
+            "https://example.com/scoped-folder-first.xml",
+            "https://example.com/scoped-folder-second.xml"
+        ]
+        let outsideURL = "https://example.com/scoped-folder-outside.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: Dictionary(
+                    uniqueKeysWithValues: folderURLs.map { url in
+                        (url, .response(statusCode: 304, headers: [:], body: ""))
+                    }
+                )
+            )
+        )
+        let feeds = try harness.insertFeeds(urls: folderURLs + [outsideURL])
+        let folder = try harness.folderRepository.insert(Folder(name: "Scoped"))
+        feeds[0].folder = folder
+        feeds[1].folder = folder
+        try harness.saveModelContext()
+
+        for (index, feed) in feeds.enumerated() {
+            _ = try insertArticle(
+                harness: harness,
+                feed: feed,
+                externalID: "folder-expired-\(index)",
+                publishedAt: .distantPast,
+                createdAt: .distantPast
+            )
+        }
+        _ = try harness.dependencies.appSettingsRepository?.update(
+            AppSettingsUpdate(articleRetentionPolicy: .oneWeek, updatedAt: .distantPast)
+        )
+        let appState = AppState()
+        harness.dependencies.appActions.showFolder(named: "Scoped", using: appState)
+
+        let refreshResult = await harness.dependencies.appActions.refreshCurrentSelection(using: appState)
+
+        #expect(refreshResult?.summary.totalFeedCount == 2)
+        #expect(try harness.articleRepository.fetchArticles(feedID: feeds[0].id).isEmpty)
+        #expect(try harness.articleRepository.fetchArticles(feedID: feeds[1].id).isEmpty)
+        #expect(try harness.articleRepository.fetchArticles(feedID: feeds[2].id).map(\.externalID) == ["folder-expired-2"])
     }
 
     @Test

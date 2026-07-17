@@ -5,6 +5,7 @@ extension AppActionRouter {
     @discardableResult
     func cleanupArticles(
         policy: ArticleRetentionPolicy,
+        scope: ArticleRetentionCleanupScope = .allFeeds,
         now: Date = .now
     ) -> ArticleRetentionCleanupResult? {
         guard let articleRetentionCleanupService else {
@@ -13,7 +14,11 @@ extension AppActionRouter {
         }
 
         do {
-            let result = try articleRetentionCleanupService.cleanupArticles(policy: policy, now: now)
+            let result = try articleRetentionCleanupService.cleanupArticles(
+                policy: policy,
+                scope: scope,
+                now: now
+            )
             cleanupFeedFetchLogs(now: now)
             return result
         } catch {
@@ -24,7 +29,10 @@ extension AppActionRouter {
 
     @MainActor
     @discardableResult
-    func cleanupArticlesUsingCurrentSettings(now: Date = .now) -> ArticleRetentionCleanupResult? {
+    func cleanupArticlesUsingCurrentSettings(
+        scope: ArticleRetentionCleanupScope = .allFeeds,
+        now: Date = .now
+    ) -> ArticleRetentionCleanupResult? {
         guard let appSettingsService else {
             logger.debug("App settings service is unavailable for article retention cleanup")
             return nil
@@ -32,7 +40,11 @@ extension AppActionRouter {
 
         do {
             let settings = try appSettingsService.fetchSettings()
-            return cleanupArticles(policy: settings.articleRetentionPolicy, now: now)
+            return cleanupArticles(
+                policy: settings.articleRetentionPolicy,
+                scope: scope,
+                now: now
+            )
         } catch {
             logger.error("Failed to load article retention settings for cleanup: \(error)")
             return nil

@@ -1,5 +1,20 @@
 import Foundation
 
+enum ArticleRetentionCleanupScope: Equatable, Sendable {
+    case allFeeds
+    case feedIDs([UUID])
+}
+
+struct ArticleRetentionCleanupDiagnostics: Equatable, Sendable {
+    let processedFeedCount: Int
+    let processedFeedBatchCount: Int
+    let processedArticleBatchCount: Int
+    let processedArticleStateBatchCount: Int
+    let maximumMaterializedFeedBatchCount: Int
+    let maximumMaterializedArticleBatchCount: Int
+    let maximumMaterializedArticleStateBatchCount: Int
+}
+
 struct ArticleRetentionCleanupResult: Equatable, Sendable {
     let policy: ArticleRetentionPolicy
     let inspectedArticleCount: Int
@@ -9,6 +24,7 @@ struct ArticleRetentionCleanupResult: Equatable, Sendable {
     let retainedStarredCount: Int
     let deletedOrphanArticleStateCount: Int
     let sourceAgeCutoffDate: Date?
+    let diagnostics: ArticleRetentionCleanupDiagnostics
 }
 
 struct ArticleArchivePurgeResult: Equatable, Sendable {
@@ -16,6 +32,7 @@ struct ArticleArchivePurgeResult: Equatable, Sendable {
     let deletedCount: Int
     let retainedStarredCount: Int
     let deletedOrphanArticleStateCount: Int
+    let diagnostics: ArticleRetentionCleanupDiagnostics
 }
 
 @MainActor
@@ -23,11 +40,22 @@ protocol ArticleRetentionCleanupServicing {
     @discardableResult
     func cleanupArticles(
         policy: ArticleRetentionPolicy,
+        scope: ArticleRetentionCleanupScope,
         now: Date
     ) throws -> ArticleRetentionCleanupResult
 
     @discardableResult
     func purgeArchivedArticles() throws -> ArticleArchivePurgeResult
+}
+
+extension ArticleRetentionCleanupServicing {
+    @discardableResult
+    func cleanupArticles(
+        policy: ArticleRetentionPolicy,
+        now: Date
+    ) throws -> ArticleRetentionCleanupResult {
+        try cleanupArticles(policy: policy, scope: .allFeeds, now: now)
+    }
 }
 
 @MainActor
@@ -41,10 +69,64 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
 
     private struct CountSelection {
         let retainedArticleIDs: Set<UUID>
-        let retainedArticleExternalIDs: Set<String>
         let inspectedCount: Int
         let unstarredCount: Int
         let starredCount: Int
+    }
+
+    private struct MutableDiagnostics {
+        var processedFeedCount = 0
+        var processedFeedBatchCount = 0
+        var processedArticleBatchCount = 0
+        var processedArticleStateBatchCount = 0
+        var maximumMaterializedFeedBatchCount = 0
+        var maximumMaterializedArticleBatchCount = 0
+        var maximumMaterializedArticleStateBatchCount = 0
+
+        mutating func observeFeedBatch(count: Int) {
+            guard count > 0 else { return }
+            processedFeedCount += count
+            processedFeedBatchCount += 1
+            maximumMaterializedFeedBatchCount = max(maximumMaterializedFeedBatchCount, count)
+        }
+
+        mutating func observeArticleBatch(count: Int) {
+            guard count > 0 else { return }
+            processedArticleBatchCount += 1
+            maximumMaterializedArticleBatchCount = max(maximumMaterializedArticleBatchCount, count)
+        }
+
+        mutating func observeArticleStateBatch(count: Int) {
+            guard count > 0 else { return }
+            processedArticleStateBatchCount += 1
+            maximumMaterializedArticleStateBatchCount = max(
+                maximumMaterializedArticleStateBatchCount,
+                count
+            )
+        }
+
+        mutating func observeArticleStateBatches(
+            processedCount: Int,
+            maximumMaterializedCount: Int
+        ) {
+            processedArticleStateBatchCount += processedCount
+            maximumMaterializedArticleStateBatchCount = max(
+                maximumMaterializedArticleStateBatchCount,
+                maximumMaterializedCount
+            )
+        }
+
+        var snapshot: ArticleRetentionCleanupDiagnostics {
+            ArticleRetentionCleanupDiagnostics(
+                processedFeedCount: processedFeedCount,
+                processedFeedBatchCount: processedFeedBatchCount,
+                processedArticleBatchCount: processedArticleBatchCount,
+                processedArticleStateBatchCount: processedArticleStateBatchCount,
+                maximumMaterializedFeedBatchCount: maximumMaterializedFeedBatchCount,
+                maximumMaterializedArticleBatchCount: maximumMaterializedArticleBatchCount,
+                maximumMaterializedArticleStateBatchCount: maximumMaterializedArticleStateBatchCount
+            )
+        }
     }
 
     private let logger: Logging
@@ -74,44 +156,43 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
     @discardableResult
     func cleanupArticles(
         policy: ArticleRetentionPolicy,
+        scope: ArticleRetentionCleanupScope,
         now: Date = .now
     ) throws -> ArticleRetentionCleanupResult {
-        let feeds = try feedRepository.fetchAllFeeds()
         let sourceAgeCutoffDate = contract.sourceAgeCutoffDate(for: policy, now: now)
         var inspectedArticleCount = 0
         var deletedByTimeOrMembershipCount = 0
         var deletedByCountLimitCount = 0
         var retainedStarredCount = 0
         var deletedOrphanArticleStateCount = 0
+        var diagnostics = MutableDiagnostics()
 
-        for feed in feeds {
-            let starredExternalIDs = try articleStateRepository.fetchStarredArticleExternalIDs(feedID: feed.id)
+        try forEachFeedID(in: scope, diagnostics: &diagnostics) { feedID, diagnostics in
             deletedByTimeOrMembershipCount += try deleteTimeOrMembershipExpiredArticles(
-                feedID: feed.id,
+                feedID: feedID,
                 policy: policy,
                 sourceAgeCutoffDate: sourceAgeCutoffDate,
-                starredExternalIDs: starredExternalIDs
+                diagnostics: &diagnostics
             )
 
             let countSelection = try selectArticlesWithinCountBudget(
-                feedID: feed.id,
-                starredExternalIDs: starredExternalIDs
+                feedID: feedID,
+                diagnostics: &diagnostics
             )
             inspectedArticleCount += countSelection.inspectedCount
             retainedStarredCount += countSelection.starredCount
 
             if countSelection.unstarredCount > contract.maximumUnstarredArticleCountPerFeed {
                 deletedByCountLimitCount += try deleteArticlesOutsideCountBudget(
-                    feedID: feed.id,
+                    feedID: feedID,
                     retainedArticleIDs: countSelection.retainedArticleIDs,
-                    starredExternalIDs: starredExternalIDs
+                    diagnostics: &diagnostics
                 )
             }
 
-            let orphanCleanupResult = try articleStateRepository.deleteOrphanStates(
-                feedID: feed.id,
-                keepingArticleExternalIDs: countSelection.retainedArticleExternalIDs,
-                batchSize: batchSize
+            let orphanCleanupResult = try deleteOrphanStates(
+                feedID: feedID,
+                diagnostics: &diagnostics
             )
             deletedOrphanArticleStateCount += orphanCleanupResult.deletedCount
         }
@@ -126,35 +207,40 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
             deletedByCountLimitCount: deletedByCountLimitCount,
             retainedStarredCount: retainedStarredCount,
             deletedOrphanArticleStateCount: deletedOrphanArticleStateCount,
-            sourceAgeCutoffDate: sourceAgeCutoffDate
+            sourceAgeCutoffDate: sourceAgeCutoffDate,
+            diagnostics: diagnostics.snapshot
         )
         logger.info(
-            "Article retention cleanup finished policy=\(policy.rawValue) inspected=\(result.inspectedArticleCount) deleted=\(result.deletedCount) deletedByTimeOrMembership=\(result.deletedByTimeOrMembershipCount) deletedByCount=\(result.deletedByCountLimitCount) retainedStarred=\(result.retainedStarredCount) deletedOrphanStates=\(result.deletedOrphanArticleStateCount)"
+            "Article retention cleanup finished policy=\(policy.rawValue) scope=\(scope.logDescription) inspected=\(result.inspectedArticleCount) deleted=\(result.deletedCount) deletedByTimeOrMembership=\(result.deletedByTimeOrMembershipCount) deletedByCount=\(result.deletedByCountLimitCount) retainedStarred=\(result.retainedStarredCount) deletedOrphanStates=\(result.deletedOrphanArticleStateCount) feeds=\(result.diagnostics.processedFeedCount) feedBatches=\(result.diagnostics.processedFeedBatchCount) articleBatches=\(result.diagnostics.processedArticleBatchCount) articleStateBatches=\(result.diagnostics.processedArticleStateBatchCount) maximumMaterializedFeedBatch=\(result.diagnostics.maximumMaterializedFeedBatchCount) maximumMaterializedArticleBatch=\(result.diagnostics.maximumMaterializedArticleBatchCount) maximumMaterializedArticleStateBatch=\(result.diagnostics.maximumMaterializedArticleStateBatchCount)"
         )
         return result
     }
 
     @discardableResult
     func purgeArchivedArticles() throws -> ArticleArchivePurgeResult {
-        let feeds = try feedRepository.fetchAllFeeds()
         var inspectedArchivedCount = 0
         var deletedCount = 0
         var retainedStarredCount = 0
         var deletedOrphanArticleStateCount = 0
+        var diagnostics = MutableDiagnostics()
 
-        for feed in feeds {
-            let starredExternalIDs = try articleStateRepository.fetchStarredArticleExternalIDs(feedID: feed.id)
+        try forEachFeedID(in: .allFeeds, diagnostics: &diagnostics) { feedID, diagnostics in
             var offset = 0
 
             while true {
                 let batch = try articleRepository.fetchRetentionBatch(
-                    feedID: feed.id,
+                    feedID: feedID,
                     scope: .archived,
                     offset: offset,
                     limit: batchSize
                 )
                 guard batch.isEmpty == false else { break }
-
+                diagnostics.observeArticleBatch(count: batch.count)
+                let starredExternalIDs = try fetchStarredExternalIDs(
+                    feedID: feedID,
+                    articles: batch,
+                    diagnostics: &diagnostics
+                )
                 let articlesToDelete = batch.filter { article in
                     starredExternalIDs.contains(article.externalID) == false
                 }
@@ -165,11 +251,9 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
                 offset += batch.count - articlesToDelete.count
             }
 
-            let remainingExternalIDs = try fetchMaterializedExternalIDs(feedID: feed.id)
-            let orphanCleanupResult = try articleStateRepository.deleteOrphanStates(
-                feedID: feed.id,
-                keepingArticleExternalIDs: remainingExternalIDs,
-                batchSize: batchSize
+            let orphanCleanupResult = try deleteOrphanStates(
+                feedID: feedID,
+                diagnostics: &diagnostics
             )
             deletedOrphanArticleStateCount += orphanCleanupResult.deletedCount
         }
@@ -178,19 +262,54 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
             inspectedArchivedCount: inspectedArchivedCount,
             deletedCount: deletedCount,
             retainedStarredCount: retainedStarredCount,
-            deletedOrphanArticleStateCount: deletedOrphanArticleStateCount
+            deletedOrphanArticleStateCount: deletedOrphanArticleStateCount,
+            diagnostics: diagnostics.snapshot
         )
         logger.info(
-            "Article archive purge finished inspected=\(result.inspectedArchivedCount) deleted=\(result.deletedCount) retainedStarred=\(result.retainedStarredCount) deletedOrphanStates=\(result.deletedOrphanArticleStateCount)"
+            "Article archive purge finished inspected=\(result.inspectedArchivedCount) deleted=\(result.deletedCount) retainedStarred=\(result.retainedStarredCount) deletedOrphanStates=\(result.deletedOrphanArticleStateCount) feeds=\(result.diagnostics.processedFeedCount) feedBatches=\(result.diagnostics.processedFeedBatchCount) articleBatches=\(result.diagnostics.processedArticleBatchCount) articleStateBatches=\(result.diagnostics.processedArticleStateBatchCount) maximumMaterializedFeedBatch=\(result.diagnostics.maximumMaterializedFeedBatchCount) maximumMaterializedArticleBatch=\(result.diagnostics.maximumMaterializedArticleBatchCount) maximumMaterializedArticleStateBatch=\(result.diagnostics.maximumMaterializedArticleStateBatchCount)"
         )
         return result
+    }
+
+    private func forEachFeedID(
+        in scope: ArticleRetentionCleanupScope,
+        diagnostics: inout MutableDiagnostics,
+        operation: (UUID, inout MutableDiagnostics) throws -> Void
+    ) throws {
+        switch scope {
+        case .allFeeds:
+            var offset = 0
+            while true {
+                let feedIDs = try feedRepository.fetchRetentionFeedIDBatch(
+                    offset: offset,
+                    limit: batchSize
+                )
+                guard feedIDs.isEmpty == false else { break }
+                diagnostics.observeFeedBatch(count: feedIDs.count)
+                for feedID in feedIDs {
+                    try operation(feedID, &diagnostics)
+                }
+                offset += feedIDs.count
+            }
+        case .feedIDs(let feedIDs):
+            var offset = 0
+            while offset < feedIDs.count {
+                let upperBound = min(offset + batchSize, feedIDs.count)
+                let batch = Array(feedIDs[offset..<upperBound])
+                diagnostics.observeFeedBatch(count: batch.count)
+                for feedID in batch {
+                    try operation(feedID, &diagnostics)
+                }
+                offset = upperBound
+            }
+        }
     }
 
     private func deleteTimeOrMembershipExpiredArticles(
         feedID: UUID,
         policy: ArticleRetentionPolicy,
         sourceAgeCutoffDate: Date?,
-        starredExternalIDs: Set<String>
+        diagnostics: inout MutableDiagnostics
     ) throws -> Int {
         let scope: ArticleRetentionBatchScope = switch contract.timeRule(for: policy) {
         case .whileReturnedByFeed:
@@ -209,6 +328,12 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
                 limit: batchSize
             )
             guard batch.isEmpty == false else { break }
+            diagnostics.observeArticleBatch(count: batch.count)
+            let starredExternalIDs = try fetchStarredExternalIDs(
+                feedID: feedID,
+                articles: batch,
+                diagnostics: &diagnostics
+            )
 
             let articlesToDelete = batch.filter { article in
                 guard starredExternalIDs.contains(article.externalID) == false else {
@@ -241,14 +366,13 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
 
     private func selectArticlesWithinCountBudget(
         feedID: UUID,
-        starredExternalIDs: Set<String>
+        diagnostics: inout MutableDiagnostics
     ) throws -> CountSelection {
         var offset = 0
         var inspectedCount = 0
         var unstarredCount = 0
         var starredCount = 0
         var retainedArticles: [RankedArticle] = []
-        var materializedStarredExternalIDs: Set<String> = []
 
         while true {
             let batch = try articleRepository.fetchRetentionBatch(
@@ -258,6 +382,12 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
                 limit: batchSize
             )
             guard batch.isEmpty == false else { break }
+            diagnostics.observeArticleBatch(count: batch.count)
+            let starredExternalIDs = try fetchStarredExternalIDs(
+                feedID: feedID,
+                articles: batch,
+                diagnostics: &diagnostics
+            )
 
             inspectedCount += batch.count
             offset += batch.count
@@ -267,7 +397,6 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
             for article in batch {
                 if starredExternalIDs.contains(article.externalID) {
                     starredCount += 1
-                    materializedStarredExternalIDs.insert(article.externalID)
                     continue
                 }
 
@@ -297,8 +426,6 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
 
         return CountSelection(
             retainedArticleIDs: Set(retainedArticles.map(\.id)),
-            retainedArticleExternalIDs: Set(retainedArticles.map(\.externalID))
-                .union(materializedStarredExternalIDs),
             inspectedCount: inspectedCount,
             unstarredCount: unstarredCount,
             starredCount: starredCount
@@ -308,7 +435,7 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
     private func deleteArticlesOutsideCountBudget(
         feedID: UUID,
         retainedArticleIDs: Set<UUID>,
-        starredExternalIDs: Set<String>
+        diagnostics: inout MutableDiagnostics
     ) throws -> Int {
         var offset = 0
         var deletedCount = 0
@@ -321,6 +448,12 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
                 limit: batchSize
             )
             guard batch.isEmpty == false else { break }
+            diagnostics.observeArticleBatch(count: batch.count)
+            let starredExternalIDs = try fetchStarredExternalIDs(
+                feedID: feedID,
+                articles: batch,
+                diagnostics: &diagnostics
+            )
 
             let articlesToDelete = batch.filter { article in
                 starredExternalIDs.contains(article.externalID) == false
@@ -334,23 +467,77 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
         return deletedCount
     }
 
-    private func fetchMaterializedExternalIDs(feedID: UUID) throws -> Set<String> {
+    private func fetchStarredExternalIDs(
+        feedID: UUID,
+        articles: [Article],
+        diagnostics: inout MutableDiagnostics
+    ) throws -> Set<String> {
+        let result = try articleStateRepository.fetchStarredArticleExternalIDs(
+            feedID: feedID,
+            articleExternalIDs: articles.map(\.externalID),
+            batchSize: batchSize
+        )
+        diagnostics.observeArticleStateBatches(
+            processedCount: result.processedBatchCount,
+            maximumMaterializedCount: result.maximumMaterializedBatchCount
+        )
+        return result.externalIDs
+    }
+
+    private func deleteOrphanStates(
+        feedID: UUID,
+        diagnostics: inout MutableDiagnostics
+    ) throws -> ArticleStateOrphanCleanupResult {
         var offset = 0
-        var externalIDs: Set<String> = []
+        var inspectedCount = 0
+        var deletedCount = 0
+        var retainedStarredCount = 0
+        var processedBatchCount = 0
+        var maximumMaterializedBatchCount = 0
 
         while true {
-            let batch = try articleRepository.fetchRetentionBatch(
+            let states = try articleStateRepository.fetchOrphanSweepBatch(
                 feedID: feedID,
-                scope: .all,
                 offset: offset,
                 limit: batchSize
             )
-            guard batch.isEmpty == false else { break }
-            externalIDs.formUnion(batch.map(\.externalID))
-            offset += batch.count
+            guard states.isEmpty == false else { break }
+
+            diagnostics.observeArticleStateBatch(count: states.count)
+            processedBatchCount += 1
+            maximumMaterializedBatchCount = max(maximumMaterializedBatchCount, states.count)
+            var retainedCount = 0
+            var statesToDelete: [ArticleState] = []
+            statesToDelete.reserveCapacity(states.count)
+
+            for state in states {
+                inspectedCount += 1
+                let isLinked = try articleRepository.containsArticle(
+                    feedID: feedID,
+                    externalID: state.articleExternalID
+                )
+                if isLinked || state.isStarred {
+                    retainedCount += 1
+                    if isLinked == false, state.isStarred {
+                        retainedStarredCount += 1
+                    }
+                    continue
+                }
+                statesToDelete.append(state)
+            }
+
+            try articleStateRepository.delete(statesToDelete, saveAfterOperation: true)
+            deletedCount += statesToDelete.count
+            offset += retainedCount
         }
 
-        return externalIDs
+        return ArticleStateOrphanCleanupResult(
+            inspectedCount: inspectedCount,
+            deletedCount: deletedCount,
+            retainedStarredCount: retainedStarredCount,
+            processedBatchCount: processedBatchCount,
+            maximumMaterializedBatchCount: maximumMaterializedBatchCount
+        )
     }
 
     private func ranksBefore(_ lhs: RankedArticle, _ rhs: RankedArticle) -> Bool {
@@ -364,5 +551,16 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
             return lhs.externalID > rhs.externalID
         }
         return lhs.id.uuidString > rhs.id.uuidString
+    }
+}
+
+private extension ArticleRetentionCleanupScope {
+    var logDescription: String {
+        switch self {
+        case .allFeeds:
+            "allFeeds"
+        case .feedIDs(let feedIDs):
+            "feedIDs(count:\(feedIDs.count))"
+        }
     }
 }

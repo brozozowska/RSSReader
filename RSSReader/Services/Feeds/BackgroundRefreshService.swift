@@ -118,7 +118,11 @@ final class DefaultBackgroundRefreshService: BackgroundRefreshService {
         }
 
         do {
-            try articleRetentionCleanupService.cleanupArticles(policy: policy, now: .now)
+            try articleRetentionCleanupService.cleanupArticles(
+                policy: policy,
+                scope: .allFeeds,
+                now: .now
+            )
         } catch {
             logger.error("Failed to apply article retention after background refresh: \(error)")
         }
