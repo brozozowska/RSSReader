@@ -23,6 +23,9 @@ struct AppActionRouter {
     var persistenceBoundedGrowthCleanupService: (any PersistenceBoundedGrowthCleanupServicing)? {
         dependencies.persistenceBoundedGrowthCleanupService
     }
+    var globalOrphanSweepTriggerService: (any GlobalOrphanSweepTriggerServicing)? {
+        dependencies.globalOrphanSweepTriggerService
+    }
     var backgroundRefreshService: (any BackgroundRefreshService)? { dependencies.backgroundRefreshService }
     var unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? {
         dependencies.unreadAppIconBadgeService

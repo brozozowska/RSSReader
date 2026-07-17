@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Testing
 @testable import RSSReader
 
@@ -361,6 +362,11 @@ struct PersistenceBoundedGrowthCleanupServiceTests {
         )
 
         _ = await harness.dependencies.appActions.refreshFeedsForBackground()
+        let lifecycleSweepResult = await AppComposition.runGlobalOrphanSweepLifecycleIfNeeded(
+            from: .active,
+            using: harness.dependencies,
+            now: .now
+        )
 
         #expect(try harness.feedFetchLogRepository.fetchLogs(feedID: feed.id, limit: nil)
             .contains { $0.createdAt == expiredDate } == false)
@@ -368,6 +374,10 @@ struct PersistenceBoundedGrowthCleanupServiceTests {
             feedID: unrelatedFeedID,
             articleExternalID: "unrelated-orphan"
         ) != nil)
+        guard case .suppressed(.recentFeedScopedRetentionCleanup)? = lifecycleSweepResult else {
+            Issue.record("Expected background retention cleanup to suppress immediate global sweep")
+            return
+        }
     }
 
     @Test

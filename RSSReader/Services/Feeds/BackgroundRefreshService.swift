@@ -49,17 +49,20 @@ final class DefaultBackgroundRefreshService: BackgroundRefreshService {
     private let appSettingsService: any AppSettingsService
     private let feedRefreshService: (any FeedRefreshCoordinating)?
     private let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)?
+    private let globalOrphanSweepTriggerService: (any GlobalOrphanSweepTriggerServicing)?
 
     init(
         logger: Logging,
         appSettingsService: any AppSettingsService,
         feedRefreshService: (any FeedRefreshCoordinating)?,
-        articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)? = nil
+        articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)? = nil,
+        globalOrphanSweepTriggerService: (any GlobalOrphanSweepTriggerServicing)? = nil
     ) {
         self.logger = logger
         self.appSettingsService = appSettingsService
         self.feedRefreshService = feedRefreshService
         self.articleRetentionCleanupService = articleRetentionCleanupService
+        self.globalOrphanSweepTriggerService = globalOrphanSweepTriggerService
     }
 
     func loadConfiguration() throws -> BackgroundRefreshConfiguration {
@@ -118,11 +121,13 @@ final class DefaultBackgroundRefreshService: BackgroundRefreshService {
         }
 
         do {
+            let now = Date.now
             try articleRetentionCleanupService.cleanupArticles(
                 policy: policy,
                 scope: .allFeeds,
-                now: .now
+                now: now
             )
+            globalOrphanSweepTriggerService?.recordFeedScopedRetentionCleanupCompleted(at: now)
         } catch {
             logger.error("Failed to apply article retention after background refresh: \(error)")
         }

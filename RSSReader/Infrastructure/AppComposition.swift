@@ -35,6 +35,7 @@ enum AppComposition {
             modelPartition: resolvedModelPartition,
             syncEnablementPolicy: resolvedSyncEnablementPolicy,
             syncCoordinator: syncCoordinator,
+            globalOrphanSweepScheduleStore: UserDefaultsGlobalOrphanSweepScheduleStore(),
             logger: logger
         )
         dependencies.startSyncCoordinatorAppLifetime()
@@ -82,6 +83,12 @@ struct AppRootContainer: View {
             dependencies.startRemoteSyncReloadAppLifetime(using: appState)
             await restorePersistedAppSettingsIfNeeded()
             await dependencies.appActions.refreshUnreadAppIconBadgeCount()
+        }
+        .task(id: scenePhase) {
+            _ = await AppComposition.runGlobalOrphanSweepLifecycleIfNeeded(
+                from: scenePhase,
+                using: dependencies
+            )
         }
         .onChange(of: scenePhase) { _, newPhase in
             AppComposition.applyBackgroundRefreshForegroundRuntimeState(

@@ -34,6 +34,7 @@ extension AppDependencies {
         syncEnablementPolicy: AppSyncEnablementPolicy,
         syncCoordinator: SyncCoordinator,
         syncBootstrapPreferenceStore: (any AppSyncBootstrapPreferenceStoring)? = nil,
+        globalOrphanSweepScheduleStore: (any GlobalOrphanSweepScheduleStoring)? = nil,
         logger: Logging? = nil
     ) -> AppDependencies {
         let logger = logger ?? makeDefaultLogger()
@@ -106,6 +107,7 @@ extension AppDependencies {
             syncBackedStoreReference: syncBackedStoreReference,
             syncBootstrapPreferenceStore: resolvedSyncBootstrapPreferenceStore,
             syncBootstrapContext: syncBootstrapContext,
+            globalOrphanSweepScheduleStore: globalOrphanSweepScheduleStore,
             syncCoordinator: syncCoordinator
         )
     }

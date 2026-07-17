@@ -19,6 +19,7 @@ extension AppActionRouter {
                 scope: scope,
                 now: now
             )
+            globalOrphanSweepTriggerService?.recordFeedScopedRetentionCleanupCompleted(at: now)
             cleanupFeedFetchLogs(now: now)
             return result
         } catch {
@@ -53,7 +54,7 @@ extension AppActionRouter {
 
     @MainActor
     @discardableResult
-    func purgeArchivedArticles() -> ArticleArchivePurgeResult? {
+    func purgeArchivedArticles(now: Date = .now) -> ArticleArchivePurgeResult? {
         guard let articleRetentionCleanupService else {
             logger.debug("Article retention cleanup service is unavailable for article archive purge")
             return nil
@@ -61,7 +62,8 @@ extension AppActionRouter {
 
         do {
             let result = try articleRetentionCleanupService.purgeArchivedArticles()
-            cleanupFeedFetchLogs()
+            globalOrphanSweepTriggerService?.recordFeedScopedRetentionCleanupCompleted(at: now)
+            cleanupFeedFetchLogs(now: now)
             return result
         } catch {
             logger.error("Failed to purge archived articles: \(error)")
@@ -94,10 +96,25 @@ extension AppActionRouter {
         }
 
         do {
-            return try persistenceBoundedGrowthCleanupService.cleanupBoundedGrowth(now: now)
+            let result = try persistenceBoundedGrowthCleanupService.cleanupBoundedGrowth(now: now)
+            globalOrphanSweepTriggerService?.recordSuccessfulGlobalSweepCompleted(at: now)
+            return result
         } catch {
             logger.error("Failed to clean up bounded persistence growth: \(error)")
             return nil
         }
+    }
+
+    @MainActor
+    @discardableResult
+    func runScheduledGlobalOrphanSweepIfDue(
+        now: Date = .now
+    ) async -> GlobalOrphanSweepTriggerResult? {
+        guard let globalOrphanSweepTriggerService else {
+            logger.debug("Global orphan sweep trigger service is unavailable")
+            return nil
+        }
+
+        return await globalOrphanSweepTriggerService.runIfDue(now: now)
     }
 }

@@ -77,7 +77,9 @@ final class PersistenceBoundedGrowthCleanupService: PersistenceBoundedGrowthClea
 
     @discardableResult
     func cleanupBoundedGrowth(now: Date = .now) throws -> PersistenceBoundedGrowthCleanupResult {
+        try Task.checkCancellation()
         let feedFetchLogResult = try performFeedFetchLogCleanup(now: now)
+        try Task.checkCancellation()
         let articleStateCleanupResult = try cleanupGlobalOrphanArticleStates()
 
         let result = PersistenceBoundedGrowthCleanupResult(
@@ -132,6 +134,7 @@ final class PersistenceBoundedGrowthCleanupService: PersistenceBoundedGrowthClea
         var maximumMaterializedBatchCount = 0
 
         while true {
+            try Task.checkCancellation()
             let states = try articleStateRepository.fetchGlobalOrphanSweepBatch(
                 offset: offset,
                 limit: batchSize
@@ -145,6 +148,7 @@ final class PersistenceBoundedGrowthCleanupService: PersistenceBoundedGrowthClea
             statesToDelete.reserveCapacity(states.count)
 
             for state in states {
+                try Task.checkCancellation()
                 inspectedCount += 1
                 let isLinked = try articleRepository.containsArticle(
                     feedID: state.feedID,

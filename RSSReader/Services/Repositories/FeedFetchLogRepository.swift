@@ -110,6 +110,7 @@ final class SwiftDataFeedFetchLogRepository: FeedFetchLogRepository, SwiftDataRe
         var maximumMaterializedBatchCount = 0
 
         while true {
+            try Task.checkCancellation()
             var descriptor = FetchDescriptor<FeedFetchLog>(
                 predicate: #Predicate<FeedFetchLog> { log in
                     log.createdAt < cutoffDate
@@ -156,6 +157,7 @@ final class SwiftDataFeedFetchLogRepository: FeedFetchLogRepository, SwiftDataRe
         var retainedCountForCurrentFeed = 0
 
         while true {
+            try Task.checkCancellation()
             var descriptor = FetchDescriptor<FeedFetchLog>(
                 sortBy: [
                     SortDescriptor(\FeedFetchLog.feedID, order: .forward),
