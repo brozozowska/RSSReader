@@ -1,6 +1,6 @@
 import Foundation
 
-struct OPMLImportPreviewPlan: Equatable, Sendable {
+nonisolated struct OPMLImportPreviewPlan: Equatable, Sendable {
     let entries: [OPMLImportPreviewEntryDTO]
     let ignoredOutlineCount: Int
 
@@ -13,7 +13,7 @@ struct OPMLImportPreviewPlan: Equatable, Sendable {
     }
 }
 
-struct OPMLImportPreviewEntryDTO: Identifiable, Equatable, Sendable {
+nonisolated struct OPMLImportPreviewEntryDTO: Identifiable, Equatable, Sendable {
     let id: Int
     let outline: OPMLFeedOutlineDTO
     let normalizedFeedURL: String?
@@ -27,24 +27,24 @@ struct OPMLImportPreviewEntryDTO: Identifiable, Equatable, Sendable {
     }
 }
 
-enum OPMLImportFolderResolution: Equatable, Sendable {
+nonisolated enum OPMLImportFolderResolution: Equatable, Sendable {
     case ungrouped
     case existingFolder(id: UUID, name: String)
     case newFolder(name: String)
 }
 
-enum OPMLImportPreviewIssue: Equatable, Sendable {
+nonisolated enum OPMLImportPreviewIssue: Equatable, Sendable {
     case invalidFeedURL(String)
     case duplicateFeedURL(String, origin: OPMLImportDuplicateOrigin)
     case duplicateDisplayTitle(String, origin: OPMLImportDuplicateOrigin)
 }
 
-enum OPMLImportDuplicateOrigin: Equatable, Sendable {
+nonisolated enum OPMLImportDuplicateOrigin: Equatable, Sendable {
     case existingFeed(id: UUID)
     case importedEntry(index: Int)
 }
 
-enum OPMLImportPreviewPlanner {
+nonisolated enum OPMLImportPreviewPlanner {
     @MainActor
     static func makePlan(
         document: OPMLDocumentDTO,
@@ -62,6 +62,33 @@ enum OPMLImportPreviewPlanner {
         existingFeeds: [FeedManagementFeedSummary],
         existingFolders: [FeedManagementFolderSummary]
     ) -> OPMLImportPreviewPlan {
+        makePlan(
+            document: document,
+            existingFeeds: existingFeeds,
+            existingFolders: existingFolders,
+            cancellationCheck: {}
+        )
+    }
+
+    static func makePlanCheckingCancellation(
+        document: OPMLDocumentDTO,
+        existingFeeds: [FeedManagementFeedSummary],
+        existingFolders: [FeedManagementFolderSummary]
+    ) throws -> OPMLImportPreviewPlan {
+        try makePlan(
+            document: document,
+            existingFeeds: existingFeeds,
+            existingFolders: existingFolders,
+            cancellationCheck: Task.checkCancellation
+        )
+    }
+
+    private static func makePlan(
+        document: OPMLDocumentDTO,
+        existingFeeds: [FeedManagementFeedSummary],
+        existingFolders: [FeedManagementFolderSummary],
+        cancellationCheck: () throws -> Void
+    ) rethrows -> OPMLImportPreviewPlan {
         let context = OPMLImportPreviewContext(
             existingFeeds: existingFeeds,
             existingFolders: existingFolders
@@ -69,14 +96,18 @@ enum OPMLImportPreviewPlanner {
         var importedFeedURLs: [String: Int] = [:]
         var importedDisplayTitles: [String: Int] = [:]
 
-        let entries = document.feeds.enumerated().map { index, feed in
-            makeEntry(
+        var entries: [OPMLImportPreviewEntryDTO] = []
+        entries.reserveCapacity(document.feeds.count)
+
+        for (index, feed) in document.feeds.enumerated() {
+            try cancellationCheck()
+            entries.append(makeEntry(
                 id: index,
                 feed: feed,
                 context: context,
                 importedFeedURLs: &importedFeedURLs,
                 importedDisplayTitles: &importedDisplayTitles
-            )
+            ))
         }
 
         return OPMLImportPreviewPlan(
@@ -171,7 +202,7 @@ enum OPMLImportPreviewPlanner {
     }
 }
 
-private struct OPMLImportPreviewContext {
+private nonisolated struct OPMLImportPreviewContext {
     let existingFeedIDsByURL: [String: UUID]
     let existingFeedIDsByDisplayTitle: [String: UUID]
     let existingFoldersByName: [String: FeedManagementFolderSummary]

@@ -20,7 +20,7 @@ enum SettingsScreenPresentationFormatter {
     static func articleRetentionPolicyTitle(_ policy: ArticleRetentionPolicy) -> String {
         switch policy {
         case .currentFeedOnly:
-            SettingsLocalization.noneOptionTitle
+            SettingsLocalization.currentFeedOnlyOptionTitle
         case .twoDays:
             SettingsLocalization.twoDaysOptionTitle
         case .oneWeek:

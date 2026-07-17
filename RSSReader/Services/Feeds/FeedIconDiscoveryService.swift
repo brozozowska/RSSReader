@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import UIKit
 
 @MainActor
@@ -113,11 +114,20 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
                     "Accept": "image/png, image/jpeg, image/x-icon, image/*;q=0.9, */*;q=0.1",
                     "User-Agent": "RSSReader/0 (Feed Icon Discovery)"
                 ],
-                timeoutInterval: timeoutInterval
+                timeoutInterval: timeoutInterval,
+                maximumResponseBodyBytes: AppComposition.resourceBudgetContract
+                    .feedIcon
+                    .body
+                    .maximumCompressedBodyBytes
             )
         )
-        guard (200...299).contains(response.statusCode),
-              FeedIconImagePolicy.isSuitableRasterIcon(response.body) else {
+        guard (200...299).contains(response.statusCode) else {
+            return nil
+        }
+        let iconBudget = AppComposition.resourceBudgetContract.feedIcon
+        try iconBudget.body.validateCompressedBodyByteCount(Int64(response.body.count))
+        try iconBudget.body.validateMIMEType(response.contentType)
+        guard FeedIconImagePolicy.isSuitableRasterIcon(response.body, budget: iconBudget) else {
             return nil
         }
 
@@ -141,13 +151,14 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
                         "Accept": "text/html, application/xhtml+xml;q=0.9, */*;q=0.1",
                         "User-Agent": "RSSReader/0 (Feed Icon Discovery)"
                     ],
-                    timeoutInterval: timeoutInterval
+                    timeoutInterval: timeoutInterval,
+                    maximumResponseBodyBytes: AppComposition.resourceBudgetContract
+                        .discoveryHTML
+                        .body
+                        .maximumCompressedBodyBytes
                 )
             )
-            guard (200...299).contains(response.statusCode),
-                  let html = String(data: response.body, encoding: .utf8) else {
-                return nil
-            }
+            guard let html = try HTMLDiscoveryResponseDecoder.decode(response) else { return nil }
             return FeedIconHTMLDocument(html: html, baseURL: response.url)
         } catch {
             logger.debug(
@@ -214,17 +225,11 @@ enum FeedIconCandidateBuilder {
     }
 
     static func htmlIconCandidates(in html: String, baseURL: URL) -> [URL] {
-        guard let linkTagExpression = try? NSRegularExpression(
-            pattern: #"<link\b[^>]*>"#,
-            options: [.caseInsensitive]
-        ) else {
-            return []
-        }
-
-        let nsRange = NSRange(html.startIndex..<html.endIndex, in: html)
-        let candidates = linkTagExpression.matches(in: html, range: nsRange).compactMap { match -> FeedIconCandidate? in
-            guard let tagRange = Range(match.range, in: html) else { return nil }
-            let attributes = linkTagAttributes(in: String(html[tagRange]))
+        let htmlBudget = AppComposition.resourceBudgetContract.discoveryHTML
+        let candidates = HTMLLinkDiscoveryParser.linkTagAttributes(
+            in: html,
+            maximumLinkTagCount: htmlBudget.maximumLinkTagCountToInspect
+        ).compactMap { attributes -> FeedIconCandidate? in
             guard let href = attributes["href"],
                   let rel = attributes["rel"],
                   let priority = iconPriority(forRelValue: rel),
@@ -236,7 +241,7 @@ enum FeedIconCandidateBuilder {
             return FeedIconCandidate(url: url, priority: priority)
         }
 
-        return deduplicated(
+        return Array(deduplicated(
             candidates
                 .sorted { lhs, rhs in
                     lhs.priority == rhs.priority
@@ -244,7 +249,7 @@ enum FeedIconCandidateBuilder {
                         : lhs.priority < rhs.priority
                 }
                 .map(\.url)
-        )
+        ).prefix(htmlBudget.maximumDiscoveryCandidateCount))
     }
 
     static func isSupportedIconURL(_ url: URL) -> Bool {
@@ -281,42 +286,26 @@ enum FeedIconCandidateBuilder {
         }
     }
 
-    private static func linkTagAttributes(in tag: String) -> [String: String] {
-        guard let attributeExpression = try? NSRegularExpression(
-            pattern: #"([A-Za-z_:][-A-Za-z0-9_:.]*)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)"#,
-            options: [.caseInsensitive]
-        ) else {
-            return [:]
-        }
-
-        let nsRange = NSRange(tag.startIndex..<tag.endIndex, in: tag)
-        return attributeExpression.matches(in: tag, range: nsRange).reduce(into: [String: String]()) { result, match in
-            guard match.numberOfRanges == 3,
-                  let nameRange = Range(match.range(at: 1), in: tag),
-                  let valueRange = Range(match.range(at: 2), in: tag) else {
-                return
-            }
-
-            let name = String(tag[nameRange]).lowercased()
-            let rawValue = String(tag[valueRange])
-            result[name] = unquotedAttributeValue(rawValue)
-        }
-    }
-
-    private static func unquotedAttributeValue(_ value: String) -> String {
-        guard value.count >= 2,
-              let first = value.first,
-              let last = value.last,
-              (first == "\"" && last == "\"") || (first == "'" && last == "'") else {
-            return value
-        }
-
-        return String(value.dropFirst().dropLast())
-    }
 }
 
 enum FeedIconImagePolicy {
-    static func isSuitableRasterIcon(_ data: Data) -> Bool {
+    static func isSuitableRasterIcon(
+        _ data: Data,
+        budget: RuntimeImageInputBudget = AppComposition.resourceBudgetContract.feedIcon
+    ) -> Bool {
+        guard let imageSource = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
+              let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue,
+              let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue else {
+            return false
+        }
+
+        do {
+            try budget.validatePixelDimensions(width: width, height: height)
+        } catch {
+            return false
+        }
+
         guard let image = UIImage(data: data) else { return false }
         return isSuitableIconSize(image.size)
     }

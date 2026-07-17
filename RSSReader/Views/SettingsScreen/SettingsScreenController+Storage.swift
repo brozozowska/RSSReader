@@ -44,6 +44,7 @@ extension SettingsScreenController {
         if result.deletedCount > 0 {
             appState?.requestSidebarReload()
             appState?.requestArticleListReload()
+            dependencies.appActions.scheduleUnreadAppIconBadgeRefresh()
         }
     }
 }

@@ -171,6 +171,53 @@ struct SettingsScreenControllerSideEffectsTests {
     }
 
     @Test
+    func applyingStricterRetentionReloadsSidebarAndArticleListAndRefreshesBadge() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let badgeService = SettingsRecordingUnreadAppIconBadgeService()
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            httpClient: harness.httpClient,
+            feedFetcher: harness.dependencies.feedFetcher,
+            modelContainer: harness.modelContainer,
+            unreadAppIconBadgeService: badgeService
+        )
+        let settingsService = try #require(dependencies.appSettingsService)
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/settings-retention.xml"]).first)
+        let now = Date.now
+        let sourceDate = now.addingTimeInterval(-(14 * 24 * 60 * 60))
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "expired-current",
+            url: "https://example.com/expired-current",
+            title: "Expired Current",
+            publishedAt: sourceDate,
+            fetchedAt: sourceDate,
+            createdAt: sourceDate
+        )
+        _ = try settingsService.updateSettings(
+            AppSettingsPatch(articleRetentionPolicy: .oneMonth, updatedAt: .distantPast)
+        )
+        let controller = SettingsScreenController()
+        let appState = AppState()
+        let initialSidebarReloadID = appState.sidebarReloadID
+        let initialArticleListReloadID = appState.articleListReloadID
+        controller.loadSettings(dependencies: dependencies, appState: appState)
+        controller.handlePickerOptionSelection(
+            itemID: .articleRetentionPolicy,
+            optionID: ArticleRetentionPolicy.oneWeek.rawValue,
+            dependencies: dependencies
+        )
+
+        #expect(controller.applySettingsChanges(dependencies: dependencies, appState: appState))
+        await waitForBadgeRefreshCount(1, in: badgeService)
+
+        #expect(try harness.articleRepository.fetchArticle(id: article.id) == nil)
+        #expect(appState.sidebarReloadID != initialSidebarReloadID)
+        #expect(appState.articleListReloadID != initialArticleListReloadID)
+        #expect(badgeService.refreshBadgeCountCallCount == 1)
+    }
+
+    @Test
     func settingsScreenControllerPersistsICloudSyncBootPreferenceTransitionWithoutChangingUnrelatedSettings() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let syncBootstrapPreferenceStore = SettingsRecordingSyncBootstrapPreferenceStore()
@@ -260,8 +307,11 @@ private actor SettingsRecordingFeedIconCache: FeedIconCaching {
 @MainActor
 private final class SettingsRecordingUnreadAppIconBadgeService: UnreadAppIconBadgeServicing {
     private(set) var appliedPreferences: [Bool] = []
+    private(set) var refreshBadgeCountCallCount = 0
 
-    func refreshBadgeCount() async {}
+    func refreshBadgeCount() async {
+        refreshBadgeCountCallCount += 1
+    }
 
     func applyBadgePreference(isEnabled: Bool) async {
         appliedPreferences.append(isEnabled)
@@ -289,6 +339,19 @@ private func waitForBadgePreferences(
 ) async {
     for _ in 0..<20 {
         if badgeService.appliedPreferences == expectedPreferences {
+            return
+        }
+        await Task.yield()
+    }
+}
+
+@MainActor
+private func waitForBadgeRefreshCount(
+    _ expectedCount: Int,
+    in badgeService: SettingsRecordingUnreadAppIconBadgeService
+) async {
+    for _ in 0..<20 {
+        if badgeService.refreshBadgeCountCallCount == expectedCount {
             return
         }
         await Task.yield()

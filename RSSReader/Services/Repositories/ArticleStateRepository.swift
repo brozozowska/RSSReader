@@ -27,15 +27,18 @@ struct ArticleUserStateSnapshot: Sendable {
     }
 }
 
-struct ArticleStateIdentity: Hashable, Sendable {
-    let feedID: UUID
-    let articleExternalID: String
-}
-
 struct ArticleStateOrphanCleanupResult: Equatable, Sendable {
     let inspectedCount: Int
     let deletedCount: Int
     let retainedStarredCount: Int
+    let processedBatchCount: Int
+    let maximumMaterializedBatchCount: Int
+}
+
+struct ArticleStateExternalIDBatchResult: Equatable, Sendable {
+    let externalIDs: Set<String>
+    let processedBatchCount: Int
+    let maximumMaterializedBatchCount: Int
 }
 
 struct ArticleStateUpsert: Sendable {
@@ -60,11 +63,14 @@ protocol ArticleStateRepository {
     func fetchStateSnapshot(feedID: UUID, articleExternalID: String) throws -> ArticleUserStateSnapshot?
     func fetchStateSnapshots(feedID: UUID, articleExternalIDs: [String]) throws -> [String: ArticleUserStateSnapshot]
     func fetchStateSnapshots(for articles: [Article]) throws -> [String: ArticleUserStateSnapshot]
+    func fetchStarredArticleExternalIDs(
+        feedID: UUID,
+        articleExternalIDs: [String],
+        batchSize: Int
+    ) throws -> ArticleStateExternalIDBatchResult
     func fetchUnreadCounts(feedIDs: [UUID]) throws -> [UUID: Int]
-    func deleteOrphanStates(
-        keepingArticleIdentities articleIdentities: Set<ArticleStateIdentity>,
-        saveAfterOperation: Bool
-    ) throws -> ArticleStateOrphanCleanupResult
+    func fetchGlobalOrphanSweepBatch(offset: Int, limit: Int) throws -> [ArticleState]
+    func fetchOrphanSweepBatch(feedID: UUID, offset: Int, limit: Int) throws -> [ArticleState]
 
     @discardableResult
     func upsert(feedID: UUID, articleExternalID: String, update: ArticleStateUpsert) throws -> ArticleState
@@ -78,6 +84,7 @@ protocol ArticleStateRepository {
     @discardableResult
     func bulkSetHidden(feedID: UUID, articleExternalIDs: [String], isHidden: Bool, at: Date) throws -> [ArticleState]
 
+    func delete(_ states: [ArticleState], saveAfterOperation: Bool) throws
     func save() throws
 }
 
@@ -115,6 +122,7 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
         let descriptor = FetchDescriptor<ArticleState>(
             predicate: #Predicate<ArticleState> { articleState in
                 articleState.feedID == feedID
+                    && normalizedIDs.contains(articleState.articleExternalID)
             }
         )
 
@@ -139,6 +147,56 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
         }
 
         return snapshotsByCompositeKey
+    }
+
+    func fetchStarredArticleExternalIDs(
+        feedID: UUID,
+        articleExternalIDs: [String],
+        batchSize: Int
+    ) throws -> ArticleStateExternalIDBatchResult {
+        precondition(batchSize > 0)
+        let normalizedIDs = normalizedIdentifiers(articleExternalIDs)
+        guard normalizedIDs.isEmpty == false else {
+            return ArticleStateExternalIDBatchResult(
+                externalIDs: [],
+                processedBatchCount: 0,
+                maximumMaterializedBatchCount: 0
+            )
+        }
+
+        var offset = 0
+        var starredExternalIDs: Set<String> = []
+        var processedBatchCount = 0
+        var maximumMaterializedBatchCount = 0
+
+        while true {
+            var descriptor = FetchDescriptor<ArticleState>(
+                predicate: #Predicate<ArticleState> { articleState in
+                    articleState.feedID == feedID
+                        && articleState.isStarred
+                        && normalizedIDs.contains(articleState.articleExternalID)
+                },
+                sortBy: [
+                    SortDescriptor(\ArticleState.updatedAt, order: .forward),
+                    SortDescriptor(\ArticleState.id, order: .forward)
+                ]
+            )
+            descriptor.fetchOffset = offset
+            descriptor.fetchLimit = batchSize
+            let states = try modelContext.fetch(descriptor)
+            guard states.isEmpty == false else { break }
+
+            processedBatchCount += 1
+            maximumMaterializedBatchCount = max(maximumMaterializedBatchCount, states.count)
+            starredExternalIDs.formUnion(states.map(\.articleExternalID))
+            offset += states.count
+        }
+
+        return ArticleStateExternalIDBatchResult(
+            externalIDs: starredExternalIDs,
+            processedBatchCount: processedBatchCount,
+            maximumMaterializedBatchCount: maximumMaterializedBatchCount
+        )
     }
 
     func fetchUnreadCounts(feedIDs: [UUID]) throws -> [UUID: Int] {
@@ -169,42 +227,35 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
         return unreadCounts
     }
 
-    func deleteOrphanStates(
-        keepingArticleIdentities articleIdentities: Set<ArticleStateIdentity>,
-        saveAfterOperation: Bool = true
-    ) throws -> ArticleStateOrphanCleanupResult {
-        let descriptor = FetchDescriptor<ArticleState>()
-        let states = try modelContext.fetch(descriptor)
-        var deletedCount = 0
-        var retainedStarredCount = 0
-
-        for state in states {
-            let identity = ArticleStateIdentity(
-                feedID: state.feedID,
-                articleExternalID: state.articleExternalID
-            )
-            guard articleIdentities.contains(identity) == false else {
-                continue
-            }
-
-            if state.isStarred {
-                retainedStarredCount += 1
-                continue
-            }
-
-            modelContext.delete(state)
-            deletedCount += 1
-        }
-
-        if saveAfterOperation {
-            try saveIfNeeded()
-        }
-
-        return ArticleStateOrphanCleanupResult(
-            inspectedCount: states.count,
-            deletedCount: deletedCount,
-            retainedStarredCount: retainedStarredCount
+    func fetchGlobalOrphanSweepBatch(offset: Int, limit: Int) throws -> [ArticleState] {
+        precondition(offset >= 0)
+        precondition(limit > 0)
+        var descriptor = FetchDescriptor<ArticleState>(
+            sortBy: [
+                SortDescriptor(\ArticleState.updatedAt, order: .forward),
+                SortDescriptor(\ArticleState.id, order: .forward)
+            ]
         )
+        descriptor.fetchOffset = offset
+        descriptor.fetchLimit = limit
+        return try modelContext.fetch(descriptor)
+    }
+
+    func fetchOrphanSweepBatch(feedID: UUID, offset: Int, limit: Int) throws -> [ArticleState] {
+        precondition(offset >= 0)
+        precondition(limit > 0)
+        var descriptor = FetchDescriptor<ArticleState>(
+            predicate: #Predicate<ArticleState> { articleState in
+                articleState.feedID == feedID
+            },
+            sortBy: [
+                SortDescriptor(\ArticleState.updatedAt, order: .forward),
+                SortDescriptor(\ArticleState.id, order: .forward)
+            ]
+        )
+        descriptor.fetchOffset = offset
+        descriptor.fetchLimit = limit
+        return try modelContext.fetch(descriptor)
     }
 
     @discardableResult
@@ -259,6 +310,17 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
                 updatedAt: at
             )
         )
+    }
+
+    func delete(_ states: [ArticleState], saveAfterOperation: Bool = true) throws {
+        guard states.isEmpty == false else { return }
+
+        for state in states {
+            modelContext.delete(state)
+        }
+        if saveAfterOperation {
+            try saveIfNeeded()
+        }
     }
 
     func save() throws {

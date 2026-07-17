@@ -11,6 +11,10 @@ struct FeedManagementFeedPreviewService {
         let discoveryPlan = try FeedManagementFeedDiscoveryPlanner.makePlan(for: urlString)
         var attemptedFeedURLs: Set<String> = []
         var lastPreviewError: Error?
+        var autodiscoveryCandidateCount = 0
+        let maximumAutodiscoveryCandidateCount = AppComposition.resourceBudgetContract
+            .discoveryHTML
+            .maximumDiscoveryCandidateCount
 
         for feedURL in discoveryPlan.feedURLs {
             do {
@@ -22,9 +26,14 @@ struct FeedManagementFeedPreviewService {
             }
         }
 
-        for siteURL in discoveryPlan.siteURLs {
+        siteDiscovery: for siteURL in discoveryPlan.siteURLs {
             let discoveredFeedURLs = await discoverFeedURLs(from: siteURL)
             for feedURL in discoveredFeedURLs where attemptedFeedURLs.contains(feedURL.absoluteString) == false {
+                guard autodiscoveryCandidateCount < maximumAutodiscoveryCandidateCount else {
+                    break siteDiscovery
+                }
+                autodiscoveryCandidateCount += 1
+
                 do {
                     return try await previewFeed(at: feedURL)
                 } catch {
@@ -100,13 +109,14 @@ struct FeedManagementFeedPreviewService {
                         "Accept": "text/html, application/xhtml+xml;q=0.9, */*;q=0.1",
                         "User-Agent": "RSSReader/0 (Feed Discovery)"
                     ],
-                    timeoutInterval: Self.previewRequestTimeoutInterval
+                    timeoutInterval: Self.previewRequestTimeoutInterval,
+                    maximumResponseBodyBytes: AppComposition.resourceBudgetContract
+                        .discoveryHTML
+                        .body
+                        .maximumCompressedBodyBytes
                 )
             )
-            guard (200...299).contains(response.statusCode),
-                  let html = String(data: response.body, encoding: .utf8) else {
-                return []
-            }
+            guard let html = try HTMLDiscoveryResponseDecoder.decode(response) else { return [] }
             return FeedManagementFeedDiscoveryPlanner.autodiscoveredFeedURLs(
                 in: html,
                 baseURL: response.url

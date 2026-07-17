@@ -6,6 +6,7 @@ import Observation
 /// Для app bootstrap всегда использует единый `makeAppDependencies()` path.
 /// - Parameter modelPartition: Partition SwiftData моделей. Если `nil`, используется `current` partition.
 enum AppComposition {
+    nonisolated static let resourceBudgetContract = AppResourceBudgetContract.current
     static let persistenceModelPartition = AppPersistenceModelPartition.current
     static let syncEnablementPolicy = AppSyncEnablementPolicy.current
     static let syncBackedModels = persistenceModelPartition.syncBackedModels
@@ -34,6 +35,7 @@ enum AppComposition {
             modelPartition: resolvedModelPartition,
             syncEnablementPolicy: resolvedSyncEnablementPolicy,
             syncCoordinator: syncCoordinator,
+            globalOrphanSweepScheduleStore: UserDefaultsGlobalOrphanSweepScheduleStore(),
             logger: logger
         )
         dependencies.startSyncCoordinatorAppLifetime()
@@ -81,6 +83,12 @@ struct AppRootContainer: View {
             dependencies.startRemoteSyncReloadAppLifetime(using: appState)
             await restorePersistedAppSettingsIfNeeded()
             await dependencies.appActions.refreshUnreadAppIconBadgeCount()
+        }
+        .task(id: scenePhase) {
+            _ = await AppComposition.runGlobalOrphanSweepLifecycleIfNeeded(
+                from: scenePhase,
+                using: dependencies
+            )
         }
         .onChange(of: scenePhase) { _, newPhase in
             AppComposition.applyBackgroundRefreshForegroundRuntimeState(

@@ -58,6 +58,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)?
     let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)?
     let persistenceBoundedGrowthCleanupService: (any PersistenceBoundedGrowthCleanupServicing)?
+    let globalOrphanSweepTriggerService: (any GlobalOrphanSweepTriggerServicing)?
     let articleQueryService: (any ArticleQueryService)?
     let sidebarQueryService: (any SidebarQueryService)?
     let articleStateRepository: (any ArticleStateRepository)?
@@ -92,6 +93,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         syncBootstrapPreferenceStore: (any AppSyncBootstrapPreferenceStoring)? = nil,
         syncBootstrapContext: AppSyncBootstrapContext? = nil,
         backgroundRefreshService: (any BackgroundRefreshService)? = nil,
+        globalOrphanSweepScheduleStore: (any GlobalOrphanSweepScheduleStoring)? = nil,
         feedIconDiscoveryService: (any FeedIconDiscovering)? = nil,
         backgroundRefreshForegroundHandoffCoordinator: (any BackgroundRefreshForegroundHandoffCoordinating)? = nil,
         backgroundRefreshScheduler: (any BackgroundRefreshScheduling)? = nil,
@@ -151,12 +153,13 @@ public final class AppDependencies: AppDependenciesProtocol {
             )
         }
         let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)? = {
-            guard let articleRepository, let articleStateRepository else {
+            guard let feedRepository, let articleRepository, let articleStateRepository else {
                 return nil
             }
 
             return ArticleRetentionCleanupService(
                 logger: logger,
+                feedRepository: feedRepository,
                 articleRepository: articleRepository,
                 articleStateRepository: articleStateRepository
             )
@@ -191,6 +194,16 @@ public final class AppDependencies: AppDependenciesProtocol {
                 feedFetchLogRepository: feedFetchLogRepository
             )
         }()
+        let resolvedGlobalOrphanSweepScheduleStore = globalOrphanSweepScheduleStore
+            ?? InMemoryGlobalOrphanSweepScheduleStore()
+        let globalOrphanSweepTriggerService: (any GlobalOrphanSweepTriggerServicing)? =
+            persistenceBoundedGrowthCleanupService.map { cleanupService in
+                GlobalOrphanSweepTriggerService(
+                    logger: logger,
+                    cleanupService: cleanupService,
+                    scheduleStore: resolvedGlobalOrphanSweepScheduleStore
+                )
+            }
         let resolvedFeedFetcher = feedFetcher ?? Self.makeFeedFetcher(
             httpClient: httpClient
         )
@@ -236,7 +249,8 @@ public final class AppDependencies: AppDependenciesProtocol {
                 logger: logger,
                 appSettingsService: service,
                 feedRefreshService: feedRefreshService,
-                articleRetentionCleanupService: articleRetentionCleanupService
+                articleRetentionCleanupService: articleRetentionCleanupService,
+                globalOrphanSweepTriggerService: globalOrphanSweepTriggerService
             )
         }
         let backgroundRefreshRuntimePrerequisitesSource = DefaultBackgroundRefreshRuntimePrerequisitesSource(
@@ -271,6 +285,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.unreadAppIconBadgeService = resolvedUnreadAppIconBadgeService
         self.articleRetentionCleanupService = articleRetentionCleanupService
         self.persistenceBoundedGrowthCleanupService = persistenceBoundedGrowthCleanupService
+        self.globalOrphanSweepTriggerService = globalOrphanSweepTriggerService
         self.articleStateRepository = articleStateRepository
         self.articleQueryService = articleQueryService
         self.sidebarQueryService = sidebarQueryService

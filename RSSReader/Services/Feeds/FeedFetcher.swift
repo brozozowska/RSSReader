@@ -31,13 +31,6 @@ public struct FeedFetcher: FeedFetching {
     private let httpClient: any HTTPClient
     private let retryPolicy: FeedRetryPolicy
     private let logSink: FeedFetchLogSink
-    private let supportedContentTypes: Set<String> = [
-        "application/atom+xml",
-        "application/rdf+xml",
-        "application/rss+xml",
-        "application/xml",
-        "text/xml"
-    ]
 
     public init(
         httpClient: any HTTPClient,
@@ -69,7 +62,7 @@ public struct FeedFetcher: FeedFetching {
                 let response = FeedResponse(request: request, httpResponse: httpResponse)
 
                 try validateStatusCode(response.statusCode)
-                try validateContentType(response)
+                try validatePayload(response)
 
                 if response.isNotModified {
                     let result = FeedFetchResult.notModified(response)
@@ -118,20 +111,25 @@ public struct FeedFetcher: FeedFetching {
         }
     }
 
-    private func validateContentType(_ response: FeedResponse) throws {
+    private func validatePayload(_ response: FeedResponse) throws {
         guard response.isNotModified == false else {
             return
         }
 
-        guard let contentType = response.normalizedContentType else {
-            throw FeedFetchError.unsupportedContentType(response.contentType)
+        let bodyBudget = AppComposition.resourceBudgetContract.feedXML.body
+        let actualBodyBytes = Int64(response.body.count)
+        guard actualBodyBytes <= bodyBudget.maximumCompressedBodyBytes else {
+            throw FeedFetchError.transport(
+                .responseBodyTooLarge(
+                    maximumBytes: bodyBudget.maximumCompressedBodyBytes,
+                    actualBytes: actualBodyBytes
+                )
+            )
         }
 
-        let isSupportedContentType =
-            supportedContentTypes.contains(contentType) ||
-            contentType.hasSuffix("+xml")
-
-        guard isSupportedContentType else {
+        do {
+            try bodyBudget.validateMIMEType(response.contentType)
+        } catch {
             throw FeedFetchError.unsupportedContentType(response.contentType)
         }
     }
@@ -145,6 +143,13 @@ public struct FeedFetcher: FeedFetching {
             switch httpClientError {
             case .invalidResponse:
                 return .transport(.invalidResponse)
+            case .responseBodyTooLarge(let maximumBytes, let actualBytes):
+                return .transport(
+                    .responseBodyTooLarge(
+                        maximumBytes: maximumBytes,
+                        actualBytes: actualBytes
+                    )
+                )
             }
         }
 

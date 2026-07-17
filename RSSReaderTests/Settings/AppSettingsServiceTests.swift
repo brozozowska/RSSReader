@@ -254,6 +254,7 @@ struct AppSettingsServiceTests {
         _ = try repository.update(
             AppSettingsUpdate(
                 refreshIntervalPreference: .hourly,
+                articleRetentionPolicy: .currentFeedOnly,
                 updatedAt: .distantPast
             )
         )

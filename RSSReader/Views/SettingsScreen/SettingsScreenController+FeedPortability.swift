@@ -2,9 +2,10 @@ import Foundation
 
 extension SettingsScreenController {
     func prepareOPMLImportPreview(
-        data: Data,
-        dependencies: AppDependencies
-    ) {
+        fileURL: URL,
+        dependencies: AppDependencies,
+        fileLoader: any OPMLImportFileLoading = BoundedOPMLImportFileLoader()
+    ) async {
         guard let feedManagementService = dependencies.feedManagementService else {
             screenState.applyOPMLTransferStatus(
                 SettingsOPMLTransferStatusPresentation(
@@ -18,14 +19,20 @@ extension SettingsScreenController {
         }
 
         do {
-            let document = try OPMLParserService.parse(data)
-            let plan = try OPMLImportPreviewPlanner.makePlan(
-                document: document,
-                feedManagementService: feedManagementService
+            try Task.checkCancellation()
+            let existingFeeds = try feedManagementService.fetchFeeds()
+            let existingFolders = try feedManagementService.fetchFolders()
+            let plan = try await fileLoader.loadPreview(
+                fileURL: fileURL,
+                existingFeeds: existingFeeds,
+                existingFolders: existingFolders
             )
+            try Task.checkCancellation()
             screenState.presentOPMLImportPreview(
                 SettingsOPMLImportPreviewPresentation(plan: plan)
             )
+        } catch is CancellationError {
+            return
         } catch {
             dependencies.logger.error("Failed to prepare OPML import preview: \(error)")
             screenState.applyOPMLTransferStatus(
@@ -155,9 +162,17 @@ extension SettingsScreenController {
 
     private func opmlImportFailureMessage(for error: Error) -> String {
         switch error {
+        case AppResourceBudgetViolation.compressedBodySizeExceeded(
+            input: .opml,
+            maximumBytes: _,
+            actualBytes: _
+        ):
+            return SettingsLocalization.selectedFileTooLargeMessage
         case OPMLParserError.emptyDocument:
             return SettingsLocalization.selectedFileEmptyMessage
         case OPMLParserError.malformedXML:
+            return SettingsLocalization.selectedFileInvalidXMLMessage
+        case OPMLParserError.resourceLimitExceeded:
             return SettingsLocalization.selectedFileInvalidXMLMessage
         case OPMLParserError.unsupportedRootElement:
             return SettingsLocalization.selectedFileNotOPMLMessage

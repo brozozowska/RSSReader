@@ -86,21 +86,51 @@ extension FeedRefreshService {
         if diagnosticsPolicy.logsParserAnomalies, diagnostics.parserAnomalies.isEmpty == false {
             let summary = "Feed \(feedID.uuidString) parser anomalies: \(diagnostics.parserAnomalies.count)"
             logger.info(summary)
-            for anomaly in diagnostics.parserAnomalies {
+            let loggedAnomalies = diagnostics.parserAnomalies.prefix(
+                diagnosticsPolicy.maximumLoggedParserAnomalyDetails
+            )
+            for anomaly in loggedAnomalies {
                 logger.info("Feed \(feedID.uuidString) anomaly [\(String(describing: anomaly.kind))]: \(anomaly.message)")
             }
+            logDiagnosticsTruncationIfNeeded(
+                kind: "parser anomaly",
+                loggedCount: loggedAnomalies.count,
+                totalCount: diagnostics.parserAnomalies.count,
+                feedID: feedID
+            )
         }
 
         if diagnosticsPolicy.logsRejectedEntries, diagnostics.rejectedEntries.isEmpty == false {
             logger.info("Feed \(feedID.uuidString) rejected entries: \(diagnostics.rejectedEntries.count)")
-            for rejectedEntry in diagnostics.rejectedEntries {
+            let loggedRejectedEntries = diagnostics.rejectedEntries.prefix(
+                diagnosticsPolicy.maximumLoggedRejectedEntryDetails
+            )
+            for rejectedEntry in loggedRejectedEntries {
                 let reasons = rejectedEntry.reasons.map(\.rawValue).joined(separator: ", ")
                 logger.info("Feed \(feedID.uuidString) rejected entry reasons: \(reasons)")
             }
+            logDiagnosticsTruncationIfNeeded(
+                kind: "rejected entry",
+                loggedCount: loggedRejectedEntries.count,
+                totalCount: diagnostics.rejectedEntries.count,
+                feedID: feedID
+            )
         }
 
         if diagnosticsAreSoftFailure(diagnostics) {
             logger.info("Feed \(feedID.uuidString) refresh diagnostics treated as soft failure")
         }
+    }
+
+    private func logDiagnosticsTruncationIfNeeded(
+        kind: String,
+        loggedCount: Int,
+        totalCount: Int,
+        feedID: UUID
+    ) {
+        guard loggedCount < totalCount else { return }
+        logger.info(
+            "Feed \(feedID.uuidString) \(kind) details truncated: logged \(loggedCount) of \(totalCount)"
+        )
     }
 }

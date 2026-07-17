@@ -147,8 +147,116 @@ struct OPMLParserServiceTests {
         }
     }
 
+    @Test
+    func defaultOPMLPolicyUsesAppLevelStructuralBudget() {
+        #expect(
+            XMLParserStructuralPolicy.opml.budget
+                == AppComposition.resourceBudgetContract.opml
+        )
+    }
+
+    @Test
+    func rejectsElementThatExceedsOPMLDepthLimit() {
+        let policy = makeOPMLPolicy(maximumDepth: 4)
+
+        assertResourceLimit(
+            for: "<opml><body><outline><outline><outline /></outline></outline></body></opml>",
+            policy: policy,
+            expected: .xmlDepthExceeded(
+                input: .opml,
+                maximumDepth: 4,
+                actualDepth: 5
+            )
+        )
+    }
+
+    @Test
+    func rejectsElementThatExceedsOPMLElementCountLimit() {
+        let policy = makeOPMLPolicy(maximumElementCount: 4)
+
+        assertResourceLimit(
+            for: "<opml><body><outline /><outline /><outline /></body></opml>",
+            policy: policy,
+            expected: .xmlElementCountExceeded(
+                input: .opml,
+                maximumCount: 4,
+                actualCount: 5
+            )
+        )
+    }
+
+    @Test
+    func allowsFeedOutlinesAtEntryLimitAndRejectsNextFeedOutline() throws {
+        let policy = makeOPMLPolicy(maximumEntryCount: 2)
+        let acceptedDocument = try OPMLParserService.parse(
+            makeData(
+                "<opml><body><outline xmlUrl=\"https://example.com/1\" /><outline xmlUrl=\"https://example.com/2\" /></body></opml>"
+            ),
+            structuralPolicy: policy
+        )
+
+        #expect(acceptedDocument.feeds.count == 2)
+
+        assertResourceLimit(
+            for: "<opml><body><outline text=\"Folder\"><outline xmlUrl=\"https://example.com/1\" /><outline xmlUrl=\"https://example.com/2\" /><outline xmlUrl=\"https://example.com/3\" /></outline></body></opml>",
+            policy: policy,
+            expected: .xmlEntryCountExceeded(
+                input: .opml,
+                maximumCount: 2,
+                actualCount: 3
+            )
+        )
+    }
+
+    @Test
+    func countsOnlyOPMLOutlinesThatCollectorCanMaterialize() throws {
+        let policy = makeOPMLPolicy(maximumEntryCount: 1)
+        let document = try OPMLParserService.parse(
+            makeData(
+                "<opml><head><outline xmlUrl=\"https://example.com/head\" /></head><body><outline xmlUrl=\"https://example.com/outer\"><outline xmlUrl=\"https://example.com/unreachable\" /></outline></body></opml>"
+            ),
+            structuralPolicy: policy
+        )
+
+        #expect(document.feeds.map(\.xmlURL) == ["https://example.com/outer"])
+    }
+
     private func makeData(_ xml: String) -> Data {
         Data(xml.utf8)
+    }
+
+    private func makeOPMLPolicy(
+        maximumElementCount: Int = 100,
+        maximumDepth: Int = 10,
+        maximumEntryCount: Int = 10
+    ) -> XMLParserStructuralPolicy {
+        XMLParserStructuralPolicy(
+            budget: RuntimeXMLInputBudget(
+                body: AppComposition.resourceBudgetContract.opml.body,
+                maximumElementCount: maximumElementCount,
+                maximumDepth: maximumDepth,
+                maximumEntryCount: maximumEntryCount
+            ),
+            materializedEntryKind: .opml
+        )
+    }
+
+    private func assertResourceLimit(
+        for xml: String,
+        policy: XMLParserStructuralPolicy,
+        expected: AppResourceBudgetViolation
+    ) {
+        do {
+            _ = try OPMLParserService.parse(
+                makeData(xml),
+                structuralPolicy: policy
+            )
+            Issue.record("Expected OPML resource limit failure")
+        } catch OPMLParserError.resourceLimitExceeded(let violation) {
+            #expect(violation == expected)
+        } catch {
+            Issue.record("Expected OPML resource limit failure, got \(error)")
+        }
     }
 
     private func assertEmptyDocumentError(for data: Data) {

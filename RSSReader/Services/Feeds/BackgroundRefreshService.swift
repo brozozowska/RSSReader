@@ -49,17 +49,20 @@ final class DefaultBackgroundRefreshService: BackgroundRefreshService {
     private let appSettingsService: any AppSettingsService
     private let feedRefreshService: (any FeedRefreshCoordinating)?
     private let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)?
+    private let globalOrphanSweepTriggerService: (any GlobalOrphanSweepTriggerServicing)?
 
     init(
         logger: Logging,
         appSettingsService: any AppSettingsService,
         feedRefreshService: (any FeedRefreshCoordinating)?,
-        articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)? = nil
+        articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)? = nil,
+        globalOrphanSweepTriggerService: (any GlobalOrphanSweepTriggerServicing)? = nil
     ) {
         self.logger = logger
         self.appSettingsService = appSettingsService
         self.feedRefreshService = feedRefreshService
         self.articleRetentionCleanupService = articleRetentionCleanupService
+        self.globalOrphanSweepTriggerService = globalOrphanSweepTriggerService
     }
 
     func loadConfiguration() throws -> BackgroundRefreshConfiguration {
@@ -108,19 +111,25 @@ final class DefaultBackgroundRefreshService: BackgroundRefreshService {
         }
 
         let refreshResult = await feedRefreshService.refreshAllActiveFeedsForBackground()
-        cleanupArchivedArticles(policy: configuration.settingsSnapshot.articleRetentionPolicy)
+        cleanupArticles(policy: configuration.settingsSnapshot.articleRetentionPolicy)
         return .executed(refreshResult)
     }
 
-    private func cleanupArchivedArticles(policy: ArticleRetentionPolicy) {
+    private func cleanupArticles(policy: ArticleRetentionPolicy) {
         guard let articleRetentionCleanupService else {
             return
         }
 
         do {
-            try articleRetentionCleanupService.cleanupArchivedArticles(policy: policy, now: .now)
+            let now = Date.now
+            try articleRetentionCleanupService.cleanupArticles(
+                policy: policy,
+                scope: .allFeeds,
+                now: now
+            )
+            globalOrphanSweepTriggerService?.recordFeedScopedRetentionCleanupCompleted(at: now)
         } catch {
-            logger.error("Failed to clean up archived articles after background refresh: \(error)")
+            logger.error("Failed to apply article retention after background refresh: \(error)")
         }
     }
 }

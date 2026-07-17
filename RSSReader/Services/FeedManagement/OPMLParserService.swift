@@ -1,20 +1,21 @@
 import Foundation
 
-enum OPMLParserError: Error, Equatable {
+nonisolated enum OPMLParserError: Error, Equatable {
     case emptyDocument
     case malformedXML(line: Int, column: Int, message: String)
+    case resourceLimitExceeded(AppResourceBudgetViolation)
     case unsupportedRootElement(String)
     case missingBody
 }
 
-struct OPMLDocumentDTO: Equatable, Sendable {
+nonisolated struct OPMLDocumentDTO: Equatable, Sendable {
     let version: String?
     let title: String?
     let feeds: [OPMLFeedOutlineDTO]
     let ignoredOutlineCount: Int
 }
 
-struct OPMLFeedOutlineDTO: Equatable, Sendable {
+nonisolated struct OPMLFeedOutlineDTO: Equatable, Sendable {
     let folderPath: [String]
     let title: String?
     let text: String?
@@ -26,16 +27,21 @@ struct OPMLFeedOutlineDTO: Equatable, Sendable {
     }
 }
 
-enum OPMLParserService {
-    static func parse(_ data: Data) throws -> OPMLDocumentDTO {
+nonisolated enum OPMLParserService {
+    nonisolated static func parse(
+        _ data: Data,
+        structuralPolicy: XMLParserStructuralPolicy = .opml
+    ) throws -> OPMLDocumentDTO {
         let document: FeedXMLDocument
 
         do {
-            document = try FeedParserService.parse(data)
+            document = try FeedParserService.parse(data, structuralPolicy: structuralPolicy)
         } catch FeedParserError.emptyDocument {
             throw OPMLParserError.emptyDocument
         } catch FeedParserError.malformedXML(let line, let column, let message) {
             throw OPMLParserError.malformedXML(line: line, column: column, message: message)
+        } catch FeedParserError.resourceLimitExceeded(let violation) {
+            throw OPMLParserError.resourceLimitExceeded(violation)
         }
 
         let root = document.rootElement
@@ -61,7 +67,7 @@ enum OPMLParserService {
     }
 }
 
-private struct OPMLOutlineCollector {
+private nonisolated struct OPMLOutlineCollector {
     private(set) var feeds: [OPMLFeedOutlineDTO] = []
     private(set) var ignoredOutlineCount = 0
 
@@ -101,7 +107,7 @@ private struct OPMLOutlineCollector {
 }
 
 private extension FeedXMLElement {
-    func normalizedAttribute(_ name: String) -> String? {
+    nonisolated func normalizedAttribute(_ name: String) -> String? {
         guard let value = attributes[name]?.trimmingCharacters(in: .whitespacesAndNewlines) else {
             return nil
         }

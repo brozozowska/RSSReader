@@ -32,6 +32,54 @@ actor ArticleImageDiskCache {
         return data
     }
 
+    func data(for url: URL, maximumBytes: Int64) throws -> Data? {
+        precondition(maximumBytes > 0)
+        precondition(maximumBytes <= Int64(Int.max))
+        try Task.checkCancellation()
+
+        let fileURL = fileURL(for: url)
+        guard fileManager.fileExists(atPath: fileURL.path) else {
+            return nil
+        }
+
+        let resourceValues = try fileURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+        guard resourceValues.isRegularFile == true else {
+            try fileManager.removeItem(at: fileURL)
+            return nil
+        }
+
+        if let fileSize = resourceValues.fileSize, Int64(fileSize) > maximumBytes {
+            try fileManager.removeItem(at: fileURL)
+            return nil
+        }
+
+        let fileHandle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? fileHandle.close() }
+
+        var data = Data()
+        data.reserveCapacity(min(resourceValues.fileSize ?? 0, Int(maximumBytes)))
+
+        while true {
+            try Task.checkCancellation()
+            let remainingBytes = maximumBytes - Int64(data.count)
+            let readCount = remainingBytes >= Int64(64 * 1024)
+                ? 64 * 1024
+                : Int(remainingBytes) + 1
+            let chunk = try fileHandle.read(upToCount: readCount) ?? Data()
+            guard chunk.isEmpty == false else { break }
+
+            data.append(chunk)
+            guard Int64(data.count) <= maximumBytes else {
+                try fileManager.removeItem(at: fileURL)
+                return nil
+            }
+        }
+
+        try Task.checkCancellation()
+        try touch(fileURL)
+        return data
+    }
+
     func insert(_ data: Data, for url: URL) throws {
         try prepareDirectoryIfNeeded()
 
@@ -39,6 +87,12 @@ actor ArticleImageDiskCache {
         try data.write(to: fileURL, options: .atomic)
         try touch(fileURL)
         try enforceCapacityLimit()
+    }
+
+    func removeData(for url: URL) throws {
+        let fileURL = fileURL(for: url)
+        guard fileManager.fileExists(atPath: fileURL.path) else { return }
+        try fileManager.removeItem(at: fileURL)
     }
 
     func removeAll() throws {

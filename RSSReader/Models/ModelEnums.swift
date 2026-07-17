@@ -1,6 +1,6 @@
 import Foundation
 
-enum FeedKind: String, Codable, CaseIterable, Sendable {
+nonisolated enum FeedKind: String, Codable, CaseIterable, Sendable {
     case rss
     case atom
     case unknown
@@ -24,7 +24,7 @@ enum ArticleSortMode: String, Codable, CaseIterable, Sendable {
     case publishedAtAscending
 }
 
-enum ArticleRetentionPolicy: String, Codable, CaseIterable, Sendable {
+nonisolated enum ArticleRetentionPolicy: String, Codable, CaseIterable, Sendable {
     case currentFeedOnly
     case twoDays
     case oneWeek

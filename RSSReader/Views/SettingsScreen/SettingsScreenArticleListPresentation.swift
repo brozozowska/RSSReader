@@ -31,7 +31,7 @@ extension SettingsScreenPresentationBuilder {
                 .picker(
                     SettingsPickerItemPresentation(
                         id: .articleRetentionPolicy,
-                        title: SettingsLocalization.keepArchivedArticlesTitle,
+                        title: SettingsLocalization.keepArticlesTitle,
                         subtitle: nil,
                         selectedValueTitle: SettingsScreenPresentationFormatter.articleRetentionPolicyTitle(input.articleRetentionPolicy),
                         options: ArticleRetentionPolicy.allCases.map { policy in

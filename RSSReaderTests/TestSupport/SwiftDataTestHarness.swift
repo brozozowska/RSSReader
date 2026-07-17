@@ -18,7 +18,8 @@ struct TestHarness {
     static func make(
         httpClient: ScriptedHTTPClient,
         feedIconDiscoveryService: (any FeedIconDiscovering)? = nil,
-        unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = nil
+        unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = nil,
+        logger: Logging = TestLogger()
     ) throws -> TestHarness {
         let resolvedFeedIconDiscoveryService = feedIconDiscoveryService ?? NoOpFeedIconDiscoveryService()
         let schema = AppComposition.persistenceModelPartition.schema
@@ -36,7 +37,7 @@ struct TestHarness {
             retryPolicy: FeedRetryPolicy(maxAttempts: 1, baseDelayNanoseconds: 0)
         )
         let dependencies = AppDependencies(
-            logger: TestLogger(),
+            logger: logger,
             httpClient: httpClient,
             feedFetcher: feedFetcher,
             modelContainer: modelContainer,
@@ -55,7 +56,7 @@ struct TestHarness {
         )
         let feedFetchLogRepository = SwiftDataFeedFetchLogRepository(modelContext: modelContext)
         let service = FeedRefreshService(
-            logger: TestLogger(),
+            logger: logger,
             feedFetcher: FeedFetcher(
                 httpClient: httpClient,
                 retryPolicy: FeedRetryPolicy(maxAttempts: 1, baseDelayNanoseconds: 0)
@@ -106,7 +107,11 @@ struct TestHarness {
         guid: String? = nil,
         url: String,
         title: String,
-        archivedAt: Date? = nil
+        publishedAt: Date? = nil,
+        updatedAtSource: Date? = nil,
+        archivedAt: Date? = nil,
+        fetchedAt: Date = .now,
+        createdAt: Date = .now
     ) throws -> Article {
         let article = Article(
             feedID: feed.id,
@@ -117,7 +122,11 @@ struct TestHarness {
             guid: guid,
             url: url,
             title: title,
-            archivedAt: archivedAt
+            publishedAt: publishedAt,
+            updatedAtSource: updatedAtSource,
+            archivedAt: archivedAt,
+            fetchedAt: fetchedAt,
+            createdAt: createdAt
         )
         modelContainer.mainContext.insert(article)
         try modelContainer.mainContext.save()

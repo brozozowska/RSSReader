@@ -22,6 +22,7 @@ struct SettingsScreenView: View {
     @State private var isOPMLImporterPresented = false
     @State private var isOPMLExporterPresented = false
     @State private var opmlExportDocument: SettingsOPMLFileDocument?
+    @State private var opmlImportTask: Task<Void, Never>?
     let dismiss: () -> Void
 
     init(
@@ -66,6 +67,7 @@ struct SettingsScreenView: View {
                     await controller.refreshFeedIconCacheAvailability(dependencies: dependencies)
                 }
                 .onDisappear {
+                    opmlImportTask?.cancel()
                     guard didCommitSettingsChanges == false else { return }
                     controller.discardPreviewedAppearanceChanges(appState: appState)
                 }
@@ -302,27 +304,15 @@ struct SettingsScreenView: View {
     private func handleOPMLImportResult(_ result: Result<URL, any Error>) {
         switch result {
         case .success(let url):
-            do {
-                let didStartAccessing = url.startAccessingSecurityScopedResource()
-                defer {
-                    if didStartAccessing {
-                        url.stopAccessingSecurityScopedResource()
-                    }
-                }
-
-                let data = try Data(contentsOf: url)
-                controller.prepareOPMLImportPreview(data: data, dependencies: dependencies)
-            } catch {
-                dependencies.logger.error("Failed to read selected OPML file: \(error)")
-                controller.screenState.applyOPMLTransferStatus(
-                    SettingsOPMLTransferStatusPresentation(
-                        title: SettingsLocalization.opmlImportFailedTitle,
-                        message: SettingsLocalization.selectedFileReadFailureMessage,
-                        kind: .failure
-                    )
+            opmlImportTask?.cancel()
+            opmlImportTask = Task {
+                await controller.prepareOPMLImportPreview(
+                    fileURL: url,
+                    dependencies: dependencies
                 )
             }
         case .failure(let error):
+            opmlImportTask?.cancel()
             dependencies.logger.error("OPML file importer failed: \(error)")
             controller.screenState.applyOPMLTransferStatus(
                 SettingsOPMLTransferStatusPresentation(

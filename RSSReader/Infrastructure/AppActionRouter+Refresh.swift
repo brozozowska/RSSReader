@@ -9,7 +9,7 @@ extension AppActionRouter {
         }
 
         let result = await feedRefreshService.refresh(feedID: feedID)
-        cleanupArchivedArticlesUsingCurrentSettings()
+        cleanupArticlesUsingCurrentSettings(scope: .feedIDs([result.feedID]))
         await refreshUnreadAppIconBadgeCount()
         return result
     }
@@ -22,7 +22,7 @@ extension AppActionRouter {
         }
 
         let result = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
-        cleanupArchivedArticlesUsingCurrentSettings()
+        cleanupArticlesUsingCurrentSettings(scope: .feedIDs([result.feedID]))
         await refreshUnreadAppIconBadgeCount()
         appState.requestSidebarReload()
         showFeed(id: feedID, using: appState)
@@ -49,7 +49,7 @@ extension AppActionRouter {
 
         let result = await feedRefreshService.refreshAllActiveFeeds()
         recordFeedsRefreshIfNeeded(from: result)
-        cleanupArchivedArticlesUsingCurrentSettings()
+        cleanupArticlesUsingCurrentSettings(scope: .allFeeds)
         await refreshUnreadAppIconBadgeCount()
         return result
     }
@@ -129,7 +129,7 @@ extension AppActionRouter {
         let result = await backgroundRefreshService.performScheduledRefresh()
         if case .executed(let refreshResult) = result {
             recordFeedsRefreshIfNeeded(from: refreshResult.batchResult)
-            cleanupPersistenceBoundedGrowth()
+            cleanupFeedFetchLogs()
             await refreshUnreadAppIconBadgeCount()
         }
         return result
@@ -169,7 +169,9 @@ extension AppActionRouter {
                 .filter { $0.folder?.name == folderName }
                 .map(\.id)
             let result = await feedRefreshService.refreshFeeds(folderFeedIDs)
-            cleanupArchivedArticlesUsingCurrentSettings()
+            cleanupArticlesUsingCurrentSettings(
+                scope: .feedIDs(result.results.map(\.feedID))
+            )
             await refreshUnreadAppIconBadgeCount()
             return result
         } catch {

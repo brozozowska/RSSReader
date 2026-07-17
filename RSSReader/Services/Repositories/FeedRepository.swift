@@ -162,6 +162,7 @@ protocol FeedRepository {
     func fetchFeed(id: UUID) throws -> Feed?
     func fetchFeed(url: String) throws -> Feed?
     func fetchAllFeeds() throws -> [Feed]
+    func fetchRetentionFeedIDBatch(offset: Int, limit: Int) throws -> [UUID]
     func fetchActiveFeeds() throws -> [Feed]
     func countFeeds(inFolderID folderID: UUID?) throws -> Int
     func fetchSidebarItems() throws -> [FeedSidebarItem]
@@ -251,6 +252,20 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
             ]
         )
         return try modelContext.fetch(descriptor)
+    }
+
+    func fetchRetentionFeedIDBatch(offset: Int, limit: Int) throws -> [UUID] {
+        precondition(offset >= 0)
+        precondition(limit > 0)
+        var descriptor = FetchDescriptor<Feed>(
+            sortBy: [
+                SortDescriptor(\Feed.createdAt, order: .forward),
+                SortDescriptor(\Feed.id, order: .forward)
+            ]
+        )
+        descriptor.fetchOffset = offset
+        descriptor.fetchLimit = limit
+        return try modelContext.fetch(descriptor).map(\.id)
     }
 
     func fetchActiveFeeds() throws -> [Feed] {

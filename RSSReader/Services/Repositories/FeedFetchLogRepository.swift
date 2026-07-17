@@ -1,6 +1,13 @@
 import Foundation
 import SwiftData
 
+struct RepositoryBatchDeleteResult: Equatable, Sendable {
+    let inspectedCount: Int
+    let deletedCount: Int
+    let processedBatchCount: Int
+    let maximumMaterializedBatchCount: Int
+}
+
 @MainActor
 protocol FeedFetchLogRepository {
     func fetchLogs(feedID: UUID, limit: Int?) throws -> [FeedFetchLog]
@@ -18,7 +25,14 @@ protocol FeedFetchLogRepository {
     @discardableResult
     func insert(_ logs: [FeedFetchLog]) throws -> [FeedFetchLog]
 
-    func deleteLogs(olderThan cutoffDate: Date, saveAfterOperation: Bool) throws -> Int
+    func deleteLogs(
+        olderThan cutoffDate: Date,
+        batchSize: Int
+    ) throws -> RepositoryBatchDeleteResult
+    func deleteLogsExceedingPerFeedCount(
+        _ maximumCountPerFeed: Int,
+        batchSize: Int
+    ) throws -> RepositoryBatchDeleteResult
     func save() throws
 }
 
@@ -36,7 +50,8 @@ final class SwiftDataFeedFetchLogRepository: FeedFetchLogRepository, SwiftDataRe
                 log.feedID == feedID
             },
             sortBy: [
-                SortDescriptor(\FeedFetchLog.createdAt, order: .reverse)
+                SortDescriptor(\FeedFetchLog.createdAt, order: .reverse),
+                SortDescriptor(\FeedFetchLog.id, order: .reverse)
             ]
         )
 
@@ -85,23 +100,107 @@ final class SwiftDataFeedFetchLogRepository: FeedFetchLogRepository, SwiftDataRe
         return logs
     }
 
-    func deleteLogs(olderThan cutoffDate: Date, saveAfterOperation: Bool = true) throws -> Int {
-        let descriptor = FetchDescriptor<FeedFetchLog>(
-            predicate: #Predicate<FeedFetchLog> { log in
-                log.createdAt < cutoffDate
+    func deleteLogs(
+        olderThan cutoffDate: Date,
+        batchSize: Int
+    ) throws -> RepositoryBatchDeleteResult {
+        precondition(batchSize > 0)
+        var deletedCount = 0
+        var processedBatchCount = 0
+        var maximumMaterializedBatchCount = 0
+
+        while true {
+            try Task.checkCancellation()
+            var descriptor = FetchDescriptor<FeedFetchLog>(
+                predicate: #Predicate<FeedFetchLog> { log in
+                    log.createdAt < cutoffDate
+                },
+                sortBy: [
+                    SortDescriptor(\FeedFetchLog.createdAt, order: .forward),
+                    SortDescriptor(\FeedFetchLog.id, order: .forward)
+                ]
+            )
+            descriptor.fetchLimit = batchSize
+            let logs = try modelContext.fetch(descriptor)
+            guard logs.isEmpty == false else { break }
+
+            processedBatchCount += 1
+            maximumMaterializedBatchCount = max(maximumMaterializedBatchCount, logs.count)
+            for log in logs {
+                modelContext.delete(log)
             }
-        )
-        let logs = try modelContext.fetch(descriptor)
-
-        for log in logs {
-            modelContext.delete(log)
-        }
-
-        if saveAfterOperation {
             try saveIfNeeded()
+            deletedCount += logs.count
         }
 
-        return logs.count
+        return RepositoryBatchDeleteResult(
+            inspectedCount: deletedCount,
+            deletedCount: deletedCount,
+            processedBatchCount: processedBatchCount,
+            maximumMaterializedBatchCount: maximumMaterializedBatchCount
+        )
+    }
+
+    func deleteLogsExceedingPerFeedCount(
+        _ maximumCountPerFeed: Int,
+        batchSize: Int
+    ) throws -> RepositoryBatchDeleteResult {
+        precondition(maximumCountPerFeed > 0)
+        precondition(batchSize > 0)
+
+        var offset = 0
+        var inspectedCount = 0
+        var deletedCount = 0
+        var processedBatchCount = 0
+        var maximumMaterializedBatchCount = 0
+        var currentFeedID: UUID?
+        var retainedCountForCurrentFeed = 0
+
+        while true {
+            try Task.checkCancellation()
+            var descriptor = FetchDescriptor<FeedFetchLog>(
+                sortBy: [
+                    SortDescriptor(\FeedFetchLog.feedID, order: .forward),
+                    SortDescriptor(\FeedFetchLog.createdAt, order: .reverse),
+                    SortDescriptor(\FeedFetchLog.id, order: .reverse)
+                ]
+            )
+            descriptor.fetchOffset = offset
+            descriptor.fetchLimit = batchSize
+            let logs = try modelContext.fetch(descriptor)
+            guard logs.isEmpty == false else { break }
+
+            processedBatchCount += 1
+            maximumMaterializedBatchCount = max(maximumMaterializedBatchCount, logs.count)
+            var retainedCountInBatch = 0
+
+            for log in logs {
+                inspectedCount += 1
+                if currentFeedID != log.feedID {
+                    currentFeedID = log.feedID
+                    retainedCountForCurrentFeed = 0
+                }
+
+                guard retainedCountForCurrentFeed < maximumCountPerFeed else {
+                    modelContext.delete(log)
+                    deletedCount += 1
+                    continue
+                }
+
+                retainedCountForCurrentFeed += 1
+                retainedCountInBatch += 1
+            }
+
+            try saveIfNeeded()
+            offset += retainedCountInBatch
+        }
+
+        return RepositoryBatchDeleteResult(
+            inspectedCount: inspectedCount,
+            deletedCount: deletedCount,
+            processedBatchCount: processedBatchCount,
+            maximumMaterializedBatchCount: maximumMaterializedBatchCount
+        )
     }
 
     func save() throws {

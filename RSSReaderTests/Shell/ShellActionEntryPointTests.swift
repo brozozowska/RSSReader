@@ -203,6 +203,12 @@ struct ShellActionEntryPointTests {
                 kind: .rss
             )
         )
+        _ = try harness.dependencies.appSettingsRepository?.update(
+            AppSettingsUpdate(
+                articleRetentionPolicy: .currentFeedOnly,
+                updatedAt: .distantPast
+            )
+        )
 
         harness.dependencies.appActions.showFeedManagement(using: appState)
 
@@ -299,7 +305,10 @@ struct ShellActionEntryPointTests {
             externalID: "expired-archived-unread",
             url: "https://example.com/articles/expired-archived-unread",
             title: "Expired Archived Unread",
-            archivedAt: .distantPast
+            publishedAt: .distantPast,
+            archivedAt: .distantPast,
+            fetchedAt: .distantPast,
+            createdAt: .distantPast
         )
         _ = try harness.insertArticle(
             feed: firstFeed,

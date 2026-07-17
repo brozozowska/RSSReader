@@ -62,7 +62,15 @@ public actor FeedIconCacheService: FeedIconCaching {
         }
 
         let task = Task<Data, Error> {
-            let response = try await httpClient.execute(HTTPRequest(url: url))
+            let response = try await httpClient.execute(
+                HTTPRequest(
+                    url: url,
+                    maximumResponseBodyBytes: AppComposition.resourceBudgetContract
+                        .feedIcon
+                        .body
+                        .maximumCompressedBodyBytes
+                )
+            )
 
             guard (200...299).contains(response.statusCode) else {
                 throw FeedIconCacheError.invalidResponseStatusCode(response.statusCode)
@@ -71,6 +79,10 @@ public actor FeedIconCacheService: FeedIconCaching {
             guard response.body.isEmpty == false else {
                 throw FeedIconCacheError.emptyImageData
             }
+
+            let iconBodyBudget = AppComposition.resourceBudgetContract.feedIcon.body
+            try iconBodyBudget.validateCompressedBodyByteCount(Int64(response.body.count))
+            try iconBodyBudget.validateMIMEType(response.contentType)
 
             try await storeImageData(response.body, for: url)
             return response.body

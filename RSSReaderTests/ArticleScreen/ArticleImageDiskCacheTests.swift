@@ -73,6 +73,23 @@ struct ArticleImageDiskCacheTests {
         #expect(retainedThirdData == thirdData)
     }
 
+    @Test
+    func boundedReadRemovesLegacyEntryLargerThanRequestedMaximum() async throws {
+        let directoryURL = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        let imageURL = URL(string: "https://example.com/images/legacy-oversized.png")!
+        let data = Data(repeating: 1, count: 33)
+        let cache = ArticleImageDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
+
+        try await cache.insert(data, for: imageURL)
+
+        let boundedData = try await cache.data(for: imageURL, maximumBytes: 32)
+        let remainingData = try await cache.data(for: imageURL)
+
+        #expect(boundedData == nil)
+        #expect(remainingData == nil)
+    }
+
     private func makeTemporaryDirectory() throws -> URL {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)

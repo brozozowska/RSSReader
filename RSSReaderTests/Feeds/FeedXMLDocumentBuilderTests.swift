@@ -68,6 +68,85 @@ struct FeedXMLDocumentBuilderTests {
         #expect(channel.nestedChildText(["image", "missing"]) == nil)
     }
 
+    @Test
+    func defaultFeedPolicyUsesAppLevelStructuralBudget() {
+        #expect(
+            XMLParserStructuralPolicy.feed.budget
+                == AppComposition.resourceBudgetContract.feedXML
+        )
+    }
+
+    @Test
+    func rejectsElementThatExceedsFeedDepthLimitBeforeBuildingIt() {
+        let policy = makeFeedPolicy(maximumDepth: 3)
+
+        assertResourceLimit(
+            for: "<rss><channel><group><value /></group></channel></rss>",
+            policy: policy,
+            expected: .xmlDepthExceeded(
+                input: .feedXML,
+                maximumDepth: 3,
+                actualDepth: 4
+            )
+        )
+    }
+
+    @Test
+    func rejectsElementThatExceedsFeedElementCountLimitBeforeBuildingIt() {
+        let policy = makeFeedPolicy(maximumElementCount: 3)
+
+        assertResourceLimit(
+            for: "<rss><channel><title /><description /></channel></rss>",
+            policy: policy,
+            expected: .xmlElementCountExceeded(
+                input: .feedXML,
+                maximumCount: 3,
+                actualCount: 4
+            )
+        )
+    }
+
+    @Test
+    func allowsRSSItemsAtEntryLimitAndRejectsNextItem() throws {
+        let policy = makeFeedPolicy(maximumEntryCount: 2)
+        let acceptedDocument = try FeedParserService.parse(
+            makeData("<rss><channel><item /><item /></channel></rss>"),
+            structuralPolicy: policy
+        )
+
+        #expect(
+            acceptedDocument.rootElement
+                .firstChild(named: "channel")?
+                .children(named: "item")
+                .count == 2
+        )
+
+        assertResourceLimit(
+            for: "<rss><channel><item /><item /><item /></channel></rss>",
+            policy: policy,
+            expected: .xmlEntryCountExceeded(
+                input: .feedXML,
+                maximumCount: 2,
+                actualCount: 3
+            )
+        )
+    }
+
+    @Test
+    func rejectsAtomEntryThatExceedsFeedEntryLimit() {
+        let policy = makeFeedPolicy(maximumEntryCount: 2)
+
+        assertResourceLimit(
+            for: "<feed xmlns=\"http://www.w3.org/2005/Atom\"><entry /><entry /><entry /></feed>",
+            policy: policy,
+            expected: .xmlEntryCountExceeded(
+                input: .feedXML,
+                maximumCount: 2,
+                actualCount: 3
+            )
+        )
+    }
+
     private var xmlWithNamespacesAndCDATA: String {
         """
         <rss
@@ -93,6 +172,40 @@ struct FeedXMLDocumentBuilderTests {
 
     private func makeData(_ xml: String) -> Data {
         Data(xml.utf8)
+    }
+
+    private func makeFeedPolicy(
+        maximumElementCount: Int = 100,
+        maximumDepth: Int = 10,
+        maximumEntryCount: Int = 10
+    ) -> XMLParserStructuralPolicy {
+        XMLParserStructuralPolicy(
+            budget: RuntimeXMLInputBudget(
+                body: AppComposition.resourceBudgetContract.feedXML.body,
+                maximumElementCount: maximumElementCount,
+                maximumDepth: maximumDepth,
+                maximumEntryCount: maximumEntryCount
+            ),
+            materializedEntryKind: .feed
+        )
+    }
+
+    private func assertResourceLimit(
+        for xml: String,
+        policy: XMLParserStructuralPolicy,
+        expected: AppResourceBudgetViolation
+    ) {
+        do {
+            _ = try FeedParserService.parse(
+                makeData(xml),
+                structuralPolicy: policy
+            )
+            Issue.record("Expected XML resource limit failure")
+        } catch FeedParserError.resourceLimitExceeded(let violation) {
+            #expect(violation == expected)
+        } catch {
+            Issue.record("Expected XML resource limit failure, got \(error)")
+        }
     }
 
     private func assertEmptyDocumentError(for data: Data) {

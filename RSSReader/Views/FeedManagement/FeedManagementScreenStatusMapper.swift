@@ -211,6 +211,12 @@ enum FeedManagementScreenStatusMapper {
                 kind: .failure,
                 detail: String(localized: "feedManagement.addFeed.preview.malformedXML.detail", defaultValue: "The address responded, but the app could not read it as RSS or Atom.", comment: "Feed preview failure detail for malformed XML.")
             )
+        case .resourceLimitExceeded:
+            return FeedManagementAddFeedStatusPresentation(
+                title: String(localized: "feedManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "This is not a supported feed", comment: "Failure title for unsupported feed."),
+                kind: .failure,
+                detail: String(localized: "feedManagement.addFeed.preview.malformedXML.detail", defaultValue: "The address responded, but the app could not read it as RSS or Atom.", comment: "Feed preview failure detail for malformed XML.")
+            )
         case .unsupportedFeedKind:
             return FeedManagementAddFeedStatusPresentation(
                 title: String(localized: "feedManagement.addFeed.preview.unsupportedFeed.title", defaultValue: "This is not a supported feed", comment: "Failure title for unsupported feed."),
@@ -246,7 +252,7 @@ enum FeedManagementScreenStatusMapper {
             return String(localized: "feedManagement.addFeed.preview.network.offline", defaultValue: "Check the internet connection and try again.", comment: "Network failure detail for offline state.")
         case .internationalRoamingOff, .callIsActive, .dataNotAllowed:
             return String(localized: "feedManagement.addFeed.preview.network.blocked", defaultValue: "The current network settings are blocking this request.", comment: "Network failure detail for blocked network settings.")
-        case .invalidResponse:
+        case .invalidResponse, .responseBodyTooLarge:
             return String(localized: "feedManagement.addFeed.preview.network.invalidResponse", defaultValue: "The server returned a response the app could not read.", comment: "Network failure detail for invalid response.")
         case .unknown:
             return String(localized: "feedManagement.addFeed.preview.network.unknown", defaultValue: "The feed could not be checked for an unknown network reason.", comment: "Network failure detail for unknown network failure.")

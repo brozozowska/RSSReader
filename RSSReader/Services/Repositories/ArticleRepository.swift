@@ -1,16 +1,27 @@
 import Foundation
 import SwiftData
 
+enum ArticleRetentionBatchScope: Sendable {
+    case all
+    case archived
+}
+
 @MainActor
 protocol ArticleRepository {
     func refreshFeedProjection(for feed: Feed, saveAfterOperation: Bool) throws -> Int
     func fetchArticle(id: UUID) throws -> Article?
     func fetchArticle(feedID: UUID, externalID: String) throws -> Article?
+    func containsArticle(feedID: UUID, externalID: String) throws -> Bool
     func fetchArticles(feedID: UUID) throws -> [Article]
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article]
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
     func fetchArchivedArticles() throws -> [Article]
-    func fetchArticleStateIdentities() throws -> Set<ArticleStateIdentity>
+    func fetchRetentionBatch(
+        feedID: UUID,
+        scope: ArticleRetentionBatchScope,
+        offset: Int,
+        limit: Int
+    ) throws -> [Article]
     func reconcileArticles(
         feedID: UUID,
         keepingExternalIDs: Set<String>,
@@ -127,6 +138,15 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         return try fetchFirst(descriptor)
     }
 
+    func containsArticle(feedID: UUID, externalID: String) throws -> Bool {
+        let descriptor = FetchDescriptor<Article>(
+            predicate: #Predicate<Article> { article in
+                article.feedID == feedID && article.externalID == externalID
+            }
+        )
+        return try modelContext.fetchCount(descriptor) > 0
+    }
+
     func fetchArticles(feedID: UUID) throws -> [Article] {
         let descriptor = FetchDescriptor<Article>(
             predicate: #Predicate<Article> { article in
@@ -162,17 +182,35 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         return try modelContext.fetch(descriptor)
     }
 
-    func fetchArticleStateIdentities() throws -> Set<ArticleStateIdentity> {
-        let descriptor = FetchDescriptor<Article>()
-        let articles = try modelContext.fetch(descriptor)
-        return Set(
-            articles.map { article in
-                ArticleStateIdentity(
-                    feedID: article.feedID,
-                    articleExternalID: article.externalID
-                )
-            }
-        )
+    func fetchRetentionBatch(
+        feedID: UUID,
+        scope: ArticleRetentionBatchScope,
+        offset: Int,
+        limit: Int
+    ) throws -> [Article] {
+        precondition(offset >= 0)
+        precondition(limit > 0)
+
+        var descriptor: FetchDescriptor<Article>
+        switch scope {
+        case .all:
+            descriptor = FetchDescriptor<Article>(
+                predicate: #Predicate<Article> { article in
+                    article.feedID == feedID
+                },
+                sortBy: retentionBatchSortDescriptors
+            )
+        case .archived:
+            descriptor = FetchDescriptor<Article>(
+                predicate: #Predicate<Article> { article in
+                    article.feedID == feedID && article.archivedAt != nil
+                },
+                sortBy: retentionBatchSortDescriptors
+            )
+        }
+        descriptor.fetchOffset = offset
+        descriptor.fetchLimit = limit
+        return try modelContext.fetch(descriptor)
     }
 
     @discardableResult
@@ -335,5 +373,12 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
                 SortDescriptor(\Article.fetchedAt, order: .forward)
             ]
         }
+    }
+
+    private var retentionBatchSortDescriptors: [SortDescriptor<Article>] {
+        [
+            SortDescriptor(\Article.createdAt, order: .forward),
+            SortDescriptor(\Article.id, order: .forward)
+        ]
     }
 }
