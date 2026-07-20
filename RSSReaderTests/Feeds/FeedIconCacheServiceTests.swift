@@ -61,6 +61,73 @@ struct FeedIconCacheServiceTests {
     }
 
     @Test
+    func diskCacheDoesNotRetainSingleEntryLargerThanCapacity() async throws {
+        let directoryURL = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        let iconURL = try makeURL("https://example.com/oversized-feed-icon.png")
+        let diskCache = FeedIconDiskCache(directoryURL: directoryURL, capacityLimit: 4)
+
+        try await diskCache.insert(Data(repeating: 1, count: 5), for: iconURL)
+
+        #expect(try await diskCache.data(for: iconURL) == nil)
+        #expect(try await diskCache.isEmpty())
+    }
+
+    @Test
+    func diskCacheEvictsLeastRecentlyUsedEntryAcrossAggregateCapacity() async throws {
+        let directoryURL = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        let dateProvider = FeedIconIncrementingDateProvider()
+        let firstURL = try makeURL("https://example.com/first-feed-icon.png")
+        let secondURL = try makeURL("https://example.com/second-feed-icon.png")
+        let thirdURL = try makeURL("https://example.com/third-feed-icon.png")
+        let firstData = Data(repeating: 1, count: 4)
+        let secondData = Data(repeating: 2, count: 4)
+        let thirdData = Data(repeating: 3, count: 4)
+        let diskCache = FeedIconDiskCache(
+            directoryURL: directoryURL,
+            capacityLimit: 8,
+            dateProvider: { dateProvider.next() }
+        )
+
+        try await diskCache.insert(firstData, for: firstURL)
+        try await diskCache.insert(secondData, for: secondURL)
+        _ = try await diskCache.data(for: firstURL)
+        try await diskCache.insert(thirdData, for: thirdURL)
+
+        #expect(try await diskCache.data(for: firstURL) == firstData)
+        #expect(try await diskCache.data(for: secondURL) == nil)
+        #expect(try await diskCache.data(for: thirdURL) == thirdData)
+    }
+
+    @Test
+    func diskWriteFailureDoesNotPopulateFeedIconMemoryCache() async throws {
+        let rootDirectoryURL = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: rootDirectoryURL) }
+        let blockingFileURL = rootDirectoryURL.appendingPathComponent("not-a-directory")
+        let blockingData = Data("blocking-file".utf8)
+        try blockingData.write(to: blockingFileURL)
+        let iconURL = try makeURL("https://example.com/write-failure-feed-icon.png")
+        let memoryCache = FeedIconMemoryCache(countLimit: 2)
+        let diskCache = FeedIconDiskCache(
+            directoryURL: blockingFileURL,
+            capacityLimit: 1_024
+        )
+        let service = FeedIconCacheService(cache: memoryCache, diskCache: diskCache)
+
+        do {
+            try await service.storeImageData(Data("feed-icon".utf8), for: iconURL)
+            Issue.record("Expected feed icon disk write failure")
+        } catch {
+            // Expected failure from a cache path that is a regular file.
+        }
+
+        #expect(await memoryCache.data(for: iconURL) == nil)
+        #expect(await memoryCache.cachedEntryCount() == 0)
+        #expect(try Data(contentsOf: blockingFileURL) == blockingData)
+    }
+
+    @Test
     func emptyDataIsRejectedWithoutCreatingCacheEntry() async throws {
         let iconURL = try makeURL("https://example.com/empty-icon.png")
         let harness = try makeHarness()
@@ -150,5 +217,18 @@ private final class FeedIconCacheHarness {
 
     deinit {
         try? FileManager.default.removeItem(at: directoryURL)
+    }
+}
+
+private final class FeedIconIncrementingDateProvider: @unchecked Sendable {
+    private let lock = NSLock()
+    private var currentTimeInterval: TimeInterval = 1_700_000_000
+
+    func next() -> Date {
+        lock.lock()
+        defer { lock.unlock() }
+
+        currentTimeInterval += 1
+        return Date(timeIntervalSince1970: currentTimeInterval)
     }
 }

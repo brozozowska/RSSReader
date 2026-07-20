@@ -53,6 +53,56 @@ struct ArticleImageLoaderTests {
     }
 
     @Test
+    func diskWriteFailureKeepsValidatedArticleImageAvailableInMemory() async throws {
+        let rootDirectoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: rootDirectoryURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: rootDirectoryURL) }
+
+        let blockingFileURL = rootDirectoryURL.appendingPathComponent("not-a-directory")
+        let blockingData = Data("blocking-file".utf8)
+        try blockingData.write(to: blockingFileURL)
+
+        let imageURL = try #require(URL(string: "https://example.com/images/write-failure.png"))
+        let imageData = makePNGData(width: 48, height: 24)
+        let httpClient = ScriptedHTTPClient(
+            steps: [
+                .dataResponse(
+                    statusCode: 200,
+                    headers: ["Content-Type": "image/png"],
+                    body: imageData
+                )
+            ]
+        )
+        let memoryCache = ArticleImageMemoryCache(
+            countLimit: 2,
+            totalCostLimit: 4 * 1024 * 1024
+        )
+        let diskCache = ArticleImageDiskCache(
+            directoryURL: blockingFileURL,
+            capacityLimit: 4 * 1024 * 1024
+        )
+        let loader = ArticleImageLoader(
+            httpClient: httpClient,
+            memoryCache: memoryCache,
+            diskCache: diskCache
+        )
+
+        let image = try await loader.loadImage(
+            from: imageURL,
+            displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 24)
+        )
+
+        #expect(memoryCache.image(for: imageURL) === image)
+        #expect(try await diskCache.data(for: imageURL) == nil)
+        #expect(try Data(contentsOf: blockingFileURL) == blockingData)
+        #expect(await httpClient.recordedRequests().count == 1)
+    }
+
+    @Test
     func warmLoadUsesDecodedMemoryCacheWithoutSecondNetworkRequest() async throws {
         let imageURL = try #require(URL(string: "https://example.com/images/warm.png"))
         let imageData = makePNGData(width: 64, height: 32)
