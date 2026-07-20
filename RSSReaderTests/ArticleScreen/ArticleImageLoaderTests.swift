@@ -7,7 +7,15 @@ import UIKit
 @MainActor
 struct ArticleImageLoaderTests {
     @Test
-    func validImageIsDownsampledForActualDisplayWidthAndCachedAfterValidation() async throws {
+    func articleImageRequestConfigurationBypassesSharedURLCache() {
+        let configuration = URLSessionConfiguration.articleImageRequestsDefault()
+
+        #expect(configuration.urlCache == nil)
+        #expect(configuration.requestCachePolicy == .reloadIgnoringLocalCacheData)
+    }
+
+    @Test
+    func coldLoadFetchesValidatedImageAndPopulatesCustomCaches() async throws {
         let imageURL = try #require(URL(string: "https://example.com/images/large.png"))
         let imageData = makePNGData(width: 120, height: 60)
         let fixture = try makeFixture(
@@ -37,6 +45,71 @@ struct ArticleImageLoaderTests {
             request.maximumResponseBodyBytes
                 == AppResourceBudgetContract.current.articleImage.body.maximumCompressedBodyBytes
         )
+    }
+
+    @Test
+    func warmLoadUsesDecodedMemoryCacheWithoutSecondNetworkRequest() async throws {
+        let imageURL = try #require(URL(string: "https://example.com/images/warm.png"))
+        let imageData = makePNGData(width: 64, height: 32)
+        let fixture = try makeFixture(
+            steps: [
+                .dataResponse(
+                    statusCode: 200,
+                    headers: ["Content-Type": "image/png"],
+                    body: imageData
+                )
+            ]
+        )
+        defer { fixture.removeTemporaryDirectory() }
+        let displayTarget = ArticleImageDisplayTarget(maximumPixelWidth: 32)
+
+        let coldImage = try await fixture.loader.loadImage(from: imageURL, displayTarget: displayTarget)
+        let warmImage = try await fixture.loader.loadImage(from: imageURL, displayTarget: displayTarget)
+
+        #expect(warmImage === coldImage)
+        #expect(await fixture.httpClient.recordedRequests().count == 1)
+    }
+
+    @Test
+    func relaunchLoadRestoresImageFromCustomDiskCacheWithoutNetworkRequest() async throws {
+        let imageURL = try #require(URL(string: "https://example.com/images/relaunch.png"))
+        let imageData = makePNGData(width: 80, height: 40)
+        let fixture = try makeFixture(
+            steps: [
+                .dataResponse(
+                    statusCode: 200,
+                    headers: ["Content-Type": "image/png"],
+                    body: imageData
+                )
+            ]
+        )
+        defer { fixture.removeTemporaryDirectory() }
+        let displayTarget = ArticleImageDisplayTarget(maximumPixelWidth: 40)
+        _ = try await fixture.loader.loadImage(from: imageURL, displayTarget: displayTarget)
+
+        let restoredHTTPClient = ScriptedHTTPClient()
+        let restoredMemoryCache = ArticleImageMemoryCache(
+            countLimit: 8,
+            totalCostLimit: 4 * 1024 * 1024
+        )
+        let restoredDiskCache = ArticleImageDiskCache(
+            directoryURL: fixture.directoryURL,
+            capacityLimit: 4 * 1024 * 1024
+        )
+        let restoredLoader = ArticleImageLoader(
+            httpClient: restoredHTTPClient,
+            memoryCache: restoredMemoryCache,
+            diskCache: restoredDiskCache
+        )
+
+        let restoredImage = try await restoredLoader.loadImage(
+            from: imageURL,
+            displayTarget: displayTarget
+        )
+
+        #expect(restoredMemoryCache.image(for: imageURL) === restoredImage)
+        #expect(await restoredHTTPClient.recordedRequests().isEmpty)
+        #expect(try await restoredDiskCache.data(for: imageURL) == imageData)
     }
 
     @Test

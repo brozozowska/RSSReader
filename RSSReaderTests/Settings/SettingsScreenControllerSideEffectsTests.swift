@@ -14,6 +14,8 @@ struct SettingsScreenControllerSideEffectsTests {
         let imageURL = try #require(URL(string: "https://example.com/article-image.png"))
         let initialSnapshot = try settingsService.fetchSettings()
 
+        try await ArticleImageDiskCache.shared.removeAll()
+        try await ArticleImageDiskCache.shared.insert(Data([1, 2, 3]), for: imageURL)
         ArticleImageMemoryCache.shared.insert(UIImage(), for: imageURL)
         controller.screenState.applyArticleImageCacheAvailability(true)
 
@@ -23,6 +25,7 @@ struct SettingsScreenControllerSideEffectsTests {
         )
 
         #expect(ArticleImageMemoryCache.shared.hasImages == false)
+        #expect(try await ArticleImageDiskCache.shared.isEmpty())
         #expect(controller.screenState.hasArticleImageCache == false)
         #expect(try settingsService.fetchSettings() == initialSnapshot)
     }

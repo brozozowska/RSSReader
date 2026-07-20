@@ -8,8 +8,6 @@ struct RSSReaderApp: App {
 
     @MainActor
     init() {
-        AppComposition.configureSharedURLCache()
-
         let dependencies = AppComposition.makeAppDependencies()
         self.dependencies = dependencies
         dependencies.reportBackgroundRefreshRegistrationConfigured()
