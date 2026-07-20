@@ -92,6 +92,22 @@ struct FeedIconCacheServiceTests {
         #expect(try await harness.diskCache.isEmpty())
     }
 
+    @Test
+    func memoryCacheSynchronizesAutomaticEvictionWithHasCachedData() async throws {
+        let cache = FeedIconMemoryCache(countLimit: 1)
+        let firstURL = try makeURL("https://example.com/first-icon.png")
+        let secondURL = try makeURL("https://example.com/second-icon.png")
+
+        await cache.insert(Data("first".utf8), for: firstURL)
+        await cache.insert(Data("second".utf8), for: secondURL)
+
+        let firstValue = await cache.data(for: firstURL)
+        let secondValue = await cache.data(for: secondURL)
+        #expect([firstValue, secondValue].compactMap { $0 }.count == 1)
+        #expect(await cache.cachedEntryCount() == 1)
+        #expect(await cache.hasCachedData())
+    }
+
     private func makeHarness() throws -> FeedIconCacheHarness {
         let directoryURL = try makeTemporaryDirectory()
         let diskCache = FeedIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)

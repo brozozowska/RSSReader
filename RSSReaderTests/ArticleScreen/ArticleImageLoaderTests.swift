@@ -35,8 +35,13 @@ struct ArticleImageLoaderTests {
         )
 
         let cgImage = try #require(image.cgImage)
+        let cachedDecodedByteCost = try #require(
+            fixture.memoryCache.cachedDecodedByteCost(for: imageURL)
+        )
         #expect(cgImage.width <= 24)
         #expect(cgImage.height <= 12)
+        #expect(cachedDecodedByteCost == cgImage.bytesPerRow * cgImage.height)
+        #expect(cachedDecodedByteCost != imageData.count)
         #expect(fixture.memoryCache.image(for: imageURL) === image)
         #expect(try await fixture.diskCache.data(for: imageURL) == imageData)
 
@@ -110,6 +115,35 @@ struct ArticleImageLoaderTests {
         #expect(restoredMemoryCache.image(for: imageURL) === restoredImage)
         #expect(await restoredHTTPClient.recordedRequests().isEmpty)
         #expect(try await restoredDiskCache.data(for: imageURL) == imageData)
+    }
+
+    @Test
+    func repeatedUniqueURLLoadsKeepMemoryBookkeepingWithinCacheCountLimit() async throws {
+        let loadCount = 32
+        let imageData = makePNGData(width: 32, height: 16)
+        let steps = (0..<loadCount).map { _ in
+            ScriptedHTTPClient.Step.dataResponse(
+                statusCode: 200,
+                headers: ["Content-Type": "image/png"],
+                body: imageData
+            )
+        }
+        let fixture = try makeFixture(steps: steps, memoryCountLimit: 3)
+        defer { fixture.removeTemporaryDirectory() }
+
+        for index in 0..<loadCount {
+            let imageURL = try #require(
+                URL(string: "https://example.com/images/unique-\(index).png")
+            )
+            _ = try await fixture.loader.loadImage(
+                from: imageURL,
+                displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 16)
+            )
+        }
+
+        #expect(fixture.memoryCache.cachedImageCount <= 3)
+        #expect(fixture.memoryCache.hasImages)
+        #expect(await fixture.httpClient.recordedRequests().count == loadCount)
     }
 
     @Test
@@ -256,7 +290,8 @@ struct ArticleImageLoaderTests {
 
     private func makeFixture(
         steps: [ScriptedHTTPClient.Step],
-        budget: RuntimeImageInputBudget = AppResourceBudgetContract.current.articleImage
+        budget: RuntimeImageInputBudget = AppResourceBudgetContract.current.articleImage,
+        memoryCountLimit: Int = 8
     ) throws -> ArticleImageLoaderFixture {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -266,7 +301,10 @@ struct ArticleImageLoaderTests {
         )
 
         let httpClient = ScriptedHTTPClient(steps: steps)
-        let memoryCache = ArticleImageMemoryCache(countLimit: 8, totalCostLimit: 4 * 1024 * 1024)
+        let memoryCache = ArticleImageMemoryCache(
+            countLimit: memoryCountLimit,
+            totalCostLimit: 4 * 1024 * 1024
+        )
         let diskCache = ArticleImageDiskCache(
             directoryURL: directoryURL,
             capacityLimit: 4 * 1024 * 1024

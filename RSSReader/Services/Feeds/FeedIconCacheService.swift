@@ -62,30 +62,50 @@ public actor FeedIconCacheService: FeedIconCaching {
 }
 
 public actor FeedIconMemoryCache {
-    private let storage = NSCache<NSURL, NSData>()
-    private var cachedURLs: Set<URL> = []
+    private let storage = NSCache<NSURL, FeedIconMemoryCacheEntry>()
+    private let entryTracker = URLIdentifiedNSCacheTracker<FeedIconMemoryCacheEntry>()
 
     public init(countLimit: Int = 256) {
         storage.countLimit = countLimit
+        storage.delegate = entryTracker
     }
 
     func data(for url: URL) -> Data? {
-        storage.object(forKey: url as NSURL) as Data?
+        guard let entry = storage.object(forKey: url as NSURL) else {
+            entryTracker.removeEntry(for: url)
+            return nil
+        }
+
+        return entry.data
     }
 
     func insert(_ data: Data, for url: URL) {
-        storage.setObject(data as NSData, forKey: url as NSURL)
-        cachedURLs.insert(url)
+        let entry = FeedIconMemoryCacheEntry(cacheURL: url, data: data)
+        entryTracker.track(entry)
+        storage.setObject(entry, forKey: url as NSURL)
     }
 
     func hasCachedData() -> Bool {
-        cachedURLs = cachedURLs.filter { storage.object(forKey: $0 as NSURL) != nil }
-        return cachedURLs.isEmpty == false
+        entryTracker.hasEntries
+    }
+
+    func cachedEntryCount() -> Int {
+        entryTracker.entryCount
     }
 
     func removeAll() {
         storage.removeAllObjects()
-        cachedURLs.removeAll()
+        entryTracker.removeAllEntries()
+    }
+}
+
+private final class FeedIconMemoryCacheEntry: NSObject, URLIdentifiedNSCacheEntry {
+    let cacheURL: URL
+    let data: Data
+
+    init(cacheURL: URL, data: Data) {
+        self.cacheURL = cacheURL
+        self.data = data
     }
 }
 

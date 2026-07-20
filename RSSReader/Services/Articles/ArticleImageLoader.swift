@@ -166,8 +166,7 @@ final class ArticleImageLoader {
             decodedImage.image,
             for: url,
             sourcePixelWidth: decodedImage.sourcePixelWidth,
-            sourcePixelHeight: decodedImage.sourcePixelHeight,
-            cost: decodedImage.decodedByteCost
+            sourcePixelHeight: decodedImage.sourcePixelHeight
         )
     }
 }
@@ -203,7 +202,6 @@ private nonisolated struct DecodedArticleImage: @unchecked Sendable {
     let image: UIImage
     let sourcePixelWidth: Int
     let sourcePixelHeight: Int
-    let decodedByteCost: Int
 }
 
 private nonisolated enum ArticleImageDecoder {
@@ -277,12 +275,10 @@ private nonisolated enum ArticleImageDecoder {
 
         try Task.checkCancellation()
 
-        let decodedByteCost = cgImage.bytesPerRow.multipliedReportingOverflow(by: cgImage.height)
         return DecodedArticleImage(
             image: UIImage(cgImage: cgImage),
             sourcePixelWidth: sourceWidth,
-            sourcePixelHeight: sourceHeight,
-            decodedByteCost: decodedByteCost.overflow ? Int.max : decodedByteCost.partialValue
+            sourcePixelHeight: sourceHeight
         )
     }
 }
