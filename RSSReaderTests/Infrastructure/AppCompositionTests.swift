@@ -65,4 +65,29 @@ struct AppCompositionTests {
             )
         )
     }
+
+    @Test
+    func appCompositionDisposableCacheMigrationGuardRunsCleanupOnlyOncePerLaunch() {
+        let logger = RecordingLogger()
+        let bootstrapGuard = AppLaunchBootstrapGuard()
+        var cleanupRunCount = 0
+
+        for _ in 0..<2 {
+            AppComposition.runDisposableCacheMigrationIfNeeded(
+                logger: logger,
+                guard: bootstrapGuard
+            ) {
+                cleanupRunCount += 1
+                return false
+            }
+        }
+
+        #expect(cleanupRunCount == 1)
+        #expect(
+            logger.contains(
+                "Skipped disposable cache migration because app launch guard already attempted it",
+                level: .debug
+            )
+        )
+    }
 }

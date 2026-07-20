@@ -111,6 +111,7 @@ private final class FeedIconMemoryCacheEntry: NSObject, URLIdentifiedNSCacheEntr
 
 public actor FeedIconDiskCache {
     public static let shared = FeedIconDiskCache()
+    static let directoryName = "RSSReaderFeedIcons"
 
     private let directoryURL: URL
     private let capacityLimit: Int64
@@ -170,7 +171,7 @@ public actor FeedIconDiskCache {
 
     private static func defaultDirectoryURL(fileManager: FileManager) -> URL {
         let cachesDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        return cachesDirectory.appendingPathComponent("RSSReaderFeedIcons", isDirectory: true)
+        return cachesDirectory.appendingPathComponent(directoryName, isDirectory: true)
     }
 
     private func prepareDirectoryIfNeeded() throws {
