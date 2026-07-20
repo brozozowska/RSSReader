@@ -286,10 +286,6 @@ private actor SettingsRecordingFeedIconCache: FeedIconCaching {
         hasCachedDataValue = true
     }
 
-    func imageData(for url: URL) async throws -> Data {
-        Data()
-    }
-
     func hasCachedData() async throws -> Bool {
         hasCachedDataValue
     }

@@ -224,7 +224,7 @@ public final class AppDependencies: AppDependenciesProtocol {
                 articleRepository: articleRepository
             )
         }()
-        let resolvedFeedIconCache = feedIconCache ?? FeedIconCacheService(httpClient: httpClient)
+        let resolvedFeedIconCache = feedIconCache ?? FeedIconCacheService()
         let resolvedFeedIconDiscoveryService = feedIconDiscoveryService ?? FeedIconDiscoveryService(
             logger: logger,
             httpClient: httpClient,

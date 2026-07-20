@@ -4,28 +4,22 @@ import Foundation
 public protocol FeedIconCaching: Sendable {
     func cachedImageData(for url: URL) async throws -> Data?
     func storeImageData(_ data: Data, for url: URL) async throws
-    func imageData(for url: URL) async throws -> Data
     func hasCachedData() async throws -> Bool
     func removeAllCachedData() async throws
 }
 
 public enum FeedIconCacheError: Error {
-    case invalidResponseStatusCode(Int)
     case emptyImageData
 }
 
 public actor FeedIconCacheService: FeedIconCaching {
-    private let httpClient: any HTTPClient
     private let cache: FeedIconMemoryCache
     private let diskCache: FeedIconDiskCache
-    private var inFlightTasks: [URL: Task<Data, Error>] = [:]
 
     public init(
-        httpClient: any HTTPClient,
         cache: FeedIconMemoryCache? = nil,
         diskCache: FeedIconDiskCache? = nil
     ) {
-        self.httpClient = httpClient
         self.cache = cache ?? FeedIconMemoryCache()
         self.diskCache = diskCache ?? FeedIconDiskCache.shared
     }
@@ -50,48 +44,6 @@ public actor FeedIconCacheService: FeedIconCaching {
 
         try await diskCache.insert(data, for: url)
         await cache.insert(data, for: url)
-    }
-
-    public func imageData(for url: URL) async throws -> Data {
-        if let cachedData = try await cachedImageData(for: url) {
-            return cachedData
-        }
-
-        if let task = inFlightTasks[url] {
-            return try await task.value
-        }
-
-        let task = Task<Data, Error> {
-            let response = try await httpClient.execute(
-                HTTPRequest(
-                    url: url,
-                    maximumResponseBodyBytes: AppComposition.resourceBudgetContract
-                        .feedIcon
-                        .body
-                        .maximumCompressedBodyBytes
-                )
-            )
-
-            guard (200...299).contains(response.statusCode) else {
-                throw FeedIconCacheError.invalidResponseStatusCode(response.statusCode)
-            }
-
-            guard response.body.isEmpty == false else {
-                throw FeedIconCacheError.emptyImageData
-            }
-
-            let iconBodyBudget = AppComposition.resourceBudgetContract.feedIcon.body
-            try iconBodyBudget.validateCompressedBodyByteCount(Int64(response.body.count))
-            try iconBodyBudget.validateMIMEType(response.contentType)
-
-            try await storeImageData(response.body, for: url)
-            return response.body
-        }
-
-        inFlightTasks[url] = task
-        defer { inFlightTasks[url] = nil }
-
-        return try await task.value
     }
 
     public func hasCachedData() async throws -> Bool {
