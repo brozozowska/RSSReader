@@ -175,6 +175,28 @@ struct FeedIconCacheServiceTests {
         #expect(await cache.hasCachedData())
     }
 
+    @Test
+    func memoryCacheEnforcesAggregateByteCostAndKeepsBookkeepingSynchronized() async throws {
+        let cache = FeedIconMemoryCache(countLimit: 10, totalCostLimit: 8)
+        let firstURL = try makeURL("https://example.com/cost-first-icon.png")
+        let secondURL = try makeURL("https://example.com/cost-second-icon.png")
+        let thirdURL = try makeURL("https://example.com/cost-third-icon.png")
+
+        await cache.insert(Data(repeating: 1, count: 4), for: firstURL)
+        await cache.insert(Data(repeating: 2, count: 4), for: secondURL)
+        await cache.insert(Data(repeating: 3, count: 4), for: thirdURL)
+
+        let firstValue = await cache.data(for: firstURL)
+        let secondValue = await cache.data(for: secondURL)
+        let thirdValue = await cache.data(for: thirdURL)
+        let cachedValues = [firstValue, secondValue, thirdValue].compactMap { $0 }
+
+        #expect(cachedValues.isEmpty == false)
+        #expect(cachedValues.count <= 2)
+        #expect(await cache.cachedEntryCount() == cachedValues.count)
+        #expect(await cache.hasCachedData())
+    }
+
     private func makeHarness() throws -> FeedIconCacheHarness {
         let directoryURL = try makeTemporaryDirectory()
         let diskCache = FeedIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)

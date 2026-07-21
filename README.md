@@ -643,6 +643,7 @@
 - [x] `Decoded Image Memory Accounting`: считать `NSCache` cost по decoded bitmap footprint/downsampled image, а не по compressed `Data.count`; убрать бесконечно растущие `storedURLs` / `cachedURLs` либо синхронизировать их через bounded index/eviction delegate; покрыть automatic eviction, `hasCachedData` и repeated unique-URL load tests;
 - [x] `Legacy Cache Directory Cleanup`: отделить disposable cache migration от no-legacy persistence migration и один раз удалить старый `RSSReaderSourceIcons` после перехода на `RSSReaderFeedIcons`; сделать cleanup idempotent и покрыть наличие old/new/both cache directories;
 - [x] `Cache Capacity Regression Matrix`: добавить focused tests для single-entry-over-capacity, aggregate LRU eviction, disk write failure, memory pressure/eviction bookkeeping и Settings cleanup всех cache owners;
+- [x] `Feed Icon Memory Byte Cost Limit`: добавить byte-cost limit для `FeedIconMemoryCache`, учитывать `Data.count` при вставке в `NSCache`, покрыть aggregate cost eviction и eviction bookkeeping focused tests, синхронизировать lifecycle contract;
 
 #### Feed Refresh Pipeline Hardening
 - [ ] `Refresh Result And Diagnostics Atomicity`: определить failure semantics для `FeedFetchLog`: ошибка observability не должна превращать уже сохранённый fetched/not-modified result в failed; либо включить log в общую transaction boundary, либо сохранять его best-effort с отдельным OS log marker; покрыть injected log-save failure после успешного feed/article save;

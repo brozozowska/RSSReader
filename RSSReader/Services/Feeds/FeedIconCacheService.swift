@@ -65,8 +65,12 @@ public actor FeedIconMemoryCache {
     private let storage = NSCache<NSURL, FeedIconMemoryCacheEntry>()
     private let entryTracker = URLIdentifiedNSCacheTracker<FeedIconMemoryCacheEntry>()
 
-    public init(countLimit: Int = 256) {
+    public init(
+        countLimit: Int = 256,
+        totalCostLimit: Int = 25 * 1024 * 1024
+    ) {
         storage.countLimit = countLimit
+        storage.totalCostLimit = totalCostLimit
         storage.delegate = entryTracker
     }
 
@@ -82,7 +86,7 @@ public actor FeedIconMemoryCache {
     func insert(_ data: Data, for url: URL) {
         let entry = FeedIconMemoryCacheEntry(cacheURL: url, data: data)
         entryTracker.track(entry)
-        storage.setObject(entry, forKey: url as NSURL)
+        storage.setObject(entry, forKey: url as NSURL, cost: data.count)
     }
 
     func hasCachedData() -> Bool {
