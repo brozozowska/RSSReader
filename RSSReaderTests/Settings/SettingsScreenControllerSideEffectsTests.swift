@@ -14,6 +14,8 @@ struct SettingsScreenControllerSideEffectsTests {
         let imageURL = try #require(URL(string: "https://example.com/article-image.png"))
         let initialSnapshot = try settingsService.fetchSettings()
 
+        try await ArticleImageDiskCache.shared.removeAll()
+        try await ArticleImageDiskCache.shared.insert(Data([1, 2, 3]), for: imageURL)
         ArticleImageMemoryCache.shared.insert(UIImage(), for: imageURL)
         controller.screenState.applyArticleImageCacheAvailability(true)
 
@@ -23,6 +25,7 @@ struct SettingsScreenControllerSideEffectsTests {
         )
 
         #expect(ArticleImageMemoryCache.shared.hasImages == false)
+        #expect(try await ArticleImageDiskCache.shared.isEmpty())
         #expect(controller.screenState.hasArticleImageCache == false)
         #expect(try settingsService.fetchSettings() == initialSnapshot)
     }
@@ -55,6 +58,54 @@ struct SettingsScreenControllerSideEffectsTests {
         )
 
         #expect(await feedIconCache.removeAllCallCount() == 1)
+        #expect(controller.screenState.hasFeedIconCache == false)
+        #expect(appState.feedIconCacheResetID != resetIDBeforeClear)
+        #expect(try settingsService.fetchSettings() == initialSnapshot)
+    }
+
+    @Test
+    func settingsScreenControllerClearsFeedIconMemoryAndDiskOwners() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directoryURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        let memoryCache = FeedIconMemoryCache(countLimit: 2)
+        let diskCache = FeedIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024)
+        let feedIconCache = FeedIconCacheService(cache: memoryCache, diskCache: diskCache)
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            httpClient: harness.httpClient,
+            feedFetcher: harness.dependencies.feedFetcher,
+            feedIconCache: feedIconCache,
+            modelContainer: harness.modelContainer,
+            unreadAppIconBadgeService: NoOpUnreadAppIconBadgeService()
+        )
+        let settingsService = try #require(dependencies.appSettingsService)
+        let controller = SettingsScreenController()
+        let appState = AppState()
+        let resetIDBeforeClear = appState.feedIconCacheResetID
+        let initialSnapshot = try settingsService.fetchSettings()
+        let memoryOnlyURL = try #require(URL(string: "https://example.com/memory-only-icon.png"))
+        let diskOnlyURL = try #require(URL(string: "https://example.com/disk-only-icon.png"))
+
+        await memoryCache.insert(Data("memory".utf8), for: memoryOnlyURL)
+        try await diskCache.insert(Data("disk".utf8), for: diskOnlyURL)
+        await controller.refreshFeedIconCacheAvailability(dependencies: dependencies)
+
+        await controller.handleButtonTap(
+            itemID: .clearFeedIconCache,
+            dependencies: dependencies,
+            appState: appState
+        )
+
+        #expect(await memoryCache.cachedEntryCount() == 0)
+        #expect(try await diskCache.isEmpty())
+        #expect(try await feedIconCache.hasCachedData() == false)
         #expect(controller.screenState.hasFeedIconCache == false)
         #expect(appState.feedIconCacheResetID != resetIDBeforeClear)
         #expect(try settingsService.fetchSettings() == initialSnapshot)
@@ -284,10 +335,6 @@ private actor SettingsRecordingFeedIconCache: FeedIconCaching {
 
     func storeImageData(_ data: Data, for url: URL) async throws {
         hasCachedDataValue = true
-    }
-
-    func imageData(for url: URL) async throws -> Data {
-        Data()
     }
 
     func hasCachedData() async throws -> Bool {

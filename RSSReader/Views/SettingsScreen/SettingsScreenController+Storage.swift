@@ -4,7 +4,6 @@ import Foundation
 extension SettingsScreenController {
     func clearArticleImageCache(dependencies: AppDependencies) async {
         ArticleImageMemoryCache.shared.removeAllImages()
-        URLCache.shared.removeAllCachedResponses()
 
         do {
             try await ArticleImageDiskCache.shared.removeAll()

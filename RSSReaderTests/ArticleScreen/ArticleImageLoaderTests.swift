@@ -7,7 +7,15 @@ import UIKit
 @MainActor
 struct ArticleImageLoaderTests {
     @Test
-    func validImageIsDownsampledForActualDisplayWidthAndCachedAfterValidation() async throws {
+    func articleImageRequestConfigurationBypassesSharedURLCache() {
+        let configuration = URLSessionConfiguration.articleImageRequestsDefault()
+
+        #expect(configuration.urlCache == nil)
+        #expect(configuration.requestCachePolicy == .reloadIgnoringLocalCacheData)
+    }
+
+    @Test
+    func coldLoadFetchesValidatedImageAndPopulatesCustomCaches() async throws {
         let imageURL = try #require(URL(string: "https://example.com/images/large.png"))
         let imageData = makePNGData(width: 120, height: 60)
         let fixture = try makeFixture(
@@ -27,8 +35,13 @@ struct ArticleImageLoaderTests {
         )
 
         let cgImage = try #require(image.cgImage)
+        let cachedDecodedByteCost = try #require(
+            fixture.memoryCache.cachedDecodedByteCost(for: imageURL)
+        )
         #expect(cgImage.width <= 24)
         #expect(cgImage.height <= 12)
+        #expect(cachedDecodedByteCost == cgImage.bytesPerRow * cgImage.height)
+        #expect(cachedDecodedByteCost != imageData.count)
         #expect(fixture.memoryCache.image(for: imageURL) === image)
         #expect(try await fixture.diskCache.data(for: imageURL) == imageData)
 
@@ -37,6 +50,150 @@ struct ArticleImageLoaderTests {
             request.maximumResponseBodyBytes
                 == AppResourceBudgetContract.current.articleImage.body.maximumCompressedBodyBytes
         )
+    }
+
+    @Test
+    func diskWriteFailureKeepsValidatedArticleImageAvailableInMemory() async throws {
+        let rootDirectoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: rootDirectoryURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: rootDirectoryURL) }
+
+        let blockingFileURL = rootDirectoryURL.appendingPathComponent("not-a-directory")
+        let blockingData = Data("blocking-file".utf8)
+        try blockingData.write(to: blockingFileURL)
+
+        let imageURL = try #require(URL(string: "https://example.com/images/write-failure.png"))
+        let imageData = makePNGData(width: 48, height: 24)
+        let httpClient = ScriptedHTTPClient(
+            steps: [
+                .dataResponse(
+                    statusCode: 200,
+                    headers: ["Content-Type": "image/png"],
+                    body: imageData
+                )
+            ]
+        )
+        let memoryCache = ArticleImageMemoryCache(
+            countLimit: 2,
+            totalCostLimit: 4 * 1024 * 1024
+        )
+        let diskCache = ArticleImageDiskCache(
+            directoryURL: blockingFileURL,
+            capacityLimit: 4 * 1024 * 1024
+        )
+        let loader = ArticleImageLoader(
+            httpClient: httpClient,
+            memoryCache: memoryCache,
+            diskCache: diskCache
+        )
+
+        let image = try await loader.loadImage(
+            from: imageURL,
+            displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 24)
+        )
+
+        #expect(memoryCache.image(for: imageURL) === image)
+        #expect(try await diskCache.data(for: imageURL) == nil)
+        #expect(try Data(contentsOf: blockingFileURL) == blockingData)
+        #expect(await httpClient.recordedRequests().count == 1)
+    }
+
+    @Test
+    func warmLoadUsesDecodedMemoryCacheWithoutSecondNetworkRequest() async throws {
+        let imageURL = try #require(URL(string: "https://example.com/images/warm.png"))
+        let imageData = makePNGData(width: 64, height: 32)
+        let fixture = try makeFixture(
+            steps: [
+                .dataResponse(
+                    statusCode: 200,
+                    headers: ["Content-Type": "image/png"],
+                    body: imageData
+                )
+            ]
+        )
+        defer { fixture.removeTemporaryDirectory() }
+        let displayTarget = ArticleImageDisplayTarget(maximumPixelWidth: 32)
+
+        let coldImage = try await fixture.loader.loadImage(from: imageURL, displayTarget: displayTarget)
+        let warmImage = try await fixture.loader.loadImage(from: imageURL, displayTarget: displayTarget)
+
+        #expect(warmImage === coldImage)
+        #expect(await fixture.httpClient.recordedRequests().count == 1)
+    }
+
+    @Test
+    func relaunchLoadRestoresImageFromCustomDiskCacheWithoutNetworkRequest() async throws {
+        let imageURL = try #require(URL(string: "https://example.com/images/relaunch.png"))
+        let imageData = makePNGData(width: 80, height: 40)
+        let fixture = try makeFixture(
+            steps: [
+                .dataResponse(
+                    statusCode: 200,
+                    headers: ["Content-Type": "image/png"],
+                    body: imageData
+                )
+            ]
+        )
+        defer { fixture.removeTemporaryDirectory() }
+        let displayTarget = ArticleImageDisplayTarget(maximumPixelWidth: 40)
+        _ = try await fixture.loader.loadImage(from: imageURL, displayTarget: displayTarget)
+
+        let restoredHTTPClient = ScriptedHTTPClient()
+        let restoredMemoryCache = ArticleImageMemoryCache(
+            countLimit: 8,
+            totalCostLimit: 4 * 1024 * 1024
+        )
+        let restoredDiskCache = ArticleImageDiskCache(
+            directoryURL: fixture.directoryURL,
+            capacityLimit: 4 * 1024 * 1024
+        )
+        let restoredLoader = ArticleImageLoader(
+            httpClient: restoredHTTPClient,
+            memoryCache: restoredMemoryCache,
+            diskCache: restoredDiskCache
+        )
+
+        let restoredImage = try await restoredLoader.loadImage(
+            from: imageURL,
+            displayTarget: displayTarget
+        )
+
+        #expect(restoredMemoryCache.image(for: imageURL) === restoredImage)
+        #expect(await restoredHTTPClient.recordedRequests().isEmpty)
+        #expect(try await restoredDiskCache.data(for: imageURL) == imageData)
+    }
+
+    @Test
+    func repeatedUniqueURLLoadsKeepMemoryBookkeepingWithinCacheCountLimit() async throws {
+        let loadCount = 32
+        let imageData = makePNGData(width: 32, height: 16)
+        let steps = (0..<loadCount).map { _ in
+            ScriptedHTTPClient.Step.dataResponse(
+                statusCode: 200,
+                headers: ["Content-Type": "image/png"],
+                body: imageData
+            )
+        }
+        let fixture = try makeFixture(steps: steps, memoryCountLimit: 3)
+        defer { fixture.removeTemporaryDirectory() }
+
+        for index in 0..<loadCount {
+            let imageURL = try #require(
+                URL(string: "https://example.com/images/unique-\(index).png")
+            )
+            _ = try await fixture.loader.loadImage(
+                from: imageURL,
+                displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 16)
+            )
+        }
+
+        #expect(fixture.memoryCache.cachedImageCount <= 3)
+        #expect(fixture.memoryCache.hasImages)
+        #expect(await fixture.httpClient.recordedRequests().count == loadCount)
     }
 
     @Test
@@ -183,7 +340,8 @@ struct ArticleImageLoaderTests {
 
     private func makeFixture(
         steps: [ScriptedHTTPClient.Step],
-        budget: RuntimeImageInputBudget = AppResourceBudgetContract.current.articleImage
+        budget: RuntimeImageInputBudget = AppResourceBudgetContract.current.articleImage,
+        memoryCountLimit: Int = 8
     ) throws -> ArticleImageLoaderFixture {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -193,7 +351,10 @@ struct ArticleImageLoaderTests {
         )
 
         let httpClient = ScriptedHTTPClient(steps: steps)
-        let memoryCache = ArticleImageMemoryCache(countLimit: 8, totalCostLimit: 4 * 1024 * 1024)
+        let memoryCache = ArticleImageMemoryCache(
+            countLimit: memoryCountLimit,
+            totalCostLimit: 4 * 1024 * 1024
+        )
         let diskCache = ArticleImageDiskCache(
             directoryURL: directoryURL,
             capacityLimit: 4 * 1024 * 1024

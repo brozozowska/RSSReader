@@ -38,18 +38,6 @@ struct AppCompositionTests {
     }
 
     @Test
-    func appCompositionArticleImageURLCacheConfigurationUsesBoundedMemoryAndDiskCache() {
-        let configuration = AppURLCacheConfiguration.articleImageLoading
-        let cache = configuration.makeURLCache()
-
-        #expect(configuration.memoryCapacity == 50 * 1024 * 1024)
-        #expect(configuration.diskCapacity == 200 * 1024 * 1024)
-        #expect(configuration.diskPath == "RSSReaderArticleImageURLCache")
-        #expect(cache.memoryCapacity == configuration.memoryCapacity)
-        #expect(cache.diskCapacity == configuration.diskCapacity)
-    }
-
-    @Test
     func appCompositionDevelopmentSchemaBootstrapGuardRunsBootstrapOnlyOncePerLaunch() {
         let logger = RecordingLogger()
         let bootstrapGuard = AppLaunchBootstrapGuard()
@@ -73,6 +61,31 @@ struct AppCompositionTests {
         #expect(
             logger.contains(
                 "Skipped CloudKit development schema bootstrap because app launch guard already attempted it",
+                level: .debug
+            )
+        )
+    }
+
+    @Test
+    func appCompositionDisposableCacheMigrationGuardRunsCleanupOnlyOncePerLaunch() {
+        let logger = RecordingLogger()
+        let bootstrapGuard = AppLaunchBootstrapGuard()
+        var cleanupRunCount = 0
+
+        for _ in 0..<2 {
+            AppComposition.runDisposableCacheMigrationIfNeeded(
+                logger: logger,
+                guard: bootstrapGuard
+            ) {
+                cleanupRunCount += 1
+                return false
+            }
+        }
+
+        #expect(cleanupRunCount == 1)
+        #expect(
+            logger.contains(
+                "Skipped disposable cache migration because app launch guard already attempted it",
                 level: .debug
             )
         )

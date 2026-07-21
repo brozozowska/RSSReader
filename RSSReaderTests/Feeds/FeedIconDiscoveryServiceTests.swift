@@ -7,6 +7,49 @@ import UIKit
 @MainActor
 struct FeedIconDiscoveryServiceTests {
     @Test
+    func discoveryUsesCachedRasterIconWithoutNetworkRequest() async throws {
+        let iconURL = try makeURL("https://example.com/cached-icon.png")
+        let iconData = makePNGData()
+        let service = try makeService(responsesByURL: [:])
+        try await service.feedIconCache.storeImageData(iconData, for: iconURL)
+
+        let discoveredURL = await service.discoveryService.discoverIconURL(
+            feedURL: try makeURL("https://example.com/feed.xml"),
+            siteURL: nil,
+            metadataIconURL: iconURL
+        )
+
+        #expect(discoveredURL == iconURL)
+        #expect(await service.httpClient.recordedRequests().isEmpty)
+    }
+
+    @Test
+    func discoveryRejectsOversizedIconBeforeCacheStorage() async throws {
+        let iconURL = try makeURL("https://example.com/oversized-icon.png")
+        let budget = AppResourceBudgetContract.current.feedIcon.body
+        let service = try makeService(
+            responsesByURL: [
+                iconURL.absoluteString: .dataResponse(
+                    statusCode: 200,
+                    headers: ["Content-Type": "image/png"],
+                    body: Data(repeating: 0, count: Int(budget.maximumCompressedBodyBytes + 1))
+                )
+            ]
+        )
+
+        let discoveredURL = await service.discoveryService.discoverIconURL(
+            feedURL: try makeURL("https://example.com/feed.xml"),
+            siteURL: nil,
+            metadataIconURL: iconURL
+        )
+
+        #expect(discoveredURL == nil)
+        #expect(try await service.feedIconCache.cachedImageData(for: iconURL) == nil)
+        let request = try #require(await service.httpClient.recordedRequests().first)
+        #expect(request.maximumResponseBodyBytes == budget.maximumCompressedBodyBytes)
+    }
+
+    @Test
     func discoveryRejectsUnsupportedIconMIMEBeforeImageDecodeOrCache() async throws {
         let iconURL = try makeURL("https://example.com/wrong-mime.png")
         let service = try makeService(
@@ -263,7 +306,7 @@ struct FeedIconDiscoveryServiceTests {
         let directoryURL = try makeTemporaryDirectory()
         let diskCache = FeedIconDiskCache(directoryURL: directoryURL, capacityLimit: 1_024 * 1_024)
         let httpClient = ScriptedHTTPClient(responsesByURL: responsesByURL)
-        let feedIconCache = FeedIconCacheService(httpClient: httpClient, diskCache: diskCache)
+        let feedIconCache = FeedIconCacheService(diskCache: diskCache)
         let discoveryService = FeedIconDiscoveryService(
             logger: TestLogger(),
             httpClient: httpClient,

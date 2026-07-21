@@ -13,11 +13,13 @@ struct ArticleScreenImageCacheRenderingTests {
         let otherURL = URL(string: "https://example.com/other-image.png")!
         let image = makeTestImage()
 
-        cache.insert(image, for: imageURL, cost: 16)
+        cache.insert(image, for: imageURL)
         let cachedImage = try #require(cache.image(for: imageURL))
 
         #expect(cachedImage === image)
         #expect(cache.image(for: otherURL) == nil)
+        #expect(cache.hasImages)
+        #expect(cache.cachedImageCount == 1)
     }
 
     @Test
@@ -25,10 +27,12 @@ struct ArticleScreenImageCacheRenderingTests {
         let cache = ArticleImageMemoryCache(countLimit: 2, totalCostLimit: 1_024)
         let imageURL = URL(string: "https://example.com/article-image.png")!
 
-        cache.insert(makeTestImage(), for: imageURL, cost: 16)
+        cache.insert(makeTestImage(), for: imageURL)
         cache.removeAllImages()
 
         #expect(cache.image(for: imageURL) == nil)
+        #expect(cache.hasImages == false)
+        #expect(cache.cachedImageCount == 0)
     }
 
     @Test
@@ -41,12 +45,41 @@ struct ArticleScreenImageCacheRenderingTests {
             image,
             for: imageURL,
             sourcePixelWidth: 120,
-            sourcePixelHeight: 60,
-            cost: 24 * 12 * 4
+            sourcePixelHeight: 60
         )
 
         #expect(cache.image(for: imageURL, targetMaximumPixelWidth: 24) === image)
         #expect(cache.image(for: imageURL, targetMaximumPixelWidth: 60) == nil)
+    }
+
+    @Test
+    func articleImageMemoryCacheUsesDecodedBitmapFootprintAsCost() throws {
+        let cache = ArticleImageMemoryCache(countLimit: 2, totalCostLimit: 4_096)
+        let imageURL = try #require(URL(string: "https://example.com/decoded-cost.png"))
+        let image = makeSizedTestImage(size: CGSize(width: 24, height: 12))
+        let cgImage = try #require(image.cgImage)
+
+        cache.insert(image, for: imageURL)
+
+        #expect(
+            cache.cachedDecodedByteCost(for: imageURL)
+                == cgImage.bytesPerRow * cgImage.height
+        )
+    }
+
+    @Test
+    func articleImageMemoryCacheSynchronizesAutomaticEvictionWithAvailability() throws {
+        let cache = ArticleImageMemoryCache(countLimit: 1, totalCostLimit: 4_096)
+        let firstURL = try #require(URL(string: "https://example.com/first.png"))
+        let secondURL = try #require(URL(string: "https://example.com/second.png"))
+
+        cache.insert(makeTestImage(), for: firstURL)
+        cache.insert(makeTestImage(), for: secondURL)
+
+        let cachedImages = [firstURL, secondURL].compactMap { cache.image(for: $0) }
+        #expect(cachedImages.count == 1)
+        #expect(cache.cachedImageCount == 1)
+        #expect(cache.hasImages)
     }
 
     @Test

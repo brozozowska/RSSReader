@@ -4,28 +4,22 @@ import Foundation
 public protocol FeedIconCaching: Sendable {
     func cachedImageData(for url: URL) async throws -> Data?
     func storeImageData(_ data: Data, for url: URL) async throws
-    func imageData(for url: URL) async throws -> Data
     func hasCachedData() async throws -> Bool
     func removeAllCachedData() async throws
 }
 
 public enum FeedIconCacheError: Error {
-    case invalidResponseStatusCode(Int)
     case emptyImageData
 }
 
 public actor FeedIconCacheService: FeedIconCaching {
-    private let httpClient: any HTTPClient
     private let cache: FeedIconMemoryCache
     private let diskCache: FeedIconDiskCache
-    private var inFlightTasks: [URL: Task<Data, Error>] = [:]
 
     public init(
-        httpClient: any HTTPClient,
         cache: FeedIconMemoryCache? = nil,
         diskCache: FeedIconDiskCache? = nil
     ) {
-        self.httpClient = httpClient
         self.cache = cache ?? FeedIconMemoryCache()
         self.diskCache = diskCache ?? FeedIconDiskCache.shared
     }
@@ -52,48 +46,6 @@ public actor FeedIconCacheService: FeedIconCaching {
         await cache.insert(data, for: url)
     }
 
-    public func imageData(for url: URL) async throws -> Data {
-        if let cachedData = try await cachedImageData(for: url) {
-            return cachedData
-        }
-
-        if let task = inFlightTasks[url] {
-            return try await task.value
-        }
-
-        let task = Task<Data, Error> {
-            let response = try await httpClient.execute(
-                HTTPRequest(
-                    url: url,
-                    maximumResponseBodyBytes: AppComposition.resourceBudgetContract
-                        .feedIcon
-                        .body
-                        .maximumCompressedBodyBytes
-                )
-            )
-
-            guard (200...299).contains(response.statusCode) else {
-                throw FeedIconCacheError.invalidResponseStatusCode(response.statusCode)
-            }
-
-            guard response.body.isEmpty == false else {
-                throw FeedIconCacheError.emptyImageData
-            }
-
-            let iconBodyBudget = AppComposition.resourceBudgetContract.feedIcon.body
-            try iconBodyBudget.validateCompressedBodyByteCount(Int64(response.body.count))
-            try iconBodyBudget.validateMIMEType(response.contentType)
-
-            try await storeImageData(response.body, for: url)
-            return response.body
-        }
-
-        inFlightTasks[url] = task
-        defer { inFlightTasks[url] = nil }
-
-        return try await task.value
-    }
-
     public func hasCachedData() async throws -> Bool {
         let hasMemoryCache = await cache.hasCachedData()
         guard hasMemoryCache == false else {
@@ -110,35 +62,60 @@ public actor FeedIconCacheService: FeedIconCaching {
 }
 
 public actor FeedIconMemoryCache {
-    private let storage = NSCache<NSURL, NSData>()
-    private var cachedURLs: Set<URL> = []
+    private let storage = NSCache<NSURL, FeedIconMemoryCacheEntry>()
+    private let entryTracker = URLIdentifiedNSCacheTracker<FeedIconMemoryCacheEntry>()
 
-    public init(countLimit: Int = 256) {
+    public init(
+        countLimit: Int = 256,
+        totalCostLimit: Int = 25 * 1024 * 1024
+    ) {
         storage.countLimit = countLimit
+        storage.totalCostLimit = totalCostLimit
+        storage.delegate = entryTracker
     }
 
     func data(for url: URL) -> Data? {
-        storage.object(forKey: url as NSURL) as Data?
+        guard let entry = storage.object(forKey: url as NSURL) else {
+            entryTracker.removeEntry(for: url)
+            return nil
+        }
+
+        return entry.data
     }
 
     func insert(_ data: Data, for url: URL) {
-        storage.setObject(data as NSData, forKey: url as NSURL)
-        cachedURLs.insert(url)
+        let entry = FeedIconMemoryCacheEntry(cacheURL: url, data: data)
+        entryTracker.track(entry)
+        storage.setObject(entry, forKey: url as NSURL, cost: data.count)
     }
 
     func hasCachedData() -> Bool {
-        cachedURLs = cachedURLs.filter { storage.object(forKey: $0 as NSURL) != nil }
-        return cachedURLs.isEmpty == false
+        entryTracker.hasEntries
+    }
+
+    func cachedEntryCount() -> Int {
+        entryTracker.entryCount
     }
 
     func removeAll() {
         storage.removeAllObjects()
-        cachedURLs.removeAll()
+        entryTracker.removeAllEntries()
+    }
+}
+
+private final class FeedIconMemoryCacheEntry: NSObject, URLIdentifiedNSCacheEntry {
+    let cacheURL: URL
+    let data: Data
+
+    init(cacheURL: URL, data: Data) {
+        self.cacheURL = cacheURL
+        self.data = data
     }
 }
 
 public actor FeedIconDiskCache {
     public static let shared = FeedIconDiskCache()
+    static let directoryName = "RSSReaderFeedIcons"
 
     private let directoryURL: URL
     private let capacityLimit: Int64
@@ -198,7 +175,7 @@ public actor FeedIconDiskCache {
 
     private static func defaultDirectoryURL(fileManager: FileManager) -> URL {
         let cachesDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        return cachesDirectory.appendingPathComponent("RSSReaderFeedIcons", isDirectory: true)
+        return cachesDirectory.appendingPathComponent(directoryName, isDirectory: true)
     }
 
     private func prepareDirectoryIfNeeded() throws {

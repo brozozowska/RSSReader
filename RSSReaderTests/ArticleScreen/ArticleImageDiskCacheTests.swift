@@ -20,6 +20,19 @@ struct ArticleImageDiskCacheTests {
     }
 
     @Test
+    func articleImageDiskCacheDoesNotRetainSingleEntryLargerThanCapacity() async throws {
+        let directoryURL = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        let imageURL = URL(string: "https://example.com/images/oversized-cache-entry.png")!
+        let cache = ArticleImageDiskCache(directoryURL: directoryURL, capacityLimit: 4)
+
+        try await cache.insert(Data(repeating: 1, count: 5), for: imageURL)
+
+        #expect(try await cache.data(for: imageURL) == nil)
+        #expect(try await cache.isEmpty())
+    }
+
+    @Test
     func articleImageDiskCacheEvictsLeastRecentlyUsedBytesWhenCapacityIsExceeded() async throws {
         let directoryURL = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directoryURL) }
