@@ -1,6 +1,6 @@
 import Foundation
 
-enum FeedEntryNormalizer {
+nonisolated enum FeedEntryNormalizer {
     static func normalize(_ entry: ParsedFeedEntryDTO, feedURL: String) -> ParsedFeedEntryDTO {
         let normalizedEntry = normalizeFields(entry)
         let publishedAt = parsePublishedAt(for: normalizedEntry)

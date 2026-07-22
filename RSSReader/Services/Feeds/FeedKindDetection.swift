@@ -21,7 +21,7 @@ extension FeedParserService {
         return .unknown
     }
 
-    static func detectFeedKind(in response: FeedResponse) throws -> FeedKind {
+    nonisolated static func detectFeedKind(in response: FeedResponse) throws -> FeedKind {
         try detectFeedKind(in: parse(response))
     }
 }

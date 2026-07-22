@@ -1,6 +1,6 @@
 import Foundation
 
-enum DeduplicationService {
+nonisolated enum DeduplicationService {
     static func deduplicate(_ feed: ParsedFeedDTO) -> ParsedFeedDTO {
         ParsedFeedDTO(
             kind: feed.kind,

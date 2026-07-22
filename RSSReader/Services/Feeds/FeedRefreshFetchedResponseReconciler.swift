@@ -6,7 +6,7 @@ extension FeedRefreshService {
         metadata: FeedFetchMetadata,
         startedAt: Date
     ) async throws -> FeedRefreshResult {
-        let pipelineResult = try FeedParserService.parsePipelineResult(response)
+        let pipelineResult = try await feedParsingWorker.parse(response)
         try Task.checkCancellation()
         let diagnostics = pipelineResult.diagnostics
         let diagnosticsSummary = diagnosticsSummary(for: diagnostics)

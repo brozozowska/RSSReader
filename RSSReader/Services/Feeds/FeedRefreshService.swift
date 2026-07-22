@@ -30,6 +30,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     let inFlightPolicy: FeedRefreshInFlightPolicy = .shareExistingTaskResult
     let logger: Logging
     let feedFetcher: any FeedFetching
+    let feedParsingWorker: any FeedParsingWorking
     let feedRepository: any FeedRepository
     let articleRepository: any ArticleRepository
     let feedIconDiscoveryService: (any FeedIconDiscovering)?
@@ -39,6 +40,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     init(
         logger: Logging,
         feedFetcher: any FeedFetching,
+        feedParsingWorker: any FeedParsingWorking = FeedParsingWorker(),
         feedRepository: any FeedRepository,
         articleRepository: any ArticleRepository,
         feedIconDiscoveryService: (any FeedIconDiscovering)? = nil,
@@ -46,6 +48,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     ) {
         self.logger = logger
         self.feedFetcher = feedFetcher
+        self.feedParsingWorker = feedParsingWorker
         self.feedRepository = feedRepository
         self.articleRepository = articleRepository
         self.feedIconDiscoveryService = feedIconDiscoveryService

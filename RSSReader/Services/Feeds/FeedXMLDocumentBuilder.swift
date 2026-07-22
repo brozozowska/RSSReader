@@ -60,7 +60,7 @@ extension FeedParserService {
         )
     }
 
-    static func parse(_ response: FeedResponse) throws -> FeedXMLDocument {
+    nonisolated static func parse(_ response: FeedResponse) throws -> FeedXMLDocument {
         try parse(response.body)
     }
 }

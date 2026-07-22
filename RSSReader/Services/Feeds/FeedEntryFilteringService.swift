@@ -1,22 +1,22 @@
 import Foundation
 
-enum FeedEntryRejectionReason: String, Sendable {
+nonisolated enum FeedEntryRejectionReason: String, Sendable {
     case missingExternalID
     case missingReadablePayload
     case missingUsefulReference
 }
 
-struct RejectedFeedEntryDiagnostic: Sendable {
+nonisolated struct RejectedFeedEntryDiagnostic: Sendable {
     let entry: ParsedFeedEntryDTO
     let reasons: [FeedEntryRejectionReason]
 }
 
-struct FeedEntryFilterResult: Sendable {
+nonisolated struct FeedEntryFilterResult: Sendable {
     let validEntries: [ParsedFeedEntryDTO]
     let rejectedEntries: [RejectedFeedEntryDiagnostic]
 }
 
-enum FeedEntryFilteringService {
+nonisolated enum FeedEntryFilteringService {
     static func filterValidEntries(from feed: ParsedFeedDTO) -> ParsedFeedDTO {
         ParsedFeedDTO(
             kind: feed.kind,

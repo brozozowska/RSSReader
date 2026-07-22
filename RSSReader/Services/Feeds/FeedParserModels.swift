@@ -53,13 +53,13 @@ nonisolated struct FeedXMLElement: Sendable {
     }
 }
 
-struct ParsedFeedDTO: Sendable {
+nonisolated struct ParsedFeedDTO: Sendable {
     let kind: FeedKind
     let metadata: ParsedFeedMetadataDTO
     let entries: [ParsedFeedEntryDTO]
 }
 
-struct ParsedFeedMetadataDTO: Sendable {
+nonisolated struct ParsedFeedMetadataDTO: Sendable {
     let title: String?
     let subtitle: String?
     let siteURL: String?
@@ -81,7 +81,7 @@ struct ParsedFeedMetadataDTO: Sendable {
     }
 }
 
-struct ParsedFeedEntryDTO: Sendable {
+nonisolated struct ParsedFeedEntryDTO: Sendable {
     let externalID: String?
     let guid: String?
     let url: String?

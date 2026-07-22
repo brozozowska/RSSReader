@@ -5,6 +5,7 @@ struct FeedManagementFeedPreviewService {
     let logger: Logging
     let httpClient: any HTTPClient
     let feedFetcher: any FeedFetching
+    let feedParsingWorker: any FeedParsingWorking
     let normalizationPolicy: FeedManagementNormalizationPolicy
 
     func previewFeed(urlString: String) async throws -> FeedManagementFeedPreview {
@@ -77,7 +78,7 @@ struct FeedManagementFeedPreviewService {
             logger.error("Skipped feed management preview because fetch returned not-modified for \(normalizedURL)")
             throw FeedManagementServiceError.previewUnavailableForNotModifiedResponse
         }
-        let pipelineResult = try FeedParserService.parsePipelineResult(response)
+        let pipelineResult = try await feedParsingWorker.parse(response)
         let metadata = pipelineResult.feed.metadata
         let resolvedFeedURL = response.sourceURL.absoluteString
         let existingFeed = try normalizationPolicy.existingFeed(

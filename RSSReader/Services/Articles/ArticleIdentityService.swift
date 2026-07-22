@@ -1,7 +1,7 @@
 import Foundation
 import CryptoKit
 
-struct ArticleIdentityInput: Sendable {
+nonisolated struct ArticleIdentityInput: Sendable {
     let feedURL: String
     let guid: String?
     let canonicalURL: String?
@@ -26,7 +26,7 @@ struct ArticleIdentityInput: Sendable {
     }
 }
 
-enum ArticleIdentityService {
+nonisolated enum ArticleIdentityService {
     static func makeExternalID(from input: ArticleIdentityInput) -> String {
         let normalizedFeedURL = normalizeRequiredURL(input.feedURL)
 
@@ -107,7 +107,7 @@ enum ArticleIdentityService {
 
     private static func normalizeDate(_ value: Date?) -> String {
         guard let value else { return "no-date" }
-        return publishedAtFormatter.string(from: value)
+        return Date.ISO8601FormatStyle(includingFractionalSeconds: true).format(value)
     }
 
     private static func sha256(_ value: String) -> String {
@@ -115,10 +115,4 @@ enum ArticleIdentityService {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    private static let publishedAtFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
 }

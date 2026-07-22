@@ -1,7 +1,7 @@
 import Foundation
 
 extension FeedParserService {
-    static func parseRSS(_ document: FeedXMLDocument) throws -> ParsedFeedDTO {
+    nonisolated static func parseRSS(_ document: FeedXMLDocument) throws -> ParsedFeedDTO {
         let kind = detectFeedKind(in: document)
         guard kind == .rss else {
             throw FeedParserError.unsupportedFeedKind(kind)
@@ -21,11 +21,11 @@ extension FeedParserService {
         )
     }
 
-    static func parseRSS(_ response: FeedResponse) throws -> ParsedFeedDTO {
+    nonisolated static func parseRSS(_ response: FeedResponse) throws -> ParsedFeedDTO {
         try parseRSS(parse(response))
     }
 
-    static func extractRSSMetadata(from document: FeedXMLDocument) throws -> ParsedFeedMetadataDTO {
+    nonisolated static func extractRSSMetadata(from document: FeedXMLDocument) throws -> ParsedFeedMetadataDTO {
         guard let channelElement = document.rootElement.firstChild(named: "channel") else {
             throw FeedParserError.missingRSSElement("channel")
         }
@@ -39,7 +39,9 @@ extension FeedParserService {
         )
     }
 
-    static func extractRSSArticlePayloads(from document: FeedXMLDocument) throws -> [ParsedFeedEntryDTO] {
+    nonisolated static func extractRSSArticlePayloads(
+        from document: FeedXMLDocument
+    ) throws -> [ParsedFeedEntryDTO] {
         guard let channelElement = document.rootElement.firstChild(named: "channel") else {
             throw FeedParserError.missingRSSElement("channel")
         }
@@ -64,12 +66,12 @@ extension FeedParserService {
         }
     }
 
-    private static func rssContentHTML(in itemElement: FeedXMLElement) -> String? {
+    nonisolated private static func rssContentHTML(in itemElement: FeedXMLElement) -> String? {
         itemElement.firstChildText(named: "content:encoded")
             ?? itemElement.firstChildText(named: "encoded")
     }
 
-    private static func rssEnclosureURL(in itemElement: FeedXMLElement) -> String? {
+    nonisolated private static func rssEnclosureURL(in itemElement: FeedXMLElement) -> String? {
         guard let enclosure = itemElement.firstChild(named: "enclosure") else { return nil }
         return enclosure.attributes["url"]?.trimmingCharacters(in: .whitespacesAndNewlines)
     }

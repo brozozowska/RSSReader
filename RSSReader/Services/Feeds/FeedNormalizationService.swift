@@ -1,6 +1,6 @@
 import Foundation
 
-enum FeedNormalizationService {
+nonisolated enum FeedNormalizationService {
     static func normalize(_ feed: ParsedFeedDTO, feedURL: String) -> ParsedFeedDTO {
         let normalizedFeedURL = FeedURLNormalizer.normalizeSourceURL(feedURL) ?? feedURL
 
