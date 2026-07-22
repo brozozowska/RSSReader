@@ -86,6 +86,7 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                         rule: .repositoryManagedIdentityInvariant,
                         affectedPaths: [
                             "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
+                            "SwiftDataArticleRepository.fetchArticles(feedID:)",
                             "SwiftDataArticleRepository.upsert(_:into:saveAfterOperation:)",
                             "DeduplicationService"
                         ],
@@ -182,6 +183,7 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                         rule: .repositoryManagedIdentityInvariant,
                         affectedPaths: [
                             "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
+                            "SwiftDataArticleRepository.fetchArticles(feedID:)",
                             "SwiftDataArticleRepository.upsert(_:into:saveAfterOperation:)",
                             "DeduplicationService"
                         ],

@@ -235,7 +235,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
 
     @discardableResult
     func upsert(_ payload: ArticleUpsertPayload, into feed: Feed) throws -> Article {
-        try upsert(payload, into: feed, saveAfterOperation: true)
+        try upsert([payload], into: feed, saveAfterOperation: true)[0]
     }
 
     @discardableResult
@@ -244,13 +244,38 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         into feed: Feed,
         saveAfterOperation: Bool = true
     ) throws -> [Article] {
-        let articles = try payloads.map { payload in
-            try upsert(payload, into: feed, saveAfterOperation: false)
+        let existingArticles = try fetchArticles(feedID: feed.id)
+        var articlesByIdentity = existingArticles.reduce(into: [String: Article]()) { articlesByIdentity, article in
+            let identity = normalizedArticleIdentity(article.externalID)
+            if articlesByIdentity[identity] == nil {
+                articlesByIdentity[identity] = article
+            }
         }
+        var upsertedArticles: [Article] = []
+        var upsertedIdentities: Set<String> = []
+
+        for payload in payloads {
+            let identity = normalizedArticleIdentity(payload.externalID)
+            let article: Article
+
+            if let existingArticle = articlesByIdentity[identity] {
+                apply(payload, to: existingArticle)
+                article = existingArticle
+            } else {
+                article = makeArticle(from: payload, feed: feed)
+                modelContext.insert(article)
+                articlesByIdentity[identity] = article
+            }
+
+            if upsertedIdentities.insert(identity).inserted {
+                upsertedArticles.append(article)
+            }
+        }
+
         if saveAfterOperation {
             try saveIfNeeded()
         }
-        return articles
+        return upsertedArticles
     }
 
     func save() throws {
@@ -319,20 +344,8 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         article.updatedAt = .now
     }
 
-    private func upsert(
-        _ payload: ArticleUpsertPayload,
-        into feed: Feed,
-        saveAfterOperation: Bool
-    ) throws -> Article {
-        if let existingArticle = try fetchArticle(feedID: feed.id, externalID: payload.externalID) {
-            apply(payload, to: existingArticle)
-            if saveAfterOperation {
-                try saveIfNeeded()
-            }
-            return existingArticle
-        }
-
-        let article = Article(
+    private func makeArticle(from payload: ArticleUpsertPayload, feed: Feed) -> Article {
+        Article(
             feedID: feed.id,
             feedTitle: feed.displayTitle,
             feedSiteURL: feed.siteURL,
@@ -352,12 +365,10 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             archivedAt: payload.archivedAt,
             fetchedAt: payload.fetchedAt
         )
+    }
 
-        modelContext.insert(article)
-        if saveAfterOperation {
-            try saveIfNeeded()
-        }
-        return article
+    private func normalizedArticleIdentity(_ externalID: String) -> String {
+        normalizedIdentifier(externalID) ?? externalID
     }
 
     private func sortDescriptors(for sortMode: ArticleSortMode) -> [SortDescriptor<Article>] {
