@@ -6,6 +6,95 @@ import Testing
 @MainActor
 struct FeedRefreshServiceDiagnosticsTests {
     @Test
+    func fetchedResultSurvivesInjectedFetchLogSaveFailureAfterFeedAndArticleCommit() async throws {
+        let feedURL = "https://example.com/log-save-failure.xml"
+        let logger = RecordingLogger()
+        let client = ScriptedHTTPClient(
+            responsesByURL: [
+                feedURL: .response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                    body: makeValidRSSFeedXML(
+                        channelTitle: "Committed Feed",
+                        channelLink: "https://example.com/",
+                        language: "en",
+                        itemTitle: "Committed Article",
+                        itemLink: "https://example.com/articles/committed",
+                        itemGUID: "committed-article",
+                        itemDescription: "Committed summary",
+                        pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                    )
+                )
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client, logger: logger)
+        let feed = try #require(try harness.insertFeeds(urls: [feedURL]).first)
+        let failingLogRepository = FailingInsertFeedFetchLogRepository(
+            backing: harness.feedFetchLogRepository
+        )
+        let service = makeService(
+            client: client,
+            harness: harness,
+            logger: logger,
+            feedFetchLogRepository: failingLogRepository
+        )
+
+        let result = await service.refresh(feedID: feed.id)
+
+        #expect(result.status == .fetched)
+        #expect(result.errorDescription == nil)
+        let refreshedFeed = try #require(try harness.fetchFeed(id: feed.id))
+        #expect(refreshedFeed.title == "Committed Feed")
+        #expect(refreshedFeed.lastSuccessfulFetchAt != nil)
+        #expect(refreshedFeed.lastSyncError == nil)
+        #expect(try harness.articleRepository.fetchArticles(feedID: feed.id).map(\.title) == ["Committed Article"])
+        #expect(try harness.feedFetchLogRepository.fetchLogs(feedID: feed.id, limit: nil).isEmpty)
+        #expect(failingLogRepository.rollbackCallCount == 1)
+        #expect(logger.contains("refresh_diagnostics_persistence_failed", level: .error))
+        #expect(logger.contains("status=fetched", level: .error))
+        #expect(logger.contains("refresh result preserved", level: .error))
+    }
+
+    @Test
+    func notModifiedResultSurvivesInjectedFetchLogSaveFailure() async throws {
+        let feedURL = "https://example.com/not-modified-log-save-failure.xml"
+        let logger = RecordingLogger()
+        let client = ScriptedHTTPClient(
+            responsesByURL: [
+                feedURL: .response(
+                    statusCode: 304,
+                    headers: ["ETag": "\"etag-preserved\""],
+                    body: ""
+                )
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client, logger: logger)
+        let feed = Feed(url: feedURL, title: "Not Modified", lastSyncError: "Previous error")
+        try harness.feedRepository.insert(feed)
+        let failingLogRepository = FailingInsertFeedFetchLogRepository(
+            backing: harness.feedFetchLogRepository
+        )
+        let service = makeService(
+            client: client,
+            harness: harness,
+            logger: logger,
+            feedFetchLogRepository: failingLogRepository
+        )
+
+        let result = await service.refresh(feedID: feed.id)
+
+        #expect(result.status == .notModified)
+        #expect(result.errorDescription == nil)
+        let refreshedFeed = try #require(try harness.fetchFeed(id: feed.id))
+        #expect(refreshedFeed.lastETag == "\"etag-preserved\"")
+        #expect(refreshedFeed.lastSyncError == nil)
+        #expect(try harness.feedFetchLogRepository.fetchLogs(feedID: feed.id, limit: nil).isEmpty)
+        #expect(failingLogRepository.rollbackCallCount == 1)
+        #expect(logger.contains("refresh_diagnostics_persistence_failed", level: .error))
+        #expect(logger.contains("status=not_modified", level: .error))
+    }
+
+    @Test
     func diagnosticsLoggingCapsDetailsAndReportsTruncationWithoutChangingCounts() throws {
         let logger = RecordingLogger()
         let harness = try TestHarness.make(
@@ -284,5 +373,84 @@ struct FeedRefreshServiceDiagnosticsTests {
           </channel>
         </rss>
         """
+    }
+
+    private func makeService(
+        client: ScriptedHTTPClient,
+        harness: TestHarness,
+        logger: Logging,
+        feedFetchLogRepository: any FeedFetchLogRepository
+    ) -> FeedRefreshService {
+        FeedRefreshService(
+            logger: logger,
+            feedFetcher: FeedFetcher(
+                httpClient: client,
+                retryPolicy: FeedRetryPolicy(maxAttempts: 1, baseDelayNanoseconds: 0)
+            ),
+            feedRepository: harness.feedRepository,
+            articleRepository: harness.articleRepository,
+            feedFetchLogRepository: feedFetchLogRepository
+        )
+    }
+}
+
+@MainActor
+private final class FailingInsertFeedFetchLogRepository: FeedFetchLogRepository {
+    private enum InjectedFailure: Error {
+        case logSave
+    }
+
+    private let backing: any FeedFetchLogRepository
+    private(set) var rollbackCallCount = 0
+
+    init(backing: any FeedFetchLogRepository) {
+        self.backing = backing
+    }
+
+    func fetchLogs(feedID: UUID, limit: Int?) throws -> [FeedFetchLog] {
+        try backing.fetchLogs(feedID: feedID, limit: limit)
+    }
+
+    func fetchLatestLog(feedID: UUID) throws -> FeedFetchLog? {
+        try backing.fetchLatestLog(feedID: feedID)
+    }
+
+    func insert(_ entry: FeedFetchLogEntry) throws -> FeedFetchLog {
+        throw InjectedFailure.logSave
+    }
+
+    func insert(_ entries: [FeedFetchLogEntry]) throws -> [FeedFetchLog] {
+        try backing.insert(entries)
+    }
+
+    func insert(_ log: FeedFetchLog) throws -> FeedFetchLog {
+        try backing.insert(log)
+    }
+
+    func insert(_ logs: [FeedFetchLog]) throws -> [FeedFetchLog] {
+        try backing.insert(logs)
+    }
+
+    func deleteLogs(
+        olderThan cutoffDate: Date,
+        batchSize: Int
+    ) throws -> RepositoryBatchDeleteResult {
+        try backing.deleteLogs(olderThan: cutoffDate, batchSize: batchSize)
+    }
+
+    func deleteLogsExceedingPerFeedCount(
+        _ maximumCountPerFeed: Int,
+        batchSize: Int
+    ) throws -> RepositoryBatchDeleteResult {
+        try backing.deleteLogsExceedingPerFeedCount(maximumCountPerFeed, batchSize: batchSize)
+    }
+
+    func save() throws {
+        try backing.save()
+    }
+
+    func rollback() {
+        rollbackCallCount += 1
+        backing.rollback()
     }
 }

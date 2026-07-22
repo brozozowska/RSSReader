@@ -46,7 +46,7 @@ extension FeedRefreshService {
                     metadata: context.metadata,
                     startedAt: startedAt
                 )
-                try persistRefreshLog(
+                persistRefreshLog(
                     feedID: context.metadata.id,
                     status: result.status,
                     httpCode: response.statusCode,
@@ -62,7 +62,7 @@ extension FeedRefreshService {
                     metadata: context.metadata,
                     startedAt: startedAt
                 )
-                try persistRefreshLog(
+                persistRefreshLog(
                     feedID: context.metadata.id,
                     status: result.status,
                     httpCode: response.statusCode,
@@ -75,7 +75,7 @@ extension FeedRefreshService {
         } catch is CancellationError {
             logger.info("Cancelled refresh for feed \(feedID.uuidString)")
             let result = makeCancelledResult(feedID: feedID, startedAt: startedAt)
-            try? persistRefreshLog(
+            persistRefreshLog(
                 feedID: feedID,
                 status: result.status,
                 httpCode: nil,
@@ -90,7 +90,7 @@ extension FeedRefreshService {
             let errorDescription = String(describing: error)
             feedRepository.rollback()
             try? markRefreshFailed(feedID: feedID, finishedAt: finishedAt, errorDescription: errorDescription)
-            try? persistRefreshLog(
+            persistRefreshLog(
                 feedID: feedID,
                 status: .failed,
                 httpCode: httpCode(from: error),

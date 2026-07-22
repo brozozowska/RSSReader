@@ -34,6 +34,7 @@ protocol FeedFetchLogRepository {
         batchSize: Int
     ) throws -> RepositoryBatchDeleteResult
     func save() throws
+    func rollback()
 }
 
 @MainActor
@@ -205,5 +206,9 @@ final class SwiftDataFeedFetchLogRepository: FeedFetchLogRepository, SwiftDataRe
 
     func save() throws {
         try saveIfNeeded(force: true)
+    }
+
+    func rollback() {
+        rollbackChanges()
     }
 }
