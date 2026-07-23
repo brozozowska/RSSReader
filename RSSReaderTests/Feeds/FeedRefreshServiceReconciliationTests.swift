@@ -207,7 +207,7 @@ struct FeedRefreshServiceReconciliationTests {
             url: "https://example.com/articles/obsolete",
             title: "Obsolete Article"
         )
-        let failingArticleRepository = FailingAfterSnapshotArticleRepository(
+        let failingArticleRepository = InterruptingAfterSnapshotArticleRepository(
             backing: harness.articleRepository
         )
         let service = FeedRefreshService(
@@ -249,22 +249,114 @@ struct FeedRefreshServiceReconciliationTests {
         #expect(rolledBackObsoleteArticle.archivedAt == nil)
         #expect(rolledBackObsoleteArticle.feedTitle == "Original Feed")
     }
+
+    @Test
+    func cancellationAfterSnapshotUpsertRollsBackFeedAndArticleMutationsBeforeSave() async throws {
+        let feedURL = "https://example.com/cancelled-reconciliation-feed.xml"
+        let client = ScriptedHTTPClient(
+            responsesByURL: [
+                feedURL: .response(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Type": "application/rss+xml; charset=utf-8",
+                        "ETag": "\"updated-etag\""
+                    ],
+                    body: makeValidRSSFeedXML(
+                        channelTitle: "Updated Feed",
+                        channelLink: "https://example.com/updated/",
+                        language: "en",
+                        itemTitle: "New Article",
+                        itemLink: "https://example.com/articles/new",
+                        itemGUID: "new-article",
+                        itemDescription: "New summary",
+                        pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                    )
+                )
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let feed = Feed(
+            url: feedURL,
+            siteURL: "https://example.com/original/",
+            title: "Original Feed",
+            lastETag: "\"original-etag\"",
+            lastSyncError: "Previous error"
+        )
+        try harness.feedRepository.insert(feed)
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "obsolete-article",
+            guid: "obsolete-article",
+            url: "https://example.com/articles/obsolete",
+            title: "Obsolete Article"
+        )
+        let cancellingArticleRepository = InterruptingAfterSnapshotArticleRepository(
+            backing: harness.articleRepository,
+            completion: .cancelCurrentTask
+        )
+        let service = FeedRefreshService(
+            logger: TestLogger(),
+            feedFetcher: FeedFetcher(
+                httpClient: client,
+                retryPolicy: FeedRetryPolicy(maxAttempts: 1, baseDelayNanoseconds: 0)
+            ),
+            feedRepository: harness.feedRepository,
+            articleRepository: cancellingArticleRepository,
+            feedFetchLogRepository: harness.feedFetchLogRepository
+        )
+
+        let result = await service.refresh(feedID: feed.id)
+
+        #expect(result.status == .cancelled)
+        #expect(cancellingArticleRepository.reconcileFeedSnapshotCallCount == 1)
+        #expect(service.inFlightRefreshTasks[feed.id] == nil)
+
+        let rolledBackFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
+        #expect(rolledBackFeed.title == "Original Feed")
+        #expect(rolledBackFeed.siteURL == "https://example.com/original/")
+        #expect(rolledBackFeed.lastETag == "\"original-etag\"")
+        #expect(rolledBackFeed.lastSuccessfulFetchAt == nil)
+        #expect(rolledBackFeed.lastSyncError == "Previous error")
+        #expect(rolledBackFeed.lastFetchedAt != nil)
+
+        let rolledBackArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        let rolledBackObsoleteArticle = try #require(rolledBackArticles.first)
+        #expect(rolledBackArticles.count == 1)
+        #expect(rolledBackObsoleteArticle.externalID == "obsolete-article")
+        #expect(rolledBackObsoleteArticle.archivedAt == nil)
+        #expect(rolledBackObsoleteArticle.feedTitle == "Original Feed")
+
+        let latestLog = try #require(
+            try harness.feedFetchLogRepository.fetchLatestLog(feedID: feed.id)
+        )
+        #expect(latestLog.status == "cancelled")
+    }
 }
 
 @MainActor
-private final class FailingAfterSnapshotArticleRepository: ArticleRepository {
+private final class InterruptingAfterSnapshotArticleRepository: ArticleRepository {
+    enum Completion {
+        case throwFailure
+        case cancelCurrentTask
+    }
+
     private enum InjectedFailure: Error {
         case afterSnapshotMutation
     }
 
     private let backing: any ArticleRepository
+    private let completion: Completion
     private(set) var reconcileFeedSnapshotCallCount = 0
     private(set) var refreshFeedProjectionCallCount = 0
     private(set) var reconcileArticlesCallCount = 0
     private(set) var entryBatchUpsertCallCount = 0
 
-    init(backing: any ArticleRepository) {
+    init(
+        backing: any ArticleRepository,
+        completion: Completion = .throwFailure
+    ) {
         self.backing = backing
+        self.completion = completion
     }
 
     func refreshFeedProjection(for feed: Feed, saveAfterOperation: Bool) throws -> Int {
@@ -279,13 +371,22 @@ private final class FailingAfterSnapshotArticleRepository: ArticleRepository {
         saveAfterOperation: Bool
     ) throws -> ArticleFeedSnapshotReconciliationResult {
         reconcileFeedSnapshotCallCount += 1
-        _ = try backing.reconcileFeedSnapshot(
+        let result = try backing.reconcileFeedSnapshot(
             entries,
             into: feed,
             fetchedAt: fetchedAt,
             saveAfterOperation: saveAfterOperation
         )
-        throw InjectedFailure.afterSnapshotMutation
+
+        switch completion {
+        case .throwFailure:
+            throw InjectedFailure.afterSnapshotMutation
+        case .cancelCurrentTask:
+            withUnsafeCurrentTask { task in
+                task?.cancel()
+            }
+            return result
+        }
     }
 
     func fetchArticle(id: UUID) throws -> Article? {

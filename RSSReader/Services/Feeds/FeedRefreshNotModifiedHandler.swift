@@ -8,18 +8,22 @@ extension FeedRefreshService {
     ) async throws -> FeedRefreshResult {
         try Task.checkCancellation()
         let finishedAt = Date()
-        let discoveredIconURL = await discoverIconURLIfNeeded(
+        let discoveredIconURL = try await discoverIconURLIfNeeded(
             feedURL: response.sourceURL,
             currentMetadata: metadata,
             parsedMetadata: nil
         )
+        try Task.checkCancellation()
 
         try updateNotModifiedFetchState(
             from: response,
             feedID: metadata.id,
             discoveredIconURL: discoveredIconURL,
-            finishedAt: finishedAt
+            finishedAt: finishedAt,
+            saveAfterOperation: false
         )
+        try Task.checkCancellation()
+        try feedRepository.save()
         logger.info("Feed \(metadata.id.uuidString) not modified; metadata updated after conditional fetch")
 
         return FeedRefreshResult.notModified(
@@ -33,7 +37,8 @@ extension FeedRefreshService {
         from response: FeedResponse,
         feedID: UUID,
         discoveredIconURL: URL? = nil,
-        finishedAt: Date
+        finishedAt: Date,
+        saveAfterOperation: Bool = true
     ) throws {
         let currentMetadata = try feedRepository.fetchMetadata(for: feedID)
         var update = FeedMetadataUpdate(updatedAt: finishedAt)
@@ -52,6 +57,10 @@ extension FeedRefreshService {
             update.lastSuccessfulFetchAt = finishedAt
         }
 
-        _ = try feedRepository.updateMetadata(for: feedID, with: update)
+        _ = try feedRepository.updateMetadata(
+            for: feedID,
+            with: update,
+            saveAfterOperation: saveAfterOperation
+        )
     }
 }

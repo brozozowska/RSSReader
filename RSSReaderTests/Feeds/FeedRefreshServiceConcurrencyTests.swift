@@ -60,4 +60,57 @@ struct FeedRefreshServiceConcurrencyTests {
         #expect(logs.count == 1)
         #expect(logs.first?.status == "fetched")
     }
+
+    @Test
+    func cancellingCallerCancelsInFlightRefreshCleansRegistryAndAllowsRetry() async throws {
+        let feedURL = "https://example.com/cancelled-in-flight-feed.xml"
+        let responseBody = makeValidRSSFeedXML(
+            channelTitle: "Retryable Feed",
+            channelLink: "https://example.com/retryable/",
+            language: "en",
+            itemTitle: "Retryable Article",
+            itemLink: "https://example.com/retryable/articles/1",
+            itemGUID: "retryable-article-1",
+            itemDescription: "Readable retry summary",
+            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+        )
+        let client = ScriptedHTTPClient(
+            steps: [
+                .delayedResponse(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                    body: responseBody,
+                    delayNanoseconds: 5_000_000_000
+                ),
+                .response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                    body: responseBody
+                )
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let feed = try #require(try harness.insertFeeds(urls: [feedURL]).first)
+        let refreshTask = Task { @MainActor in
+            await harness.service.refresh(feedID: feed.id)
+        }
+
+        while await client.recordedRequests().isEmpty {
+            await Task.yield()
+        }
+        refreshTask.cancel()
+
+        let cancelledResult = await refreshTask.value
+
+        #expect(cancelledResult.status == .cancelled)
+        #expect(harness.service.inFlightRefreshTasks[feed.id] == nil)
+        #expect(try harness.articleRepository.fetchArticles(feedID: feed.id).isEmpty)
+
+        let retryResult = await harness.service.refresh(feedID: feed.id)
+
+        #expect(retryResult.status == .fetched)
+        #expect(harness.service.inFlightRefreshTasks[feed.id] == nil)
+        #expect(await client.recordedRequests().count == 2)
+        #expect(try harness.articleRepository.fetchArticles(feedID: feed.id).count == 1)
+    }
 }

@@ -135,6 +135,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         fetchedAt: Date,
         saveAfterOperation: Bool = true
     ) throws -> ArticleFeedSnapshotReconciliationResult {
+        try Task.checkCancellation()
         let payloads = entries.compactMap { ArticleUpsertPayload(entry: $0, fetchedAt: fetchedAt) }
         let incomingIdentities = Set(
             entries
@@ -162,11 +163,13 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             }
         }
 
+        try Task.checkCancellation()
         let upsertedArticles = upsert(
             payloads,
             into: feed,
             articlesByIdentity: &articlesByIdentity
         )
+        try Task.checkCancellation()
 
         if saveAfterOperation {
             try saveIfNeeded()

@@ -12,11 +12,13 @@ extension FeedRefreshService {
         let diagnosticsSummary = diagnosticsSummary(for: diagnostics)
         let fetchedAt = Date()
         let currentMetadata = try feedRepository.fetchMetadata(for: metadata.id)
-        let discoveredIconURL = await discoverIconURLIfNeeded(
+        try Task.checkCancellation()
+        let discoveredIconURL = try await discoverIconURLIfNeeded(
             feedURL: response.sourceURL,
             currentMetadata: currentMetadata,
             parsedMetadata: pipelineResult.feed.metadata
         )
+        try Task.checkCancellation()
 
         logDiagnosticsIfNeeded(diagnostics, feedID: metadata.id)
         try updateCacheValidators(
@@ -36,6 +38,7 @@ extension FeedRefreshService {
         guard let feed = try feedRepository.fetchFeed(id: metadata.id) else {
             throw FeedRefreshServiceError.feedNotFound(metadata.id)
         }
+        try Task.checkCancellation()
 
         let articleReconciliationResult: ArticleFeedSnapshotReconciliationResult
         switch reconciliationPolicy {
@@ -47,6 +50,7 @@ extension FeedRefreshService {
                 saveAfterOperation: false
             )
         }
+        try Task.checkCancellation()
         let processedEntryCount = pipelineResult.feed.entries.count + diagnostics.rejectedEntries.count
 
         if diagnosticsAreSoftFailure(diagnostics) {
@@ -65,6 +69,7 @@ extension FeedRefreshService {
             finishedAt: finishedAt,
             saveAfterOperation: false
         )
+        try Task.checkCancellation()
         try feedRepository.save()
 
         return FeedRefreshResult.fetched(
@@ -128,7 +133,8 @@ extension FeedRefreshService {
         feedURL: URL,
         currentMetadata: FeedFetchMetadata?,
         parsedMetadata: ParsedFeedMetadataDTO?
-    ) async -> URL? {
+    ) async throws -> URL? {
+        try Task.checkCancellation()
         guard let feedIconDiscoveryService else {
             return nil
         }
@@ -139,7 +145,7 @@ extension FeedRefreshService {
             URL(string: iconURL, relativeTo: siteURL ?? feedURL)?.absoluteURL
         }
 
-        return await feedIconDiscoveryService.discoverIconURL(
+        return try await feedIconDiscoveryService.discoverIconURL(
             feedURL: feedURL,
             siteURL: siteURL,
             metadataIconURL: metadataIconURL

@@ -8,7 +8,7 @@ protocol FeedIconDiscovering: Sendable {
         feedURL: URL,
         siteURL: URL?,
         metadataIconURL: URL?
-    ) async -> URL?
+    ) async throws -> URL?
 }
 
 @MainActor
@@ -37,19 +37,20 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
         feedURL: URL,
         siteURL: URL?,
         metadataIconURL: URL?
-    ) async -> URL? {
+    ) async throws -> URL? {
+        try Task.checkCancellation()
         let budget = FeedIconDiscoveryBudget(duration: discoveryBudgetInterval)
         let originURL = siteURL
             .flatMap(FeedIconCandidateBuilder.originURL(for:))
             ?? FeedIconCandidateBuilder.originURL(for: feedURL)
 
         let metadataCandidates = metadataIconURL.map { [$0] } ?? []
-        if let iconURL = await firstValidIconURL(in: metadataCandidates, budget: budget) {
+        if let iconURL = try await firstValidIconURL(in: metadataCandidates, budget: budget) {
             return iconURL
         }
 
         if let originURL,
-           let iconURL = await firstValidIconURL(
+           let iconURL = try await firstValidIconURL(
             in: FeedIconCandidateBuilder.commonIconCandidates(for: originURL),
             budget: budget
            ) {
@@ -57,11 +58,11 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
         }
 
         guard let originURL,
-              let htmlDocument = await fetchFeedHomeHTML(from: originURL, budget: budget) else {
+              let htmlDocument = try await fetchFeedHomeHTML(from: originURL, budget: budget) else {
             return nil
         }
 
-        return await firstValidIconURL(
+        return try await firstValidIconURL(
             in: FeedIconCandidateBuilder.htmlIconCandidates(
                 in: htmlDocument.html,
                 baseURL: htmlDocument.baseURL
@@ -73,8 +74,9 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
     private func firstValidIconURL(
         in iconURLs: [URL],
         budget: FeedIconDiscoveryBudget
-    ) async -> URL? {
+    ) async throws -> URL? {
         for iconURL in iconURLs where FeedIconCandidateBuilder.isSupportedIconURL(iconURL) {
+            try Task.checkCancellation()
             guard budget.hasTimeRemaining else { return nil }
 
             do {
@@ -84,8 +86,8 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
                 try Task.checkCancellation()
 
                 return iconURL
-            } catch is CancellationError {
-                return nil
+            } catch let error as CancellationError {
+                throw error
             } catch {
                 logger.debug(
                     "Failed to discover feed icon at \(iconURL.absoluteString): \(String(describing: error))"
@@ -100,7 +102,9 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
         for iconURL: URL,
         budget: FeedIconDiscoveryBudget
     ) async throws -> Data? {
+        try Task.checkCancellation()
         if let cachedData = try await feedIconCache.cachedImageData(for: iconURL) {
+            try Task.checkCancellation()
             return FeedIconImagePolicy.isSuitableRasterIcon(cachedData) ? cachedData : nil
         }
         guard let timeoutInterval = budget.requestTimeoutInterval(max: requestTimeoutInterval) else {
@@ -121,6 +125,7 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
                     .maximumCompressedBodyBytes
             )
         )
+        try Task.checkCancellation()
         guard (200...299).contains(response.statusCode) else {
             return nil
         }
@@ -131,6 +136,7 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
             return nil
         }
 
+        try Task.checkCancellation()
         try await feedIconCache.storeImageData(response.body, for: iconURL)
         return response.body
     }
@@ -138,7 +144,8 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
     private func fetchFeedHomeHTML(
         from url: URL,
         budget: FeedIconDiscoveryBudget
-    ) async -> FeedIconHTMLDocument? {
+    ) async throws -> FeedIconHTMLDocument? {
+        try Task.checkCancellation()
         guard let timeoutInterval = budget.requestTimeoutInterval(max: requestTimeoutInterval) else {
             return nil
         }
@@ -158,8 +165,11 @@ final class FeedIconDiscoveryService: FeedIconDiscovering {
                         .maximumCompressedBodyBytes
                 )
             )
+            try Task.checkCancellation()
             guard let html = try HTMLDiscoveryResponseDecoder.decode(response) else { return nil }
             return FeedIconHTMLDocument(html: html, baseURL: response.url)
+        } catch let error as CancellationError {
+            throw error
         } catch {
             logger.debug(
                 "Failed to load feed homepage for icon discovery from \(url.absoluteString): \(String(describing: error))"

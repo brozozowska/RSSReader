@@ -9,7 +9,7 @@ extension FeedRefreshService {
                 return await inFlightTask.value
             }
 
-            let task = Task<FeedRefreshResult, Never> { [weak self, feedID] in
+            let task = Task<FeedRefreshResult, Never> { @MainActor [weak self, feedID] in
                 guard let self else {
                     return FeedRefreshResult.failed(
                         feedID: feedID,
@@ -18,15 +18,24 @@ extension FeedRefreshService {
                     )
                 }
 
-                let result = await self.performRefresh(feedID: feedID)
-                _ = await MainActor.run {
+                defer {
                     self.inFlightRefreshTasks.removeValue(forKey: feedID)
                 }
-                return result
+                return await self.performRefresh(feedID: feedID)
             }
 
             inFlightRefreshTasks[feedID] = task
-            return await task.value
+            return await awaitOwnedInFlightRefreshTask(task)
+        }
+    }
+
+    private func awaitOwnedInFlightRefreshTask(
+        _ task: Task<FeedRefreshResult, Never>
+    ) async -> FeedRefreshResult {
+        await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
         }
     }
 
@@ -73,6 +82,7 @@ extension FeedRefreshService {
                 return result
             }
         } catch is CancellationError {
+            feedRepository.rollback()
             logger.info("Cancelled refresh for feed \(feedID.uuidString)")
             let result = makeCancelledResult(feedID: feedID, startedAt: startedAt)
             persistRefreshLog(
