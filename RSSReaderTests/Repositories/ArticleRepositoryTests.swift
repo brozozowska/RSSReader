@@ -113,6 +113,76 @@ struct ArticleRepositoryTests {
     }
 
     @Test
+    func articleRepositoryReconcilesProjectionArchiveStateAndUpsertFromSingleFeedSnapshot() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let folder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
+        let feed = try insertFeed(into: harness)
+        let fetchedAt = Date(timeIntervalSince1970: 1_700_000_600)
+        let preservedArchivedAt = Date(timeIntervalSince1970: 1_600_000_000)
+        let reactivatedArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: " reactivated-id ",
+            url: "https://example.com/reactivated",
+            title: "Stale reactivated title",
+            archivedAt: .distantPast
+        )
+        let missingArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "missing-id",
+            url: "https://example.com/missing",
+            title: "Missing title"
+        )
+        let alreadyArchivedArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "already-archived-id",
+            url: "https://example.com/already-archived",
+            title: "Already archived title",
+            archivedAt: preservedArchivedAt
+        )
+        feed.displayTitleOverride = "Display Feed"
+        feed.siteURL = "https://new.example.com/"
+        feed.folder = folder
+
+        let result = try harness.articleRepository.reconcileFeedSnapshot(
+            [
+                makeEntry(
+                    externalID: "reactivated-id",
+                    url: "https://example.com/reactivated-updated",
+                    title: "Reactivated title"
+                ),
+                makeEntry(
+                    externalID: "new-id",
+                    url: "https://example.com/new",
+                    title: "Initial new title"
+                ),
+                makeEntry(
+                    externalID: " new-id ",
+                    url: "https://example.com/new-updated",
+                    title: "Updated duplicate title"
+                )
+            ],
+            into: feed,
+            fetchedAt: fetchedAt
+        )
+
+        let persistedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        let insertedArticle = try #require(persistedArticles.first { $0.externalID == "new-id" })
+
+        #expect(result.projectionUpdateCount == 9)
+        #expect(result.reconciledArticleCount == 2)
+        #expect(result.upsertedArticleCount == 2)
+        #expect(persistedArticles.count == 4)
+        #expect(reactivatedArticle.archivedAt == nil)
+        #expect(reactivatedArticle.title == "Reactivated title")
+        #expect(missingArticle.archivedAt == fetchedAt)
+        #expect(alreadyArchivedArticle.archivedAt == preservedArchivedAt)
+        #expect(insertedArticle.title == "Updated duplicate title")
+        #expect(persistedArticles.allSatisfy { $0.feedTitle == "Display Feed" })
+        #expect(persistedArticles.allSatisfy { $0.feedSiteURL == "https://new.example.com/" })
+        #expect(persistedArticles.allSatisfy { $0.feedFolderName == "News" })
+    }
+
+    @Test
     func articleRepositoryRefreshFeedProjectionUpdatesStoredFeedFields() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let folder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))

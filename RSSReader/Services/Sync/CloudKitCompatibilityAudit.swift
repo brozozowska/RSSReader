@@ -87,6 +87,7 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                         affectedPaths: [
                             "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
                             "SwiftDataArticleRepository.fetchArticles(feedID:)",
+                            "SwiftDataArticleRepository.reconcileFeedSnapshot(_:into:fetchedAt:saveAfterOperation:)",
                             "SwiftDataArticleRepository.upsert(_:into:saveAfterOperation:)",
                             "DeduplicationService"
                         ],
@@ -184,6 +185,7 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                         affectedPaths: [
                             "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
                             "SwiftDataArticleRepository.fetchArticles(feedID:)",
+                            "SwiftDataArticleRepository.reconcileFeedSnapshot(_:into:fetchedAt:saveAfterOperation:)",
                             "SwiftDataArticleRepository.upsert(_:into:saveAfterOperation:)",
                             "DeduplicationService"
                         ],

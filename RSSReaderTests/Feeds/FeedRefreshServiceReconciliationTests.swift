@@ -144,4 +144,247 @@ struct FeedRefreshServiceReconciliationTests {
         #expect(revivedArticle.archivedAt == nil)
         #expect(revivedArticle.title == "Revived Article")
     }
+
+    @Test
+    func refreshRollsBackFeedAndArticleSnapshotWhenReconciliationFailsBeforeCommit() async throws {
+        let feedURL = "https://example.com/rollback-feed.xml"
+        let client = ScriptedHTTPClient(
+            responsesByURL: [
+                feedURL: .response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                    body: """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <rss version="2.0">
+                      <channel>
+                        <title>Updated Feed</title>
+                        <link>https://example.com/updated/</link>
+                        <item>
+                          <title>Updated Current Article</title>
+                          <link>https://example.com/articles/current</link>
+                          <guid>current-article</guid>
+                          <description>Updated summary</description>
+                        </item>
+                        <item>
+                          <title>New Article</title>
+                          <link>https://example.com/articles/new</link>
+                          <guid>new-article</guid>
+                          <description>New summary</description>
+                        </item>
+                      </channel>
+                    </rss>
+                    """
+                )
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let feed = Feed(
+            url: feedURL,
+            siteURL: "https://example.com/original/",
+            title: "Original Feed"
+        )
+        try harness.feedRepository.insert(feed)
+        let currentExternalID = ArticleIdentityService.makeExternalID(
+            from: ArticleIdentityInput(
+                feedURL: feedURL,
+                guid: "current-article",
+                articleURL: "https://example.com/articles/current",
+                title: "Updated Current Article"
+            )
+        )
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: currentExternalID,
+            guid: "current-article",
+            url: "https://example.com/articles/current",
+            title: "Stale Current Article",
+            archivedAt: .distantPast
+        )
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "obsolete-article",
+            guid: "obsolete-article",
+            url: "https://example.com/articles/obsolete",
+            title: "Obsolete Article"
+        )
+        let failingArticleRepository = FailingAfterSnapshotArticleRepository(
+            backing: harness.articleRepository
+        )
+        let service = FeedRefreshService(
+            logger: TestLogger(),
+            feedFetcher: FeedFetcher(
+                httpClient: client,
+                retryPolicy: FeedRetryPolicy(maxAttempts: 1, baseDelayNanoseconds: 0)
+            ),
+            feedRepository: harness.feedRepository,
+            articleRepository: failingArticleRepository,
+            feedFetchLogRepository: harness.feedFetchLogRepository
+        )
+
+        let result = await service.refresh(feedID: feed.id)
+
+        #expect(result.status == .failed)
+        #expect(failingArticleRepository.reconcileFeedSnapshotCallCount == 1)
+        #expect(failingArticleRepository.refreshFeedProjectionCallCount == 0)
+        #expect(failingArticleRepository.reconcileArticlesCallCount == 0)
+        #expect(failingArticleRepository.entryBatchUpsertCallCount == 0)
+
+        let rolledBackFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
+        #expect(rolledBackFeed.title == "Original Feed")
+        #expect(rolledBackFeed.siteURL == "https://example.com/original/")
+        #expect(rolledBackFeed.lastSuccessfulFetchAt == nil)
+        #expect(rolledBackFeed.lastSyncError != nil)
+
+        let rolledBackArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        let rolledBackCurrentArticle = try #require(
+            rolledBackArticles.first { $0.externalID == currentExternalID }
+        )
+        let rolledBackObsoleteArticle = try #require(
+            rolledBackArticles.first { $0.externalID == "obsolete-article" }
+        )
+        #expect(rolledBackArticles.count == 2)
+        #expect(rolledBackCurrentArticle.title == "Stale Current Article")
+        #expect(rolledBackCurrentArticle.archivedAt == .distantPast)
+        #expect(rolledBackCurrentArticle.feedTitle == "Original Feed")
+        #expect(rolledBackObsoleteArticle.archivedAt == nil)
+        #expect(rolledBackObsoleteArticle.feedTitle == "Original Feed")
+    }
+}
+
+@MainActor
+private final class FailingAfterSnapshotArticleRepository: ArticleRepository {
+    private enum InjectedFailure: Error {
+        case afterSnapshotMutation
+    }
+
+    private let backing: any ArticleRepository
+    private(set) var reconcileFeedSnapshotCallCount = 0
+    private(set) var refreshFeedProjectionCallCount = 0
+    private(set) var reconcileArticlesCallCount = 0
+    private(set) var entryBatchUpsertCallCount = 0
+
+    init(backing: any ArticleRepository) {
+        self.backing = backing
+    }
+
+    func refreshFeedProjection(for feed: Feed, saveAfterOperation: Bool) throws -> Int {
+        refreshFeedProjectionCallCount += 1
+        return try backing.refreshFeedProjection(for: feed, saveAfterOperation: saveAfterOperation)
+    }
+
+    func reconcileFeedSnapshot(
+        _ entries: [ParsedFeedEntryDTO],
+        into feed: Feed,
+        fetchedAt: Date,
+        saveAfterOperation: Bool
+    ) throws -> ArticleFeedSnapshotReconciliationResult {
+        reconcileFeedSnapshotCallCount += 1
+        _ = try backing.reconcileFeedSnapshot(
+            entries,
+            into: feed,
+            fetchedAt: fetchedAt,
+            saveAfterOperation: saveAfterOperation
+        )
+        throw InjectedFailure.afterSnapshotMutation
+    }
+
+    func fetchArticle(id: UUID) throws -> Article? {
+        try backing.fetchArticle(id: id)
+    }
+
+    func fetchArticle(feedID: UUID, externalID: String) throws -> Article? {
+        try backing.fetchArticle(feedID: feedID, externalID: externalID)
+    }
+
+    func containsArticle(feedID: UUID, externalID: String) throws -> Bool {
+        try backing.containsArticle(feedID: feedID, externalID: externalID)
+    }
+
+    func fetchArticles(feedID: UUID) throws -> [Article] {
+        try backing.fetchArticles(feedID: feedID)
+    }
+
+    func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article] {
+        try backing.fetchArticles(feedID: feedID, sortMode: sortMode)
+    }
+
+    func fetchInbox(sortMode: ArticleSortMode) throws -> [Article] {
+        try backing.fetchInbox(sortMode: sortMode)
+    }
+
+    func fetchArchivedArticles() throws -> [Article] {
+        try backing.fetchArchivedArticles()
+    }
+
+    func fetchRetentionBatch(
+        feedID: UUID,
+        scope: ArticleRetentionBatchScope,
+        offset: Int,
+        limit: Int
+    ) throws -> [Article] {
+        try backing.fetchRetentionBatch(
+            feedID: feedID,
+            scope: scope,
+            offset: offset,
+            limit: limit
+        )
+    }
+
+    func reconcileArticles(
+        feedID: UUID,
+        keepingExternalIDs: Set<String>,
+        fetchedAt: Date,
+        saveAfterOperation: Bool
+    ) throws -> Int {
+        reconcileArticlesCallCount += 1
+        return try backing.reconcileArticles(
+            feedID: feedID,
+            keepingExternalIDs: keepingExternalIDs,
+            fetchedAt: fetchedAt,
+            saveAfterOperation: saveAfterOperation
+        )
+    }
+
+    func upsert(_ entry: ParsedFeedEntryDTO, into feed: Feed, fetchedAt: Date) throws -> Article? {
+        try backing.upsert(entry, into: feed, fetchedAt: fetchedAt)
+    }
+
+    func upsert(
+        _ entries: [ParsedFeedEntryDTO],
+        into feed: Feed,
+        fetchedAt: Date,
+        saveAfterOperation: Bool
+    ) throws -> [Article] {
+        entryBatchUpsertCallCount += 1
+        return try backing.upsert(
+            entries,
+            into: feed,
+            fetchedAt: fetchedAt,
+            saveAfterOperation: saveAfterOperation
+        )
+    }
+
+    func upsert(_ payload: ArticleUpsertPayload, into feed: Feed) throws -> Article {
+        try backing.upsert(payload, into: feed)
+    }
+
+    func upsert(
+        _ payloads: [ArticleUpsertPayload],
+        into feed: Feed,
+        saveAfterOperation: Bool
+    ) throws -> [Article] {
+        try backing.upsert(payloads, into: feed, saveAfterOperation: saveAfterOperation)
+    }
+
+    func save() throws {
+        try backing.save()
+    }
+
+    func delete(_ article: Article) throws {
+        try backing.delete(article)
+    }
+
+    func delete(_ articles: [Article], saveAfterOperation: Bool) throws {
+        try backing.delete(articles, saveAfterOperation: saveAfterOperation)
+    }
 }

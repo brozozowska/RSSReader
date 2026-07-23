@@ -6,9 +6,21 @@ enum ArticleRetentionBatchScope: Sendable {
     case archived
 }
 
+struct ArticleFeedSnapshotReconciliationResult {
+    let projectionUpdateCount: Int
+    let reconciledArticleCount: Int
+    let upsertedArticleCount: Int
+}
+
 @MainActor
 protocol ArticleRepository {
     func refreshFeedProjection(for feed: Feed, saveAfterOperation: Bool) throws -> Int
+    func reconcileFeedSnapshot(
+        _ entries: [ParsedFeedEntryDTO],
+        into feed: Feed,
+        fetchedAt: Date,
+        saveAfterOperation: Bool
+    ) throws -> ArticleFeedSnapshotReconciliationResult
     func fetchArticle(id: UUID) throws -> Article?
     func fetchArticle(feedID: UUID, externalID: String) throws -> Article?
     func containsArticle(feedID: UUID, externalID: String) throws -> Bool
@@ -60,6 +72,19 @@ extension ArticleRepository {
         try refreshFeedProjection(for: feed, saveAfterOperation: true)
     }
 
+    func reconcileFeedSnapshot(
+        _ entries: [ParsedFeedEntryDTO],
+        into feed: Feed,
+        fetchedAt: Date
+    ) throws -> ArticleFeedSnapshotReconciliationResult {
+        try reconcileFeedSnapshot(
+            entries,
+            into: feed,
+            fetchedAt: fetchedAt,
+            saveAfterOperation: true
+        )
+    }
+
     func reconcileArticles(feedID: UUID, keepingExternalIDs: Set<String>, fetchedAt: Date) throws -> Int {
         try reconcileArticles(
             feedID: feedID,
@@ -94,30 +119,64 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
 
     func refreshFeedProjection(for feed: Feed, saveAfterOperation: Bool = true) throws -> Int {
         let articles = try fetchArticles(feedID: feed.id)
-        var updatedCount = 0
-
-        for article in articles {
-            if article.feedTitle != feed.displayTitle {
-                article.feedTitle = feed.displayTitle
-                updatedCount += 1
-            }
-
-            if article.feedSiteURL != feed.siteURL {
-                article.feedSiteURL = feed.siteURL
-                updatedCount += 1
-            }
-
-            let folderName = feed.folder?.name
-            if article.feedFolderName != folderName {
-                article.feedFolderName = folderName
-                updatedCount += 1
-            }
+        let updatedCount = articles.reduce(into: 0) { updatedCount, article in
+            updatedCount += updateFeedProjection(of: article, from: feed)
         }
 
         if updatedCount > 0, saveAfterOperation {
             try saveIfNeeded()
         }
         return updatedCount
+    }
+
+    func reconcileFeedSnapshot(
+        _ entries: [ParsedFeedEntryDTO],
+        into feed: Feed,
+        fetchedAt: Date,
+        saveAfterOperation: Bool = true
+    ) throws -> ArticleFeedSnapshotReconciliationResult {
+        let payloads = entries.compactMap { ArticleUpsertPayload(entry: $0, fetchedAt: fetchedAt) }
+        let incomingIdentities = Set(
+            entries
+                .compactMap(\.externalID)
+                .compactMap(normalizedIdentifier)
+        )
+        let existingArticles = try fetchArticles(feedID: feed.id)
+        var articlesByIdentity: [String: Article] = [:]
+        var projectionUpdateCount = 0
+        var reconciledArticleCount = 0
+
+        for article in existingArticles {
+            let identity = normalizedArticleIdentity(article.externalID)
+            if articlesByIdentity[identity] == nil {
+                articlesByIdentity[identity] = article
+            }
+
+            projectionUpdateCount += updateFeedProjection(of: article, from: feed)
+            if reconcileArchiveState(
+                of: article,
+                keepingIdentities: incomingIdentities,
+                fetchedAt: fetchedAt
+            ) {
+                reconciledArticleCount += 1
+            }
+        }
+
+        let upsertedArticles = upsert(
+            payloads,
+            into: feed,
+            articlesByIdentity: &articlesByIdentity
+        )
+
+        if saveAfterOperation {
+            try saveIfNeeded()
+        }
+
+        return ArticleFeedSnapshotReconciliationResult(
+            projectionUpdateCount: projectionUpdateCount,
+            reconciledArticleCount: reconciledArticleCount,
+            upsertedArticleCount: upsertedArticles.count
+        )
     }
 
     func fetchArticle(id: UUID) throws -> Article? {
@@ -251,26 +310,11 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
                 articlesByIdentity[identity] = article
             }
         }
-        var upsertedArticles: [Article] = []
-        var upsertedIdentities: Set<String> = []
-
-        for payload in payloads {
-            let identity = normalizedArticleIdentity(payload.externalID)
-            let article: Article
-
-            if let existingArticle = articlesByIdentity[identity] {
-                apply(payload, to: existingArticle)
-                article = existingArticle
-            } else {
-                article = makeArticle(from: payload, feed: feed)
-                modelContext.insert(article)
-                articlesByIdentity[identity] = article
-            }
-
-            if upsertedIdentities.insert(identity).inserted {
-                upsertedArticles.append(article)
-            }
-        }
+        let upsertedArticles = upsert(
+            payloads,
+            into: feed,
+            articlesByIdentity: &articlesByIdentity
+        )
 
         if saveAfterOperation {
             try saveIfNeeded()
@@ -310,13 +354,11 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         var reconciledCount = 0
 
         for article in articles {
-            let shouldKeep = normalizedExternalIDs.contains(article.externalID)
-            let newArchivedAt = shouldKeep ? nil : (article.archivedAt ?? fetchedAt)
-
-            if article.archivedAt != newArchivedAt {
-                article.archivedAt = newArchivedAt
-                article.fetchedAt = fetchedAt
-                article.updatedAt = .now
+            if reconcileArchiveState(
+                of: article,
+                keepingIdentities: normalizedExternalIDs,
+                fetchedAt: fetchedAt
+            ) {
                 reconciledCount += 1
             }
         }
@@ -325,6 +367,74 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             try saveIfNeeded()
         }
         return reconciledCount
+    }
+
+    private func updateFeedProjection(of article: Article, from feed: Feed) -> Int {
+        var updatedCount = 0
+
+        if article.feedTitle != feed.displayTitle {
+            article.feedTitle = feed.displayTitle
+            updatedCount += 1
+        }
+
+        if article.feedSiteURL != feed.siteURL {
+            article.feedSiteURL = feed.siteURL
+            updatedCount += 1
+        }
+
+        let folderName = feed.folder?.name
+        if article.feedFolderName != folderName {
+            article.feedFolderName = folderName
+            updatedCount += 1
+        }
+
+        return updatedCount
+    }
+
+    private func reconcileArchiveState(
+        of article: Article,
+        keepingIdentities: Set<String>,
+        fetchedAt: Date
+    ) -> Bool {
+        let identity = normalizedArticleIdentity(article.externalID)
+        let shouldKeep = keepingIdentities.contains(identity)
+        let newArchivedAt = shouldKeep ? nil : (article.archivedAt ?? fetchedAt)
+
+        guard article.archivedAt != newArchivedAt else { return false }
+
+        article.archivedAt = newArchivedAt
+        article.fetchedAt = fetchedAt
+        article.updatedAt = .now
+        return true
+    }
+
+    private func upsert(
+        _ payloads: [ArticleUpsertPayload],
+        into feed: Feed,
+        articlesByIdentity: inout [String: Article]
+    ) -> [Article] {
+        var upsertedArticles: [Article] = []
+        var upsertedIdentities: Set<String> = []
+
+        for payload in payloads {
+            let identity = normalizedArticleIdentity(payload.externalID)
+            let article: Article
+
+            if let existingArticle = articlesByIdentity[identity] {
+                apply(payload, to: existingArticle)
+                article = existingArticle
+            } else {
+                article = makeArticle(from: payload, feed: feed)
+                modelContext.insert(article)
+                articlesByIdentity[identity] = article
+            }
+
+            if upsertedIdentities.insert(identity).inserted {
+                upsertedArticles.append(article)
+            }
+        }
+
+        return upsertedArticles
     }
 
     private func apply(_ payload: ArticleUpsertPayload, to article: Article) {

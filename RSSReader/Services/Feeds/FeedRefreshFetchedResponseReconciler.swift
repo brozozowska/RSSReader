@@ -37,27 +37,26 @@ extension FeedRefreshService {
             throw FeedRefreshServiceError.feedNotFound(metadata.id)
         }
 
-        _ = try articleRepository.refreshFeedProjection(for: feed, saveAfterOperation: false)
-
-        let reconciledCount = try reconcileArticles(
-            for: metadata.id,
-            entries: pipelineResult.feed.entries,
-            fetchedAt: fetchedAt,
-            saveAfterOperation: false
-        )
-        let upsertedArticles = try articleRepository.upsert(
-            pipelineResult.feed.entries,
-            into: feed,
-            fetchedAt: fetchedAt,
-            saveAfterOperation: false
-        )
+        let articleReconciliationResult: ArticleFeedSnapshotReconciliationResult
+        switch reconciliationPolicy {
+        case .markMissingArticlesAsArchived:
+            articleReconciliationResult = try articleRepository.reconcileFeedSnapshot(
+                pipelineResult.feed.entries,
+                into: feed,
+                fetchedAt: fetchedAt,
+                saveAfterOperation: false
+            )
+        }
         let processedEntryCount = pipelineResult.feed.entries.count + diagnostics.rejectedEntries.count
 
         if diagnosticsAreSoftFailure(diagnostics) {
             logger.info("Feed \(metadata.id.uuidString) fetched with soft-failure diagnostics")
         }
-        if reconciledCount > 0 {
-            logger.info("Feed \(metadata.id.uuidString) reconciliation affected \(reconciledCount) articles")
+        if articleReconciliationResult.reconciledArticleCount > 0 {
+            logger.info(
+                "Feed \(metadata.id.uuidString) reconciliation affected "
+                    + "\(articleReconciliationResult.reconciledArticleCount) articles"
+            )
         }
 
         let finishedAt = Date()
@@ -73,7 +72,7 @@ extension FeedRefreshService {
             startedAt: startedAt,
             finishedAt: finishedAt,
             processedEntryCount: processedEntryCount,
-            upsertedEntryCount: upsertedArticles.count,
+            upsertedEntryCount: articleReconciliationResult.upsertedArticleCount,
             rejectedEntryCount: diagnostics.rejectedEntries.count,
             diagnosticsSummary: diagnosticsSummary
         )
@@ -162,29 +161,4 @@ extension FeedRefreshService {
         return discoveredIconURLString
     }
 
-    func reconcileArticles(
-        for feedID: UUID,
-        entries: [ParsedFeedEntryDTO],
-        fetchedAt: Date,
-        saveAfterOperation: Bool = true
-    ) throws -> Int {
-        switch reconciliationPolicy {
-        case .markMissingArticlesAsArchived:
-            let incomingExternalIDs = Set(entries.compactMap(\.externalID))
-            let reconciledCount = try articleRepository.reconcileArticles(
-                feedID: feedID,
-                keepingExternalIDs: incomingExternalIDs,
-                fetchedAt: fetchedAt,
-                saveAfterOperation: saveAfterOperation
-            )
-
-            if reconciledCount > 0 {
-                logger.info(
-                    "Feed \(feedID.uuidString) reconciliation marked \(reconciledCount) articles as changed deleted-at-source state"
-                )
-            }
-
-            return reconciledCount
-        }
-    }
 }
