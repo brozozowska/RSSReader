@@ -113,4 +113,8 @@ actor ScriptedHTTPClient: HTTPClient {
     func maxConcurrentExecutions() -> Int {
         maxConcurrentExecutionCount
     }
+
+    func currentInFlightExecutionCount() -> Int {
+        inFlightExecutions
+    }
 }

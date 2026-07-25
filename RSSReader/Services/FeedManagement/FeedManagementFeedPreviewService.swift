@@ -9,6 +9,8 @@ struct FeedManagementFeedPreviewService {
     let normalizationPolicy: FeedManagementNormalizationPolicy
 
     func previewFeed(urlString: String) async throws -> FeedManagementFeedPreview {
+        try Task.checkCancellation()
+
         let discoveryPlan = try FeedManagementFeedDiscoveryPlanner.makePlan(for: urlString)
         var attemptedFeedURLs: Set<String> = []
         var lastPreviewError: Error?
@@ -18,8 +20,12 @@ struct FeedManagementFeedPreviewService {
             .maximumDiscoveryCandidateCount
 
         for feedURL in discoveryPlan.feedURLs {
+            try Task.checkCancellation()
+
             do {
                 return try await previewFeed(at: feedURL)
+            } catch let error as CancellationError {
+                throw error
             } catch {
                 lastPreviewError = error
                 attemptedFeedURLs.insert(feedURL.absoluteString)
@@ -28,8 +34,11 @@ struct FeedManagementFeedPreviewService {
         }
 
         siteDiscovery: for siteURL in discoveryPlan.siteURLs {
-            let discoveredFeedURLs = await discoverFeedURLs(from: siteURL)
+            try Task.checkCancellation()
+            let discoveredFeedURLs = try await discoverFeedURLs(from: siteURL)
             for feedURL in discoveredFeedURLs where attemptedFeedURLs.contains(feedURL.absoluteString) == false {
+                try Task.checkCancellation()
+
                 guard autodiscoveryCandidateCount < maximumAutodiscoveryCandidateCount else {
                     break siteDiscovery
                 }
@@ -37,6 +46,8 @@ struct FeedManagementFeedPreviewService {
 
                 do {
                     return try await previewFeed(at: feedURL)
+                } catch let error as CancellationError {
+                    throw error
                 } catch {
                     lastPreviewError = error
                     attemptedFeedURLs.insert(feedURL.absoluteString)
@@ -46,8 +57,12 @@ struct FeedManagementFeedPreviewService {
         }
 
         for feedURL in discoveryPlan.fallbackFeedURLs where attemptedFeedURLs.contains(feedURL.absoluteString) == false {
+            try Task.checkCancellation()
+
             do {
                 return try await previewFeed(at: feedURL)
+            } catch let error as CancellationError {
+                throw error
             } catch {
                 lastPreviewError = error
                 attemptedFeedURLs.insert(feedURL.absoluteString)
@@ -101,8 +116,9 @@ struct FeedManagementFeedPreviewService {
         )
     }
 
-    private func discoverFeedURLs(from siteURL: URL) async -> [URL] {
+    private func discoverFeedURLs(from siteURL: URL) async throws -> [URL] {
         do {
+            try Task.checkCancellation()
             let response = try await httpClient.execute(
                 HTTPRequest(
                     url: siteURL,
@@ -117,11 +133,15 @@ struct FeedManagementFeedPreviewService {
                         .maximumCompressedBodyBytes
                 )
             )
+            try Task.checkCancellation()
             guard let html = try HTMLDiscoveryResponseDecoder.decode(response) else { return [] }
+            try Task.checkCancellation()
             return FeedManagementFeedDiscoveryPlanner.autodiscoveredFeedURLs(
                 in: html,
                 baseURL: response.url
             )
+        } catch let error as CancellationError {
+            throw error
         } catch {
             logger.debug("Feed management HTML feed autodiscovery failed for \(siteURL.absoluteString): \(error)")
             return []
