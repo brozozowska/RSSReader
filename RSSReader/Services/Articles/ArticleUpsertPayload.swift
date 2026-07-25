@@ -25,6 +25,22 @@ nonisolated struct ArticleUpsertPayload: Sendable {
         fetchedAt: Date = .now,
         archivedAt: Date? = nil
     ) {
+        self.init(
+            preparedEntry: entry,
+            publishedAt: FeedNormalizationService.parsePublishedAt(for: entry),
+            updatedAtSource: FeedNormalizationService.parseUpdatedAt(for: entry),
+            fetchedAt: fetchedAt,
+            archivedAt: archivedAt
+        )
+    }
+
+    private init?(
+        preparedEntry entry: ParsedFeedEntryDTO,
+        publishedAt: Date?,
+        updatedAtSource: Date?,
+        fetchedAt: Date,
+        archivedAt: Date?
+    ) {
         guard let externalID = Self.firstNonEmptyValue(entry.externalID) else {
             return nil
         }
@@ -38,8 +54,8 @@ nonisolated struct ArticleUpsertPayload: Sendable {
         self.contentHTML = entry.contentHTML
         self.contentText = entry.contentText
         self.author = entry.author
-        self.publishedAt = FeedNormalizationService.parsePublishedAt(for: entry)
-        self.updatedAtSource = FeedNormalizationService.parseUpdatedAt(for: entry)
+        self.publishedAt = publishedAt
+        self.updatedAtSource = updatedAtSource
         self.imageURL = entry.imageURL
         self.archivedAt = archivedAt
         self.fetchedAt = fetchedAt
@@ -53,6 +69,25 @@ nonisolated struct ArticleUpsertPayload: Sendable {
         try entries.enumerated().map { index, entry in
             guard let payload = ArticleUpsertPayload(
                 entry: entry,
+                fetchedAt: fetchedAt,
+                archivedAt: archivedAt
+            ) else {
+                throw ArticleUpsertPayloadConstructionError.nonPersistableEntry(index: index)
+            }
+            return payload
+        }
+    }
+
+    static func makeAllPrepared(
+        entries: [ParsedFeedEntryDTO],
+        fetchedAt: Date,
+        archivedAt: Date? = nil
+    ) throws -> [ArticleUpsertPayload] {
+        try entries.enumerated().map { index, entry in
+            guard let payload = ArticleUpsertPayload(
+                preparedEntry: entry,
+                publishedAt: entry.publishedAt,
+                updatedAtSource: entry.updatedAt,
                 fetchedAt: fetchedAt,
                 archivedAt: archivedAt
             ) else {

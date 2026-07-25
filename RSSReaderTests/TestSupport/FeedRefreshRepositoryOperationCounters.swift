@@ -153,7 +153,7 @@ final class CountingArticleRepository: ArticleRepository {
     }
 
     func reconcileFeedSnapshot(
-        _ entries: [ParsedFeedEntryDTO],
+        _ payloads: [ArticleUpsertPayload],
         into feed: Feed,
         fetchedAt: Date,
         saveAfterOperation: Bool
@@ -164,7 +164,7 @@ final class CountingArticleRepository: ArticleRepository {
             saveRequestCount += 1
         }
         return try backing.reconcileFeedSnapshot(
-            entries,
+            payloads,
             into: feed,
             fetchedAt: fetchedAt,
             saveAfterOperation: saveAfterOperation

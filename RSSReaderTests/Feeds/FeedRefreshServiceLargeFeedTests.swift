@@ -6,21 +6,26 @@ import Testing
 @MainActor
 struct FeedRefreshServiceLargeFeedTests {
     @Test
-    func largeFeedParsingKeepsMainActorResponsiveWithinDeterministicMemoryBudget() async throws {
+    func largeFeedParsingAndPayloadPreparationKeepMainActorResponsiveWithinDeterministicMemoryBudget() async throws {
         let fixture = LargeFeedPipelineFixture.make()
         let repeatedFixture = LargeFeedPipelineFixture.make()
         let probe = LargeFeedParsingProbe()
-        let worker = FeedParsingWorker { response in
-            try probe.parse(response)
-        }
+        let worker = FeedParsingWorker(
+            pipeline: { response in
+                try probe.parse(response)
+            },
+            payloadPreparation: { entries, fetchedAt in
+                try probe.preparePayloads(entries, fetchedAt: fetchedAt)
+            }
+        )
         let heartbeat = Task { @MainActor in
             while Task.isCancelled == false {
-                probe.recordMainActorHeartbeatIfParsing()
+                probe.recordMainActorHeartbeatIfWorking()
                 await Task.yield()
             }
         }
 
-        let result: FeedParsePipelineResult
+        let result: FeedParsingWorkerResult
         do {
             result = try await worker.parse(fixture.makeResponse())
         } catch {
@@ -41,10 +46,13 @@ struct FeedRefreshServiceLargeFeedTests {
             fixture.estimatedWorkingSetByteCount
                 <= LargeFeedPipelineTestContract.maximumEstimatedWorkingSetBytes
         )
-        #expect(probe.didRunOffMainThread)
-        #expect(probe.mainActorHeartbeatCount > 0)
+        #expect(probe.didRunParsingOffMainThread)
+        #expect(probe.didRunPayloadPreparationOffMainThread)
+        #expect(probe.parsingHeartbeatCount > 0)
+        #expect(probe.payloadPreparationHeartbeatCount > 0)
         #expect(result.feed.kind == .rss)
         #expect(result.feed.entries.count == fixture.expectedAcceptedEntryCount)
+        #expect(result.articlePayloads.count == fixture.expectedAcceptedEntryCount)
         #expect(result.diagnostics.rejectedEntries.count == fixture.expectedRejectedEntryCount)
     }
 
@@ -106,45 +114,87 @@ struct FeedRefreshServiceLargeFeedTests {
 
 private final class LargeFeedParsingProbe: @unchecked Sendable {
     private let condition = NSCondition()
-    private var started = false
-    private var finished = false
-    private var ranOnMainThread = true
-    private var heartbeatCount = 0
+    private var parsingStarted = false
+    private var parsingFinished = false
+    private var parsingRanOnMainThread = true
+    private var payloadPreparationStarted = false
+    private var payloadPreparationFinished = false
+    private var payloadPreparationRanOnMainThread = true
+    private var parsingHeartbeats = 0
+    private var payloadPreparationHeartbeats = 0
 
-    var didRunOffMainThread: Bool {
-        condition.withLock { started && ranOnMainThread == false }
+    var didRunParsingOffMainThread: Bool {
+        condition.withLock { parsingStarted && parsingRanOnMainThread == false }
     }
 
-    var mainActorHeartbeatCount: Int {
-        condition.withLock { heartbeatCount }
+    var didRunPayloadPreparationOffMainThread: Bool {
+        condition.withLock {
+            payloadPreparationStarted && payloadPreparationRanOnMainThread == false
+        }
+    }
+
+    var parsingHeartbeatCount: Int {
+        condition.withLock { parsingHeartbeats }
+    }
+
+    var payloadPreparationHeartbeatCount: Int {
+        condition.withLock { payloadPreparationHeartbeats }
     }
 
     func parse(_ response: FeedResponse) throws -> FeedParsePipelineResult {
         condition.lock()
-        started = true
-        ranOnMainThread = Thread.isMainThread
+        parsingStarted = true
+        parsingRanOnMainThread = Thread.isMainThread
         let heartbeatDeadline = Date(
             timeIntervalSinceNow: LargeFeedPipelineTestContract.maximumMainActorHeartbeatWait
         )
-        while heartbeatCount == 0, condition.wait(until: heartbeatDeadline) {
+        while parsingHeartbeats == 0, condition.wait(until: heartbeatDeadline) {
             continue
         }
         condition.unlock()
 
         defer {
             condition.withLock {
-                finished = true
+                parsingFinished = true
             }
         }
 
         return try FeedParserService.parsePipelineResult(response)
     }
 
-    func recordMainActorHeartbeatIfParsing() {
+    func preparePayloads(
+        _ entries: [ParsedFeedEntryDTO],
+        fetchedAt: Date
+    ) throws -> [ArticleUpsertPayload] {
+        condition.lock()
+        payloadPreparationStarted = true
+        payloadPreparationRanOnMainThread = Thread.isMainThread
+        let heartbeatDeadline = Date(
+            timeIntervalSinceNow: LargeFeedPipelineTestContract.maximumMainActorHeartbeatWait
+        )
+        while payloadPreparationHeartbeats == 0, condition.wait(until: heartbeatDeadline) {
+            continue
+        }
+        condition.unlock()
+
+        defer {
+            condition.withLock {
+                payloadPreparationFinished = true
+            }
+        }
+
+        return try ArticleUpsertPayload.makeAllPrepared(entries: entries, fetchedAt: fetchedAt)
+    }
+
+    func recordMainActorHeartbeatIfWorking() {
         condition.withLock {
-            guard started, finished == false else { return }
-            heartbeatCount += 1
-            condition.signal()
+            if parsingStarted, parsingFinished == false {
+                parsingHeartbeats += 1
+            }
+            if payloadPreparationStarted, payloadPreparationFinished == false {
+                payloadPreparationHeartbeats += 1
+            }
+            condition.broadcast()
         }
     }
 }

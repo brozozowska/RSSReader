@@ -6,11 +6,11 @@ extension FeedRefreshService {
         metadata: FeedFetchMetadata,
         startedAt: Date
     ) async throws -> FeedRefreshResult {
-        let pipelineResult = try await feedParsingWorker.parse(response)
+        let fetchedAt = Date()
+        let pipelineResult = try await feedParsingWorker.parse(response, fetchedAt: fetchedAt)
         try Task.checkCancellation()
         let diagnostics = pipelineResult.diagnostics
         let diagnosticsSummary = diagnosticsSummary(for: diagnostics)
-        let fetchedAt = Date()
         let currentMetadata = try feedRepository.fetchMetadata(for: metadata.id)
         try Task.checkCancellation()
         let discoveredIconURL = try await discoverIconURLIfNeeded(
@@ -44,7 +44,7 @@ extension FeedRefreshService {
         switch reconciliationPolicy {
         case .markMissingArticlesAsArchived:
             articleReconciliationResult = try articleRepository.reconcileFeedSnapshot(
-                pipelineResult.feed.entries,
+                pipelineResult.articlePayloads,
                 into: feed,
                 fetchedAt: fetchedAt,
                 saveAfterOperation: false

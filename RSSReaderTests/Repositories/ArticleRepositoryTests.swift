@@ -171,8 +171,8 @@ struct ArticleRepositoryTests {
         feed.siteURL = "https://new.example.com/"
         feed.folder = folder
 
-        let result = try harness.articleRepository.reconcileFeedSnapshot(
-            [
+        let payloads = try ArticleUpsertPayload.makeAll(
+            entries: [
                 makeEntry(
                     externalID: "reactivated-id",
                     url: "https://example.com/reactivated-updated",
@@ -189,6 +189,10 @@ struct ArticleRepositoryTests {
                     title: "Updated duplicate title"
                 )
             ],
+            fetchedAt: fetchedAt
+        )
+        let result = try harness.articleRepository.reconcileFeedSnapshot(
+            payloads,
             into: feed,
             fetchedAt: fetchedAt
         )

@@ -365,14 +365,14 @@ private final class InterruptingAfterSnapshotArticleRepository: ArticleRepositor
     }
 
     func reconcileFeedSnapshot(
-        _ entries: [ParsedFeedEntryDTO],
+        _ payloads: [ArticleUpsertPayload],
         into feed: Feed,
         fetchedAt: Date,
         saveAfterOperation: Bool
     ) throws -> ArticleFeedSnapshotReconciliationResult {
         reconcileFeedSnapshotCallCount += 1
         let result = try backing.reconcileFeedSnapshot(
-            entries,
+            payloads,
             into: feed,
             fetchedAt: fetchedAt,
             saveAfterOperation: saveAfterOperation

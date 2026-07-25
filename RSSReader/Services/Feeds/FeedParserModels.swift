@@ -93,6 +93,8 @@ nonisolated struct ParsedFeedEntryDTO: Sendable {
     let author: String?
     let publishedAtRaw: String?
     let updatedAtRaw: String?
+    let publishedAt: Date?
+    let updatedAt: Date?
     let imageURL: String?
 
     init(
@@ -107,6 +109,8 @@ nonisolated struct ParsedFeedEntryDTO: Sendable {
         author: String? = nil,
         publishedAtRaw: String? = nil,
         updatedAtRaw: String? = nil,
+        publishedAt: Date? = nil,
+        updatedAt: Date? = nil,
         imageURL: String? = nil
     ) {
         self.externalID = externalID
@@ -120,6 +124,8 @@ nonisolated struct ParsedFeedEntryDTO: Sendable {
         self.author = author
         self.publishedAtRaw = publishedAtRaw
         self.updatedAtRaw = updatedAtRaw
+        self.publishedAt = publishedAt
+        self.updatedAt = updatedAt
         self.imageURL = imageURL
     }
 }

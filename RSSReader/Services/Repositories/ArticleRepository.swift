@@ -16,7 +16,7 @@ struct ArticleFeedSnapshotReconciliationResult {
 protocol ArticleRepository {
     func refreshFeedProjection(for feed: Feed, saveAfterOperation: Bool) throws -> Int
     func reconcileFeedSnapshot(
-        _ entries: [ParsedFeedEntryDTO],
+        _ payloads: [ArticleUpsertPayload],
         into feed: Feed,
         fetchedAt: Date,
         saveAfterOperation: Bool
@@ -73,12 +73,12 @@ extension ArticleRepository {
     }
 
     func reconcileFeedSnapshot(
-        _ entries: [ParsedFeedEntryDTO],
+        _ payloads: [ArticleUpsertPayload],
         into feed: Feed,
         fetchedAt: Date
     ) throws -> ArticleFeedSnapshotReconciliationResult {
         try reconcileFeedSnapshot(
-            entries,
+            payloads,
             into: feed,
             fetchedAt: fetchedAt,
             saveAfterOperation: true
@@ -130,16 +130,12 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     }
 
     func reconcileFeedSnapshot(
-        _ entries: [ParsedFeedEntryDTO],
+        _ payloads: [ArticleUpsertPayload],
         into feed: Feed,
         fetchedAt: Date,
         saveAfterOperation: Bool = true
     ) throws -> ArticleFeedSnapshotReconciliationResult {
         try Task.checkCancellation()
-        let payloads = try ArticleUpsertPayload.makeAll(
-            entries: entries,
-            fetchedAt: fetchedAt
-        )
         let incomingIdentities = Set(
             payloads.map { normalizedArticleIdentity($0.externalID) }
         )
