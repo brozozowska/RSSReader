@@ -44,9 +44,14 @@ extension FeedParserService {
 
     nonisolated static func parsePipelineResult(
         _ response: FeedResponse,
-        xmlCancellationProbe: @escaping FeedXMLParserCancellationProbe = { Task.isCancelled }
+        xmlCancellationProbe: @escaping FeedXMLParserCancellationProbe = { Task.isCancelled },
+        xmlProgressProbe: FeedXMLParserProgressProbe? = nil
     ) throws -> FeedParsePipelineResult {
-        let document = try parse(response, cancellationProbe: xmlCancellationProbe)
+        let document = try parse(
+            response,
+            cancellationProbe: xmlCancellationProbe,
+            progressProbe: xmlProgressProbe
+        )
         try Task.checkCancellation()
         let parsedFeed = try parseFeed(document)
         try Task.checkCancellation()
@@ -60,9 +65,14 @@ extension FeedParserService {
     nonisolated static func parsePipelineResult(
         _ data: Data,
         feedURL: String,
-        xmlCancellationProbe: @escaping FeedXMLParserCancellationProbe = { Task.isCancelled }
+        xmlCancellationProbe: @escaping FeedXMLParserCancellationProbe = { Task.isCancelled },
+        xmlProgressProbe: FeedXMLParserProgressProbe? = nil
     ) throws -> FeedParsePipelineResult {
-        let document = try parse(data, cancellationProbe: xmlCancellationProbe)
+        let document = try parse(
+            data,
+            cancellationProbe: xmlCancellationProbe,
+            progressProbe: xmlProgressProbe
+        )
         try Task.checkCancellation()
         let parsedFeed = try parseFeed(document)
         try Task.checkCancellation()

@@ -1,6 +1,13 @@
 import Foundation
 
 typealias FeedXMLParserCancellationProbe = @Sendable () -> Bool
+typealias FeedXMLParserProgressProbe = @Sendable (FeedXMLParserProgress) -> Void
+
+nonisolated struct FeedXMLParserProgress: Equatable, Sendable {
+    let elementCount: Int
+    let currentDepth: Int
+    let materializedEntryCount: Int
+}
 
 nonisolated struct XMLParserStructuralPolicy: Equatable, Sendable {
     nonisolated enum MaterializedEntryKind: Equatable, Sendable {
@@ -26,7 +33,8 @@ extension FeedParserService {
     nonisolated static func parse(
         _ data: Data,
         structuralPolicy: XMLParserStructuralPolicy = .feed,
-        cancellationProbe: @escaping FeedXMLParserCancellationProbe = { Task.isCancelled }
+        cancellationProbe: @escaping FeedXMLParserCancellationProbe = { Task.isCancelled },
+        progressProbe: FeedXMLParserProgressProbe? = nil
     ) throws -> FeedXMLDocument {
         let isWhitespaceOnly = String(data: data, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -38,7 +46,8 @@ extension FeedParserService {
 
         let builder = FeedXMLTreeBuilder(
             structuralPolicy: structuralPolicy,
-            cancellationProbe: cancellationProbe
+            cancellationProbe: cancellationProbe,
+            progressProbe: progressProbe
         )
         let parser = XMLParser(data: data)
         parser.delegate = builder
@@ -68,9 +77,14 @@ extension FeedParserService {
 
     nonisolated static func parse(
         _ response: FeedResponse,
-        cancellationProbe: @escaping FeedXMLParserCancellationProbe = { Task.isCancelled }
+        cancellationProbe: @escaping FeedXMLParserCancellationProbe = { Task.isCancelled },
+        progressProbe: FeedXMLParserProgressProbe? = nil
     ) throws -> FeedXMLDocument {
-        try parse(response.body, cancellationProbe: cancellationProbe)
+        try parse(
+            response.body,
+            cancellationProbe: cancellationProbe,
+            progressProbe: progressProbe
+        )
     }
 }
 
@@ -110,6 +124,7 @@ private nonisolated final class FeedXMLTreeBuilder: NSObject, XMLParserDelegate 
     private var stack: [Node] = []
     private let structuralPolicy: XMLParserStructuralPolicy
     private let cancellationProbe: FeedXMLParserCancellationProbe
+    private let progressProbe: FeedXMLParserProgressProbe?
     private var elementCount = 0
     private var materializedEntryCount = 0
     private(set) var document: FeedXMLDocument?
@@ -118,10 +133,12 @@ private nonisolated final class FeedXMLTreeBuilder: NSObject, XMLParserDelegate 
 
     init(
         structuralPolicy: XMLParserStructuralPolicy,
-        cancellationProbe: @escaping FeedXMLParserCancellationProbe
+        cancellationProbe: @escaping FeedXMLParserCancellationProbe,
+        progressProbe: FeedXMLParserProgressProbe?
     ) {
         self.structuralPolicy = structuralPolicy
         self.cancellationProbe = cancellationProbe
+        self.progressProbe = progressProbe
     }
 
     func parser(
@@ -160,6 +177,13 @@ private nonisolated final class FeedXMLTreeBuilder: NSObject, XMLParserDelegate 
 
         elementCount = nextElementCount
         materializedEntryCount = nextMaterializedEntryCount
+        progressProbe?(
+            FeedXMLParserProgress(
+                elementCount: elementCount,
+                currentDepth: nextDepth,
+                materializedEntryCount: materializedEntryCount
+            )
+        )
         let node = Node(
             name: resolvedName,
             qualifiedName: qName,

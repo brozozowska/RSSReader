@@ -6,7 +6,6 @@ nonisolated enum LargeFeedPipelineTestContract {
     static let duplicateEntryCount = 100
     static let rejectedEntryCount = 50
     static let rawEntryCount = uniqueEntryCount + duplicateEntryCount + rejectedEntryCount
-    static let maximumEstimatedWorkingSetBytes = 2 * 1024 * 1024
     static let maximumRefreshDuration: Duration = .seconds(10)
     static let maximumMainActorHeartbeatWait: TimeInterval = 5
     static let maximumFeedFetchOperationCount = 8
@@ -21,7 +20,8 @@ nonisolated struct LargeFeedPipelineFixture: Sendable {
     let rawEntryCount: Int
     let expectedAcceptedEntryCount: Int
     let expectedRejectedEntryCount: Int
-    let estimatedWorkingSetByteCount: Int
+    let expectedXMLElementCount: Int
+    let expectedXMLMaximumDepth: Int
 
     var bodyByteCount: Int {
         body.utf8.count
@@ -31,13 +31,16 @@ nonisolated struct LargeFeedPipelineFixture: Sendable {
         let feedURL = URL(string: "https://example.com/large-feed.xml")!
         var itemXML: [String] = []
         itemXML.reserveCapacity(LargeFeedPipelineTestContract.rawEntryCount)
+        var expectedXMLElementCount = 6
 
         for index in 0..<LargeFeedPipelineTestContract.uniqueEntryCount {
             itemXML.append(validItemXML(index: index, isDuplicate: false))
+            expectedXMLElementCount += 6
         }
 
         for index in 0..<LargeFeedPipelineTestContract.duplicateEntryCount {
             itemXML.append(validItemXML(index: index, isDuplicate: true))
+            expectedXMLElementCount += 6
         }
 
         for index in 0..<LargeFeedPipelineTestContract.rejectedEntryCount {
@@ -48,6 +51,7 @@ nonisolated struct LargeFeedPipelineFixture: Sendable {
                 </item>
                 """
             )
+            expectedXMLElementCount += 2
         }
 
         let joinedItemXML = itemXML.joined(separator: "\n")
@@ -63,17 +67,14 @@ nonisolated struct LargeFeedPipelineFixture: Sendable {
           </channel>
         </rss>
         """
-        let materializedItemTextByteCount = itemXML.reduce(into: 0) { byteCount, item in
-            byteCount += item.utf8.count
-        }
-
         return LargeFeedPipelineFixture(
             feedURL: feedURL,
             body: body,
             rawEntryCount: itemXML.count,
             expectedAcceptedEntryCount: LargeFeedPipelineTestContract.uniqueEntryCount,
             expectedRejectedEntryCount: LargeFeedPipelineTestContract.rejectedEntryCount,
-            estimatedWorkingSetByteCount: body.utf8.count + materializedItemTextByteCount
+            expectedXMLElementCount: expectedXMLElementCount,
+            expectedXMLMaximumDepth: 4
         )
     }
 

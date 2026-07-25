@@ -1,5 +1,7 @@
 import Foundation
 
+typealias ArticleUpsertPayloadMaterializationProbe = @Sendable (Int, ArticleUpsertPayload) -> Void
+
 nonisolated enum ArticleUpsertPayloadConstructionError: Error, Equatable {
     case nonPersistableEntry(index: Int)
 }
@@ -81,7 +83,8 @@ nonisolated struct ArticleUpsertPayload: Sendable {
     static func makeAllPrepared(
         entries: [ParsedFeedEntryDTO],
         fetchedAt: Date,
-        archivedAt: Date? = nil
+        archivedAt: Date? = nil,
+        materializationProbe: ArticleUpsertPayloadMaterializationProbe? = nil
     ) throws -> [ArticleUpsertPayload] {
         try entries.enumerated().map { index, entry in
             guard let payload = ArticleUpsertPayload(
@@ -93,6 +96,7 @@ nonisolated struct ArticleUpsertPayload: Sendable {
             ) else {
                 throw ArticleUpsertPayloadConstructionError.nonPersistableEntry(index: index)
             }
+            materializationProbe?(index + 1, payload)
             return payload
         }
     }

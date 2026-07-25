@@ -6,16 +6,25 @@ import Testing
 @MainActor
 struct FeedRefreshServiceLargeFeedTests {
     @Test
-    func largeFeedParsingAndPayloadPreparationKeepMainActorResponsiveWithinDeterministicMemoryBudget() async throws {
+    func actualXMLAndPayloadMaterializationKeepMainActorResponsiveWithinStructuralBounds() async throws {
         let fixture = LargeFeedPipelineFixture.make()
         let repeatedFixture = LargeFeedPipelineFixture.make()
         let probe = LargeFeedParsingProbe()
         let worker = FeedParsingWorker(
             pipeline: { response in
-                try probe.parse(response)
+                defer { probe.finishXMLPipeline() }
+                return try FeedParserService.parsePipelineResult(
+                    response,
+                    xmlProgressProbe: probe.recordXMLProgress
+                )
             },
             payloadPreparation: { entries, fetchedAt in
-                try probe.preparePayloads(entries, fetchedAt: fetchedAt)
+                defer { probe.finishPayloadPreparation() }
+                return try ArticleUpsertPayload.makeAllPrepared(
+                    entries: entries,
+                    fetchedAt: fetchedAt,
+                    materializationProbe: probe.recordPayloadMaterialization
+                )
             }
         )
         let heartbeat = Task { @MainActor in
@@ -43,13 +52,36 @@ struct FeedRefreshServiceLargeFeedTests {
                 <= AppResourceBudgetContract.current.feedXML.body.maximumCompressedBodyBytes
         )
         #expect(
-            fixture.estimatedWorkingSetByteCount
-                <= LargeFeedPipelineTestContract.maximumEstimatedWorkingSetBytes
+            probe.maximumObservedElementCount
+                == fixture.expectedXMLElementCount
         )
-        #expect(probe.didRunParsingOffMainThread)
+        #expect(
+            probe.maximumObservedElementCount
+                <= AppResourceBudgetContract.current.feedXML.maximumElementCount
+        )
+        #expect(
+            probe.maximumObservedDepth
+                == fixture.expectedXMLMaximumDepth
+        )
+        #expect(
+            probe.maximumObservedDepth
+                <= AppResourceBudgetContract.current.feedXML.maximumDepth
+        )
+        #expect(
+            probe.maximumObservedMaterializedEntryCount
+                == fixture.rawEntryCount
+        )
+        #expect(
+            probe.maximumObservedMaterializedEntryCount
+                <= AppResourceBudgetContract.current.feedXML.maximumEntryCount
+        )
+        #expect(probe.didRunXMLPipelineOffMainThread)
         #expect(probe.didRunPayloadPreparationOffMainThread)
-        #expect(probe.parsingHeartbeatCount > 0)
+        #expect(probe.xmlPipelineHeartbeatCount > 0)
         #expect(probe.payloadPreparationHeartbeatCount > 0)
+        #expect(probe.materializedPayloadCount == fixture.expectedAcceptedEntryCount)
+        #expect(probe.materializedPayloadTextByteCount > 0)
+        #expect(probe.materializedPayloadTextByteCount <= fixture.bodyByteCount)
         #expect(result.feed.kind == .rss)
         #expect(result.feed.entries.count == fixture.expectedAcceptedEntryCount)
         #expect(result.articlePayloads.count == fixture.expectedAcceptedEntryCount)
@@ -129,17 +161,22 @@ struct FeedRefreshServiceLargeFeedTests {
 
 private final class LargeFeedParsingProbe: @unchecked Sendable {
     private let condition = NSCondition()
-    private var parsingStarted = false
-    private var parsingFinished = false
-    private var parsingRanOnMainThread = true
+    private var xmlPipelineStarted = false
+    private var xmlPipelineFinished = false
+    private var xmlPipelineRanOnMainThread = true
     private var payloadPreparationStarted = false
     private var payloadPreparationFinished = false
     private var payloadPreparationRanOnMainThread = true
-    private var parsingHeartbeats = 0
+    private var xmlPipelineHeartbeats = 0
     private var payloadPreparationHeartbeats = 0
+    private var observedElementCount = 0
+    private var observedMaximumDepth = 0
+    private var observedMaterializedEntryCount = 0
+    private var observedMaterializedPayloadCount = 0
+    private var observedMaterializedPayloadTextByteCount = 0
 
-    var didRunParsingOffMainThread: Bool {
-        condition.withLock { parsingStarted && parsingRanOnMainThread == false }
+    var didRunXMLPipelineOffMainThread: Bool {
+        condition.withLock { xmlPipelineStarted && xmlPipelineRanOnMainThread == false }
     }
 
     var didRunPayloadPreparationOffMainThread: Bool {
@@ -148,68 +185,116 @@ private final class LargeFeedParsingProbe: @unchecked Sendable {
         }
     }
 
-    var parsingHeartbeatCount: Int {
-        condition.withLock { parsingHeartbeats }
+    var xmlPipelineHeartbeatCount: Int {
+        condition.withLock { xmlPipelineHeartbeats }
     }
 
     var payloadPreparationHeartbeatCount: Int {
         condition.withLock { payloadPreparationHeartbeats }
     }
 
-    func parse(_ response: FeedResponse) throws -> FeedParsePipelineResult {
-        condition.lock()
-        parsingStarted = true
-        parsingRanOnMainThread = Thread.isMainThread
-        let heartbeatDeadline = Date(
-            timeIntervalSinceNow: LargeFeedPipelineTestContract.maximumMainActorHeartbeatWait
-        )
-        while parsingHeartbeats == 0, condition.wait(until: heartbeatDeadline) {
-            continue
-        }
-        condition.unlock()
-
-        defer {
-            condition.withLock {
-                parsingFinished = true
-            }
-        }
-
-        return try FeedParserService.parsePipelineResult(response)
+    var maximumObservedElementCount: Int {
+        condition.withLock { observedElementCount }
     }
 
-    func preparePayloads(
-        _ entries: [ParsedFeedEntryDTO],
-        fetchedAt: Date
-    ) throws -> [ArticleUpsertPayload] {
+    var maximumObservedDepth: Int {
+        condition.withLock { observedMaximumDepth }
+    }
+
+    var maximumObservedMaterializedEntryCount: Int {
+        condition.withLock { observedMaterializedEntryCount }
+    }
+
+    var materializedPayloadCount: Int {
+        condition.withLock { observedMaterializedPayloadCount }
+    }
+
+    var materializedPayloadTextByteCount: Int {
+        condition.withLock { observedMaterializedPayloadTextByteCount }
+    }
+
+    func recordXMLProgress(_ progress: FeedXMLParserProgress) {
         condition.lock()
-        payloadPreparationStarted = true
-        payloadPreparationRanOnMainThread = Thread.isMainThread
-        let heartbeatDeadline = Date(
-            timeIntervalSinceNow: LargeFeedPipelineTestContract.maximumMainActorHeartbeatWait
+        if xmlPipelineStarted == false {
+            xmlPipelineStarted = true
+            xmlPipelineRanOnMainThread = Thread.isMainThread
+        }
+        observedElementCount = max(observedElementCount, progress.elementCount)
+        observedMaximumDepth = max(observedMaximumDepth, progress.currentDepth)
+        observedMaterializedEntryCount = max(
+            observedMaterializedEntryCount,
+            progress.materializedEntryCount
         )
-        while payloadPreparationHeartbeats == 0, condition.wait(until: heartbeatDeadline) {
-            continue
-        }
+        waitForHeartbeatIfNeeded(currentHeartbeatCount: { xmlPipelineHeartbeats })
         condition.unlock()
+    }
 
-        defer {
-            condition.withLock {
-                payloadPreparationFinished = true
-            }
+    func finishXMLPipeline() {
+        condition.withLock {
+            xmlPipelineFinished = true
+            condition.broadcast()
         }
+    }
 
-        return try ArticleUpsertPayload.makeAllPrepared(entries: entries, fetchedAt: fetchedAt)
+    func recordPayloadMaterialization(
+        _ materializedPayloadCount: Int,
+        _ payload: ArticleUpsertPayload
+    ) {
+        condition.lock()
+        if payloadPreparationStarted == false {
+            payloadPreparationStarted = true
+            payloadPreparationRanOnMainThread = Thread.isMainThread
+        }
+        observedMaterializedPayloadCount = materializedPayloadCount
+        observedMaterializedPayloadTextByteCount += payloadTextByteCount(payload)
+        waitForHeartbeatIfNeeded(currentHeartbeatCount: { payloadPreparationHeartbeats })
+        condition.unlock()
+    }
+
+    func finishPayloadPreparation() {
+        condition.withLock {
+            payloadPreparationFinished = true
+            condition.broadcast()
+        }
     }
 
     func recordMainActorHeartbeatIfWorking() {
         condition.withLock {
-            if parsingStarted, parsingFinished == false {
-                parsingHeartbeats += 1
+            if xmlPipelineStarted, xmlPipelineFinished == false {
+                xmlPipelineHeartbeats += 1
             }
             if payloadPreparationStarted, payloadPreparationFinished == false {
                 payloadPreparationHeartbeats += 1
             }
             condition.broadcast()
+        }
+    }
+
+    private func waitForHeartbeatIfNeeded(currentHeartbeatCount: () -> Int) {
+        let heartbeatDeadline = Date(
+            timeIntervalSinceNow: LargeFeedPipelineTestContract.maximumMainActorHeartbeatWait
+        )
+        while currentHeartbeatCount() == 0, condition.wait(until: heartbeatDeadline) {
+            continue
+        }
+    }
+
+    private func payloadTextByteCount(_ payload: ArticleUpsertPayload) -> Int {
+        [
+            payload.externalID,
+            payload.guid,
+            payload.url,
+            payload.canonicalURL,
+            payload.title,
+            payload.summary,
+            payload.contentHTML,
+            payload.contentText,
+            payload.author,
+            payload.imageURL
+        ]
+        .compactMap { $0 }
+        .reduce(into: 0) { byteCount, value in
+            byteCount += value.utf8.count
         }
     }
 }
