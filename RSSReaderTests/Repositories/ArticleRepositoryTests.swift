@@ -113,6 +113,34 @@ struct ArticleRepositoryTests {
     }
 
     @Test
+    func articleRepositoryBatchUpsertRejectsNonPersistableEntryWithoutPartialInsert() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(into: harness)
+        let validEntry = makeEntry(
+            externalID: "valid-id",
+            url: "https://example.com/valid",
+            title: "Valid title"
+        )
+        let missingExternalIDEntry = ParsedFeedEntryDTO(
+            url: "https://example.com/missing-external-id",
+            title: "Missing external ID"
+        )
+
+        #expect(
+            throws: ArticleUpsertPayloadConstructionError.nonPersistableEntry(index: 1)
+        ) {
+            _ = try harness.articleRepository.upsert(
+                [validEntry, missingExternalIDEntry],
+                into: feed,
+                fetchedAt: Date(timeIntervalSince1970: 1_700_000_000)
+            )
+        }
+
+        let persistedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        #expect(persistedArticles.isEmpty)
+    }
+
+    @Test
     func articleRepositoryReconcilesProjectionArchiveStateAndUpsertFromSingleFeedSnapshot() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let folder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))

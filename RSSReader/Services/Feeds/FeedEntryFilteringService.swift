@@ -68,7 +68,7 @@ nonisolated enum FeedEntryFilteringService {
     static func rejectionReasons(for entry: ParsedFeedEntryDTO) -> [FeedEntryRejectionReason] {
         var reasons: [FeedEntryRejectionReason] = []
 
-        if hasValue(entry.externalID) == false {
+        if ArticleUpsertPayload.hasPersistableExternalID(entry) == false {
             reasons.append(.missingExternalID)
         }
 

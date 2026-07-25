@@ -136,11 +136,12 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         saveAfterOperation: Bool = true
     ) throws -> ArticleFeedSnapshotReconciliationResult {
         try Task.checkCancellation()
-        let payloads = entries.compactMap { ArticleUpsertPayload(entry: $0, fetchedAt: fetchedAt) }
+        let payloads = try ArticleUpsertPayload.makeAll(
+            entries: entries,
+            fetchedAt: fetchedAt
+        )
         let incomingIdentities = Set(
-            entries
-                .compactMap(\.externalID)
-                .compactMap(normalizedIdentifier)
+            payloads.map { normalizedArticleIdentity($0.externalID) }
         )
         let existingArticles = try fetchArticles(feedID: feed.id)
         var articlesByIdentity: [String: Article] = [:]
@@ -291,7 +292,10 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         fetchedAt: Date = .now,
         saveAfterOperation: Bool = true
     ) throws -> [Article] {
-        let payloads = entries.compactMap { ArticleUpsertPayload(entry: $0, fetchedAt: fetchedAt) }
+        let payloads = try ArticleUpsertPayload.makeAll(
+            entries: entries,
+            fetchedAt: fetchedAt
+        )
         return try upsert(payloads, into: feed, saveAfterOperation: saveAfterOperation)
     }
 
