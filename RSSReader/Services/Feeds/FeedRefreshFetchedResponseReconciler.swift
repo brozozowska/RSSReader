@@ -18,7 +18,7 @@ extension FeedRefreshService {
             currentMetadata: currentMetadata,
             parsedMetadata: pipelineResult.feed.metadata
         )
-        try Task.checkCancellation()
+        try cancellationCheckpoint(.afterIconDiscovery)
 
         logDiagnosticsIfNeeded(diagnostics, feedID: metadata.id)
         try updateCacheValidators(
@@ -69,7 +69,7 @@ extension FeedRefreshService {
             finishedAt: finishedAt,
             saveAfterOperation: false
         )
-        try Task.checkCancellation()
+        try cancellationCheckpoint(.beforeFetchedSave)
         try feedRepository.save()
 
         return FeedRefreshResult.fetched(

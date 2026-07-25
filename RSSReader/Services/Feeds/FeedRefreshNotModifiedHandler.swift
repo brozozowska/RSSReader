@@ -13,7 +13,7 @@ extension FeedRefreshService {
             currentMetadata: metadata,
             parsedMetadata: nil
         )
-        try Task.checkCancellation()
+        try cancellationCheckpoint(.afterIconDiscovery)
 
         try updateNotModifiedFetchState(
             from: response,
@@ -22,7 +22,7 @@ extension FeedRefreshService {
             finishedAt: finishedAt,
             saveAfterOperation: false
         )
-        try Task.checkCancellation()
+        try cancellationCheckpoint(.beforeNotModifiedSave)
         try feedRepository.save()
         logger.info("Feed \(metadata.id.uuidString) not modified; metadata updated after conditional fetch")
 

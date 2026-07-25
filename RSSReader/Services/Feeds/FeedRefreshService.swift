@@ -9,6 +9,12 @@ struct FeedRefreshContext: Sendable {
     let request: FeedRequest
 }
 
+enum FeedRefreshCancellationCheckpoint: Equatable, Sendable {
+    case afterIconDiscovery
+    case beforeFetchedSave
+    case beforeNotModifiedSave
+}
+
 @MainActor
 protocol FeedRefreshCoordinating {
     var transactionBoundary: FeedRefreshTransactionBoundary { get }
@@ -35,6 +41,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     let articleRepository: any ArticleRepository
     let feedIconDiscoveryService: (any FeedIconDiscovering)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
+    let cancellationCheckpoint: (FeedRefreshCancellationCheckpoint) throws -> Void
     var inFlightRefreshTasks: [UUID: Task<FeedRefreshResult, Never>] = [:]
 
     init(
@@ -44,7 +51,10 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         feedRepository: any FeedRepository,
         articleRepository: any ArticleRepository,
         feedIconDiscoveryService: (any FeedIconDiscovering)? = nil,
-        feedFetchLogRepository: (any FeedFetchLogRepository)? = nil
+        feedFetchLogRepository: (any FeedFetchLogRepository)? = nil,
+        cancellationCheckpoint: @escaping (FeedRefreshCancellationCheckpoint) throws -> Void = { _ in
+            try Task.checkCancellation()
+        }
     ) {
         self.logger = logger
         self.feedFetcher = feedFetcher
@@ -53,5 +63,6 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         self.articleRepository = articleRepository
         self.feedIconDiscoveryService = feedIconDiscoveryService
         self.feedFetchLogRepository = feedFetchLogRepository
+        self.cancellationCheckpoint = cancellationCheckpoint
     }
 }

@@ -12,6 +12,12 @@ struct ArticleFeedSnapshotReconciliationResult {
     let upsertedArticleCount: Int
 }
 
+enum ArticleFeedSnapshotCancellationCheckpoint: Equatable, Sendable {
+    case beforeSnapshot
+    case beforeUpsert
+    case afterUpsert
+}
+
 @MainActor
 protocol ArticleRepository {
     func refreshFeedProjection(for feed: Feed, saveAfterOperation: Bool) throws -> Int
@@ -112,9 +118,16 @@ extension ArticleRepository {
 @MainActor
 final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryContext {
     let modelContext: ModelContext
+    private let cancellationCheckpoint: (ArticleFeedSnapshotCancellationCheckpoint) throws -> Void
 
-    init(modelContext: ModelContext) {
+    init(
+        modelContext: ModelContext,
+        cancellationCheckpoint: @escaping (ArticleFeedSnapshotCancellationCheckpoint) throws -> Void = { _ in
+            try Task.checkCancellation()
+        }
+    ) {
         self.modelContext = modelContext
+        self.cancellationCheckpoint = cancellationCheckpoint
     }
 
     func refreshFeedProjection(for feed: Feed, saveAfterOperation: Bool = true) throws -> Int {
@@ -135,7 +148,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         fetchedAt: Date,
         saveAfterOperation: Bool = true
     ) throws -> ArticleFeedSnapshotReconciliationResult {
-        try Task.checkCancellation()
+        try cancellationCheckpoint(.beforeSnapshot)
         let incomingIdentities = Set(
             payloads.map { normalizedArticleIdentity($0.externalID) }
         )
@@ -168,13 +181,13 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             modelContext.delete(duplicateArticle)
         }
 
-        try Task.checkCancellation()
+        try cancellationCheckpoint(.beforeUpsert)
         let upsertedArticles = upsert(
             payloads,
             into: feed,
             articlesByIdentity: &articlesByIdentity
         )
-        try Task.checkCancellation()
+        try cancellationCheckpoint(.afterUpsert)
 
         if saveAfterOperation {
             try saveIfNeeded()
