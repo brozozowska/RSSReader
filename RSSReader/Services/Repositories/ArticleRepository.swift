@@ -140,14 +140,18 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             payloads.map { normalizedArticleIdentity($0.externalID) }
         )
         let existingArticles = try fetchArticles(feedID: feed.id)
-        var articlesByIdentity: [String: Article] = [:]
+        let canonicalSnapshot = canonicalArticleSnapshot(
+            from: existingArticles
+        )
+        var articlesByIdentity = canonicalSnapshot.articlesByIdentity
         var projectionUpdateCount = 0
         var reconciledArticleCount = 0
 
-        for article in existingArticles {
-            let identity = normalizedArticleIdentity(article.externalID)
-            if articlesByIdentity[identity] == nil {
-                articlesByIdentity[identity] = article
+        for (identity, article) in articlesByIdentity {
+            if canonicalSnapshot.duplicateIdentities.contains(identity),
+               article.externalID != identity {
+                article.externalID = identity
+                article.updatedAt = .now
             }
 
             projectionUpdateCount += updateFeedProjection(of: article, from: feed)
@@ -158,6 +162,10 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             ) {
                 reconciledArticleCount += 1
             }
+        }
+
+        for duplicateArticle in canonicalSnapshot.duplicateArticles {
+            modelContext.delete(duplicateArticle)
         }
 
         try Task.checkCancellation()
@@ -482,6 +490,44 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
 
     private func normalizedArticleIdentity(_ externalID: String) -> String {
         normalizedIdentifier(externalID) ?? externalID
+    }
+
+    private func canonicalArticleSnapshot(
+        from articles: [Article]
+    ) -> (
+        articlesByIdentity: [String: Article],
+        duplicateArticles: [Article],
+        duplicateIdentities: Set<String>
+    ) {
+        var articlesByIdentity: [String: Article] = [:]
+        var duplicateArticles: [Article] = []
+        var duplicateIdentities: Set<String> = []
+
+        for article in articles {
+            let identity = normalizedArticleIdentity(article.externalID)
+            guard let existingCanonicalArticle = articlesByIdentity[identity] else {
+                articlesByIdentity[identity] = article
+                continue
+            }
+
+            duplicateIdentities.insert(identity)
+            if articleCanonicalOrder(article, existingCanonicalArticle) {
+                articlesByIdentity[identity] = article
+                duplicateArticles.append(existingCanonicalArticle)
+            } else {
+                duplicateArticles.append(article)
+            }
+        }
+
+        return (articlesByIdentity, duplicateArticles, duplicateIdentities)
+    }
+
+    private func articleCanonicalOrder(_ lhs: Article, _ rhs: Article) -> Bool {
+        if lhs.updatedAt != rhs.updatedAt {
+            return lhs.updatedAt > rhs.updatedAt
+        }
+
+        return lhs.id.uuidString > rhs.id.uuidString
     }
 
     private func sortDescriptors(for sortMode: ArticleSortMode) -> [SortDescriptor<Article>] {
