@@ -40,15 +40,6 @@ protocol ArticleRepository {
         offset: Int,
         limit: Int
     ) throws -> [Article]
-    func reconcileArticles(
-        feedID: UUID,
-        keepingExternalIDs: Set<String>,
-        fetchedAt: Date,
-        saveAfterOperation: Bool
-    ) throws -> Int
-
-    @discardableResult
-    func upsert(_ entry: ParsedFeedEntryDTO, into feed: Feed, fetchedAt: Date) throws -> Article?
 
     @discardableResult
     func upsert(
@@ -57,9 +48,6 @@ protocol ArticleRepository {
         fetchedAt: Date,
         saveAfterOperation: Bool
     ) throws -> [Article]
-
-    @discardableResult
-    func upsert(_ payload: ArticleUpsertPayload, into feed: Feed) throws -> Article
 
     @discardableResult
     func upsert(
@@ -86,15 +74,6 @@ extension ArticleRepository {
         try reconcileFeedSnapshot(
             payloads,
             into: feed,
-            fetchedAt: fetchedAt,
-            saveAfterOperation: true
-        )
-    }
-
-    func reconcileArticles(feedID: UUID, keepingExternalIDs: Set<String>, fetchedAt: Date) throws -> Int {
-        try reconcileArticles(
-            feedID: feedID,
-            keepingExternalIDs: keepingExternalIDs,
             fetchedAt: fetchedAt,
             saveAfterOperation: true
         )
@@ -297,15 +276,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     }
 
     @discardableResult
-    func upsert(_ entry: ParsedFeedEntryDTO, into feed: Feed, fetchedAt: Date = .now) throws -> Article? {
-        guard let payload = ArticleUpsertPayload(entry: entry, fetchedAt: fetchedAt) else {
-            return nil
-        }
-
-        return try upsert(payload, into: feed)
-    }
-
-    @discardableResult
     func upsert(
         _ entries: [ParsedFeedEntryDTO],
         into feed: Feed,
@@ -317,11 +287,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             fetchedAt: fetchedAt
         )
         return try upsert(payloads, into: feed, saveAfterOperation: saveAfterOperation)
-    }
-
-    @discardableResult
-    func upsert(_ payload: ArticleUpsertPayload, into feed: Feed) throws -> Article {
-        try upsert([payload], into: feed, saveAfterOperation: true)[0]
     }
 
     @discardableResult
@@ -368,32 +333,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         if saveAfterOperation {
             try saveIfNeeded()
         }
-    }
-
-    func reconcileArticles(
-        feedID: UUID,
-        keepingExternalIDs: Set<String>,
-        fetchedAt: Date,
-        saveAfterOperation: Bool = true
-    ) throws -> Int {
-        let normalizedExternalIDs = Set(keepingExternalIDs.compactMap(normalizedIdentifier))
-        let articles = try fetchArticles(feedID: feedID)
-        var reconciledCount = 0
-
-        for article in articles {
-            if reconcileArchiveState(
-                of: article,
-                keepingIdentities: normalizedExternalIDs,
-                fetchedAt: fetchedAt
-            ) {
-                reconciledCount += 1
-            }
-        }
-
-        if saveAfterOperation {
-            try saveIfNeeded()
-        }
-        return reconciledCount
     }
 
     private func updateFeedProjection(of article: Article, from feed: Feed) -> Int {

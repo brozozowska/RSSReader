@@ -7,44 +7,50 @@ import Testing
 @MainActor
 struct ArticleRepositoryTests {
     @Test
-    func articleRepositoryUpsertCreatesAndUpdatesWithoutDuplicates() throws {
+    func articleRepositoryBatchUpsertCreatesAndUpdatesAcrossSavesWithoutDuplicates() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)
         let initialFetchedAt = Date(timeIntervalSince1970: 1_700_000_000)
         let updatedFetchedAt = Date(timeIntervalSince1970: 1_700_000_600)
 
-        let createdArticle = try harness.articleRepository.upsert(
-            makeEntry(
-                externalID: "article-1",
-                guid: "guid-1",
-                url: "https://example.com/articles/1",
-                title: "Original title",
-                summary: "Original summary",
-                publishedAtRaw: "Tue, 02 Jan 2024 10:00:00 +0000"
-            ),
+        let createdArticles = try harness.articleRepository.upsert(
+            [
+                makeEntry(
+                    externalID: "article-1",
+                    guid: "guid-1",
+                    url: "https://example.com/articles/1",
+                    title: "Original title",
+                    summary: "Original summary",
+                    publishedAtRaw: "Tue, 02 Jan 2024 10:00:00 +0000"
+                )
+            ],
             into: feed,
             fetchedAt: initialFetchedAt
         )
-        let updatedArticle = try harness.articleRepository.upsert(
-            makeEntry(
-                externalID: "article-1",
-                guid: "guid-1-updated",
-                url: "https://example.com/articles/1-updated",
-                title: "Updated title",
-                summary: "Updated summary",
-                contentHTML: "<p>Updated HTML</p>",
-                author: "Updated Author",
-                publishedAtRaw: "Tue, 02 Jan 2024 09:00:00 +0000",
-                imageURL: "https://example.com/image.jpg"
-            ),
+        let createdArticle = try #require(createdArticles.first)
+        let updatedArticles = try harness.articleRepository.upsert(
+            [
+                makeEntry(
+                    externalID: "article-1",
+                    guid: "guid-1-updated",
+                    url: "https://example.com/articles/1-updated",
+                    title: "Updated title",
+                    summary: "Updated summary",
+                    contentHTML: "<p>Updated HTML</p>",
+                    author: "Updated Author",
+                    publishedAtRaw: "Tue, 02 Jan 2024 09:00:00 +0000",
+                    imageURL: "https://example.com/image.jpg"
+                )
+            ],
             into: feed,
             fetchedAt: updatedFetchedAt
         )
+        let updatedArticle = try #require(updatedArticles.first)
 
         let persistedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
         let persistedArticle = try #require(persistedArticles.first)
 
-        #expect(createdArticle?.id == updatedArticle?.id)
+        #expect(createdArticle.id == updatedArticle.id)
         #expect(persistedArticles.count == 1)
         #expect(persistedArticle.externalID == "article-1")
         #expect(persistedArticle.guid == "guid-1-updated")
@@ -409,78 +415,38 @@ struct ArticleRepositoryTests {
     }
 
     @Test
-    func articleRepositoryReconcileArchivesMissingArticlesAndReactivatesKeptArticles() throws {
-        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
-        let feed = try insertFeed(into: harness)
-        let firstFetchedAt = Date(timeIntervalSince1970: 1_700_000_000)
-        let secondFetchedAt = Date(timeIntervalSince1970: 1_700_000_600)
-        let archivedArticle = try harness.insertArticle(
-            feed: feed,
-            externalID: "archived",
-            url: "https://example.com/archived",
-            title: "Archived"
-        )
-        let keptArticle = try harness.insertArticle(
-            feed: feed,
-            externalID: "kept",
-            url: "https://example.com/kept",
-            title: "Kept"
-        )
-
-        let firstReconcileCount = try harness.articleRepository.reconcileArticles(
-            feedID: feed.id,
-            keepingExternalIDs: ["kept"],
-            fetchedAt: firstFetchedAt
-        )
-
-        #expect(firstReconcileCount == 1)
-        #expect(archivedArticle.archivedAt == firstFetchedAt)
-        #expect(keptArticle.archivedAt == nil)
-
-        let secondReconcileCount = try harness.articleRepository.reconcileArticles(
-            feedID: feed.id,
-            keepingExternalIDs: [" archived ", "kept"],
-            fetchedAt: secondFetchedAt
-        )
-
-        #expect(secondReconcileCount == 1)
-        #expect(archivedArticle.archivedAt == nil)
-        #expect(keptArticle.archivedAt == nil)
-    }
-
-    @Test
     func articleRepositoryFetchesFeedAndInboxUsingPublishedAtSortModes() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let firstFeed = try insertFeed(into: harness, url: "https://example.com/first.xml")
         let secondFeed = try insertFeed(into: harness, url: "https://example.com/second.xml")
 
         _ = try harness.articleRepository.upsert(
-            makeEntry(
-                externalID: "old",
-                url: "https://example.com/old",
-                title: "Old",
-                publishedAtRaw: "Tue, 02 Jan 2024 09:00:00 +0000"
-            ),
+            [
+                makeEntry(
+                    externalID: "old",
+                    url: "https://example.com/old",
+                    title: "Old",
+                    publishedAtRaw: "Tue, 02 Jan 2024 09:00:00 +0000"
+                ),
+                makeEntry(
+                    externalID: "new",
+                    url: "https://example.com/new",
+                    title: "New",
+                    publishedAtRaw: "Tue, 02 Jan 2024 11:00:00 +0000"
+                )
+            ],
             into: firstFeed,
             fetchedAt: Date(timeIntervalSince1970: 100)
         )
         _ = try harness.articleRepository.upsert(
-            makeEntry(
-                externalID: "new",
-                url: "https://example.com/new",
-                title: "New",
-                publishedAtRaw: "Tue, 02 Jan 2024 11:00:00 +0000"
-            ),
-            into: firstFeed,
-            fetchedAt: Date(timeIntervalSince1970: 200)
-        )
-        _ = try harness.articleRepository.upsert(
-            makeEntry(
-                externalID: "other-feed",
-                url: "https://example.com/other",
-                title: "Other Feed",
-                publishedAtRaw: "Tue, 02 Jan 2024 10:00:00 +0000"
-            ),
+            [
+                makeEntry(
+                    externalID: "other-feed",
+                    url: "https://example.com/other",
+                    title: "Other Feed",
+                    publishedAtRaw: "Tue, 02 Jan 2024 10:00:00 +0000"
+                )
+            ],
             into: secondFeed,
             fetchedAt: Date(timeIntervalSince1970: 150)
         )

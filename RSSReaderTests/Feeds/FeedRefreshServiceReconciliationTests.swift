@@ -226,8 +226,6 @@ struct FeedRefreshServiceReconciliationTests {
         #expect(result.status == .failed)
         #expect(failingArticleRepository.reconcileFeedSnapshotCallCount == 1)
         #expect(failingArticleRepository.refreshFeedProjectionCallCount == 0)
-        #expect(failingArticleRepository.reconcileArticlesCallCount == 0)
-        #expect(failingArticleRepository.entryBatchUpsertCallCount == 0)
 
         let rolledBackFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
         #expect(rolledBackFeed.title == "Original Feed")
@@ -348,8 +346,6 @@ private final class InterruptingAfterSnapshotArticleRepository: ArticleRepositor
     private let completion: Completion
     private(set) var reconcileFeedSnapshotCallCount = 0
     private(set) var refreshFeedProjectionCallCount = 0
-    private(set) var reconcileArticlesCallCount = 0
-    private(set) var entryBatchUpsertCallCount = 0
 
     init(
         backing: any ArticleRepository,
@@ -431,42 +427,18 @@ private final class InterruptingAfterSnapshotArticleRepository: ArticleRepositor
         )
     }
 
-    func reconcileArticles(
-        feedID: UUID,
-        keepingExternalIDs: Set<String>,
-        fetchedAt: Date,
-        saveAfterOperation: Bool
-    ) throws -> Int {
-        reconcileArticlesCallCount += 1
-        return try backing.reconcileArticles(
-            feedID: feedID,
-            keepingExternalIDs: keepingExternalIDs,
-            fetchedAt: fetchedAt,
-            saveAfterOperation: saveAfterOperation
-        )
-    }
-
-    func upsert(_ entry: ParsedFeedEntryDTO, into feed: Feed, fetchedAt: Date) throws -> Article? {
-        try backing.upsert(entry, into: feed, fetchedAt: fetchedAt)
-    }
-
     func upsert(
         _ entries: [ParsedFeedEntryDTO],
         into feed: Feed,
         fetchedAt: Date,
         saveAfterOperation: Bool
     ) throws -> [Article] {
-        entryBatchUpsertCallCount += 1
-        return try backing.upsert(
+        try backing.upsert(
             entries,
             into: feed,
             fetchedAt: fetchedAt,
             saveAfterOperation: saveAfterOperation
         )
-    }
-
-    func upsert(_ payload: ArticleUpsertPayload, into feed: Feed) throws -> Article {
-        try backing.upsert(payload, into: feed)
     }
 
     func upsert(

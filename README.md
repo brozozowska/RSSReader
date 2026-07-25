@@ -660,7 +660,7 @@
 - [x] `Repository Operation Instrumentation`: измерять реальные SwiftData fetch/save operations внутри feed/article repositories, а не только protocol-boundary calls; закрепить upper bounds, отсутствие per-entry identity fetch и возможность безопасно уменьшать число операций;
 - [x] `Large Feed Responsiveness And Materialization Contract`: проверять `MainActor` heartbeat во время actual XML pipeline и end-to-end payload preparation; заменить или честно переименовать fixture-size memory proxy, добавить production-sensitive structural metrics и синхронизировать architecture/lifecycle contracts без process-RSS benchmark;
 - [x] `Feed Fetch Log Staged-Save Failure`: inject failure после staging `FeedFetchLog`, но во время save; проверить rollback только observability mutation и сохранность уже committed fetched/not-modified feed/article outcome;
-- [ ] `Article Repository Write Surface Cleanup`: удалить production-unused `reconcileArticles` и single-entry upsert APIs после single-snapshot migration, сократить forwarding test doubles и сохранить используемые projection/delete/query contracts;
+- [x] `Article Repository Write Surface Cleanup`: удалить production-unused `reconcileArticles` и single-entry upsert APIs после single-snapshot migration, сократить forwarding test doubles и сохранить используемые projection/delete/query contracts;
 
 #### Query Scalability And Search Responsiveness
 - [ ] `Article Repository Predicate Queries`: добавить repository/query criteria для inbox/folder/feed, hidden/archived/read/starred filters и sort order, чтобы `ArticleQueryService` не загружал весь inbox для folder/list/search flows; сохранить UI-ready DTO boundary и покрыть predicate combinations;
