@@ -659,7 +659,7 @@
 - [x] `Refresh Cancellation Boundary Integration Matrix`: добавить deterministic cancellation injection во время реального XML parse, после icon discovery, между existing reconciliation и upsert, а также перед fetched/not-modified save; проверить rollback, сохранение attempt marker и cleanup `inFlightRefreshTasks`;
 - [x] `Repository Operation Instrumentation`: измерять реальные SwiftData fetch/save operations внутри feed/article repositories, а не только protocol-boundary calls; закрепить upper bounds, отсутствие per-entry identity fetch и возможность безопасно уменьшать число операций;
 - [x] `Large Feed Responsiveness And Materialization Contract`: проверять `MainActor` heartbeat во время actual XML pipeline и end-to-end payload preparation; заменить или честно переименовать fixture-size memory proxy, добавить production-sensitive structural metrics и синхронизировать architecture/lifecycle contracts без process-RSS benchmark;
-- [ ] `Feed Fetch Log Staged-Save Failure`: inject failure после staging `FeedFetchLog`, но во время save; проверить rollback только observability mutation и сохранность уже committed fetched/not-modified feed/article outcome;
+- [x] `Feed Fetch Log Staged-Save Failure`: inject failure после staging `FeedFetchLog`, но во время save; проверить rollback только observability mutation и сохранность уже committed fetched/not-modified feed/article outcome;
 - [ ] `Article Repository Write Surface Cleanup`: удалить production-unused `reconcileArticles` и single-entry upsert APIs после single-snapshot migration, сократить forwarding test doubles и сохранить используемые projection/delete/query contracts;
 
 #### Query Scalability And Search Responsiveness

@@ -7,11 +7,13 @@ enum SwiftDataRepositoryOperation: Equatable, Sendable {
 }
 
 typealias SwiftDataRepositoryOperationRecorder = (SwiftDataRepositoryOperation) -> Void
+typealias SwiftDataRepositorySaveOperation = (ModelContext) throws -> Void
 
 @MainActor
 protocol SwiftDataRepositoryContext {
     var modelContext: ModelContext { get }
     var persistenceOperationRecorder: SwiftDataRepositoryOperationRecorder { get }
+    var persistenceSaveOperation: SwiftDataRepositorySaveOperation { get }
 }
 
 extension SwiftDataRepositoryContext {
@@ -19,10 +21,14 @@ extension SwiftDataRepositoryContext {
         { _ in }
     }
 
+    var persistenceSaveOperation: SwiftDataRepositorySaveOperation {
+        { try $0.save() }
+    }
+
     func saveIfNeeded(force: Bool = false) throws {
         guard force || modelContext.hasChanges else { return }
         persistenceOperationRecorder(.save)
-        try modelContext.save()
+        try persistenceSaveOperation(modelContext)
     }
 
     func rollbackChanges() {
