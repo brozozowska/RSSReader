@@ -1,14 +1,27 @@
 import Foundation
 import SwiftData
 
+enum SwiftDataRepositoryOperation: Equatable, Sendable {
+    case fetch
+    case save
+}
+
+typealias SwiftDataRepositoryOperationRecorder = (SwiftDataRepositoryOperation) -> Void
+
 @MainActor
 protocol SwiftDataRepositoryContext {
     var modelContext: ModelContext { get }
+    var persistenceOperationRecorder: SwiftDataRepositoryOperationRecorder { get }
 }
 
 extension SwiftDataRepositoryContext {
+    var persistenceOperationRecorder: SwiftDataRepositoryOperationRecorder {
+        { _ in }
+    }
+
     func saveIfNeeded(force: Bool = false) throws {
         guard force || modelContext.hasChanges else { return }
+        persistenceOperationRecorder(.save)
         try modelContext.save()
     }
 
@@ -20,7 +33,19 @@ extension SwiftDataRepositoryContext {
     where Model: PersistentModel {
         var descriptor = descriptor
         descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first
+        return try performFetch(descriptor).first
+    }
+
+    func performFetch<Model>(_ descriptor: FetchDescriptor<Model>) throws -> [Model]
+    where Model: PersistentModel {
+        persistenceOperationRecorder(.fetch)
+        return try modelContext.fetch(descriptor)
+    }
+
+    func performFetchCount<Model>(_ descriptor: FetchDescriptor<Model>) throws -> Int
+    where Model: PersistentModel {
+        persistenceOperationRecorder(.fetch)
+        return try modelContext.fetchCount(descriptor)
     }
 
     func normalizedIdentifier(_ value: String) -> String? {
@@ -220,9 +245,14 @@ extension FeedRepository {
 @MainActor
 final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext {
     let modelContext: ModelContext
+    let persistenceOperationRecorder: SwiftDataRepositoryOperationRecorder
 
-    init(modelContext: ModelContext) {
+    init(
+        modelContext: ModelContext,
+        persistenceOperationRecorder: @escaping SwiftDataRepositoryOperationRecorder = { _ in }
+    ) {
         self.modelContext = modelContext
+        self.persistenceOperationRecorder = persistenceOperationRecorder
     }
 
     func fetchFeed(id: UUID) throws -> Feed? {
@@ -251,7 +281,7 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
                 SortDescriptor(\Feed.createdAt, order: .forward)
             ]
         )
-        return try modelContext.fetch(descriptor)
+        return try performFetch(descriptor)
     }
 
     func fetchRetentionFeedIDBatch(offset: Int, limit: Int) throws -> [UUID] {
@@ -265,7 +295,7 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
         )
         descriptor.fetchOffset = offset
         descriptor.fetchLimit = limit
-        return try modelContext.fetch(descriptor).map(\.id)
+        return try performFetch(descriptor).map(\.id)
     }
 
     func fetchActiveFeeds() throws -> [Feed] {
@@ -278,7 +308,7 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
                 SortDescriptor(\Feed.createdAt, order: .forward)
             ]
         )
-        return try modelContext.fetch(descriptor)
+        return try performFetch(descriptor)
     }
 
     func countFeeds(inFolderID folderID: UUID?) throws -> Int {
@@ -288,7 +318,7 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
                     feed.folder?.id == folderID
                 }
             )
-            return try modelContext.fetch(descriptor).count
+            return try performFetchCount(descriptor)
         }
 
         let descriptor = FetchDescriptor<Feed>(
@@ -296,7 +326,7 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
                 feed.folder == nil
             }
         )
-        return try modelContext.fetch(descriptor).count
+        return try performFetchCount(descriptor)
     }
 
     func fetchSidebarItems() throws -> [FeedSidebarItem] {
@@ -464,7 +494,11 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
     }
 
     func delete(_ feed: Feed) throws {
-        try FeedDeletionService.delete(feed, in: modelContext)
+        try FeedDeletionService.delete(
+            feed,
+            in: modelContext,
+            persistenceOperationRecorder: persistenceOperationRecorder
+        )
     }
 
     @discardableResult

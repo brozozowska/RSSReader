@@ -57,8 +57,10 @@ struct FeedRefreshServiceLargeFeedTests {
     }
 
     @Test
-    func largeFeedRefreshUsesConstantRepositoryOperationsWithinWallClockBudget() async throws {
+    func largeFeedRefreshKeepsActualSwiftDataOperationsWithinUpperBounds() async throws {
         let fixture = LargeFeedPipelineFixture.make()
+        let feedOperations = SwiftDataRepositoryOperationCounter()
+        let articleOperations = SwiftDataRepositoryOperationCounter()
         let client = ScriptedHTTPClient(
             steps: [
                 .response(
@@ -68,19 +70,23 @@ struct FeedRefreshServiceLargeFeedTests {
                 )
             ]
         )
-        let harness = try TestHarness.make(httpClient: client)
+        let harness = try TestHarness.make(
+            httpClient: client,
+            feedRepositoryOperationRecorder: feedOperations.record,
+            articleRepositoryOperationRecorder: articleOperations.record
+        )
         let feed = Feed(url: fixture.feedURL.absoluteString, title: "Large Feed")
         try harness.feedRepository.insert(feed)
-        let feedRepository = CountingFeedRepository(backing: harness.feedRepository)
-        let articleRepository = CountingArticleRepository(backing: harness.articleRepository)
+        feedOperations.reset()
+        articleOperations.reset()
         let service = FeedRefreshService(
             logger: TestLogger(),
             feedFetcher: FeedFetcher(
                 httpClient: client,
                 retryPolicy: FeedRetryPolicy(maxAttempts: 1, baseDelayNanoseconds: 0)
             ),
-            feedRepository: feedRepository,
-            articleRepository: articleRepository
+            feedRepository: harness.feedRepository,
+            articleRepository: harness.articleRepository
         )
         let clock = ContinuousClock()
         let startedAt = clock.now
@@ -97,15 +103,24 @@ struct FeedRefreshServiceLargeFeedTests {
         #expect(result.rejectedEntryCount == fixture.expectedRejectedEntryCount)
         #expect(elapsed < LargeFeedPipelineTestContract.maximumRefreshDuration)
 
-        #expect(feedRepository.fetchRequestCount == 4)
-        #expect(feedRepository.updateMetadataCallCount == 4)
-        #expect(feedRepository.saveAfterUpdateRequestCount == 1)
-        #expect(feedRepository.explicitSaveRequestCount == 1)
-        #expect(feedRepository.saveRequestCount == 2)
-        #expect(articleRepository.feedScopedFetchRequestCount == 1)
-        #expect(articleRepository.identityFetchRequestCount == 0)
-        #expect(articleRepository.reconcileFeedSnapshotCallCount == 1)
-        #expect(articleRepository.saveRequestCount == 0)
+        #expect(feedOperations.fetchCount > 0)
+        #expect(
+            feedOperations.fetchCount
+                <= LargeFeedPipelineTestContract.maximumFeedFetchOperationCount
+        )
+        #expect(
+            feedOperations.saveCount
+                <= LargeFeedPipelineTestContract.maximumFeedSaveOperationCount
+        )
+        #expect(articleOperations.fetchCount > 0)
+        #expect(
+            articleOperations.fetchCount
+                <= LargeFeedPipelineTestContract.maximumArticleFetchOperationCount
+        )
+        #expect(
+            articleOperations.saveCount
+                <= LargeFeedPipelineTestContract.maximumArticleSaveOperationCount
+        )
 
         let persistedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
         #expect(persistedArticles.count == fixture.expectedAcceptedEntryCount)

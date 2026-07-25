@@ -9,6 +9,10 @@ nonisolated enum LargeFeedPipelineTestContract {
     static let maximumEstimatedWorkingSetBytes = 2 * 1024 * 1024
     static let maximumRefreshDuration: Duration = .seconds(10)
     static let maximumMainActorHeartbeatWait: TimeInterval = 5
+    static let maximumFeedFetchOperationCount = 8
+    static let maximumFeedSaveOperationCount = 2
+    static let maximumArticleFetchOperationCount = 1
+    static let maximumArticleSaveOperationCount = 0
 }
 
 nonisolated struct LargeFeedPipelineFixture: Sendable {

@@ -19,7 +19,9 @@ struct TestHarness {
         httpClient: ScriptedHTTPClient,
         feedIconDiscoveryService: (any FeedIconDiscovering)? = nil,
         unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = nil,
-        logger: Logging = TestLogger()
+        logger: Logging = TestLogger(),
+        feedRepositoryOperationRecorder: @escaping SwiftDataRepositoryOperationRecorder = { _ in },
+        articleRepositoryOperationRecorder: @escaping SwiftDataRepositoryOperationRecorder = { _ in }
     ) throws -> TestHarness {
         let resolvedFeedIconDiscoveryService = feedIconDiscoveryService ?? NoOpFeedIconDiscoveryService()
         let schema = AppComposition.persistenceModelPartition.schema
@@ -46,9 +48,15 @@ struct TestHarness {
             tracksFeedSaveRefreshTasks: true
         )
 
-        let feedRepository = SwiftDataFeedRepository(modelContext: modelContext)
+        let feedRepository = SwiftDataFeedRepository(
+            modelContext: modelContext,
+            persistenceOperationRecorder: feedRepositoryOperationRecorder
+        )
         let folderRepository = SwiftDataFolderRepository(modelContext: modelContext)
-        let articleRepository = SwiftDataArticleRepository(modelContext: modelContext)
+        let articleRepository = SwiftDataArticleRepository(
+            modelContext: modelContext,
+            persistenceOperationRecorder: articleRepositoryOperationRecorder
+        )
         let articleStateRepository = SwiftDataArticleStateRepository(modelContext: modelContext)
         let articleStateService = ArticleStateService(
             logger: TestLogger(),

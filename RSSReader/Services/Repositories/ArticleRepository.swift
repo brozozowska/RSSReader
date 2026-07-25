@@ -118,15 +118,18 @@ extension ArticleRepository {
 @MainActor
 final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryContext {
     let modelContext: ModelContext
+    let persistenceOperationRecorder: SwiftDataRepositoryOperationRecorder
     private let cancellationCheckpoint: (ArticleFeedSnapshotCancellationCheckpoint) throws -> Void
 
     init(
         modelContext: ModelContext,
+        persistenceOperationRecorder: @escaping SwiftDataRepositoryOperationRecorder = { _ in },
         cancellationCheckpoint: @escaping (ArticleFeedSnapshotCancellationCheckpoint) throws -> Void = { _ in
             try Task.checkCancellation()
         }
     ) {
         self.modelContext = modelContext
+        self.persistenceOperationRecorder = persistenceOperationRecorder
         self.cancellationCheckpoint = cancellationCheckpoint
     }
 
@@ -224,7 +227,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
                 article.feedID == feedID && article.externalID == externalID
             }
         )
-        return try modelContext.fetchCount(descriptor) > 0
+        return try performFetchCount(descriptor) > 0
     }
 
     func fetchArticles(feedID: UUID) throws -> [Article] {
@@ -233,7 +236,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
                 article.feedID == feedID
             }
         )
-        return try modelContext.fetch(descriptor)
+        return try performFetch(descriptor)
     }
 
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article] {
@@ -243,14 +246,14 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             },
             sortBy: sortDescriptors(for: sortMode)
         )
-        return try modelContext.fetch(descriptor)
+        return try performFetch(descriptor)
     }
 
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article] {
         let descriptor = FetchDescriptor<Article>(
             sortBy: sortDescriptors(for: sortMode)
         )
-        return try modelContext.fetch(descriptor)
+        return try performFetch(descriptor)
     }
 
     func fetchArchivedArticles() throws -> [Article] {
@@ -259,7 +262,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
                 article.archivedAt != nil
             }
         )
-        return try modelContext.fetch(descriptor)
+        return try performFetch(descriptor)
     }
 
     func fetchRetentionBatch(
@@ -290,7 +293,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         }
         descriptor.fetchOffset = offset
         descriptor.fetchLimit = limit
-        return try modelContext.fetch(descriptor)
+        return try performFetch(descriptor)
     }
 
     @discardableResult
