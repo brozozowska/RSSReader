@@ -177,7 +177,13 @@ struct FeedRefreshServiceReconciliationTests {
                 )
             ]
         )
-        let harness = try TestHarness.make(httpClient: client)
+        let reconciliationCheckpoint = ReconciliationCompletionCheckpoint(
+            outcome: .failure
+        )
+        let harness = try TestHarness.make(
+            httpClient: client,
+            articleReconciliationCancellationCheckpoint: reconciliationCheckpoint.check
+        )
         let feed = Feed(
             url: feedURL,
             siteURL: "https://example.com/original/",
@@ -207,25 +213,10 @@ struct FeedRefreshServiceReconciliationTests {
             url: "https://example.com/articles/obsolete",
             title: "Obsolete Article"
         )
-        let failingArticleRepository = InterruptingAfterSnapshotArticleRepository(
-            backing: harness.articleRepository
-        )
-        let service = FeedRefreshService(
-            logger: TestLogger(),
-            feedFetcher: FeedFetcher(
-                httpClient: client,
-                retryPolicy: FeedRetryPolicy(maxAttempts: 1, baseDelayNanoseconds: 0)
-            ),
-            feedRepository: harness.feedRepository,
-            articleRepository: failingArticleRepository,
-            feedFetchLogRepository: harness.feedFetchLogRepository
-        )
-
-        let result = await service.refresh(feedID: feed.id)
+        let result = await harness.service.refresh(feedID: feed.id)
 
         #expect(result.status == .failed)
-        #expect(failingArticleRepository.reconcileFeedSnapshotCallCount == 1)
-        #expect(failingArticleRepository.refreshFeedProjectionCallCount == 0)
+        #expect(reconciliationCheckpoint.didInject)
 
         let rolledBackFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
         #expect(rolledBackFeed.title == "Original Feed")
@@ -272,7 +263,13 @@ struct FeedRefreshServiceReconciliationTests {
                 )
             ]
         )
-        let harness = try TestHarness.make(httpClient: client)
+        let reconciliationCheckpoint = ReconciliationCompletionCheckpoint(
+            outcome: .cancellation
+        )
+        let harness = try TestHarness.make(
+            httpClient: client,
+            articleReconciliationCancellationCheckpoint: reconciliationCheckpoint.check
+        )
         let feed = Feed(
             url: feedURL,
             siteURL: "https://example.com/original/",
@@ -288,26 +285,11 @@ struct FeedRefreshServiceReconciliationTests {
             url: "https://example.com/articles/obsolete",
             title: "Obsolete Article"
         )
-        let cancellingArticleRepository = InterruptingAfterSnapshotArticleRepository(
-            backing: harness.articleRepository,
-            completion: .cancelCurrentTask
-        )
-        let service = FeedRefreshService(
-            logger: TestLogger(),
-            feedFetcher: FeedFetcher(
-                httpClient: client,
-                retryPolicy: FeedRetryPolicy(maxAttempts: 1, baseDelayNanoseconds: 0)
-            ),
-            feedRepository: harness.feedRepository,
-            articleRepository: cancellingArticleRepository,
-            feedFetchLogRepository: harness.feedFetchLogRepository
-        )
-
-        let result = await service.refresh(feedID: feed.id)
+        let result = await harness.service.refresh(feedID: feed.id)
 
         #expect(result.status == .cancelled)
-        #expect(cancellingArticleRepository.reconcileFeedSnapshotCallCount == 1)
-        #expect(service.inFlightRefreshTasks[feed.id] == nil)
+        #expect(reconciliationCheckpoint.didInject)
+        #expect(harness.service.inFlightRefreshTasks[feed.id] == nil)
 
         let rolledBackFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
         #expect(rolledBackFeed.title == "Original Feed")
@@ -332,106 +314,33 @@ struct FeedRefreshServiceReconciliationTests {
 }
 
 @MainActor
-private final class InterruptingAfterSnapshotArticleRepository: ArticleRepository {
-    enum Completion {
-        case throwFailure
-        case cancelCurrentTask
+private final class ReconciliationCompletionCheckpoint {
+    enum Outcome {
+        case failure
+        case cancellation
     }
 
     private enum InjectedFailure: Error {
         case afterSnapshotMutation
     }
 
-    private let backing: any ArticleRepository
-    private let completion: Completion
-    private(set) var reconcileFeedSnapshotCallCount = 0
-    private(set) var refreshFeedProjectionCallCount = 0
+    private let outcome: Outcome
+    private(set) var didInject = false
 
-    init(
-        backing: any ArticleRepository,
-        completion: Completion = .throwFailure
-    ) {
-        self.backing = backing
-        self.completion = completion
+    init(outcome: Outcome) {
+        self.outcome = outcome
     }
 
-    func refreshFeedProjection(for feed: Feed, saveAfterOperation: Bool) throws -> Int {
-        refreshFeedProjectionCallCount += 1
-        return try backing.refreshFeedProjection(for: feed, saveAfterOperation: saveAfterOperation)
-    }
+    func check(_ checkpoint: ArticleFeedSnapshotCancellationCheckpoint) throws {
+        try Task.checkCancellation()
+        guard checkpoint == .afterUpsert, didInject == false else { return }
+        didInject = true
 
-    func reconcileFeedSnapshot(
-        _ payloads: [ArticleUpsertPayload],
-        into feed: Feed,
-        fetchedAt: Date,
-        saveAfterOperation: Bool
-    ) throws -> ArticleFeedSnapshotReconciliationResult {
-        reconcileFeedSnapshotCallCount += 1
-        let result = try backing.reconcileFeedSnapshot(
-            payloads,
-            into: feed,
-            fetchedAt: fetchedAt,
-            saveAfterOperation: saveAfterOperation
-        )
-
-        switch completion {
-        case .throwFailure:
+        switch outcome {
+        case .failure:
             throw InjectedFailure.afterSnapshotMutation
-        case .cancelCurrentTask:
-            withUnsafeCurrentTask { task in
-                task?.cancel()
-            }
-            return result
+        case .cancellation:
+            throw CancellationError()
         }
-    }
-
-    func fetchArticle(id: UUID) throws -> Article? {
-        try backing.fetchArticle(id: id)
-    }
-
-    func containsArticle(feedID: UUID, externalID: String) throws -> Bool {
-        try backing.containsArticle(feedID: feedID, externalID: externalID)
-    }
-
-    func fetchArticles(feedID: UUID) throws -> [Article] {
-        try backing.fetchArticles(feedID: feedID)
-    }
-
-    func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article] {
-        try backing.fetchArticles(feedID: feedID, sortMode: sortMode)
-    }
-
-    func fetchInbox(sortMode: ArticleSortMode) throws -> [Article] {
-        try backing.fetchInbox(sortMode: sortMode)
-    }
-
-    func fetchArchivedArticles() throws -> [Article] {
-        try backing.fetchArchivedArticles()
-    }
-
-    func fetchRetentionBatch(
-        feedID: UUID,
-        scope: ArticleRetentionBatchScope,
-        offset: Int,
-        limit: Int
-    ) throws -> [Article] {
-        try backing.fetchRetentionBatch(
-            feedID: feedID,
-            scope: scope,
-            offset: offset,
-            limit: limit
-        )
-    }
-
-    func save() throws {
-        try backing.save()
-    }
-
-    func delete(_ article: Article) throws {
-        try backing.delete(article)
-    }
-
-    func delete(_ articles: [Article], saveAfterOperation: Bool) throws {
-        try backing.delete(articles, saveAfterOperation: saveAfterOperation)
     }
 }
