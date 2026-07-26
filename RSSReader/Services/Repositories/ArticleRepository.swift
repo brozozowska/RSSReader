@@ -41,21 +41,6 @@ protocol ArticleRepository {
         limit: Int
     ) throws -> [Article]
 
-    @discardableResult
-    func upsert(
-        _ entries: [ParsedFeedEntryDTO],
-        into feed: Feed,
-        fetchedAt: Date,
-        saveAfterOperation: Bool
-    ) throws -> [Article]
-
-    @discardableResult
-    func upsert(
-        _ payloads: [ArticleUpsertPayload],
-        into feed: Feed,
-        saveAfterOperation: Bool
-    ) throws -> [Article]
-
     func save() throws
     func delete(_ article: Article) throws
     func delete(_ articles: [Article], saveAfterOperation: Bool) throws
@@ -77,16 +62,6 @@ extension ArticleRepository {
             fetchedAt: fetchedAt,
             saveAfterOperation: true
         )
-    }
-
-    @discardableResult
-    func upsert(_ entries: [ParsedFeedEntryDTO], into feed: Feed, fetchedAt: Date) throws -> [Article] {
-        try upsert(entries, into: feed, fetchedAt: fetchedAt, saveAfterOperation: true)
-    }
-
-    @discardableResult
-    func upsert(_ payloads: [ArticleUpsertPayload], into feed: Feed) throws -> [Article] {
-        try upsert(payloads, into: feed, saveAfterOperation: true)
     }
 
     func delete(_ articles: [Article]) throws {
@@ -164,7 +139,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         }
 
         try cancellationCheckpoint(.beforeUpsert)
-        let upsertedArticles = upsert(
+        let upsertedArticles = applyPayloads(
             payloads,
             into: feed,
             articlesByIdentity: &articlesByIdentity
@@ -275,45 +250,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         return try performFetch(descriptor)
     }
 
-    @discardableResult
-    func upsert(
-        _ entries: [ParsedFeedEntryDTO],
-        into feed: Feed,
-        fetchedAt: Date = .now,
-        saveAfterOperation: Bool = true
-    ) throws -> [Article] {
-        let payloads = try ArticleUpsertPayload.makeAll(
-            entries: entries,
-            fetchedAt: fetchedAt
-        )
-        return try upsert(payloads, into: feed, saveAfterOperation: saveAfterOperation)
-    }
-
-    @discardableResult
-    func upsert(
-        _ payloads: [ArticleUpsertPayload],
-        into feed: Feed,
-        saveAfterOperation: Bool = true
-    ) throws -> [Article] {
-        let existingArticles = try fetchArticles(feedID: feed.id)
-        var articlesByIdentity = existingArticles.reduce(into: [String: Article]()) { articlesByIdentity, article in
-            let identity = normalizedArticleIdentity(article.externalID)
-            if articlesByIdentity[identity] == nil {
-                articlesByIdentity[identity] = article
-            }
-        }
-        let upsertedArticles = upsert(
-            payloads,
-            into: feed,
-            articlesByIdentity: &articlesByIdentity
-        )
-
-        if saveAfterOperation {
-            try saveIfNeeded()
-        }
-        return upsertedArticles
-    }
-
     func save() throws {
         try saveIfNeeded(force: true)
     }
@@ -374,7 +310,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         return true
     }
 
-    private func upsert(
+    private func applyPayloads(
         _ payloads: [ArticleUpsertPayload],
         into feed: Feed,
         articlesByIdentity: inout [String: Article]

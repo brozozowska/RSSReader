@@ -427,28 +427,6 @@ private final class InterruptingAfterSnapshotArticleRepository: ArticleRepositor
         )
     }
 
-    func upsert(
-        _ entries: [ParsedFeedEntryDTO],
-        into feed: Feed,
-        fetchedAt: Date,
-        saveAfterOperation: Bool
-    ) throws -> [Article] {
-        try backing.upsert(
-            entries,
-            into: feed,
-            fetchedAt: fetchedAt,
-            saveAfterOperation: saveAfterOperation
-        )
-    }
-
-    func upsert(
-        _ payloads: [ArticleUpsertPayload],
-        into feed: Feed,
-        saveAfterOperation: Bool
-    ) throws -> [Article] {
-        try backing.upsert(payloads, into: feed, saveAfterOperation: saveAfterOperation)
-    }
-
     func save() throws {
         try backing.save()
     }

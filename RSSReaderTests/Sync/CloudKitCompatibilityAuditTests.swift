@@ -70,7 +70,6 @@ struct CloudKitCompatibilityAuditTests {
                         "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
                         "SwiftDataArticleRepository.fetchArticles(feedID:)",
                         "SwiftDataArticleRepository.reconcileFeedSnapshot(_:into:fetchedAt:saveAfterOperation:)",
-                        "SwiftDataArticleRepository.upsert(_:into:saveAfterOperation:)",
                         "DeduplicationService"
                     ]
             }
@@ -115,7 +114,6 @@ struct CloudKitCompatibilityAuditTests {
                         "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
                         "SwiftDataArticleRepository.fetchArticles(feedID:)",
                         "SwiftDataArticleRepository.reconcileFeedSnapshot(_:into:fetchedAt:saveAfterOperation:)",
-                        "SwiftDataArticleRepository.upsert(_:into:saveAfterOperation:)",
                         "DeduplicationService"
                     ]
             }

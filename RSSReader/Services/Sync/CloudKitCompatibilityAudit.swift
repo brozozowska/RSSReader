@@ -88,7 +88,6 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                             "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
                             "SwiftDataArticleRepository.fetchArticles(feedID:)",
                             "SwiftDataArticleRepository.reconcileFeedSnapshot(_:into:fetchedAt:saveAfterOperation:)",
-                            "SwiftDataArticleRepository.upsert(_:into:saveAfterOperation:)",
                             "DeduplicationService"
                         ],
                         summary: "Article now syncs through CloudKit without schema-level unique constraints, so feedID and externalID identity remains repository-managed.",
@@ -186,7 +185,6 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                             "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
                             "SwiftDataArticleRepository.fetchArticles(feedID:)",
                             "SwiftDataArticleRepository.reconcileFeedSnapshot(_:into:fetchedAt:saveAfterOperation:)",
-                            "SwiftDataArticleRepository.upsert(_:into:saveAfterOperation:)",
                             "DeduplicationService"
                         ],
                         summary: "Article now syncs through CloudKit without schema-level unique constraints, so feedID and externalID identity remains repository-managed.",
