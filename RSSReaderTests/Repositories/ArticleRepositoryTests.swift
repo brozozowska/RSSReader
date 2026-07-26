@@ -101,6 +101,7 @@ struct ArticleRepositoryTests {
         let preservedArchivedAt = Date(timeIntervalSince1970: 1_600_000_000)
         let staleUpdatedAt = Date(timeIntervalSince1970: 1_500_000_000)
         let canonicalUpdatedAt = Date(timeIntervalSince1970: 1_550_000_000)
+        let canonicalStateUpdatedAt = Date(timeIntervalSince1970: 1_575_000_000)
         let staleCurrentArticle = Article(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             feedID: feed.id,
@@ -156,6 +157,34 @@ struct ArticleRepositoryTests {
             title: "Stable title",
             updatedAt: canonicalUpdatedAt
         )
+        let staleCurrentState = ArticleState(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000011")!,
+            articleExternalID: "synced-current",
+            feedID: feed.id,
+            isRead: true,
+            readAt: staleUpdatedAt,
+            updatedAt: staleUpdatedAt
+        )
+        let tiedLosingCurrentState = ArticleState(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000012")!,
+            articleExternalID: "\nsynced-current",
+            feedID: feed.id,
+            lastInteractionAt: canonicalStateUpdatedAt,
+            updatedAt: canonicalStateUpdatedAt
+        )
+        let canonicalCurrentState = ArticleState(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000013")!,
+            articleExternalID: " synced-current ",
+            feedID: feed.id,
+            isRead: true,
+            readAt: canonicalStateUpdatedAt,
+            isStarred: true,
+            starredAt: canonicalStateUpdatedAt,
+            isHidden: true,
+            hiddenAt: canonicalStateUpdatedAt,
+            lastInteractionAt: canonicalStateUpdatedAt,
+            updatedAt: canonicalStateUpdatedAt
+        )
 
         for article in [
             staleCurrentArticle,
@@ -167,20 +196,14 @@ struct ArticleRepositoryTests {
         ] {
             modelContext.insert(article)
         }
+        for articleState in [
+            staleCurrentState,
+            tiedLosingCurrentState,
+            canonicalCurrentState
+        ] {
+            modelContext.insert(articleState)
+        }
         try modelContext.save()
-
-        _ = try harness.articleStateRepository.upsert(
-            feedID: feed.id,
-            articleExternalID: "synced-current",
-            update: ArticleStateUpsert(
-                isRead: true,
-                readAt: staleUpdatedAt,
-                isStarred: true,
-                starredAt: canonicalUpdatedAt,
-                lastInteractionAt: canonicalUpdatedAt,
-                updatedAt: canonicalUpdatedAt
-            )
-        )
         let payloads = try ArticleUpsertPayload.makeAll(
             entries: [
                 makeEntry(
@@ -214,13 +237,16 @@ struct ArticleRepositoryTests {
             articleRepository: harness.articleRepository,
             articleStateRepository: harness.articleStateRepository
         )
-        let firstQueryItems = try queryService.fetchArticleListItems(
+        let firstHiddenQueryItems = try queryService.fetchArticleListItems(
             feedID: feed.id,
-            sortMode: .publishedAtDescending
+            sortMode: .publishedAtDescending,
+            filter: .hidden
         )
-        let currentQueryItem = try #require(
-            firstQueryItems.first { $0.articleExternalID == "synced-current" }
+        let currentQueryItem = try #require(firstHiddenQueryItems.first)
+        let currentReaderArticle = try #require(
+            try queryService.fetchReaderArticle(id: firstCurrentArticle.id)
         )
+        let firstRepairedStates = try modelContext.fetch(FetchDescriptor<ArticleState>())
 
         #expect(firstRepairedArticles.count == 3)
         #expect(firstCurrentArticle.id == canonicalCurrentArticle.id)
@@ -229,10 +255,18 @@ struct ArticleRepositoryTests {
         #expect(firstCurrentArticle.archivedAt == nil)
         #expect(firstMissingArticle.id == canonicalMissingArticle.id)
         #expect(firstMissingArticle.archivedAt == preservedArchivedAt)
-        #expect(firstQueryItems.count == 3)
-        #expect(firstQueryItems.filter { $0.articleExternalID == "synced-current" }.count == 1)
+        #expect(firstRepairedStates.count == 1)
+        #expect(firstRepairedStates.first?.id == canonicalCurrentState.id)
+        #expect(firstRepairedStates.first?.articleExternalID == "synced-current")
+        #expect(firstRepairedStates.first?.updatedAt == canonicalStateUpdatedAt)
+        #expect(firstHiddenQueryItems.count == 1)
+        #expect(currentQueryItem.articleExternalID == "synced-current")
         #expect(currentQueryItem.isRead)
         #expect(currentQueryItem.isStarred)
+        #expect(currentQueryItem.isHidden)
+        #expect(currentReaderArticle.isRead)
+        #expect(currentReaderArticle.isStarred)
+        #expect(currentReaderArticle.isHidden)
 
         _ = try harness.articleRepository.reconcileFeedSnapshot(
             payloads,
@@ -241,15 +275,91 @@ struct ArticleRepositoryTests {
         )
 
         let repeatedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
-        let repeatedQueryItems = try queryService.fetchArticleListItems(
+        let repeatedHiddenQueryItems = try queryService.fetchArticleListItems(
             feedID: feed.id,
-            sortMode: .publishedAtDescending
+            sortMode: .publishedAtDescending,
+            filter: .hidden
         )
+        let repeatedStates = try modelContext.fetch(FetchDescriptor<ArticleState>())
 
         #expect(Set(repeatedArticles.map(\.id)) == Set(firstRepairedArticles.map(\.id)))
         #expect(repeatedArticles.count == 3)
-        #expect(repeatedQueryItems.count == 3)
-        #expect(repeatedQueryItems.filter { $0.articleExternalID == "synced-current" }.count == 1)
+        #expect(repeatedStates.count == 1)
+        #expect(repeatedStates.first?.id == canonicalCurrentState.id)
+        #expect(repeatedStates.first?.articleExternalID == "synced-current")
+        #expect(repeatedHiddenQueryItems.count == 1)
+        #expect(repeatedHiddenQueryItems.first?.articleExternalID == "synced-current")
+    }
+
+    @Test
+    func articleRepositoryStagesArticleStateIdentityRepairInsideSnapshotRollbackBoundary() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(
+            into: harness,
+            url: "https://example.com/state-rollback-feed.xml"
+        )
+        let modelContext = harness.modelContainer.mainContext
+        let olderUpdatedAt = Date(timeIntervalSince1970: 1_500_000_000)
+        let newerUpdatedAt = Date(timeIntervalSince1970: 1_600_000_000)
+        let olderArticle = Article(
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            externalID: "rollback-identity",
+            url: "https://example.com/articles/rollback-older",
+            title: "Older",
+            updatedAt: olderUpdatedAt
+        )
+        let canonicalArticle = Article(
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            externalID: " rollback-identity ",
+            url: "https://example.com/articles/rollback-canonical",
+            title: "Canonical",
+            updatedAt: newerUpdatedAt
+        )
+        let articleState = ArticleState(
+            articleExternalID: " rollback-identity ",
+            feedID: feed.id,
+            isRead: true,
+            readAt: newerUpdatedAt,
+            isStarred: true,
+            starredAt: newerUpdatedAt,
+            lastInteractionAt: newerUpdatedAt,
+            updatedAt: newerUpdatedAt
+        )
+        modelContext.insert(olderArticle)
+        modelContext.insert(canonicalArticle)
+        modelContext.insert(articleState)
+        try modelContext.save()
+
+        _ = try harness.articleRepository.reconcileFeedSnapshot(
+            [],
+            into: feed,
+            fetchedAt: newerUpdatedAt,
+            saveAfterOperation: false
+        )
+
+        let stagedArticles = try modelContext.fetch(FetchDescriptor<Article>())
+        let stagedStates = try modelContext.fetch(FetchDescriptor<ArticleState>())
+        #expect(modelContext.hasChanges)
+        #expect(stagedArticles.count == 1)
+        #expect(stagedArticles.first?.externalID == "rollback-identity")
+        #expect(stagedStates.count == 1)
+        #expect(stagedStates.first?.articleExternalID == "rollback-identity")
+
+        modelContext.rollback()
+
+        let rolledBackArticles = try modelContext.fetch(FetchDescriptor<Article>())
+        let rolledBackStates = try modelContext.fetch(FetchDescriptor<ArticleState>())
+        #expect(rolledBackArticles.count == 2)
+        #expect(Set(rolledBackArticles.map(\.externalID)) == [
+            "rollback-identity",
+            " rollback-identity "
+        ])
+        #expect(rolledBackStates.count == 1)
+        #expect(rolledBackStates.first?.articleExternalID == " rollback-identity ")
+        #expect(rolledBackStates.first?.isRead == true)
+        #expect(rolledBackStates.first?.isStarred == true)
     }
 
     @Test

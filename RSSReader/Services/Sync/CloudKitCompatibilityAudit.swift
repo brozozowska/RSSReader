@@ -60,6 +60,7 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                             "SwiftDataArticleStateRepository.fetchState(feedID:articleExternalID:)",
                             "SwiftDataArticleStateRepository.fetchOrCreate(feedID:articleExternalID:)",
                             "SwiftDataArticleStateRepository.fetchCanonicalState(feedID:articleExternalID:removeDuplicates:)",
+                            "SwiftDataArticleStateIdentityRepairer.stageRepairs(feedID:normalizedIdentities:)",
                             "SwiftDataArticleStateRepository.shouldApply(_:to:)"
                         ],
                         summary: "ArticleState now relies on repository-managed composite identity, duplicate-row repair, and last-write-wins conflict resolution instead of schema-level uniqueness.",
@@ -157,6 +158,7 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                             "SwiftDataArticleStateRepository.fetchState(feedID:articleExternalID:)",
                             "SwiftDataArticleStateRepository.fetchOrCreate(feedID:articleExternalID:)",
                             "SwiftDataArticleStateRepository.fetchCanonicalState(feedID:articleExternalID:removeDuplicates:)",
+                            "SwiftDataArticleStateIdentityRepairer.stageRepairs(feedID:normalizedIdentities:)",
                             "SwiftDataArticleStateRepository.shouldApply(_:to:)"
                         ],
                         summary: "ArticleState now relies on repository-managed composite identity, duplicate-row repair, and last-write-wins conflict resolution instead of schema-level uniqueness.",

@@ -74,6 +74,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     let modelContext: ModelContext
     let persistenceOperationRecorder: SwiftDataRepositoryOperationRecorder
     private let cancellationCheckpoint: (ArticleFeedSnapshotCancellationCheckpoint) throws -> Void
+    private let articleStateIdentityRepairer: SwiftDataArticleStateIdentityRepairer
 
     init(
         modelContext: ModelContext,
@@ -85,6 +86,10 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         self.modelContext = modelContext
         self.persistenceOperationRecorder = persistenceOperationRecorder
         self.cancellationCheckpoint = cancellationCheckpoint
+        self.articleStateIdentityRepairer = SwiftDataArticleStateIdentityRepairer(
+            modelContext: modelContext,
+            persistenceOperationRecorder: persistenceOperationRecorder
+        )
     }
 
     func refreshFeedProjection(for feed: Feed, saveAfterOperation: Bool = true) throws -> Int {
@@ -112,6 +117,10 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         let existingArticles = try fetchArticles(feedID: feed.id)
         let canonicalSnapshot = canonicalArticleSnapshot(
             from: existingArticles
+        )
+        try articleStateIdentityRepairer.stageRepairs(
+            feedID: feed.id,
+            normalizedIdentities: canonicalSnapshot.duplicateIdentities
         )
         var articlesByIdentity = canonicalSnapshot.articlesByIdentity
         var projectionUpdateCount = 0

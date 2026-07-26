@@ -57,6 +57,61 @@ enum ArticleStateConflictResolutionPolicy: Sendable {
 }
 
 @MainActor
+enum ArticleStateCanonicalization {
+    static func isOrderedBefore(_ lhs: ArticleState, _ rhs: ArticleState) -> Bool {
+        if lhs.updatedAt != rhs.updatedAt {
+            return lhs.updatedAt > rhs.updatedAt
+        }
+
+        return lhs.id.uuidString > rhs.id.uuidString
+    }
+}
+
+@MainActor
+struct SwiftDataArticleStateIdentityRepairer: SwiftDataRepositoryContext {
+    let modelContext: ModelContext
+    let persistenceOperationRecorder: SwiftDataRepositoryOperationRecorder
+
+    init(
+        modelContext: ModelContext,
+        persistenceOperationRecorder: @escaping SwiftDataRepositoryOperationRecorder = { _ in }
+    ) {
+        self.modelContext = modelContext
+        self.persistenceOperationRecorder = persistenceOperationRecorder
+    }
+
+    func stageRepairs(feedID: UUID, normalizedIdentities: Set<String>) throws {
+        guard normalizedIdentities.isEmpty == false else { return }
+
+        let descriptor = FetchDescriptor<ArticleState>(
+            predicate: #Predicate<ArticleState> { articleState in
+                articleState.feedID == feedID
+            }
+        )
+        let statesByIdentity = Dictionary(
+            grouping: try performFetch(descriptor).filter { articleState in
+                let identity = normalizedIdentifier(articleState.articleExternalID)
+                return identity.map(normalizedIdentities.contains) ?? false
+            },
+            by: { articleState in
+                normalizedIdentifier(articleState.articleExternalID) ?? articleState.articleExternalID
+            }
+        )
+
+        for identity in normalizedIdentities.sorted() {
+            guard let matchingStates = statesByIdentity[identity] else { continue }
+            let orderedStates = matchingStates.sorted(by: ArticleStateCanonicalization.isOrderedBefore)
+            guard let canonicalState = orderedStates.first else { continue }
+
+            canonicalState.articleExternalID = identity
+            for duplicateState in orderedStates.dropFirst() {
+                modelContext.delete(duplicateState)
+            }
+        }
+    }
+}
+
+@MainActor
 protocol ArticleStateRepository {
     func fetchState(feedID: UUID, articleExternalID: String) throws -> ArticleState?
     func fetchOrCreate(feedID: UUID, articleExternalID: String) throws -> ArticleState
@@ -402,15 +457,7 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
             }
         )
         let matchingStates = try modelContext.fetch(descriptor)
-        return matchingStates.sorted(by: articleStateCanonicalOrder)
-    }
-
-    private func articleStateCanonicalOrder(_ lhs: ArticleState, _ rhs: ArticleState) -> Bool {
-        if lhs.updatedAt != rhs.updatedAt {
-            return lhs.updatedAt > rhs.updatedAt
-        }
-
-        return lhs.id.uuidString > rhs.id.uuidString
+        return matchingStates.sorted(by: ArticleStateCanonicalization.isOrderedBefore)
     }
 
     private func apply(_ update: ArticleStateUpsert, to articleState: ArticleState) {
