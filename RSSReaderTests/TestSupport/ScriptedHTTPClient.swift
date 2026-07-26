@@ -134,12 +134,12 @@ actor ScriptedHTTPClient: HTTPClient {
 }
 
 actor ScriptedHTTPClientResponseGate {
-    private var entered = false
+    private var entryCount = 0
     private var released = false
     private var releaseContinuations: [CheckedContinuation<Void, Never>] = []
 
     func enterAndWaitForRelease() async throws {
-        entered = true
+        entryCount += 1
         if released == false {
             await withCheckedContinuation { continuation in
                 releaseContinuations.append(continuation)
@@ -149,7 +149,11 @@ actor ScriptedHTTPClientResponseGate {
     }
 
     func hasEntered() -> Bool {
-        entered
+        entryCount > 0
+    }
+
+    func enteredCount() -> Int {
+        entryCount
     }
 
     func release() {
