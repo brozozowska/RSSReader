@@ -8,11 +8,12 @@ struct FeedRefreshServiceConcurrencyTests {
     @Test
     func concurrentRefreshOfSameFeedSharesInFlightTaskAndAvoidsDuplicateSideEffects() async throws {
         let feedURL = "https://example.com/concurrent-feed.xml"
+        let responseGate = ScriptedHTTPClientResponseGate()
         let feedOperations = SwiftDataRepositoryOperationCounter()
         let articleOperations = SwiftDataRepositoryOperationCounter()
         let client = ScriptedHTTPClient(
             responsesByURL: [
-                feedURL: .delayedResponse(
+                feedURL: .gatedResponse(
                     statusCode: 200,
                     headers: [
                         "Content-Type": "application/rss+xml; charset=utf-8",
@@ -28,7 +29,7 @@ struct FeedRefreshServiceConcurrencyTests {
                         itemDescription: "Readable concurrent summary",
                         pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
                     ),
-                    delayNanoseconds: 200_000_000
+                    gate: responseGate
                 )
             ]
         )
@@ -44,9 +45,12 @@ struct FeedRefreshServiceConcurrencyTests {
         let firstTask = Task { @MainActor in
             await harness.service.refresh(feedID: feed.id)
         }
+        try await waitForGateEntry(responseGate)
         let secondTask = Task { @MainActor in
             await harness.service.refresh(feedID: feed.id)
         }
+        try await waitForWaiterCount(2, feedID: feed.id, service: harness.service)
+        await responseGate.release()
 
         let firstResult = await firstTask.value
         let secondResult = await secondTask.value
@@ -68,8 +72,7 @@ struct FeedRefreshServiceConcurrencyTests {
     @Test
     func ownerCancellationLeavesSharedRefreshRunningForJoiningCaller() async throws {
         let harness = try makeCancellationHarness(
-            feedURL: "https://example.com/owner-cancelled-feed.xml",
-            delayNanoseconds: 500_000_000
+            feedURL: "https://example.com/owner-cancelled-feed.xml"
         )
         let feed = harness.feed
         harness.feedOperations.reset()
@@ -78,15 +81,16 @@ struct FeedRefreshServiceConcurrencyTests {
         let ownerTask = Task { @MainActor in
             await harness.testHarness.service.refresh(feedID: feed.id)
         }
-        await waitForRequestCount(1, client: harness.testHarness.httpClient)
+        try await waitForGateEntry(harness.responseGate)
 
         let joiningTask = Task { @MainActor in
             await harness.testHarness.service.refresh(feedID: feed.id)
         }
-        await waitForWaiterCount(2, feedID: feed.id, service: harness.testHarness.service)
+        try await waitForWaiterCount(2, feedID: feed.id, service: harness.testHarness.service)
 
         ownerTask.cancel()
         let ownerResult = await ownerTask.value
+        await harness.responseGate.release()
         let joiningResult = await joiningTask.value
 
         #expect(ownerResult.status == .cancelled)
@@ -103,8 +107,7 @@ struct FeedRefreshServiceConcurrencyTests {
     @Test
     func joiningCallerCancellationLeavesSharedRefreshRunningForOwner() async throws {
         let harness = try makeCancellationHarness(
-            feedURL: "https://example.com/joiner-cancelled-feed.xml",
-            delayNanoseconds: 500_000_000
+            feedURL: "https://example.com/joiner-cancelled-feed.xml"
         )
         let feed = harness.feed
         harness.feedOperations.reset()
@@ -113,15 +116,16 @@ struct FeedRefreshServiceConcurrencyTests {
         let ownerTask = Task { @MainActor in
             await harness.testHarness.service.refresh(feedID: feed.id)
         }
-        await waitForRequestCount(1, client: harness.testHarness.httpClient)
+        try await waitForGateEntry(harness.responseGate)
 
         let joiningTask = Task { @MainActor in
             await harness.testHarness.service.refresh(feedID: feed.id)
         }
-        await waitForWaiterCount(2, feedID: feed.id, service: harness.testHarness.service)
+        try await waitForWaiterCount(2, feedID: feed.id, service: harness.testHarness.service)
 
         joiningTask.cancel()
         let joiningResult = await joiningTask.value
+        await harness.responseGate.release()
         let ownerResult = await ownerTask.value
 
         #expect(joiningResult.status == .cancelled)
@@ -138,8 +142,7 @@ struct FeedRefreshServiceConcurrencyTests {
     @Test
     func simultaneousCallerCancellationCancelsSharedRefreshAndCleansRegistry() async throws {
         let harness = try makeCancellationHarness(
-            feedURL: "https://example.com/all-callers-cancelled-feed.xml",
-            delayNanoseconds: 5_000_000_000
+            feedURL: "https://example.com/all-callers-cancelled-feed.xml"
         )
         let feed = harness.feed
         harness.feedOperations.reset()
@@ -148,18 +151,20 @@ struct FeedRefreshServiceConcurrencyTests {
         let ownerTask = Task { @MainActor in
             await harness.testHarness.service.refresh(feedID: feed.id)
         }
-        await waitForRequestCount(1, client: harness.testHarness.httpClient)
+        try await waitForGateEntry(harness.responseGate)
 
         let joiningTask = Task { @MainActor in
             await harness.testHarness.service.refresh(feedID: feed.id)
         }
-        await waitForWaiterCount(2, feedID: feed.id, service: harness.testHarness.service)
+        try await waitForWaiterCount(2, feedID: feed.id, service: harness.testHarness.service)
 
         ownerTask.cancel()
         joiningTask.cancel()
         let ownerResult = await ownerTask.value
         let joiningResult = await joiningTask.value
-        await waitForRegistryCleanup(feedID: feed.id, service: harness.testHarness.service)
+        #expect(harness.testHarness.service.inFlightRefreshTasks[feed.id]?.phase == .draining)
+        await harness.responseGate.release()
+        try await waitForRegistryCleanup(feedID: feed.id, service: harness.testHarness.service)
 
         #expect(ownerResult.status == .cancelled)
         #expect(joiningResult.status == .cancelled)
@@ -174,34 +179,98 @@ struct FeedRefreshServiceConcurrencyTests {
         #expect(try harness.testHarness.fetchFeed(id: feed.id)?.lastFetchedAt != nil)
     }
 
-    private func makeCancellationHarness(
-        feedURL: String,
-        delayNanoseconds: UInt64
-    ) throws -> (
-        testHarness: TestHarness,
-        feed: Feed,
-        feedOperations: SwiftDataRepositoryOperationCounter,
-        articleOperations: SwiftDataRepositoryOperationCounter
-    ) {
-        let responseBody = makeValidRSSFeedXML(
-            channelTitle: "Coalesced Feed",
-            channelLink: "https://example.com/coalesced/",
-            language: "en",
-            itemTitle: "Coalesced Article",
-            itemLink: "https://example.com/coalesced/articles/1",
-            itemGUID: "coalesced-article-1",
-            itemDescription: "Readable coalesced summary",
-            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
-        )
+    @Test
+    func callerArrivingWhileCancelledExecutionDrainsStartsAfterCleanup() async throws {
+        let feedURL = "https://example.com/draining-retry-feed.xml"
+        let cancelledExecutionGate = ScriptedHTTPClientResponseGate()
+        let retryExecutionGate = ScriptedHTTPClientResponseGate()
+        let responseBody = makeCoalescedFeedXML()
         let feedOperations = SwiftDataRepositoryOperationCounter()
         let articleOperations = SwiftDataRepositoryOperationCounter()
         let client = ScriptedHTTPClient(
             steps: [
-                .delayedResponse(
+                .gatedResponse(
                     statusCode: 200,
                     headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
                     body: responseBody,
-                    delayNanoseconds: delayNanoseconds
+                    gate: cancelledExecutionGate
+                ),
+                .gatedResponse(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                    body: responseBody,
+                    gate: retryExecutionGate
+                )
+            ]
+        )
+        let harness = try TestHarness.make(
+            httpClient: client,
+            feedRepositoryOperationRecorder: feedOperations.record,
+            articleRepositoryOperationRecorder: articleOperations.record
+        )
+        let feed = try #require(try harness.insertFeeds(urls: [feedURL]).first)
+        feedOperations.reset()
+        articleOperations.reset()
+
+        let cancelledCaller = Task { @MainActor in
+            await harness.service.refresh(feedID: feed.id)
+        }
+        try await waitForGateEntry(cancelledExecutionGate)
+
+        cancelledCaller.cancel()
+        let cancelledResult = await cancelledCaller.value
+        #expect(cancelledResult.status == .cancelled)
+        #expect(harness.service.inFlightRefreshTasks[feed.id]?.phase == .draining)
+
+        let retryCaller = Task { @MainActor in
+            await harness.service.refresh(feedID: feed.id)
+        }
+        try await waitForQueuedWaiterCount(1, feedID: feed.id, service: harness.service)
+
+        #expect(await client.recordedRequests().count == 1)
+        #expect(await retryExecutionGate.hasEntered() == false)
+        await cancelledExecutionGate.release()
+
+        try await waitForGateEntry(retryExecutionGate)
+        #expect(await client.recordedRequests().count == 2)
+        #expect(await client.maxConcurrentExecutions() == 1)
+        #expect(harness.service.inFlightRefreshTasks[feed.id]?.phase == .running)
+        #expect(harness.service.inFlightRefreshTasks[feed.id]?.waiterCount == 1)
+
+        await retryExecutionGate.release()
+        let retryResult = await retryCaller.value
+        try await waitForRegistryCleanup(feedID: feed.id, service: harness.service)
+
+        #expect(retryResult.status == .fetched)
+        #expect(retryResult.upsertedEntryCount == 1)
+        #expect(try harness.articleRepository.fetchArticles(feedID: feed.id).count == 1)
+        let logs = try harness.feedFetchLogRepository.fetchLogs(feedID: feed.id, limit: nil)
+        #expect(logs.count == 2)
+        #expect(Set(logs.map(\.status)) == Set(["cancelled", "fetched"]))
+        #expect(feedOperations.saveCount == 3)
+        #expect(articleOperations.saveCount == 0)
+    }
+
+    private func makeCancellationHarness(
+        feedURL: String
+    ) throws -> (
+        testHarness: TestHarness,
+        feed: Feed,
+        feedOperations: SwiftDataRepositoryOperationCounter,
+        articleOperations: SwiftDataRepositoryOperationCounter,
+        responseGate: ScriptedHTTPClientResponseGate
+    ) {
+        let responseGate = ScriptedHTTPClientResponseGate()
+        let responseBody = makeCoalescedFeedXML()
+        let feedOperations = SwiftDataRepositoryOperationCounter()
+        let articleOperations = SwiftDataRepositoryOperationCounter()
+        let client = ScriptedHTTPClient(
+            steps: [
+                .gatedResponse(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                    body: responseBody,
+                    gate: responseGate
                 )
             ]
         )
@@ -211,7 +280,20 @@ struct FeedRefreshServiceConcurrencyTests {
             articleRepositoryOperationRecorder: articleOperations.record
         )
         let feed = try #require(try testHarness.insertFeeds(urls: [feedURL]).first)
-        return (testHarness, feed, feedOperations, articleOperations)
+        return (testHarness, feed, feedOperations, articleOperations, responseGate)
+    }
+
+    private func makeCoalescedFeedXML() -> String {
+        makeValidRSSFeedXML(
+            channelTitle: "Coalesced Feed",
+            channelLink: "https://example.com/coalesced/",
+            language: "en",
+            itemTitle: "Coalesced Article",
+            itemLink: "https://example.com/coalesced/articles/1",
+            itemGUID: "coalesced-article-1",
+            itemDescription: "Readable coalesced summary",
+            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+        )
     }
 
     private func assertSingleFetchedExecution(
@@ -231,9 +313,9 @@ struct FeedRefreshServiceConcurrencyTests {
         #expect(articleOperations.saveCount == 0)
     }
 
-    private func waitForRequestCount(_ count: Int, client: ScriptedHTTPClient) async {
-        while await client.recordedRequests().count < count {
-            await Task.yield()
+    private func waitForGateEntry(_ gate: ScriptedHTTPClientResponseGate) async throws {
+        try await waitUntil("HTTP response gate entry") {
+            await gate.hasEntered()
         }
     }
 
@@ -241,15 +323,46 @@ struct FeedRefreshServiceConcurrencyTests {
         _ count: Int,
         feedID: UUID,
         service: FeedRefreshService
-    ) async {
-        while service.inFlightRefreshTasks[feedID]?.waiterCount != count {
-            await Task.yield()
+    ) async throws {
+        try await waitUntil("in-flight waiter count \(count)") {
+            service.inFlightRefreshTasks[feedID]?.waiterCount == count
         }
     }
 
-    private func waitForRegistryCleanup(feedID: UUID, service: FeedRefreshService) async {
-        while service.inFlightRefreshTasks[feedID] != nil {
-            await Task.yield()
+    private func waitForQueuedWaiterCount(
+        _ count: Int,
+        feedID: UUID,
+        service: FeedRefreshService
+    ) async throws {
+        try await waitUntil("queued waiter count \(count)") {
+            service.inFlightRefreshTasks[feedID]?.queuedWaiterCount == count
         }
     }
+
+    private func waitForRegistryCleanup(
+        feedID: UUID,
+        service: FeedRefreshService
+    ) async throws {
+        try await waitUntil("in-flight registry cleanup") {
+            service.inFlightRefreshTasks[feedID] == nil
+        }
+    }
+
+    private func waitUntil(
+        _ expectation: String,
+        condition: () async -> Bool
+    ) async throws {
+        let deadline = ContinuousClock.now + .seconds(2)
+        while ContinuousClock.now < deadline {
+            if await condition() {
+                return
+            }
+            await Task.yield()
+        }
+        throw ConcurrencyWaitError.timedOut(expectation)
+    }
+}
+
+private enum ConcurrencyWaitError: Error {
+    case timedOut(String)
 }

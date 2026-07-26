@@ -14,13 +14,24 @@ struct FeedRefreshInFlightWaiter {
     let continuation: CheckedContinuation<FeedRefreshResult, Never>
 }
 
+enum FeedRefreshInFlightPhase: Equatable {
+    case running
+    case draining
+}
+
 struct FeedRefreshInFlightTask {
     let id: UUID
     let task: Task<FeedRefreshResult, Never>
+    var phase: FeedRefreshInFlightPhase
     var waiters: [UUID: FeedRefreshInFlightWaiter]
+    var queuedWaiters: [UUID: FeedRefreshInFlightWaiter]
 
     var waiterCount: Int {
         waiters.count
+    }
+
+    var queuedWaiterCount: Int {
+        queuedWaiters.count
     }
 }
 
