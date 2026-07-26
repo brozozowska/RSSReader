@@ -93,8 +93,8 @@ struct FeedManagementFeedPreviewService {
             logger.error("Skipped feed management preview because fetch returned not-modified for \(normalizedURL)")
             throw FeedManagementServiceError.previewUnavailableForNotModifiedResponse
         }
-        let pipelineResult = try await feedParsingWorker.parse(response)
-        let metadata = pipelineResult.feed.metadata
+        let parsingResult = try await feedParsingWorker.parsePreview(response)
+        let metadata = parsingResult.feed.metadata
         let resolvedFeedURL = response.sourceURL.absoluteString
         let existingFeed = try normalizationPolicy.existingFeed(
             resolvedFeedURL: resolvedFeedURL,
@@ -109,9 +109,9 @@ struct FeedManagementFeedPreviewService {
             siteURL: normalizationPolicy.normalizedNonEmptyString(metadata.siteURL),
             iconURL: normalizationPolicy.normalizedNonEmptyString(metadata.iconURL),
             language: normalizationPolicy.normalizedNonEmptyString(metadata.language),
-            kind: pipelineResult.feed.kind,
-            parserAnomalyCount: pipelineResult.diagnostics.parserAnomalies.count,
-            rejectedEntryCount: pipelineResult.diagnostics.rejectedEntries.count,
+            kind: parsingResult.feed.kind,
+            parserAnomalyCount: parsingResult.diagnostics.parserAnomalies.count,
+            rejectedEntryCount: parsingResult.diagnostics.rejectedEntries.count,
             existingFeedID: existingFeed?.id
         )
     }

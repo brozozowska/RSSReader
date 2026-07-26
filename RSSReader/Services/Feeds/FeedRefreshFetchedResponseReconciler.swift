@@ -7,16 +7,16 @@ extension FeedRefreshService {
         startedAt: Date
     ) async throws -> FeedRefreshResult {
         let fetchedAt = Date()
-        let pipelineResult = try await feedParsingWorker.parse(response, fetchedAt: fetchedAt)
+        let parsingResult = try await feedParsingWorker.parseRefresh(response, fetchedAt: fetchedAt)
         try Task.checkCancellation()
-        let diagnostics = pipelineResult.diagnostics
+        let diagnostics = parsingResult.diagnostics
         let diagnosticsSummary = diagnosticsSummary(for: diagnostics)
         let currentMetadata = try feedRepository.fetchMetadata(for: metadata.id)
         try Task.checkCancellation()
         let discoveredIconURL = try await discoverIconURLIfNeeded(
             feedURL: response.sourceURL,
             currentMetadata: currentMetadata,
-            parsedMetadata: pipelineResult.feed.metadata
+            parsedMetadata: parsingResult.metadata
         )
         try cancellationCheckpoint(.afterIconDiscovery)
 
@@ -29,7 +29,8 @@ extension FeedRefreshService {
         )
         try updateFeedContentMetadata(
             for: metadata.id,
-            parsedFeed: pipelineResult.feed,
+            parsedMetadata: parsingResult.metadata,
+            kind: parsingResult.kind,
             discoveredIconURL: discoveredIconURL,
             updatedAt: fetchedAt,
             saveAfterOperation: false
@@ -44,14 +45,14 @@ extension FeedRefreshService {
         switch reconciliationPolicy {
         case .markMissingArticlesAsArchived:
             articleReconciliationResult = try articleRepository.reconcileFeedSnapshot(
-                pipelineResult.articlePayloads,
+                parsingResult.articlePayloads,
                 into: feed,
                 fetchedAt: fetchedAt,
                 saveAfterOperation: false
             )
         }
         try Task.checkCancellation()
-        let processedEntryCount = pipelineResult.feed.entries.count + diagnostics.rejectedEntries.count
+        let processedEntryCount = parsingResult.acceptedEntryCount + diagnostics.rejectedEntries.count
 
         if diagnosticsAreSoftFailure(diagnostics) {
             logger.info("Feed \(metadata.id.uuidString) fetched with soft-failure diagnostics")
@@ -101,23 +102,23 @@ extension FeedRefreshService {
 
     func updateFeedContentMetadata(
         for feedID: UUID,
-        parsedFeed: ParsedFeedDTO,
+        parsedMetadata: ParsedFeedMetadataDTO,
+        kind: FeedKind,
         discoveredIconURL: URL? = nil,
         updatedAt: Date,
         saveAfterOperation: Bool = true
     ) throws {
-        let metadata = parsedFeed.metadata
         let currentMetadata = try feedRepository.fetchMetadata(for: feedID)
         let update = FeedMetadataUpdate(
-            siteURL: metadata.siteURL,
-            title: metadata.title,
-            subtitle: metadata.subtitle,
+            siteURL: parsedMetadata.siteURL,
+            title: parsedMetadata.title,
+            subtitle: parsedMetadata.subtitle,
             iconURL: updatedIconURL(
                 currentIconURL: currentMetadata?.iconURL,
                 discoveredIconURL: discoveredIconURL
             ),
-            language: metadata.language,
-            kind: parsedFeed.kind,
+            language: parsedMetadata.language,
+            kind: kind,
             updatedAt: updatedAt
         )
 

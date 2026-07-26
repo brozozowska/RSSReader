@@ -36,9 +36,9 @@ struct FeedRefreshServiceLargeFeedTests {
             }
         }
 
-        let result: FeedParsingWorkerResult
+        let result: FeedRefreshParsingResult
         do {
-            result = try await worker.parse(fixture.makeResponse())
+            result = try await worker.parseRefresh(fixture.makeResponse())
         } catch {
             heartbeat.cancel()
             await heartbeat.value
@@ -87,10 +87,109 @@ struct FeedRefreshServiceLargeFeedTests {
         #expect(probe.materializedPayloadCount == fixture.expectedAcceptedEntryCount)
         #expect(probe.materializedPayloadTextByteCount > 0)
         #expect(probe.materializedPayloadTextByteCount <= fixture.bodyByteCount)
-        #expect(result.feed.kind == .rss)
-        #expect(result.feed.entries.count == fixture.expectedAcceptedEntryCount)
+        #expect(result.kind == .rss)
+        #expect(result.metadata.title == "Large Deterministic Feed")
+        #expect(result.acceptedEntryCount == fixture.expectedAcceptedEntryCount)
         #expect(result.articlePayloads.count == fixture.expectedAcceptedEntryCount)
         #expect(result.diagnostics.rejectedEntries.count == fixture.expectedRejectedEntryCount)
+    }
+
+    @Test
+    func largeFeedPreviewKeepsPipelineOffMainActorWithoutMaterializingArticlePayloads() async throws {
+        let fixture = LargeFeedPipelineFixture.make()
+        let probe = LargeFeedParsingProbe()
+        let worker = FeedParsingWorker(
+            pipeline: { response in
+                defer { probe.finishXMLPipeline() }
+                return try FeedParserService.parsePipelineResult(
+                    response,
+                    xmlProgressProbe: probe.recordXMLProgress,
+                    entryProgressProbe: probe.recordEntryProgress
+                )
+            },
+            payloadPreparation: { entries, fetchedAt in
+                defer { probe.finishPayloadPreparation() }
+                return try ArticleUpsertPayload.makeAllPrepared(
+                    entries: entries,
+                    fetchedAt: fetchedAt,
+                    materializationProbe: probe.recordPayloadMaterialization
+                )
+            }
+        )
+        let client = ScriptedHTTPClient(
+            responsesByURL: [
+                fixture.feedURL.absoluteString: .response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                    body: fixture.body
+                )
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let service = DefaultFeedManagementService(
+            logger: TestLogger(),
+            httpClient: client,
+            feedFetcher: FeedFetcher(
+                httpClient: client,
+                retryPolicy: FeedRetryPolicy(maxAttempts: 1, baseDelayNanoseconds: 0)
+            ),
+            feedParsingWorker: worker,
+            feedRepository: harness.feedRepository,
+            folderRepository: harness.folderRepository,
+            articleRepository: harness.articleRepository
+        )
+        let heartbeat = Task { @MainActor in
+            while Task.isCancelled == false {
+                probe.recordMainActorHeartbeatIfWorking()
+                await Task.yield()
+            }
+        }
+
+        let preview: FeedManagementFeedPreview
+        do {
+            preview = try await service.previewFeed(urlString: fixture.feedURL.absoluteString)
+        } catch {
+            heartbeat.cancel()
+            await heartbeat.value
+            throw error
+        }
+        heartbeat.cancel()
+        await heartbeat.value
+
+        #expect(
+            Int64(fixture.bodyByteCount)
+                <= AppResourceBudgetContract.current.feedXML.body.maximumCompressedBodyBytes
+        )
+        #expect(probe.maximumObservedElementCount == fixture.expectedXMLElementCount)
+        #expect(
+            probe.maximumObservedElementCount
+                <= AppResourceBudgetContract.current.feedXML.maximumElementCount
+        )
+        #expect(probe.maximumObservedDepth == fixture.expectedXMLMaximumDepth)
+        #expect(
+            probe.maximumObservedDepth
+                <= AppResourceBudgetContract.current.feedXML.maximumDepth
+        )
+        #expect(probe.maximumObservedMaterializedEntryCount == fixture.rawEntryCount)
+        #expect(
+            probe.maximumObservedMaterializedEntryCount
+                <= AppResourceBudgetContract.current.feedXML.maximumEntryCount
+        )
+        #expect(probe.didRunXMLPipelineOffMainThread)
+        #expect(probe.didRunEntryProcessingOffMainThread)
+        #expect(probe.xmlPipelineHeartbeatCount > 0)
+        #expect(probe.entryProcessingHeartbeatCount > 0)
+        #expect(probe.observedEntryStages == Set(FeedParsingEntryStage.allCases))
+        #expect(probe.didStartPayloadPreparation == false)
+        #expect(probe.payloadPreparationHeartbeatCount == 0)
+        #expect(probe.materializedPayloadCount == 0)
+        #expect(probe.materializedPayloadTextByteCount == 0)
+        #expect(preview.title == "Large Deterministic Feed")
+        #expect(preview.siteURL == "https://example.com/large/")
+        #expect(preview.language == "en")
+        #expect(preview.kind == .rss)
+        #expect(preview.parserAnomalyCount == fixture.expectedRejectedEntryCount * 3)
+        #expect(preview.rejectedEntryCount == fixture.expectedRejectedEntryCount)
     }
 
     @Test
@@ -609,6 +708,10 @@ private final class LargeFeedParsingProbe: @unchecked Sendable {
         condition.withLock {
             payloadPreparationStarted && payloadPreparationRanOnMainThread == false
         }
+    }
+
+    var didStartPayloadPreparation: Bool {
+        condition.withLock { payloadPreparationStarted }
     }
 
     var didRunEntryProcessingOffMainThread: Bool {

@@ -20,17 +20,16 @@ struct FeedParsingWorkerTests {
             }
         )
 
-        let result = try await worker.parse(makeResponse(), fetchedAt: fetchedAt)
+        let result = try await worker.parseRefresh(makeResponse(), fetchedAt: fetchedAt)
 
         #expect(probe.didRunPipelineOffMainThread)
         #expect(probe.didRunPayloadPreparationOffMainThread)
-        #expect(result.feed.kind == .rss)
-        #expect(result.feed.metadata.title == "Worker & Feed")
-        #expect(result.feed.entries.count == 1)
-        #expect(result.feed.entries.first?.title == "Richer duplicate title")
+        #expect(result.kind == .rss)
+        #expect(result.metadata.title == "Worker & Feed")
+        #expect(result.acceptedEntryCount == 1)
         #expect(result.diagnostics.rejectedEntries.count == 1)
         let payload = try #require(result.articlePayloads.first)
-        #expect(result.articlePayloads.count == result.feed.entries.count)
+        #expect(result.articlePayloads.count == result.acceptedEntryCount)
         #expect(payload.title == "Richer duplicate title")
         #expect(payload.publishedAt == FeedDateParsingService.parse("Tue, 02 Jan 2024 10:15:30 +0000"))
         #expect(payload.fetchedAt == fetchedAt)
@@ -60,7 +59,7 @@ struct FeedParsingWorkerTests {
         )
         let worker = FeedParsingWorker(pipeline: { _ in pipelineResult })
 
-        let result = try await worker.parse(
+        let result = try await worker.parseRefresh(
             makeResponse(),
             fetchedAt: Date(timeIntervalSince1970: 1_700_000_000)
         )
@@ -69,8 +68,83 @@ struct FeedParsingWorkerTests {
         #expect(payload.publishedAt == normalizedPublishedAt)
     }
 
+    @Test
+    func previewReturnsPipelineResultWithoutPreparingArticlePayloads() async throws {
+        let probe = FeedParsingExecutionProbe()
+        let worker = FeedParsingWorker(
+            payloadPreparation: { _, _ in
+                probe.recordPayloadPreparationStart()
+                return []
+            }
+        )
+
+        let result = try await worker.parsePreview(makeResponse())
+
+        #expect(result.feed.kind == .rss)
+        #expect(result.feed.metadata.title == "Worker & Feed")
+        #expect(result.feed.entries.count == 1)
+        #expect(result.feed.entries.first?.title == "Richer duplicate title")
+        #expect(result.diagnostics.rejectedEntries.count == 1)
+        #expect(probe.didStartPayloadPreparation == false)
+    }
+
+    @Test
+    func previewPropagatesCancellationFromActualXMLCallbackWithoutPreparingPayloads() async {
+        let probe = FeedParsingExecutionProbe()
+        let worker = FeedParsingWorker(
+            pipeline: { response in
+                try FeedParserService.parsePipelineResult(
+                    response,
+                    xmlCancellationProbe: probe.cancelFromXMLCallback
+                )
+            },
+            payloadPreparation: { _, _ in
+                probe.recordPayloadPreparationStart()
+                return []
+            }
+        )
+
+        await #expect(throws: CancellationError.self) {
+            try await worker.parsePreview(makeResponse())
+        }
+        #expect(probe.didCancelFromXMLCallbackOffMainThread)
+        #expect(probe.didStartPayloadPreparation == false)
+    }
+
+    @Test(arguments: WorkerEntryCancellationStage.previewStages)
+    func cancellingPreviewDuringActualEntryProcessingReturnsCancellationError(
+        stage: WorkerEntryCancellationStage
+    ) async throws {
+        let gate = WorkerEntryCancellationGate(target: stage)
+        let worker = FeedParsingWorker(
+            pipeline: { response in
+                try FeedParserService.parsePipelineResult(
+                    response,
+                    entryProgressProbe: gate.recordEntryProgress
+                )
+            }
+        )
+        let task = Task {
+            try await worker.parsePreview(makeCancellationResponse())
+        }
+
+        try await gate.waitUntilStarted()
+        task.cancel()
+        gate.release()
+
+        await #expect(throws: CancellationError.self) {
+            try await task.value
+        }
+        #expect(gate.didRunActualWorkOffMainThread)
+        #expect(gate.maximumProcessedEntryCount > 0)
+        #expect(
+            gate.maximumProcessedEntryCount
+                <= FeedParsingCancellationPolicy.entryCheckpointInterval
+        )
+    }
+
     @Test(arguments: WorkerEntryCancellationStage.allCases)
-    func cancellingCallerDuringActualEntryProcessingReturnsCancellationError(
+    func cancellingRefreshDuringActualEntryProcessingReturnsCancellationError(
         stage: WorkerEntryCancellationStage
     ) async throws {
         let gate = WorkerEntryCancellationGate(target: stage)
@@ -90,7 +164,7 @@ struct FeedParsingWorkerTests {
             }
         )
         let task = Task {
-            try await worker.parse(makeCancellationResponse())
+            try await worker.parseRefresh(makeCancellationResponse())
         }
 
         try await gate.waitUntilStarted()
@@ -183,6 +257,8 @@ private final class FeedParsingExecutionProbe: @unchecked Sendable {
     private var pipelineRanOnMainThread = true
     private var payloadPreparationStarted = false
     private var payloadPreparationRanOnMainThread = true
+    private var xmlCancellationCallbackInvoked = false
+    private var xmlCancellationCallbackRanOnMainThread = true
 
     var didRunPipelineOffMainThread: Bool {
         lock.withLock { started && pipelineRanOnMainThread == false }
@@ -191,6 +267,16 @@ private final class FeedParsingExecutionProbe: @unchecked Sendable {
     var didRunPayloadPreparationOffMainThread: Bool {
         lock.withLock {
             payloadPreparationStarted && payloadPreparationRanOnMainThread == false
+        }
+    }
+
+    var didStartPayloadPreparation: Bool {
+        lock.withLock { payloadPreparationStarted }
+    }
+
+    var didCancelFromXMLCallbackOffMainThread: Bool {
+        lock.withLock {
+            xmlCancellationCallbackInvoked && xmlCancellationCallbackRanOnMainThread == false
         }
     }
 
@@ -207,6 +293,14 @@ private final class FeedParsingExecutionProbe: @unchecked Sendable {
             payloadPreparationRanOnMainThread = Thread.isMainThread
         }
     }
+
+    func cancelFromXMLCallback() -> Bool {
+        lock.withLock {
+            xmlCancellationCallbackInvoked = true
+            xmlCancellationCallbackRanOnMainThread = Thread.isMainThread
+        }
+        return true
+    }
 }
 
 enum WorkerEntryCancellationStage: CaseIterable, Sendable {
@@ -215,6 +309,13 @@ enum WorkerEntryCancellationStage: CaseIterable, Sendable {
     case deduplication
     case filtering
     case payloadMaterialization
+
+    static let previewStages: [Self] = [
+        .normalization,
+        .diagnostics,
+        .deduplication,
+        .filtering
+    ]
 
     var entryStage: FeedParsingEntryStage? {
         switch self {

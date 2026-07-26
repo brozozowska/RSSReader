@@ -1,18 +1,21 @@
 import Foundation
 
 nonisolated protocol FeedParsingWorking: Sendable {
-    func parse(_ response: FeedResponse, fetchedAt: Date) async throws -> FeedParsingWorkerResult
+    func parsePreview(_ response: FeedResponse) async throws -> FeedPreviewParsingResult
+    func parseRefresh(
+        _ response: FeedResponse,
+        fetchedAt: Date
+    ) async throws -> FeedRefreshParsingResult
 }
 
 extension FeedParsingWorking {
-    func parse(_ response: FeedResponse) async throws -> FeedParsingWorkerResult {
-        try await parse(response, fetchedAt: .now)
+    func parseRefresh(_ response: FeedResponse) async throws -> FeedRefreshParsingResult {
+        try await parseRefresh(response, fetchedAt: .now)
     }
 }
 
-nonisolated struct FeedParsingWorkerResult: Sendable {
+nonisolated struct FeedPreviewParsingResult: Sendable {
     let pipelineResult: FeedParsePipelineResult
-    let articlePayloads: [ArticleUpsertPayload]
 
     var feed: ParsedFeedDTO {
         pipelineResult.feed
@@ -21,6 +24,14 @@ nonisolated struct FeedParsingWorkerResult: Sendable {
     var diagnostics: FeedParsePipelineDiagnostics {
         pipelineResult.diagnostics
     }
+}
+
+nonisolated struct FeedRefreshParsingResult: Sendable {
+    let metadata: ParsedFeedMetadataDTO
+    let kind: FeedKind
+    let acceptedEntryCount: Int
+    let diagnostics: FeedParsePipelineDiagnostics
+    let articlePayloads: [ArticleUpsertPayload]
 }
 
 nonisolated struct FeedParsingWorker: FeedParsingWorking, Sendable {
@@ -42,23 +53,46 @@ nonisolated struct FeedParsingWorker: FeedParsingWorking, Sendable {
         self.payloadPreparation = payloadPreparation
     }
 
-    func parse(_ response: FeedResponse, fetchedAt: Date) async throws -> FeedParsingWorkerResult {
+    func parsePreview(_ response: FeedResponse) async throws -> FeedPreviewParsingResult {
+        try Task.checkCancellation()
+
+        let pipeline = self.pipeline
+        return try await runDetached {
+            try Task.checkCancellation()
+            let pipelineResult = try pipeline(response)
+            try Task.checkCancellation()
+            return FeedPreviewParsingResult(pipelineResult: pipelineResult)
+        }
+    }
+
+    func parseRefresh(
+        _ response: FeedResponse,
+        fetchedAt: Date
+    ) async throws -> FeedRefreshParsingResult {
         try Task.checkCancellation()
 
         let pipeline = self.pipeline
         let payloadPreparation = self.payloadPreparation
-        let parsingTask = Task.detached(priority: Task.currentPriority) {
+        return try await runDetached {
             try Task.checkCancellation()
             let pipelineResult = try pipeline(response)
             try Task.checkCancellation()
             let articlePayloads = try payloadPreparation(pipelineResult.feed.entries, fetchedAt)
             try Task.checkCancellation()
-            return FeedParsingWorkerResult(
-                pipelineResult: pipelineResult,
+            return FeedRefreshParsingResult(
+                metadata: pipelineResult.feed.metadata,
+                kind: pipelineResult.feed.kind,
+                acceptedEntryCount: pipelineResult.feed.entries.count,
+                diagnostics: pipelineResult.diagnostics,
                 articlePayloads: articlePayloads
             )
         }
+    }
 
+    private func runDetached<Result: Sendable>(
+        _ operation: @escaping @Sendable () throws -> Result
+    ) async throws -> Result {
+        let parsingTask = Task.detached(priority: Task.currentPriority, operation: operation)
         return try await withTaskCancellationHandler {
             try await parsingTask.value
         } onCancel: {
