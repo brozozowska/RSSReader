@@ -12,6 +12,7 @@ nonisolated enum LargeFeedPipelineTestContract {
     static let maximumFeedSaveOperationCount = 2
     static let maximumArticleFetchOperationCount = 1
     static let maximumArticleSaveOperationCount = 0
+    static let maximumReconciliationItemsBetweenCancellationChecks = 32
 }
 
 nonisolated struct LargeFeedPipelineFixture: Sendable {

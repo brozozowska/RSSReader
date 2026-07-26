@@ -21,7 +21,13 @@ struct TestHarness {
         unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = nil,
         logger: Logging = TestLogger(),
         feedRepositoryOperationRecorder: @escaping SwiftDataRepositoryOperationRecorder = { _ in },
-        articleRepositoryOperationRecorder: @escaping SwiftDataRepositoryOperationRecorder = { _ in }
+        articleRepositoryOperationRecorder: @escaping SwiftDataRepositoryOperationRecorder = { _ in },
+        articleReconciliationCancellationCheckpoint: @escaping (
+            ArticleFeedSnapshotCancellationCheckpoint
+        ) throws -> Void = { _ in
+            try Task.checkCancellation()
+        },
+        articleReconciliationProgressProbe: ArticleFeedSnapshotReconciliationProgressProbe? = nil
     ) throws -> TestHarness {
         let resolvedFeedIconDiscoveryService = feedIconDiscoveryService ?? NoOpFeedIconDiscoveryService()
         let schema = AppComposition.persistenceModelPartition.schema
@@ -55,7 +61,9 @@ struct TestHarness {
         let folderRepository = SwiftDataFolderRepository(modelContext: modelContext)
         let articleRepository = SwiftDataArticleRepository(
             modelContext: modelContext,
-            persistenceOperationRecorder: articleRepositoryOperationRecorder
+            persistenceOperationRecorder: articleRepositoryOperationRecorder,
+            cancellationCheckpoint: articleReconciliationCancellationCheckpoint,
+            reconciliationProgressProbe: articleReconciliationProgressProbe
         )
         let articleStateRepository = SwiftDataArticleStateRepository(modelContext: modelContext)
         let articleStateService = ArticleStateService(

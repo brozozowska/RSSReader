@@ -12,10 +12,33 @@ struct ArticleFeedSnapshotReconciliationResult {
     let upsertedArticleCount: Int
 }
 
+enum ArticleFeedSnapshotReconciliationStage: CaseIterable, Hashable, Sendable {
+    case incomingIdentityMaterialization
+    case snapshotCanonicalization
+    case projectionAndArchive
+    case duplicateDeletion
+    case payloadApply
+}
+
+struct ArticleFeedSnapshotReconciliationProgress: Sendable {
+    let stage: ArticleFeedSnapshotReconciliationStage
+    let processedItemCount: Int
+    let totalItemCount: Int
+}
+
+typealias ArticleFeedSnapshotReconciliationProgressProbe = @MainActor (
+    ArticleFeedSnapshotReconciliationProgress
+) -> Void
+
 enum ArticleFeedSnapshotCancellationCheckpoint: Equatable, Sendable {
     case beforeSnapshot
+    case during(ArticleFeedSnapshotReconciliationStage)
     case beforeUpsert
     case afterUpsert
+}
+
+enum ArticleFeedSnapshotReconciliationPolicy {
+    static let cancellationCheckpointInterval = 32
 }
 
 @MainActor
@@ -74,6 +97,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     let modelContext: ModelContext
     let persistenceOperationRecorder: SwiftDataRepositoryOperationRecorder
     private let cancellationCheckpoint: (ArticleFeedSnapshotCancellationCheckpoint) throws -> Void
+    private let reconciliationProgressProbe: ArticleFeedSnapshotReconciliationProgressProbe?
     private let articleStateIdentityRepairer: SwiftDataArticleStateIdentityRepairer
 
     init(
@@ -81,11 +105,13 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         persistenceOperationRecorder: @escaping SwiftDataRepositoryOperationRecorder = { _ in },
         cancellationCheckpoint: @escaping (ArticleFeedSnapshotCancellationCheckpoint) throws -> Void = { _ in
             try Task.checkCancellation()
-        }
+        },
+        reconciliationProgressProbe: ArticleFeedSnapshotReconciliationProgressProbe? = nil
     ) {
         self.modelContext = modelContext
         self.persistenceOperationRecorder = persistenceOperationRecorder
         self.cancellationCheckpoint = cancellationCheckpoint
+        self.reconciliationProgressProbe = reconciliationProgressProbe
         self.articleStateIdentityRepairer = SwiftDataArticleStateIdentityRepairer(
             modelContext: modelContext,
             persistenceOperationRecorder: persistenceOperationRecorder
@@ -111,11 +137,9 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         saveAfterOperation: Bool = true
     ) throws -> ArticleFeedSnapshotReconciliationResult {
         try cancellationCheckpoint(.beforeSnapshot)
-        let incomingIdentities = Set(
-            payloads.map { normalizedArticleIdentity($0.externalID) }
-        )
+        let incomingIdentities = try incomingIdentitySet(from: payloads)
         let existingArticles = try fetchArticles(feedID: feed.id)
-        let canonicalSnapshot = canonicalArticleSnapshot(
+        let canonicalSnapshot = try canonicalArticleSnapshot(
             from: existingArticles
         )
         try articleStateIdentityRepairer.stageRepairs(
@@ -126,7 +150,17 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         var projectionUpdateCount = 0
         var reconciledArticleCount = 0
 
-        for (identity, article) in articlesByIdentity {
+        recordReconciliationProgress(
+            stage: .projectionAndArchive,
+            processedItemCount: 0,
+            totalItemCount: articlesByIdentity.count
+        )
+        for (index, element) in articlesByIdentity.enumerated() {
+            try checkReconciliationCancellation(
+                stage: .projectionAndArchive,
+                beforeItemAt: index
+            )
+            let (identity, article) = element
             if canonicalSnapshot.duplicateIdentities.contains(identity),
                article.externalID != identity {
                 article.externalID = identity
@@ -141,14 +175,39 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             ) {
                 reconciledArticleCount += 1
             }
+            recordReconciliationProgress(
+                stage: .projectionAndArchive,
+                processedItemCount: index + 1,
+                totalItemCount: articlesByIdentity.count
+            )
         }
+        try checkReconciliationCancellationAfterStage(
+            .projectionAndArchive
+        )
 
-        for duplicateArticle in canonicalSnapshot.duplicateArticles {
+        recordReconciliationProgress(
+            stage: .duplicateDeletion,
+            processedItemCount: 0,
+            totalItemCount: canonicalSnapshot.duplicateArticles.count
+        )
+        for (index, duplicateArticle) in canonicalSnapshot.duplicateArticles.enumerated() {
+            try checkReconciliationCancellation(
+                stage: .duplicateDeletion,
+                beforeItemAt: index
+            )
             modelContext.delete(duplicateArticle)
+            recordReconciliationProgress(
+                stage: .duplicateDeletion,
+                processedItemCount: index + 1,
+                totalItemCount: canonicalSnapshot.duplicateArticles.count
+            )
         }
+        try checkReconciliationCancellationAfterStage(
+            .duplicateDeletion
+        )
 
         try cancellationCheckpoint(.beforeUpsert)
-        let upsertedArticles = applyPayloads(
+        let upsertedArticles = try applyPayloads(
             payloads,
             into: feed,
             articlesByIdentity: &articlesByIdentity
@@ -323,11 +382,20 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         _ payloads: [ArticleUpsertPayload],
         into feed: Feed,
         articlesByIdentity: inout [String: Article]
-    ) -> [Article] {
+    ) throws -> [Article] {
         var upsertedArticles: [Article] = []
         var upsertedIdentities: Set<String> = []
 
-        for payload in payloads {
+        recordReconciliationProgress(
+            stage: .payloadApply,
+            processedItemCount: 0,
+            totalItemCount: payloads.count
+        )
+        for (index, payload) in payloads.enumerated() {
+            try checkReconciliationCancellation(
+                stage: .payloadApply,
+                beforeItemAt: index
+            )
             let identity = normalizedArticleIdentity(payload.externalID)
             let article: Article
 
@@ -343,7 +411,15 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             if upsertedIdentities.insert(identity).inserted {
                 upsertedArticles.append(article)
             }
+            recordReconciliationProgress(
+                stage: .payloadApply,
+                processedItemCount: index + 1,
+                totalItemCount: payloads.count
+            )
         }
+        try checkReconciliationCancellationAfterStage(
+            .payloadApply
+        )
 
         return upsertedArticles
     }
@@ -392,9 +468,38 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         normalizedIdentifier(externalID) ?? externalID
     }
 
+    private func incomingIdentitySet(
+        from payloads: [ArticleUpsertPayload]
+    ) throws -> Set<String> {
+        var identities: Set<String> = []
+        identities.reserveCapacity(payloads.count)
+        recordReconciliationProgress(
+            stage: .incomingIdentityMaterialization,
+            processedItemCount: 0,
+            totalItemCount: payloads.count
+        )
+
+        for (index, payload) in payloads.enumerated() {
+            try checkReconciliationCancellation(
+                stage: .incomingIdentityMaterialization,
+                beforeItemAt: index
+            )
+            identities.insert(normalizedArticleIdentity(payload.externalID))
+            recordReconciliationProgress(
+                stage: .incomingIdentityMaterialization,
+                processedItemCount: index + 1,
+                totalItemCount: payloads.count
+            )
+        }
+        try checkReconciliationCancellationAfterStage(
+            .incomingIdentityMaterialization
+        )
+        return identities
+    }
+
     private func canonicalArticleSnapshot(
         from articles: [Article]
-    ) -> (
+    ) throws -> (
         articlesByIdentity: [String: Article],
         duplicateArticles: [Article],
         duplicateIdentities: Set<String>
@@ -403,10 +508,25 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         var duplicateArticles: [Article] = []
         var duplicateIdentities: Set<String> = []
 
-        for article in articles {
+        articlesByIdentity.reserveCapacity(articles.count)
+        recordReconciliationProgress(
+            stage: .snapshotCanonicalization,
+            processedItemCount: 0,
+            totalItemCount: articles.count
+        )
+        for (index, article) in articles.enumerated() {
+            try checkReconciliationCancellation(
+                stage: .snapshotCanonicalization,
+                beforeItemAt: index
+            )
             let identity = normalizedArticleIdentity(article.externalID)
             guard let existingCanonicalArticle = articlesByIdentity[identity] else {
                 articlesByIdentity[identity] = article
+                recordReconciliationProgress(
+                    stage: .snapshotCanonicalization,
+                    processedItemCount: index + 1,
+                    totalItemCount: articles.count
+                )
                 continue
             }
 
@@ -417,9 +537,49 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             } else {
                 duplicateArticles.append(article)
             }
+            recordReconciliationProgress(
+                stage: .snapshotCanonicalization,
+                processedItemCount: index + 1,
+                totalItemCount: articles.count
+            )
         }
+        try checkReconciliationCancellationAfterStage(
+            .snapshotCanonicalization
+        )
 
         return (articlesByIdentity, duplicateArticles, duplicateIdentities)
+    }
+
+    private func checkReconciliationCancellation(
+        stage: ArticleFeedSnapshotReconciliationStage,
+        beforeItemAt index: Int
+    ) throws {
+        guard index.isMultiple(
+            of: ArticleFeedSnapshotReconciliationPolicy.cancellationCheckpointInterval
+        ) else {
+            return
+        }
+        try cancellationCheckpoint(.during(stage))
+    }
+
+    private func checkReconciliationCancellationAfterStage(
+        _ stage: ArticleFeedSnapshotReconciliationStage
+    ) throws {
+        try cancellationCheckpoint(.during(stage))
+    }
+
+    private func recordReconciliationProgress(
+        stage: ArticleFeedSnapshotReconciliationStage,
+        processedItemCount: Int,
+        totalItemCount: Int
+    ) {
+        reconciliationProgressProbe?(
+            ArticleFeedSnapshotReconciliationProgress(
+                stage: stage,
+                processedItemCount: processedItemCount,
+                totalItemCount: totalItemCount
+            )
+        )
     }
 
     private func articleCanonicalOrder(_ lhs: Article, _ rhs: Article) -> Bool {
