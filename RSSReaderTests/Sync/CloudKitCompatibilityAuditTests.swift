@@ -59,7 +59,7 @@ struct CloudKitCompatibilityAuditTests {
                         "SwiftDataArticleStateRepository.fetchState(feedID:articleExternalID:)",
                         "SwiftDataArticleStateRepository.fetchOrCreate(feedID:articleExternalID:)",
                         "SwiftDataArticleStateRepository.fetchCanonicalState(feedID:articleExternalID:removeDuplicates:)",
-                        "SwiftDataArticleStateIdentityRepairer.stageRepairs(feedID:normalizedIdentities:)",
+                        "SwiftDataArticleStateIdentityRepairer.stageRepairs(feedID:normalizedIdentities:cancellationCheckpoint:progressProbe:)",
                         "SwiftDataArticleStateRepository.shouldApply(_:to:)"
                     ]
             }
@@ -154,7 +154,7 @@ struct CloudKitCompatibilityAuditTests {
                         "SwiftDataArticleStateRepository.fetchState(feedID:articleExternalID:)",
                         "SwiftDataArticleStateRepository.fetchOrCreate(feedID:articleExternalID:)",
                         "SwiftDataArticleStateRepository.fetchCanonicalState(feedID:articleExternalID:removeDuplicates:)",
-                        "SwiftDataArticleStateIdentityRepairer.stageRepairs(feedID:normalizedIdentities:)",
+                        "SwiftDataArticleStateIdentityRepairer.stageRepairs(feedID:normalizedIdentities:cancellationCheckpoint:progressProbe:)",
                         "SwiftDataArticleStateRepository.shouldApply(_:to:)"
                     ]
             }

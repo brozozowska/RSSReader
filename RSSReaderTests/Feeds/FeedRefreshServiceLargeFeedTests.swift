@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import RSSReader
 
@@ -283,6 +284,183 @@ struct FeedRefreshServiceLargeFeedTests {
         #expect(Set(logs.map(\.status)) == Set(["cancelled", "fetched"]))
     }
 
+    @Test(arguments: [
+        ArticleFeedSnapshotReconciliationStage.articleStateMaterialization,
+        .articleStateCanonicalization,
+        .articleStateDuplicateDeletion
+    ])
+    func largeArticleStateRepairCancellationIsBoundedAndRollsBackBeforeSuccessfulRetry(
+        targetStage: ArticleFeedSnapshotReconciliationStage
+    ) async throws {
+        let feedURL = "https://example.com/large-state-repair.xml"
+        let rawGUID = "large-state-repair"
+        let identity = ArticleIdentityService.makeExternalID(
+            from: ArticleIdentityInput(
+                feedURL: feedURL,
+                guid: rawGUID,
+                title: "Large State Repair Article"
+            )
+        )
+        let stateCount = LargeFeedPipelineTestContract.uniqueEntryCount
+        let responseBody = makeValidRSSFeedXML(
+            channelTitle: "Large State Repair Feed",
+            channelLink: "https://example.com/state-repair/",
+            language: "en",
+            itemTitle: "Large State Repair Article",
+            itemLink: "https://example.com/state-repair/article",
+            itemGUID: rawGUID,
+            itemDescription: "Large state repair summary",
+            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+        )
+        let responseStep = ScriptedHTTPClient.Step.response(
+            statusCode: 200,
+            headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+            body: responseBody
+        )
+        let client = ScriptedHTTPClient(steps: [responseStep, responseStep])
+        let articleOperations = SwiftDataRepositoryOperationCounter()
+        let reconciliationProbe = LargeFeedReconciliationProbe()
+        let cancellationProbe = LargeFeedReconciliationCancellationProbe(
+            progressProbe: reconciliationProbe,
+            targetStage: targetStage
+        )
+        let harness = try TestHarness.make(
+            httpClient: client,
+            articleRepositoryOperationRecorder: articleOperations.record,
+            articleReconciliationCancellationCheckpoint: cancellationProbe.check,
+            articleReconciliationProgressProbe: reconciliationProbe.record
+        )
+        let feed = Feed(
+            url: feedURL,
+            title: "Original State Repair Feed"
+        )
+        try harness.feedRepository.insert(feed)
+        let modelContext = harness.modelContainer.mainContext
+        let olderUpdatedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let newerUpdatedAt = Date(timeIntervalSince1970: 1_700_000_100)
+        modelContext.insert(
+            Article(
+                feedID: feed.id,
+                feedTitle: feed.displayTitle,
+                externalID: identity,
+                url: "https://example.com/state-repair/older",
+                title: "Older State Repair Article",
+                updatedAt: olderUpdatedAt
+            )
+        )
+        modelContext.insert(
+            Article(
+                feedID: feed.id,
+                feedTitle: feed.displayTitle,
+                externalID: " \(identity) ",
+                url: "https://example.com/state-repair/canonical",
+                title: "Canonical State Repair Article",
+                updatedAt: newerUpdatedAt
+            )
+        )
+
+        var canonicalStateID = UUID()
+        for index in 0..<stateCount {
+            let stateID = UUID()
+            if index == stateCount - 1 {
+                canonicalStateID = stateID
+            }
+            let stateUpdatedAt = Date(
+                timeIntervalSince1970: newerUpdatedAt.timeIntervalSince1970 + Double(index)
+            )
+            modelContext.insert(
+                ArticleState(
+                    id: stateID,
+                    articleExternalID: index.isMultiple(of: 2) ? identity : " \(identity) ",
+                    feedID: feed.id,
+                    isRead: index == stateCount - 1,
+                    readAt: index == stateCount - 1 ? stateUpdatedAt : nil,
+                    isStarred: index == stateCount - 1,
+                    starredAt: index == stateCount - 1 ? stateUpdatedAt : nil,
+                    isHidden: index == stateCount - 1,
+                    hiddenAt: index == stateCount - 1 ? stateUpdatedAt : nil,
+                    lastInteractionAt: stateUpdatedAt,
+                    updatedAt: stateUpdatedAt
+                )
+            )
+        }
+        try modelContext.save()
+        articleOperations.reset()
+        reconciliationProbe.reset()
+        cancellationProbe.arm()
+
+        let cancelledResult = await harness.service.refresh(feedID: feed.id)
+
+        #expect(cancelledResult.status == .cancelled)
+        #expect(cancellationProbe.didInject)
+        #expect(cancellationProbe.processedItemCountAtCancellation > 0)
+        #expect(
+            cancellationProbe.processedItemCountAtCancellation
+                <= LargeFeedPipelineTestContract.maximumReconciliationItemsBetweenCancellationChecks
+        )
+        #expect(harness.service.inFlightRefreshTasks[feed.id] == nil)
+        #expect(articleOperations.fetchCount > 0)
+        #expect(
+            articleOperations.fetchCount
+                <= LargeFeedPipelineTestContract.maximumArticleFetchOperationCountWithStateRepair
+        )
+        #expect(articleOperations.saveCount == LargeFeedPipelineTestContract.maximumArticleSaveOperationCount)
+        let rolledBackArticles = try modelContext.fetch(FetchDescriptor<Article>())
+        let rolledBackStates = try modelContext.fetch(FetchDescriptor<ArticleState>())
+        #expect(rolledBackArticles.count == 2)
+        #expect(Set(rolledBackArticles.map(\.externalID)) == [identity, " \(identity) "])
+        #expect(rolledBackStates.count == stateCount)
+        #expect(rolledBackStates.contains { $0.id == canonicalStateID })
+        let attemptedFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
+        #expect(attemptedFeed.lastFetchedAt != nil)
+        let cancelledLog = try #require(
+            try harness.feedFetchLogRepository.fetchLatestLog(feedID: feed.id)
+        )
+        #expect(cancelledLog.status == "cancelled")
+
+        articleOperations.reset()
+        reconciliationProbe.reset()
+        cancellationProbe.disarm()
+        let retryResult = await harness.service.refresh(feedID: feed.id)
+
+        #expect(retryResult.status == .fetched)
+        #expect(harness.service.inFlightRefreshTasks[feed.id] == nil)
+        #expect(await client.recordedRequests().count == 2)
+        #expect(articleOperations.fetchCount > 0)
+        #expect(
+            articleOperations.fetchCount
+                <= LargeFeedPipelineTestContract.maximumArticleFetchOperationCountWithStateRepair
+        )
+        #expect(articleOperations.saveCount == LargeFeedPipelineTestContract.maximumArticleSaveOperationCount)
+        #expect(
+            reconciliationProbe.maximumProcessedItemCount(for: .articleStateMaterialization)
+                == stateCount
+        )
+        #expect(
+            reconciliationProbe.maximumProcessedItemCount(for: .articleStateCanonicalization)
+                == stateCount + 1
+        )
+        #expect(
+            reconciliationProbe.maximumProcessedItemCount(for: .articleStateDuplicateDeletion)
+                == stateCount - 1
+        )
+        let verificationContext = ModelContext(harness.modelContainer)
+        let repairedArticles = try verificationContext.fetch(FetchDescriptor<Article>())
+        let repairedStates = try verificationContext.fetch(FetchDescriptor<ArticleState>())
+        let repairedState = try #require(repairedStates.first)
+        #expect(repairedArticles.count == 1)
+        #expect(repairedArticles.first?.externalID == identity)
+        #expect(repairedStates.count == 1)
+        #expect(repairedState.id == canonicalStateID)
+        #expect(repairedState.articleExternalID == identity)
+        #expect(repairedState.isRead)
+        #expect(repairedState.isStarred)
+        #expect(repairedState.isHidden)
+        let logs = try harness.feedFetchLogRepository.fetchLogs(feedID: feed.id, limit: nil)
+        #expect(logs.count == 2)
+        #expect(Set(logs.map(\.status)) == Set(["cancelled", "fetched"]))
+    }
+
     private func makeEmptyLargeFeedXML() -> String {
         """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -361,7 +539,6 @@ private final class LargeFeedReconciliationProbe {
 private final class LargeFeedReconciliationCancellationProbe {
     private let progressProbe: LargeFeedReconciliationProbe
     private let targetStage: ArticleFeedSnapshotReconciliationStage
-    private var targetCheckpointCount = 0
     private var isArmed = false
     private(set) var didInject = false
     private(set) var processedItemCountAtCancellation = 0
@@ -375,10 +552,13 @@ private final class LargeFeedReconciliationCancellationProbe {
     }
 
     func arm() {
-        targetCheckpointCount = 0
         isArmed = true
         didInject = false
         processedItemCountAtCancellation = 0
+    }
+
+    func disarm() {
+        isArmed = false
     }
 
     func check(_ checkpoint: ArticleFeedSnapshotCancellationCheckpoint) throws {
@@ -389,10 +569,10 @@ private final class LargeFeedReconciliationCancellationProbe {
             return
         }
 
-        targetCheckpointCount += 1
-        guard targetCheckpointCount == 2 else { return }
+        let processedItemCount = progressProbe.maximumProcessedItemCount(for: targetStage)
+        guard processedItemCount > 0 else { return }
         didInject = true
-        processedItemCountAtCancellation = progressProbe.maximumProcessedItemCount(for: targetStage)
+        processedItemCountAtCancellation = processedItemCount
         withUnsafeCurrentTask { task in
             task?.cancel()
         }

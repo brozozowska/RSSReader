@@ -15,6 +15,9 @@ struct ArticleFeedSnapshotReconciliationResult {
 enum ArticleFeedSnapshotReconciliationStage: CaseIterable, Hashable, Sendable {
     case incomingIdentityMaterialization
     case snapshotCanonicalization
+    case articleStateMaterialization
+    case articleStateCanonicalization
+    case articleStateDuplicateDeletion
     case projectionAndArchive
     case duplicateDeletion
     case payloadApply
@@ -143,7 +146,9 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         )
         try articleStateIdentityRepairer.stageRepairs(
             feedID: feed.id,
-            normalizedIdentities: canonicalSnapshot.duplicateIdentities
+            normalizedIdentities: canonicalSnapshot.duplicateIdentities,
+            cancellationCheckpoint: cancellationCheckpoint,
+            progressProbe: reconciliationProgressProbe
         )
         var articlesByIdentity = canonicalSnapshot.articlesByIdentity
         var projectionUpdateCount = 0

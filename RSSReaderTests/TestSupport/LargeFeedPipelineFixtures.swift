@@ -11,6 +11,7 @@ nonisolated enum LargeFeedPipelineTestContract {
     static let maximumFeedFetchOperationCount = 8
     static let maximumFeedSaveOperationCount = 2
     static let maximumArticleFetchOperationCount = 1
+    static let maximumArticleFetchOperationCountWithStateRepair = 2
     static let maximumArticleSaveOperationCount = 0
     static let maximumReconciliationItemsBetweenCancellationChecks = 32
 }
