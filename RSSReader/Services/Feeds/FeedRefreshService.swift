@@ -9,6 +9,21 @@ struct FeedRefreshContext: Sendable {
     let request: FeedRequest
 }
 
+struct FeedRefreshInFlightWaiter {
+    let startedAt: Date
+    let continuation: CheckedContinuation<FeedRefreshResult, Never>
+}
+
+struct FeedRefreshInFlightTask {
+    let id: UUID
+    let task: Task<FeedRefreshResult, Never>
+    var waiters: [UUID: FeedRefreshInFlightWaiter]
+
+    var waiterCount: Int {
+        waiters.count
+    }
+}
+
 enum FeedRefreshCancellationCheckpoint: Equatable, Sendable {
     case afterIconDiscovery
     case beforeFetchedSave
@@ -34,6 +49,8 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     let reconciliationPolicy: FeedRefreshReconciliationPolicy = .markMissingArticlesAsArchived
     let batchPolicy: FeedRefreshBatchPolicy = .default
     let inFlightPolicy: FeedRefreshInFlightPolicy = .shareExistingTaskResult
+    let inFlightCallerCancellationPolicy: FeedRefreshInFlightCallerCancellationPolicy =
+        .cancelSharedTaskWhenLastWaiterCancels
     let logger: Logging
     let feedFetcher: any FeedFetching
     let feedParsingWorker: any FeedParsingWorking
@@ -42,7 +59,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     let feedIconDiscoveryService: (any FeedIconDiscovering)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
     let cancellationCheckpoint: (FeedRefreshCancellationCheckpoint) throws -> Void
-    var inFlightRefreshTasks: [UUID: Task<FeedRefreshResult, Never>] = [:]
+    var inFlightRefreshTasks: [UUID: FeedRefreshInFlightTask] = [:]
 
     init(
         logger: Logging,

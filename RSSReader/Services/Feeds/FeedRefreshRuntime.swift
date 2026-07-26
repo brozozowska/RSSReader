@@ -4,38 +4,107 @@ extension FeedRefreshService {
     func refresh(feedID: UUID) async -> FeedRefreshResult {
         switch inFlightPolicy {
         case .shareExistingTaskResult:
-            if let inFlightTask = inFlightRefreshTasks[feedID] {
-                logger.info("Joining in-flight refresh for feed \(feedID.uuidString)")
-                return await inFlightTask.value
-            }
-
-            let task = Task<FeedRefreshResult, Never> { @MainActor [weak self, feedID] in
-                guard let self else {
-                    return FeedRefreshResult.failed(
-                        feedID: feedID,
-                        startedAt: Date(),
-                        errorDescription: "FeedRefreshService deallocated"
-                    )
-                }
-
-                defer {
-                    self.inFlightRefreshTasks.removeValue(forKey: feedID)
-                }
-                return await self.performRefresh(feedID: feedID)
-            }
-
-            inFlightRefreshTasks[feedID] = task
-            return await awaitOwnedInFlightRefreshTask(task)
+            return await awaitSharedInFlightRefresh(feedID: feedID)
         }
     }
 
-    private func awaitOwnedInFlightRefreshTask(
-        _ task: Task<FeedRefreshResult, Never>
+    private func awaitSharedInFlightRefresh(
+        feedID: UUID
     ) async -> FeedRefreshResult {
-        await withTaskCancellationHandler {
-            await task.value
+        let waiterID = UUID()
+        let waiterStartedAt = Date()
+
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                registerInFlightWaiter(
+                    id: waiterID,
+                    startedAt: waiterStartedAt,
+                    continuation: continuation,
+                    feedID: feedID
+                )
+
+                if Task.isCancelled {
+                    cancelInFlightWaiter(id: waiterID, feedID: feedID)
+                }
+            }
         } onCancel: {
-            task.cancel()
+            Task { @MainActor [weak self] in
+                self?.cancelInFlightWaiter(id: waiterID, feedID: feedID)
+            }
+        }
+    }
+
+    private func registerInFlightWaiter(
+        id waiterID: UUID,
+        startedAt: Date,
+        continuation: CheckedContinuation<FeedRefreshResult, Never>,
+        feedID: UUID
+    ) {
+        let waiter = FeedRefreshInFlightWaiter(
+            startedAt: startedAt,
+            continuation: continuation
+        )
+
+        if var inFlightTask = inFlightRefreshTasks[feedID] {
+            logger.info("Joining in-flight refresh for feed \(feedID.uuidString)")
+            inFlightTask.waiters[waiterID] = waiter
+            inFlightRefreshTasks[feedID] = inFlightTask
+            return
+        }
+
+        let inFlightTaskID = UUID()
+        let task = Task<FeedRefreshResult, Never> { @MainActor [self, feedID] in
+            let result = await performRefresh(feedID: feedID)
+            completeInFlightRefresh(
+                id: inFlightTaskID,
+                feedID: feedID,
+                result: result
+            )
+            return result
+        }
+
+        inFlightRefreshTasks[feedID] = FeedRefreshInFlightTask(
+            id: inFlightTaskID,
+            task: task,
+            waiters: [waiterID: waiter]
+        )
+    }
+
+    private func cancelInFlightWaiter(id waiterID: UUID, feedID: UUID) {
+        guard var inFlightTask = inFlightRefreshTasks[feedID],
+              let waiter = inFlightTask.waiters.removeValue(forKey: waiterID) else {
+            return
+        }
+
+        switch inFlightCallerCancellationPolicy {
+        case .cancelSharedTaskWhenLastWaiterCancels:
+            if inFlightTask.waiters.isEmpty {
+                inFlightTask.task.cancel()
+            }
+        }
+
+        inFlightRefreshTasks[feedID] = inFlightTask
+        waiter.continuation.resume(
+            returning: makeCancelledResult(
+                feedID: feedID,
+                startedAt: waiter.startedAt
+            )
+        )
+    }
+
+    private func completeInFlightRefresh(
+        id inFlightTaskID: UUID,
+        feedID: UUID,
+        result: FeedRefreshResult
+    ) {
+        guard let inFlightTask = inFlightRefreshTasks[feedID],
+              inFlightTask.id == inFlightTaskID else {
+            return
+        }
+
+        inFlightRefreshTasks.removeValue(forKey: feedID)
+        for waiter in inFlightTask.waiters.values {
+            waiter.continuation.resume(returning: result)
         }
     }
 
