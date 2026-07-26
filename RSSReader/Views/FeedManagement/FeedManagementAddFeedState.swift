@@ -199,6 +199,24 @@ struct FeedManagementAddFeedState {
         previewStatus = status
     }
 
+    mutating func cancelPreviewLoading(
+        command: FeedManagementAddFeedPreviewCommand
+    ) {
+        guard activePreviewRequestID == command.requestID,
+              activePreviewRequestURL == command.urlString else {
+            return
+        }
+
+        isLoadingPreview = false
+        isCreatingFeed = false
+        activePreviewRequestURL = nil
+        activePreviewRequestID = nil
+        loadedPreviewRequestURL = nil
+        preview = nil
+        createdFeed = nil
+        previewStatus = nil
+    }
+
     mutating func beginFeedCreation() -> FeedManagementCreateFeedCommand? {
         guard canCreateFeed(), let preview else { return nil }
 

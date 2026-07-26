@@ -1,5 +1,14 @@
 import Foundation
 
+typealias FeedXMLParserCancellationProbe = @Sendable () -> Bool
+typealias FeedXMLParserProgressProbe = @Sendable (FeedXMLParserProgress) -> Void
+
+nonisolated struct FeedXMLParserProgress: Equatable, Sendable {
+    let elementCount: Int
+    let currentDepth: Int
+    let materializedEntryCount: Int
+}
+
 nonisolated struct XMLParserStructuralPolicy: Equatable, Sendable {
     nonisolated enum MaterializedEntryKind: Equatable, Sendable {
         case feed
@@ -23,7 +32,9 @@ nonisolated struct XMLParserStructuralPolicy: Equatable, Sendable {
 extension FeedParserService {
     nonisolated static func parse(
         _ data: Data,
-        structuralPolicy: XMLParserStructuralPolicy = .feed
+        structuralPolicy: XMLParserStructuralPolicy = .feed,
+        cancellationProbe: @escaping FeedXMLParserCancellationProbe = { Task.isCancelled },
+        progressProbe: FeedXMLParserProgressProbe? = nil
     ) throws -> FeedXMLDocument {
         let isWhitespaceOnly = String(data: data, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -33,7 +44,11 @@ extension FeedParserService {
             throw FeedParserError.emptyDocument
         }
 
-        let builder = FeedXMLTreeBuilder(structuralPolicy: structuralPolicy)
+        let builder = FeedXMLTreeBuilder(
+            structuralPolicy: structuralPolicy,
+            cancellationProbe: cancellationProbe,
+            progressProbe: progressProbe
+        )
         let parser = XMLParser(data: data)
         parser.delegate = builder
         parser.shouldProcessNamespaces = true
@@ -60,8 +75,16 @@ extension FeedParserService {
         )
     }
 
-    static func parse(_ response: FeedResponse) throws -> FeedXMLDocument {
-        try parse(response.body)
+    nonisolated static func parse(
+        _ response: FeedResponse,
+        cancellationProbe: @escaping FeedXMLParserCancellationProbe = { Task.isCancelled },
+        progressProbe: FeedXMLParserProgressProbe? = nil
+    ) throws -> FeedXMLDocument {
+        try parse(
+            response.body,
+            cancellationProbe: cancellationProbe,
+            progressProbe: progressProbe
+        )
     }
 }
 
@@ -100,14 +123,22 @@ private nonisolated final class FeedXMLTreeBuilder: NSObject, XMLParserDelegate 
 
     private var stack: [Node] = []
     private let structuralPolicy: XMLParserStructuralPolicy
+    private let cancellationProbe: FeedXMLParserCancellationProbe
+    private let progressProbe: FeedXMLParserProgressProbe?
     private var elementCount = 0
     private var materializedEntryCount = 0
     private(set) var document: FeedXMLDocument?
     private(set) var error: FeedParserError?
     private(set) var wasCancelled = false
 
-    init(structuralPolicy: XMLParserStructuralPolicy) {
+    init(
+        structuralPolicy: XMLParserStructuralPolicy,
+        cancellationProbe: @escaping FeedXMLParserCancellationProbe,
+        progressProbe: FeedXMLParserProgressProbe?
+    ) {
         self.structuralPolicy = structuralPolicy
+        self.cancellationProbe = cancellationProbe
+        self.progressProbe = progressProbe
     }
 
     func parser(
@@ -146,6 +177,13 @@ private nonisolated final class FeedXMLTreeBuilder: NSObject, XMLParserDelegate 
 
         elementCount = nextElementCount
         materializedEntryCount = nextMaterializedEntryCount
+        progressProbe?(
+            FeedXMLParserProgress(
+                elementCount: elementCount,
+                currentDepth: nextDepth,
+                materializedEntryCount: materializedEntryCount
+            )
+        )
         let node = Node(
             name: resolvedName,
             qualifiedName: qName,
@@ -234,7 +272,7 @@ private nonisolated final class FeedXMLTreeBuilder: NSObject, XMLParserDelegate 
     }
 
     private func abortIfCancelled(_ parser: XMLParser) -> Bool {
-        guard Task.isCancelled else { return false }
+        guard cancellationProbe() else { return false }
         wasCancelled = true
         parser.abortParsing()
         return true

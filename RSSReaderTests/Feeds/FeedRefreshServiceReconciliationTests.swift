@@ -144,4 +144,203 @@ struct FeedRefreshServiceReconciliationTests {
         #expect(revivedArticle.archivedAt == nil)
         #expect(revivedArticle.title == "Revived Article")
     }
+
+    @Test
+    func refreshRollsBackFeedAndArticleSnapshotWhenReconciliationFailsBeforeCommit() async throws {
+        let feedURL = "https://example.com/rollback-feed.xml"
+        let client = ScriptedHTTPClient(
+            responsesByURL: [
+                feedURL: .response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                    body: """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <rss version="2.0">
+                      <channel>
+                        <title>Updated Feed</title>
+                        <link>https://example.com/updated/</link>
+                        <item>
+                          <title>Updated Current Article</title>
+                          <link>https://example.com/articles/current</link>
+                          <guid>current-article</guid>
+                          <description>Updated summary</description>
+                        </item>
+                        <item>
+                          <title>New Article</title>
+                          <link>https://example.com/articles/new</link>
+                          <guid>new-article</guid>
+                          <description>New summary</description>
+                        </item>
+                      </channel>
+                    </rss>
+                    """
+                )
+            ]
+        )
+        let reconciliationCheckpoint = ReconciliationCompletionCheckpoint(
+            outcome: .failure
+        )
+        let harness = try TestHarness.make(
+            httpClient: client,
+            articleReconciliationCancellationCheckpoint: reconciliationCheckpoint.check
+        )
+        let feed = Feed(
+            url: feedURL,
+            siteURL: "https://example.com/original/",
+            title: "Original Feed"
+        )
+        try harness.feedRepository.insert(feed)
+        let currentExternalID = ArticleIdentityService.makeExternalID(
+            from: ArticleIdentityInput(
+                feedURL: feedURL,
+                guid: "current-article",
+                articleURL: "https://example.com/articles/current",
+                title: "Updated Current Article"
+            )
+        )
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: currentExternalID,
+            guid: "current-article",
+            url: "https://example.com/articles/current",
+            title: "Stale Current Article",
+            archivedAt: .distantPast
+        )
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "obsolete-article",
+            guid: "obsolete-article",
+            url: "https://example.com/articles/obsolete",
+            title: "Obsolete Article"
+        )
+        let result = await harness.service.refresh(feedID: feed.id)
+
+        #expect(result.status == .failed)
+        #expect(reconciliationCheckpoint.didInject)
+
+        let rolledBackFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
+        #expect(rolledBackFeed.title == "Original Feed")
+        #expect(rolledBackFeed.siteURL == "https://example.com/original/")
+        #expect(rolledBackFeed.lastSuccessfulFetchAt == nil)
+        #expect(rolledBackFeed.lastSyncError != nil)
+
+        let rolledBackArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        let rolledBackCurrentArticle = try #require(
+            rolledBackArticles.first { $0.externalID == currentExternalID }
+        )
+        let rolledBackObsoleteArticle = try #require(
+            rolledBackArticles.first { $0.externalID == "obsolete-article" }
+        )
+        #expect(rolledBackArticles.count == 2)
+        #expect(rolledBackCurrentArticle.title == "Stale Current Article")
+        #expect(rolledBackCurrentArticle.archivedAt == .distantPast)
+        #expect(rolledBackCurrentArticle.feedTitle == "Original Feed")
+        #expect(rolledBackObsoleteArticle.archivedAt == nil)
+        #expect(rolledBackObsoleteArticle.feedTitle == "Original Feed")
+    }
+
+    @Test
+    func cancellationAfterSnapshotUpsertRollsBackFeedAndArticleMutationsBeforeSave() async throws {
+        let feedURL = "https://example.com/cancelled-reconciliation-feed.xml"
+        let client = ScriptedHTTPClient(
+            responsesByURL: [
+                feedURL: .response(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Type": "application/rss+xml; charset=utf-8",
+                        "ETag": "\"updated-etag\""
+                    ],
+                    body: makeValidRSSFeedXML(
+                        channelTitle: "Updated Feed",
+                        channelLink: "https://example.com/updated/",
+                        language: "en",
+                        itemTitle: "New Article",
+                        itemLink: "https://example.com/articles/new",
+                        itemGUID: "new-article",
+                        itemDescription: "New summary",
+                        pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                    )
+                )
+            ]
+        )
+        let reconciliationCheckpoint = ReconciliationCompletionCheckpoint(
+            outcome: .cancellation
+        )
+        let harness = try TestHarness.make(
+            httpClient: client,
+            articleReconciliationCancellationCheckpoint: reconciliationCheckpoint.check
+        )
+        let feed = Feed(
+            url: feedURL,
+            siteURL: "https://example.com/original/",
+            title: "Original Feed",
+            lastETag: "\"original-etag\"",
+            lastSyncError: "Previous error"
+        )
+        try harness.feedRepository.insert(feed)
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "obsolete-article",
+            guid: "obsolete-article",
+            url: "https://example.com/articles/obsolete",
+            title: "Obsolete Article"
+        )
+        let result = await harness.service.refresh(feedID: feed.id)
+
+        #expect(result.status == .cancelled)
+        #expect(reconciliationCheckpoint.didInject)
+        #expect(harness.service.inFlightRefreshTasks[feed.id] == nil)
+
+        let rolledBackFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
+        #expect(rolledBackFeed.title == "Original Feed")
+        #expect(rolledBackFeed.siteURL == "https://example.com/original/")
+        #expect(rolledBackFeed.lastETag == "\"original-etag\"")
+        #expect(rolledBackFeed.lastSuccessfulFetchAt == nil)
+        #expect(rolledBackFeed.lastSyncError == "Previous error")
+        #expect(rolledBackFeed.lastFetchedAt != nil)
+
+        let rolledBackArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        let rolledBackObsoleteArticle = try #require(rolledBackArticles.first)
+        #expect(rolledBackArticles.count == 1)
+        #expect(rolledBackObsoleteArticle.externalID == "obsolete-article")
+        #expect(rolledBackObsoleteArticle.archivedAt == nil)
+        #expect(rolledBackObsoleteArticle.feedTitle == "Original Feed")
+
+        let latestLog = try #require(
+            try harness.feedFetchLogRepository.fetchLatestLog(feedID: feed.id)
+        )
+        #expect(latestLog.status == "cancelled")
+    }
+}
+
+@MainActor
+private final class ReconciliationCompletionCheckpoint {
+    enum Outcome {
+        case failure
+        case cancellation
+    }
+
+    private enum InjectedFailure: Error {
+        case afterSnapshotMutation
+    }
+
+    private let outcome: Outcome
+    private(set) var didInject = false
+
+    init(outcome: Outcome) {
+        self.outcome = outcome
+    }
+
+    func check(_ checkpoint: ArticleFeedSnapshotCancellationCheckpoint) throws {
+        try Task.checkCancellation()
+        guard checkpoint == .afterUpsert, didInject == false else { return }
+        didInject = true
+
+        switch outcome {
+        case .failure:
+            throw InjectedFailure.afterSnapshotMutation
+        case .cancellation:
+            throw CancellationError()
+        }
+    }
 }

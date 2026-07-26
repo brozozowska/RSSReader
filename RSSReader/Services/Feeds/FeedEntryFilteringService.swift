@@ -1,22 +1,22 @@
 import Foundation
 
-enum FeedEntryRejectionReason: String, Sendable {
+nonisolated enum FeedEntryRejectionReason: String, Sendable {
     case missingExternalID
     case missingReadablePayload
     case missingUsefulReference
 }
 
-struct RejectedFeedEntryDiagnostic: Sendable {
+nonisolated struct RejectedFeedEntryDiagnostic: Sendable {
     let entry: ParsedFeedEntryDTO
     let reasons: [FeedEntryRejectionReason]
 }
 
-struct FeedEntryFilterResult: Sendable {
+nonisolated struct FeedEntryFilterResult: Sendable {
     let validEntries: [ParsedFeedEntryDTO]
     let rejectedEntries: [RejectedFeedEntryDiagnostic]
 }
 
-enum FeedEntryFilteringService {
+nonisolated enum FeedEntryFilteringService {
     static func filterValidEntries(from feed: ParsedFeedDTO) -> ParsedFeedDTO {
         ParsedFeedDTO(
             kind: feed.kind,
@@ -30,7 +30,23 @@ enum FeedEntryFilteringService {
     }
 
     static func filterEntries(from feed: ParsedFeedDTO) -> FeedEntryFilterResult {
-        let result = filterEntries(feed.entries)
+        filterEntries(
+            from: feed,
+            cancellationCheck: {},
+            progressProbe: nil
+        )
+    }
+
+    static func filterEntries(
+        from feed: ParsedFeedDTO,
+        cancellationCheck: FeedParsingCancellationCheck,
+        progressProbe: FeedEntryLoopProgressProbe?
+    ) rethrows -> FeedEntryFilterResult {
+        let result = try filterEntries(
+            feed.entries,
+            cancellationCheck: cancellationCheck,
+            progressProbe: progressProbe
+        )
         return FeedEntryFilterResult(
             validEntries: result.validEntries,
             rejectedEntries: result.rejectedEntries
@@ -38,10 +54,26 @@ enum FeedEntryFilteringService {
     }
 
     static func filterEntries(_ entries: [ParsedFeedEntryDTO]) -> FeedEntryFilterResult {
+        filterEntries(
+            entries,
+            cancellationCheck: {},
+            progressProbe: nil
+        )
+    }
+
+    static func filterEntries(
+        _ entries: [ParsedFeedEntryDTO],
+        cancellationCheck: FeedParsingCancellationCheck,
+        progressProbe: FeedEntryLoopProgressProbe?
+    ) rethrows -> FeedEntryFilterResult {
         var validEntries: [ParsedFeedEntryDTO] = []
         var rejectedEntries: [RejectedFeedEntryDiagnostic] = []
 
-        for entry in entries {
+        for (index, entry) in entries.enumerated() {
+            try FeedParsingCancellationPolicy.checkBeforeEntry(
+                at: index,
+                cancellationCheck: cancellationCheck
+            )
             let reasons = rejectionReasons(for: entry)
             if reasons.isEmpty {
                 validEntries.append(entry)
@@ -53,7 +85,9 @@ enum FeedEntryFilteringService {
                     )
                 )
             }
+            progressProbe?(index + 1)
         }
+        try cancellationCheck()
 
         return FeedEntryFilterResult(
             validEntries: validEntries,
@@ -68,7 +102,7 @@ enum FeedEntryFilteringService {
     static func rejectionReasons(for entry: ParsedFeedEntryDTO) -> [FeedEntryRejectionReason] {
         var reasons: [FeedEntryRejectionReason] = []
 
-        if hasValue(entry.externalID) == false {
+        if ArticleUpsertPayload.hasPersistableExternalID(entry) == false {
             reasons.append(.missingExternalID)
         }
 

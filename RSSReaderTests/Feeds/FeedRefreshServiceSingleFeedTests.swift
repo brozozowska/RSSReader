@@ -80,6 +80,76 @@ struct FeedRefreshServiceSingleFeedTests {
     }
 
     @Test
+    func singleFeedRefreshPersistsEveryAcceptedCanonicalGUIDAndContentEntry() async throws {
+        let feedURL = "https://example.com/persistable-entry-contract.xml"
+        let canonicalURL = "https://example.com/articles/canonical-only"
+        let contentOnlyURL = "https://example.com/articles/content-only"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [
+                    feedURL: .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: """
+                        <?xml version="1.0" encoding="UTF-8"?>
+                        <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+                          <channel>
+                            <title>Persistable Entry Contract</title>
+                            <link>https://example.com/</link>
+                            <description>Persistence contract fixture</description>
+                            <item>
+                              <comments>\(canonicalURL)</comments>
+                              <description>Canonical summary</description>
+                            </item>
+                            <item>
+                              <guid isPermaLink="false">guid-content-only</guid>
+                              <content:encoded><![CDATA[<p>GUID-only readable content</p>]]></content:encoded>
+                            </item>
+                            <item>
+                              <link>\(contentOnlyURL)</link>
+                              <content:encoded><![CDATA[<p>URL content without title</p>]]></content:encoded>
+                            </item>
+                            <item>
+                              <content:encoded><![CDATA[<p>Reference-free content</p>]]></content:encoded>
+                            </item>
+                          </channel>
+                        </rss>
+                        """
+                    )
+                ]
+            )
+        )
+        let feed = try #require(try harness.insertFeeds(urls: [feedURL]).first)
+
+        let result = await harness.service.refresh(feedID: feed.id)
+        let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        let canonicalArticle = try #require(
+            articles.first { $0.canonicalURL == canonicalURL }
+        )
+        let guidContentArticle = try #require(
+            articles.first { $0.guid == "guid-content-only" }
+        )
+        let urlContentArticle = try #require(
+            articles.first { $0.url == contentOnlyURL }
+        )
+
+        #expect(result.status == .fetched)
+        #expect(result.processedEntryCount == 4)
+        #expect(result.upsertedEntryCount == 3)
+        #expect(result.rejectedEntryCount == 1)
+        #expect(result.diagnosticsSummary.rejectedEntryCount == 1)
+        #expect(articles.count == 3)
+
+        #expect(canonicalArticle.url == canonicalURL)
+        #expect(canonicalArticle.title == "Canonical summary")
+        #expect(guidContentArticle.url.isEmpty)
+        #expect(guidContentArticle.title.isEmpty)
+        #expect(guidContentArticle.contentHTML == "<p>GUID-only readable content</p>")
+        #expect(urlContentArticle.title.isEmpty)
+        #expect(urlContentArticle.contentHTML == "<p>URL content without title</p>")
+    }
+
+    @Test
     func singleFeedRefreshPreservesExistingIconURL() async throws {
         let harness = try TestHarness.make(
             httpClient: ScriptedHTTPClient(

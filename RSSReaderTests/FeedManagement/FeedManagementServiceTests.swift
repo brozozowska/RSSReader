@@ -137,6 +137,136 @@ struct FeedManagementServiceTests {
     }
 
     @Test
+    func feedManagementServicePropagatesCancellationFromDirectPreviewAttempt() async throws {
+        let feedURL = "https://example.com/cancelled-feed.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [feedURL: .cancelled]
+            )
+        )
+        let service = try #require(harness.dependencies.feedManagementService)
+
+        await #expect(throws: CancellationError.self) {
+            try await service.previewFeed(urlString: feedURL)
+        }
+
+        let requests = await harness.httpClient.recordedRequests()
+        #expect(requests.map(\.url.absoluteString) == [feedURL])
+    }
+
+    @Test
+    func feedManagementServicePropagatesCancellationFromHTMLDiscovery() async throws {
+        let siteURL = "https://example.com/"
+        let commonPathFailures: [ScriptedHTTPClient.Step] = Array(
+            repeating: .urlError(.cannotConnectToHost),
+            count: 5
+        )
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                steps: commonPathFailures + [.cancelled]
+            )
+        )
+        let service = try #require(harness.dependencies.feedManagementService)
+
+        await #expect(throws: CancellationError.self) {
+            try await service.previewFeed(urlString: siteURL)
+        }
+
+        let requests = await harness.httpClient.recordedRequests()
+        #expect(requests.map(\.url.absoluteString) == [
+            "https://example.com/feed",
+            "https://example.com/rss",
+            "https://example.com/rss.xml",
+            "https://example.com/feed.xml",
+            "https://example.com/atom.xml",
+            siteURL
+        ])
+    }
+
+    @Test
+    func feedManagementServicePropagatesCancellationFromAutodiscoveredPreviewAttempt() async throws {
+        let siteURL = "https://example.com/"
+        let discoveredFeedURL = "https://example.com/custom-feed.xml"
+        let html = """
+        <!doctype html>
+        <html>
+          <head>
+            <link rel="alternate" type="application/rss+xml" href="/custom-feed.xml">
+          </head>
+        </html>
+        """
+        let commonPathFailures: [ScriptedHTTPClient.Step] = Array(
+            repeating: .urlError(.cannotConnectToHost),
+            count: 5
+        )
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                steps: commonPathFailures + [
+                    .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "text/html; charset=utf-8"],
+                        body: html
+                    ),
+                    .cancelled
+                ]
+            )
+        )
+        let service = try #require(harness.dependencies.feedManagementService)
+
+        await #expect(throws: CancellationError.self) {
+            try await service.previewFeed(urlString: siteURL)
+        }
+
+        let requests = await harness.httpClient.recordedRequests()
+        #expect(requests.map(\.url.absoluteString) == [
+            "https://example.com/feed",
+            "https://example.com/rss",
+            "https://example.com/rss.xml",
+            "https://example.com/feed.xml",
+            "https://example.com/atom.xml",
+            siteURL,
+            discoveredFeedURL
+        ])
+    }
+
+    @Test
+    func feedManagementServicePropagatesCancellationFromFallbackPreviewAttempt() async throws {
+        let siteURL = "https://example.com/"
+        let commonPathFailures: [ScriptedHTTPClient.Step] = Array(
+            repeating: .urlError(.cannotConnectToHost),
+            count: 5
+        )
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                steps: commonPathFailures + [
+                    .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "text/html; charset=utf-8"],
+                        body: "<html><head></head><body>No feed links</body></html>"
+                    ),
+                    .cancelled
+                ]
+            )
+        )
+        let service = try #require(harness.dependencies.feedManagementService)
+
+        await #expect(throws: CancellationError.self) {
+            try await service.previewFeed(urlString: siteURL)
+        }
+
+        let requests = await harness.httpClient.recordedRequests()
+        #expect(requests.map(\.url.absoluteString) == [
+            "https://example.com/feed",
+            "https://example.com/rss",
+            "https://example.com/rss.xml",
+            "https://example.com/feed.xml",
+            "https://example.com/atom.xml",
+            siteURL,
+            siteURL
+        ])
+    }
+
+    @Test
     func feedManagementServiceCreatesFolderWithNextSortOrder() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let service = try #require(harness.dependencies.feedManagementService)

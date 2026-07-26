@@ -6,17 +6,19 @@ extension FeedRefreshService {
         metadata: FeedFetchMetadata,
         startedAt: Date
     ) async throws -> FeedRefreshResult {
-        let pipelineResult = try FeedParserService.parsePipelineResult(response)
-        try Task.checkCancellation()
-        let diagnostics = pipelineResult.diagnostics
-        let diagnosticsSummary = diagnosticsSummary(for: diagnostics)
         let fetchedAt = Date()
+        let parsingResult = try await feedParsingWorker.parseRefresh(response, fetchedAt: fetchedAt)
+        try Task.checkCancellation()
+        let diagnostics = parsingResult.diagnostics
+        let diagnosticsSummary = diagnosticsSummary(for: diagnostics)
         let currentMetadata = try feedRepository.fetchMetadata(for: metadata.id)
-        let discoveredIconURL = await discoverIconURLIfNeeded(
+        try Task.checkCancellation()
+        let discoveredIconURL = try await discoverIconURLIfNeeded(
             feedURL: response.sourceURL,
             currentMetadata: currentMetadata,
-            parsedMetadata: pipelineResult.feed.metadata
+            parsedMetadata: parsingResult.metadata
         )
+        try cancellationCheckpoint(.afterIconDiscovery)
 
         logDiagnosticsIfNeeded(diagnostics, feedID: metadata.id)
         try updateCacheValidators(
@@ -27,7 +29,8 @@ extension FeedRefreshService {
         )
         try updateFeedContentMetadata(
             for: metadata.id,
-            parsedFeed: pipelineResult.feed,
+            parsedMetadata: parsingResult.metadata,
+            kind: parsingResult.kind,
             discoveredIconURL: discoveredIconURL,
             updatedAt: fetchedAt,
             saveAfterOperation: false
@@ -36,28 +39,29 @@ extension FeedRefreshService {
         guard let feed = try feedRepository.fetchFeed(id: metadata.id) else {
             throw FeedRefreshServiceError.feedNotFound(metadata.id)
         }
+        try Task.checkCancellation()
 
-        _ = try articleRepository.refreshFeedProjection(for: feed, saveAfterOperation: false)
-
-        let reconciledCount = try reconcileArticles(
-            for: metadata.id,
-            entries: pipelineResult.feed.entries,
-            fetchedAt: fetchedAt,
-            saveAfterOperation: false
-        )
-        let upsertedArticles = try articleRepository.upsert(
-            pipelineResult.feed.entries,
-            into: feed,
-            fetchedAt: fetchedAt,
-            saveAfterOperation: false
-        )
-        let processedEntryCount = pipelineResult.feed.entries.count + diagnostics.rejectedEntries.count
+        let articleReconciliationResult: ArticleFeedSnapshotReconciliationResult
+        switch reconciliationPolicy {
+        case .markMissingArticlesAsArchived:
+            articleReconciliationResult = try articleRepository.reconcileFeedSnapshot(
+                parsingResult.articlePayloads,
+                into: feed,
+                fetchedAt: fetchedAt,
+                saveAfterOperation: false
+            )
+        }
+        try Task.checkCancellation()
+        let processedEntryCount = parsingResult.acceptedEntryCount + diagnostics.rejectedEntries.count
 
         if diagnosticsAreSoftFailure(diagnostics) {
             logger.info("Feed \(metadata.id.uuidString) fetched with soft-failure diagnostics")
         }
-        if reconciledCount > 0 {
-            logger.info("Feed \(metadata.id.uuidString) reconciliation affected \(reconciledCount) articles")
+        if articleReconciliationResult.reconciledArticleCount > 0 {
+            logger.info(
+                "Feed \(metadata.id.uuidString) reconciliation affected "
+                    + "\(articleReconciliationResult.reconciledArticleCount) articles"
+            )
         }
 
         let finishedAt = Date()
@@ -66,6 +70,7 @@ extension FeedRefreshService {
             finishedAt: finishedAt,
             saveAfterOperation: false
         )
+        try cancellationCheckpoint(.beforeFetchedSave)
         try feedRepository.save()
 
         return FeedRefreshResult.fetched(
@@ -73,7 +78,7 @@ extension FeedRefreshService {
             startedAt: startedAt,
             finishedAt: finishedAt,
             processedEntryCount: processedEntryCount,
-            upsertedEntryCount: upsertedArticles.count,
+            upsertedEntryCount: articleReconciliationResult.upsertedArticleCount,
             rejectedEntryCount: diagnostics.rejectedEntries.count,
             diagnosticsSummary: diagnosticsSummary
         )
@@ -97,23 +102,23 @@ extension FeedRefreshService {
 
     func updateFeedContentMetadata(
         for feedID: UUID,
-        parsedFeed: ParsedFeedDTO,
+        parsedMetadata: ParsedFeedMetadataDTO,
+        kind: FeedKind,
         discoveredIconURL: URL? = nil,
         updatedAt: Date,
         saveAfterOperation: Bool = true
     ) throws {
-        let metadata = parsedFeed.metadata
         let currentMetadata = try feedRepository.fetchMetadata(for: feedID)
         let update = FeedMetadataUpdate(
-            siteURL: metadata.siteURL,
-            title: metadata.title,
-            subtitle: metadata.subtitle,
+            siteURL: parsedMetadata.siteURL,
+            title: parsedMetadata.title,
+            subtitle: parsedMetadata.subtitle,
             iconURL: updatedIconURL(
                 currentIconURL: currentMetadata?.iconURL,
                 discoveredIconURL: discoveredIconURL
             ),
-            language: metadata.language,
-            kind: parsedFeed.kind,
+            language: parsedMetadata.language,
+            kind: kind,
             updatedAt: updatedAt
         )
 
@@ -129,7 +134,8 @@ extension FeedRefreshService {
         feedURL: URL,
         currentMetadata: FeedFetchMetadata?,
         parsedMetadata: ParsedFeedMetadataDTO?
-    ) async -> URL? {
+    ) async throws -> URL? {
+        try Task.checkCancellation()
         guard let feedIconDiscoveryService else {
             return nil
         }
@@ -140,7 +146,7 @@ extension FeedRefreshService {
             URL(string: iconURL, relativeTo: siteURL ?? feedURL)?.absoluteURL
         }
 
-        return await feedIconDiscoveryService.discoverIconURL(
+        return try await feedIconDiscoveryService.discoverIconURL(
             feedURL: feedURL,
             siteURL: siteURL,
             metadataIconURL: metadataIconURL
@@ -162,29 +168,4 @@ extension FeedRefreshService {
         return discoveredIconURLString
     }
 
-    func reconcileArticles(
-        for feedID: UUID,
-        entries: [ParsedFeedEntryDTO],
-        fetchedAt: Date,
-        saveAfterOperation: Bool = true
-    ) throws -> Int {
-        switch reconciliationPolicy {
-        case .markMissingArticlesAsArchived:
-            let incomingExternalIDs = Set(entries.compactMap(\.externalID))
-            let reconciledCount = try articleRepository.reconcileArticles(
-                feedID: feedID,
-                keepingExternalIDs: incomingExternalIDs,
-                fetchedAt: fetchedAt,
-                saveAfterOperation: saveAfterOperation
-            )
-
-            if reconciledCount > 0 {
-                logger.info(
-                    "Feed \(feedID.uuidString) reconciliation marked \(reconciledCount) articles as changed deleted-at-source state"
-                )
-            }
-
-            return reconciledCount
-        }
-    }
 }

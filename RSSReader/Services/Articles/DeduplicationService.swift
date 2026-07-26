@@ -1,22 +1,55 @@
 import Foundation
 
-enum DeduplicationService {
+nonisolated enum DeduplicationService {
     static func deduplicate(_ feed: ParsedFeedDTO) -> ParsedFeedDTO {
+        deduplicate(
+            feed,
+            cancellationCheck: {},
+            progressProbe: nil
+        )
+    }
+
+    static func deduplicate(
+        _ feed: ParsedFeedDTO,
+        cancellationCheck: FeedParsingCancellationCheck,
+        progressProbe: FeedEntryLoopProgressProbe?
+    ) rethrows -> ParsedFeedDTO {
         ParsedFeedDTO(
             kind: feed.kind,
             metadata: feed.metadata,
-            entries: deduplicate(feed.entries)
+            entries: try deduplicate(
+                feed.entries,
+                cancellationCheck: cancellationCheck,
+                progressProbe: progressProbe
+            )
         )
     }
 
     static func deduplicate(_ entries: [ParsedFeedEntryDTO]) -> [ParsedFeedEntryDTO] {
+        deduplicate(
+            entries,
+            cancellationCheck: {},
+            progressProbe: nil
+        )
+    }
+
+    static func deduplicate(
+        _ entries: [ParsedFeedEntryDTO],
+        cancellationCheck: FeedParsingCancellationCheck,
+        progressProbe: FeedEntryLoopProgressProbe?
+    ) rethrows -> [ParsedFeedEntryDTO] {
         var mergedEntriesByKey: [String: ParsedFeedEntryDTO] = [:]
         var orderedKeys: [String] = []
         var uniqueEntriesWithoutKey: [ParsedFeedEntryDTO] = []
 
-        for entry in entries {
+        for (index, entry) in entries.enumerated() {
+            try FeedParsingCancellationPolicy.checkBeforeEntry(
+                at: index,
+                cancellationCheck: cancellationCheck
+            )
             guard let key = deduplicationKey(for: entry) else {
                 uniqueEntriesWithoutKey.append(entry)
+                progressProbe?(index + 1)
                 continue
             }
 
@@ -26,9 +59,22 @@ enum DeduplicationService {
                 mergedEntriesByKey[key] = entry
                 orderedKeys.append(key)
             }
+            progressProbe?(index + 1)
         }
+        try cancellationCheck()
 
-        let mergedEntries = orderedKeys.compactMap { mergedEntriesByKey[$0] }
+        var mergedEntries: [ParsedFeedEntryDTO] = []
+        mergedEntries.reserveCapacity(orderedKeys.count)
+        for (index, key) in orderedKeys.enumerated() {
+            try FeedParsingCancellationPolicy.checkBeforeEntry(
+                at: index,
+                cancellationCheck: cancellationCheck
+            )
+            if let entry = mergedEntriesByKey[key] {
+                mergedEntries.append(entry)
+            }
+        }
+        try cancellationCheck()
         return mergedEntries + uniqueEntriesWithoutKey
     }
 
@@ -57,7 +103,22 @@ enum DeduplicationService {
     }
 
     private static func merge(_ lhs: ParsedFeedEntryDTO, with rhs: ParsedFeedEntryDTO) -> ParsedFeedEntryDTO {
-        ParsedFeedEntryDTO(
+        let publishedDate = preferredDate(
+            lhsRawValue: lhs.publishedAtRaw,
+            lhsParsedValue: lhs.publishedAt,
+            rhsRawValue: rhs.publishedAtRaw,
+            rhsParsedValue: rhs.publishedAt,
+            strategy: .earliest
+        )
+        let updatedDate = preferredDate(
+            lhsRawValue: lhs.updatedAtRaw,
+            lhsParsedValue: lhs.updatedAt,
+            rhsRawValue: rhs.updatedAtRaw,
+            rhsParsedValue: rhs.updatedAt,
+            strategy: .latest
+        )
+
+        return ParsedFeedEntryDTO(
             externalID: preferredIdentityValue(lhs.externalID, rhs.externalID),
             guid: preferredIdentityValue(lhs.guid, rhs.guid),
             url: preferredArticleURL(lhs.url, rhs.url),
@@ -67,8 +128,10 @@ enum DeduplicationService {
             contentHTML: preferredHTMLContent(lhs.contentHTML, rhs.contentHTML),
             contentText: preferredTextPayload(lhs.contentText, rhs.contentText),
             author: preferredAuthor(lhs.author, rhs.author),
-            publishedAtRaw: preferredPublishedDate(lhs.publishedAtRaw, rhs.publishedAtRaw),
-            updatedAtRaw: preferredUpdatedDate(lhs.updatedAtRaw, rhs.updatedAtRaw),
+            publishedAtRaw: publishedDate.rawValue,
+            updatedAtRaw: updatedDate.rawValue,
+            publishedAt: publishedDate.parsedValue,
+            updatedAt: updatedDate.parsedValue,
             imageURL: preferredMediaURL(lhs.imageURL, rhs.imageURL)
         )
     }
@@ -137,14 +200,6 @@ enum DeduplicationService {
         }
     }
 
-    private static func preferredPublishedDate(_ lhs: String?, _ rhs: String?) -> String? {
-        preferredDate(lhs, rhs, strategy: .earliest)
-    }
-
-    private static func preferredUpdatedDate(_ lhs: String?, _ rhs: String?) -> String? {
-        preferredDate(lhs, rhs, strategy: .latest)
-    }
-
     private static func preferredURL(_ lhs: String?, _ rhs: String?, preferShorterPath: Bool) -> String? {
         preferredString(lhs, rhs) { value in
             urlScore(for: value, preferShorterPath: preferShorterPath)
@@ -209,37 +264,51 @@ enum DeduplicationService {
         case latest
     }
 
+    private struct DateValue {
+        let rawValue: String?
+        let parsedValue: Date?
+    }
+
     private static func preferredDate(
-        _ lhs: String?,
-        _ rhs: String?,
+        lhsRawValue: String?,
+        lhsParsedValue: Date?,
+        rhsRawValue: String?,
+        rhsParsedValue: Date?,
         strategy: DateSelectionStrategy
-    ) -> String? {
-        let left = normalized(lhs)
-        let right = normalized(rhs)
+    ) -> DateValue {
+        let left = normalized(lhsRawValue).map {
+            DateValue(
+                rawValue: $0,
+                parsedValue: lhsParsedValue ?? FeedDateParsingService.parse($0)
+            )
+        }
+        let right = normalized(rhsRawValue).map {
+            DateValue(
+                rawValue: $0,
+                parsedValue: rhsParsedValue ?? FeedDateParsingService.parse($0)
+            )
+        }
 
         switch (left, right) {
         case (.none, .none):
-            return nil
+            return DateValue(rawValue: nil, parsedValue: nil)
         case let (.some(value), .none), let (.none, .some(value)):
             return value
-        case let (.some(leftValue), .some(rightValue)):
-            let leftDate = FeedDateParsingService.parse(leftValue)
-            let rightDate = FeedDateParsingService.parse(rightValue)
-
-            switch (leftDate, rightDate) {
+        case let (.some(left), .some(right)):
+            switch (left.parsedValue, right.parsedValue) {
             case let (.some(leftDate), .some(rightDate)):
                 switch strategy {
                 case .earliest:
-                    return leftDate <= rightDate ? leftValue : rightValue
+                    return leftDate <= rightDate ? left : right
                 case .latest:
-                    return leftDate >= rightDate ? leftValue : rightValue
+                    return leftDate >= rightDate ? left : right
                 }
             case (.some, .none):
-                return leftValue
+                return left
             case (.none, .some):
-                return rightValue
+                return right
             case (.none, .none):
-                return leftValue.count >= rightValue.count ? leftValue : rightValue
+                return (left.rawValue?.count ?? 0) >= (right.rawValue?.count ?? 0) ? left : right
             }
         }
     }

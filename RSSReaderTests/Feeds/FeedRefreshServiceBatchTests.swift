@@ -123,10 +123,12 @@ struct FeedRefreshServiceBatchTests {
     @Test
     func batchRefreshCancellationReturnsPartialCancelledResults() async throws {
         let urls = (1...4).map { "https://example.com/cancel-\($0).xml" }
+        let responseGate = ScriptedHTTPClientResponseGate()
+        let expectedInFlightRequestCount = FeedRefreshBatchPolicy.default.maxConcurrentRefreshes
         let responses = Dictionary(uniqueKeysWithValues: urls.enumerated().map { index, url in
             (
                 url,
-                ScriptedHTTPClient.Step.delayedResponse(
+                ScriptedHTTPClient.Step.gatedResponse(
                     statusCode: 200,
                     headers: [
                         "Content-Type": "application/rss+xml; charset=utf-8"
@@ -141,7 +143,7 @@ struct FeedRefreshServiceBatchTests {
                         itemDescription: "Readable summary \(index + 1)",
                         pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
                     ),
-                    delayNanoseconds: 500_000_000
+                    gate: responseGate
                 )
             )
         })
@@ -154,18 +156,53 @@ struct FeedRefreshServiceBatchTests {
             await harness.service.refreshFeeds(feeds.map(\.id))
         }
 
-        try await Task.sleep(nanoseconds: 50_000_000)
+        try await waitUntil("default concurrency requests entered the response gate") {
+            await responseGate.enteredCount() == expectedInFlightRequestCount
+        }
+        #expect(await client.currentInFlightExecutionCount() == expectedInFlightRequestCount)
+        #expect(await client.recordedRequests().count == expectedInFlightRequestCount)
+
         task.cancel()
+        await responseGate.release()
 
         let result = await task.value
+        try await waitUntil("cancelled refresh executions cleaned up") {
+            let hasActiveExecution = feeds.contains { feed in
+                harness.service.inFlightRefreshTasks[feed.id] != nil
+            }
+            return await client.currentInFlightExecutionCount() == 0 && hasActiveExecution == false
+        }
 
-        #expect(result.summary.totalFeedCount > 0)
-        #expect(result.summary.totalFeedCount < 4)
-        #expect(result.summary.fetchedCount + result.summary.cancelledCount == result.summary.totalFeedCount)
+        #expect(result.summary.totalFeedCount == expectedInFlightRequestCount)
+        #expect(result.summary.fetchedCount == 0)
+        #expect(result.summary.cancelledCount == expectedInFlightRequestCount)
         #expect(result.summary.failedCount == 0)
         #expect(result.summary.notModifiedCount == 0)
+        #expect(result.results.map(\.status) == Array(repeating: .cancelled, count: expectedInFlightRequestCount))
 
         let requests = await client.recordedRequests()
-        #expect(requests.count <= 3)
+        let requestedURLs = requests.map { $0.url.absoluteString }
+        #expect(requests.count == expectedInFlightRequestCount)
+        #expect(await client.maxConcurrentExecutions() == expectedInFlightRequestCount)
+        #expect(Set(requestedURLs) == Set(urls.prefix(expectedInFlightRequestCount)))
+        #expect(requestedURLs.contains(urls[expectedInFlightRequestCount]) == false)
     }
+
+    private func waitUntil(
+        _ expectation: String,
+        condition: () async -> Bool
+    ) async throws {
+        let deadline = ContinuousClock.now + .seconds(2)
+        while ContinuousClock.now < deadline {
+            if await condition() {
+                return
+            }
+            await Task.yield()
+        }
+        throw BatchWaitError.timedOut(expectation)
+    }
+}
+
+private enum BatchWaitError: Error {
+    case timedOut(String)
 }

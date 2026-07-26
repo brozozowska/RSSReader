@@ -1,43 +1,29 @@
 import Foundation
 
-enum FeedDateParsingService {
+nonisolated enum FeedDateParsingService {
     static func parse(_ value: String?) -> Date? {
-        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), value.isEmpty == false else {
-            return nil
-        }
-
-        if let date = iso8601WithFractionalSeconds.date(from: value) {
-            return date
-        }
-
-        if let date = iso8601Basic.date(from: value) {
-            return date
-        }
-
-        for formatter in dateFormatters {
-            if let date = formatter.date(from: value) {
-                return date
-            }
-        }
-
-        return nil
+        parser.parse(value)
     }
 
-    private static let iso8601WithFractionalSeconds: ISO8601DateFormatter = {
+    private static let parser = SynchronizedFeedDateParser()
+}
+
+// Date formatter instances are mutable; every access is serialized by `lock`.
+private nonisolated final class SynchronizedFeedDateParser: @unchecked Sendable {
+    private let lock = NSLock()
+    private let iso8601WithFractionalSeconds: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
     }()
-
-    private static let iso8601Basic: ISO8601DateFormatter = {
+    private let iso8601Basic: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.formatOptions = [.withInternetDateTime]
         return formatter
     }()
-
-    private static let dateFormatters: [DateFormatter] = [
+    private let dateFormatters: [DateFormatter] = [
         makeDateFormatter("EEE, d MMM yyyy HH:mm:ss Z"),
         makeDateFormatter("EEE, dd MMM yyyy HH:mm:ss Z"),
         makeDateFormatter("EEE, d MMM yyyy HH:mm Z"),
@@ -52,6 +38,30 @@ enum FeedDateParsingService {
         makeDateFormatter("yyyy-MM-dd'T'HH:mm:ssZ"),
         makeDateFormatter("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
     ]
+
+    func parse(_ value: String?) -> Date? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), value.isEmpty == false else {
+            return nil
+        }
+
+        return lock.withLock {
+            if let date = iso8601WithFractionalSeconds.date(from: value) {
+                return date
+            }
+
+            if let date = iso8601Basic.date(from: value) {
+                return date
+            }
+
+            for formatter in dateFormatters {
+                if let date = formatter.date(from: value) {
+                    return date
+                }
+            }
+
+            return nil
+        }
+    }
 
     private static func makeDateFormatter(_ format: String) -> DateFormatter {
         let formatter = DateFormatter()

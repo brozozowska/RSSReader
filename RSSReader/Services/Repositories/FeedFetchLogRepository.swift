@@ -34,14 +34,20 @@ protocol FeedFetchLogRepository {
         batchSize: Int
     ) throws -> RepositoryBatchDeleteResult
     func save() throws
+    func rollback()
 }
 
 @MainActor
 final class SwiftDataFeedFetchLogRepository: FeedFetchLogRepository, SwiftDataRepositoryContext {
     let modelContext: ModelContext
+    let persistenceSaveOperation: SwiftDataRepositorySaveOperation
 
-    init(modelContext: ModelContext) {
+    init(
+        modelContext: ModelContext,
+        persistenceSaveOperation: @escaping SwiftDataRepositorySaveOperation = { try $0.save() }
+    ) {
         self.modelContext = modelContext
+        self.persistenceSaveOperation = persistenceSaveOperation
     }
 
     func fetchLogs(feedID: UUID, limit: Int? = nil) throws -> [FeedFetchLog] {
@@ -205,5 +211,9 @@ final class SwiftDataFeedFetchLogRepository: FeedFetchLogRepository, SwiftDataRe
 
     func save() throws {
         try saveIfNeeded(force: true)
+    }
+
+    func rollback() {
+        rollbackChanges()
     }
 }

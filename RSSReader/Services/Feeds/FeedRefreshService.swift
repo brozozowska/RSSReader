@@ -9,6 +9,38 @@ struct FeedRefreshContext: Sendable {
     let request: FeedRequest
 }
 
+struct FeedRefreshInFlightWaiter {
+    let startedAt: Date
+    let continuation: CheckedContinuation<FeedRefreshResult, Never>
+}
+
+enum FeedRefreshInFlightPhase: Equatable {
+    case running
+    case draining
+}
+
+struct FeedRefreshInFlightTask {
+    let id: UUID
+    let task: Task<FeedRefreshResult, Never>
+    var phase: FeedRefreshInFlightPhase
+    var waiters: [UUID: FeedRefreshInFlightWaiter]
+    var queuedWaiters: [UUID: FeedRefreshInFlightWaiter]
+
+    var waiterCount: Int {
+        waiters.count
+    }
+
+    var queuedWaiterCount: Int {
+        queuedWaiters.count
+    }
+}
+
+enum FeedRefreshCancellationCheckpoint: Equatable, Sendable {
+    case afterIconDiscovery
+    case beforeFetchedSave
+    case beforeNotModifiedSave
+}
+
 @MainActor
 protocol FeedRefreshCoordinating {
     var transactionBoundary: FeedRefreshTransactionBoundary { get }
@@ -28,27 +60,37 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     let reconciliationPolicy: FeedRefreshReconciliationPolicy = .markMissingArticlesAsArchived
     let batchPolicy: FeedRefreshBatchPolicy = .default
     let inFlightPolicy: FeedRefreshInFlightPolicy = .shareExistingTaskResult
+    let inFlightCallerCancellationPolicy: FeedRefreshInFlightCallerCancellationPolicy =
+        .cancelSharedTaskWhenLastWaiterCancels
     let logger: Logging
     let feedFetcher: any FeedFetching
+    let feedParsingWorker: any FeedParsingWorking
     let feedRepository: any FeedRepository
     let articleRepository: any ArticleRepository
     let feedIconDiscoveryService: (any FeedIconDiscovering)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
-    var inFlightRefreshTasks: [UUID: Task<FeedRefreshResult, Never>] = [:]
+    let cancellationCheckpoint: (FeedRefreshCancellationCheckpoint) throws -> Void
+    var inFlightRefreshTasks: [UUID: FeedRefreshInFlightTask] = [:]
 
     init(
         logger: Logging,
         feedFetcher: any FeedFetching,
+        feedParsingWorker: any FeedParsingWorking = FeedParsingWorker(),
         feedRepository: any FeedRepository,
         articleRepository: any ArticleRepository,
         feedIconDiscoveryService: (any FeedIconDiscovering)? = nil,
-        feedFetchLogRepository: (any FeedFetchLogRepository)? = nil
+        feedFetchLogRepository: (any FeedFetchLogRepository)? = nil,
+        cancellationCheckpoint: @escaping (FeedRefreshCancellationCheckpoint) throws -> Void = { _ in
+            try Task.checkCancellation()
+        }
     ) {
         self.logger = logger
         self.feedFetcher = feedFetcher
+        self.feedParsingWorker = feedParsingWorker
         self.feedRepository = feedRepository
         self.articleRepository = articleRepository
         self.feedIconDiscoveryService = feedIconDiscoveryService
         self.feedFetchLogRepository = feedFetchLogRepository
+        self.cancellationCheckpoint = cancellationCheckpoint
     }
 }

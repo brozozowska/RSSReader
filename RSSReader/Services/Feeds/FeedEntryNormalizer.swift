@@ -1,9 +1,10 @@
 import Foundation
 
-enum FeedEntryNormalizer {
+nonisolated enum FeedEntryNormalizer {
     static func normalize(_ entry: ParsedFeedEntryDTO, feedURL: String) -> ParsedFeedEntryDTO {
         let normalizedEntry = normalizeFields(entry)
-        let publishedAt = parsePublishedAt(for: normalizedEntry)
+        let publishedAt = FeedDateParsingService.parse(normalizedEntry.publishedAtRaw)
+        let updatedAt = FeedDateParsingService.parse(normalizedEntry.updatedAtRaw)
 
         let externalID = ArticleIdentityService.makeExternalID(
             from: ArticleIdentityInput(
@@ -28,18 +29,11 @@ enum FeedEntryNormalizer {
             author: normalizedEntry.author,
             publishedAtRaw: normalizedEntry.publishedAtRaw,
             updatedAtRaw: normalizedEntry.updatedAtRaw,
+            publishedAt: publishedAt,
+            updatedAt: updatedAt,
             imageURL: normalizedEntry.imageURL
         )
     }
-
-    static func parsePublishedAt(for entry: ParsedFeedEntryDTO) -> Date? {
-        FeedDateParsingService.parse(entry.publishedAtRaw)
-    }
-
-    static func parseUpdatedAt(for entry: ParsedFeedEntryDTO) -> Date? {
-        FeedDateParsingService.parse(entry.updatedAtRaw)
-    }
-
     private static func normalizeFields(_ entry: ParsedFeedEntryDTO) -> ParsedFeedEntryDTO {
         ParsedFeedEntryDTO(
             externalID: entry.externalID,
@@ -53,6 +47,8 @@ enum FeedEntryNormalizer {
             author: FeedTextHTMLNormalizer.normalizeAuthor(entry.author),
             publishedAtRaw: FeedTextHTMLNormalizer.normalizeScalar(entry.publishedAtRaw),
             updatedAtRaw: FeedTextHTMLNormalizer.normalizeScalar(entry.updatedAtRaw),
+            publishedAt: entry.publishedAt,
+            updatedAt: entry.updatedAt,
             imageURL: FeedURLNormalizer.normalizeSourceURL(entry.imageURL)
         )
     }

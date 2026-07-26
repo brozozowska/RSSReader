@@ -7,7 +7,7 @@ final class NoOpFeedIconDiscoveryService: FeedIconDiscovering {
         feedURL: URL,
         siteURL: URL?,
         metadataIconURL: URL?
-    ) async -> URL? {
+    ) async throws -> URL? {
         nil
     }
 }
@@ -24,7 +24,7 @@ final class StubFeedIconDiscoveryService: FeedIconDiscovering {
         feedURL: URL,
         siteURL: URL?,
         metadataIconURL: URL?
-    ) async -> URL? {
+    ) async throws -> URL? {
         iconURL
     }
 }
@@ -42,7 +42,7 @@ final class RecordingFeedIconDiscoveryService: FeedIconDiscovering {
         feedURL: URL,
         siteURL: URL?,
         metadataIconURL: URL?
-    ) async -> URL? {
+    ) async throws -> URL? {
         calls.append(
             FeedIconDiscoveryCall(
                 feedURL: feedURL,

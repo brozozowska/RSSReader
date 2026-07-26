@@ -1,6 +1,6 @@
 import Foundation
 
-enum FeedIconURLPolicy {
+nonisolated enum FeedIconURLPolicy {
     static func normalizeFeedIconURL(
         _ iconURL: String?,
         siteURL: String?,
@@ -71,11 +71,11 @@ enum FeedIconURLPolicy {
 }
 
 private extension String {
-    func containsAny(of tokens: [String]) -> Bool {
+    nonisolated func containsAny(of tokens: [String]) -> Bool {
         tokens.contains { contains($0) }
     }
 
-    var containsSquareDimensionToken: Bool {
+    nonisolated var containsSquareDimensionToken: Bool {
         range(
             of: #"(?<!\d)(16|24|32|48|57|60|64|72|76|96|114|120|128|144|152|167|180|192|256|512)x\1(?!\d)"#,
             options: .regularExpression

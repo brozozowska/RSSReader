@@ -1,7 +1,7 @@
 import Foundation
 
 extension FeedParserService {
-    static func parseAtom(_ document: FeedXMLDocument) throws -> ParsedFeedDTO {
+    nonisolated static func parseAtom(_ document: FeedXMLDocument) throws -> ParsedFeedDTO {
         let kind = detectFeedKind(in: document)
         guard kind == .atom else {
             throw FeedParserError.unsupportedFeedKind(kind)
@@ -22,11 +22,11 @@ extension FeedParserService {
         )
     }
 
-    static func parseAtom(_ response: FeedResponse) throws -> ParsedFeedDTO {
+    nonisolated static func parseAtom(_ response: FeedResponse) throws -> ParsedFeedDTO {
         try parseAtom(parse(response))
     }
 
-    static func extractAtomMetadata(from document: FeedXMLDocument) throws -> ParsedFeedMetadataDTO {
+    nonisolated static func extractAtomMetadata(from document: FeedXMLDocument) throws -> ParsedFeedMetadataDTO {
         let feedElement = document.rootElement
         guard feedElement.name.lowercased() == "feed" else {
             throw FeedParserError.missingAtomElement("feed")
@@ -41,7 +41,9 @@ extension FeedParserService {
         )
     }
 
-    static func extractAtomArticlePayloads(from document: FeedXMLDocument) throws -> [ParsedFeedEntryDTO] {
+    nonisolated static func extractAtomArticlePayloads(
+        from document: FeedXMLDocument
+    ) throws -> [ParsedFeedEntryDTO] {
         let feedElement = document.rootElement
         guard feedElement.name.lowercased() == "feed" else {
             throw FeedParserError.missingAtomElement("feed")
@@ -66,7 +68,7 @@ extension FeedParserService {
         }
     }
 
-    private static func atomLink(in element: FeedXMLElement, rel: String? = nil) -> String? {
+    nonisolated private static func atomLink(in element: FeedXMLElement, rel: String? = nil) -> String? {
         let links = element.children(named: "link")
         let matchingLink = links.first { link in
             let linkRel = link.attributes["rel"]?.lowercased()
@@ -81,12 +83,12 @@ extension FeedParserService {
         return matchingLink?.attributes["href"]?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private static func atomAuthor(in element: FeedXMLElement) -> String? {
+    nonisolated private static func atomAuthor(in element: FeedXMLElement) -> String? {
         element.nestedChildText(["author", "name"])
             ?? element.firstChildText(named: "author")
     }
 
-    private static func atomContent(in element: FeedXMLElement) -> String? {
+    nonisolated private static func atomContent(in element: FeedXMLElement) -> String? {
         element.firstChildText(named: "content")
             ?? element.firstChildText(named: "summary")
     }

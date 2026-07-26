@@ -64,6 +64,13 @@ struct FeedManagementScreenState {
         refreshPresentedDestination()
     }
 
+    mutating func cancelAddFeedPreviewLoading(
+        command: FeedManagementAddFeedPreviewCommand
+    ) {
+        addFeedState.cancelPreviewLoading(command: command)
+        refreshPresentedDestination()
+    }
+
     mutating func beginAddFeedCreation() -> FeedManagementCreateFeedCommand? {
         let command = addFeedState.beginFeedCreation()
         refreshPresentedDestination()

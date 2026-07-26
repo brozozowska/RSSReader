@@ -1,6 +1,12 @@
 import Foundation
 
-struct ArticleUpsertPayload: Sendable {
+typealias ArticleUpsertPayloadMaterializationProbe = @Sendable (Int, ArticleUpsertPayload) -> Void
+
+nonisolated enum ArticleUpsertPayloadConstructionError: Error, Equatable {
+    case nonPersistableEntry(index: Int)
+}
+
+nonisolated struct ArticleUpsertPayload: Sendable {
     let externalID: String
     let guid: String?
     let url: String
@@ -16,32 +22,72 @@ struct ArticleUpsertPayload: Sendable {
     let archivedAt: Date?
     let fetchedAt: Date
 
-    init?(
-        entry: ParsedFeedEntryDTO,
-        fetchedAt: Date = .now,
-        archivedAt: Date? = nil
+    private init?(
+        preparedEntry entry: ParsedFeedEntryDTO,
+        fetchedAt: Date,
+        archivedAt: Date?
     ) {
-        guard
-            let externalID = entry.externalID,
-            let url = entry.url,
-            let title = entry.title ?? entry.summary
-        else {
+        guard let externalID = Self.firstNonEmptyValue(entry.externalID) else {
             return nil
         }
 
         self.externalID = externalID
         self.guid = entry.guid
-        self.url = url
+        self.url = Self.firstNonEmptyValue(entry.url, entry.canonicalURL) ?? ""
         self.canonicalURL = entry.canonicalURL
-        self.title = title
+        self.title = Self.firstNonEmptyValue(entry.title, entry.summary) ?? ""
         self.summary = entry.summary
         self.contentHTML = entry.contentHTML
         self.contentText = entry.contentText
         self.author = entry.author
-        self.publishedAt = FeedNormalizationService.parsePublishedAt(for: entry)
-        self.updatedAtSource = FeedNormalizationService.parseUpdatedAt(for: entry)
+        self.publishedAt = entry.publishedAt
+        self.updatedAtSource = entry.updatedAt
         self.imageURL = entry.imageURL
         self.archivedAt = archivedAt
         self.fetchedAt = fetchedAt
+    }
+
+    static func makeAllPrepared(
+        entries: [ParsedFeedEntryDTO],
+        fetchedAt: Date,
+        archivedAt: Date? = nil,
+        cancellationCheck: FeedParsingCancellationCheck = { try Task.checkCancellation() },
+        materializationProbe: ArticleUpsertPayloadMaterializationProbe? = nil
+    ) throws -> [ArticleUpsertPayload] {
+        var payloads: [ArticleUpsertPayload] = []
+        payloads.reserveCapacity(entries.count)
+
+        for (index, entry) in entries.enumerated() {
+            try FeedParsingCancellationPolicy.checkBeforeEntry(
+                at: index,
+                cancellationCheck: cancellationCheck
+            )
+            guard let payload = ArticleUpsertPayload(
+                preparedEntry: entry,
+                fetchedAt: fetchedAt,
+                archivedAt: archivedAt
+            ) else {
+                throw ArticleUpsertPayloadConstructionError.nonPersistableEntry(index: index)
+            }
+            payloads.append(payload)
+            materializationProbe?(index + 1, payload)
+        }
+        try cancellationCheck()
+        return payloads
+    }
+
+    static func hasPersistableExternalID(_ entry: ParsedFeedEntryDTO) -> Bool {
+        firstNonEmptyValue(entry.externalID) != nil
+    }
+
+    private static func firstNonEmptyValue(_ values: String?...) -> String? {
+        for value in values {
+            guard let value else { continue }
+            guard value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+                continue
+            }
+            return value
+        }
+        return nil
     }
 }

@@ -9,7 +9,7 @@ extension FeedRefreshService {
         errorDescription: String?,
         finishedAt: Date,
         baseMessage: String? = nil
-    ) throws {
+    ) {
         guard let feedFetchLogRepository else { return }
 
         let logEntry = FeedFetchLogEntry(
@@ -24,7 +24,14 @@ extension FeedRefreshService {
             createdAt: finishedAt
         )
 
-        try feedFetchLogRepository.insert(logEntry)
+        do {
+            try feedFetchLogRepository.insert(logEntry)
+        } catch {
+            feedFetchLogRepository.rollback()
+            logger.error(
+                "refresh_diagnostics_persistence_failed feedID=\(feedID.uuidString) status=\(normalizedLogStatus(for: status)) error=\(String(describing: error)); refresh result preserved"
+            )
+        }
     }
 
     func normalizedLogStatus(for status: FeedRefreshStatus) -> String {

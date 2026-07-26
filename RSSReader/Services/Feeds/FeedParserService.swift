@@ -1,6 +1,6 @@
 import Foundation
 
-enum FeedParserService {
+nonisolated enum FeedParserService {
     static func parseFeed(_ document: FeedXMLDocument) throws -> ParsedFeedDTO {
         switch detectFeedKind(in: document) {
         case .rss:

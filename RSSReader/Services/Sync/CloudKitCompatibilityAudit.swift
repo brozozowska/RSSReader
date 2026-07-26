@@ -60,6 +60,7 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                             "SwiftDataArticleStateRepository.fetchState(feedID:articleExternalID:)",
                             "SwiftDataArticleStateRepository.fetchOrCreate(feedID:articleExternalID:)",
                             "SwiftDataArticleStateRepository.fetchCanonicalState(feedID:articleExternalID:removeDuplicates:)",
+                            "SwiftDataArticleStateIdentityRepairer.stageRepairs(feedID:normalizedIdentities:cancellationCheckpoint:progressProbe:)",
                             "SwiftDataArticleStateRepository.shouldApply(_:to:)"
                         ],
                         summary: "ArticleState now relies on repository-managed composite identity, duplicate-row repair, and last-write-wins conflict resolution instead of schema-level uniqueness.",
@@ -85,8 +86,8 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                         severity: .warning,
                         rule: .repositoryManagedIdentityInvariant,
                         affectedPaths: [
-                            "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
-                            "SwiftDataArticleRepository.upsert(_:into:saveAfterOperation:)",
+                            "SwiftDataArticleRepository.fetchArticles(feedID:)",
+                            "SwiftDataArticleRepository.reconcileFeedSnapshot(_:into:fetchedAt:saveAfterOperation:)",
                             "DeduplicationService"
                         ],
                         summary: "Article now syncs through CloudKit without schema-level unique constraints, so feedID and externalID identity remains repository-managed.",
@@ -156,6 +157,7 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                             "SwiftDataArticleStateRepository.fetchState(feedID:articleExternalID:)",
                             "SwiftDataArticleStateRepository.fetchOrCreate(feedID:articleExternalID:)",
                             "SwiftDataArticleStateRepository.fetchCanonicalState(feedID:articleExternalID:removeDuplicates:)",
+                            "SwiftDataArticleStateIdentityRepairer.stageRepairs(feedID:normalizedIdentities:cancellationCheckpoint:progressProbe:)",
                             "SwiftDataArticleStateRepository.shouldApply(_:to:)"
                         ],
                         summary: "ArticleState now relies on repository-managed composite identity, duplicate-row repair, and last-write-wins conflict resolution instead of schema-level uniqueness.",
@@ -181,8 +183,8 @@ struct CloudKitCompatibilityAudit: Equatable, Sendable {
                         severity: .warning,
                         rule: .repositoryManagedIdentityInvariant,
                         affectedPaths: [
-                            "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
-                            "SwiftDataArticleRepository.upsert(_:into:saveAfterOperation:)",
+                            "SwiftDataArticleRepository.fetchArticles(feedID:)",
+                            "SwiftDataArticleRepository.reconcileFeedSnapshot(_:into:fetchedAt:saveAfterOperation:)",
                             "DeduplicationService"
                         ],
                         summary: "Article now syncs through CloudKit without schema-level unique constraints, so feedID and externalID identity remains repository-managed.",

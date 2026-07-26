@@ -153,7 +153,8 @@ extension FeedManagementScreenController {
 
     func performAddFeedPreview(
         command: FeedManagementAddFeedPreviewCommand,
-        dependencies: AppDependencies
+        dependencies: AppDependencies,
+        timeout: Duration = .seconds(10)
     ) async {
         guard let feedManagementService = dependencies.feedManagementService else {
             dependencies.logger.error("Feed management service is unavailable for feed preview")
@@ -165,10 +166,12 @@ extension FeedManagementScreenController {
         }
 
         do {
-            let preview = try await withAddFeedPreviewTimeout(seconds: 10) {
+            let preview = try await withAddFeedPreviewTimeout(timeout: timeout) {
                 try await feedManagementService.previewFeed(urlString: command.urlString)
             }
             screenState.applyLoadedAddFeedPreview(preview, command: command)
+        } catch is CancellationError {
+            screenState.cancelAddFeedPreviewLoading(command: command)
         } catch is FeedManagementPreviewTimeoutError {
             dependencies.logger.error("Timed out while previewing feed through feed management flow")
             screenState.applyAddFeedPreviewFailure(
@@ -187,7 +190,7 @@ extension FeedManagementScreenController {
     }
 
     func withAddFeedPreviewTimeout<T>(
-        seconds: UInt64,
+        timeout: Duration,
         operation: @escaping () async throws -> T
     ) async throws -> T {
         try await withThrowingTaskGroup(of: T.self) { group in
@@ -197,7 +200,7 @@ extension FeedManagementScreenController {
                 try await operation()
             }
             group.addTask {
-                try await Task.sleep(nanoseconds: seconds * 1_000_000_000)
+                try await Task.sleep(for: timeout)
                 throw FeedManagementPreviewTimeoutError()
             }
 

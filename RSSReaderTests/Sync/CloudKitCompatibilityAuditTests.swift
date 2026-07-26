@@ -59,6 +59,7 @@ struct CloudKitCompatibilityAuditTests {
                         "SwiftDataArticleStateRepository.fetchState(feedID:articleExternalID:)",
                         "SwiftDataArticleStateRepository.fetchOrCreate(feedID:articleExternalID:)",
                         "SwiftDataArticleStateRepository.fetchCanonicalState(feedID:articleExternalID:removeDuplicates:)",
+                        "SwiftDataArticleStateIdentityRepairer.stageRepairs(feedID:normalizedIdentities:cancellationCheckpoint:progressProbe:)",
                         "SwiftDataArticleStateRepository.shouldApply(_:to:)"
                     ]
             }
@@ -67,8 +68,8 @@ struct CloudKitCompatibilityAuditTests {
             articleReport.findings.contains {
                 $0.rule == .repositoryManagedIdentityInvariant
                     && $0.affectedPaths == [
-                        "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
-                        "SwiftDataArticleRepository.upsert(_:into:saveAfterOperation:)",
+                        "SwiftDataArticleRepository.fetchArticles(feedID:)",
+                        "SwiftDataArticleRepository.reconcileFeedSnapshot(_:into:fetchedAt:saveAfterOperation:)",
                         "DeduplicationService"
                     ]
             }
@@ -110,8 +111,8 @@ struct CloudKitCompatibilityAuditTests {
             articleReport.findings.contains {
                 $0.rule == .repositoryManagedIdentityInvariant
                     && $0.affectedPaths == [
-                        "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
-                        "SwiftDataArticleRepository.upsert(_:into:saveAfterOperation:)",
+                        "SwiftDataArticleRepository.fetchArticles(feedID:)",
+                        "SwiftDataArticleRepository.reconcileFeedSnapshot(_:into:fetchedAt:saveAfterOperation:)",
                         "DeduplicationService"
                     ]
             }
@@ -153,6 +154,7 @@ struct CloudKitCompatibilityAuditTests {
                         "SwiftDataArticleStateRepository.fetchState(feedID:articleExternalID:)",
                         "SwiftDataArticleStateRepository.fetchOrCreate(feedID:articleExternalID:)",
                         "SwiftDataArticleStateRepository.fetchCanonicalState(feedID:articleExternalID:removeDuplicates:)",
+                        "SwiftDataArticleStateIdentityRepairer.stageRepairs(feedID:normalizedIdentities:cancellationCheckpoint:progressProbe:)",
                         "SwiftDataArticleStateRepository.shouldApply(_:to:)"
                     ]
             }

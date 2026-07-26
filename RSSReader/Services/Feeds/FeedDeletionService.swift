@@ -2,7 +2,11 @@ import Foundation
 import SwiftData
 
 enum FeedDeletionService {
-    static func delete(_ feed: Feed, in modelContext: ModelContext) throws {
+    static func delete(
+        _ feed: Feed,
+        in modelContext: ModelContext,
+        persistenceOperationRecorder: SwiftDataRepositoryOperationRecorder = { _ in }
+    ) throws {
         let feedID = feed.id
 
         try modelContext.delete(
@@ -29,6 +33,7 @@ enum FeedDeletionService {
         modelContext.delete(feed)
 
         if modelContext.hasChanges {
+            persistenceOperationRecorder(.save)
             try modelContext.save()
         }
     }

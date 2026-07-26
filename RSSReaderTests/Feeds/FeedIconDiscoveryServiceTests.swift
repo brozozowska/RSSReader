@@ -13,7 +13,7 @@ struct FeedIconDiscoveryServiceTests {
         let service = try makeService(responsesByURL: [:])
         try await service.feedIconCache.storeImageData(iconData, for: iconURL)
 
-        let discoveredURL = await service.discoveryService.discoverIconURL(
+        let discoveredURL = try await service.discoveryService.discoverIconURL(
             feedURL: try makeURL("https://example.com/feed.xml"),
             siteURL: nil,
             metadataIconURL: iconURL
@@ -37,7 +37,7 @@ struct FeedIconDiscoveryServiceTests {
             ]
         )
 
-        let discoveredURL = await service.discoveryService.discoverIconURL(
+        let discoveredURL = try await service.discoveryService.discoverIconURL(
             feedURL: try makeURL("https://example.com/feed.xml"),
             siteURL: nil,
             metadataIconURL: iconURL
@@ -62,7 +62,7 @@ struct FeedIconDiscoveryServiceTests {
             ]
         )
 
-        let discoveredURL = await service.discoveryService.discoverIconURL(
+        let discoveredURL = try await service.discoveryService.discoverIconURL(
             feedURL: try makeURL("https://example.com/feed.xml"),
             siteURL: nil,
             metadataIconURL: iconURL
@@ -90,7 +90,7 @@ struct FeedIconDiscoveryServiceTests {
             ]
         )
 
-        let discoveredURL = await service.discoveryService.discoverIconURL(
+        let discoveredURL = try await service.discoveryService.discoverIconURL(
             feedURL: try makeURL("https://example.com/feed.xml"),
             siteURL: try makeURL("https://example.com/"),
             metadataIconURL: iconURL
@@ -102,6 +102,59 @@ struct FeedIconDiscoveryServiceTests {
         let requests = await service.httpClient.recordedRequests()
         #expect(requests.map(\.url.absoluteString) == [iconURL.absoluteString])
         #expect(requests.allSatisfy { $0.timeoutInterval <= 2 })
+    }
+
+    @Test
+    func discoveryPropagatesCancellationFromIconCandidateRequest() async throws {
+        let iconURL = try makeURL("https://example.com/cancelled-icon.png")
+        let service = try makeService(
+            responsesByURL: [
+                iconURL.absoluteString: .cancelled
+            ]
+        )
+
+        await #expect(throws: CancellationError.self) {
+            try await service.discoveryService.discoverIconURL(
+                feedURL: try makeURL("https://example.com/feed.xml"),
+                siteURL: nil,
+                metadataIconURL: iconURL
+            )
+        }
+    }
+
+    @Test
+    func discoveryPropagatesCancellationFromHomepageRequest() async throws {
+        let homeURL = try makeURL("https://example.com/")
+        let commonURLs = FeedIconCandidateBuilder.commonIconCandidates(for: homeURL)
+        let commonResponses = Dictionary(
+            uniqueKeysWithValues: commonURLs.map { url in
+                (
+                    url.absoluteString,
+                    ScriptedHTTPClient.Step.response(
+                        statusCode: 404,
+                        headers: ["Content-Type": "text/plain"],
+                        body: ""
+                    )
+                )
+            }
+        )
+        let service = try makeService(
+            responsesByURL: commonResponses.merging(
+                [homeURL.absoluteString: .cancelled],
+                uniquingKeysWith: { _, rhs in rhs }
+            )
+        )
+
+        await #expect(throws: CancellationError.self) {
+            try await service.discoveryService.discoverIconURL(
+                feedURL: try makeURL("https://example.com/feed.xml"),
+                siteURL: homeURL,
+                metadataIconURL: nil
+            )
+        }
+
+        let requests = await service.httpClient.recordedRequests()
+        #expect(requests.map(\.url.absoluteString) == commonURLs.map(\.absoluteString) + [homeURL.absoluteString])
     }
 
     @Test
@@ -117,7 +170,7 @@ struct FeedIconDiscoveryServiceTests {
             ]
         )
 
-        let discoveredURL = await service.discoveryService.discoverIconURL(
+        let discoveredURL = try await service.discoveryService.discoverIconURL(
             feedURL: try makeURL("https://example.com/feed.xml"),
             siteURL: try makeURL("https://example.com/"),
             metadataIconURL: nil
@@ -170,7 +223,7 @@ struct FeedIconDiscoveryServiceTests {
             )
         )
 
-        let discoveredURL = await service.discoveryService.discoverIconURL(
+        let discoveredURL = try await service.discoveryService.discoverIconURL(
             feedURL: try makeURL("https://example.com/feed.xml"),
             siteURL: htmlURL,
             metadataIconURL: nil
@@ -227,7 +280,7 @@ struct FeedIconDiscoveryServiceTests {
             )
         )
 
-        let discoveredURL = await service.discoveryService.discoverIconURL(
+        let discoveredURL = try await service.discoveryService.discoverIconURL(
             feedURL: try makeURL("https://example.com/feed.xml"),
             siteURL: siteURL,
             metadataIconURL: nil

@@ -6,6 +6,12 @@ actor ScriptedHTTPClient: HTTPClient {
         case response(statusCode: Int, headers: [String: String], body: String)
         case dataResponse(statusCode: Int, headers: [String: String], body: Data)
         case delayedResponse(statusCode: Int, headers: [String: String], body: String, delayNanoseconds: UInt64)
+        case gatedResponse(
+            statusCode: Int,
+            headers: [String: String],
+            body: String,
+            gate: ScriptedHTTPClientResponseGate
+        )
         case invalidResponse
         case responseBodyTooLarge(maximumBytes: Int64, actualBytes: Int64)
         case urlError(URLError.Code)
@@ -92,6 +98,14 @@ actor ScriptedHTTPClient: HTTPClient {
                 headers: headers,
                 body: Data(body.utf8)
             )
+        case .gatedResponse(let statusCode, let headers, let body, let gate):
+            try await gate.enterAndWaitForRelease()
+            return await makeResponse(
+                request: request,
+                statusCode: statusCode,
+                headers: headers,
+                body: Data(body.utf8)
+            )
         case .invalidResponse:
             throw HTTPClientError.invalidResponse
         case .responseBodyTooLarge(let maximumBytes, let actualBytes):
@@ -112,5 +126,42 @@ actor ScriptedHTTPClient: HTTPClient {
 
     func maxConcurrentExecutions() -> Int {
         maxConcurrentExecutionCount
+    }
+
+    func currentInFlightExecutionCount() -> Int {
+        inFlightExecutions
+    }
+}
+
+actor ScriptedHTTPClientResponseGate {
+    private var entryCount = 0
+    private var released = false
+    private var releaseContinuations: [CheckedContinuation<Void, Never>] = []
+
+    func enterAndWaitForRelease() async throws {
+        entryCount += 1
+        if released == false {
+            await withCheckedContinuation { continuation in
+                releaseContinuations.append(continuation)
+            }
+        }
+        try Task.checkCancellation()
+    }
+
+    func hasEntered() -> Bool {
+        entryCount > 0
+    }
+
+    func enteredCount() -> Int {
+        entryCount
+    }
+
+    func release() {
+        released = true
+        let continuations = releaseContinuations
+        releaseContinuations.removeAll()
+        for continuation in continuations {
+            continuation.resume()
+        }
     }
 }

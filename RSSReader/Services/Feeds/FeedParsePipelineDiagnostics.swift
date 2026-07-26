@@ -1,6 +1,6 @@
 import Foundation
 
-enum FeedParserAnomalyKind: Sendable {
+nonisolated enum FeedParserAnomalyKind: Sendable {
     case missingFeedTitle
     case missingFeedSiteURL
     case entryMissingTitle
@@ -9,13 +9,13 @@ enum FeedParserAnomalyKind: Sendable {
     case entryMissingContent
 }
 
-struct FeedParserAnomaly: Sendable {
+nonisolated struct FeedParserAnomaly: Sendable {
     let kind: FeedParserAnomalyKind
     let entryIndex: Int?
     let message: String
 }
 
-struct FeedParsePipelineDiagnostics: Sendable {
+nonisolated struct FeedParsePipelineDiagnostics: Sendable {
     let parserAnomalies: [FeedParserAnomaly]
     let rejectedEntries: [RejectedFeedEntryDiagnostic]
 
@@ -24,39 +24,124 @@ struct FeedParsePipelineDiagnostics: Sendable {
     }
 }
 
-struct FeedParsePipelineResult: Sendable {
+nonisolated struct FeedParsePipelineResult: Sendable {
     let feed: ParsedFeedDTO
     let diagnostics: FeedParsePipelineDiagnostics
 }
 
 extension FeedParserService {
-    static func parsePipeline(_ response: FeedResponse) throws -> ParsedFeedDTO {
+    nonisolated static func parsePipeline(_ response: FeedResponse) throws -> ParsedFeedDTO {
         try parsePipelineResult(response).feed
     }
 
-    static func parsePipeline(_ data: Data, feedURL: String) throws -> ParsedFeedDTO {
+    nonisolated static func parsePipeline(_ data: Data, feedURL: String) throws -> ParsedFeedDTO {
         try parsePipelineResult(data, feedURL: feedURL).feed
     }
 
-    static func parsePipeline(_ parsedFeed: ParsedFeedDTO, feedURL: String) -> ParsedFeedDTO {
+    nonisolated static func parsePipeline(_ parsedFeed: ParsedFeedDTO, feedURL: String) -> ParsedFeedDTO {
         parsePipelineResult(parsedFeed, feedURL: feedURL).feed
     }
 
-    static func parsePipelineResult(_ response: FeedResponse) throws -> FeedParsePipelineResult {
-        let parsedFeed = try parseFeed(response)
-        return parsePipelineResult(parsedFeed, feedURL: response.request.url.absoluteString)
+    nonisolated static func parsePipelineResult(
+        _ response: FeedResponse,
+        xmlCancellationProbe: @escaping FeedXMLParserCancellationProbe = { Task.isCancelled },
+        xmlProgressProbe: FeedXMLParserProgressProbe? = nil,
+        entryProgressProbe: FeedParsingEntryProgressProbe? = nil
+    ) throws -> FeedParsePipelineResult {
+        let document = try parse(
+            response,
+            cancellationProbe: xmlCancellationProbe,
+            progressProbe: xmlProgressProbe
+        )
+        try Task.checkCancellation()
+        let parsedFeed = try parseFeed(document)
+        try Task.checkCancellation()
+        return try makePipelineResult(
+            parsedFeed,
+            feedURL: response.request.url.absoluteString,
+            cancellationCheck: { try Task.checkCancellation() },
+            entryProgressProbe: entryProgressProbe
+        )
     }
 
-    static func parsePipelineResult(_ data: Data, feedURL: String) throws -> FeedParsePipelineResult {
-        let parsedFeed = try parseFeed(parse(data))
-        return parsePipelineResult(parsedFeed, feedURL: feedURL)
+    nonisolated static func parsePipelineResult(
+        _ data: Data,
+        feedURL: String,
+        xmlCancellationProbe: @escaping FeedXMLParserCancellationProbe = { Task.isCancelled },
+        xmlProgressProbe: FeedXMLParserProgressProbe? = nil,
+        entryProgressProbe: FeedParsingEntryProgressProbe? = nil
+    ) throws -> FeedParsePipelineResult {
+        let document = try parse(
+            data,
+            cancellationProbe: xmlCancellationProbe,
+            progressProbe: xmlProgressProbe
+        )
+        try Task.checkCancellation()
+        let parsedFeed = try parseFeed(document)
+        try Task.checkCancellation()
+        return try makePipelineResult(
+            parsedFeed,
+            feedURL: feedURL,
+            cancellationCheck: { try Task.checkCancellation() },
+            entryProgressProbe: entryProgressProbe
+        )
     }
 
-    static func parsePipelineResult(_ parsedFeed: ParsedFeedDTO, feedURL: String) -> FeedParsePipelineResult {
-        let normalizedFeed = FeedNormalizationService.normalize(parsedFeed, feedURL: feedURL)
-        let parserAnomalies = collectParserAnomalies(in: normalizedFeed)
-        let deduplicatedFeed = DeduplicationService.deduplicate(normalizedFeed)
-        let filteringResult = FeedEntryFilteringService.filterEntries(from: deduplicatedFeed)
+    nonisolated static func parsePipelineResult(
+        _ parsedFeed: ParsedFeedDTO,
+        feedURL: String
+    ) -> FeedParsePipelineResult {
+        makePipelineResult(
+            parsedFeed,
+            feedURL: feedURL,
+            cancellationCheck: {},
+            entryProgressProbe: nil
+        )
+    }
+
+    nonisolated private static func makePipelineResult(
+        _ parsedFeed: ParsedFeedDTO,
+        feedURL: String,
+        cancellationCheck: FeedParsingCancellationCheck,
+        entryProgressProbe: FeedParsingEntryProgressProbe?
+    ) rethrows -> FeedParsePipelineResult {
+        let normalizedFeed = try FeedNormalizationService.normalize(
+            parsedFeed,
+            feedURL: feedURL,
+            cancellationCheck: cancellationCheck,
+            progressProbe: makeProgressProbe(
+                for: .normalization,
+                forwarding: entryProgressProbe
+            )
+        )
+        try cancellationCheck()
+        let parserAnomalies = try collectParserAnomalies(
+            in: normalizedFeed,
+            cancellationCheck: cancellationCheck,
+            progressProbe: makeProgressProbe(
+                for: .diagnostics,
+                forwarding: entryProgressProbe
+            )
+        )
+        try cancellationCheck()
+        let deduplicatedFeed = try DeduplicationService.deduplicate(
+            normalizedFeed,
+            cancellationCheck: cancellationCheck,
+            progressProbe: makeProgressProbe(
+                for: .deduplication,
+                forwarding: entryProgressProbe
+            )
+        )
+        try cancellationCheck()
+        let filteringResult = try FeedEntryFilteringService.filterEntries(
+            from: deduplicatedFeed,
+            cancellationCheck: cancellationCheck,
+            progressProbe: makeProgressProbe(
+                for: .filtering,
+                forwarding: entryProgressProbe
+            )
+        )
+        try cancellationCheck()
         let filteredFeed = ParsedFeedDTO(
             kind: deduplicatedFeed.kind,
             metadata: deduplicatedFeed.metadata,
@@ -72,7 +157,11 @@ extension FeedParserService {
         )
     }
 
-    private static func collectParserAnomalies(in feed: ParsedFeedDTO) -> [FeedParserAnomaly] {
+    nonisolated private static func collectParserAnomalies(
+        in feed: ParsedFeedDTO,
+        cancellationCheck: FeedParsingCancellationCheck,
+        progressProbe: FeedEntryLoopProgressProbe?
+    ) rethrows -> [FeedParserAnomaly] {
         var anomalies: [FeedParserAnomaly] = []
 
         if hasValue(feed.metadata.title) == false {
@@ -96,6 +185,10 @@ extension FeedParserService {
         }
 
         for (index, entry) in feed.entries.enumerated() {
+            try FeedParsingCancellationPolicy.checkBeforeEntry(
+                at: index,
+                cancellationCheck: cancellationCheck
+            )
             if hasValue(entry.title) == false {
                 anomalies.append(
                     FeedParserAnomaly(
@@ -137,12 +230,24 @@ extension FeedParserService {
                     )
                 )
             }
+            progressProbe?(index + 1)
         }
+        try cancellationCheck()
 
         return anomalies
     }
 
-    private static func hasValue(_ value: String?) -> Bool {
+    nonisolated private static func makeProgressProbe(
+        for stage: FeedParsingEntryStage,
+        forwarding progressProbe: FeedParsingEntryProgressProbe?
+    ) -> FeedEntryLoopProgressProbe? {
+        guard let progressProbe else { return nil }
+        return { completedEntryCount in
+            progressProbe(stage, completedEntryCount)
+        }
+    }
+
+    nonisolated private static func hasValue(_ value: String?) -> Bool {
         guard let value else { return false }
         return value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
     }

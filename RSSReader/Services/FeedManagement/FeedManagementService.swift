@@ -177,6 +177,7 @@ final class DefaultFeedManagementService: FeedManagementService {
     private let logger: Logging
     private let httpClient: any HTTPClient
     private let feedFetcher: any FeedFetching
+    private let feedParsingWorker: any FeedParsingWorking
     private let feedRepository: any FeedRepository
     private let folderRepository: any FolderRepository
     private let articleRepository: any ArticleRepository
@@ -185,6 +186,7 @@ final class DefaultFeedManagementService: FeedManagementService {
         logger: Logging,
         httpClient: any HTTPClient,
         feedFetcher: any FeedFetching,
+        feedParsingWorker: any FeedParsingWorking = FeedParsingWorker(),
         feedRepository: any FeedRepository,
         folderRepository: any FolderRepository,
         articleRepository: any ArticleRepository
@@ -192,6 +194,7 @@ final class DefaultFeedManagementService: FeedManagementService {
         self.logger = logger
         self.httpClient = httpClient
         self.feedFetcher = feedFetcher
+        self.feedParsingWorker = feedParsingWorker
         self.feedRepository = feedRepository
         self.folderRepository = folderRepository
         self.articleRepository = articleRepository
@@ -266,6 +269,7 @@ final class DefaultFeedManagementService: FeedManagementService {
             logger: logger,
             httpClient: httpClient,
             feedFetcher: feedFetcher,
+            feedParsingWorker: feedParsingWorker,
             normalizationPolicy: normalizationPolicy
         )
     }

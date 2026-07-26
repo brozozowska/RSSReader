@@ -330,6 +330,79 @@ struct FeedManagementScreenControllerAddFeedTests {
     }
 
     @Test
+    func feedManagementScreenControllerClearsLoadingWithoutFailureWhenPreviewIsCancelled() async throws {
+        let feedURL = "https://example.com/cancelled-controller-preview.xml"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                responsesByURL: [feedURL: .cancelled]
+            )
+        )
+        let controller = FeedManagementScreenController()
+
+        controller.handleScenarioSelection(.addFeed)
+        controller.handleAddFeedURLChange(feedURL)
+        await controller.handleAddFeedPrimaryAction(dependencies: harness.dependencies)
+
+        guard case .addFeed(let destination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after preview cancellation")
+            return
+        }
+
+        #expect(destination.isLoadingPreview == false)
+        #expect(destination.preview == nil)
+        #expect(destination.status == nil)
+        #expect(destination.primaryActionTitle == FeedManagementLocalization.previewFeedAction)
+        #expect(destination.isPrimaryActionEnabled)
+
+        let requests = await harness.httpClient.recordedRequests()
+        #expect(requests.map(\.url.absoluteString) == [feedURL])
+    }
+
+    @Test
+    func feedManagementScreenControllerTimeoutCancelsAndCleansUpPreviewOperation() async throws {
+        let siteURL = "https://example.com/"
+        let firstCandidateURL = "https://example.com/feed"
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                steps: [
+                    .delayedResponse(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: "",
+                        delayNanoseconds: 5_000_000_000
+                    )
+                ]
+            )
+        )
+        let controller = FeedManagementScreenController()
+
+        controller.handleScenarioSelection(.addFeed)
+        controller.handleAddFeedURLChange(siteURL)
+        let pendingCommand = controller.screenState.beginAddFeedPreviewLoading()
+        let command = try #require(pendingCommand)
+        await controller.performAddFeedPreview(
+            command: command,
+            dependencies: harness.dependencies,
+            timeout: .milliseconds(100)
+        )
+
+        guard case .addFeed(let destination)? = controller.viewState().presentedDestination else {
+            Issue.record("Expected add-feed destination presentation after preview timeout")
+            return
+        }
+
+        #expect(destination.isLoadingPreview == false)
+        #expect(destination.preview == nil)
+        #expect(destination.status?.kind == .failure)
+        #expect(destination.primaryActionTitle == FeedManagementLocalization.previewFeedAction)
+        #expect(destination.isPrimaryActionEnabled == false)
+        #expect(await harness.httpClient.currentInFlightExecutionCount() == 0)
+
+        let requests = await harness.httpClient.recordedRequests()
+        #expect(requests.map(\.url.absoluteString) == [firstCandidateURL])
+    }
+
+    @Test
     func feedManagementScreenControllerShowsUnsupportedFeedStatusWhenPreviewResponseIsNotAFeed() async throws {
         let feedURL = "https://example.com/not-a-feed"
         let harness = try TestHarness.make(

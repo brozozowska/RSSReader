@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import RSSReader
 
@@ -6,54 +7,359 @@ import Testing
 @MainActor
 struct ArticleRepositoryTests {
     @Test
-    func articleRepositoryUpsertCreatesAndUpdatesWithoutDuplicates() throws {
+    func articleRepositoryReconcilesProjectionArchiveStateAndMixedPayloadsFromSingleFeedSnapshot() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let folder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
         let feed = try insertFeed(into: harness)
-        let initialFetchedAt = Date(timeIntervalSince1970: 1_700_000_000)
-        let updatedFetchedAt = Date(timeIntervalSince1970: 1_700_000_600)
-
-        let createdArticle = try harness.articleRepository.upsert(
-            makeEntry(
-                externalID: "article-1",
-                guid: "guid-1",
-                url: "https://example.com/articles/1",
-                title: "Original title",
-                summary: "Original summary",
-                publishedAtRaw: "Tue, 02 Jan 2024 10:00:00 +0000"
-            ),
-            into: feed,
-            fetchedAt: initialFetchedAt
+        let otherFeed = try insertFeed(into: harness, url: "https://other.example.com/feed.xml")
+        let fetchedAt = Date(timeIntervalSince1970: 1_700_000_600)
+        let preservedArchivedAt = Date(timeIntervalSince1970: 1_600_000_000)
+        let reactivatedArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: " reactivated-id ",
+            url: "https://example.com/reactivated",
+            title: "Stale reactivated title",
+            archivedAt: .distantPast
         )
-        let updatedArticle = try harness.articleRepository.upsert(
-            makeEntry(
-                externalID: "article-1",
-                guid: "guid-1-updated",
-                url: "https://example.com/articles/1-updated",
-                title: "Updated title",
-                summary: "Updated summary",
-                contentHTML: "<p>Updated HTML</p>",
-                author: "Updated Author",
-                publishedAtRaw: "Tue, 02 Jan 2024 09:00:00 +0000",
-                imageURL: "https://example.com/image.jpg"
-            ),
+        let missingArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "missing-id",
+            url: "https://example.com/missing",
+            title: "Missing title"
+        )
+        let alreadyArchivedArticle = try harness.insertArticle(
+            feed: feed,
+            externalID: "already-archived-id",
+            url: "https://example.com/already-archived",
+            title: "Already archived title",
+            archivedAt: preservedArchivedAt
+        )
+        let otherFeedArticle = try harness.insertArticle(
+            feed: otherFeed,
+            externalID: "reactivated-id",
+            url: "https://other.example.com/reactivated",
+            title: "Other feed title"
+        )
+        feed.displayTitleOverride = "Display Feed"
+        feed.siteURL = "https://new.example.com/"
+        feed.folder = folder
+
+        let payloads = try ArticleUpsertPayload.makeAllPrepared(
+            entries: [
+                makePreparedEntry(
+                    externalID: "reactivated-id",
+                    url: "https://example.com/reactivated-updated",
+                    title: "Reactivated title"
+                ),
+                makePreparedEntry(
+                    externalID: "new-id",
+                    url: "https://example.com/new",
+                    title: "Initial new title"
+                ),
+                makePreparedEntry(
+                    externalID: " new-id ",
+                    url: "https://example.com/new-updated",
+                    title: "Updated duplicate title"
+                )
+            ],
+            fetchedAt: fetchedAt
+        )
+        let result = try harness.articleRepository.reconcileFeedSnapshot(
+            payloads,
             into: feed,
-            fetchedAt: updatedFetchedAt
+            fetchedAt: fetchedAt
         )
 
         let persistedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
-        let persistedArticle = try #require(persistedArticles.first)
+        let insertedArticle = try #require(persistedArticles.first { $0.externalID == "new-id" })
 
-        #expect(createdArticle?.id == updatedArticle?.id)
-        #expect(persistedArticles.count == 1)
-        #expect(persistedArticle.externalID == "article-1")
-        #expect(persistedArticle.guid == "guid-1-updated")
-        #expect(persistedArticle.url == "https://example.com/articles/1-updated")
-        #expect(persistedArticle.title == "Updated title")
-        #expect(persistedArticle.summary == "Updated summary")
-        #expect(persistedArticle.contentHTML == "<p>Updated HTML</p>")
-        #expect(persistedArticle.author == "Updated Author")
-        #expect(persistedArticle.imageURL == "https://example.com/image.jpg")
-        #expect(persistedArticle.fetchedAt == updatedFetchedAt)
+        #expect(result.projectionUpdateCount == 9)
+        #expect(result.reconciledArticleCount == 2)
+        #expect(result.upsertedArticleCount == 2)
+        #expect(persistedArticles.count == 4)
+        #expect(reactivatedArticle.archivedAt == nil)
+        #expect(reactivatedArticle.url == "https://example.com/reactivated-updated")
+        #expect(reactivatedArticle.title == "Reactivated title")
+        #expect(reactivatedArticle.fetchedAt == fetchedAt)
+        #expect(missingArticle.archivedAt == fetchedAt)
+        #expect(alreadyArchivedArticle.archivedAt == preservedArchivedAt)
+        #expect(insertedArticle.url == "https://example.com/new-updated")
+        #expect(insertedArticle.title == "Updated duplicate title")
+        #expect(insertedArticle.fetchedAt == fetchedAt)
+        #expect(otherFeedArticle.title == "Other feed title")
+        #expect(persistedArticles.allSatisfy { $0.feedTitle == "Display Feed" })
+        #expect(persistedArticles.allSatisfy { $0.feedSiteURL == "https://new.example.com/" })
+        #expect(persistedArticles.allSatisfy { $0.feedFolderName == "News" })
+    }
+
+    @Test
+    func articleRepositoryRepairsSyncedDuplicatesDeterministicallyWithoutLosingArchiveOrUserState() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(into: harness)
+        let modelContext = harness.modelContainer.mainContext
+        let fetchedAt = Date(timeIntervalSince1970: 1_700_000_600)
+        let preservedArchivedAt = Date(timeIntervalSince1970: 1_600_000_000)
+        let staleUpdatedAt = Date(timeIntervalSince1970: 1_500_000_000)
+        let canonicalUpdatedAt = Date(timeIntervalSince1970: 1_550_000_000)
+        let canonicalStateUpdatedAt = Date(timeIntervalSince1970: 1_575_000_000)
+        let staleCurrentArticle = Article(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            externalID: "synced-current",
+            url: "https://example.com/current-stale",
+            title: "Stale current title",
+            updatedAt: staleUpdatedAt
+        )
+        let canonicalCurrentArticle = Article(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000003")!,
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            externalID: " synced-current ",
+            url: "https://example.com/current-canonical",
+            title: "Canonical current title",
+            archivedAt: .distantPast,
+            updatedAt: canonicalUpdatedAt
+        )
+        let tiedCurrentArticle = Article(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            externalID: "synced-current",
+            url: "https://example.com/current-tied",
+            title: "Tied current title",
+            updatedAt: canonicalUpdatedAt
+        )
+        let staleMissingArticle = Article(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000004")!,
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            externalID: "synced-missing",
+            url: "https://example.com/missing-stale",
+            title: "Stale missing title",
+            updatedAt: staleUpdatedAt
+        )
+        let canonicalMissingArticle = Article(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000005")!,
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            externalID: "synced-missing",
+            url: "https://example.com/missing-canonical",
+            title: "Canonical missing title",
+            archivedAt: preservedArchivedAt,
+            updatedAt: canonicalUpdatedAt
+        )
+        let stableArticle = Article(
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            externalID: "stable",
+            url: "https://example.com/stable",
+            title: "Stable title",
+            updatedAt: canonicalUpdatedAt
+        )
+        let staleCurrentState = ArticleState(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000011")!,
+            articleExternalID: "synced-current",
+            feedID: feed.id,
+            isRead: true,
+            readAt: staleUpdatedAt,
+            updatedAt: staleUpdatedAt
+        )
+        let tiedLosingCurrentState = ArticleState(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000012")!,
+            articleExternalID: "\nsynced-current",
+            feedID: feed.id,
+            lastInteractionAt: canonicalStateUpdatedAt,
+            updatedAt: canonicalStateUpdatedAt
+        )
+        let canonicalCurrentState = ArticleState(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000013")!,
+            articleExternalID: " synced-current ",
+            feedID: feed.id,
+            isRead: true,
+            readAt: canonicalStateUpdatedAt,
+            isStarred: true,
+            starredAt: canonicalStateUpdatedAt,
+            isHidden: true,
+            hiddenAt: canonicalStateUpdatedAt,
+            lastInteractionAt: canonicalStateUpdatedAt,
+            updatedAt: canonicalStateUpdatedAt
+        )
+
+        for article in [
+            staleCurrentArticle,
+            canonicalCurrentArticle,
+            tiedCurrentArticle,
+            staleMissingArticle,
+            canonicalMissingArticle,
+            stableArticle
+        ] {
+            modelContext.insert(article)
+        }
+        for articleState in [
+            staleCurrentState,
+            tiedLosingCurrentState,
+            canonicalCurrentState
+        ] {
+            modelContext.insert(articleState)
+        }
+        try modelContext.save()
+        let payloads = try ArticleUpsertPayload.makeAllPrepared(
+            entries: [
+                makePreparedEntry(
+                    externalID: "synced-current",
+                    url: "https://example.com/current-refreshed",
+                    title: "Refreshed current title"
+                ),
+                makePreparedEntry(
+                    externalID: "stable",
+                    url: "https://example.com/stable",
+                    title: "Stable title"
+                )
+            ],
+            fetchedAt: fetchedAt
+        )
+
+        _ = try harness.articleRepository.reconcileFeedSnapshot(
+            payloads,
+            into: feed,
+            fetchedAt: fetchedAt
+        )
+
+        let firstRepairedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        let firstCurrentArticle = try #require(
+            firstRepairedArticles.first { $0.externalID == "synced-current" }
+        )
+        let firstMissingArticle = try #require(
+            firstRepairedArticles.first { $0.externalID == "synced-missing" }
+        )
+        let queryService = DefaultArticleQueryService(
+            articleRepository: harness.articleRepository,
+            articleStateRepository: harness.articleStateRepository
+        )
+        let firstHiddenQueryItems = try queryService.fetchArticleListItems(
+            feedID: feed.id,
+            sortMode: .publishedAtDescending,
+            filter: .hidden
+        )
+        let currentQueryItem = try #require(firstHiddenQueryItems.first)
+        let currentReaderArticle = try #require(
+            try queryService.fetchReaderArticle(id: firstCurrentArticle.id)
+        )
+        let firstRepairedStates = try modelContext.fetch(FetchDescriptor<ArticleState>())
+
+        #expect(firstRepairedArticles.count == 3)
+        #expect(firstCurrentArticle.id == canonicalCurrentArticle.id)
+        #expect(firstCurrentArticle.externalID == "synced-current")
+        #expect(firstCurrentArticle.title == "Refreshed current title")
+        #expect(firstCurrentArticle.archivedAt == nil)
+        #expect(firstMissingArticle.id == canonicalMissingArticle.id)
+        #expect(firstMissingArticle.archivedAt == preservedArchivedAt)
+        #expect(firstRepairedStates.count == 1)
+        #expect(firstRepairedStates.first?.id == canonicalCurrentState.id)
+        #expect(firstRepairedStates.first?.articleExternalID == "synced-current")
+        #expect(firstRepairedStates.first?.updatedAt == canonicalStateUpdatedAt)
+        #expect(firstHiddenQueryItems.count == 1)
+        #expect(currentQueryItem.articleExternalID == "synced-current")
+        #expect(currentQueryItem.isRead)
+        #expect(currentQueryItem.isStarred)
+        #expect(currentQueryItem.isHidden)
+        #expect(currentReaderArticle.isRead)
+        #expect(currentReaderArticle.isStarred)
+        #expect(currentReaderArticle.isHidden)
+
+        _ = try harness.articleRepository.reconcileFeedSnapshot(
+            payloads,
+            into: feed,
+            fetchedAt: fetchedAt
+        )
+
+        let repeatedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        let repeatedHiddenQueryItems = try queryService.fetchArticleListItems(
+            feedID: feed.id,
+            sortMode: .publishedAtDescending,
+            filter: .hidden
+        )
+        let repeatedStates = try modelContext.fetch(FetchDescriptor<ArticleState>())
+
+        #expect(Set(repeatedArticles.map(\.id)) == Set(firstRepairedArticles.map(\.id)))
+        #expect(repeatedArticles.count == 3)
+        #expect(repeatedStates.count == 1)
+        #expect(repeatedStates.first?.id == canonicalCurrentState.id)
+        #expect(repeatedStates.first?.articleExternalID == "synced-current")
+        #expect(repeatedHiddenQueryItems.count == 1)
+        #expect(repeatedHiddenQueryItems.first?.articleExternalID == "synced-current")
+    }
+
+    @Test
+    func articleRepositoryStagesArticleStateIdentityRepairInsideSnapshotRollbackBoundary() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(
+            into: harness,
+            url: "https://example.com/state-rollback-feed.xml"
+        )
+        let modelContext = harness.modelContainer.mainContext
+        let olderUpdatedAt = Date(timeIntervalSince1970: 1_500_000_000)
+        let newerUpdatedAt = Date(timeIntervalSince1970: 1_600_000_000)
+        let olderArticle = Article(
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            externalID: "rollback-identity",
+            url: "https://example.com/articles/rollback-older",
+            title: "Older",
+            updatedAt: olderUpdatedAt
+        )
+        let canonicalArticle = Article(
+            feedID: feed.id,
+            feedTitle: feed.displayTitle,
+            externalID: " rollback-identity ",
+            url: "https://example.com/articles/rollback-canonical",
+            title: "Canonical",
+            updatedAt: newerUpdatedAt
+        )
+        let articleState = ArticleState(
+            articleExternalID: " rollback-identity ",
+            feedID: feed.id,
+            isRead: true,
+            readAt: newerUpdatedAt,
+            isStarred: true,
+            starredAt: newerUpdatedAt,
+            lastInteractionAt: newerUpdatedAt,
+            updatedAt: newerUpdatedAt
+        )
+        modelContext.insert(olderArticle)
+        modelContext.insert(canonicalArticle)
+        modelContext.insert(articleState)
+        try modelContext.save()
+
+        _ = try harness.articleRepository.reconcileFeedSnapshot(
+            [],
+            into: feed,
+            fetchedAt: newerUpdatedAt,
+            saveAfterOperation: false
+        )
+
+        let stagedArticles = try modelContext.fetch(FetchDescriptor<Article>())
+        let stagedStates = try modelContext.fetch(FetchDescriptor<ArticleState>())
+        #expect(modelContext.hasChanges)
+        #expect(stagedArticles.count == 1)
+        #expect(stagedArticles.first?.externalID == "rollback-identity")
+        #expect(stagedStates.count == 1)
+        #expect(stagedStates.first?.articleExternalID == "rollback-identity")
+
+        modelContext.rollback()
+
+        let rolledBackArticles = try modelContext.fetch(FetchDescriptor<Article>())
+        let rolledBackStates = try modelContext.fetch(FetchDescriptor<ArticleState>())
+        #expect(rolledBackArticles.count == 2)
+        #expect(Set(rolledBackArticles.map(\.externalID)) == [
+            "rollback-identity",
+            " rollback-identity "
+        ])
+        #expect(rolledBackStates.count == 1)
+        #expect(rolledBackStates.first?.articleExternalID == " rollback-identity ")
+        #expect(rolledBackStates.first?.isRead == true)
+        #expect(rolledBackStates.first?.isStarred == true)
     }
 
     @Test
@@ -66,7 +372,7 @@ struct ArticleRepositoryTests {
             siteURL: "https://old.example.com/",
             folder: nil
         )
-        _ = try harness.insertArticle(
+        let article = try harness.insertArticle(
             feed: feed,
             externalID: "article-1",
             url: "https://example.com/articles/1",
@@ -80,7 +386,7 @@ struct ArticleRepositoryTests {
 
         let updatedCount = try harness.articleRepository.refreshFeedProjection(for: feed)
         let persistedArticle = try #require(
-            try harness.articleRepository.fetchArticle(feedID: feed.id, externalID: "article-1")
+            try harness.articleRepository.fetchArticle(id: article.id)
         )
 
         #expect(updatedCount == 3)
@@ -90,80 +396,31 @@ struct ArticleRepositoryTests {
     }
 
     @Test
-    func articleRepositoryReconcileArchivesMissingArticlesAndReactivatesKeptArticles() throws {
-        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
-        let feed = try insertFeed(into: harness)
-        let firstFetchedAt = Date(timeIntervalSince1970: 1_700_000_000)
-        let secondFetchedAt = Date(timeIntervalSince1970: 1_700_000_600)
-        let archivedArticle = try harness.insertArticle(
-            feed: feed,
-            externalID: "archived",
-            url: "https://example.com/archived",
-            title: "Archived"
-        )
-        let keptArticle = try harness.insertArticle(
-            feed: feed,
-            externalID: "kept",
-            url: "https://example.com/kept",
-            title: "Kept"
-        )
-
-        let firstReconcileCount = try harness.articleRepository.reconcileArticles(
-            feedID: feed.id,
-            keepingExternalIDs: ["kept"],
-            fetchedAt: firstFetchedAt
-        )
-
-        #expect(firstReconcileCount == 1)
-        #expect(archivedArticle.archivedAt == firstFetchedAt)
-        #expect(keptArticle.archivedAt == nil)
-
-        let secondReconcileCount = try harness.articleRepository.reconcileArticles(
-            feedID: feed.id,
-            keepingExternalIDs: [" archived ", "kept"],
-            fetchedAt: secondFetchedAt
-        )
-
-        #expect(secondReconcileCount == 1)
-        #expect(archivedArticle.archivedAt == nil)
-        #expect(keptArticle.archivedAt == nil)
-    }
-
-    @Test
     func articleRepositoryFetchesFeedAndInboxUsingPublishedAtSortModes() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let firstFeed = try insertFeed(into: harness, url: "https://example.com/first.xml")
         let secondFeed = try insertFeed(into: harness, url: "https://example.com/second.xml")
 
-        _ = try harness.articleRepository.upsert(
-            makeEntry(
-                externalID: "old",
-                url: "https://example.com/old",
-                title: "Old",
-                publishedAtRaw: "Tue, 02 Jan 2024 09:00:00 +0000"
-            ),
-            into: firstFeed,
-            fetchedAt: Date(timeIntervalSince1970: 100)
+        _ = try harness.insertArticle(
+            feed: firstFeed,
+            externalID: "old",
+            url: "https://example.com/old",
+            title: "Old",
+            publishedAt: Date(timeIntervalSince1970: 100)
         )
-        _ = try harness.articleRepository.upsert(
-            makeEntry(
-                externalID: "new",
-                url: "https://example.com/new",
-                title: "New",
-                publishedAtRaw: "Tue, 02 Jan 2024 11:00:00 +0000"
-            ),
-            into: firstFeed,
-            fetchedAt: Date(timeIntervalSince1970: 200)
+        _ = try harness.insertArticle(
+            feed: firstFeed,
+            externalID: "new",
+            url: "https://example.com/new",
+            title: "New",
+            publishedAt: Date(timeIntervalSince1970: 300)
         )
-        _ = try harness.articleRepository.upsert(
-            makeEntry(
-                externalID: "other-feed",
-                url: "https://example.com/other",
-                title: "Other Feed",
-                publishedAtRaw: "Tue, 02 Jan 2024 10:00:00 +0000"
-            ),
-            into: secondFeed,
-            fetchedAt: Date(timeIntervalSince1970: 150)
+        _ = try harness.insertArticle(
+            feed: secondFeed,
+            externalID: "other-feed",
+            url: "https://example.com/other",
+            title: "Other Feed",
+            publishedAt: Date(timeIntervalSince1970: 200)
         )
 
         let firstFeedDescending = try harness.articleRepository.fetchArticles(
@@ -276,7 +533,7 @@ struct ArticleRepositoryTests {
         )
     }
 
-    private func makeEntry(
+    private func makePreparedEntry(
         externalID: String,
         guid: String? = nil,
         url: String,
@@ -286,8 +543,8 @@ struct ArticleRepositoryTests {
         contentHTML: String? = nil,
         contentText: String? = nil,
         author: String? = nil,
-        publishedAtRaw: String? = nil,
-        updatedAtRaw: String? = nil,
+        publishedAt: Date? = nil,
+        updatedAt: Date? = nil,
         imageURL: String? = nil
     ) -> ParsedFeedEntryDTO {
         ParsedFeedEntryDTO(
@@ -300,8 +557,8 @@ struct ArticleRepositoryTests {
             contentHTML: contentHTML,
             contentText: contentText,
             author: author,
-            publishedAtRaw: publishedAtRaw,
-            updatedAtRaw: updatedAtRaw,
+            publishedAt: publishedAt,
+            updatedAt: updatedAt,
             imageURL: imageURL
         )
     }

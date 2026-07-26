@@ -28,7 +28,7 @@ struct FeedEntryFilteringServiceTests {
 
     @Test
     func filteringKeepsValidEntriesInOriginalOrderAndRecordsRejectedEntries() throws {
-        let firstValidEntry = makeEntry(
+        let firstValidEntry = makePreparedEntry(
             externalID: "valid-1",
             guid: "guid-1",
             title: "First valid entry"
@@ -37,7 +37,7 @@ struct FeedEntryFilteringServiceTests {
             externalID: "rejected-1",
             title: "Rejected entry without useful reference"
         )
-        let secondValidEntry = makeEntry(
+        let secondValidEntry = makePreparedEntry(
             externalID: "valid-2",
             canonicalURL: "https://example.com/articles/2",
             summary: "Second summary"
@@ -67,7 +67,7 @@ struct FeedEntryFilteringServiceTests {
                 siteURL: "https://example.com/"
             ),
             entries: [
-                makeEntry(
+                makePreparedEntry(
                     externalID: "valid",
                     url: "https://example.com/articles/valid",
                     contentText: "Readable content"
@@ -103,7 +103,63 @@ struct FeedEntryFilteringServiceTests {
         ])
     }
 
-    private func makeEntry(
+    @Test
+    func acceptedCanonicalGUIDAndContentEntriesAllProducePersistablePayloads() throws {
+        let canonicalEntry = makePreparedEntry(
+            externalID: "canonical-entry",
+            canonicalURL: "https://example.com/articles/canonical",
+            summary: "Canonical summary"
+        )
+        let guidContentEntry = makePreparedEntry(
+            externalID: "guid-content-entry",
+            guid: "guid-content",
+            contentHTML: "<p>GUID content</p>"
+        )
+        let urlContentEntry = makePreparedEntry(
+            externalID: "url-content-entry",
+            url: "https://example.com/articles/content-only",
+            contentText: "URL content"
+        )
+        let referenceFreeContentEntry = makePreparedEntry(
+            externalID: "reference-free-content-entry",
+            contentText: "Readable but not addressable"
+        )
+
+        let result = FeedEntryFilteringService.filterEntries([
+            canonicalEntry,
+            guidContentEntry,
+            urlContentEntry,
+            referenceFreeContentEntry
+        ])
+        let payloads = try ArticleUpsertPayload.makeAllPrepared(
+            entries: result.validEntries,
+            fetchedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        #expect(result.validEntries.map(\.externalID) == [
+            "canonical-entry",
+            "guid-content-entry",
+            "url-content-entry"
+        ])
+        #expect(payloads.map(\.externalID) == [
+            "canonical-entry",
+            "guid-content-entry",
+            "url-content-entry"
+        ])
+        #expect(payloads[0].url == "https://example.com/articles/canonical")
+        #expect(payloads[0].title == "Canonical summary")
+        #expect(payloads[1].url.isEmpty)
+        #expect(payloads[1].title.isEmpty)
+        #expect(payloads[1].contentHTML == "<p>GUID content</p>")
+        #expect(payloads[2].url == "https://example.com/articles/content-only")
+        #expect(payloads[2].title.isEmpty)
+
+        let rejectedDiagnostic = try #require(result.rejectedEntries.first)
+        #expect(rejectedDiagnostic.entry.externalID == "reference-free-content-entry")
+        #expect(rejectedDiagnostic.reasons == [.missingUsefulReference])
+    }
+
+    private func makePreparedEntry(
         externalID: String,
         guid: String? = nil,
         url: String? = nil,

@@ -144,6 +144,10 @@ enum FeedRefreshInFlightPolicy: String, Sendable {
     case shareExistingTaskResult
 }
 
+enum FeedRefreshInFlightCallerCancellationPolicy: String, Sendable {
+    case cancelSharedTaskWhenLastWaiterCancels
+}
+
 enum FeedRefreshTrigger: String, Sendable {
     case manual
     case background

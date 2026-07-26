@@ -1,6 +1,6 @@
 import Foundation
 
-enum FeedMetadataNormalizer {
+nonisolated enum FeedMetadataNormalizer {
     static func normalize(_ metadata: ParsedFeedMetadataDTO, feedURL: String) -> ParsedFeedMetadataDTO {
         let normalizedSiteURL = FeedURLNormalizer.normalizeSourceURL(metadata.siteURL)
         let fallbackSiteURL = normalizedSiteURL ?? FeedURLNormalizer.makeOriginURL(from: feedURL)
