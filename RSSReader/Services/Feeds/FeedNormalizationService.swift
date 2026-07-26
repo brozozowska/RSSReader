@@ -42,12 +42,4 @@ nonisolated enum FeedNormalizationService {
     static func normalize(_ entry: ParsedFeedEntryDTO, feedURL: String) -> ParsedFeedEntryDTO {
         FeedEntryNormalizer.normalize(entry, feedURL: feedURL)
     }
-
-    static func parsePublishedAt(for entry: ParsedFeedEntryDTO) -> Date? {
-        FeedEntryNormalizer.parsePublishedAt(for: entry)
-    }
-
-    static func parseUpdatedAt(for entry: ParsedFeedEntryDTO) -> Date? {
-        FeedEntryNormalizer.parseUpdatedAt(for: entry)
-    }
 }

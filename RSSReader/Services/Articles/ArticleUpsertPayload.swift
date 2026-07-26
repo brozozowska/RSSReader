@@ -22,24 +22,8 @@ nonisolated struct ArticleUpsertPayload: Sendable {
     let archivedAt: Date?
     let fetchedAt: Date
 
-    init?(
-        entry: ParsedFeedEntryDTO,
-        fetchedAt: Date = .now,
-        archivedAt: Date? = nil
-    ) {
-        self.init(
-            preparedEntry: entry,
-            publishedAt: FeedNormalizationService.parsePublishedAt(for: entry),
-            updatedAtSource: FeedNormalizationService.parseUpdatedAt(for: entry),
-            fetchedAt: fetchedAt,
-            archivedAt: archivedAt
-        )
-    }
-
     private init?(
         preparedEntry entry: ParsedFeedEntryDTO,
-        publishedAt: Date?,
-        updatedAtSource: Date?,
         fetchedAt: Date,
         archivedAt: Date?
     ) {
@@ -56,38 +40,11 @@ nonisolated struct ArticleUpsertPayload: Sendable {
         self.contentHTML = entry.contentHTML
         self.contentText = entry.contentText
         self.author = entry.author
-        self.publishedAt = publishedAt
-        self.updatedAtSource = updatedAtSource
+        self.publishedAt = entry.publishedAt
+        self.updatedAtSource = entry.updatedAt
         self.imageURL = entry.imageURL
         self.archivedAt = archivedAt
         self.fetchedAt = fetchedAt
-    }
-
-    static func makeAll(
-        entries: [ParsedFeedEntryDTO],
-        fetchedAt: Date,
-        archivedAt: Date? = nil,
-        cancellationCheck: FeedParsingCancellationCheck = { try Task.checkCancellation() }
-    ) throws -> [ArticleUpsertPayload] {
-        var payloads: [ArticleUpsertPayload] = []
-        payloads.reserveCapacity(entries.count)
-
-        for (index, entry) in entries.enumerated() {
-            try FeedParsingCancellationPolicy.checkBeforeEntry(
-                at: index,
-                cancellationCheck: cancellationCheck
-            )
-            guard let payload = ArticleUpsertPayload(
-                entry: entry,
-                fetchedAt: fetchedAt,
-                archivedAt: archivedAt
-            ) else {
-                throw ArticleUpsertPayloadConstructionError.nonPersistableEntry(index: index)
-            }
-            payloads.append(payload)
-        }
-        try cancellationCheck()
-        return payloads
     }
 
     static func makeAllPrepared(
@@ -107,8 +64,6 @@ nonisolated struct ArticleUpsertPayload: Sendable {
             )
             guard let payload = ArticleUpsertPayload(
                 preparedEntry: entry,
-                publishedAt: entry.publishedAt,
-                updatedAtSource: entry.updatedAt,
                 fetchedAt: fetchedAt,
                 archivedAt: archivedAt
             ) else {

@@ -44,19 +44,19 @@ struct ArticleRepositoryTests {
         feed.siteURL = "https://new.example.com/"
         feed.folder = folder
 
-        let payloads = try ArticleUpsertPayload.makeAll(
+        let payloads = try ArticleUpsertPayload.makeAllPrepared(
             entries: [
-                makeEntry(
+                makePreparedEntry(
                     externalID: "reactivated-id",
                     url: "https://example.com/reactivated-updated",
                     title: "Reactivated title"
                 ),
-                makeEntry(
+                makePreparedEntry(
                     externalID: "new-id",
                     url: "https://example.com/new",
                     title: "Initial new title"
                 ),
-                makeEntry(
+                makePreparedEntry(
                     externalID: " new-id ",
                     url: "https://example.com/new-updated",
                     title: "Updated duplicate title"
@@ -204,14 +204,14 @@ struct ArticleRepositoryTests {
             modelContext.insert(articleState)
         }
         try modelContext.save()
-        let payloads = try ArticleUpsertPayload.makeAll(
+        let payloads = try ArticleUpsertPayload.makeAllPrepared(
             entries: [
-                makeEntry(
+                makePreparedEntry(
                     externalID: "synced-current",
                     url: "https://example.com/current-refreshed",
                     title: "Refreshed current title"
                 ),
-                makeEntry(
+                makePreparedEntry(
                     externalID: "stable",
                     url: "https://example.com/stable",
                     title: "Stable title"
@@ -533,7 +533,7 @@ struct ArticleRepositoryTests {
         )
     }
 
-    private func makeEntry(
+    private func makePreparedEntry(
         externalID: String,
         guid: String? = nil,
         url: String,
@@ -543,8 +543,8 @@ struct ArticleRepositoryTests {
         contentHTML: String? = nil,
         contentText: String? = nil,
         author: String? = nil,
-        publishedAtRaw: String? = nil,
-        updatedAtRaw: String? = nil,
+        publishedAt: Date? = nil,
+        updatedAt: Date? = nil,
         imageURL: String? = nil
     ) -> ParsedFeedEntryDTO {
         ParsedFeedEntryDTO(
@@ -557,8 +557,8 @@ struct ArticleRepositoryTests {
             contentHTML: contentHTML,
             contentText: contentText,
             author: author,
-            publishedAtRaw: publishedAtRaw,
-            updatedAtRaw: updatedAtRaw,
+            publishedAt: publishedAt,
+            updatedAt: updatedAt,
             imageURL: imageURL
         )
     }

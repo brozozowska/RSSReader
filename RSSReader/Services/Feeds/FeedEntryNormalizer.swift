@@ -34,15 +34,6 @@ nonisolated enum FeedEntryNormalizer {
             imageURL: normalizedEntry.imageURL
         )
     }
-
-    static func parsePublishedAt(for entry: ParsedFeedEntryDTO) -> Date? {
-        entry.publishedAt ?? FeedDateParsingService.parse(entry.publishedAtRaw)
-    }
-
-    static func parseUpdatedAt(for entry: ParsedFeedEntryDTO) -> Date? {
-        entry.updatedAt ?? FeedDateParsingService.parse(entry.updatedAtRaw)
-    }
-
     private static func normalizeFields(_ entry: ParsedFeedEntryDTO) -> ParsedFeedEntryDTO {
         ParsedFeedEntryDTO(
             externalID: entry.externalID,
