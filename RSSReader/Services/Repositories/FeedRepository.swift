@@ -252,13 +252,16 @@ extension FeedRepository {
 final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext {
     let modelContext: ModelContext
     let persistenceOperationRecorder: SwiftDataRepositoryOperationRecorder
+    let persistenceSaveOperation: SwiftDataRepositorySaveOperation
 
     init(
         modelContext: ModelContext,
-        persistenceOperationRecorder: @escaping SwiftDataRepositoryOperationRecorder = { _ in }
+        persistenceOperationRecorder: @escaping SwiftDataRepositoryOperationRecorder = { _ in },
+        persistenceSaveOperation: @escaping SwiftDataRepositorySaveOperation = { try $0.save() }
     ) {
         self.modelContext = modelContext
         self.persistenceOperationRecorder = persistenceOperationRecorder
+        self.persistenceSaveOperation = persistenceSaveOperation
     }
 
     func fetchFeed(id: UUID) throws -> Feed? {

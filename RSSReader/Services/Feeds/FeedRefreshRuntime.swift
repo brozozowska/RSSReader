@@ -99,7 +99,11 @@ extension FeedRefreshService {
             let finishedAt = Date()
             let errorDescription = String(describing: error)
             feedRepository.rollback()
-            try? markRefreshFailed(feedID: feedID, finishedAt: finishedAt, errorDescription: errorDescription)
+            persistRefreshFailureStateBestEffort(
+                feedID: feedID,
+                finishedAt: finishedAt,
+                errorDescription: errorDescription
+            )
             persistRefreshLog(
                 feedID: feedID,
                 status: .failed,
@@ -166,5 +170,25 @@ extension FeedRefreshService {
         var update = FeedMetadataUpdate(updatedAt: finishedAt)
         update.lastSyncError = errorDescription
         _ = try feedRepository.updateMetadata(for: feedID, with: update)
+    }
+
+    func persistRefreshFailureStateBestEffort(
+        feedID: UUID,
+        finishedAt: Date,
+        errorDescription: String
+    ) {
+        do {
+            try markRefreshFailed(
+                feedID: feedID,
+                finishedAt: finishedAt,
+                errorDescription: errorDescription
+            )
+        } catch {
+            feedRepository.rollback()
+            logger.error(
+                "refresh_failure_state_persistence_failed feedID=\(feedID.uuidString) "
+                    + "error=\(String(describing: error)); failed refresh result preserved"
+            )
+        }
     }
 }
