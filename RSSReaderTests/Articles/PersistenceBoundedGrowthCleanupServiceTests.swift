@@ -404,10 +404,7 @@ struct PersistenceBoundedGrowthCleanupServiceTests {
 
         _ = harness.dependencies.appActions.purgeArchivedArticles()
 
-        let remainingArticle = try harness.articleRepository.fetchArticle(
-            feedID: feed.id,
-            externalID: "archived"
-        )
+        let remainingArticle = try harness.articleRepository.fetchArticle(id: archivedArticle.id)
         let remainingState = try harness.articleStateRepository.fetchState(
             feedID: feed.id,
             articleExternalID: "archived"

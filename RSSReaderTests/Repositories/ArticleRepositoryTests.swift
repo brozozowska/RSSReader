@@ -372,7 +372,7 @@ struct ArticleRepositoryTests {
             siteURL: "https://old.example.com/",
             folder: nil
         )
-        _ = try harness.insertArticle(
+        let article = try harness.insertArticle(
             feed: feed,
             externalID: "article-1",
             url: "https://example.com/articles/1",
@@ -386,7 +386,7 @@ struct ArticleRepositoryTests {
 
         let updatedCount = try harness.articleRepository.refreshFeedProjection(for: feed)
         let persistedArticle = try #require(
-            try harness.articleRepository.fetchArticle(feedID: feed.id, externalID: "article-1")
+            try harness.articleRepository.fetchArticle(id: article.id)
         )
 
         #expect(updatedCount == 3)

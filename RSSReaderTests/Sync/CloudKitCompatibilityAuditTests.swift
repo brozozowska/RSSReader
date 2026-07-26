@@ -68,7 +68,6 @@ struct CloudKitCompatibilityAuditTests {
             articleReport.findings.contains {
                 $0.rule == .repositoryManagedIdentityInvariant
                     && $0.affectedPaths == [
-                        "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
                         "SwiftDataArticleRepository.fetchArticles(feedID:)",
                         "SwiftDataArticleRepository.reconcileFeedSnapshot(_:into:fetchedAt:saveAfterOperation:)",
                         "DeduplicationService"
@@ -112,7 +111,6 @@ struct CloudKitCompatibilityAuditTests {
             articleReport.findings.contains {
                 $0.rule == .repositoryManagedIdentityInvariant
                     && $0.affectedPaths == [
-                        "SwiftDataArticleRepository.fetchArticle(feedID:externalID:)",
                         "SwiftDataArticleRepository.fetchArticles(feedID:)",
                         "SwiftDataArticleRepository.reconcileFeedSnapshot(_:into:fetchedAt:saveAfterOperation:)",
                         "DeduplicationService"

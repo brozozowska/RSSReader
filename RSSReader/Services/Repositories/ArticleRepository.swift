@@ -51,7 +51,6 @@ protocol ArticleRepository {
         saveAfterOperation: Bool
     ) throws -> ArticleFeedSnapshotReconciliationResult
     func fetchArticle(id: UUID) throws -> Article?
-    func fetchArticle(feedID: UUID, externalID: String) throws -> Article?
     func containsArticle(feedID: UUID, externalID: String) throws -> Bool
     func fetchArticles(feedID: UUID) throws -> [Article]
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article]
@@ -229,15 +228,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         let descriptor = FetchDescriptor<Article>(
             predicate: #Predicate<Article> { article in
                 article.id == id
-            }
-        )
-        return try fetchFirst(descriptor)
-    }
-
-    func fetchArticle(feedID: UUID, externalID: String) throws -> Article? {
-        let descriptor = FetchDescriptor<Article>(
-            predicate: #Predicate<Article> { article in
-                article.feedID == feedID && article.externalID == externalID
             }
         )
         return try fetchFirst(descriptor)

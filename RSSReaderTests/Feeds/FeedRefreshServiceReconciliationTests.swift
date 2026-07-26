@@ -389,10 +389,6 @@ private final class InterruptingAfterSnapshotArticleRepository: ArticleRepositor
         try backing.fetchArticle(id: id)
     }
 
-    func fetchArticle(feedID: UUID, externalID: String) throws -> Article? {
-        try backing.fetchArticle(feedID: feedID, externalID: externalID)
-    }
-
     func containsArticle(feedID: UUID, externalID: String) throws -> Bool {
         try backing.containsArticle(feedID: feedID, externalID: externalID)
     }
