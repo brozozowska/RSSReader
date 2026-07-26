@@ -66,9 +66,17 @@ nonisolated struct ArticleUpsertPayload: Sendable {
     static func makeAll(
         entries: [ParsedFeedEntryDTO],
         fetchedAt: Date,
-        archivedAt: Date? = nil
+        archivedAt: Date? = nil,
+        cancellationCheck: FeedParsingCancellationCheck = { try Task.checkCancellation() }
     ) throws -> [ArticleUpsertPayload] {
-        try entries.enumerated().map { index, entry in
+        var payloads: [ArticleUpsertPayload] = []
+        payloads.reserveCapacity(entries.count)
+
+        for (index, entry) in entries.enumerated() {
+            try FeedParsingCancellationPolicy.checkBeforeEntry(
+                at: index,
+                cancellationCheck: cancellationCheck
+            )
             guard let payload = ArticleUpsertPayload(
                 entry: entry,
                 fetchedAt: fetchedAt,
@@ -76,17 +84,27 @@ nonisolated struct ArticleUpsertPayload: Sendable {
             ) else {
                 throw ArticleUpsertPayloadConstructionError.nonPersistableEntry(index: index)
             }
-            return payload
+            payloads.append(payload)
         }
+        try cancellationCheck()
+        return payloads
     }
 
     static func makeAllPrepared(
         entries: [ParsedFeedEntryDTO],
         fetchedAt: Date,
         archivedAt: Date? = nil,
+        cancellationCheck: FeedParsingCancellationCheck = { try Task.checkCancellation() },
         materializationProbe: ArticleUpsertPayloadMaterializationProbe? = nil
     ) throws -> [ArticleUpsertPayload] {
-        try entries.enumerated().map { index, entry in
+        var payloads: [ArticleUpsertPayload] = []
+        payloads.reserveCapacity(entries.count)
+
+        for (index, entry) in entries.enumerated() {
+            try FeedParsingCancellationPolicy.checkBeforeEntry(
+                at: index,
+                cancellationCheck: cancellationCheck
+            )
             guard let payload = ArticleUpsertPayload(
                 preparedEntry: entry,
                 publishedAt: entry.publishedAt,
@@ -96,9 +114,11 @@ nonisolated struct ArticleUpsertPayload: Sendable {
             ) else {
                 throw ArticleUpsertPayloadConstructionError.nonPersistableEntry(index: index)
             }
+            payloads.append(payload)
             materializationProbe?(index + 1, payload)
-            return payload
         }
+        try cancellationCheck()
+        return payloads
     }
 
     static func hasPersistableExternalID(_ entry: ParsedFeedEntryDTO) -> Bool {

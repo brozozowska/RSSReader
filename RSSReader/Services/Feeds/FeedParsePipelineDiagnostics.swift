@@ -45,7 +45,8 @@ extension FeedParserService {
     nonisolated static func parsePipelineResult(
         _ response: FeedResponse,
         xmlCancellationProbe: @escaping FeedXMLParserCancellationProbe = { Task.isCancelled },
-        xmlProgressProbe: FeedXMLParserProgressProbe? = nil
+        xmlProgressProbe: FeedXMLParserProgressProbe? = nil,
+        entryProgressProbe: FeedParsingEntryProgressProbe? = nil
     ) throws -> FeedParsePipelineResult {
         let document = try parse(
             response,
@@ -58,7 +59,8 @@ extension FeedParserService {
         return try makePipelineResult(
             parsedFeed,
             feedURL: response.request.url.absoluteString,
-            cancellationCheck: { try Task.checkCancellation() }
+            cancellationCheck: { try Task.checkCancellation() },
+            entryProgressProbe: entryProgressProbe
         )
     }
 
@@ -66,7 +68,8 @@ extension FeedParserService {
         _ data: Data,
         feedURL: String,
         xmlCancellationProbe: @escaping FeedXMLParserCancellationProbe = { Task.isCancelled },
-        xmlProgressProbe: FeedXMLParserProgressProbe? = nil
+        xmlProgressProbe: FeedXMLParserProgressProbe? = nil,
+        entryProgressProbe: FeedParsingEntryProgressProbe? = nil
     ) throws -> FeedParsePipelineResult {
         let document = try parse(
             data,
@@ -79,7 +82,8 @@ extension FeedParserService {
         return try makePipelineResult(
             parsedFeed,
             feedURL: feedURL,
-            cancellationCheck: { try Task.checkCancellation() }
+            cancellationCheck: { try Task.checkCancellation() },
+            entryProgressProbe: entryProgressProbe
         )
     }
 
@@ -90,22 +94,53 @@ extension FeedParserService {
         makePipelineResult(
             parsedFeed,
             feedURL: feedURL,
-            cancellationCheck: {}
+            cancellationCheck: {},
+            entryProgressProbe: nil
         )
     }
 
     nonisolated private static func makePipelineResult(
         _ parsedFeed: ParsedFeedDTO,
         feedURL: String,
-        cancellationCheck: () throws -> Void
+        cancellationCheck: FeedParsingCancellationCheck,
+        entryProgressProbe: FeedParsingEntryProgressProbe?
     ) rethrows -> FeedParsePipelineResult {
-        let normalizedFeed = FeedNormalizationService.normalize(parsedFeed, feedURL: feedURL)
+        let normalizedFeed = try FeedNormalizationService.normalize(
+            parsedFeed,
+            feedURL: feedURL,
+            cancellationCheck: cancellationCheck,
+            progressProbe: makeProgressProbe(
+                for: .normalization,
+                forwarding: entryProgressProbe
+            )
+        )
         try cancellationCheck()
-        let parserAnomalies = collectParserAnomalies(in: normalizedFeed)
+        let parserAnomalies = try collectParserAnomalies(
+            in: normalizedFeed,
+            cancellationCheck: cancellationCheck,
+            progressProbe: makeProgressProbe(
+                for: .diagnostics,
+                forwarding: entryProgressProbe
+            )
+        )
         try cancellationCheck()
-        let deduplicatedFeed = DeduplicationService.deduplicate(normalizedFeed)
+        let deduplicatedFeed = try DeduplicationService.deduplicate(
+            normalizedFeed,
+            cancellationCheck: cancellationCheck,
+            progressProbe: makeProgressProbe(
+                for: .deduplication,
+                forwarding: entryProgressProbe
+            )
+        )
         try cancellationCheck()
-        let filteringResult = FeedEntryFilteringService.filterEntries(from: deduplicatedFeed)
+        let filteringResult = try FeedEntryFilteringService.filterEntries(
+            from: deduplicatedFeed,
+            cancellationCheck: cancellationCheck,
+            progressProbe: makeProgressProbe(
+                for: .filtering,
+                forwarding: entryProgressProbe
+            )
+        )
         try cancellationCheck()
         let filteredFeed = ParsedFeedDTO(
             kind: deduplicatedFeed.kind,
@@ -122,7 +157,11 @@ extension FeedParserService {
         )
     }
 
-    nonisolated private static func collectParserAnomalies(in feed: ParsedFeedDTO) -> [FeedParserAnomaly] {
+    nonisolated private static func collectParserAnomalies(
+        in feed: ParsedFeedDTO,
+        cancellationCheck: FeedParsingCancellationCheck,
+        progressProbe: FeedEntryLoopProgressProbe?
+    ) rethrows -> [FeedParserAnomaly] {
         var anomalies: [FeedParserAnomaly] = []
 
         if hasValue(feed.metadata.title) == false {
@@ -146,6 +185,10 @@ extension FeedParserService {
         }
 
         for (index, entry) in feed.entries.enumerated() {
+            try FeedParsingCancellationPolicy.checkBeforeEntry(
+                at: index,
+                cancellationCheck: cancellationCheck
+            )
             if hasValue(entry.title) == false {
                 anomalies.append(
                     FeedParserAnomaly(
@@ -187,9 +230,21 @@ extension FeedParserService {
                     )
                 )
             }
+            progressProbe?(index + 1)
         }
+        try cancellationCheck()
 
         return anomalies
+    }
+
+    nonisolated private static func makeProgressProbe(
+        for stage: FeedParsingEntryStage,
+        forwarding progressProbe: FeedParsingEntryProgressProbe?
+    ) -> FeedEntryLoopProgressProbe? {
+        guard let progressProbe else { return nil }
+        return { completedEntryCount in
+            progressProbe(stage, completedEntryCount)
+        }
     }
 
     nonisolated private static func hasValue(_ value: String?) -> Bool {

@@ -30,7 +30,23 @@ nonisolated enum FeedEntryFilteringService {
     }
 
     static func filterEntries(from feed: ParsedFeedDTO) -> FeedEntryFilterResult {
-        let result = filterEntries(feed.entries)
+        filterEntries(
+            from: feed,
+            cancellationCheck: {},
+            progressProbe: nil
+        )
+    }
+
+    static func filterEntries(
+        from feed: ParsedFeedDTO,
+        cancellationCheck: FeedParsingCancellationCheck,
+        progressProbe: FeedEntryLoopProgressProbe?
+    ) rethrows -> FeedEntryFilterResult {
+        let result = try filterEntries(
+            feed.entries,
+            cancellationCheck: cancellationCheck,
+            progressProbe: progressProbe
+        )
         return FeedEntryFilterResult(
             validEntries: result.validEntries,
             rejectedEntries: result.rejectedEntries
@@ -38,10 +54,26 @@ nonisolated enum FeedEntryFilteringService {
     }
 
     static func filterEntries(_ entries: [ParsedFeedEntryDTO]) -> FeedEntryFilterResult {
+        filterEntries(
+            entries,
+            cancellationCheck: {},
+            progressProbe: nil
+        )
+    }
+
+    static func filterEntries(
+        _ entries: [ParsedFeedEntryDTO],
+        cancellationCheck: FeedParsingCancellationCheck,
+        progressProbe: FeedEntryLoopProgressProbe?
+    ) rethrows -> FeedEntryFilterResult {
         var validEntries: [ParsedFeedEntryDTO] = []
         var rejectedEntries: [RejectedFeedEntryDiagnostic] = []
 
-        for entry in entries {
+        for (index, entry) in entries.enumerated() {
+            try FeedParsingCancellationPolicy.checkBeforeEntry(
+                at: index,
+                cancellationCheck: cancellationCheck
+            )
             let reasons = rejectionReasons(for: entry)
             if reasons.isEmpty {
                 validEntries.append(entry)
@@ -53,7 +85,9 @@ nonisolated enum FeedEntryFilteringService {
                     )
                 )
             }
+            progressProbe?(index + 1)
         }
+        try cancellationCheck()
 
         return FeedEntryFilterResult(
             validEntries: validEntries,

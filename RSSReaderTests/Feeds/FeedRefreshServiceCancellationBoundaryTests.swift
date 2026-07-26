@@ -59,11 +59,25 @@ struct FeedRefreshServiceCancellationBoundaryTests {
         let xmlProbe = OneShotXMLCancellationProbe(
             shouldInject: stage == .duringXMLParse
         )
+        let entryProcessingProbe = OneShotEntryProcessingCancellationProbe(
+            target: stage.entryProcessingStage
+        )
+        let payloadMaterializationProbe = OneShotPayloadMaterializationCancellationProbe(
+            shouldInject: stage == .duringPayloadMaterialization
+        )
         let parsingWorker = FeedParsingWorker(
             pipeline: { response in
                 try FeedParserService.parsePipelineResult(
                     response,
-                    xmlCancellationProbe: xmlProbe.shouldCancel
+                    xmlCancellationProbe: xmlProbe.shouldCancel,
+                    entryProgressProbe: entryProcessingProbe.record
+                )
+            },
+            payloadPreparation: { entries, fetchedAt in
+                try ArticleUpsertPayload.makeAllPrepared(
+                    entries: entries,
+                    fetchedAt: fetchedAt,
+                    materializationProbe: payloadMaterializationProbe.record
                 )
             }
         )
@@ -97,6 +111,14 @@ struct FeedRefreshServiceCancellationBoundaryTests {
         #expect(service.inFlightRefreshTasks[feed.id] == nil)
         #expect(xmlProbe.didInject == (stage == .duringXMLParse))
         #expect(
+            entryProcessingProbe.didInject
+                == (stage == .duringNormalization)
+        )
+        #expect(
+            payloadMaterializationProbe.didInject
+                == (stage == .duringPayloadMaterialization)
+        )
+        #expect(
             articleCheckpoint.didInject
                 == (stage == .betweenReconciliationAndUpsert)
         )
@@ -125,7 +147,7 @@ struct FeedRefreshServiceCancellationBoundaryTests {
         #expect(await client.recordedRequests().count == 2)
         #expect(
             iconDiscoveryService.calls.count
-                == (stage == .duringXMLParse ? 1 : 2)
+                == (stage.cancelsBeforeIconDiscovery ? 1 : 2)
         )
 
         let retriedFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
@@ -230,6 +252,8 @@ struct FeedRefreshServiceCancellationBoundaryTests {
 
 enum FetchedCancellationStage: CaseIterable, Sendable {
     case duringXMLParse
+    case duringNormalization
+    case duringPayloadMaterialization
     case afterIconDiscovery
     case betweenReconciliationAndUpsert
     case beforeFetchedSave
@@ -238,6 +262,10 @@ enum FetchedCancellationStage: CaseIterable, Sendable {
         switch self {
         case .duringXMLParse:
             "xml-parse"
+        case .duringNormalization:
+            "normalization"
+        case .duringPayloadMaterialization:
+            "payload-materialization"
         case .afterIconDiscovery:
             "icon-discovery"
         case .betweenReconciliationAndUpsert:
@@ -253,8 +281,24 @@ enum FetchedCancellationStage: CaseIterable, Sendable {
             .afterIconDiscovery
         case .beforeFetchedSave:
             .beforeFetchedSave
-        case .duringXMLParse, .betweenReconciliationAndUpsert:
+        case .duringXMLParse,
+             .duringNormalization,
+             .duringPayloadMaterialization,
+             .betweenReconciliationAndUpsert:
             nil
+        }
+    }
+
+    var entryProcessingStage: FeedParsingEntryStage? {
+        self == .duringNormalization ? .normalization : nil
+    }
+
+    var cancelsBeforeIconDiscovery: Bool {
+        switch self {
+        case .duringXMLParse, .duringNormalization, .duringPayloadMaterialization:
+            true
+        case .afterIconDiscovery, .betweenReconciliationAndUpsert, .beforeFetchedSave:
+            false
         }
     }
 }
@@ -280,6 +324,64 @@ private final class OneShotXMLCancellationProbe: @unchecked Sendable {
             guard callbackCount >= 8 else { return false }
             hasInjected = true
             return true
+        }
+    }
+}
+
+private final class OneShotEntryProcessingCancellationProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private let target: FeedParsingEntryStage?
+    private var hasInjected = false
+
+    init(target: FeedParsingEntryStage?) {
+        self.target = target
+    }
+
+    var didInject: Bool {
+        lock.withLock { hasInjected }
+    }
+
+    func record(_ stage: FeedParsingEntryStage, _ processedEntryCount: Int) {
+        let shouldCancel = lock.withLock {
+            guard stage == target, processedEntryCount > 0, hasInjected == false else {
+                return false
+            }
+            hasInjected = true
+            return true
+        }
+        guard shouldCancel else { return }
+        withUnsafeCurrentTask { task in
+            task?.cancel()
+        }
+    }
+}
+
+private final class OneShotPayloadMaterializationCancellationProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private let shouldInjectCancellation: Bool
+    private var hasInjected = false
+
+    init(shouldInject: Bool) {
+        self.shouldInjectCancellation = shouldInject
+    }
+
+    var didInject: Bool {
+        lock.withLock { hasInjected }
+    }
+
+    func record(_ materializedPayloadCount: Int, _: ArticleUpsertPayload) {
+        let shouldCancel = lock.withLock {
+            guard shouldInjectCancellation,
+                  materializedPayloadCount > 0,
+                  hasInjected == false else {
+                return false
+            }
+            hasInjected = true
+            return true
+        }
+        guard shouldCancel else { return }
+        withUnsafeCurrentTask { task in
+            task?.cancel()
         }
     }
 }

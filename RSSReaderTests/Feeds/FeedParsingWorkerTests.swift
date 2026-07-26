@@ -69,31 +69,43 @@ struct FeedParsingWorkerTests {
         #expect(payload.publishedAt == normalizedPublishedAt)
     }
 
-    @Test
-    func cancellingCallerCancelsDetachedParsingTaskAndReturnsCancellationError() async throws {
-        let probe = FeedParsingExecutionProbe()
+    @Test(arguments: WorkerEntryCancellationStage.allCases)
+    func cancellingCallerDuringActualEntryProcessingReturnsCancellationError(
+        stage: WorkerEntryCancellationStage
+    ) async throws {
+        let gate = WorkerEntryCancellationGate(target: stage)
         let worker = FeedParsingWorker(
-            pipeline: { _ in
-                probe.recordPipelineStart()
-                while Task.isCancelled == false {
-                    Thread.sleep(forTimeInterval: 0.001)
-                }
-                probe.recordCancellation()
-                throw CancellationError()
+            pipeline: { response in
+                try FeedParserService.parsePipelineResult(
+                    response,
+                    entryProgressProbe: gate.recordEntryProgress
+                )
+            },
+            payloadPreparation: { entries, fetchedAt in
+                try ArticleUpsertPayload.makeAllPrepared(
+                    entries: entries,
+                    fetchedAt: fetchedAt,
+                    materializationProbe: gate.recordPayloadMaterialization
+                )
             }
         )
         let task = Task {
-            try await worker.parse(makeResponse())
+            try await worker.parse(makeCancellationResponse())
         }
 
-        try await probe.waitUntilStarted()
+        try await gate.waitUntilStarted()
         task.cancel()
+        gate.release()
 
         await #expect(throws: CancellationError.self) {
             try await task.value
         }
-        #expect(probe.didRunPipelineOffMainThread)
-        #expect(probe.didObserveCancellation)
+        #expect(gate.didRunActualWorkOffMainThread)
+        #expect(gate.maximumProcessedEntryCount > 0)
+        #expect(
+            gate.maximumProcessedEntryCount
+                <= FeedParsingCancellationPolicy.entryCheckpointInterval
+        )
     }
 
     private func makeResponse() -> FeedResponse {
@@ -130,19 +142,47 @@ struct FeedParsingWorkerTests {
             )
         )
     }
+
+    private func makeCancellationResponse() -> FeedResponse {
+        let url = URL(string: "https://example.com/worker-cancellation.xml")!
+        let itemXML = (0..<65).map { index in
+            """
+            <item>
+              <title>Cancellation entry \(index)</title>
+              <link>https://example.com/articles/cancellation-\(index)</link>
+              <guid>cancellation-\(index)</guid>
+              <description>Cancellation summary \(index)</description>
+            </item>
+            """
+        }
+        .joined(separator: "\n")
+        return FeedResponse(
+            request: FeedRequest(feedID: UUID(), url: url),
+            sourceURL: url,
+            statusCode: 200,
+            headers: ["Content-Type": "application/rss+xml"],
+            body: Data(
+                """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <rss version="2.0">
+                  <channel>
+                    <title>Cancellation Feed</title>
+                    <link>https://example.com/</link>
+                    \(itemXML)
+                  </channel>
+                </rss>
+                """.utf8
+            )
+        )
+    }
 }
 
 private final class FeedParsingExecutionProbe: @unchecked Sendable {
-    private enum WaitError: Error {
-        case timedOut
-    }
-
     private let lock = NSLock()
     private var started = false
     private var pipelineRanOnMainThread = true
     private var payloadPreparationStarted = false
     private var payloadPreparationRanOnMainThread = true
-    private var observedCancellation = false
 
     var didRunPipelineOffMainThread: Bool {
         lock.withLock { started && pipelineRanOnMainThread == false }
@@ -152,10 +192,6 @@ private final class FeedParsingExecutionProbe: @unchecked Sendable {
         lock.withLock {
             payloadPreparationStarted && payloadPreparationRanOnMainThread == false
         }
-    }
-
-    var didObserveCancellation: Bool {
-        lock.withLock { observedCancellation }
     }
 
     func recordPipelineStart() {
@@ -171,21 +207,107 @@ private final class FeedParsingExecutionProbe: @unchecked Sendable {
             payloadPreparationRanOnMainThread = Thread.isMainThread
         }
     }
+}
 
-    func recordCancellation() {
-        lock.withLock {
-            observedCancellation = true
+enum WorkerEntryCancellationStage: CaseIterable, Sendable {
+    case normalization
+    case diagnostics
+    case deduplication
+    case filtering
+    case payloadMaterialization
+
+    var entryStage: FeedParsingEntryStage? {
+        switch self {
+        case .normalization:
+            .normalization
+        case .diagnostics:
+            .diagnostics
+        case .deduplication:
+            .deduplication
+        case .filtering:
+            .filtering
+        case .payloadMaterialization:
+            nil
         }
+    }
+}
+
+private final class WorkerEntryCancellationGate: @unchecked Sendable {
+    private enum WaitError: Error {
+        case timedOut
+    }
+
+    private let condition = NSCondition()
+    private let target: WorkerEntryCancellationStage
+    private var started = false
+    private var released = false
+    private var ranOnMainThread = true
+    private var maximumProcessedCount = 0
+
+    init(target: WorkerEntryCancellationStage) {
+        self.target = target
+    }
+
+    var didRunActualWorkOffMainThread: Bool {
+        condition.withLock { started && ranOnMainThread == false }
+    }
+
+    var maximumProcessedEntryCount: Int {
+        condition.withLock { maximumProcessedCount }
+    }
+
+    func recordEntryProgress(
+        _ stage: FeedParsingEntryStage,
+        _ processedEntryCount: Int
+    ) {
+        guard stage == target.entryStage,
+              processedEntryCount > 0 else {
+            return
+        }
+        waitForRelease(processedEntryCount: processedEntryCount)
+    }
+
+    func recordPayloadMaterialization(
+        _ materializedPayloadCount: Int,
+        _: ArticleUpsertPayload
+    ) {
+        guard target == .payloadMaterialization,
+              materializedPayloadCount > 0 else {
+            return
+        }
+        waitForRelease(processedEntryCount: materializedPayloadCount)
     }
 
     func waitUntilStarted() async throws {
         for _ in 0..<1_000 {
-            if lock.withLock({ started }) {
+            if condition.withLock({ started }) {
                 return
             }
             try await Task.sleep(for: .milliseconds(1))
         }
-
         throw WaitError.timedOut
+    }
+
+    func release() {
+        condition.withLock {
+            released = true
+            condition.broadcast()
+        }
+    }
+
+    private func waitForRelease(processedEntryCount: Int) {
+        condition.lock()
+        maximumProcessedCount = max(maximumProcessedCount, processedEntryCount)
+        guard started == false else {
+            condition.unlock()
+            return
+        }
+        started = true
+        ranOnMainThread = Thread.isMainThread
+        condition.broadcast()
+        while released == false {
+            condition.wait()
+        }
+        condition.unlock()
     }
 }

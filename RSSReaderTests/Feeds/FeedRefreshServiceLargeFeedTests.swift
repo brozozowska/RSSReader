@@ -15,7 +15,8 @@ struct FeedRefreshServiceLargeFeedTests {
                 defer { probe.finishXMLPipeline() }
                 return try FeedParserService.parsePipelineResult(
                     response,
-                    xmlProgressProbe: probe.recordXMLProgress
+                    xmlProgressProbe: probe.recordXMLProgress,
+                    entryProgressProbe: probe.recordEntryProgress
                 )
             },
             payloadPreparation: { entries, fetchedAt in
@@ -76,9 +77,12 @@ struct FeedRefreshServiceLargeFeedTests {
                 <= AppResourceBudgetContract.current.feedXML.maximumEntryCount
         )
         #expect(probe.didRunXMLPipelineOffMainThread)
+        #expect(probe.didRunEntryProcessingOffMainThread)
         #expect(probe.didRunPayloadPreparationOffMainThread)
         #expect(probe.xmlPipelineHeartbeatCount > 0)
+        #expect(probe.entryProcessingHeartbeatCount > 0)
         #expect(probe.payloadPreparationHeartbeatCount > 0)
+        #expect(probe.observedEntryStages == Set(FeedParsingEntryStage.allCases))
         #expect(probe.materializedPayloadCount == fixture.expectedAcceptedEntryCount)
         #expect(probe.materializedPayloadTextByteCount > 0)
         #expect(probe.materializedPayloadTextByteCount <= fixture.bodyByteCount)
@@ -164,11 +168,16 @@ private final class LargeFeedParsingProbe: @unchecked Sendable {
     private var xmlPipelineStarted = false
     private var xmlPipelineFinished = false
     private var xmlPipelineRanOnMainThread = true
+    private var entryProcessingStarted = false
+    private var entryProcessingFinished = false
+    private var entryProcessingRanOnMainThread = true
     private var payloadPreparationStarted = false
     private var payloadPreparationFinished = false
     private var payloadPreparationRanOnMainThread = true
     private var xmlPipelineHeartbeats = 0
+    private var entryProcessingHeartbeats = 0
     private var payloadPreparationHeartbeats = 0
+    private var observedStages: Set<FeedParsingEntryStage> = []
     private var observedElementCount = 0
     private var observedMaximumDepth = 0
     private var observedMaterializedEntryCount = 0
@@ -185,12 +194,26 @@ private final class LargeFeedParsingProbe: @unchecked Sendable {
         }
     }
 
+    var didRunEntryProcessingOffMainThread: Bool {
+        condition.withLock {
+            entryProcessingStarted && entryProcessingRanOnMainThread == false
+        }
+    }
+
     var xmlPipelineHeartbeatCount: Int {
         condition.withLock { xmlPipelineHeartbeats }
     }
 
     var payloadPreparationHeartbeatCount: Int {
         condition.withLock { payloadPreparationHeartbeats }
+    }
+
+    var entryProcessingHeartbeatCount: Int {
+        condition.withLock { entryProcessingHeartbeats }
+    }
+
+    var observedEntryStages: Set<FeedParsingEntryStage> {
+        condition.withLock { observedStages }
     }
 
     var maximumObservedElementCount: Int {
@@ -232,8 +255,25 @@ private final class LargeFeedParsingProbe: @unchecked Sendable {
     func finishXMLPipeline() {
         condition.withLock {
             xmlPipelineFinished = true
+            entryProcessingFinished = true
             condition.broadcast()
         }
+    }
+
+    func recordEntryProgress(
+        _ stage: FeedParsingEntryStage,
+        _ processedEntryCount: Int
+    ) {
+        condition.lock()
+        if entryProcessingStarted == false {
+            entryProcessingStarted = true
+            entryProcessingRanOnMainThread = Thread.isMainThread
+        }
+        if processedEntryCount > 0 {
+            observedStages.insert(stage)
+        }
+        waitForHeartbeatIfNeeded(currentHeartbeatCount: { entryProcessingHeartbeats })
+        condition.unlock()
     }
 
     func recordPayloadMaterialization(
@@ -262,6 +302,9 @@ private final class LargeFeedParsingProbe: @unchecked Sendable {
         condition.withLock {
             if xmlPipelineStarted, xmlPipelineFinished == false {
                 xmlPipelineHeartbeats += 1
+            }
+            if entryProcessingStarted, entryProcessingFinished == false {
+                entryProcessingHeartbeats += 1
             }
             if payloadPreparationStarted, payloadPreparationFinished == false {
                 payloadPreparationHeartbeats += 1

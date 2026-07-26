@@ -2,21 +2,54 @@ import Foundation
 
 nonisolated enum DeduplicationService {
     static func deduplicate(_ feed: ParsedFeedDTO) -> ParsedFeedDTO {
+        deduplicate(
+            feed,
+            cancellationCheck: {},
+            progressProbe: nil
+        )
+    }
+
+    static func deduplicate(
+        _ feed: ParsedFeedDTO,
+        cancellationCheck: FeedParsingCancellationCheck,
+        progressProbe: FeedEntryLoopProgressProbe?
+    ) rethrows -> ParsedFeedDTO {
         ParsedFeedDTO(
             kind: feed.kind,
             metadata: feed.metadata,
-            entries: deduplicate(feed.entries)
+            entries: try deduplicate(
+                feed.entries,
+                cancellationCheck: cancellationCheck,
+                progressProbe: progressProbe
+            )
         )
     }
 
     static func deduplicate(_ entries: [ParsedFeedEntryDTO]) -> [ParsedFeedEntryDTO] {
+        deduplicate(
+            entries,
+            cancellationCheck: {},
+            progressProbe: nil
+        )
+    }
+
+    static func deduplicate(
+        _ entries: [ParsedFeedEntryDTO],
+        cancellationCheck: FeedParsingCancellationCheck,
+        progressProbe: FeedEntryLoopProgressProbe?
+    ) rethrows -> [ParsedFeedEntryDTO] {
         var mergedEntriesByKey: [String: ParsedFeedEntryDTO] = [:]
         var orderedKeys: [String] = []
         var uniqueEntriesWithoutKey: [ParsedFeedEntryDTO] = []
 
-        for entry in entries {
+        for (index, entry) in entries.enumerated() {
+            try FeedParsingCancellationPolicy.checkBeforeEntry(
+                at: index,
+                cancellationCheck: cancellationCheck
+            )
             guard let key = deduplicationKey(for: entry) else {
                 uniqueEntriesWithoutKey.append(entry)
+                progressProbe?(index + 1)
                 continue
             }
 
@@ -26,9 +59,22 @@ nonisolated enum DeduplicationService {
                 mergedEntriesByKey[key] = entry
                 orderedKeys.append(key)
             }
+            progressProbe?(index + 1)
         }
+        try cancellationCheck()
 
-        let mergedEntries = orderedKeys.compactMap { mergedEntriesByKey[$0] }
+        var mergedEntries: [ParsedFeedEntryDTO] = []
+        mergedEntries.reserveCapacity(orderedKeys.count)
+        for (index, key) in orderedKeys.enumerated() {
+            try FeedParsingCancellationPolicy.checkBeforeEntry(
+                at: index,
+                cancellationCheck: cancellationCheck
+            )
+            if let entry = mergedEntriesByKey[key] {
+                mergedEntries.append(entry)
+            }
+        }
+        try cancellationCheck()
         return mergedEntries + uniqueEntriesWithoutKey
     }
 
