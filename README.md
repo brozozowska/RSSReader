@@ -682,7 +682,7 @@
 - [x] `Search Debounce And Cancellation`: добавить 200-300 ms debounce для пользовательского ввода, generation/cancellation guard в `ArticlesScreenController` и убрать повторный full-scope probe для empty state; stale search result не должен заменять более новый query snapshot;
 - [x] `Searchable Text Normalization`: не очищать `contentHTML` регулярными выражениями на каждом keystroke: сформировать bounded normalized searchable text при materialization/update статьи либо использовать отдельный индексируемый read-model field с явной migration/rebuild policy;
 - [x] `Article Query Limit And Pagination`: применять `limit`/page boundary до materialization полного результата, добавить incremental list loading со stable IDs и сохранить `ArticleListSession`, selection, navigation context и mark-all-read semantics между pages;
-- [ ] `Article Query Load Tests`: добавить fixtures минимум на 10 000 статей для inbox/folder/search/unread/starred, проверять bounded result size, cancellation и отсутствие линейного HTML normalization на каждом символе;
+- [x] `Article Query Load Tests`: добавить fixtures минимум на 10 000 статей для inbox/folder/search/unread/starred, проверять bounded result size, cancellation и отсутствие линейного HTML normalization на каждом символе;
 
 #### App Architecture And Project Hygiene
 - [ ] `AppState Responsibility Partition`: выделить из `AppState` устойчивые presentation/reload/confirmation/navigation responsibilities в небольшие state contracts без изменения единого environment entry point; определить lifecycle и pruning для session-only dictionaries/contexts; покрыть shell state tests;

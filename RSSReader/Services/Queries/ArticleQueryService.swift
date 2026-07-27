@@ -1,5 +1,9 @@
 import Foundation
 
+nonisolated enum ArticleQueryPaginationPolicy {
+    static let scanBatchSize = 64
+}
+
 struct ArticleSearchResultSnapshot: Sendable, Equatable {
     let articles: [ArticleListItemDTO]
     let hasScopeContent: Bool
@@ -30,7 +34,6 @@ protocol ArticleQueryService {
 
 @MainActor
 final class DefaultArticleQueryService: ArticleQueryService {
-    private static let paginationScanBatchSize = 64
     private let articleRepository: any ArticleRepository
     private let articleStateRepository: any ArticleStateRepository
 
@@ -197,7 +200,7 @@ final class DefaultArticleQueryService: ArticleQueryService {
             let page = try articleRepository.fetchArticleQueryRecordPage(
                 matching: criteria,
                 offset: repositoryOffset,
-                limit: Self.paginationScanBatchSize
+                limit: ArticleQueryPaginationPolicy.scanBatchSize
             )
             hasScopeContent = hasScopeContent || page.records.isEmpty == false
 

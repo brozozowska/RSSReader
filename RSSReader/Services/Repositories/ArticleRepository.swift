@@ -94,6 +94,8 @@ struct ArticleFeedSnapshotReconciliationProgress: Sendable {
 typealias ArticleFeedSnapshotReconciliationProgressProbe = @MainActor (
     ArticleFeedSnapshotReconciliationProgress
 ) -> Void
+typealias ArticleQueryCancellationCheck = @MainActor () throws -> Void
+typealias ArticleSearchableTextRebuildProbe = @MainActor (UUID) -> Void
 
 enum ArticleFeedSnapshotCancellationCheckpoint: Equatable, Sendable {
     case beforeSnapshot
@@ -172,6 +174,8 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     private let articleStateIdentityRepairer: SwiftDataArticleStateIdentityRepairer
     private let articleStateSnapshotFetcher: SwiftDataArticleStateSnapshotFetcher
     private let queryBatchSize: Int
+    private let queryCancellationCheck: ArticleQueryCancellationCheck
+    private let searchableTextRebuildProbe: ArticleSearchableTextRebuildProbe?
 
     init(
         modelContext: ModelContext,
@@ -181,7 +185,11 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         },
         reconciliationProgressProbe: ArticleFeedSnapshotReconciliationProgressProbe? = nil,
         queryBatchSize: Int = ArticleStateQueryPolicy.batchSize,
-        articleStateQueryBatchProbe: ArticleStateQueryBatchProbe? = nil
+        articleStateQueryBatchProbe: ArticleStateQueryBatchProbe? = nil,
+        queryCancellationCheck: @escaping ArticleQueryCancellationCheck = {
+            try Task.checkCancellation()
+        },
+        searchableTextRebuildProbe: ArticleSearchableTextRebuildProbe? = nil
     ) {
         precondition(queryBatchSize > 0)
         self.modelContext = modelContext
@@ -189,6 +197,8 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         self.cancellationCheckpoint = cancellationCheckpoint
         self.reconciliationProgressProbe = reconciliationProgressProbe
         self.queryBatchSize = queryBatchSize
+        self.queryCancellationCheck = queryCancellationCheck
+        self.searchableTextRebuildProbe = searchableTextRebuildProbe
         self.articleStateIdentityRepairer = SwiftDataArticleStateIdentityRepairer(
             modelContext: modelContext,
             persistenceOperationRecorder: persistenceOperationRecorder
@@ -445,11 +455,14 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             let statesByCompositeKey = try articleStateSnapshotFetcher.fetchSnapshots(for: articles)
             records.reserveCapacity(records.count + articles.count)
             for article in articles {
-                try Task.checkCancellation()
+                try queryCancellationCheck()
                 candidateOffset += 1
                 if criteria.requiresSearchableText {
-                    rebuiltSearchableText = article.rebuildSearchableTextIfNeeded()
-                        || rebuiltSearchableText
+                    let didRebuildSearchableText = article.rebuildSearchableTextIfNeeded()
+                    if didRebuildSearchableText {
+                        searchableTextRebuildProbe?(article.id)
+                    }
+                    rebuiltSearchableText = didRebuildSearchableText || rebuiltSearchableText
                 }
                 let state = statesByCompositeKey[articleCompositeKey(
                     feedID: article.feedID,
