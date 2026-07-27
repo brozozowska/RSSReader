@@ -64,7 +64,10 @@ extension SwiftDataRepositoryContext {
     }
 
     func articleCompositeKey(feedID: UUID, articleExternalID: String) -> String {
-        "\(feedID.uuidString)|\(articleExternalID)"
+        ArticleStateIdentity.lookupKey(
+            feedID: feedID,
+            articleExternalID: articleExternalID
+        )
     }
 }
 

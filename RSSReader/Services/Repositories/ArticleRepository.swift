@@ -6,6 +6,54 @@ enum ArticleRetentionBatchScope: Sendable {
     case archived
 }
 
+enum ArticleQueryScope: Equatable, Sendable {
+    case inbox
+    case folder(String)
+    case feed(UUID)
+}
+
+enum ArticleQueryBooleanFilter: Equatable, Sendable {
+    case any
+    case isFalse
+    case isTrue
+
+    func matches(_ value: Bool) -> Bool {
+        switch self {
+        case .any:
+            true
+        case .isFalse:
+            value == false
+        case .isTrue:
+            value
+        }
+    }
+}
+
+struct ArticleQueryCriteria: Equatable, Sendable {
+    let scope: ArticleQueryScope
+    let hidden: ArticleQueryBooleanFilter
+    let archived: ArticleQueryBooleanFilter
+    let read: ArticleQueryBooleanFilter
+    let starred: ArticleQueryBooleanFilter
+    let sortMode: ArticleSortMode
+
+    init(
+        scope: ArticleQueryScope,
+        hidden: ArticleQueryBooleanFilter = .any,
+        archived: ArticleQueryBooleanFilter = .any,
+        read: ArticleQueryBooleanFilter = .any,
+        starred: ArticleQueryBooleanFilter = .any,
+        sortMode: ArticleSortMode
+    ) {
+        self.scope = scope
+        self.hidden = hidden
+        self.archived = archived
+        self.read = read
+        self.starred = starred
+        self.sortMode = sortMode
+    }
+}
+
 struct ArticleFeedSnapshotReconciliationResult {
     let projectionUpdateCount: Int
     let reconciledArticleCount: Int
@@ -58,6 +106,7 @@ protocol ArticleRepository {
     func fetchArticles(feedID: UUID) throws -> [Article]
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article]
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
+    func fetchArticles(matching criteria: ArticleQueryCriteria) throws -> [Article]
     func fetchArchivedArticles() throws -> [Article]
     func fetchRetentionBatch(
         feedID: UUID,
@@ -168,6 +217,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             if canonicalSnapshot.duplicateIdentities.contains(identity),
                article.externalID != identity {
                 article.externalID = identity
+                article.refreshStateLookupKey()
                 article.updatedAt = .now
             }
 
@@ -257,18 +307,99 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     }
 
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article] {
-        let descriptor = FetchDescriptor<Article>(
-            predicate: #Predicate<Article> { article in
-                article.feedID == feedID
-            },
-            sortBy: sortDescriptors(for: sortMode)
+        try fetchArticles(
+            matching: ArticleQueryCriteria(
+                scope: .feed(feedID),
+                sortMode: sortMode
+            )
         )
-        return try performFetch(descriptor)
     }
 
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article] {
+        try fetchArticles(
+            matching: ArticleQueryCriteria(
+                scope: .inbox,
+                sortMode: sortMode
+            )
+        )
+    }
+
+    func fetchArticles(matching criteria: ArticleQueryCriteria) throws -> [Article] {
+        let stateKeyConstraint = try makeStateLookupKeyConstraint(for: criteria)
+        if case .including(let stateLookupKeys) = stateKeyConstraint,
+           stateLookupKeys.isEmpty {
+            return []
+        }
+
+        let matchesInbox: Bool
+        let matchesFolder: Bool
+        let matchesFeed: Bool
+        let folderName: String
+        let feedID: UUID
+        switch criteria.scope {
+        case .inbox:
+            matchesInbox = true
+            matchesFolder = false
+            matchesFeed = false
+            folderName = ""
+            feedID = UUID()
+        case .folder(let scopedFolderName):
+            matchesInbox = false
+            matchesFolder = true
+            matchesFeed = false
+            folderName = scopedFolderName
+            feedID = UUID()
+        case .feed(let scopedFeedID):
+            matchesInbox = false
+            matchesFolder = false
+            matchesFeed = true
+            folderName = ""
+            feedID = scopedFeedID
+        }
+
+        let includesCurrent = criteria.archived != .isTrue
+        let includesArchived = criteria.archived != .isFalse
+        let ignoresStateKeys: Bool
+        let includesStateKeys: Bool
+        let excludesStateKeys: Bool
+        let stateLookupKeys: [String]
+        switch stateKeyConstraint {
+        case .unfiltered:
+            ignoresStateKeys = true
+            includesStateKeys = false
+            excludesStateKeys = false
+            stateLookupKeys = []
+        case .including(let includedKeys):
+            ignoresStateKeys = false
+            includesStateKeys = true
+            excludesStateKeys = false
+            stateLookupKeys = includedKeys
+        case .excluding(let excludedKeys):
+            ignoresStateKeys = excludedKeys.isEmpty
+            includesStateKeys = false
+            excludesStateKeys = excludedKeys.isEmpty == false
+            stateLookupKeys = excludedKeys
+        }
+
+        let predicate = #Predicate<Article> { article in
+            (
+                matchesInbox
+                    || (matchesFolder && article.feedFolderName == folderName)
+                    || (matchesFeed && article.feedID == feedID)
+            )
+                && (
+                    (includesCurrent && article.archivedAt == nil)
+                        || (includesArchived && article.archivedAt != nil)
+                )
+                && (
+                    ignoresStateKeys
+                        || (includesStateKeys && stateLookupKeys.contains(article.stateLookupKey))
+                        || (excludesStateKeys && !stateLookupKeys.contains(article.stateLookupKey))
+                )
+        }
         let descriptor = FetchDescriptor<Article>(
-            sortBy: sortDescriptors(for: sortMode)
+            predicate: predicate,
+            sortBy: sortDescriptors(for: criteria.sortMode)
         )
         return try performFetch(descriptor)
     }
@@ -461,6 +592,73 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
 
     private func normalizedArticleIdentity(_ externalID: String) -> String {
         normalizedIdentifier(externalID) ?? externalID
+    }
+
+    private enum StateLookupKeyConstraint {
+        case unfiltered
+        case including([String])
+        case excluding([String])
+    }
+
+    private func makeStateLookupKeyConstraint(
+        for criteria: ArticleQueryCriteria
+    ) throws -> StateLookupKeyConstraint {
+        guard criteria.hidden != .any
+                || criteria.read != .any
+                || criteria.starred != .any else {
+            return .unfiltered
+        }
+
+        let descriptor: FetchDescriptor<ArticleState>
+        switch criteria.scope {
+        case .feed(let feedID):
+            descriptor = FetchDescriptor<ArticleState>(
+                predicate: #Predicate<ArticleState> { state in
+                    state.feedID == feedID
+                }
+            )
+        case .inbox, .folder:
+            descriptor = FetchDescriptor<ArticleState>()
+        }
+
+        let states = try performFetch(descriptor)
+        let canonicalStates = states.reduce(into: [String: ArticleState]()) { result, state in
+            let key = ArticleStateIdentity.lookupKey(
+                feedID: state.feedID,
+                articleExternalID: state.articleExternalID
+            )
+            guard let existingState = result[key] else {
+                result[key] = state
+                return
+            }
+            if ArticleStateCanonicalization.isOrderedBefore(state, existingState) {
+                result[key] = state
+            }
+        }
+        let missingStateMatches = criteria.hidden.matches(false)
+            && criteria.read.matches(false)
+            && criteria.starred.matches(false)
+
+        if missingStateMatches {
+            let excludedKeys = canonicalStates.compactMap { key, state in
+                matchesStateCriteria(state, criteria: criteria) ? nil : key
+            }
+            return .excluding(excludedKeys)
+        }
+
+        let includedKeys = canonicalStates.compactMap { key, state in
+            matchesStateCriteria(state, criteria: criteria) ? key : nil
+        }
+        return .including(includedKeys)
+    }
+
+    private func matchesStateCriteria(
+        _ state: ArticleState,
+        criteria: ArticleQueryCriteria
+    ) -> Bool {
+        criteria.hidden.matches(state.isHidden)
+            && criteria.read.matches(state.isRead)
+            && criteria.starred.matches(state.isStarred)
     }
 
     private func incomingIdentitySet(

@@ -439,6 +439,165 @@ struct ArticleRepositoryTests {
     }
 
     @Test
+    func articleRepositoryAppliesScopeStateArchiveAndSortPredicateCombinations() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let newsFolder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
+        let newsFeed = try insertFeed(
+            into: harness,
+            url: "https://example.com/news.xml",
+            folder: newsFolder
+        )
+        let techFeed = try insertFeed(
+            into: harness,
+            url: "https://example.com/tech.xml"
+        )
+        let archivedAt = Date(timeIntervalSince1970: 1_000)
+
+        _ = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-default",
+            url: "https://example.com/news-default",
+            title: "News Default",
+            publishedAt: Date(timeIntervalSince1970: 600)
+        )
+        _ = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-read",
+            url: "https://example.com/news-read",
+            title: "News Read",
+            publishedAt: Date(timeIntervalSince1970: 500)
+        )
+        _ = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-starred",
+            url: "https://example.com/news-starred",
+            title: "News Starred",
+            publishedAt: Date(timeIntervalSince1970: 400)
+        )
+        _ = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-hidden",
+            url: "https://example.com/news-hidden",
+            title: "News Hidden",
+            publishedAt: Date(timeIntervalSince1970: 300)
+        )
+        _ = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-archived-unread",
+            url: "https://example.com/news-archived-unread",
+            title: "News Archived Unread",
+            publishedAt: Date(timeIntervalSince1970: 200),
+            archivedAt: archivedAt
+        )
+        _ = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-archived-hidden-starred",
+            url: "https://example.com/news-archived-hidden-starred",
+            title: "News Archived Hidden Starred",
+            publishedAt: Date(timeIntervalSince1970: 100),
+            archivedAt: archivedAt
+        )
+        _ = try harness.insertArticle(
+            feed: techFeed,
+            externalID: "news-starred",
+            url: "https://example.com/tech-default",
+            title: "Tech Default",
+            publishedAt: Date(timeIntervalSince1970: 550)
+        )
+
+        try harness.articleStateRepository.upsert(
+            feedID: newsFeed.id,
+            articleExternalID: "news-read",
+            update: ArticleStateUpsert(isRead: true, updatedAt: Date(timeIntervalSince1970: 10))
+        )
+        try harness.articleStateRepository.upsert(
+            feedID: newsFeed.id,
+            articleExternalID: "news-starred",
+            update: ArticleStateUpsert(
+                isRead: true,
+                isStarred: true,
+                updatedAt: Date(timeIntervalSince1970: 20)
+            )
+        )
+        try harness.articleStateRepository.upsert(
+            feedID: newsFeed.id,
+            articleExternalID: "news-hidden",
+            update: ArticleStateUpsert(isHidden: true, updatedAt: Date(timeIntervalSince1970: 30))
+        )
+        try harness.articleStateRepository.upsert(
+            feedID: newsFeed.id,
+            articleExternalID: "news-archived-hidden-starred",
+            update: ArticleStateUpsert(
+                isRead: true,
+                isStarred: true,
+                isHidden: true,
+                updatedAt: Date(timeIntervalSince1970: 40)
+            )
+        )
+
+        let currentUnreadInbox = try harness.articleRepository.fetchArticles(
+            matching: ArticleQueryCriteria(
+                scope: .inbox,
+                hidden: .isFalse,
+                archived: .isFalse,
+                read: .isFalse,
+                sortMode: .publishedAtDescending
+            )
+        )
+        let archivedUnreadFolder = try harness.articleRepository.fetchArticles(
+            matching: ArticleQueryCriteria(
+                scope: .folder("News"),
+                hidden: .isFalse,
+                archived: .isTrue,
+                read: .isFalse,
+                sortMode: .publishedAtDescending
+            )
+        )
+        let visibleStarredFeed = try harness.articleRepository.fetchArticles(
+            matching: ArticleQueryCriteria(
+                scope: .feed(newsFeed.id),
+                hidden: .isFalse,
+                starred: .isTrue,
+                sortMode: .publishedAtDescending
+            )
+        )
+        let starredInbox = try harness.articleRepository.fetchArticles(
+            matching: ArticleQueryCriteria(
+                scope: .inbox,
+                hidden: .isFalse,
+                starred: .isTrue,
+                sortMode: .publishedAtDescending
+            )
+        )
+        let hiddenReadStarredFolder = try harness.articleRepository.fetchArticles(
+            matching: ArticleQueryCriteria(
+                scope: .folder("News"),
+                hidden: .isTrue,
+                read: .isTrue,
+                starred: .isTrue,
+                sortMode: .publishedAtAscending
+            )
+        )
+        let negativeDefaults = try harness.articleRepository.fetchArticles(
+            matching: ArticleQueryCriteria(
+                scope: .feed(newsFeed.id),
+                hidden: .isFalse,
+                read: .isFalse,
+                starred: .isFalse,
+                sortMode: .publishedAtAscending
+            )
+        )
+
+        #expect(currentUnreadInbox.map(\.feedID) == [newsFeed.id, techFeed.id])
+        #expect(currentUnreadInbox.map(\.externalID) == ["news-default", "news-starred"])
+        #expect(archivedUnreadFolder.map(\.externalID) == ["news-archived-unread"])
+        #expect(visibleStarredFeed.map(\.externalID) == ["news-starred"])
+        #expect(starredInbox.map(\.feedID) == [newsFeed.id])
+        #expect(hiddenReadStarredFolder.map(\.externalID) == ["news-archived-hidden-starred"])
+        #expect(negativeDefaults.map(\.externalID) == ["news-archived-unread", "news-default"])
+    }
+
+    @Test
     func articleRepositoryDeleteBatchRemovesOnlyRequestedArticles() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)

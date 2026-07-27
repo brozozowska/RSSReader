@@ -33,8 +33,11 @@ final class DefaultArticleQueryService: ArticleQueryService {
         sortMode: ArticleSortMode,
         filter: ArticleListFilter
     ) throws -> [ArticleListItemDTO] {
-        let articles = try articleRepository.fetchArticles(feedID: feedID, sortMode: sortMode)
-        return try makeListItems(from: articles, filter: filter)
+        try fetchListItems(
+            scope: .feed(feedID),
+            sortMode: sortMode,
+            filter: filter
+        )
     }
 
     func fetchFolderListItems(
@@ -42,10 +45,11 @@ final class DefaultArticleQueryService: ArticleQueryService {
         sortMode: ArticleSortMode,
         filter: ArticleListFilter
     ) throws -> [ArticleListItemDTO] {
-        let articles = try articleRepository.fetchInbox(sortMode: sortMode)
-            .filter { $0.feedFolderName == folderName }
-
-        return try makeListItems(from: articles, filter: filter)
+        try fetchListItems(
+            scope: .folder(folderName),
+            sortMode: sortMode,
+            filter: filter
+        )
     }
 
     func fetchInboxListItems(sortMode: ArticleSortMode) throws -> [ArticleListItemDTO] {
@@ -53,8 +57,11 @@ final class DefaultArticleQueryService: ArticleQueryService {
     }
 
     func fetchInboxListItems(sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO] {
-        let articles = try articleRepository.fetchInbox(sortMode: sortMode)
-        return try makeListItems(from: articles, filter: filter)
+        try fetchListItems(
+            scope: .inbox,
+            sortMode: sortMode,
+            filter: filter
+        )
     }
 
     func fetchArticleSearchResults(_ request: ArticleSearchRequest) throws -> [ArticleListItemDTO] {
@@ -62,8 +69,15 @@ final class DefaultArticleQueryService: ArticleQueryService {
             return []
         }
 
-        let articles = try fetchArticles(for: request)
-        let listItems = try makeListItems(from: articles, filter: request.listFilter)
+        guard let scope = queryScope(for: request.selection) else {
+            return []
+        }
+
+        let listItems = try fetchListItems(
+            scope: scope,
+            sortMode: request.sortMode,
+            filter: request.listFilter
+        )
         let searchResults = ArticleSearchScope.filteredArticles(
             listItems,
             searchText: request.normalizedQuery,
@@ -82,13 +96,17 @@ final class DefaultArticleQueryService: ArticleQueryService {
         return Array(searchResults.prefix(limit))
     }
 
-    private func makeListItems(from articles: [Article], filter: ArticleListFilter) throws -> [ArticleListItemDTO] {
+    private func makeListItems(from articles: [Article]) throws -> [ArticleListItemDTO] {
         let stateByCompositeKey = try fetchStateByCompositeKey(for: articles)
 
-        return articles.compactMap { article in
-            let state = stateByCompositeKey[articleCompositeKey(feedID: article.feedID, articleExternalID: article.externalID)]
-            let item = ArticleListItemDTO(article: article, state: state)
-            return matches(filter: filter, item: item) ? item : nil
+        return articles.map { article in
+            let state = stateByCompositeKey[
+                ArticleStateIdentity.lookupKey(
+                    feedID: article.feedID,
+                    articleExternalID: article.externalID
+                )
+            ]
+            return ArticleListItemDTO(article: article, state: state)
         }
     }
 
@@ -96,7 +114,12 @@ final class DefaultArticleQueryService: ArticleQueryService {
         guard let article = try articleRepository.fetchArticle(id: id) else { return nil }
 
         let stateByCompositeKey = try fetchStateByCompositeKey(for: [article])
-        let state = stateByCompositeKey[articleCompositeKey(feedID: article.feedID, articleExternalID: article.externalID)]
+        let state = stateByCompositeKey[
+            ArticleStateIdentity.lookupKey(
+                feedID: article.feedID,
+                articleExternalID: article.externalID
+            )
+        ]
         return ReaderArticleDTO(article: article, state: state)
     }
 
@@ -106,34 +129,50 @@ final class DefaultArticleQueryService: ArticleQueryService {
         return try articleStateRepository.fetchStateSnapshots(for: articles)
     }
 
-    private func fetchArticles(for request: ArticleSearchRequest) throws -> [Article] {
-        switch request.selection {
+    private func fetchListItems(
+        scope: ArticleQueryScope,
+        sortMode: ArticleSortMode,
+        filter: ArticleListFilter
+    ) throws -> [ArticleListItemDTO] {
+        let criteria = ArticleQueryCriteria(
+            scope: scope,
+            hidden: hiddenFilter(for: filter),
+            archived: .any,
+            read: readFilter(for: filter),
+            starred: starredFilter(for: filter),
+            sortMode: sortMode
+        )
+        let articles = try articleRepository.fetchArticles(matching: criteria)
+        return try makeListItems(from: articles)
+    }
+
+    private func queryScope(for selection: SidebarSelection?) -> ArticleQueryScope? {
+        switch selection {
         case .inbox, .unread, .starred:
-            try articleRepository.fetchInbox(sortMode: request.sortMode)
+            .inbox
         case .folder(let folderName):
-            try articleRepository.fetchInbox(sortMode: request.sortMode)
-                .filter { $0.feedFolderName == folderName }
+            .folder(folderName)
         case .feed(let feedID):
-            try articleRepository.fetchArticles(feedID: feedID, sortMode: request.sortMode)
+            .feed(feedID)
         case .none:
-            []
+            nil
         }
     }
 
-    private func articleCompositeKey(feedID: UUID, articleExternalID: String) -> String {
-        "\(feedID.uuidString)|\(articleExternalID)"
+    private func hiddenFilter(for filter: ArticleListFilter) -> ArticleQueryBooleanFilter {
+        filter == .hidden ? .isTrue : .isFalse
     }
 
-    private func matches(filter: ArticleListFilter, item: ArticleListItemDTO) -> Bool {
+    private func readFilter(for filter: ArticleListFilter) -> ArticleQueryBooleanFilter {
+        filter == .unread ? .isFalse : .any
+    }
+
+    private func starredFilter(for filter: ArticleListFilter) -> ArticleQueryBooleanFilter {
         switch filter {
-        case .all:
-            return item.isHidden == false
-        case .unread:
-            return item.isHidden == false && item.isRead == false
         case .starred:
-            return item.isHidden == false && item.isStarred
-        case .hidden:
-            return item.isHidden
+            .isTrue
+        case .all, .unread, .hidden:
+            .any
         }
     }
 }
