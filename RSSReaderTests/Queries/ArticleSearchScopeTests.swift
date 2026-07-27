@@ -105,6 +105,42 @@ struct ArticleSearchScopeTests {
         #expect(results.map(\.articleExternalID) == ["unread", "archived"])
     }
 
+    @Test
+    func articleSearchScopeUsesMaterializedTextWithoutParsingRawHTML() {
+        let article = makeArticleListItemDTO(
+            articleExternalID: "materialized",
+            title: "Article",
+            summary: nil,
+            contentHTML: "<p>Legacy raw token</p>",
+            searchableText: "Current materialized token"
+        )
+
+        #expect(matchingExternalIDs(in: [article], query: "materialized token") == ["materialized"])
+        #expect(matchingExternalIDs(in: [article], query: "legacy raw token").isEmpty)
+    }
+
+    @Test
+    func articleSearchableTextPolicyNormalizesHTMLAndBoundsUTF8Output() {
+        let normalized = ArticleSearchableTextPolicy.materialize(
+            title: "  Search   title  ",
+            summary: nil,
+            contentHTML: "<p>HTML&nbsp;<strong>fallback</strong></p>",
+            contentText: nil,
+            author: " Jane   Search "
+        )
+        let bounded = ArticleSearchableTextPolicy.materialize(
+            title: "Article",
+            summary: nil,
+            contentHTML: nil,
+            contentText: String(repeating: "а", count: ArticleSearchableTextPolicy.maximumUTF8ByteCount),
+            author: nil
+        )
+
+        #expect(normalized == "Search title Jane Search HTML fallback")
+        #expect(bounded.utf8.count <= ArticleSearchableTextPolicy.maximumUTF8ByteCount)
+        #expect(bounded.isEmpty == false)
+    }
+
     private func matchingExternalIDs(
         in articles: [ArticleListItemDTO],
         query: String,

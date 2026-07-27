@@ -9,6 +9,7 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
     let summary: String?
     let contentHTML: String?
     let contentText: String?
+    let searchableText: String
     let author: String?
     let publishedAt: Date?
     let fetchedAt: Date
@@ -26,6 +27,7 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
         summary: String?,
         contentHTML: String? = nil,
         contentText: String? = nil,
+        searchableText: String? = nil,
         author: String?,
         publishedAt: Date?,
         fetchedAt: Date,
@@ -42,6 +44,13 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
         self.summary = summary
         self.contentHTML = contentHTML
         self.contentText = contentText
+        self.searchableText = searchableText ?? ArticleSearchableTextPolicy.materialize(
+            title: title,
+            summary: summary,
+            contentHTML: contentHTML,
+            contentText: contentText,
+            author: author
+        )
         self.author = author
         self.publishedAt = publishedAt
         self.fetchedAt = fetchedAt
@@ -60,6 +69,7 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
         self.summary = article.summary
         self.contentHTML = article.contentHTML
         self.contentText = article.contentText
+        self.searchableText = article.searchableText
         self.author = article.author
         self.publishedAt = article.publishedAt
         self.fetchedAt = article.fetchedAt
@@ -78,6 +88,7 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
         self.summary = article.summary
         self.contentHTML = article.contentHTML
         self.contentText = article.contentText
+        self.searchableText = article.searchableText
         self.author = article.author
         self.publishedAt = article.publishedAt
         self.fetchedAt = article.fetchedAt

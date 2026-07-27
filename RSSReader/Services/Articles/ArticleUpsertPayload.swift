@@ -15,6 +15,7 @@ nonisolated struct ArticleUpsertPayload: Sendable {
     let summary: String?
     let contentHTML: String?
     let contentText: String?
+    let searchableText: String
     let author: String?
     let publishedAt: Date?
     let updatedAtSource: Date?
@@ -39,6 +40,13 @@ nonisolated struct ArticleUpsertPayload: Sendable {
         self.summary = entry.summary
         self.contentHTML = entry.contentHTML
         self.contentText = entry.contentText
+        self.searchableText = ArticleSearchableTextPolicy.materialize(
+            title: self.title,
+            summary: entry.summary,
+            contentHTML: entry.contentHTML,
+            contentText: entry.contentText,
+            author: entry.author
+        )
         self.author = entry.author
         self.publishedAt = entry.publishedAt
         self.updatedAtSource = entry.updatedAt

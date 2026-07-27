@@ -33,7 +33,7 @@ struct ArticleSearchScope: Sendable, Equatable {
             return true
         }
 
-        return Self.searchableValues(for: article)
+        return [article.searchableText, article.feedTitle]
             .contains { $0.localizedCaseInsensitiveContains(normalizedQuery) }
     }
 
@@ -96,51 +96,4 @@ struct ArticleSearchScope: Sendable, Equatable {
         }
     }
 
-    private static func searchableValues(for article: ArticleListItemDTO) -> [String] {
-        [
-            article.title,
-            article.summary,
-            article.contentText,
-            plainTextFallback(fromHTML: article.contentHTML),
-            article.author,
-            article.feedTitle
-        ]
-        .compactMap { $0?.nilIfBlank }
-    }
-
-    private static func plainTextFallback(fromHTML html: String?) -> String? {
-        guard let html = html?.nilIfBlank else {
-            return nil
-        }
-
-        return html
-            .replacingOccurrences(of: #"(?i)<br\s*/?>"#, with: " ", options: .regularExpression)
-            .replacingOccurrences(
-                of: #"(?i)</?(p|div|section|article|blockquote|ul|ol|li|h[1-6]|pre|figure|figcaption|table|tbody|thead|tr|td|th)\b[^>]*>"#,
-                with: " ",
-                options: .regularExpression
-            )
-            .replacingOccurrences(of: #"<[^>]+>"#, with: "", options: .regularExpression)
-            .decodingBasicHTMLEntities()
-            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .nilIfBlank
-    }
-}
-
-private extension String {
-    var nilIfBlank: String? {
-        let trimmedValue = trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedValue.isEmpty ? nil : trimmedValue
-    }
-
-    func decodingBasicHTMLEntities() -> String {
-        replacingOccurrences(of: "&nbsp;", with: " ")
-            .replacingOccurrences(of: "&amp;", with: "&")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&#39;", with: "'")
-            .replacingOccurrences(of: "&apos;", with: "'")
-    }
 }

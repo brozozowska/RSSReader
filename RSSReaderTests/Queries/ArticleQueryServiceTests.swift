@@ -324,6 +324,91 @@ struct ArticleQueryServiceTests {
         #expect(noMatchSnapshot.hasScopeContent)
     }
 
+    @Test
+    func articleQueryServiceRebuildsLegacySearchableTextOnceBeforeFiltering() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(into: harness)
+        let article = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "legacy-searchable-text",
+            title: "Article",
+            contentHTML: "<p>Legacy <strong>search token</strong></p>"
+        )
+        article.searchableText = ""
+        article.searchableTextVersion = 0
+        article.searchableTextSourceUpdatedAt = .distantPast
+        try harness.modelContainer.mainContext.save()
+
+        let operations = SwiftDataRepositoryOperationCounter()
+        let repository = SwiftDataArticleRepository(
+            modelContext: harness.modelContainer.mainContext,
+            persistenceOperationRecorder: operations.record
+        )
+        let queryService = DefaultArticleQueryService(
+            articleRepository: repository,
+            articleStateRepository: harness.articleStateRepository
+        )
+        let request = ArticleSearchRequest(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            query: "search token",
+            sortMode: .publishedAtDescending
+        )
+
+        let listItems = try queryService.fetchArticleListItems(
+            feedID: feed.id,
+            sortMode: .publishedAtDescending
+        )
+
+        #expect(listItems.map(\.articleExternalID) == [article.externalID])
+        #expect(article.searchableTextVersion == 0)
+        #expect(operations.saveCount == 0)
+        operations.reset()
+
+        let firstResults = try queryService.fetchArticleSearchResults(request)
+
+        #expect(firstResults.map(\.articleExternalID) == [article.externalID])
+        #expect(article.searchableTextVersion == ArticleSearchableTextPolicy.currentVersion)
+        #expect(article.searchableTextSourceUpdatedAt == article.updatedAt)
+        #expect(operations.saveCount == 1)
+
+        operations.reset()
+        let secondResults = try queryService.fetchArticleSearchResults(request)
+
+        #expect(secondResults.map(\.articleExternalID) == [article.externalID])
+        #expect(operations.saveCount == 0)
+    }
+
+    @Test
+    func articleQueryServiceRebuildsSearchableTextAfterNewerSourceUpdate() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(into: harness)
+        let article = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "updated-searchable-text",
+            title: "Article",
+            contentHTML: "<p>Old body</p>"
+        )
+        article.contentHTML = "<p>Replacement body token</p>"
+        article.updatedAt = article.updatedAt.addingTimeInterval(1)
+        try harness.modelContainer.mainContext.save()
+        let queryService = makeQueryService(harness)
+
+        let results = try queryService.fetchArticleSearchResults(
+            ArticleSearchRequest(
+                selection: .feed(feed.id),
+                sidebarArticleFilter: .allItems,
+                query: "replacement body token",
+                sortMode: .publishedAtDescending
+            )
+        )
+
+        #expect(results.map(\.articleExternalID) == [article.externalID])
+        #expect(article.searchableTextSourceUpdatedAt == article.updatedAt)
+    }
+
     private func makeQueryService(_ harness: TestHarness) -> DefaultArticleQueryService {
         DefaultArticleQueryService(
             articleRepository: harness.articleRepository,

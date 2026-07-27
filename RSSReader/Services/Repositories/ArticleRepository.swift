@@ -36,6 +36,7 @@ struct ArticleQueryCriteria: Equatable, Sendable {
     let read: ArticleQueryBooleanFilter
     let starred: ArticleQueryBooleanFilter
     let sortMode: ArticleSortMode
+    let requiresSearchableText: Bool
 
     init(
         scope: ArticleQueryScope,
@@ -43,7 +44,8 @@ struct ArticleQueryCriteria: Equatable, Sendable {
         archived: ArticleQueryBooleanFilter = .any,
         read: ArticleQueryBooleanFilter = .any,
         starred: ArticleQueryBooleanFilter = .any,
-        sortMode: ArticleSortMode
+        sortMode: ArticleSortMode,
+        requiresSearchableText: Bool = false
     ) {
         self.scope = scope
         self.hidden = hidden
@@ -51,6 +53,7 @@ struct ArticleQueryCriteria: Equatable, Sendable {
         self.read = read
         self.starred = starred
         self.sortMode = sortMode
+        self.requiresSearchableText = requiresSearchableText
     }
 }
 
@@ -388,6 +391,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         }
         var offset = 0
         var records: [ArticleQueryRecord] = []
+        var rebuiltSearchableText = false
 
         while true {
             var descriptor = FetchDescriptor<Article>(
@@ -402,6 +406,11 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             let statesByCompositeKey = try articleStateSnapshotFetcher.fetchSnapshots(for: articles)
             records.reserveCapacity(records.count + articles.count)
             for article in articles {
+                try Task.checkCancellation()
+                if criteria.requiresSearchableText {
+                    rebuiltSearchableText = article.rebuildSearchableTextIfNeeded()
+                        || rebuiltSearchableText
+                }
                 let state = statesByCompositeKey[articleCompositeKey(
                     feedID: article.feedID,
                     articleExternalID: article.externalID
@@ -411,6 +420,9 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             }
             offset += articles.count
             if articles.count < queryBatchSize { break }
+        }
+        if rebuiltSearchableText {
+            try saveIfNeeded()
         }
         return records
     }
@@ -562,6 +574,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     }
 
     private func apply(_ payload: ArticleUpsertPayload, to article: Article) {
+        let updatedAt = Date.now
         article.guid = payload.guid
         article.url = payload.url
         article.canonicalURL = payload.canonicalURL
@@ -569,13 +582,16 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         article.summary = payload.summary
         article.contentHTML = payload.contentHTML
         article.contentText = payload.contentText
+        article.searchableText = payload.searchableText
+        article.searchableTextVersion = ArticleSearchableTextPolicy.currentVersion
+        article.searchableTextSourceUpdatedAt = updatedAt
         article.author = payload.author
         article.publishedAt = payload.publishedAt
         article.updatedAtSource = payload.updatedAtSource
         article.imageURL = payload.imageURL
         article.archivedAt = payload.archivedAt
         article.fetchedAt = payload.fetchedAt
-        article.updatedAt = .now
+        article.updatedAt = updatedAt
     }
 
     private func makeArticle(from payload: ArticleUpsertPayload, feed: Feed) -> Article {
@@ -592,6 +608,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             summary: payload.summary,
             contentHTML: payload.contentHTML,
             contentText: payload.contentText,
+            searchableText: payload.searchableText,
             author: payload.author,
             publishedAt: payload.publishedAt,
             updatedAtSource: payload.updatedAtSource,

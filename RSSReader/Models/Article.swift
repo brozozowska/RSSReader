@@ -31,6 +31,9 @@ final class Article {
     var summary: String?
     var contentHTML: String?
     var contentText: String?
+    var searchableText: String = ""
+    var searchableTextVersion: Int = 0
+    var searchableTextSourceUpdatedAt: Date = Date.distantPast
     var author: String?
     var publishedAt: Date?
     var updatedAtSource: Date?
@@ -54,6 +57,7 @@ final class Article {
         summary: String? = nil,
         contentHTML: String? = nil,
         contentText: String? = nil,
+        searchableText: String? = nil,
         author: String? = nil,
         publishedAt: Date? = nil,
         updatedAtSource: Date? = nil,
@@ -80,6 +84,15 @@ final class Article {
         self.summary = summary
         self.contentHTML = contentHTML
         self.contentText = contentText
+        self.searchableText = searchableText ?? ArticleSearchableTextPolicy.materialize(
+            title: title,
+            summary: summary,
+            contentHTML: contentHTML,
+            contentText: contentText,
+            author: author
+        )
+        self.searchableTextVersion = ArticleSearchableTextPolicy.currentVersion
+        self.searchableTextSourceUpdatedAt = updatedAt
         self.author = author
         self.publishedAt = publishedAt
         self.updatedAtSource = updatedAtSource
@@ -95,5 +108,24 @@ final class Article {
             feedID: feedID,
             articleExternalID: externalID
         )
+    }
+
+    @discardableResult
+    func rebuildSearchableTextIfNeeded() -> Bool {
+        guard searchableTextVersion != ArticleSearchableTextPolicy.currentVersion
+                || searchableTextSourceUpdatedAt < updatedAt else {
+            return false
+        }
+
+        searchableText = ArticleSearchableTextPolicy.materialize(
+            title: title,
+            summary: summary,
+            contentHTML: contentHTML,
+            contentText: contentText,
+            author: author
+        )
+        searchableTextVersion = ArticleSearchableTextPolicy.currentVersion
+        searchableTextSourceUpdatedAt = updatedAt
+        return true
     }
 }

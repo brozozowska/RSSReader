@@ -86,7 +86,8 @@ final class DefaultArticleQueryService: ArticleQueryService {
         let listItems = try fetchListItems(
             scope: scope,
             sortMode: request.sortMode,
-            filter: request.listFilter
+            filter: request.listFilter,
+            requiresSearchableText: request.normalizedQuery.isEmpty == false
         )
         let searchResults = ArticleSearchScope.filteredArticles(
             listItems,
@@ -136,7 +137,8 @@ final class DefaultArticleQueryService: ArticleQueryService {
     private func fetchListItems(
         scope: ArticleQueryScope,
         sortMode: ArticleSortMode,
-        filter: ArticleListFilter
+        filter: ArticleListFilter,
+        requiresSearchableText: Bool = false
     ) throws -> [ArticleListItemDTO] {
         let criteria = ArticleQueryCriteria(
             scope: scope,
@@ -144,7 +146,8 @@ final class DefaultArticleQueryService: ArticleQueryService {
             archived: .any,
             read: readFilter(for: filter),
             starred: starredFilter(for: filter),
-            sortMode: sortMode
+            sortMode: sortMode,
+            requiresSearchableText: requiresSearchableText
         )
         let records = try articleRepository.fetchArticleQueryRecords(matching: criteria)
         return makeListItems(from: records)

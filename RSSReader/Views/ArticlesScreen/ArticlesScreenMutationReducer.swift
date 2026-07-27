@@ -123,6 +123,7 @@ extension ArticleListItemDTO {
             summary: summary,
             contentHTML: contentHTML,
             contentText: contentText,
+            searchableText: searchableText,
             author: author,
             publishedAt: publishedAt,
             fetchedAt: fetchedAt,
