@@ -3,6 +3,17 @@ import Foundation
 struct ArticleSearchResultSnapshot: Sendable, Equatable {
     let articles: [ArticleListItemDTO]
     let hasScopeContent: Bool
+    let nextCursor: ArticleSearchRequest.Cursor?
+
+    init(
+        articles: [ArticleListItemDTO],
+        hasScopeContent: Bool,
+        nextCursor: ArticleSearchRequest.Cursor? = nil
+    ) {
+        self.articles = articles
+        self.hasScopeContent = hasScopeContent
+        self.nextCursor = nextCursor
+    }
 }
 
 @MainActor
@@ -19,6 +30,7 @@ protocol ArticleQueryService {
 
 @MainActor
 final class DefaultArticleQueryService: ArticleQueryService {
+    private static let paginationScanBatchSize = 64
     private let articleRepository: any ArticleRepository
     private let articleStateRepository: any ArticleStateRepository
 
@@ -83,30 +95,35 @@ final class DefaultArticleQueryService: ArticleQueryService {
             return ArticleSearchResultSnapshot(articles: [], hasScopeContent: false)
         }
 
-        let listItems = try fetchListItems(
-            scope: scope,
-            sortMode: request.sortMode,
-            filter: request.listFilter,
-            requiresSearchableText: request.normalizedQuery.isEmpty == false
-        )
-        let searchResults = ArticleSearchScope.filteredArticles(
-            listItems,
-            searchText: request.normalizedQuery,
-            selection: request.selection,
-            sidebarArticleFilter: request.sidebarArticleFilter
-        )
-
-        let limitedSearchResults: [ArticleListItemDTO]
-        if let limit = request.limit {
-            limitedSearchResults = limit > 0 ? Array(searchResults.prefix(limit)) : []
-        } else {
-            limitedSearchResults = searchResults
+        guard let limit = request.limit else {
+            let listItems = try fetchListItems(
+                scope: scope,
+                sortMode: request.sortMode,
+                filter: request.listFilter,
+                requiresSearchableText: request.normalizedQuery.isEmpty == false
+            )
+            let searchResults = ArticleSearchScope.filteredArticles(
+                listItems,
+                searchText: request.normalizedQuery,
+                selection: request.selection,
+                sidebarArticleFilter: request.sidebarArticleFilter
+            )
+            return ArticleSearchResultSnapshot(
+                articles: searchResults,
+                hasScopeContent: listItems.isEmpty == false
+            )
         }
 
-        return ArticleSearchResultSnapshot(
-            articles: limitedSearchResults,
-            hasScopeContent: listItems.isEmpty == false
+        let criteria = ArticleQueryCriteria(
+            scope: scope,
+            hidden: hiddenFilter(for: request.listFilter),
+            archived: .any,
+            read: readFilter(for: request.listFilter),
+            starred: starredFilter(for: request.listFilter),
+            sortMode: request.sortMode,
+            requiresSearchableText: request.normalizedQuery.isEmpty == false
         )
+        return try fetchSearchPage(request, criteria: criteria, limit: limit)
     }
 
     private func makeListItems(from records: [ArticleQueryRecord]) -> [ArticleListItemDTO] {
@@ -151,6 +168,82 @@ final class DefaultArticleQueryService: ArticleQueryService {
         )
         let records = try articleRepository.fetchArticleQueryRecords(matching: criteria)
         return makeListItems(from: records)
+    }
+
+    private func fetchSearchPage(
+        _ request: ArticleSearchRequest,
+        criteria: ArticleQueryCriteria,
+        limit: Int
+    ) throws -> ArticleSearchResultSnapshot {
+        var repositoryOffset = request.cursor?.repositoryOffset ?? 0
+        var hasScopeContent = request.cursor != nil
+
+        guard limit > 0 else {
+            let page = try articleRepository.fetchArticleQueryRecordPage(
+                matching: criteria,
+                offset: repositoryOffset,
+                limit: 1
+            )
+            return ArticleSearchResultSnapshot(
+                articles: [],
+                hasScopeContent: hasScopeContent || page.records.isEmpty == false
+            )
+        }
+
+        let targetResultCount = limit + 1
+        var matchingRecords: [(article: ArticleListItemDTO, continuationOffset: Int)] = []
+
+        while matchingRecords.count < targetResultCount {
+            let page = try articleRepository.fetchArticleQueryRecordPage(
+                matching: criteria,
+                offset: repositoryOffset,
+                limit: Self.paginationScanBatchSize
+            )
+            hasScopeContent = hasScopeContent || page.records.isEmpty == false
+
+            for record in page.records {
+                try Task.checkCancellation()
+                let article = ArticleListItemDTO(article: record.article, state: record.state)
+                guard matchesSearch(article, request: request) else { continue }
+                matchingRecords.append((article, record.continuationOffset))
+                if matchingRecords.count == targetResultCount {
+                    break
+                }
+            }
+
+            guard matchingRecords.count < targetResultCount,
+                  let nextOffset = page.nextOffset else {
+                break
+            }
+            repositoryOffset = nextOffset
+        }
+
+        guard matchingRecords.count > limit else {
+            return ArticleSearchResultSnapshot(
+                articles: matchingRecords.map(\.article),
+                hasScopeContent: hasScopeContent
+            )
+        }
+
+        return ArticleSearchResultSnapshot(
+            articles: matchingRecords.prefix(limit).map(\.article),
+            hasScopeContent: hasScopeContent,
+            nextCursor: ArticleSearchRequest.Cursor(
+                repositoryOffset: matchingRecords[limit - 1].continuationOffset
+            )
+        )
+    }
+
+    private func matchesSearch(
+        _ article: ArticleListItemDTO,
+        request: ArticleSearchRequest
+    ) -> Bool {
+        ArticleSearchScope.filteredArticles(
+            [article],
+            searchText: request.normalizedQuery,
+            selection: request.selection,
+            sidebarArticleFilter: request.sidebarArticleFilter
+        ).isEmpty == false
     }
 
     private func queryScope(for selection: SidebarSelection?) -> ArticleQueryScope? {

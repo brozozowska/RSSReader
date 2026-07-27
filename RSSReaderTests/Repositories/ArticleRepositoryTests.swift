@@ -672,6 +672,64 @@ struct ArticleRepositoryTests {
     }
 
     @Test
+    func articleRepositoryStopsAtPageBoundaryBeforeMaterializingRemainingQueryRecords() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(into: harness)
+        let modelContext = harness.modelContainer.mainContext
+
+        for index in 0..<6 {
+            _ = try harness.insertArticle(
+                feed: feed,
+                externalID: "paged-\(index)",
+                url: "https://example.com/paged-\(index)",
+                title: "Paged \(index)",
+                publishedAt: Date(timeIntervalSince1970: TimeInterval(index))
+            )
+            modelContext.insert(
+                ArticleState(
+                    articleExternalID: "paged-\(index)",
+                    feedID: feed.id,
+                    isRead: index < 3
+                )
+            )
+        }
+        try modelContext.save()
+
+        var observations: [ArticleStateQueryBatchObservation] = []
+        let repository = SwiftDataArticleRepository(
+            modelContext: modelContext,
+            queryBatchSize: 4,
+            articleStateQueryBatchProbe: { observations.append($0) }
+        )
+        let criteria = ArticleQueryCriteria(
+            scope: .feed(feed.id),
+            read: .isFalse,
+            sortMode: .publishedAtDescending
+        )
+
+        let firstPage = try repository.fetchArticleQueryRecordPage(
+            matching: criteria,
+            offset: 0,
+            limit: 2
+        )
+
+        #expect(firstPage.records.map { $0.article.externalID } == ["paged-5", "paged-4"])
+        #expect(firstPage.nextOffset != nil)
+        #expect(observations.map(\.requestedIdentityCount) == [3])
+
+        observations.removeAll()
+        let secondPage = try repository.fetchArticleQueryRecordPage(
+            matching: criteria,
+            offset: try #require(firstPage.nextOffset),
+            limit: 2
+        )
+
+        #expect(secondPage.records.map { $0.article.externalID } == ["paged-3"])
+        #expect(secondPage.nextOffset == nil)
+        #expect(observations.allSatisfy { $0.requestedIdentityCount <= 3 })
+    }
+
+    @Test
     func articleRepositoryDeleteBatchRemovesOnlyRequestedArticles() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)

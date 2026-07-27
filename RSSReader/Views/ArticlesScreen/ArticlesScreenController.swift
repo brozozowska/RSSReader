@@ -5,6 +5,10 @@ nonisolated enum ArticlesScreenSearchPolicy {
     static let debounceDuration: Duration = .milliseconds(250)
 }
 
+nonisolated enum ArticlesScreenPaginationPolicy {
+    static let pageSize = 50
+}
+
 typealias ArticlesScreenSearchDebounceOperation = @MainActor () async throws -> Void
 typealias ArticlesScreenSearchQueryOperation = @MainActor (
     ArticleSearchRequest,
@@ -17,6 +21,7 @@ final class ArticlesScreenController {
     var screenState: ArticlesScreenState
     @ObservationIgnored private let searchDebounceOperation: ArticlesScreenSearchDebounceOperation
     @ObservationIgnored private let searchQueryOperation: ArticlesScreenSearchQueryOperation
+    @ObservationIgnored private let pageSize: Int
     @ObservationIgnored private var activeLoadTask: Task<Void, Never>?
     @ObservationIgnored private var loadGeneration = 0
     private var lastLoadedSessionContext: ArticleListSession.Context
@@ -24,8 +29,10 @@ final class ArticlesScreenController {
     init(
         previewScreenState: ArticlesScreenState? = nil,
         searchDebounceOperation: ArticlesScreenSearchDebounceOperation? = nil,
-        searchQueryOperation: ArticlesScreenSearchQueryOperation? = nil
+        searchQueryOperation: ArticlesScreenSearchQueryOperation? = nil,
+        pageSize: Int = ArticlesScreenPaginationPolicy.pageSize
     ) {
+        precondition(pageSize > 0)
         self.screenState = previewScreenState ?? ArticlesScreenState()
         self.searchDebounceOperation = searchDebounceOperation ?? {
             try await Task.sleep(for: ArticlesScreenSearchPolicy.debounceDuration)
@@ -33,6 +40,7 @@ final class ArticlesScreenController {
         self.searchQueryOperation = searchQueryOperation ?? { request, articleQueryService in
             try articleQueryService.fetchArticleSearchSnapshot(request)
         }
+        self.pageSize = pageSize
         if let previewScreenState {
             self.lastLoadedSessionContext = previewScreenState.articleListSession.context
         } else {
@@ -173,7 +181,8 @@ final class ArticlesScreenController {
                 ),
                 sessionContext: sessionContext,
                 preservesRefreshFeedback: preservesRefreshFeedback,
-                emptyContentKind: loadResult.emptyContentKind
+                emptyContentKind: loadResult.emptyContentKind,
+                nextPageCursor: loadResult.nextPageCursor
             )
         } catch is CancellationError {
             return
@@ -189,6 +198,71 @@ final class ArticlesScreenController {
                 retainsContent: sessionContextChanged == false,
                 sessionContext: sessionContext
             )
+        }
+    }
+
+    func loadNextPage(
+        selection: SidebarSelection?,
+        sidebarArticleFilter: SidebarArticleFilter,
+        searchText: String = "",
+        dependencies: AppDependencies
+    ) async {
+        let normalizedSearchText = ArticleSearchScope.normalizedSearchText(searchText)
+        let sessionContext = ArticleListSession.Context(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter,
+            normalizedSearchText: normalizedSearchText
+        )
+        guard sessionContext == lastLoadedSessionContext,
+              sessionContext == screenState.articleListSession.context,
+              let nextPageCursor = screenState.articleListSession.nextPageCursor,
+              screenState.beginLoadingNextPage() else {
+            return
+        }
+
+        let currentLoadGeneration = loadGeneration
+        guard let articleQueryService = dependencies.articleQueryService else {
+            screenState.endLoadingNextPage()
+            return
+        }
+
+        do {
+            let loadResult = try await loadArticles(
+                for: selection,
+                sidebarArticleFilter: sidebarArticleFilter,
+                normalizedSearchText: normalizedSearchText,
+                unreadArticleSortMode: loadUnreadArticleSortMode(dependencies: dependencies),
+                articleQueryService: articleQueryService,
+                cursor: nextPageCursor
+            )
+            try Task.checkCancellation()
+            guard currentLoadGeneration == loadGeneration,
+                  sessionContext == lastLoadedSessionContext,
+                  sessionContext == screenState.articleListSession.context else {
+                screenState.endLoadingNextPage()
+                return
+            }
+
+            let existingArticleIDs = Set(screenState.articles.map(\.id))
+            let newArticles = loadResult.articles.filter {
+                existingArticleIDs.contains($0.id) == false
+            }
+            let allArticles = screenState.articles + newArticles
+            screenState.applyLoadedNextPage(
+                newArticles,
+                nextPageCursor: loadResult.nextPageCursor,
+                navigationSubtitle: resolveNavigationSubtitle(
+                    for: allArticles,
+                    sidebarArticleFilter: sidebarArticleFilter
+                )
+            )
+        } catch is CancellationError {
+            screenState.endLoadingNextPage()
+        } catch {
+            dependencies.logger.error(
+                "Failed to load next article list page for selection \(String(describing: selection)): \(error)"
+            )
+            screenState.endLoadingNextPage()
         }
     }
 
@@ -263,7 +337,8 @@ final class ArticlesScreenController {
         sidebarArticleFilter: SidebarArticleFilter,
         normalizedSearchText: String,
         unreadArticleSortMode: ArticleSortMode,
-        articleQueryService: any ArticleQueryService
+        articleQueryService: any ArticleQueryService,
+        cursor: ArticleSearchRequest.Cursor? = nil
     ) async throws -> ArticleListLoadResult {
         let articleListFilter = articleListFilter(
             for: selection,
@@ -278,13 +353,16 @@ final class ArticlesScreenController {
             selection: selection,
             sidebarArticleFilter: sidebarArticleFilter,
             query: normalizedSearchText,
-            sortMode: articleListSortMode
+            sortMode: articleListSortMode,
+            limit: pageSize,
+            cursor: cursor
         )
         let snapshot = try await searchQueryOperation(request, articleQueryService)
 
         return ArticleListLoadResult(
             articles: snapshot.articles,
-            emptyContentKind: emptyContentKind(snapshot: snapshot, request: request)
+            emptyContentKind: emptyContentKind(snapshot: snapshot, request: request),
+            nextPageCursor: snapshot.nextCursor
         )
     }
 
@@ -374,4 +452,5 @@ final class ArticlesScreenController {
 private struct ArticleListLoadResult {
     let articles: [ArticleListItemDTO]
     let emptyContentKind: ArticlesScreenEmptyContentKind
+    let nextPageCursor: ArticleSearchRequest.Cursor?
 }

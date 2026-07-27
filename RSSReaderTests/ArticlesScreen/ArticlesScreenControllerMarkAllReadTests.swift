@@ -79,4 +79,45 @@ struct ArticlesScreenControllerMarkAllReadTests {
         #expect(controller.screenState.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
         #expect(persistedState?.isRead == true)
     }
+
+    @Test
+    func articlesScreenControllerMarksAccumulatedPagesAndPreservesContinuationCursor() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let first = makeArticleListItemDTO(
+            articleExternalID: "mark-page-first",
+            isRead: false,
+            isStarred: false
+        )
+        let second = makeArticleListItemDTO(
+            feedID: first.feedID,
+            articleExternalID: "mark-page-second",
+            isRead: false,
+            isStarred: false
+        )
+        let nextCursor = ArticleSearchRequest.Cursor(repositoryOffset: 2)
+        var screenState = ArticlesScreenState()
+        screenState.applyLoadedArticles(
+            [first, second],
+            selection: .feed(first.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 2),
+            sessionContext: ArticleListSession.Context(
+                selection: .feed(first.feedID),
+                sidebarArticleFilter: .allItems
+            ),
+            nextPageCursor: nextCursor
+        )
+        let controller = ArticlesScreenController(previewScreenState: screenState)
+
+        controller.confirmMarkAllAsRead(
+            searchText: "",
+            selection: .feed(first.feedID),
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies,
+            isPreviewMode: true
+        )
+
+        #expect(controller.screenState.articles.allSatisfy { $0.isRead })
+        #expect(controller.screenState.articleListSession.nextPageCursor == nextCursor)
+    }
 }

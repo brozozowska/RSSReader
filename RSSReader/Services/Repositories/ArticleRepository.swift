@@ -60,6 +60,12 @@ struct ArticleQueryCriteria: Equatable, Sendable {
 struct ArticleQueryRecord {
     let article: Article
     let state: ArticleUserStateSnapshot?
+    let continuationOffset: Int
+}
+
+struct ArticleQueryRecordPage {
+    let records: [ArticleQueryRecord]
+    let nextOffset: Int?
 }
 
 struct ArticleFeedSnapshotReconciliationResult {
@@ -116,6 +122,11 @@ protocol ArticleRepository {
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
     func fetchArticles(matching criteria: ArticleQueryCriteria) throws -> [Article]
     func fetchArticleQueryRecords(matching criteria: ArticleQueryCriteria) throws -> [ArticleQueryRecord]
+    func fetchArticleQueryRecordPage(
+        matching criteria: ArticleQueryCriteria,
+        offset: Int,
+        limit: Int
+    ) throws -> ArticleQueryRecordPage
     func fetchArchivedArticles() throws -> [Article]
     func fetchRetentionBatch(
         feedID: UUID,
@@ -350,6 +361,31 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     }
 
     func fetchArticleQueryRecords(matching criteria: ArticleQueryCriteria) throws -> [ArticleQueryRecord] {
+        var records: [ArticleQueryRecord] = []
+        var offset = 0
+
+        while true {
+            let page = try fetchArticleQueryRecordPage(
+                matching: criteria,
+                offset: offset,
+                limit: queryBatchSize
+            )
+            records.append(contentsOf: page.records)
+            guard let nextOffset = page.nextOffset else { break }
+            offset = nextOffset
+        }
+
+        return records
+    }
+
+    func fetchArticleQueryRecordPage(
+        matching criteria: ArticleQueryCriteria,
+        offset: Int,
+        limit: Int
+    ) throws -> ArticleQueryRecordPage {
+        precondition(offset >= 0)
+        precondition(limit > 0)
+
         let matchesInbox: Bool
         let matchesFolder: Bool
         let matchesFeed: Bool
@@ -389,17 +425,20 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
                         || (includesArchived && article.archivedAt != nil)
                 )
         }
-        var offset = 0
+        let targetRecordCount = limit + 1
+        var candidateOffset = offset
         var records: [ArticleQueryRecord] = []
         var rebuiltSearchableText = false
 
-        while true {
+        while records.count < targetRecordCount {
+            let remainingRecordCount = targetRecordCount - records.count
+            let candidateLimit = min(queryBatchSize, remainingRecordCount)
             var descriptor = FetchDescriptor<Article>(
                 predicate: predicate,
                 sortBy: sortDescriptors(for: criteria.sortMode)
             )
-            descriptor.fetchOffset = offset
-            descriptor.fetchLimit = queryBatchSize
+            descriptor.fetchOffset = candidateOffset
+            descriptor.fetchLimit = candidateLimit
             let articles = try performFetch(descriptor)
             guard articles.isEmpty == false else { break }
 
@@ -407,6 +446,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             records.reserveCapacity(records.count + articles.count)
             for article in articles {
                 try Task.checkCancellation()
+                candidateOffset += 1
                 if criteria.requiresSearchableText {
                     rebuiltSearchableText = article.rebuildSearchableTextIfNeeded()
                         || rebuiltSearchableText
@@ -416,15 +456,31 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
                     articleExternalID: article.externalID
                 )]
                 guard matchesStateCriteria(state, criteria: criteria) else { continue }
-                records.append(ArticleQueryRecord(article: article, state: state))
+                records.append(
+                    ArticleQueryRecord(
+                        article: article,
+                        state: state,
+                        continuationOffset: candidateOffset
+                    )
+                )
+                if records.count == targetRecordCount {
+                    break
+                }
             }
-            offset += articles.count
-            if articles.count < queryBatchSize { break }
+            if articles.count < candidateLimit { break }
         }
         if rebuiltSearchableText {
             try saveIfNeeded()
         }
-        return records
+
+        guard records.count > limit else {
+            return ArticleQueryRecordPage(records: records, nextOffset: nil)
+        }
+
+        return ArticleQueryRecordPage(
+            records: Array(records.prefix(limit)),
+            nextOffset: records[limit - 1].continuationOffset
+        )
     }
 
     func fetchArchivedArticles() throws -> [Article] {

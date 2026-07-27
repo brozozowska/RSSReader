@@ -5,10 +5,12 @@ struct ArticleListContentView: View {
     let sections: [ArticlesDaySection]
     let visibleArticleIDs: [UUID]
     let customRefreshState: ArticlesScreenCustomRefreshState
+    let isLoadingNextPage: Bool
     @Binding var selection: UUID?
     @Binding var scrollPositionID: UUID?
     let customRefreshPullProgressChanged: @MainActor (Double) -> Void
     let customRefreshReleaseAction: @MainActor () async -> Void
+    let loadNextPageAction: @MainActor () async -> Void
     let toggleReadStatusAction: @MainActor (ArticleListItemDTO) -> Void
     let toggleStarredAction: @MainActor (ArticleListItemDTO) -> Void
 
@@ -26,6 +28,7 @@ struct ArticleListContentView: View {
     private var articleList: some View {
         List(selection: $selection) {
             articleSections
+            paginationFooter
         }
         .listStyle(.plain)
         .listSectionSpacing(12)
@@ -84,6 +87,24 @@ struct ArticleListContentView: View {
             .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
+            .task(id: article.id) {
+                guard article.id == visibleArticleIDs.last else { return }
+                await loadNextPageAction()
+            }
+    }
+
+    @ViewBuilder
+    private var paginationFooter: some View {
+        if isLoadingNextPage {
+            HStack {
+                Spacer()
+                ProgressView()
+                    .controlSize(.small)
+                Spacer()
+            }
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+        }
     }
 
     @ViewBuilder

@@ -325,6 +325,62 @@ struct ArticleQueryServiceTests {
     }
 
     @Test
+    func articleQueryServiceContinuesBoundedSearchPagesWithoutDuplicateStableIDs() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(into: harness)
+        let queryService = makeQueryService(harness)
+
+        for index in 0..<5 {
+            _ = try insertArticle(
+                into: harness,
+                feed: feed,
+                externalID: "search-page-\(index)",
+                title: "Needle \(index)",
+                publishedAt: Date(timeIntervalSince1970: TimeInterval(index))
+            )
+        }
+
+        let firstPage = try queryService.fetchArticleSearchSnapshot(
+            ArticleSearchRequest(
+                selection: .feed(feed.id),
+                sidebarArticleFilter: .allItems,
+                query: "needle",
+                sortMode: .publishedAtDescending,
+                limit: 2
+            )
+        )
+        let firstCursor = try #require(firstPage.nextCursor)
+        let secondPage = try queryService.fetchArticleSearchSnapshot(
+            ArticleSearchRequest(
+                selection: .feed(feed.id),
+                sidebarArticleFilter: .allItems,
+                query: "needle",
+                sortMode: .publishedAtDescending,
+                limit: 2,
+                cursor: firstCursor
+            )
+        )
+        let secondCursor = try #require(secondPage.nextCursor)
+        let thirdPage = try queryService.fetchArticleSearchSnapshot(
+            ArticleSearchRequest(
+                selection: .feed(feed.id),
+                sidebarArticleFilter: .allItems,
+                query: "needle",
+                sortMode: .publishedAtDescending,
+                limit: 2,
+                cursor: secondCursor
+            )
+        )
+        let allArticles = firstPage.articles + secondPage.articles + thirdPage.articles
+
+        #expect(allArticles.map(\.articleExternalID) == [
+            "search-page-4", "search-page-3", "search-page-2", "search-page-1", "search-page-0"
+        ])
+        #expect(Set(allArticles.map(\.id)).count == allArticles.count)
+        #expect(thirdPage.nextCursor == nil)
+    }
+
+    @Test
     func articleQueryServiceRebuildsLegacySearchableTextOnceBeforeFiltering() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)

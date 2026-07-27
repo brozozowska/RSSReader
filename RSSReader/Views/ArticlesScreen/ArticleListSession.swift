@@ -28,14 +28,20 @@ struct ArticleListSession: Equatable {
 
     private(set) var context: Context
     private(set) var entries: [ArticleListEntry]
+    private(set) var nextPageCursor: ArticleSearchRequest.Cursor?
 
     var articles: [ArticleListItemDTO] {
         entries.map(\.article)
     }
 
-    init(context: Context, entries: [ArticleListEntry] = []) {
+    init(
+        context: Context,
+        entries: [ArticleListEntry] = [],
+        nextPageCursor: ArticleSearchRequest.Cursor? = nil
+    ) {
         self.context = context
         self.entries = entries
+        self.nextPageCursor = nextPageCursor
     }
 
     init(context: Context, articles: [ArticleListItemDTO]) {
@@ -47,20 +53,35 @@ struct ArticleListSession: Equatable {
 
     mutating func replaceArticles(
         _ articles: [ArticleListItemDTO],
-        context: Context
+        context: Context,
+        nextPageCursor: ArticleSearchRequest.Cursor? = nil
     ) {
         replaceEntries(
             articles.map { ArticleListEntry(article: $0) },
-            context: context
+            context: context,
+            nextPageCursor: nextPageCursor
         )
     }
 
     mutating func replaceEntries(
         _ entries: [ArticleListEntry],
-        context: Context
+        context: Context,
+        nextPageCursor: ArticleSearchRequest.Cursor? = nil
     ) {
         self.context = context
         self.entries = entries
+        self.nextPageCursor = nextPageCursor
+    }
+
+    mutating func appendPage(
+        _ articles: [ArticleListItemDTO],
+        nextPageCursor: ArticleSearchRequest.Cursor?
+    ) {
+        var knownArticleIDs = Set(entries.map(\.id))
+        for article in articles where knownArticleIDs.insert(article.id).inserted {
+            entries.append(ArticleListEntry(article: article))
+        }
+        self.nextPageCursor = nextPageCursor
     }
 
     mutating func updateArticle(

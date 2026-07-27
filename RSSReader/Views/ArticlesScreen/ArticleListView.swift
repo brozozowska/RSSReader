@@ -51,10 +51,12 @@ struct ArticleListView: View {
             sections: derivedViewState.sections,
             visibleArticleIDs: derivedViewState.visibleArticles.map(\.id),
             customRefreshState: derivedViewState.customRefreshState,
+            isLoadingNextPage: controller.screenState.isLoadingNextPage,
             selection: $selection,
             scrollPositionID: articleListScrollPositionBinding,
             customRefreshPullProgressChanged: updateCustomRefreshPullProgress,
             customRefreshReleaseAction: triggerCustomRefresh,
+            loadNextPageAction: loadNextPage,
             toggleReadStatusAction: toggleArticleReadStatus,
             toggleStarredAction: toggleStarredState
         )
@@ -161,6 +163,32 @@ struct ArticleListView: View {
             retainsSessionFilterMutations: retainsSessionFilterMutations,
             retainedSessionMembershipStatus: retainedSessionMembershipStatus,
             preservesRefreshFeedback: preservesRefreshFeedback
+        )
+
+        guard loadingSidebarSelection == appState.selectedSidebarSelection,
+              loadingSidebarArticleFilter == appState.selectedSidebarArticleFilter else {
+            return
+        }
+
+        let visibleArticleIDs = controller.visibleArticleIDs()
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
+    }
+
+    @MainActor
+    private func loadNextPage() async {
+        guard isPreviewMode == false,
+              controller.screenState.canLoadNextPage else {
+            return
+        }
+
+        let loadingSidebarSelection = selectedSidebarSelection
+        let loadingSidebarArticleFilter = selectedSidebarArticleFilter
+        await controller.loadNextPage(
+            selection: loadingSidebarSelection,
+            sidebarArticleFilter: loadingSidebarArticleFilter,
+            searchText: searchText,
+            dependencies: dependencies
         )
 
         guard loadingSidebarSelection == appState.selectedSidebarSelection,

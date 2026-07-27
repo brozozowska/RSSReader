@@ -10,6 +10,7 @@ struct ArticlesScreenState {
     private(set) var customRefreshState: ArticlesScreenCustomRefreshState = .idle
     private(set) var refreshFeedback: ArticlesScreenRefreshFeedback?
     private(set) var emptyContentKind: ArticlesScreenEmptyContentKind = .selection
+    private(set) var isLoadingNextPage = false
     private(set) var toolbarActions = ArticlesScreenToolbarActionsState(
         selection: nil,
         visibleArticles: [],
@@ -19,6 +20,10 @@ struct ArticlesScreenState {
 
     var articles: [ArticleListItemDTO] {
         articleListSession.articles
+    }
+
+    var canLoadNextPage: Bool {
+        articleListSession.nextPageCursor != nil && isLoadingNextPage == false
     }
 
     var placeholder: ArticlesScreenPlaceholderState? {
@@ -65,6 +70,7 @@ struct ArticlesScreenState {
         sessionContext: ArticleListSession.Context? = nil
     ) {
         pendingConfirmation = nil
+        isLoadingNextPage = false
         emptyContentKind = .selection
         self.selection = selection
         self.navigationTitle = navigationTitle
@@ -95,7 +101,8 @@ struct ArticlesScreenState {
         } else {
             articleListSession.replaceEntries(
                 articleListSession.entries,
-                context: resolvedSessionContext
+                context: resolvedSessionContext,
+                nextPageCursor: articleListSession.nextPageCursor
             )
             refreshState = .refreshing
         }
@@ -110,7 +117,8 @@ struct ArticlesScreenState {
         navigationSubtitle: String,
         sessionContext: ArticleListSession.Context? = nil,
         preservesRefreshFeedback: Bool = false,
-        emptyContentKind: ArticlesScreenEmptyContentKind = .selection
+        emptyContentKind: ArticlesScreenEmptyContentKind = .selection,
+        nextPageCursor: ArticleSearchRequest.Cursor? = nil
     ) {
         applyLoadedEntries(
             loadedArticles.map { ArticleListEntry(article: $0) },
@@ -119,7 +127,8 @@ struct ArticlesScreenState {
             navigationSubtitle: navigationSubtitle,
             sessionContext: sessionContext,
             preservesRefreshFeedback: preservesRefreshFeedback,
-            emptyContentKind: emptyContentKind
+            emptyContentKind: emptyContentKind,
+            nextPageCursor: nextPageCursor
         )
     }
 
@@ -130,7 +139,8 @@ struct ArticlesScreenState {
         navigationSubtitle: String,
         sessionContext: ArticleListSession.Context? = nil,
         preservesRefreshFeedback: Bool = false,
-        emptyContentKind: ArticlesScreenEmptyContentKind = .selection
+        emptyContentKind: ArticlesScreenEmptyContentKind = .selection,
+        nextPageCursor: ArticleSearchRequest.Cursor? = nil
     ) {
         self.selection = selection
         self.navigationTitle = navigationTitle
@@ -141,8 +151,10 @@ struct ArticlesScreenState {
             context: resolvedContext(
                 selection: selection,
                 sessionContext: sessionContext
-            )
+            ),
+            nextPageCursor: nextPageCursor
         )
+        isLoadingNextPage = false
         refreshState = .idle
         customRefreshState = .idle
         if preservesRefreshFeedback == false {
@@ -158,6 +170,35 @@ struct ArticlesScreenState {
         }
 
         updateToolbarActions(for: selection)
+    }
+
+    @discardableResult
+    mutating func beginLoadingNextPage() -> Bool {
+        guard canLoadNextPage else { return false }
+        isLoadingNextPage = true
+        return true
+    }
+
+    mutating func applyLoadedNextPage(
+        _ articles: [ArticleListItemDTO],
+        nextPageCursor: ArticleSearchRequest.Cursor?,
+        navigationSubtitle: String
+    ) {
+        articleListSession.appendPage(
+            articles,
+            nextPageCursor: nextPageCursor
+        )
+        self.navigationSubtitle = navigationSubtitle
+        isLoadingNextPage = false
+        if self.articles.isEmpty == false {
+            phase = .loaded
+            emptyContentKind = .selection
+        }
+        updateToolbarActions(for: selection)
+    }
+
+    mutating func endLoadingNextPage() {
+        isLoadingNextPage = false
     }
 
     mutating func applyLoadingFailure(
@@ -220,7 +261,8 @@ struct ArticlesScreenState {
     ) {
         articleListSession.replaceArticles(
             updatedArticles,
-            context: articleListSession.context
+            context: articleListSession.context,
+            nextPageCursor: articleListSession.nextPageCursor
         )
         self.navigationSubtitle = navigationSubtitle
         if updatedArticles.isEmpty {

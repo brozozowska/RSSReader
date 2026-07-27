@@ -31,6 +31,65 @@ struct ArticlesScreenControllerLoadingTests {
     }
 
     @Test
+    func articlesScreenControllerAppendsPagesWithoutReplacingCurrentSessionSnapshot() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/controller-pages.xml"]).first
+        )
+        let first = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "page-first",
+            title: "First"
+        )
+        let second = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "page-second",
+            title: "Second"
+        )
+        let third = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "page-third",
+            title: "Third"
+        )
+        var requests: [ArticleSearchRequest] = []
+        let controller = ArticlesScreenController(
+            searchQueryOperation: { request, _ in
+                requests.append(request)
+                if request.cursor == nil {
+                    return ArticleSearchResultSnapshot(
+                        articles: [first, second],
+                        hasScopeContent: true,
+                        nextCursor: ArticleSearchRequest.Cursor(repositoryOffset: 2)
+                    )
+                }
+                return ArticleSearchResultSnapshot(
+                    articles: [second, third],
+                    hasScopeContent: true
+                )
+            },
+            pageSize: 2
+        )
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        let originalContext = controller.screenState.articleListSession.context
+        await controller.loadNextPage(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+
+        #expect(requests.map(\.limit) == [2, 2])
+        #expect(requests.map { $0.cursor?.repositoryOffset } == [nil, 2])
+        #expect(controller.visibleArticleIDs() == [first.id, second.id, third.id])
+        #expect(controller.screenState.articleListSession.context == originalContext)
+        #expect(controller.screenState.articleListSession.nextPageCursor == nil)
+    }
+
+    @Test
     func articlesScreenControllerIncludesArchivedArticlesForCurrentSelectionUntilCleanupDeletesThem() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-archive.xml"]).first)

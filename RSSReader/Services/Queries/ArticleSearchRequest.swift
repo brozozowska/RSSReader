@@ -1,6 +1,15 @@
 import Foundation
 
 struct ArticleSearchRequest: Sendable, Equatable {
+    struct Cursor: Sendable, Equatable {
+        let repositoryOffset: Int
+
+        init(repositoryOffset: Int) {
+            precondition(repositoryOffset >= 0)
+            self.repositoryOffset = repositoryOffset
+        }
+    }
+
     enum EmptyQueryBehavior: Sendable, Equatable {
         case returnsCurrentScope
         case returnsEmpty
@@ -11,6 +20,7 @@ struct ArticleSearchRequest: Sendable, Equatable {
     let normalizedQuery: String
     let sortMode: ArticleSortMode
     let limit: Int?
+    let cursor: Cursor?
     let emptyQueryBehavior: EmptyQueryBehavior
 
     init(
@@ -19,6 +29,7 @@ struct ArticleSearchRequest: Sendable, Equatable {
         query: String,
         sortMode: ArticleSortMode,
         limit: Int? = nil,
+        cursor: Cursor? = nil,
         emptyQueryBehavior: EmptyQueryBehavior = .returnsCurrentScope
     ) {
         self.selection = selection
@@ -26,6 +37,7 @@ struct ArticleSearchRequest: Sendable, Equatable {
         self.normalizedQuery = ArticleSearchScope.normalizedSearchText(query)
         self.sortMode = sortMode
         self.limit = limit
+        self.cursor = cursor
         self.emptyQueryBehavior = emptyQueryBehavior
     }
 
