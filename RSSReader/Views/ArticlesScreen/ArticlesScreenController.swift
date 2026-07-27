@@ -1,15 +1,38 @@
 import Foundation
 import Observation
 
+nonisolated enum ArticlesScreenSearchPolicy {
+    static let debounceDuration: Duration = .milliseconds(250)
+}
+
+typealias ArticlesScreenSearchDebounceOperation = @MainActor () async throws -> Void
+typealias ArticlesScreenSearchQueryOperation = @MainActor (
+    ArticleSearchRequest,
+    any ArticleQueryService
+) async throws -> ArticleSearchResultSnapshot
+
 @MainActor
 @Observable
 final class ArticlesScreenController {
     var screenState: ArticlesScreenState
+    @ObservationIgnored private let searchDebounceOperation: ArticlesScreenSearchDebounceOperation
+    @ObservationIgnored private let searchQueryOperation: ArticlesScreenSearchQueryOperation
+    @ObservationIgnored private var activeLoadTask: Task<Void, Never>?
+    @ObservationIgnored private var loadGeneration = 0
     private var lastLoadedSessionContext: ArticleListSession.Context
-    private var loadGeneration = 0
 
-    init(previewScreenState: ArticlesScreenState? = nil) {
+    init(
+        previewScreenState: ArticlesScreenState? = nil,
+        searchDebounceOperation: ArticlesScreenSearchDebounceOperation? = nil,
+        searchQueryOperation: ArticlesScreenSearchQueryOperation? = nil
+    ) {
         self.screenState = previewScreenState ?? ArticlesScreenState()
+        self.searchDebounceOperation = searchDebounceOperation ?? {
+            try await Task.sleep(for: ArticlesScreenSearchPolicy.debounceDuration)
+        }
+        self.searchQueryOperation = searchQueryOperation ?? { request, articleQueryService in
+            try articleQueryService.fetchArticleSearchSnapshot(request)
+        }
         if let previewScreenState {
             self.lastLoadedSessionContext = previewScreenState.articleListSession.context
         } else {
@@ -40,6 +63,43 @@ final class ArticlesScreenController {
     ) async {
         loadGeneration += 1
         let currentLoadGeneration = loadGeneration
+        activeLoadTask?.cancel()
+        let loadTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await performLoad(
+                selection: selection,
+                sidebarArticleFilter: sidebarArticleFilter,
+                searchText: searchText,
+                dependencies: dependencies,
+                retainsSessionFilterMutations: retainsSessionFilterMutations,
+                retainedSessionMembershipStatus: retainedSessionMembershipStatus,
+                preservesRefreshFeedback: preservesRefreshFeedback,
+                generation: currentLoadGeneration
+            )
+        }
+        activeLoadTask = loadTask
+
+        await withTaskCancellationHandler {
+            await loadTask.value
+        } onCancel: {
+            loadTask.cancel()
+        }
+
+        if currentLoadGeneration == loadGeneration {
+            activeLoadTask = nil
+        }
+    }
+
+    private func performLoad(
+        selection: SidebarSelection?,
+        sidebarArticleFilter: SidebarArticleFilter,
+        searchText: String,
+        dependencies: AppDependencies,
+        retainsSessionFilterMutations: Bool,
+        retainedSessionMembershipStatus: ArticleListEntryMembershipStatus,
+        preservesRefreshFeedback: Bool,
+        generation currentLoadGeneration: Int
+    ) async {
         let normalizedSearchText = ArticleSearchScope.normalizedSearchText(searchText)
         let sessionContext = ArticleListSession.Context(
             selection: selection,
@@ -55,42 +115,43 @@ final class ArticlesScreenController {
             for: screenState.articles,
             sidebarArticleFilter: sidebarArticleFilter
         )
-        screenState.beginLoading(
-            for: selection,
-            navigationTitle: navigationTitle,
-            navigationSubtitle: loadingSubtitle,
-            resetsContent: sessionContextChanged,
-            sessionContext: sessionContext
-        )
-
-        defer {
-            if currentLoadGeneration == loadGeneration {
-                lastLoadedSessionContext = sessionContext
-            }
-        }
-
-        guard let articleQueryService = dependencies.articleQueryService else {
-            screenState.applyLoadingFailure(
-                ReadingLocalization.articleListQueryUnavailableMessage,
-                selection: selection,
-                navigationTitle: navigationTitle,
-                navigationSubtitle: loadingSubtitle,
-                retainsContent: false,
-                sessionContext: sessionContext
-            )
-            return
-        }
-
-        let unreadArticleSortMode = loadUnreadArticleSortMode(dependencies: dependencies)
 
         do {
-            let loadResult = try loadArticles(
+            if selection != nil, normalizedSearchText.isEmpty == false {
+                try await searchDebounceOperation()
+            }
+            try Task.checkCancellation()
+            guard currentLoadGeneration == loadGeneration else { return }
+
+            screenState.beginLoading(
+                for: selection,
+                navigationTitle: navigationTitle,
+                navigationSubtitle: loadingSubtitle,
+                resetsContent: sessionContextChanged,
+                sessionContext: sessionContext
+            )
+
+            guard let articleQueryService = dependencies.articleQueryService else {
+                screenState.applyLoadingFailure(
+                    ReadingLocalization.articleListQueryUnavailableMessage,
+                    selection: selection,
+                    navigationTitle: navigationTitle,
+                    navigationSubtitle: loadingSubtitle,
+                    retainsContent: false,
+                    sessionContext: sessionContext
+                )
+                lastLoadedSessionContext = sessionContext
+                return
+            }
+
+            let loadResult = try await loadArticles(
                 for: selection,
                 sidebarArticleFilter: sidebarArticleFilter,
                 normalizedSearchText: normalizedSearchText,
-                unreadArticleSortMode: unreadArticleSortMode,
+                unreadArticleSortMode: loadUnreadArticleSortMode(dependencies: dependencies),
                 articleQueryService: articleQueryService
             )
+            try Task.checkCancellation()
             let resolvedEntries = entriesByRetainingSessionItems(
                 loadResult.articles,
                 selection: selection,
@@ -101,6 +162,7 @@ final class ArticlesScreenController {
             let subtitleArticles = resolvedEntries.map(\.article)
 
             guard currentLoadGeneration == loadGeneration else { return }
+            lastLoadedSessionContext = sessionContext
             screenState.applyLoadedEntries(
                 resolvedEntries,
                 selection: selection,
@@ -113,8 +175,11 @@ final class ArticlesScreenController {
                 preservesRefreshFeedback: preservesRefreshFeedback,
                 emptyContentKind: loadResult.emptyContentKind
             )
+        } catch is CancellationError {
+            return
         } catch {
             guard currentLoadGeneration == loadGeneration else { return }
+            lastLoadedSessionContext = sessionContext
             dependencies.logger.error("Failed to load article list for selection \(String(describing: selection)): \(error)")
             screenState.applyLoadingFailure(
                 error.localizedDescription,
@@ -199,7 +264,7 @@ final class ArticlesScreenController {
         normalizedSearchText: String,
         unreadArticleSortMode: ArticleSortMode,
         articleQueryService: any ArticleQueryService
-    ) throws -> ArticleListLoadResult {
+    ) async throws -> ArticleListLoadResult {
         let articleListFilter = articleListFilter(
             for: selection,
             sidebarArticleFilter: sidebarArticleFilter
@@ -215,40 +280,24 @@ final class ArticlesScreenController {
             query: normalizedSearchText,
             sortMode: articleListSortMode
         )
-        let articles = try articleQueryService.fetchArticleSearchResults(request)
-        let emptyContentKind = try emptyContentKind(
-            articles: articles,
-            request: request,
-            articleQueryService: articleQueryService
-        )
+        let snapshot = try await searchQueryOperation(request, articleQueryService)
 
         return ArticleListLoadResult(
-            articles: articles,
-            emptyContentKind: emptyContentKind
+            articles: snapshot.articles,
+            emptyContentKind: emptyContentKind(snapshot: snapshot, request: request)
         )
     }
 
     private func emptyContentKind(
-        articles: [ArticleListItemDTO],
-        request: ArticleSearchRequest,
-        articleQueryService: any ArticleQueryService
-    ) throws -> ArticlesScreenEmptyContentKind {
-        guard articles.isEmpty,
+        snapshot: ArticleSearchResultSnapshot,
+        request: ArticleSearchRequest
+    ) -> ArticlesScreenEmptyContentKind {
+        guard snapshot.articles.isEmpty,
               request.normalizedQuery.isEmpty == false else {
             return .selection
         }
 
-        let scopeProbe = try articleQueryService.fetchArticleSearchResults(
-            ArticleSearchRequest(
-                selection: request.selection,
-                sidebarArticleFilter: request.sidebarArticleFilter,
-                query: "",
-                sortMode: request.sortMode,
-                limit: 1
-            )
-        )
-
-        return scopeProbe.isEmpty ? .selection : .searchResults
+        return snapshot.hasScopeContent ? .searchResults : .selection
     }
 
     private func articleListFilter(

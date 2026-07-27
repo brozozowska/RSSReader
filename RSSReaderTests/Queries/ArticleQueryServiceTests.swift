@@ -308,10 +308,20 @@ struct ArticleQueryServiceTests {
                 limit: 2
             )
         )
+        let noMatchSnapshot = try queryService.fetchArticleSearchSnapshot(
+            ArticleSearchRequest(
+                selection: .feed(feed.id),
+                sidebarArticleFilter: .allItems,
+                query: "absent",
+                sortMode: .publishedAtDescending
+            )
+        )
 
         #expect(limitedUnreadResults.map(\.articleExternalID) == ["newer"])
         #expect(emptyQueryResults.isEmpty)
         #expect(defaultEmptyQueryResults.map(\.articleExternalID) == ["newer", "older"])
+        #expect(noMatchSnapshot.articles.isEmpty)
+        #expect(noMatchSnapshot.hasScopeContent)
     }
 
     private func makeQueryService(_ harness: TestHarness) -> DefaultArticleQueryService {

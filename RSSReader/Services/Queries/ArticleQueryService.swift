@@ -1,5 +1,10 @@
 import Foundation
 
+struct ArticleSearchResultSnapshot: Sendable, Equatable {
+    let articles: [ArticleListItemDTO]
+    let hasScopeContent: Bool
+}
+
 @MainActor
 protocol ArticleQueryService {
     func fetchArticleListItems(feedID: UUID, sortMode: ArticleSortMode) throws -> [ArticleListItemDTO]
@@ -7,6 +12,7 @@ protocol ArticleQueryService {
     func fetchFolderListItems(folderName: String, sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO]
     func fetchInboxListItems(sortMode: ArticleSortMode) throws -> [ArticleListItemDTO]
     func fetchInboxListItems(sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO]
+    func fetchArticleSearchSnapshot(_ request: ArticleSearchRequest) throws -> ArticleSearchResultSnapshot
     func fetchArticleSearchResults(_ request: ArticleSearchRequest) throws -> [ArticleListItemDTO]
     func fetchReaderArticle(id: UUID) throws -> ReaderArticleDTO?
 }
@@ -65,12 +71,16 @@ final class DefaultArticleQueryService: ArticleQueryService {
     }
 
     func fetchArticleSearchResults(_ request: ArticleSearchRequest) throws -> [ArticleListItemDTO] {
+        try fetchArticleSearchSnapshot(request).articles
+    }
+
+    func fetchArticleSearchSnapshot(_ request: ArticleSearchRequest) throws -> ArticleSearchResultSnapshot {
         guard request.shouldReturnEmptyForBlankQuery == false else {
-            return []
+            return ArticleSearchResultSnapshot(articles: [], hasScopeContent: false)
         }
 
         guard let scope = queryScope(for: request.selection) else {
-            return []
+            return ArticleSearchResultSnapshot(articles: [], hasScopeContent: false)
         }
 
         let listItems = try fetchListItems(
@@ -85,15 +95,17 @@ final class DefaultArticleQueryService: ArticleQueryService {
             sidebarArticleFilter: request.sidebarArticleFilter
         )
 
-        guard let limit = request.limit else {
-            return searchResults
+        let limitedSearchResults: [ArticleListItemDTO]
+        if let limit = request.limit {
+            limitedSearchResults = limit > 0 ? Array(searchResults.prefix(limit)) : []
+        } else {
+            limitedSearchResults = searchResults
         }
 
-        guard limit > 0 else {
-            return []
-        }
-
-        return Array(searchResults.prefix(limit))
+        return ArticleSearchResultSnapshot(
+            articles: limitedSearchResults,
+            hasScopeContent: listItems.isEmpty == false
+        )
     }
 
     private func makeListItems(from records: [ArticleQueryRecord]) -> [ArticleListItemDTO] {

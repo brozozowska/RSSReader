@@ -189,6 +189,156 @@ struct ArticlesScreenControllerLoadingTests {
     }
 
     @Test
+    func articlesScreenControllerDebouncesSearchInputAndCancelsSupersededRequest() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/search-debounce.xml"]).first
+        )
+        let result = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "new-query-result",
+            title: "New Query Result"
+        )
+        var debounceInvocationCount = 0
+        var queryRequests: [ArticleSearchRequest] = []
+        let controller = ArticlesScreenController(
+            searchDebounceOperation: {
+                debounceInvocationCount += 1
+                if debounceInvocationCount == 1 {
+                    try await Task.sleep(for: .seconds(60))
+                }
+            },
+            searchQueryOperation: { request, _ in
+                queryRequests.append(request)
+                return ArticleSearchResultSnapshot(
+                    articles: [result],
+                    hasScopeContent: true
+                )
+            }
+        )
+
+        let supersededLoad = Task { @MainActor in
+            await controller.load(
+                selection: .feed(feed.id),
+                sidebarArticleFilter: .allItems,
+                searchText: "n",
+                dependencies: harness.dependencies
+            )
+        }
+        try await waitUntil("first search entered debounce") {
+            debounceInvocationCount == 1
+        }
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            searchText: "new",
+            dependencies: harness.dependencies
+        )
+        await supersededLoad.value
+
+        #expect(ArticlesScreenSearchPolicy.debounceDuration == .milliseconds(250))
+        #expect(debounceInvocationCount == 2)
+        #expect(queryRequests.map(\.normalizedQuery) == ["new"])
+        #expect(controller.screenState.articleListSession.context.normalizedSearchText == "new")
+        #expect(controller.screenState.articles == [result])
+    }
+
+    @Test
+    func articlesScreenControllerRejectsStaleResultAfterNewerGenerationCompletes() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/search-generation.xml"]).first
+        )
+        let oldResult = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "old-result",
+            title: "Old Result"
+        )
+        let newResult = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "new-result",
+            title: "New Result"
+        )
+        let queryGate = ArticlesScreenSearchQueryGate(
+            suspendedQuery: "old",
+            suspendedSnapshot: ArticleSearchResultSnapshot(
+                articles: [oldResult],
+                hasScopeContent: true
+            ),
+            immediateSnapshot: ArticleSearchResultSnapshot(
+                articles: [newResult],
+                hasScopeContent: true
+            )
+        )
+        let controller = ArticlesScreenController(
+            searchDebounceOperation: {},
+            searchQueryOperation: { request, _ in
+                try await queryGate.execute(request)
+            }
+        )
+
+        let staleLoad = Task { @MainActor in
+            await controller.load(
+                selection: .feed(feed.id),
+                sidebarArticleFilter: .allItems,
+                searchText: "old",
+                dependencies: harness.dependencies
+            )
+        }
+        try await waitUntil("old query suspended") {
+            queryGate.hasSuspendedRequest
+        }
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            searchText: "new",
+            dependencies: harness.dependencies
+        )
+        queryGate.releaseSuspendedRequest()
+        await staleLoad.value
+
+        #expect(queryGate.requests.map(\.normalizedQuery) == ["old", "new"])
+        #expect(controller.screenState.articleListSession.context.normalizedSearchText == "new")
+        #expect(controller.screenState.articles == [newResult])
+    }
+
+    @Test
+    func articlesScreenControllerUsesSingleSearchSnapshotForEmptyContentKind() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/search-single-snapshot.xml"]).first
+        )
+        var queryRequests: [ArticleSearchRequest] = []
+        let controller = ArticlesScreenController(
+            searchDebounceOperation: {},
+            searchQueryOperation: { request, _ in
+                queryRequests.append(request)
+                return ArticleSearchResultSnapshot(
+                    articles: [],
+                    hasScopeContent: true
+                )
+            }
+        )
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            searchText: "missing",
+            dependencies: harness.dependencies
+        )
+
+        #expect(queryRequests.count == 1)
+        #expect(queryRequests.first?.normalizedQuery == "missing")
+        #expect(controller.screenState.emptyContentKind == .searchResults)
+        #expect(
+            controller.screenState.derivedViewState().searchPlaceholder?.title
+                == ReadingLocalization.noSearchResultsTitle
+        )
+    }
+
+    @Test
     func articlesScreenControllerUsesNewestFirstForAllItemsRegardlessOfUnreadSortSetting() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
@@ -275,4 +425,60 @@ struct ArticlesScreenControllerLoadingTests {
 
         #expect(controller.screenState.articles.map(\.id) == [oldArticle.id, newArticle.id])
     }
+}
+
+@MainActor
+private final class ArticlesScreenSearchQueryGate {
+    let suspendedQuery: String
+    let suspendedSnapshot: ArticleSearchResultSnapshot
+    let immediateSnapshot: ArticleSearchResultSnapshot
+    private(set) var requests: [ArticleSearchRequest] = []
+    private var continuation: CheckedContinuation<ArticleSearchResultSnapshot, Error>?
+
+    init(
+        suspendedQuery: String,
+        suspendedSnapshot: ArticleSearchResultSnapshot,
+        immediateSnapshot: ArticleSearchResultSnapshot
+    ) {
+        self.suspendedQuery = suspendedQuery
+        self.suspendedSnapshot = suspendedSnapshot
+        self.immediateSnapshot = immediateSnapshot
+    }
+
+    var hasSuspendedRequest: Bool {
+        continuation != nil
+    }
+
+    func execute(_ request: ArticleSearchRequest) async throws -> ArticleSearchResultSnapshot {
+        requests.append(request)
+        guard request.normalizedQuery == suspendedQuery else {
+            return immediateSnapshot
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
+        }
+    }
+
+    func releaseSuspendedRequest() {
+        continuation?.resume(returning: suspendedSnapshot)
+        continuation = nil
+    }
+}
+
+@MainActor
+private func waitUntil(
+    _ description: String,
+    timeout: Duration = .seconds(5),
+    condition: () -> Bool
+) async throws {
+    let clock = ContinuousClock()
+    let deadline = clock.now.advanced(by: timeout)
+
+    while clock.now < deadline {
+        if condition() { return }
+        await Task.yield()
+    }
+
+    Issue.record("Timed out waiting for \(description)")
 }
