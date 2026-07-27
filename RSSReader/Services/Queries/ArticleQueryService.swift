@@ -96,17 +96,9 @@ final class DefaultArticleQueryService: ArticleQueryService {
         return Array(searchResults.prefix(limit))
     }
 
-    private func makeListItems(from articles: [Article]) throws -> [ArticleListItemDTO] {
-        let stateByCompositeKey = try fetchStateByCompositeKey(for: articles)
-
-        return articles.map { article in
-            let state = stateByCompositeKey[
-                ArticleStateIdentity.lookupKey(
-                    feedID: article.feedID,
-                    articleExternalID: article.externalID
-                )
-            ]
-            return ArticleListItemDTO(article: article, state: state)
+    private func makeListItems(from records: [ArticleQueryRecord]) -> [ArticleListItemDTO] {
+        records.map { record in
+            ArticleListItemDTO(article: record.article, state: record.state)
         }
     }
 
@@ -142,8 +134,8 @@ final class DefaultArticleQueryService: ArticleQueryService {
             starred: starredFilter(for: filter),
             sortMode: sortMode
         )
-        let articles = try articleRepository.fetchArticles(matching: criteria)
-        return try makeListItems(from: articles)
+        let records = try articleRepository.fetchArticleQueryRecords(matching: criteria)
+        return makeListItems(from: records)
     }
 
     private func queryScope(for selection: SidebarSelection?) -> ArticleQueryScope? {

@@ -101,4 +101,102 @@ struct ArticleStateRepositoryTests {
 
         #expect(unreadCounts[feed.id] == 1)
     }
+
+    @Test
+    func articleStateRepositoryUsesBatchedStateScanAndGroupedArticleCounts() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feeds = try harness.insertFeeds(
+            urls: [
+                "https://example.com/count-one.xml",
+                "https://example.com/count-two.xml"
+            ]
+        )
+        let firstFeed = try #require(feeds.first)
+        let secondFeed = try #require(feeds.last)
+        let modelContext = harness.modelContainer.mainContext
+
+        for externalID in ["default-unread", "newer-unread", "hidden", "read", "archived-unread"] {
+            _ = try harness.insertArticle(
+                feed: firstFeed,
+                externalID: externalID,
+                url: "https://example.com/\(externalID)",
+                title: externalID,
+                archivedAt: externalID == "archived-unread" ? .distantPast : nil
+            )
+        }
+        for externalID in ["second-unread", "second-read"] {
+            _ = try harness.insertArticle(
+                feed: secondFeed,
+                externalID: externalID,
+                url: "https://example.com/\(externalID)",
+                title: externalID
+            )
+        }
+
+        modelContext.insert(ArticleState(
+            articleExternalID: "hidden",
+            feedID: firstFeed.id,
+            isHidden: true,
+            updatedAt: Date(timeIntervalSince1970: 10)
+        ))
+        modelContext.insert(ArticleState(
+            articleExternalID: "read",
+            feedID: firstFeed.id,
+            isRead: true,
+            updatedAt: Date(timeIntervalSince1970: 20)
+        ))
+        modelContext.insert(ArticleState(
+            articleExternalID: "newer-unread",
+            feedID: firstFeed.id,
+            isRead: true,
+            updatedAt: Date(timeIntervalSince1970: 30)
+        ))
+        modelContext.insert(ArticleState(
+            articleExternalID: "newer-unread",
+            feedID: firstFeed.id,
+            isRead: false,
+            updatedAt: Date(timeIntervalSince1970: 40)
+        ))
+        modelContext.insert(ArticleState(
+            articleExternalID: "orphan-read",
+            feedID: firstFeed.id,
+            isRead: true,
+            updatedAt: Date(timeIntervalSince1970: 50)
+        ))
+        modelContext.insert(ArticleState(
+            articleExternalID: "second-read",
+            feedID: secondFeed.id,
+            isRead: true,
+            updatedAt: Date(timeIntervalSince1970: 60)
+        ))
+        try modelContext.save()
+
+        let operations = SwiftDataRepositoryOperationCounter()
+        var observations: [ArticleStateQueryBatchObservation] = []
+        let repository = SwiftDataArticleStateRepository(
+            modelContext: modelContext,
+            persistenceOperationRecorder: operations.record,
+            queryBatchSize: 2,
+            queryBatchProbe: { observations.append($0) }
+        )
+
+        let unreadCounts = try repository.fetchUnreadCounts(
+            feedIDs: [firstFeed.id, secondFeed.id, firstFeed.id]
+        )
+
+        #expect(unreadCounts[firstFeed.id] == 3)
+        #expect(unreadCounts[secondFeed.id] == 1)
+        #expect(operations.fetchCountQueryCount >= 4)
+        #expect(
+            observations
+                .filter { $0.kind == .unreadStateScan }
+                .allSatisfy { $0.materializedStateCount <= 2 }
+        )
+        #expect(
+            observations
+                .filter { $0.kind == .unreadArticleCount }
+                .allSatisfy { $0.requestedIdentityCount <= 2 && $0.materializedStateCount == 0 }
+        )
+        #expect(observations.contains { $0.kind == .overlay } == false)
+    }
 }

@@ -598,6 +598,74 @@ struct ArticleRepositoryTests {
     }
 
     @Test
+    func articleRepositoryBuildsStateOverlayOnlyForBoundedQueryIdentityBatches() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let queriedFeed = try insertFeed(
+            into: harness,
+            url: "https://example.com/batched-query.xml"
+        )
+        let unrelatedFeed = try insertFeed(
+            into: harness,
+            url: "https://example.com/unrelated-query.xml"
+        )
+        let modelContext = harness.modelContainer.mainContext
+
+        for index in 0..<5 {
+            _ = try harness.insertArticle(
+                feed: queriedFeed,
+                externalID: "queried-\(index)",
+                url: "https://example.com/queried-\(index)",
+                title: "Queried \(index)",
+                publishedAt: Date(timeIntervalSince1970: TimeInterval(index))
+            )
+            modelContext.insert(
+                ArticleState(
+                    articleExternalID: "queried-\(index)",
+                    feedID: queriedFeed.id,
+                    isRead: index.isMultiple(of: 2),
+                    updatedAt: Date(timeIntervalSince1970: TimeInterval(index))
+                )
+            )
+        }
+        _ = try harness.insertArticle(
+            feed: unrelatedFeed,
+            externalID: "unrelated",
+            url: "https://example.com/unrelated",
+            title: "Unrelated"
+        )
+        modelContext.insert(
+            ArticleState(
+                articleExternalID: "unrelated",
+                feedID: unrelatedFeed.id,
+                isRead: true
+            )
+        )
+        try modelContext.save()
+
+        var observations: [ArticleStateQueryBatchObservation] = []
+        let repository = SwiftDataArticleRepository(
+            modelContext: modelContext,
+            queryBatchSize: 2,
+            articleStateQueryBatchProbe: { observations.append($0) }
+        )
+        let records = try repository.fetchArticleQueryRecords(
+            matching: ArticleQueryCriteria(
+                scope: .feed(queriedFeed.id),
+                read: .isFalse,
+                sortMode: .publishedAtDescending
+            )
+        )
+
+        #expect(records.map { $0.article.externalID } == ["queried-3", "queried-1"])
+        #expect(records.allSatisfy { $0.state?.isRead == false })
+        #expect(observations.count == 3)
+        #expect(observations.allSatisfy { $0.kind == .overlay })
+        #expect(observations.allSatisfy { $0.feedID == queriedFeed.id })
+        #expect(observations.map(\.requestedIdentityCount) == [2, 2, 1])
+        #expect(observations.reduce(0) { $0 + $1.materializedStateCount } == 5)
+    }
+
+    @Test
     func articleRepositoryDeleteBatchRemovesOnlyRequestedArticles() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)

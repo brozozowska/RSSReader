@@ -27,6 +27,26 @@ struct ArticleUserStateSnapshot: Sendable {
     }
 }
 
+enum ArticleStateQueryBatchKind: Equatable, Sendable {
+    case overlay
+    case unreadStateScan
+    case unreadArticleCount
+}
+
+struct ArticleStateQueryBatchObservation: Equatable, Sendable {
+    let kind: ArticleStateQueryBatchKind
+    let feedID: UUID
+    let requestedIdentityCount: Int
+    let materializedStateCount: Int
+    let countedArticleCount: Int
+}
+
+typealias ArticleStateQueryBatchProbe = @MainActor (ArticleStateQueryBatchObservation) -> Void
+
+nonisolated enum ArticleStateQueryPolicy {
+    static let batchSize = 256
+}
+
 struct ArticleStateOrphanCleanupResult: Equatable, Sendable {
     let inspectedCount: Int
     let deletedCount: Int
@@ -64,6 +84,95 @@ enum ArticleStateCanonicalization {
         }
 
         return lhs.id.uuidString > rhs.id.uuidString
+    }
+}
+
+@MainActor
+struct SwiftDataArticleStateSnapshotFetcher: SwiftDataRepositoryContext {
+    let modelContext: ModelContext
+    let persistenceOperationRecorder: SwiftDataRepositoryOperationRecorder
+    let batchSize: Int
+    let batchProbe: ArticleStateQueryBatchProbe?
+
+    init(
+        modelContext: ModelContext,
+        persistenceOperationRecorder: @escaping SwiftDataRepositoryOperationRecorder = { _ in },
+        batchSize: Int = ArticleStateQueryPolicy.batchSize,
+        batchProbe: ArticleStateQueryBatchProbe? = nil
+    ) {
+        precondition(batchSize > 0)
+        self.modelContext = modelContext
+        self.persistenceOperationRecorder = persistenceOperationRecorder
+        self.batchSize = batchSize
+        self.batchProbe = batchProbe
+    }
+
+    func fetchSnapshots(
+        feedID: UUID,
+        articleExternalIDs: [String]
+    ) throws -> [String: ArticleUserStateSnapshot] {
+        let normalizedIDs = normalizedIdentifiers(articleExternalIDs)
+        guard normalizedIDs.isEmpty == false else { return [:] }
+
+        var snapshots: [String: ArticleUserStateSnapshot] = [:]
+        var canonicalStates: [String: ArticleState] = [:]
+        var offset = 0
+
+        while offset < normalizedIDs.count {
+            let upperBound = min(offset + batchSize, normalizedIDs.count)
+            let identityBatch = Array(normalizedIDs[offset..<upperBound])
+            let descriptor = FetchDescriptor<ArticleState>(
+                predicate: #Predicate<ArticleState> { articleState in
+                    articleState.feedID == feedID
+                        && identityBatch.contains(articleState.articleExternalID)
+                }
+            )
+            let states = try performFetch(descriptor)
+            batchProbe?(
+                ArticleStateQueryBatchObservation(
+                    kind: .overlay,
+                    feedID: feedID,
+                    requestedIdentityCount: identityBatch.count,
+                    materializedStateCount: states.count,
+                    countedArticleCount: 0
+                )
+            )
+
+            for state in states {
+                guard identityBatch.contains(state.articleExternalID) else { continue }
+                if let existingState = canonicalStates[state.articleExternalID],
+                   ArticleStateCanonicalization.isOrderedBefore(existingState, state) {
+                    continue
+                }
+                canonicalStates[state.articleExternalID] = state
+            }
+            offset = upperBound
+        }
+
+        snapshots.reserveCapacity(canonicalStates.count)
+        for (externalID, state) in canonicalStates {
+            snapshots[externalID] = ArticleUserStateSnapshot(articleState: state)
+        }
+        return snapshots
+    }
+
+    func fetchSnapshots(for articles: [Article]) throws -> [String: ArticleUserStateSnapshot] {
+        let groupedArticleIDs = Dictionary(grouping: articles, by: \.feedID)
+        var snapshotsByCompositeKey: [String: ArticleUserStateSnapshot] = [:]
+
+        for (feedID, groupedArticles) in groupedArticleIDs {
+            let snapshots = try fetchSnapshots(
+                feedID: feedID,
+                articleExternalIDs: groupedArticles.map(\.externalID)
+            )
+            for (externalID, snapshot) in snapshots {
+                snapshotsByCompositeKey[articleCompositeKey(
+                    feedID: feedID,
+                    articleExternalID: externalID
+                )] = snapshot
+            }
+        }
+        return snapshotsByCompositeKey
     }
 }
 
@@ -316,14 +425,24 @@ protocol ArticleStateRepository {
 @MainActor
 final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRepositoryContext {
     let modelContext: ModelContext
+    let persistenceOperationRecorder: SwiftDataRepositoryOperationRecorder
     private let conflictResolutionPolicy: ArticleStateConflictResolutionPolicy
+    private let queryBatchSize: Int
+    private let queryBatchProbe: ArticleStateQueryBatchProbe?
 
     init(
         modelContext: ModelContext,
-        conflictResolutionPolicy: ArticleStateConflictResolutionPolicy = .lastWriteWinsByUpdatedAt
+        conflictResolutionPolicy: ArticleStateConflictResolutionPolicy = .lastWriteWinsByUpdatedAt,
+        persistenceOperationRecorder: @escaping SwiftDataRepositoryOperationRecorder = { _ in },
+        queryBatchSize: Int = ArticleStateQueryPolicy.batchSize,
+        queryBatchProbe: ArticleStateQueryBatchProbe? = nil
     ) {
+        precondition(queryBatchSize > 0)
         self.modelContext = modelContext
         self.conflictResolutionPolicy = conflictResolutionPolicy
+        self.persistenceOperationRecorder = persistenceOperationRecorder
+        self.queryBatchSize = queryBatchSize
+        self.queryBatchProbe = queryBatchProbe
     }
 
     func fetchState(feedID: UUID, articleExternalID: String) throws -> ArticleState? {
@@ -340,38 +459,14 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
     }
 
     func fetchStateSnapshots(feedID: UUID, articleExternalIDs: [String]) throws -> [String: ArticleUserStateSnapshot] {
-        let normalizedIDs = normalizedIdentifiers(articleExternalIDs)
-
-        guard normalizedIDs.isEmpty == false else { return [:] }
-
-        let descriptor = FetchDescriptor<ArticleState>(
-            predicate: #Predicate<ArticleState> { articleState in
-                articleState.feedID == feedID
-                    && normalizedIDs.contains(articleState.articleExternalID)
-            }
+        try makeSnapshotFetcher().fetchSnapshots(
+            feedID: feedID,
+            articleExternalIDs: articleExternalIDs
         )
-
-        let states = try modelContext.fetch(descriptor)
-        return states.reduce(into: [String: ArticleUserStateSnapshot]()) { partialResult, state in
-            guard normalizedIDs.contains(state.articleExternalID) else { return }
-            partialResult[state.articleExternalID] = ArticleUserStateSnapshot(articleState: state)
-        }
     }
 
     func fetchStateSnapshots(for articles: [Article]) throws -> [String: ArticleUserStateSnapshot] {
-        let groupedArticleIDs = Dictionary(grouping: articles, by: \.feedID)
-        var snapshotsByCompositeKey: [String: ArticleUserStateSnapshot] = [:]
-
-        for (feedID, groupedArticles) in groupedArticleIDs {
-            let articleExternalIDs = groupedArticles.map(\.externalID)
-            let snapshots = try fetchStateSnapshots(feedID: feedID, articleExternalIDs: articleExternalIDs)
-
-            for (externalID, snapshot) in snapshots {
-                snapshotsByCompositeKey[articleCompositeKey(feedID: feedID, articleExternalID: externalID)] = snapshot
-            }
-        }
-
-        return snapshotsByCompositeKey
+        try makeSnapshotFetcher().fetchSnapshots(for: articles)
     }
 
     func fetchStarredArticleExternalIDs(
@@ -427,29 +522,101 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
     func fetchUnreadCounts(feedIDs: [UUID]) throws -> [UUID: Int] {
         let normalizedFeedIDs = Set(feedIDs)
         guard normalizedFeedIDs.isEmpty == false else { return [:] }
-
-        let articleDescriptor = FetchDescriptor<Article>()
-        let articles = try modelContext.fetch(articleDescriptor)
-
-        let relevantArticles = articles.filter { normalizedFeedIDs.contains($0.feedID) }
-        guard relevantArticles.isEmpty == false else {
-            return Dictionary(uniqueKeysWithValues: normalizedFeedIDs.map { ($0, 0) })
-        }
-
-        let stateSnapshots = try fetchStateSnapshots(for: relevantArticles)
         var unreadCounts = Dictionary(uniqueKeysWithValues: normalizedFeedIDs.map { ($0, 0) })
 
-        for article in relevantArticles {
-            let key = articleCompositeKey(feedID: article.feedID, articleExternalID: article.externalID)
-            let state = stateSnapshots[key]
-            let isHidden = state?.isHidden ?? false
-            let isRead = state?.isRead ?? false
+        for feedID in normalizedFeedIDs {
+            let articleDescriptor = FetchDescriptor<Article>(
+                predicate: #Predicate<Article> { article in
+                    article.feedID == feedID
+                }
+            )
+            let totalArticleCount = try performFetchCount(articleDescriptor)
+            guard totalArticleCount > 0 else { continue }
+            var excludedArticleCount = 0
+            var excludedIdentityBatch: [String] = []
+            excludedIdentityBatch.reserveCapacity(queryBatchSize)
+            var stateOffset = 0
+            var lastCanonicalExternalID: String?
 
-            guard isHidden == false, isRead == false else { continue }
-            unreadCounts[article.feedID, default: 0] += 1
+            while true {
+                var stateDescriptor = FetchDescriptor<ArticleState>(
+                    predicate: #Predicate<ArticleState> { articleState in
+                        articleState.feedID == feedID
+                    },
+                    sortBy: [
+                        SortDescriptor(\ArticleState.articleExternalID, order: .forward),
+                        SortDescriptor(\ArticleState.updatedAt, order: .reverse),
+                        SortDescriptor(\ArticleState.id, order: .reverse)
+                    ]
+                )
+                stateDescriptor.fetchOffset = stateOffset
+                stateDescriptor.fetchLimit = queryBatchSize
+                let states = try performFetch(stateDescriptor)
+                guard states.isEmpty == false else { break }
+
+                queryBatchProbe?(
+                    ArticleStateQueryBatchObservation(
+                        kind: .unreadStateScan,
+                        feedID: feedID,
+                        requestedIdentityCount: 0,
+                        materializedStateCount: states.count,
+                        countedArticleCount: 0
+                    )
+                )
+                stateOffset += states.count
+
+                for state in states {
+                    guard state.articleExternalID != lastCanonicalExternalID else { continue }
+                    lastCanonicalExternalID = state.articleExternalID
+                    guard state.isRead || state.isHidden else { continue }
+                    excludedIdentityBatch.append(state.articleExternalID)
+                    if excludedIdentityBatch.count == queryBatchSize {
+                        excludedArticleCount += try countArticles(
+                            feedID: feedID,
+                            externalIDs: excludedIdentityBatch
+                        )
+                        excludedIdentityBatch.removeAll(keepingCapacity: true)
+                    }
+                }
+            }
+
+            if excludedIdentityBatch.isEmpty == false {
+                excludedArticleCount += try countArticles(
+                    feedID: feedID,
+                    externalIDs: excludedIdentityBatch
+                )
+            }
+            unreadCounts[feedID] = max(0, totalArticleCount - excludedArticleCount)
         }
-
         return unreadCounts
+    }
+
+    private func countArticles(feedID: UUID, externalIDs: [String]) throws -> Int {
+        let descriptor = FetchDescriptor<Article>(
+            predicate: #Predicate<Article> { article in
+                article.feedID == feedID && externalIDs.contains(article.externalID)
+            }
+        )
+        let count = try performFetchCount(descriptor)
+        queryBatchProbe?(
+            ArticleStateQueryBatchObservation(
+                kind: .unreadArticleCount,
+                feedID: feedID,
+                requestedIdentityCount: externalIDs.count,
+                materializedStateCount: 0,
+                countedArticleCount: count
+            )
+        )
+        return count
+    }
+
+    private func makeSnapshotFetcher() -> SwiftDataArticleStateSnapshotFetcher {
+        SwiftDataArticleStateSnapshotFetcher(
+            modelContext: modelContext,
+            persistenceOperationRecorder: persistenceOperationRecorder,
+            batchSize: queryBatchSize,
+            batchProbe: queryBatchProbe
+        )
     }
 
     func fetchGlobalOrphanSweepBatch(offset: Int, limit: Int) throws -> [ArticleState] {

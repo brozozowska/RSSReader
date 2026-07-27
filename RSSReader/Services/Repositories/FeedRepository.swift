@@ -3,6 +3,7 @@ import SwiftData
 
 enum SwiftDataRepositoryOperation: Equatable, Sendable {
     case fetch
+    case fetchCount
     case save
 }
 
@@ -50,7 +51,7 @@ extension SwiftDataRepositoryContext {
 
     func performFetchCount<Model>(_ descriptor: FetchDescriptor<Model>) throws -> Int
     where Model: PersistentModel {
-        persistenceOperationRecorder(.fetch)
+        persistenceOperationRecorder(.fetchCount)
         return try modelContext.fetchCount(descriptor)
     }
 

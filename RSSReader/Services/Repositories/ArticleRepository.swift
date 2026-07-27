@@ -54,6 +54,11 @@ struct ArticleQueryCriteria: Equatable, Sendable {
     }
 }
 
+struct ArticleQueryRecord {
+    let article: Article
+    let state: ArticleUserStateSnapshot?
+}
+
 struct ArticleFeedSnapshotReconciliationResult {
     let projectionUpdateCount: Int
     let reconciledArticleCount: Int
@@ -107,6 +112,7 @@ protocol ArticleRepository {
     func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article]
     func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
     func fetchArticles(matching criteria: ArticleQueryCriteria) throws -> [Article]
+    func fetchArticleQueryRecords(matching criteria: ArticleQueryCriteria) throws -> [ArticleQueryRecord]
     func fetchArchivedArticles() throws -> [Article]
     func fetchRetentionBatch(
         feedID: UUID,
@@ -150,6 +156,8 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     private let cancellationCheckpoint: (ArticleFeedSnapshotCancellationCheckpoint) throws -> Void
     private let reconciliationProgressProbe: ArticleFeedSnapshotReconciliationProgressProbe?
     private let articleStateIdentityRepairer: SwiftDataArticleStateIdentityRepairer
+    private let articleStateSnapshotFetcher: SwiftDataArticleStateSnapshotFetcher
+    private let queryBatchSize: Int
 
     init(
         modelContext: ModelContext,
@@ -157,15 +165,25 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         cancellationCheckpoint: @escaping (ArticleFeedSnapshotCancellationCheckpoint) throws -> Void = { _ in
             try Task.checkCancellation()
         },
-        reconciliationProgressProbe: ArticleFeedSnapshotReconciliationProgressProbe? = nil
+        reconciliationProgressProbe: ArticleFeedSnapshotReconciliationProgressProbe? = nil,
+        queryBatchSize: Int = ArticleStateQueryPolicy.batchSize,
+        articleStateQueryBatchProbe: ArticleStateQueryBatchProbe? = nil
     ) {
+        precondition(queryBatchSize > 0)
         self.modelContext = modelContext
         self.persistenceOperationRecorder = persistenceOperationRecorder
         self.cancellationCheckpoint = cancellationCheckpoint
         self.reconciliationProgressProbe = reconciliationProgressProbe
+        self.queryBatchSize = queryBatchSize
         self.articleStateIdentityRepairer = SwiftDataArticleStateIdentityRepairer(
             modelContext: modelContext,
             persistenceOperationRecorder: persistenceOperationRecorder
+        )
+        self.articleStateSnapshotFetcher = SwiftDataArticleStateSnapshotFetcher(
+            modelContext: modelContext,
+            persistenceOperationRecorder: persistenceOperationRecorder,
+            batchSize: queryBatchSize,
+            batchProbe: articleStateQueryBatchProbe
         )
     }
 
@@ -325,12 +343,10 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     }
 
     func fetchArticles(matching criteria: ArticleQueryCriteria) throws -> [Article] {
-        let stateKeyConstraint = try makeStateLookupKeyConstraint(for: criteria)
-        if case .including(let stateLookupKeys) = stateKeyConstraint,
-           stateLookupKeys.isEmpty {
-            return []
-        }
+        try fetchArticleQueryRecords(matching: criteria).map(\.article)
+    }
 
+    func fetchArticleQueryRecords(matching criteria: ArticleQueryCriteria) throws -> [ArticleQueryRecord] {
         let matchesInbox: Bool
         let matchesFolder: Bool
         let matchesFeed: Bool
@@ -359,28 +375,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
 
         let includesCurrent = criteria.archived != .isTrue
         let includesArchived = criteria.archived != .isFalse
-        let ignoresStateKeys: Bool
-        let includesStateKeys: Bool
-        let excludesStateKeys: Bool
-        let stateLookupKeys: [String]
-        switch stateKeyConstraint {
-        case .unfiltered:
-            ignoresStateKeys = true
-            includesStateKeys = false
-            excludesStateKeys = false
-            stateLookupKeys = []
-        case .including(let includedKeys):
-            ignoresStateKeys = false
-            includesStateKeys = true
-            excludesStateKeys = false
-            stateLookupKeys = includedKeys
-        case .excluding(let excludedKeys):
-            ignoresStateKeys = excludedKeys.isEmpty
-            includesStateKeys = false
-            excludesStateKeys = excludedKeys.isEmpty == false
-            stateLookupKeys = excludedKeys
-        }
-
         let predicate = #Predicate<Article> { article in
             (
                 matchesInbox
@@ -391,17 +385,34 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
                     (includesCurrent && article.archivedAt == nil)
                         || (includesArchived && article.archivedAt != nil)
                 )
-                && (
-                    ignoresStateKeys
-                        || (includesStateKeys && stateLookupKeys.contains(article.stateLookupKey))
-                        || (excludesStateKeys && !stateLookupKeys.contains(article.stateLookupKey))
-                )
         }
-        let descriptor = FetchDescriptor<Article>(
-            predicate: predicate,
-            sortBy: sortDescriptors(for: criteria.sortMode)
-        )
-        return try performFetch(descriptor)
+        var offset = 0
+        var records: [ArticleQueryRecord] = []
+
+        while true {
+            var descriptor = FetchDescriptor<Article>(
+                predicate: predicate,
+                sortBy: sortDescriptors(for: criteria.sortMode)
+            )
+            descriptor.fetchOffset = offset
+            descriptor.fetchLimit = queryBatchSize
+            let articles = try performFetch(descriptor)
+            guard articles.isEmpty == false else { break }
+
+            let statesByCompositeKey = try articleStateSnapshotFetcher.fetchSnapshots(for: articles)
+            records.reserveCapacity(records.count + articles.count)
+            for article in articles {
+                let state = statesByCompositeKey[articleCompositeKey(
+                    feedID: article.feedID,
+                    articleExternalID: article.externalID
+                )]
+                guard matchesStateCriteria(state, criteria: criteria) else { continue }
+                records.append(ArticleQueryRecord(article: article, state: state))
+            }
+            offset += articles.count
+            if articles.count < queryBatchSize { break }
+        }
+        return records
     }
 
     func fetchArchivedArticles() throws -> [Article] {
@@ -594,71 +605,13 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         normalizedIdentifier(externalID) ?? externalID
     }
 
-    private enum StateLookupKeyConstraint {
-        case unfiltered
-        case including([String])
-        case excluding([String])
-    }
-
-    private func makeStateLookupKeyConstraint(
-        for criteria: ArticleQueryCriteria
-    ) throws -> StateLookupKeyConstraint {
-        guard criteria.hidden != .any
-                || criteria.read != .any
-                || criteria.starred != .any else {
-            return .unfiltered
-        }
-
-        let descriptor: FetchDescriptor<ArticleState>
-        switch criteria.scope {
-        case .feed(let feedID):
-            descriptor = FetchDescriptor<ArticleState>(
-                predicate: #Predicate<ArticleState> { state in
-                    state.feedID == feedID
-                }
-            )
-        case .inbox, .folder:
-            descriptor = FetchDescriptor<ArticleState>()
-        }
-
-        let states = try performFetch(descriptor)
-        let canonicalStates = states.reduce(into: [String: ArticleState]()) { result, state in
-            let key = ArticleStateIdentity.lookupKey(
-                feedID: state.feedID,
-                articleExternalID: state.articleExternalID
-            )
-            guard let existingState = result[key] else {
-                result[key] = state
-                return
-            }
-            if ArticleStateCanonicalization.isOrderedBefore(state, existingState) {
-                result[key] = state
-            }
-        }
-        let missingStateMatches = criteria.hidden.matches(false)
-            && criteria.read.matches(false)
-            && criteria.starred.matches(false)
-
-        if missingStateMatches {
-            let excludedKeys = canonicalStates.compactMap { key, state in
-                matchesStateCriteria(state, criteria: criteria) ? nil : key
-            }
-            return .excluding(excludedKeys)
-        }
-
-        let includedKeys = canonicalStates.compactMap { key, state in
-            matchesStateCriteria(state, criteria: criteria) ? key : nil
-        }
-        return .including(includedKeys)
-    }
-
     private func matchesStateCriteria(
-        _ state: ArticleState,
+        _ state: ArticleUserStateSnapshot?,
         criteria: ArticleQueryCriteria
     ) -> Bool {
-        criteria.hidden.matches(state.isHidden)
-            && criteria.read.matches(state.isRead)
-            && criteria.starred.matches(state.isStarred)
+        criteria.hidden.matches(state?.isHidden ?? false)
+            && criteria.read.matches(state?.isRead ?? false)
+            && criteria.starred.matches(state?.isStarred ?? false)
     }
 
     private func incomingIdentitySet(
@@ -788,12 +741,14 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         case .publishedAtDescending:
             [
                 SortDescriptor(\Article.publishedAt, order: .reverse),
-                SortDescriptor(\Article.fetchedAt, order: .reverse)
+                SortDescriptor(\Article.fetchedAt, order: .reverse),
+                SortDescriptor(\Article.id, order: .reverse)
             ]
         case .publishedAtAscending:
             [
                 SortDescriptor(\Article.publishedAt, order: .forward),
-                SortDescriptor(\Article.fetchedAt, order: .forward)
+                SortDescriptor(\Article.fetchedAt, order: .forward),
+                SortDescriptor(\Article.id, order: .forward)
             ]
         }
     }

@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import RSSReader
 
@@ -58,6 +59,81 @@ struct UnreadAppIconBadgeServiceTests {
         await service.refreshBadgeCount()
 
         #expect(badgeApplier.appliedCounts == [2])
+    }
+
+    @Test
+    func sidebarAndBadgeStayConsistentAfterSyncedStateAndRetentionCleanup() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appSettingsService = try #require(harness.dependencies.appSettingsService)
+        try appSettingsService.updateSettings(AppSettingsPatch(showUnreadCountBadge: true))
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/consistency.xml"]).first
+        )
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "kept-unread",
+            url: "https://example.com/kept-unread",
+            title: "Kept Unread"
+        )
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "synced-read",
+            url: "https://example.com/synced-read",
+            title: "Synced Read"
+        )
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "cleanup-unread",
+            url: "https://example.com/cleanup-unread",
+            title: "Cleanup Unread",
+            archivedAt: .distantPast
+        )
+        let modelContext = harness.modelContainer.mainContext
+        modelContext.insert(
+            ArticleState(
+                articleExternalID: "synced-read",
+                feedID: feed.id,
+                isRead: true,
+                updatedAt: .now
+            )
+        )
+        modelContext.insert(
+            ArticleState(
+                articleExternalID: "cleanup-orphan",
+                feedID: feed.id,
+                isHidden: true,
+                updatedAt: .now
+            )
+        )
+        try modelContext.save()
+
+        let cleanupService = ArticleRetentionCleanupService(
+            logger: TestLogger(),
+            feedRepository: harness.feedRepository,
+            articleRepository: harness.articleRepository,
+            articleStateRepository: harness.articleStateRepository,
+            batchSize: 2
+        )
+        let cleanupResult = try cleanupService.purgeArchivedArticles()
+        #expect(cleanupResult.deletedCount == 1)
+        #expect(cleanupResult.deletedOrphanArticleStateCount == 1)
+
+        let sidebarSnapshot = try #require(
+            try harness.dependencies.sidebarQueryService?.fetchSnapshot()
+        )
+        let badgeApplier = RecordingAppIconBadgeApplier()
+        let badgeService = UnreadAppIconBadgeService(
+            logger: TestLogger(),
+            feedRepository: harness.feedRepository,
+            articleStateRepository: harness.articleStateRepository,
+            appSettingsService: appSettingsService,
+            badgeApplier: badgeApplier
+        )
+        await badgeService.refreshBadgeCount()
+
+        #expect(sidebarSnapshot.feeds.map(\.unreadCount) == [1])
+        #expect(sidebarSnapshot.unreadSmartCount == 1)
+        #expect(badgeApplier.appliedCounts == [sidebarSnapshot.unreadSmartCount])
     }
 
     @Test
