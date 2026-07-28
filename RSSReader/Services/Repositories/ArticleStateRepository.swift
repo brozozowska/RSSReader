@@ -31,6 +31,8 @@ enum ArticleStateQueryBatchKind: Equatable, Sendable {
     case overlay
     case unreadStateScan
     case unreadArticleCount
+    case starredStateScan
+    case starredArticleCount
 }
 
 struct ArticleStateQueryBatchObservation: Equatable, Sendable {
@@ -403,6 +405,7 @@ protocol ArticleStateRepository {
         batchSize: Int
     ) throws -> ArticleStateExternalIDBatchResult
     func fetchUnreadCounts(feedIDs: [UUID]) throws -> [UUID: Int]
+    func fetchStarredCounts(feedIDs: [UUID]) throws -> [UUID: Int]
     func fetchGlobalOrphanSweepBatch(offset: Int, limit: Int) throws -> [ArticleState]
     func fetchOrphanSweepBatch(feedID: UUID, offset: Int, limit: Int) throws -> [ArticleState]
 
@@ -523,8 +526,11 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
         let normalizedFeedIDs = Set(feedIDs)
         guard normalizedFeedIDs.isEmpty == false else { return [:] }
         var unreadCounts = Dictionary(uniqueKeysWithValues: normalizedFeedIDs.map { ($0, 0) })
-        let excludedArticleCountsByFeedID = try fetchCanonicalExcludedArticleCounts(
-            feedIDs: normalizedFeedIDs
+        let excludedArticleCountsByFeedID = try fetchCanonicalLinkedArticleCounts(
+            feedIDs: normalizedFeedIDs,
+            stateScanKind: .unreadStateScan,
+            articleCountKind: .unreadArticleCount,
+            includesState: { $0.isRead || $0.isHidden }
         )
 
         for feedID in normalizedFeedIDs {
@@ -541,14 +547,31 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
         return unreadCounts
     }
 
-    private func fetchCanonicalExcludedArticleCounts(
-        feedIDs: Set<UUID>
+    func fetchStarredCounts(feedIDs: [UUID]) throws -> [UUID: Int] {
+        let normalizedFeedIDs = Set(feedIDs)
+        guard normalizedFeedIDs.isEmpty == false else { return [:] }
+        var starredCounts = Dictionary(uniqueKeysWithValues: normalizedFeedIDs.map { ($0, 0) })
+        let linkedCounts = try fetchCanonicalLinkedArticleCounts(
+            feedIDs: normalizedFeedIDs,
+            stateScanKind: .starredStateScan,
+            articleCountKind: .starredArticleCount,
+            includesState: { $0.isStarred && $0.isHidden == false }
+        )
+        starredCounts.merge(linkedCounts) { _, linkedCount in linkedCount }
+        return starredCounts
+    }
+
+    private func fetchCanonicalLinkedArticleCounts(
+        feedIDs: Set<UUID>,
+        stateScanKind: ArticleStateQueryBatchKind,
+        articleCountKind: ArticleStateQueryBatchKind,
+        includesState: (ArticleState) -> Bool
     ) throws -> [UUID: Int] {
         let requestedFeedIDs = feedIDs.sorted { lhs, rhs in
             lhs.uuidString < rhs.uuidString
         }
-        var excludedArticleCountsByFeedID: [UUID: Int] = [:]
-        var excludedIdentityBatchesByFeedID: [UUID: [String]] = [:]
+        var linkedArticleCountsByFeedID: [UUID: Int] = [:]
+        var identityBatchesByFeedID: [UUID: [String]] = [:]
         var stateOffset = 0
         var lastCanonicalFeedID: UUID?
         var lastCanonicalExternalID: String?
@@ -572,7 +595,7 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
 
             queryBatchProbe?(
                 ArticleStateQueryBatchObservation(
-                    kind: .unreadStateScan,
+                    kind: stateScanKind,
                     feedIDs: feedIDs,
                     requestedIdentityCount: 0,
                     materializedStateCount: states.count,
@@ -588,32 +611,38 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
                 }
                 lastCanonicalFeedID = state.feedID
                 lastCanonicalExternalID = state.articleExternalID
-                guard state.isRead || state.isHidden else { continue }
-                excludedIdentityBatchesByFeedID[state.feedID, default: []].append(
+                guard includesState(state) else { continue }
+                identityBatchesByFeedID[state.feedID, default: []].append(
                     state.articleExternalID
                 )
-                if excludedIdentityBatchesByFeedID[state.feedID]?.count == queryBatchSize,
-                   let excludedIdentityBatch = excludedIdentityBatchesByFeedID.removeValue(
+                if identityBatchesByFeedID[state.feedID]?.count == queryBatchSize,
+                   let identityBatch = identityBatchesByFeedID.removeValue(
                        forKey: state.feedID
                    ) {
-                    excludedArticleCountsByFeedID[state.feedID, default: 0] += try countArticles(
+                    linkedArticleCountsByFeedID[state.feedID, default: 0] += try countArticles(
                         feedID: state.feedID,
-                        externalIDs: excludedIdentityBatch
+                        externalIDs: identityBatch,
+                        kind: articleCountKind
                     )
                 }
             }
         }
 
-        for (feedID, excludedIdentityBatch) in excludedIdentityBatchesByFeedID {
-            excludedArticleCountsByFeedID[feedID, default: 0] += try countArticles(
+        for (feedID, identityBatch) in identityBatchesByFeedID {
+            linkedArticleCountsByFeedID[feedID, default: 0] += try countArticles(
                 feedID: feedID,
-                externalIDs: excludedIdentityBatch
+                externalIDs: identityBatch,
+                kind: articleCountKind
             )
         }
-        return excludedArticleCountsByFeedID
+        return linkedArticleCountsByFeedID
     }
 
-    private func countArticles(feedID: UUID, externalIDs: [String]) throws -> Int {
+    private func countArticles(
+        feedID: UUID,
+        externalIDs: [String],
+        kind: ArticleStateQueryBatchKind
+    ) throws -> Int {
         let descriptor = FetchDescriptor<Article>(
             predicate: #Predicate<Article> { article in
                 article.feedID == feedID && externalIDs.contains(article.externalID)
@@ -622,7 +651,7 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
         let count = try performFetchCount(descriptor)
         queryBatchProbe?(
             ArticleStateQueryBatchObservation(
-                kind: .unreadArticleCount,
+                kind: kind,
                 feedIDs: [feedID],
                 requestedIdentityCount: externalIDs.count,
                 materializedStateCount: 0,

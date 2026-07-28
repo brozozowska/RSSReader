@@ -271,8 +271,9 @@ struct AppSettingsServiceTests {
         }
 
         let persistedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
-        let inboxItems = try articleQueryService.fetchInboxListItems(
-            sortMode: .publishedAtDescending,
+        let inboxItems = try await fetchArticleTestPage(
+            from: articleQueryService,
+            selection: .inbox,
             filter: .all
         )
         let visibleItem = try #require(inboxItems.first)

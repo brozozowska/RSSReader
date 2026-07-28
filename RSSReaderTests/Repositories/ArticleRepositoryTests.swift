@@ -239,19 +239,22 @@ struct ArticleRepositoryTests {
         let firstMissingArticle = try #require(
             firstRepairedArticles.first { $0.externalID == "synced-missing" }
         )
+        let hiddenCriteria = ArticleQueryCriteria(
+            scope: .feed(feed.id),
+            hidden: .isTrue,
+            sortMode: .publishedAtDescending
+        )
+        let firstHiddenQueryItems = try harness.articleRepository.fetchArticleQueryRecordPage(
+            matching: hiddenCriteria,
+            offset: 0,
+            limit: ArticleQueryPaginationPolicy.defaultPageSize
+        ).records.map { ArticleListItemDTO(article: $0.article, state: $0.state) }
+        let currentQueryItem = try #require(firstHiddenQueryItems.first)
         let queryService = DefaultArticleQueryService(
             articleRepository: harness.articleRepository,
             articleStateRepository: harness.articleStateRepository
         )
-        let firstHiddenQueryItems = try queryService.fetchArticleListItems(
-            feedID: feed.id,
-            sortMode: .publishedAtDescending,
-            filter: .hidden
-        )
-        let currentQueryItem = try #require(firstHiddenQueryItems.first)
-        let currentReaderArticle = try #require(
-            try queryService.fetchReaderArticle(id: firstCurrentArticle.id)
-        )
+        let currentReaderArticle = try #require(try queryService.fetchReaderArticle(id: firstCurrentArticle.id))
         let firstRepairedStates = try modelContext.fetch(FetchDescriptor<ArticleState>())
 
         #expect(firstRepairedArticles.count == 3)
@@ -281,11 +284,11 @@ struct ArticleRepositoryTests {
         )
 
         let repeatedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
-        let repeatedHiddenQueryItems = try queryService.fetchArticleListItems(
-            feedID: feed.id,
-            sortMode: .publishedAtDescending,
-            filter: .hidden
-        )
+        let repeatedHiddenQueryItems = try harness.articleRepository.fetchArticleQueryRecordPage(
+            matching: hiddenCriteria,
+            offset: 0,
+            limit: ArticleQueryPaginationPolicy.defaultPageSize
+        ).records.map { ArticleListItemDTO(article: $0.article, state: $0.state) }
         let repeatedStates = try modelContext.fetch(FetchDescriptor<ArticleState>())
 
         #expect(Set(repeatedArticles.map(\.id)) == Set(firstRepairedArticles.map(\.id)))
@@ -429,15 +432,21 @@ struct ArticleRepositoryTests {
             publishedAt: Date(timeIntervalSince1970: 200)
         )
 
-        let firstFeedDescending = try harness.articleRepository.fetchArticles(
-            feedID: firstFeed.id,
-            sortMode: .publishedAtDescending
-        )
-        let firstFeedAscending = try harness.articleRepository.fetchArticles(
-            feedID: firstFeed.id,
-            sortMode: .publishedAtAscending
-        )
-        let inboxDescending = try harness.articleRepository.fetchInbox(sortMode: .publishedAtDescending)
+        let firstFeedDescending = try harness.articleRepository.fetchArticleQueryRecordPage(
+            matching: ArticleQueryCriteria(scope: .feed(firstFeed.id), sortMode: .publishedAtDescending),
+            offset: 0,
+            limit: 10
+        ).records.map(\.article)
+        let firstFeedAscending = try harness.articleRepository.fetchArticleQueryRecordPage(
+            matching: ArticleQueryCriteria(scope: .feed(firstFeed.id), sortMode: .publishedAtAscending),
+            offset: 0,
+            limit: 10
+        ).records.map(\.article)
+        let inboxDescending = try harness.articleRepository.fetchArticleQueryRecordPage(
+            matching: ArticleQueryCriteria(scope: .inbox, sortMode: .publishedAtDescending),
+            offset: 0,
+            limit: 10
+        ).records.map(\.article)
 
         #expect(firstFeedDescending.map { $0.externalID } == ["new", "old"])
         #expect(firstFeedAscending.map { $0.externalID } == ["old", "new"])
@@ -541,7 +550,15 @@ struct ArticleRepositoryTests {
             )
         )
 
-        let currentUnreadInbox = try harness.articleRepository.fetchArticles(
+        func fetchBoundedArticles(matching criteria: ArticleQueryCriteria) throws -> [Article] {
+            try harness.articleRepository.fetchArticleQueryRecordPage(
+                matching: criteria,
+                offset: 0,
+                limit: 20
+            ).records.map(\.article)
+        }
+
+        let currentUnreadInbox = try fetchBoundedArticles(
             matching: ArticleQueryCriteria(
                 scope: .inbox,
                 hidden: .isFalse,
@@ -550,7 +567,7 @@ struct ArticleRepositoryTests {
                 sortMode: .publishedAtDescending
             )
         )
-        let archivedUnreadFolder = try harness.articleRepository.fetchArticles(
+        let archivedUnreadFolder = try fetchBoundedArticles(
             matching: ArticleQueryCriteria(
                 scope: .folder("News"),
                 hidden: .isFalse,
@@ -559,7 +576,7 @@ struct ArticleRepositoryTests {
                 sortMode: .publishedAtDescending
             )
         )
-        let visibleStarredFeed = try harness.articleRepository.fetchArticles(
+        let visibleStarredFeed = try fetchBoundedArticles(
             matching: ArticleQueryCriteria(
                 scope: .feed(newsFeed.id),
                 hidden: .isFalse,
@@ -567,7 +584,7 @@ struct ArticleRepositoryTests {
                 sortMode: .publishedAtDescending
             )
         )
-        let starredInbox = try harness.articleRepository.fetchArticles(
+        let starredInbox = try fetchBoundedArticles(
             matching: ArticleQueryCriteria(
                 scope: .inbox,
                 hidden: .isFalse,
@@ -575,7 +592,7 @@ struct ArticleRepositoryTests {
                 sortMode: .publishedAtDescending
             )
         )
-        let hiddenReadStarredFolder = try harness.articleRepository.fetchArticles(
+        let hiddenReadStarredFolder = try fetchBoundedArticles(
             matching: ArticleQueryCriteria(
                 scope: .folder("News"),
                 hidden: .isTrue,
@@ -584,7 +601,7 @@ struct ArticleRepositoryTests {
                 sortMode: .publishedAtAscending
             )
         )
-        let negativeDefaults = try harness.articleRepository.fetchArticles(
+        let negativeDefaults = try fetchBoundedArticles(
             matching: ArticleQueryCriteria(
                 scope: .feed(newsFeed.id),
                 hidden: .isFalse,
@@ -654,13 +671,15 @@ struct ArticleRepositoryTests {
             queryBatchSize: 2,
             articleStateQueryBatchProbe: { observations.append($0) }
         )
-        let records = try repository.fetchArticleQueryRecords(
+        let records = try repository.fetchArticleQueryRecordPage(
             matching: ArticleQueryCriteria(
                 scope: .feed(queriedFeed.id),
                 read: .isFalse,
                 sortMode: .publishedAtDescending
-            )
-        )
+            ),
+            offset: 0,
+            limit: 10
+        ).records
 
         #expect(records.map { $0.article.externalID } == ["queried-3", "queried-1"])
         #expect(records.allSatisfy { $0.state?.isRead == false })

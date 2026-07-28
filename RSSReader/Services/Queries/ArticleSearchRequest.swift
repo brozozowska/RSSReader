@@ -19,7 +19,7 @@ struct ArticleSearchRequest: Sendable, Equatable {
     let sidebarArticleFilter: SidebarArticleFilter
     let normalizedQuery: String
     let sortMode: ArticleSortMode
-    let limit: Int?
+    let limit: Int
     let cursor: Cursor?
     let emptyQueryBehavior: EmptyQueryBehavior
 
@@ -28,7 +28,7 @@ struct ArticleSearchRequest: Sendable, Equatable {
         sidebarArticleFilter: SidebarArticleFilter,
         query: String,
         sortMode: ArticleSortMode,
-        limit: Int? = nil,
+        limit: Int = ArticleQueryPaginationPolicy.defaultPageSize,
         cursor: Cursor? = nil,
         emptyQueryBehavior: EmptyQueryBehavior = .returnsCurrentScope
     ) {

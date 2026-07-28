@@ -169,16 +169,14 @@ public final class AppDependencies: AppDependenciesProtocol {
         let sidebarQueryService: (any SidebarQueryService)? = {
             guard let feedRepository,
                   let folderRepository,
-                  let articleStateRepository,
-                  let articleQueryService else {
+                  let articleStateRepository else {
                 return nil
             }
 
             return DefaultSidebarQueryService(
                 feedRepository: feedRepository,
                 folderRepository: folderRepository,
-                articleStateRepository: articleStateRepository,
-                articleQueryService: articleQueryService
+                articleStateRepository: articleStateRepository
             )
         }()
         let feedFetchLogRepository = modelContainer.map { container in

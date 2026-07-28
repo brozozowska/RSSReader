@@ -7,7 +7,7 @@ import Testing
 @MainActor
 struct ArticleQueryServiceTests {
     @Test
-    func articleQueryServiceAppliesListFiltersAndStateOverlay() throws {
+    func articleQueryServiceAppliesListFiltersAndStateOverlay() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)
         let queryService = makeQueryService(harness)
@@ -72,10 +72,30 @@ struct ArticleQueryServiceTests {
             )
         )
 
-        let allItems = try queryService.fetchInboxListItems(sortMode: .publishedAtDescending, filter: .all)
-        let unreadItems = try queryService.fetchInboxListItems(sortMode: .publishedAtDescending, filter: .unread)
-        let starredItems = try queryService.fetchInboxListItems(sortMode: .publishedAtDescending, filter: .starred)
-        let hiddenItems = try queryService.fetchInboxListItems(sortMode: .publishedAtDescending, filter: .hidden)
+        let allItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .inbox,
+            filter: .all
+        )
+        let unreadItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .inbox,
+            filter: .unread
+        )
+        let starredItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .inbox,
+            filter: .starred
+        )
+        let hiddenItems = try harness.articleRepository.fetchArticleQueryRecordPage(
+            matching: ArticleQueryCriteria(
+                scope: .inbox,
+                hidden: .isTrue,
+                sortMode: .publishedAtDescending
+            ),
+            offset: 0,
+            limit: ArticleQueryPaginationPolicy.defaultPageSize
+        ).records.map { ArticleListItemDTO(article: $0.article, state: $0.state) }
 
         #expect(allItems.map { $0.articleExternalID } == ["unread", "read", "starred", "archived"])
         #expect(unreadItems.map { $0.articleExternalID } == ["unread", "archived"])
@@ -96,7 +116,7 @@ struct ArticleQueryServiceTests {
     }
 
     @Test
-    func articleQueryServiceFiltersFolderItemsByStoredFeedFolderName() throws {
+    func articleQueryServiceFiltersFolderItemsByStoredFeedFolderName() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let newsFeed = try insertFeed(
             into: harness,
@@ -127,9 +147,9 @@ struct ArticleQueryServiceTests {
             publishedAt: Date(timeIntervalSince1970: 100)
         )
 
-        let newsItems = try queryService.fetchFolderListItems(
-            folderName: "News Folder",
-            sortMode: .publishedAtDescending,
+        let newsItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .folder("News Folder"),
             filter: .all
         )
 
@@ -138,7 +158,7 @@ struct ArticleQueryServiceTests {
     }
 
     @Test
-    func articleQueryServiceReturnsReaderArticleForExistingHiddenArticleAndNilForMissingArticle() throws {
+    func articleQueryServiceReturnsReaderArticleForExistingHiddenArticleAndNilForMissingArticle() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)
         let queryService = makeQueryService(harness)
@@ -167,7 +187,11 @@ struct ArticleQueryServiceTests {
             )
         )
 
-        let listItems = try queryService.fetchInboxListItems(sortMode: .publishedAtDescending, filter: .all)
+        let listItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .inbox,
+            filter: .all
+        )
         let readerArticle = try #require(try queryService.fetchReaderArticle(id: article.id))
         let missingReaderArticle = try queryService.fetchReaderArticle(id: UUID())
 
@@ -236,14 +260,14 @@ struct ArticleQueryServiceTests {
             publishedAt: Date(timeIntervalSince1970: 300)
         )
 
-        let results = try await queryService.fetchArticleSearchResults(
+        let results = try await queryService.fetchArticleSearchSnapshot(
             ArticleSearchRequest(
                 selection: .folder("News"),
                 sidebarArticleFilter: .allItems,
                 query: "needle",
                 sortMode: .publishedAtDescending
             )
-        )
+        ).articles
 
         #expect(results.map(\.articleExternalID) == ["title-match", "content-text-match", "content-html-match"])
     }
@@ -281,7 +305,7 @@ struct ArticleQueryServiceTests {
             update: ArticleStateUpsert(isRead: true, updatedAt: Date(timeIntervalSince1970: 10))
         )
 
-        let limitedUnreadResults = try await queryService.fetchArticleSearchResults(
+        let limitedUnreadResults = try await queryService.fetchArticleSearchSnapshot(
             ArticleSearchRequest(
                 selection: .unread,
                 sidebarArticleFilter: .allItems,
@@ -289,8 +313,8 @@ struct ArticleQueryServiceTests {
                 sortMode: .publishedAtDescending,
                 limit: 1
             )
-        )
-        let emptyQueryResults = try await queryService.fetchArticleSearchResults(
+        ).articles
+        let emptyQueryResults = try await queryService.fetchArticleSearchSnapshot(
             ArticleSearchRequest(
                 selection: .inbox,
                 sidebarArticleFilter: .allItems,
@@ -298,8 +322,8 @@ struct ArticleQueryServiceTests {
                 sortMode: .publishedAtDescending,
                 emptyQueryBehavior: .returnsEmpty
             )
-        )
-        let defaultEmptyQueryResults = try await queryService.fetchArticleSearchResults(
+        ).articles
+        let defaultEmptyQueryResults = try await queryService.fetchArticleSearchSnapshot(
             ArticleSearchRequest(
                 selection: .inbox,
                 sidebarArticleFilter: .allItems,
@@ -307,7 +331,7 @@ struct ArticleQueryServiceTests {
                 sortMode: .publishedAtDescending,
                 limit: 2
             )
-        )
+        ).articles
         let noMatchSnapshot = try await queryService.fetchArticleSearchSnapshot(
             ArticleSearchRequest(
                 selection: .feed(feed.id),
@@ -412,9 +436,10 @@ struct ArticleQueryServiceTests {
             sortMode: .publishedAtDescending
         )
 
-        let listItems = try queryService.fetchArticleListItems(
-            feedID: feed.id,
-            sortMode: .publishedAtDescending
+        let listItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .feed(feed.id),
+            filter: .all
         )
 
         #expect(listItems.map(\.articleExternalID) == [article.externalID])
@@ -422,7 +447,7 @@ struct ArticleQueryServiceTests {
         #expect(operations.saveCount == 0)
         operations.reset()
 
-        let firstResults = try await queryService.fetchArticleSearchResults(request)
+        let firstResults = try await queryService.fetchArticleSearchSnapshot(request).articles
 
         #expect(firstResults.map(\.articleExternalID) == [article.externalID])
         #expect(article.searchableTextVersion == ArticleSearchableTextPolicy.currentVersion)
@@ -430,7 +455,7 @@ struct ArticleQueryServiceTests {
         #expect(operations.saveCount == 1)
 
         operations.reset()
-        let secondResults = try await queryService.fetchArticleSearchResults(request)
+        let secondResults = try await queryService.fetchArticleSearchSnapshot(request).articles
 
         #expect(secondResults.map(\.articleExternalID) == [article.externalID])
         #expect(operations.saveCount == 0)
@@ -452,14 +477,14 @@ struct ArticleQueryServiceTests {
         try harness.modelContainer.mainContext.save()
         let queryService = makeQueryService(harness)
 
-        let results = try await queryService.fetchArticleSearchResults(
+        let results = try await queryService.fetchArticleSearchSnapshot(
             ArticleSearchRequest(
                 selection: .feed(feed.id),
                 sidebarArticleFilter: .allItems,
                 query: "replacement body token",
                 sortMode: .publishedAtDescending
             )
-        )
+        ).articles
 
         #expect(results.map(\.articleExternalID) == [article.externalID])
         #expect(article.searchableTextSourceUpdatedAt == article.updatedAt)

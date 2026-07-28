@@ -93,7 +93,7 @@ struct FeedRepositoryTests {
         )
 
         let deleted = try harness.feedRepository.delete(feedID: feed.id)
-        let remainingArticles = try harness.articleRepository.fetchInbox(sortMode: .publishedAtDescending)
+        let remainingArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
 
         #expect(deleted)
         #expect(remainingArticles.isEmpty)

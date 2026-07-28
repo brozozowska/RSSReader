@@ -127,10 +127,6 @@ protocol ArticleRepository {
     func fetchArticle(id: UUID) throws -> Article?
     func containsArticle(feedID: UUID, externalID: String) throws -> Bool
     func fetchArticles(feedID: UUID) throws -> [Article]
-    func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article]
-    func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
-    func fetchArticles(matching criteria: ArticleQueryCriteria) throws -> [Article]
-    func fetchArticleQueryRecords(matching criteria: ArticleQueryCriteria) throws -> [ArticleQueryRecord]
     func fetchArticleQueryRecordPage(
         matching criteria: ArticleQueryCriteria,
         offset: Int,
@@ -141,7 +137,7 @@ protocol ArticleRepository {
         offset: Int,
         limit: Int
     ) throws -> ArticleQueryRecordScanBatch
-    func fetchArchivedArticles() throws -> [Article]
+    func hasArchivedArticles() throws -> Bool
     func fetchRetentionBatch(
         feedID: UUID,
         scope: ArticleRetentionBatchScope,
@@ -359,46 +355,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         return try performFetch(descriptor)
     }
 
-    func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article] {
-        try fetchArticles(
-            matching: ArticleQueryCriteria(
-                scope: .feed(feedID),
-                sortMode: sortMode
-            )
-        )
-    }
-
-    func fetchInbox(sortMode: ArticleSortMode) throws -> [Article] {
-        try fetchArticles(
-            matching: ArticleQueryCriteria(
-                scope: .inbox,
-                sortMode: sortMode
-            )
-        )
-    }
-
-    func fetchArticles(matching criteria: ArticleQueryCriteria) throws -> [Article] {
-        try fetchArticleQueryRecords(matching: criteria).map(\.article)
-    }
-
-    func fetchArticleQueryRecords(matching criteria: ArticleQueryCriteria) throws -> [ArticleQueryRecord] {
-        var records: [ArticleQueryRecord] = []
-        var offset = 0
-
-        while true {
-            let page = try fetchArticleQueryRecordPage(
-                matching: criteria,
-                offset: offset,
-                limit: queryBatchSize
-            )
-            records.append(contentsOf: page.records)
-            guard let nextOffset = page.nextOffset else { break }
-            offset = nextOffset
-        }
-
-        return records
-    }
-
     func fetchArticleQueryRecordPage(
         matching criteria: ArticleQueryCriteria,
         offset: Int,
@@ -576,13 +532,13 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         return (records, candidateOffset, rebuiltSearchableText)
     }
 
-    func fetchArchivedArticles() throws -> [Article] {
+    func hasArchivedArticles() throws -> Bool {
         let descriptor = FetchDescriptor<Article>(
             predicate: #Predicate<Article> { article in
                 article.archivedAt != nil
             }
         )
-        return try performFetch(descriptor)
+        return try performFetchCount(descriptor) > 0
     }
 
     func fetchRetentionBatch(

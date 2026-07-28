@@ -1,6 +1,7 @@
 import Foundation
 
 nonisolated enum ArticleQueryPaginationPolicy {
+    static let defaultPageSize = 50
     static let scanBatchSize = 64
 }
 
@@ -44,13 +45,7 @@ private struct ArticleSearchProcessedScanBatch: Sendable {
 
 @MainActor
 protocol ArticleQueryService {
-    func fetchArticleListItems(feedID: UUID, sortMode: ArticleSortMode) throws -> [ArticleListItemDTO]
-    func fetchArticleListItems(feedID: UUID, sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO]
-    func fetchFolderListItems(folderName: String, sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO]
-    func fetchInboxListItems(sortMode: ArticleSortMode) throws -> [ArticleListItemDTO]
-    func fetchInboxListItems(sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO]
     func fetchArticleSearchSnapshot(_ request: ArticleSearchRequest) async throws -> ArticleSearchResultSnapshot
-    func fetchArticleSearchResults(_ request: ArticleSearchRequest) async throws -> [ArticleListItemDTO]
     func fetchReaderArticle(id: UUID) throws -> ReaderArticleDTO?
 }
 
@@ -70,50 +65,6 @@ final class DefaultArticleQueryService: ArticleQueryService {
         self.searchScanBatchProbe = searchScanBatchProbe
     }
 
-    func fetchArticleListItems(feedID: UUID, sortMode: ArticleSortMode) throws -> [ArticleListItemDTO] {
-        try fetchArticleListItems(feedID: feedID, sortMode: sortMode, filter: .all)
-    }
-
-    func fetchArticleListItems(
-        feedID: UUID,
-        sortMode: ArticleSortMode,
-        filter: ArticleListFilter
-    ) throws -> [ArticleListItemDTO] {
-        try fetchListItems(
-            scope: .feed(feedID),
-            sortMode: sortMode,
-            filter: filter
-        )
-    }
-
-    func fetchFolderListItems(
-        folderName: String,
-        sortMode: ArticleSortMode,
-        filter: ArticleListFilter
-    ) throws -> [ArticleListItemDTO] {
-        try fetchListItems(
-            scope: .folder(folderName),
-            sortMode: sortMode,
-            filter: filter
-        )
-    }
-
-    func fetchInboxListItems(sortMode: ArticleSortMode) throws -> [ArticleListItemDTO] {
-        try fetchInboxListItems(sortMode: sortMode, filter: .all)
-    }
-
-    func fetchInboxListItems(sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO] {
-        try fetchListItems(
-            scope: .inbox,
-            sortMode: sortMode,
-            filter: filter
-        )
-    }
-
-    func fetchArticleSearchResults(_ request: ArticleSearchRequest) async throws -> [ArticleListItemDTO] {
-        try await fetchArticleSearchSnapshot(request).articles
-    }
-
     func fetchArticleSearchSnapshot(_ request: ArticleSearchRequest) async throws -> ArticleSearchResultSnapshot {
         try Task.checkCancellation()
         guard request.shouldReturnEmptyForBlankQuery == false else {
@@ -122,25 +73,6 @@ final class DefaultArticleQueryService: ArticleQueryService {
 
         guard let scope = queryScope(for: request.selection) else {
             return ArticleSearchResultSnapshot(articles: [], hasScopeContent: false)
-        }
-
-        guard let limit = request.limit else {
-            let listItems = try fetchListItems(
-                scope: scope,
-                sortMode: request.sortMode,
-                filter: request.listFilter,
-                requiresSearchableText: request.normalizedQuery.isEmpty == false
-            )
-            let searchResults = ArticleSearchScope.filteredArticles(
-                listItems,
-                searchText: request.normalizedQuery,
-                selection: request.selection,
-                sidebarArticleFilter: request.sidebarArticleFilter
-            )
-            return ArticleSearchResultSnapshot(
-                articles: searchResults,
-                hasScopeContent: listItems.isEmpty == false
-            )
         }
 
         let criteria = ArticleQueryCriteria(
@@ -152,13 +84,7 @@ final class DefaultArticleQueryService: ArticleQueryService {
             sortMode: request.sortMode,
             requiresSearchableText: request.normalizedQuery.isEmpty == false
         )
-        return try await fetchSearchPage(request, criteria: criteria, limit: limit)
-    }
-
-    private func makeListItems(from records: [ArticleQueryRecord]) -> [ArticleListItemDTO] {
-        records.map { record in
-            ArticleListItemDTO(article: record.article, state: record.state)
-        }
+        return try await fetchSearchPage(request, criteria: criteria, limit: request.limit)
     }
 
     func fetchReaderArticle(id: UUID) throws -> ReaderArticleDTO? {
@@ -178,25 +104,6 @@ final class DefaultArticleQueryService: ArticleQueryService {
         guard articles.isEmpty == false else { return [:] }
 
         return try articleStateRepository.fetchStateSnapshots(for: articles)
-    }
-
-    private func fetchListItems(
-        scope: ArticleQueryScope,
-        sortMode: ArticleSortMode,
-        filter: ArticleListFilter,
-        requiresSearchableText: Bool = false
-    ) throws -> [ArticleListItemDTO] {
-        let criteria = ArticleQueryCriteria(
-            scope: scope,
-            hidden: hiddenFilter(for: filter),
-            archived: .any,
-            read: readFilter(for: filter),
-            starred: starredFilter(for: filter),
-            sortMode: sortMode,
-            requiresSearchableText: requiresSearchableText
-        )
-        let records = try articleRepository.fetchArticleQueryRecords(matching: criteria)
-        return makeListItems(from: records)
     }
 
     private func fetchSearchPage(

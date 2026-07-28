@@ -139,4 +139,36 @@ struct ArticleQueryLoadTests {
         )
         #expect(cancellationProbe.searchableTextRebuildCount == 0)
     }
+
+    @Test
+    func tenThousandArticleFixtureChecksArchivedExistenceWithoutMaterializingArticles() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        _ = try ArticleQueryLoadFixture.insert(
+            into: harness.modelContainer.mainContext
+        )
+        let modelContext = harness.modelContainer.mainContext
+        var descriptor = FetchDescriptor<Article>()
+        descriptor.fetchLimit = 1
+        let archivedArticle = try #require(try modelContext.fetch(descriptor).first)
+        archivedArticle.archivedAt = .now
+        try modelContext.save()
+
+        let operations = SwiftDataRepositoryOperationCounter()
+        let repository = SwiftDataArticleRepository(
+            modelContext: modelContext,
+            persistenceOperationRecorder: operations.record
+        )
+
+        #expect(try repository.hasArchivedArticles())
+        #expect(operations.fetchCountQueryCount == 1)
+        #expect(operations.fetchCount == 1)
+
+        archivedArticle.archivedAt = nil
+        try modelContext.save()
+        operations.reset()
+
+        #expect(try repository.hasArchivedArticles() == false)
+        #expect(operations.fetchCountQueryCount == 1)
+        #expect(operations.fetchCount == 1)
+    }
 }

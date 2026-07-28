@@ -39,7 +39,7 @@ struct SidebarSelectionFlowTests {
     }
 
     @Test
-    func folderSelectionInheritsActiveSidebarArticleFilterForSelectedFolder() throws {
+    func folderSelectionInheritsActiveSidebarArticleFilterForSelectedFolder() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feeds = try harness.insertFeeds(
             urls: [
@@ -134,19 +134,19 @@ struct SidebarSelectionFlowTests {
 
         let queryService = try #require(harness.dependencies.articleQueryService)
 
-        let resolvedUnreadItems = try queryService.fetchFolderListItems(
-            folderName: newsFolder.name,
-            sortMode: .publishedAtDescending,
+        let resolvedUnreadItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .folder(newsFolder.name),
             filter: .unread
         )
-        let resolvedStarredItems = try queryService.fetchFolderListItems(
-            folderName: newsFolder.name,
-            sortMode: .publishedAtDescending,
+        let resolvedStarredItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .folder(newsFolder.name),
             filter: .starred
         )
-        let resolvedAllItems = try queryService.fetchFolderListItems(
-            folderName: newsFolder.name,
-            sortMode: .publishedAtDescending,
+        let resolvedAllItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .folder(newsFolder.name),
             filter: .all
         )
 
@@ -163,7 +163,7 @@ struct SidebarSelectionFlowTests {
     }
 
     @Test
-    func feedSelectionInheritsActiveSidebarArticleFilterForSelectedFeed() throws {
+    func feedSelectionInheritsActiveSidebarArticleFilterForSelectedFeed() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(
             try harness.insertFeeds(urls: ["https://example.com/filter-feed.xml"]).first
@@ -231,19 +231,19 @@ struct SidebarSelectionFlowTests {
 
         let queryService = try #require(harness.dependencies.articleQueryService)
 
-        let resolvedUnreadItems = try queryService.fetchArticleListItems(
-            feedID: feed.id,
-            sortMode: .publishedAtDescending,
+        let resolvedUnreadItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .feed(feed.id),
             filter: .unread
         )
-        let resolvedStarredItems = try queryService.fetchArticleListItems(
-            feedID: feed.id,
-            sortMode: .publishedAtDescending,
+        let resolvedStarredItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .feed(feed.id),
             filter: .starred
         )
-        let resolvedAllItems = try queryService.fetchArticleListItems(
-            feedID: feed.id,
-            sortMode: .publishedAtDescending,
+        let resolvedAllItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .feed(feed.id),
             filter: .all
         )
 

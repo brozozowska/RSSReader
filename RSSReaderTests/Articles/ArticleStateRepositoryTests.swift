@@ -233,6 +233,105 @@ struct ArticleStateRepositoryTests {
     }
 
     @Test
+    func articleStateRepositoryCountsOnlyCanonicalVisibleLinkedStarredArticles() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feeds = try harness.insertFeeds(
+            urls: [
+                "https://example.com/starred-count-one.xml",
+                "https://example.com/starred-count-two.xml"
+            ]
+        )
+        let firstFeed = try #require(feeds.first)
+        let secondFeed = try #require(feeds.last)
+        let modelContext = harness.modelContainer.mainContext
+
+        for (feed, externalID, archivedAt) in [
+            (firstFeed, "visible-starred", nil),
+            (firstFeed, "archived-starred", Date.distantPast),
+            (firstFeed, "hidden-starred", nil),
+            (firstFeed, "newer-unstarred", nil),
+            (secondFeed, "second-visible-starred", nil)
+        ] {
+            _ = try harness.insertArticle(
+                feed: feed,
+                externalID: externalID,
+                url: "https://example.com/\(externalID)",
+                title: externalID,
+                archivedAt: archivedAt
+            )
+        }
+
+        modelContext.insert(ArticleState(
+            articleExternalID: "visible-starred",
+            feedID: firstFeed.id,
+            isStarred: true,
+            updatedAt: Date(timeIntervalSince1970: 10)
+        ))
+        modelContext.insert(ArticleState(
+            articleExternalID: "archived-starred",
+            feedID: firstFeed.id,
+            isStarred: true,
+            updatedAt: Date(timeIntervalSince1970: 20)
+        ))
+        modelContext.insert(ArticleState(
+            articleExternalID: "hidden-starred",
+            feedID: firstFeed.id,
+            isStarred: true,
+            isHidden: true,
+            updatedAt: Date(timeIntervalSince1970: 30)
+        ))
+        modelContext.insert(ArticleState(
+            articleExternalID: "newer-unstarred",
+            feedID: firstFeed.id,
+            isStarred: true,
+            updatedAt: Date(timeIntervalSince1970: 40)
+        ))
+        modelContext.insert(ArticleState(
+            articleExternalID: "newer-unstarred",
+            feedID: firstFeed.id,
+            isStarred: false,
+            updatedAt: Date(timeIntervalSince1970: 50)
+        ))
+        modelContext.insert(ArticleState(
+            articleExternalID: "orphan-starred",
+            feedID: firstFeed.id,
+            isStarred: true,
+            updatedAt: Date(timeIntervalSince1970: 60)
+        ))
+        modelContext.insert(ArticleState(
+            articleExternalID: "second-visible-starred",
+            feedID: secondFeed.id,
+            isStarred: true,
+            updatedAt: Date(timeIntervalSince1970: 70)
+        ))
+        try modelContext.save()
+
+        let operations = SwiftDataRepositoryOperationCounter()
+        var observations: [ArticleStateQueryBatchObservation] = []
+        let repository = SwiftDataArticleStateRepository(
+            modelContext: modelContext,
+            persistenceOperationRecorder: operations.record,
+            queryBatchSize: 2,
+            queryBatchProbe: { observations.append($0) }
+        )
+
+        let starredCounts = try repository.fetchStarredCounts(
+            feedIDs: [firstFeed.id, secondFeed.id, firstFeed.id]
+        )
+        let stateScans = observations.filter { $0.kind == .starredStateScan }
+        let articleCounts = observations.filter { $0.kind == .starredArticleCount }
+
+        #expect(starredCounts[firstFeed.id] == 2)
+        #expect(starredCounts[secondFeed.id] == 1)
+        #expect(stateScans.allSatisfy { $0.materializedStateCount <= 2 })
+        #expect(articleCounts.allSatisfy { $0.requestedIdentityCount <= 2 })
+        #expect(articleCounts.reduce(0) { $0 + $1.countedArticleCount } == 3)
+        #expect(operations.fetchCountQueryCount == articleCounts.count)
+        #expect(operations.fetchCount - operations.fetchCountQueryCount == stateScans.count + 1)
+        #expect(observations.contains { $0.kind == .overlay } == false)
+    }
+
+    @Test
     func articleStateRepositoryKeepsUnreadDatabaseWorkBoundedForProductionSizedFixture() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let fixture = try ArticleQueryLoadFixture.insert(
@@ -291,5 +390,52 @@ struct ArticleStateRepositoryTests {
             operations.fetchCount - operations.fetchCountQueryCount
                 == stateScanObservations.count + 1
         )
+    }
+
+    @Test
+    func articleStateRepositoryKeepsStarredAggregationBoundedForProductionSizedFixture() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let fixture = try ArticleQueryLoadFixture.insert(
+            into: harness.modelContainer.mainContext
+        )
+        let modelContext = harness.modelContainer.mainContext
+        let stateCount = try modelContext.fetchCount(FetchDescriptor<ArticleState>())
+        let operations = SwiftDataRepositoryOperationCounter()
+        var observations: [ArticleStateQueryBatchObservation] = []
+        let repository = SwiftDataArticleStateRepository(
+            modelContext: modelContext,
+            persistenceOperationRecorder: operations.record,
+            queryBatchSize: ArticleStateQueryPolicy.batchSize,
+            queryBatchProbe: { observations.append($0) }
+        )
+        let expectedCounts = Dictionary(
+            uniqueKeysWithValues: fixture.feedIDs.map { ($0, 125) }
+        )
+
+        let starredCounts = try repository.fetchStarredCounts(feedIDs: fixture.feedIDs)
+        let stateScans = observations.filter { $0.kind == .starredStateScan }
+        let articleCounts = observations.filter { $0.kind == .starredArticleCount }
+        let expectedStateBatchCount = Int(
+            ceil(Double(stateCount) / Double(ArticleStateQueryPolicy.batchSize))
+        )
+
+        #expect(starredCounts == expectedCounts)
+        #expect(stateScans.count == expectedStateBatchCount)
+        #expect(stateScans.reduce(0) { $0 + $1.materializedStateCount } == stateCount)
+        #expect(
+            stateScans.allSatisfy {
+                $0.feedIDs == Set(fixture.feedIDs)
+                    && $0.materializedStateCount <= ArticleStateQueryPolicy.batchSize
+            }
+        )
+        #expect(
+            articleCounts.allSatisfy {
+                $0.feedIDs.count == 1
+                    && $0.requestedIdentityCount <= ArticleStateQueryPolicy.batchSize
+                    && $0.materializedStateCount == 0
+            }
+        )
+        #expect(operations.fetchCountQueryCount == articleCounts.count)
+        #expect(operations.fetchCount - operations.fetchCountQueryCount == stateScans.count + 1)
     }
 }
