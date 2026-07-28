@@ -38,7 +38,7 @@ final class ArticlesScreenController {
             try await Task.sleep(for: ArticlesScreenSearchPolicy.debounceDuration)
         }
         self.searchQueryOperation = searchQueryOperation ?? { request, articleQueryService in
-            try articleQueryService.fetchArticleSearchSnapshot(request)
+            try await articleQueryService.fetchArticleSearchSnapshot(request)
         }
         self.pageSize = pageSize
         if let previewScreenState {

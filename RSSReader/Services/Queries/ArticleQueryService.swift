@@ -20,6 +20,28 @@ struct ArticleSearchResultSnapshot: Sendable, Equatable {
     }
 }
 
+struct ArticleSearchScanBatchObservation: Sendable {
+    let normalizedQuery: String
+    let scannedCandidateCount: Int
+    let stateMatchingCandidateCount: Int
+    let searchMatchingCandidateCount: Int
+}
+
+typealias ArticleSearchScanBatchProbe = @MainActor (ArticleSearchScanBatchObservation) -> Void
+
+private struct ArticleSearchScanMatch: Sendable {
+    let article: ArticleListItemDTO
+    let continuationOffset: Int
+}
+
+private struct ArticleSearchProcessedScanBatch: Sendable {
+    let matches: [ArticleSearchScanMatch]
+    let hasScopeContent: Bool
+    let nextOffset: Int?
+    let rebuiltSearchableText: Bool
+    let observation: ArticleSearchScanBatchObservation
+}
+
 @MainActor
 protocol ArticleQueryService {
     func fetchArticleListItems(feedID: UUID, sortMode: ArticleSortMode) throws -> [ArticleListItemDTO]
@@ -27,8 +49,8 @@ protocol ArticleQueryService {
     func fetchFolderListItems(folderName: String, sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO]
     func fetchInboxListItems(sortMode: ArticleSortMode) throws -> [ArticleListItemDTO]
     func fetchInboxListItems(sortMode: ArticleSortMode, filter: ArticleListFilter) throws -> [ArticleListItemDTO]
-    func fetchArticleSearchSnapshot(_ request: ArticleSearchRequest) throws -> ArticleSearchResultSnapshot
-    func fetchArticleSearchResults(_ request: ArticleSearchRequest) throws -> [ArticleListItemDTO]
+    func fetchArticleSearchSnapshot(_ request: ArticleSearchRequest) async throws -> ArticleSearchResultSnapshot
+    func fetchArticleSearchResults(_ request: ArticleSearchRequest) async throws -> [ArticleListItemDTO]
     func fetchReaderArticle(id: UUID) throws -> ReaderArticleDTO?
 }
 
@@ -36,13 +58,16 @@ protocol ArticleQueryService {
 final class DefaultArticleQueryService: ArticleQueryService {
     private let articleRepository: any ArticleRepository
     private let articleStateRepository: any ArticleStateRepository
+    private let searchScanBatchProbe: ArticleSearchScanBatchProbe?
 
     init(
         articleRepository: any ArticleRepository,
-        articleStateRepository: any ArticleStateRepository
+        articleStateRepository: any ArticleStateRepository,
+        searchScanBatchProbe: ArticleSearchScanBatchProbe? = nil
     ) {
         self.articleRepository = articleRepository
         self.articleStateRepository = articleStateRepository
+        self.searchScanBatchProbe = searchScanBatchProbe
     }
 
     func fetchArticleListItems(feedID: UUID, sortMode: ArticleSortMode) throws -> [ArticleListItemDTO] {
@@ -85,11 +110,12 @@ final class DefaultArticleQueryService: ArticleQueryService {
         )
     }
 
-    func fetchArticleSearchResults(_ request: ArticleSearchRequest) throws -> [ArticleListItemDTO] {
-        try fetchArticleSearchSnapshot(request).articles
+    func fetchArticleSearchResults(_ request: ArticleSearchRequest) async throws -> [ArticleListItemDTO] {
+        try await fetchArticleSearchSnapshot(request).articles
     }
 
-    func fetchArticleSearchSnapshot(_ request: ArticleSearchRequest) throws -> ArticleSearchResultSnapshot {
+    func fetchArticleSearchSnapshot(_ request: ArticleSearchRequest) async throws -> ArticleSearchResultSnapshot {
+        try Task.checkCancellation()
         guard request.shouldReturnEmptyForBlankQuery == false else {
             return ArticleSearchResultSnapshot(articles: [], hasScopeContent: false)
         }
@@ -126,7 +152,7 @@ final class DefaultArticleQueryService: ArticleQueryService {
             sortMode: request.sortMode,
             requiresSearchableText: request.normalizedQuery.isEmpty == false
         )
-        return try fetchSearchPage(request, criteria: criteria, limit: limit)
+        return try await fetchSearchPage(request, criteria: criteria, limit: limit)
     }
 
     private func makeListItems(from records: [ArticleQueryRecord]) -> [ArticleListItemDTO] {
@@ -177,48 +203,54 @@ final class DefaultArticleQueryService: ArticleQueryService {
         _ request: ArticleSearchRequest,
         criteria: ArticleQueryCriteria,
         limit: Int
-    ) throws -> ArticleSearchResultSnapshot {
+    ) async throws -> ArticleSearchResultSnapshot {
         var repositoryOffset = request.cursor?.repositoryOffset ?? 0
         var hasScopeContent = request.cursor != nil
 
         guard limit > 0 else {
-            let page = try articleRepository.fetchArticleQueryRecordPage(
+            let batch = try processSearchScanBatch(
+                request: request,
                 matching: criteria,
                 offset: repositoryOffset,
                 limit: 1
             )
+            searchScanBatchProbe?(batch.observation)
+            if batch.rebuiltSearchableText {
+                try articleRepository.save()
+            }
             return ArticleSearchResultSnapshot(
                 articles: [],
-                hasScopeContent: hasScopeContent || page.records.isEmpty == false
+                hasScopeContent: hasScopeContent || batch.hasScopeContent
             )
         }
 
         let targetResultCount = limit + 1
-        var matchingRecords: [(article: ArticleListItemDTO, continuationOffset: Int)] = []
+        var matchingRecords: [ArticleSearchScanMatch] = []
+        var rebuiltSearchableText = false
 
         while matchingRecords.count < targetResultCount {
-            let page = try articleRepository.fetchArticleQueryRecordPage(
+            let batch = try processSearchScanBatch(
+                request: request,
                 matching: criteria,
                 offset: repositoryOffset,
                 limit: ArticleQueryPaginationPolicy.scanBatchSize
             )
-            hasScopeContent = hasScopeContent || page.records.isEmpty == false
-
-            for record in page.records {
-                try Task.checkCancellation()
-                let article = ArticleListItemDTO(article: record.article, state: record.state)
-                guard matchesSearch(article, request: request) else { continue }
-                matchingRecords.append((article, record.continuationOffset))
-                if matchingRecords.count == targetResultCount {
-                    break
-                }
-            }
+            hasScopeContent = hasScopeContent || batch.hasScopeContent
+            rebuiltSearchableText = batch.rebuiltSearchableText || rebuiltSearchableText
+            matchingRecords.append(contentsOf: batch.matches.prefix(targetResultCount - matchingRecords.count))
+            searchScanBatchProbe?(batch.observation)
 
             guard matchingRecords.count < targetResultCount,
-                  let nextOffset = page.nextOffset else {
+                  let nextOffset = batch.nextOffset else {
                 break
             }
             repositoryOffset = nextOffset
+            try Task.checkCancellation()
+            await Task.yield()
+            try Task.checkCancellation()
+        }
+        if rebuiltSearchableText {
+            try articleRepository.save()
         }
 
         guard matchingRecords.count > limit else {
@@ -233,6 +265,46 @@ final class DefaultArticleQueryService: ArticleQueryService {
             hasScopeContent: hasScopeContent,
             nextCursor: ArticleSearchRequest.Cursor(
                 repositoryOffset: matchingRecords[limit - 1].continuationOffset
+            )
+        )
+    }
+
+    private func processSearchScanBatch(
+        request: ArticleSearchRequest,
+        matching criteria: ArticleQueryCriteria,
+        offset: Int,
+        limit: Int
+    ) throws -> ArticleSearchProcessedScanBatch {
+        let batch = try articleRepository.fetchArticleQueryRecordScanBatch(
+            matching: criteria,
+            offset: offset,
+            limit: limit
+        )
+        var matches: [ArticleSearchScanMatch] = []
+        matches.reserveCapacity(batch.records.count)
+
+        for record in batch.records {
+            try Task.checkCancellation()
+            let article = ArticleListItemDTO(article: record.article, state: record.state)
+            guard matchesSearch(article, request: request) else { continue }
+            matches.append(
+                ArticleSearchScanMatch(
+                    article: article,
+                    continuationOffset: record.continuationOffset
+                )
+            )
+        }
+
+        return ArticleSearchProcessedScanBatch(
+            matches: matches,
+            hasScopeContent: batch.records.isEmpty == false,
+            nextOffset: batch.nextOffset,
+            rebuiltSearchableText: batch.rebuiltSearchableText,
+            observation: ArticleSearchScanBatchObservation(
+                normalizedQuery: request.normalizedQuery,
+                scannedCandidateCount: batch.scannedCandidateCount,
+                stateMatchingCandidateCount: batch.records.count,
+                searchMatchingCandidateCount: matches.count
             )
         )
     }

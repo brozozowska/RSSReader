@@ -7,7 +7,7 @@ import Testing
 @MainActor
 struct ArticleQueryLoadTests {
     @Test
-    func tenThousandArticleFixtureKeepsPagesCancellationAndSearchNormalizationBounded() throws {
+    func tenThousandArticleFixtureKeepsPagesCancellationAndSearchNormalizationBounded() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let fixture = try ArticleQueryLoadFixture.insert(
             into: harness.modelContainer.mainContext
@@ -67,7 +67,7 @@ struct ArticleQueryLoadTests {
         #expect(ArticleQueryLoadTestContract.folderArticleCount == 5_000)
         #expect(ArticleQueryLoadTestContract.searchMatchCount == 100)
         for request in requests {
-            let snapshot = try queryService.fetchArticleSearchSnapshot(request)
+            let snapshot = try await queryService.fetchArticleSearchSnapshot(request)
             #expect(snapshot.articles.count == ArticleQueryLoadTestContract.pageSize)
             #expect(Set(snapshot.articles.map(\.id)).count == snapshot.articles.count)
             #expect(snapshot.nextCursor != nil)
@@ -79,7 +79,7 @@ struct ArticleQueryLoadTests {
 
         queryOperations.reset()
         for query in ["n", "ne", "nee", "need", "needle"] {
-            let snapshot = try queryService.fetchArticleSearchSnapshot(
+            let snapshot = try await queryService.fetchArticleSearchSnapshot(
                 ArticleSearchRequest(
                     selection: .inbox,
                     sidebarArticleFilter: .allItems,
@@ -90,7 +90,7 @@ struct ArticleQueryLoadTests {
             )
             #expect(snapshot.articles.count <= ArticleQueryLoadTestContract.pageSize)
         }
-        let rawHTMLOnlySnapshot = try queryService.fetchArticleSearchSnapshot(
+        let rawHTMLOnlySnapshot = try await queryService.fetchArticleSearchSnapshot(
             ArticleSearchRequest(
                 selection: .inbox,
                 sidebarArticleFilter: .allItems,
@@ -118,8 +118,8 @@ struct ArticleQueryLoadTests {
             articleStateRepository: harness.articleStateRepository
         )
 
-        #expect(throws: CancellationError.self) {
-            _ = try cancellingQueryService.fetchArticleSearchSnapshot(
+        await #expect(throws: CancellationError.self) {
+            _ = try await cancellingQueryService.fetchArticleSearchSnapshot(
                 ArticleSearchRequest(
                     selection: .inbox,
                     sidebarArticleFilter: .allItems,

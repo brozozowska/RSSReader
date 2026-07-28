@@ -68,6 +68,13 @@ struct ArticleQueryRecordPage {
     let nextOffset: Int?
 }
 
+struct ArticleQueryRecordScanBatch {
+    let records: [ArticleQueryRecord]
+    let nextOffset: Int?
+    let scannedCandidateCount: Int
+    let rebuiltSearchableText: Bool
+}
+
 struct ArticleFeedSnapshotReconciliationResult {
     let projectionUpdateCount: Int
     let reconciledArticleCount: Int
@@ -129,6 +136,11 @@ protocol ArticleRepository {
         offset: Int,
         limit: Int
     ) throws -> ArticleQueryRecordPage
+    func fetchArticleQueryRecordScanBatch(
+        matching criteria: ArticleQueryCriteria,
+        offset: Int,
+        limit: Int
+    ) throws -> ArticleQueryRecordScanBatch
     func fetchArchivedArticles() throws -> [Article]
     func fetchRetentionBatch(
         feedID: UUID,
@@ -396,6 +408,85 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         precondition(offset >= 0)
         precondition(limit > 0)
 
+        let targetRecordCount = limit + 1
+        var candidateOffset = offset
+        var records: [ArticleQueryRecord] = []
+        var rebuiltSearchableText = false
+
+        while records.count < targetRecordCount {
+            let remainingRecordCount = targetRecordCount - records.count
+            let candidateLimit = min(queryBatchSize, remainingRecordCount)
+            let articles = try fetchArticleQueryCandidates(
+                matching: criteria,
+                offset: candidateOffset,
+                limit: candidateLimit
+            )
+            guard articles.isEmpty == false else { break }
+
+            let materialization = try materializeArticleQueryRecords(
+                from: articles,
+                matching: criteria,
+                startingOffset: candidateOffset
+            )
+            candidateOffset = materialization.nextOffset
+            records.append(contentsOf: materialization.records)
+            rebuiltSearchableText = materialization.rebuiltSearchableText || rebuiltSearchableText
+            if articles.count < candidateLimit { break }
+        }
+        if rebuiltSearchableText {
+            try saveIfNeeded()
+        }
+
+        guard records.count > limit else {
+            return ArticleQueryRecordPage(records: records, nextOffset: nil)
+        }
+
+        return ArticleQueryRecordPage(
+            records: Array(records.prefix(limit)),
+            nextOffset: records[limit - 1].continuationOffset
+        )
+    }
+
+    func fetchArticleQueryRecordScanBatch(
+        matching criteria: ArticleQueryCriteria,
+        offset: Int,
+        limit: Int
+    ) throws -> ArticleQueryRecordScanBatch {
+        precondition(offset >= 0)
+        precondition(limit > 0)
+
+        let articles = try fetchArticleQueryCandidates(
+            matching: criteria,
+            offset: offset,
+            limit: limit
+        )
+        guard articles.isEmpty == false else {
+            return ArticleQueryRecordScanBatch(
+                records: [],
+                nextOffset: nil,
+                scannedCandidateCount: 0,
+                rebuiltSearchableText: false
+            )
+        }
+
+        let materialization = try materializeArticleQueryRecords(
+            from: articles,
+            matching: criteria,
+            startingOffset: offset
+        )
+        return ArticleQueryRecordScanBatch(
+            records: materialization.records,
+            nextOffset: articles.count == limit ? materialization.nextOffset : nil,
+            scannedCandidateCount: articles.count,
+            rebuiltSearchableText: materialization.rebuiltSearchableText
+        )
+    }
+
+    private func fetchArticleQueryCandidates(
+        matching criteria: ArticleQueryCriteria,
+        offset: Int,
+        limit: Int
+    ) throws -> [Article] {
         let matchesInbox: Bool
         let matchesFolder: Bool
         let matchesFeed: Bool
@@ -435,65 +526,55 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
                         || (includesArchived && article.archivedAt != nil)
                 )
         }
-        let targetRecordCount = limit + 1
-        var candidateOffset = offset
+        var descriptor = FetchDescriptor<Article>(
+            predicate: predicate,
+            sortBy: sortDescriptors(for: criteria.sortMode)
+        )
+        descriptor.fetchOffset = offset
+        descriptor.fetchLimit = limit
+        return try performFetch(descriptor)
+    }
+
+    private func materializeArticleQueryRecords(
+        from articles: [Article],
+        matching criteria: ArticleQueryCriteria,
+        startingOffset: Int
+    ) throws -> (
+        records: [ArticleQueryRecord],
+        nextOffset: Int,
+        rebuiltSearchableText: Bool
+    ) {
+        let statesByCompositeKey = try articleStateSnapshotFetcher.fetchSnapshots(for: articles)
         var records: [ArticleQueryRecord] = []
+        records.reserveCapacity(articles.count)
+        var candidateOffset = startingOffset
         var rebuiltSearchableText = false
 
-        while records.count < targetRecordCount {
-            let remainingRecordCount = targetRecordCount - records.count
-            let candidateLimit = min(queryBatchSize, remainingRecordCount)
-            var descriptor = FetchDescriptor<Article>(
-                predicate: predicate,
-                sortBy: sortDescriptors(for: criteria.sortMode)
-            )
-            descriptor.fetchOffset = candidateOffset
-            descriptor.fetchLimit = candidateLimit
-            let articles = try performFetch(descriptor)
-            guard articles.isEmpty == false else { break }
-
-            let statesByCompositeKey = try articleStateSnapshotFetcher.fetchSnapshots(for: articles)
-            records.reserveCapacity(records.count + articles.count)
-            for article in articles {
-                try queryCancellationCheck()
-                candidateOffset += 1
-                if criteria.requiresSearchableText {
-                    let didRebuildSearchableText = article.rebuildSearchableTextIfNeeded()
-                    if didRebuildSearchableText {
-                        searchableTextRebuildProbe?(article.id)
-                    }
-                    rebuiltSearchableText = didRebuildSearchableText || rebuiltSearchableText
+        for article in articles {
+            try queryCancellationCheck()
+            candidateOffset += 1
+            if criteria.requiresSearchableText {
+                let didRebuildSearchableText = article.rebuildSearchableTextIfNeeded()
+                if didRebuildSearchableText {
+                    searchableTextRebuildProbe?(article.id)
                 }
-                let state = statesByCompositeKey[articleCompositeKey(
-                    feedID: article.feedID,
-                    articleExternalID: article.externalID
-                )]
-                guard matchesStateCriteria(state, criteria: criteria) else { continue }
-                records.append(
-                    ArticleQueryRecord(
-                        article: article,
-                        state: state,
-                        continuationOffset: candidateOffset
-                    )
-                )
-                if records.count == targetRecordCount {
-                    break
-                }
+                rebuiltSearchableText = didRebuildSearchableText || rebuiltSearchableText
             }
-            if articles.count < candidateLimit { break }
-        }
-        if rebuiltSearchableText {
-            try saveIfNeeded()
+            let state = statesByCompositeKey[articleCompositeKey(
+                feedID: article.feedID,
+                articleExternalID: article.externalID
+            )]
+            guard matchesStateCriteria(state, criteria: criteria) else { continue }
+            records.append(
+                ArticleQueryRecord(
+                    article: article,
+                    state: state,
+                    continuationOffset: candidateOffset
+                )
+            )
         }
 
-        guard records.count > limit else {
-            return ArticleQueryRecordPage(records: records, nextOffset: nil)
-        }
-
-        return ArticleQueryRecordPage(
-            records: Array(records.prefix(limit)),
-            nextOffset: records[limit - 1].continuationOffset
-        )
+        return (records, candidateOffset, rebuiltSearchableText)
     }
 
     func fetchArchivedArticles() throws -> [Article] {

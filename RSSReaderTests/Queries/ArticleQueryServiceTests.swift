@@ -189,7 +189,7 @@ struct ArticleQueryServiceTests {
     }
 
     @Test
-    func articleQueryServiceSearchesDocumentedFieldsWithinSelectionScope() throws {
+    func articleQueryServiceSearchesDocumentedFieldsWithinSelectionScope() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let newsFeed = try insertFeed(
             into: harness,
@@ -236,7 +236,7 @@ struct ArticleQueryServiceTests {
             publishedAt: Date(timeIntervalSince1970: 300)
         )
 
-        let results = try queryService.fetchArticleSearchResults(
+        let results = try await queryService.fetchArticleSearchResults(
             ArticleSearchRequest(
                 selection: .folder("News"),
                 sidebarArticleFilter: .allItems,
@@ -249,7 +249,7 @@ struct ArticleQueryServiceTests {
     }
 
     @Test
-    func articleQueryServiceSearchRespectsFilterLimitAndEmptyQueryBehavior() throws {
+    func articleQueryServiceSearchRespectsFilterLimitAndEmptyQueryBehavior() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)
         let queryService = makeQueryService(harness)
@@ -281,7 +281,7 @@ struct ArticleQueryServiceTests {
             update: ArticleStateUpsert(isRead: true, updatedAt: Date(timeIntervalSince1970: 10))
         )
 
-        let limitedUnreadResults = try queryService.fetchArticleSearchResults(
+        let limitedUnreadResults = try await queryService.fetchArticleSearchResults(
             ArticleSearchRequest(
                 selection: .unread,
                 sidebarArticleFilter: .allItems,
@@ -290,7 +290,7 @@ struct ArticleQueryServiceTests {
                 limit: 1
             )
         )
-        let emptyQueryResults = try queryService.fetchArticleSearchResults(
+        let emptyQueryResults = try await queryService.fetchArticleSearchResults(
             ArticleSearchRequest(
                 selection: .inbox,
                 sidebarArticleFilter: .allItems,
@@ -299,7 +299,7 @@ struct ArticleQueryServiceTests {
                 emptyQueryBehavior: .returnsEmpty
             )
         )
-        let defaultEmptyQueryResults = try queryService.fetchArticleSearchResults(
+        let defaultEmptyQueryResults = try await queryService.fetchArticleSearchResults(
             ArticleSearchRequest(
                 selection: .inbox,
                 sidebarArticleFilter: .allItems,
@@ -308,7 +308,7 @@ struct ArticleQueryServiceTests {
                 limit: 2
             )
         )
-        let noMatchSnapshot = try queryService.fetchArticleSearchSnapshot(
+        let noMatchSnapshot = try await queryService.fetchArticleSearchSnapshot(
             ArticleSearchRequest(
                 selection: .feed(feed.id),
                 sidebarArticleFilter: .allItems,
@@ -325,7 +325,7 @@ struct ArticleQueryServiceTests {
     }
 
     @Test
-    func articleQueryServiceContinuesBoundedSearchPagesWithoutDuplicateStableIDs() throws {
+    func articleQueryServiceContinuesBoundedSearchPagesWithoutDuplicateStableIDs() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)
         let queryService = makeQueryService(harness)
@@ -340,7 +340,7 @@ struct ArticleQueryServiceTests {
             )
         }
 
-        let firstPage = try queryService.fetchArticleSearchSnapshot(
+        let firstPage = try await queryService.fetchArticleSearchSnapshot(
             ArticleSearchRequest(
                 selection: .feed(feed.id),
                 sidebarArticleFilter: .allItems,
@@ -350,7 +350,7 @@ struct ArticleQueryServiceTests {
             )
         )
         let firstCursor = try #require(firstPage.nextCursor)
-        let secondPage = try queryService.fetchArticleSearchSnapshot(
+        let secondPage = try await queryService.fetchArticleSearchSnapshot(
             ArticleSearchRequest(
                 selection: .feed(feed.id),
                 sidebarArticleFilter: .allItems,
@@ -361,7 +361,7 @@ struct ArticleQueryServiceTests {
             )
         )
         let secondCursor = try #require(secondPage.nextCursor)
-        let thirdPage = try queryService.fetchArticleSearchSnapshot(
+        let thirdPage = try await queryService.fetchArticleSearchSnapshot(
             ArticleSearchRequest(
                 selection: .feed(feed.id),
                 sidebarArticleFilter: .allItems,
@@ -381,7 +381,7 @@ struct ArticleQueryServiceTests {
     }
 
     @Test
-    func articleQueryServiceRebuildsLegacySearchableTextOnceBeforeFiltering() throws {
+    func articleQueryServiceRebuildsLegacySearchableTextOnceBeforeFiltering() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)
         let article = try insertArticle(
@@ -422,7 +422,7 @@ struct ArticleQueryServiceTests {
         #expect(operations.saveCount == 0)
         operations.reset()
 
-        let firstResults = try queryService.fetchArticleSearchResults(request)
+        let firstResults = try await queryService.fetchArticleSearchResults(request)
 
         #expect(firstResults.map(\.articleExternalID) == [article.externalID])
         #expect(article.searchableTextVersion == ArticleSearchableTextPolicy.currentVersion)
@@ -430,14 +430,14 @@ struct ArticleQueryServiceTests {
         #expect(operations.saveCount == 1)
 
         operations.reset()
-        let secondResults = try queryService.fetchArticleSearchResults(request)
+        let secondResults = try await queryService.fetchArticleSearchResults(request)
 
         #expect(secondResults.map(\.articleExternalID) == [article.externalID])
         #expect(operations.saveCount == 0)
     }
 
     @Test
-    func articleQueryServiceRebuildsSearchableTextAfterNewerSourceUpdate() throws {
+    func articleQueryServiceRebuildsSearchableTextAfterNewerSourceUpdate() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)
         let article = try insertArticle(
@@ -452,7 +452,7 @@ struct ArticleQueryServiceTests {
         try harness.modelContainer.mainContext.save()
         let queryService = makeQueryService(harness)
 
-        let results = try queryService.fetchArticleSearchResults(
+        let results = try await queryService.fetchArticleSearchResults(
             ArticleSearchRequest(
                 selection: .feed(feed.id),
                 sidebarArticleFilter: .allItems,

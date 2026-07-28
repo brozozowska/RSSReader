@@ -102,6 +102,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         persistentStoreRemoteChangeSource: (any PersistentStoreRemoteChangeSource)? = nil,
         syncCoordinator: SyncCoordinator? = nil,
         unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = nil,
+        articleSearchScanBatchProbe: ArticleSearchScanBatchProbe? = nil,
         tracksFeedSaveRefreshTasks: Bool = false
     ) {
         let feedRepository = modelContainer.map { container in
@@ -130,7 +131,8 @@ public final class AppDependencies: AppDependenciesProtocol {
 
             return DefaultArticleQueryService(
                 articleRepository: articleRepository,
-                articleStateRepository: articleStateRepository
+                articleStateRepository: articleStateRepository,
+                searchScanBatchProbe: articleSearchScanBatchProbe
             )
         }()
         let resolvedUnreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = unreadAppIconBadgeService ?? {

@@ -304,6 +304,64 @@ struct ArticlesScreenControllerLoadingTests {
     }
 
     @Test
+    func articlesScreenControllerCancelsProductionSearchBetweenBoundedScanBatches() async throws {
+        var scanObservations: [ArticleSearchScanBatchObservation] = []
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(),
+            articleSearchScanBatchProbe: { observation in
+                scanObservations.append(observation)
+            }
+        )
+        _ = try ArticleQueryLoadFixture.insert(
+            into: harness.modelContainer.mainContext
+        )
+        let controller = ArticlesScreenController(searchDebounceOperation: {})
+        var scannedCandidateCountBeforeSupersedingInput = 0
+
+        let supersedingLoad = Task { @MainActor in
+            while scanObservations.contains(where: { observation in
+                observation.normalizedQuery == "missing-query-token"
+            }) == false {
+                await Task.yield()
+            }
+            scannedCandidateCountBeforeSupersedingInput = scanObservations
+                .filter { observation in
+                    observation.normalizedQuery == "missing-query-token"
+                }
+                .reduce(0) { partialResult, observation in
+                    partialResult + observation.scannedCandidateCount
+                }
+
+            await controller.load(
+                selection: .inbox,
+                sidebarArticleFilter: .allItems,
+                searchText: "needle",
+                dependencies: harness.dependencies
+            )
+        }
+
+        await controller.load(
+            selection: .inbox,
+            sidebarArticleFilter: .allItems,
+            searchText: "missing-query-token",
+            dependencies: harness.dependencies
+        )
+        await supersedingLoad.value
+
+        #expect(scannedCandidateCountBeforeSupersedingInput > 0)
+        #expect(
+            scannedCandidateCountBeforeSupersedingInput
+                < ArticleQueryLoadTestContract.articleCount
+        )
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articleListSession.context.normalizedSearchText == "needle")
+        #expect(controller.screenState.articles.count == ArticlesScreenPaginationPolicy.pageSize)
+        #expect(controller.screenState.articles.allSatisfy { article in
+            article.searchableText.localizedCaseInsensitiveContains("needle")
+        })
+    }
+
+    @Test
     func articlesScreenControllerRejectsStaleResultAfterNewerGenerationCompletes() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(
