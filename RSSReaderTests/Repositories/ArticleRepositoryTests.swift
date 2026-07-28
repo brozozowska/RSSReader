@@ -666,7 +666,7 @@ struct ArticleRepositoryTests {
         #expect(records.allSatisfy { $0.state?.isRead == false })
         #expect(observations.count == 3)
         #expect(observations.allSatisfy { $0.kind == .overlay })
-        #expect(observations.allSatisfy { $0.feedID == queriedFeed.id })
+        #expect(observations.allSatisfy { $0.feedIDs == [queriedFeed.id] })
         #expect(observations.map(\.requestedIdentityCount) == [2, 2, 1])
         #expect(observations.reduce(0) { $0 + $1.materializedStateCount } == 5)
     }

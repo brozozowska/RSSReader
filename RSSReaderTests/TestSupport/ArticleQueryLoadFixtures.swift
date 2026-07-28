@@ -16,6 +16,7 @@ nonisolated enum ArticleQueryLoadTestContract {
 
 struct ArticleQueryLoadFixture {
     let folderName: String
+    let feedIDs: [UUID]
 
     @MainActor
     static func insert(into modelContext: ModelContext) throws -> ArticleQueryLoadFixture {
@@ -80,7 +81,10 @@ struct ArticleQueryLoadFixture {
         }
 
         try modelContext.save()
-        return ArticleQueryLoadFixture(folderName: folderName)
+        return ArticleQueryLoadFixture(
+            folderName: folderName,
+            feedIDs: feeds.map(\.id)
+        )
     }
 }
 

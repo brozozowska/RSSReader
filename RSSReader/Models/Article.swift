@@ -1,20 +1,13 @@
 import Foundation
 import SwiftData
 
-nonisolated enum ArticleStateIdentity {
-    static func lookupKey(feedID: UUID, articleExternalID: String) -> String {
-        let normalizedExternalID = articleExternalID.trimmingCharacters(in: .whitespacesAndNewlines)
-        return "\(feedID.uuidString)|\(normalizedExternalID)"
-    }
-}
-
 @Model
 final class Article {
     #Index<Article>(
         [\.publishedAt],
         [\.feedID, \.publishedAt],
         [\.feedFolderName, \.publishedAt],
-        [\.stateLookupKey]
+        [\.feedID, \.externalID]
     )
 
     var id: UUID = UUID()
@@ -23,7 +16,6 @@ final class Article {
     var feedSiteURL: String?
     var feedFolderName: String?
     var externalID: String = ""
-    var stateLookupKey: String = ""
     var guid: String?
     var url: String = ""
     var canonicalURL: String?
@@ -73,10 +65,6 @@ final class Article {
         self.feedSiteURL = feedSiteURL
         self.feedFolderName = feedFolderName
         self.externalID = externalID
-        self.stateLookupKey = ArticleStateIdentity.lookupKey(
-            feedID: feedID,
-            articleExternalID: externalID
-        )
         self.guid = guid
         self.url = url
         self.canonicalURL = canonicalURL
@@ -101,13 +89,6 @@ final class Article {
         self.fetchedAt = fetchedAt
         self.createdAt = createdAt
         self.updatedAt = updatedAt
-    }
-
-    func refreshStateLookupKey() {
-        stateLookupKey = ArticleStateIdentity.lookupKey(
-            feedID: feedID,
-            articleExternalID: externalID
-        )
     }
 
     @discardableResult

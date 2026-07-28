@@ -7,6 +7,28 @@ import Testing
 @MainActor
 struct ArticleStateRepositoryTests {
     @Test
+    func articleStateSchemaIndexesProductionIdentityPredicatesWithoutArticleLookupProjection() throws {
+        let schema = AppComposition.persistenceModelPartition.schema
+        let articleStateEntity = try #require(
+            schema.entities.first { $0.name == String(describing: ArticleState.self) }
+        )
+        let articleEntity = try #require(
+            schema.entities.first { $0.name == String(describing: Article.self) }
+        )
+
+        #expect(
+            articleStateEntity.indices.contains([
+                "binary",
+                "feedID",
+                "articleExternalID",
+                "updatedAt"
+            ])
+        )
+        #expect(articleEntity.indices.contains(["binary", "feedID", "externalID"]))
+        #expect(articleEntity.attributesByName["stateLookupKey"] == nil)
+    }
+
+    @Test
     func articleStateRepositoryCollapsesDuplicateCompositeRowsDuringUpsert() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/state-duplicates.xml"]).first)
@@ -186,17 +208,88 @@ struct ArticleStateRepositoryTests {
 
         #expect(unreadCounts[firstFeed.id] == 3)
         #expect(unreadCounts[secondFeed.id] == 1)
-        #expect(operations.fetchCountQueryCount >= 4)
+        let requestedFeedIDs: Set<UUID> = [firstFeed.id, secondFeed.id]
+        let stateScanObservations = observations.filter { $0.kind == .unreadStateScan }
+        let articleCountObservations = observations.filter { $0.kind == .unreadArticleCount }
+
+        #expect(operations.fetchCountQueryCount == requestedFeedIDs.count + articleCountObservations.count)
         #expect(
-            observations
-                .filter { $0.kind == .unreadStateScan }
-                .allSatisfy { $0.materializedStateCount <= 2 }
+            operations.fetchCount - operations.fetchCountQueryCount
+                == stateScanObservations.count + 1
         )
         #expect(
-            observations
-                .filter { $0.kind == .unreadArticleCount }
-                .allSatisfy { $0.requestedIdentityCount <= 2 && $0.materializedStateCount == 0 }
+            stateScanObservations.allSatisfy {
+                $0.feedIDs == requestedFeedIDs && $0.materializedStateCount <= 2
+            }
+        )
+        #expect(
+            articleCountObservations.allSatisfy {
+                $0.feedIDs.count == 1
+                    && $0.requestedIdentityCount <= 2
+                    && $0.materializedStateCount == 0
+            }
         )
         #expect(observations.contains { $0.kind == .overlay } == false)
+    }
+
+    @Test
+    func articleStateRepositoryKeepsUnreadDatabaseWorkBoundedForProductionSizedFixture() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let fixture = try ArticleQueryLoadFixture.insert(
+            into: harness.modelContainer.mainContext
+        )
+        let modelContext = harness.modelContainer.mainContext
+        let stateCount = try modelContext.fetchCount(FetchDescriptor<ArticleState>())
+        let operations = SwiftDataRepositoryOperationCounter()
+        var observations: [ArticleStateQueryBatchObservation] = []
+        let repository = SwiftDataArticleStateRepository(
+            modelContext: modelContext,
+            persistenceOperationRecorder: operations.record,
+            queryBatchSize: ArticleStateQueryPolicy.batchSize,
+            queryBatchProbe: { observations.append($0) }
+        )
+        let expectedCounts = Dictionary(uniqueKeysWithValues: fixture.feedIDs.enumerated().map {
+            feedIndex, feedID in
+            let lowerBound = feedIndex * ArticleQueryLoadTestContract.articlesPerFeed
+            let upperBound = lowerBound + ArticleQueryLoadTestContract.articlesPerFeed
+            let readCount = (lowerBound..<upperBound).reduce(into: 0) { count, articleIndex in
+                if articleIndex.isMultiple(of: 3) {
+                    count += 1
+                }
+            }
+            return (feedID, ArticleQueryLoadTestContract.articlesPerFeed - readCount)
+        })
+
+        let unreadCounts = try repository.fetchUnreadCounts(feedIDs: fixture.feedIDs)
+        let stateScanObservations = observations.filter { $0.kind == .unreadStateScan }
+        let articleCountObservations = observations.filter { $0.kind == .unreadArticleCount }
+        let expectedStateBatchCount = Int(
+            ceil(Double(stateCount) / Double(ArticleStateQueryPolicy.batchSize))
+        )
+
+        #expect(unreadCounts == expectedCounts)
+        #expect(stateScanObservations.count == expectedStateBatchCount)
+        #expect(stateScanObservations.reduce(0) { $0 + $1.materializedStateCount } == stateCount)
+        #expect(
+            stateScanObservations.allSatisfy {
+                $0.feedIDs == Set(fixture.feedIDs)
+                    && $0.materializedStateCount <= ArticleStateQueryPolicy.batchSize
+            }
+        )
+        #expect(
+            articleCountObservations.allSatisfy {
+                $0.feedIDs.count == 1
+                    && $0.requestedIdentityCount <= ArticleStateQueryPolicy.batchSize
+                    && $0.materializedStateCount == 0
+            }
+        )
+        #expect(
+            operations.fetchCountQueryCount
+                == fixture.feedIDs.count + articleCountObservations.count
+        )
+        #expect(
+            operations.fetchCount - operations.fetchCountQueryCount
+                == stateScanObservations.count + 1
+        )
     }
 }

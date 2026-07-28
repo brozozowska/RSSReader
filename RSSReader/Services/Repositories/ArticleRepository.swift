@@ -271,7 +271,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             if canonicalSnapshot.duplicateIdentities.contains(identity),
                article.externalID != identity {
                 article.externalID = identity
-                article.refreshStateLookupKey()
                 article.updatedAt = .now
             }
 

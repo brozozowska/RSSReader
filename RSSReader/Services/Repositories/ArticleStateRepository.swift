@@ -35,7 +35,7 @@ enum ArticleStateQueryBatchKind: Equatable, Sendable {
 
 struct ArticleStateQueryBatchObservation: Equatable, Sendable {
     let kind: ArticleStateQueryBatchKind
-    let feedID: UUID
+    let feedIDs: Set<UUID>
     let requestedIdentityCount: Int
     let materializedStateCount: Int
     let countedArticleCount: Int
@@ -131,7 +131,7 @@ struct SwiftDataArticleStateSnapshotFetcher: SwiftDataRepositoryContext {
             batchProbe?(
                 ArticleStateQueryBatchObservation(
                     kind: .overlay,
-                    feedID: feedID,
+                    feedIDs: [feedID],
                     requestedIdentityCount: identityBatch.count,
                     materializedStateCount: states.count,
                     countedArticleCount: 0
@@ -523,6 +523,9 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
         let normalizedFeedIDs = Set(feedIDs)
         guard normalizedFeedIDs.isEmpty == false else { return [:] }
         var unreadCounts = Dictionary(uniqueKeysWithValues: normalizedFeedIDs.map { ($0, 0) })
+        let excludedArticleCountsByFeedID = try fetchCanonicalExcludedArticleCounts(
+            feedIDs: normalizedFeedIDs
+        )
 
         for feedID in normalizedFeedIDs {
             let articleDescriptor = FetchDescriptor<Article>(
@@ -532,63 +535,82 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
             )
             let totalArticleCount = try performFetchCount(articleDescriptor)
             guard totalArticleCount > 0 else { continue }
-            var excludedArticleCount = 0
-            var excludedIdentityBatch: [String] = []
-            excludedIdentityBatch.reserveCapacity(queryBatchSize)
-            var stateOffset = 0
-            var lastCanonicalExternalID: String?
-
-            while true {
-                var stateDescriptor = FetchDescriptor<ArticleState>(
-                    predicate: #Predicate<ArticleState> { articleState in
-                        articleState.feedID == feedID
-                    },
-                    sortBy: [
-                        SortDescriptor(\ArticleState.articleExternalID, order: .forward),
-                        SortDescriptor(\ArticleState.updatedAt, order: .reverse),
-                        SortDescriptor(\ArticleState.id, order: .reverse)
-                    ]
-                )
-                stateDescriptor.fetchOffset = stateOffset
-                stateDescriptor.fetchLimit = queryBatchSize
-                let states = try performFetch(stateDescriptor)
-                guard states.isEmpty == false else { break }
-
-                queryBatchProbe?(
-                    ArticleStateQueryBatchObservation(
-                        kind: .unreadStateScan,
-                        feedID: feedID,
-                        requestedIdentityCount: 0,
-                        materializedStateCount: states.count,
-                        countedArticleCount: 0
-                    )
-                )
-                stateOffset += states.count
-
-                for state in states {
-                    guard state.articleExternalID != lastCanonicalExternalID else { continue }
-                    lastCanonicalExternalID = state.articleExternalID
-                    guard state.isRead || state.isHidden else { continue }
-                    excludedIdentityBatch.append(state.articleExternalID)
-                    if excludedIdentityBatch.count == queryBatchSize {
-                        excludedArticleCount += try countArticles(
-                            feedID: feedID,
-                            externalIDs: excludedIdentityBatch
-                        )
-                        excludedIdentityBatch.removeAll(keepingCapacity: true)
-                    }
-                }
-            }
-
-            if excludedIdentityBatch.isEmpty == false {
-                excludedArticleCount += try countArticles(
-                    feedID: feedID,
-                    externalIDs: excludedIdentityBatch
-                )
-            }
+            let excludedArticleCount = excludedArticleCountsByFeedID[feedID, default: 0]
             unreadCounts[feedID] = max(0, totalArticleCount - excludedArticleCount)
         }
         return unreadCounts
+    }
+
+    private func fetchCanonicalExcludedArticleCounts(
+        feedIDs: Set<UUID>
+    ) throws -> [UUID: Int] {
+        let requestedFeedIDs = feedIDs.sorted { lhs, rhs in
+            lhs.uuidString < rhs.uuidString
+        }
+        var excludedArticleCountsByFeedID: [UUID: Int] = [:]
+        var excludedIdentityBatchesByFeedID: [UUID: [String]] = [:]
+        var stateOffset = 0
+        var lastCanonicalFeedID: UUID?
+        var lastCanonicalExternalID: String?
+
+        while true {
+            var descriptor = FetchDescriptor<ArticleState>(
+                predicate: #Predicate<ArticleState> { articleState in
+                    requestedFeedIDs.contains(articleState.feedID)
+                },
+                sortBy: [
+                    SortDescriptor(\ArticleState.feedID, order: .forward),
+                    SortDescriptor(\ArticleState.articleExternalID, order: .forward),
+                    SortDescriptor(\ArticleState.updatedAt, order: .reverse),
+                    SortDescriptor(\ArticleState.id, order: .reverse)
+                ]
+            )
+            descriptor.fetchOffset = stateOffset
+            descriptor.fetchLimit = queryBatchSize
+            let states = try performFetch(descriptor)
+            guard states.isEmpty == false else { break }
+
+            queryBatchProbe?(
+                ArticleStateQueryBatchObservation(
+                    kind: .unreadStateScan,
+                    feedIDs: feedIDs,
+                    requestedIdentityCount: 0,
+                    materializedStateCount: states.count,
+                    countedArticleCount: 0
+                )
+            )
+            stateOffset += states.count
+
+            for state in states {
+                guard state.feedID != lastCanonicalFeedID
+                        || state.articleExternalID != lastCanonicalExternalID else {
+                    continue
+                }
+                lastCanonicalFeedID = state.feedID
+                lastCanonicalExternalID = state.articleExternalID
+                guard state.isRead || state.isHidden else { continue }
+                excludedIdentityBatchesByFeedID[state.feedID, default: []].append(
+                    state.articleExternalID
+                )
+                if excludedIdentityBatchesByFeedID[state.feedID]?.count == queryBatchSize,
+                   let excludedIdentityBatch = excludedIdentityBatchesByFeedID.removeValue(
+                       forKey: state.feedID
+                   ) {
+                    excludedArticleCountsByFeedID[state.feedID, default: 0] += try countArticles(
+                        feedID: state.feedID,
+                        externalIDs: excludedIdentityBatch
+                    )
+                }
+            }
+        }
+
+        for (feedID, excludedIdentityBatch) in excludedIdentityBatchesByFeedID {
+            excludedArticleCountsByFeedID[feedID, default: 0] += try countArticles(
+                feedID: feedID,
+                externalIDs: excludedIdentityBatch
+            )
+        }
+        return excludedArticleCountsByFeedID
     }
 
     private func countArticles(feedID: UUID, externalIDs: [String]) throws -> Int {
@@ -601,7 +623,7 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
         queryBatchProbe?(
             ArticleStateQueryBatchObservation(
                 kind: .unreadArticleCount,
-                feedID: feedID,
+                feedIDs: [feedID],
                 requestedIdentityCount: externalIDs.count,
                 materializedStateCount: 0,
                 countedArticleCount: count
