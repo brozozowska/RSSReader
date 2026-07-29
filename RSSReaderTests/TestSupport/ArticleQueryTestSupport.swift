@@ -1,6 +1,15 @@
 import Foundation
 @testable import RSSReader
 
+func makeArticleSearchCursor(seed: Int) -> ArticleSearchRequest.Cursor {
+    ArticleSearchRequest.Cursor(
+        repositoryCursor: ArticleQueryCursor(
+            sortDate: Date(timeIntervalSince1970: TimeInterval(seed)),
+            articleID: UUID(uuidString: "00000000-0000-0000-0000-00000000000\(seed)")!
+        )
+    )
+}
+
 @MainActor
 func fetchArticleTestPage(
     from queryService: any ArticleQueryService,

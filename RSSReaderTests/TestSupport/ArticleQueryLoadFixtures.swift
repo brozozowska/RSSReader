@@ -4,14 +4,29 @@ import SwiftData
 
 nonisolated enum ArticleQueryLoadTestContract {
     static let articleCount = 10_000
-    static let pageSize = ArticlesScreenPaginationPolicy.pageSize
+    static let pageSize = 50
     static let feedCount = 4
     static let articlesPerFeed = articleCount / feedCount
     static let folderArticleCount = articlesPerFeed * 2
     static let searchMatchInterval = 100
     static let searchMatchCount = articleCount / searchMatchInterval
-    static let maximumOverlayIdentityBatchSize = ArticleQueryPaginationPolicy.scanBatchSize + 1
-    static let cancellationCheckCount = ArticleQueryPaginationPolicy.scanBatchSize * 5
+    static let maximumOverlayIdentityBatchSize = 65
+    static let cancellationCheckCount = 320
+    static let maximumSparseSearchCandidateCount = 10_128
+    static let maximumSparseSearchFetchCount = 324
+
+    struct QueryBudget {
+        let maximumMaterializedCandidateCount: Int
+        let maximumFetchCount: Int
+    }
+
+    static let initialPageBudgets = [
+        QueryBudget(maximumMaterializedCandidateCount: 64, maximumFetchCount: 2),
+        QueryBudget(maximumMaterializedCandidateCount: 64, maximumFetchCount: 2),
+        QueryBudget(maximumMaterializedCandidateCount: 5_200, maximumFetchCount: 164),
+        QueryBudget(maximumMaterializedCandidateCount: 128, maximumFetchCount: 4),
+        QueryBudget(maximumMaterializedCandidateCount: 1_100, maximumFetchCount: 36)
+    ]
 }
 
 struct ArticleQueryLoadFixture {
@@ -93,6 +108,8 @@ final class ArticleQueryLoadProbe {
     private(set) var maximumRequestedOverlayIdentityCount = 0
     private(set) var searchableTextRebuildCount = 0
     private(set) var cancellationCheckCount = 0
+    private(set) var materializedCandidateCount = 0
+    private(set) var searchScanBatchCount = 0
     private let cancellationCheckLimit: Int?
 
     init(cancellationCheckLimit: Int? = nil) {
@@ -109,6 +126,17 @@ final class ArticleQueryLoadProbe {
 
     func recordSearchableTextRebuild(articleID _: UUID) {
         searchableTextRebuildCount += 1
+    }
+
+    func recordSearchBatch(_ observation: ArticleSearchScanBatchObservation) {
+        materializedCandidateCount += observation.scannedCandidateCount
+        searchScanBatchCount += 1
+    }
+
+    func resetQueryMetrics() {
+        maximumRequestedOverlayIdentityCount = 0
+        materializedCandidateCount = 0
+        searchScanBatchCount = 0
     }
 
     func checkCancellation() throws {

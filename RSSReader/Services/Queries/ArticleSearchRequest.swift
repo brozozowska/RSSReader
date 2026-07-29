@@ -2,11 +2,10 @@ import Foundation
 
 struct ArticleSearchRequest: Sendable, Equatable {
     struct Cursor: Sendable, Equatable {
-        let repositoryOffset: Int
+        let repositoryCursor: ArticleQueryCursor
 
-        init(repositoryOffset: Int) {
-            precondition(repositoryOffset >= 0)
-            self.repositoryOffset = repositoryOffset
+        init(repositoryCursor: ArticleQueryCursor) {
+            self.repositoryCursor = repositoryCursor
         }
     }
 

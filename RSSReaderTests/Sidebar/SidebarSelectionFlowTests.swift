@@ -81,6 +81,10 @@ struct SidebarSelectionFlowTests {
         starredNewsArticle.publishedAt = Date(timeIntervalSince1970: 100)
         readNewsArticle.publishedAt = Date(timeIntervalSince1970: 50)
         unreadTechArticle.publishedAt = Date(timeIntervalSince1970: 300)
+        unreadNewsArticle.querySortDate = try #require(unreadNewsArticle.publishedAt)
+        starredNewsArticle.querySortDate = try #require(starredNewsArticle.publishedAt)
+        readNewsArticle.querySortDate = try #require(readNewsArticle.publishedAt)
+        unreadTechArticle.querySortDate = try #require(unreadTechArticle.publishedAt)
         try harness.saveModelContext()
 
         try upsertState(
@@ -190,6 +194,9 @@ struct SidebarSelectionFlowTests {
         unreadArticle.publishedAt = Date(timeIntervalSince1970: 100)
         starredArticle.publishedAt = Date(timeIntervalSince1970: 200)
         readArticle.publishedAt = Date(timeIntervalSince1970: 300)
+        unreadArticle.querySortDate = try #require(unreadArticle.publishedAt)
+        starredArticle.querySortDate = try #require(starredArticle.publishedAt)
+        readArticle.querySortDate = try #require(readArticle.publishedAt)
         try harness.saveModelContext()
 
         try upsertState(

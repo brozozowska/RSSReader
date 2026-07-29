@@ -4,9 +4,9 @@ import SwiftData
 @Model
 final class Article {
     #Index<Article>(
-        [\.publishedAt],
-        [\.feedID, \.publishedAt],
-        [\.feedFolderName, \.publishedAt],
+        [\.querySortDate],
+        [\.feedID, \.querySortDate],
+        [\.feedFolderName, \.querySortDate],
         [\.feedID, \.externalID]
     )
 
@@ -25,9 +25,11 @@ final class Article {
     var contentText: String?
     var searchableText: String = ""
     var searchableTextVersion: Int = 0
-    var searchableTextSourceUpdatedAt: Date = Date.distantPast
+    var searchableTextSourceRevision: Int = 0
+    var searchableTextMaterializedSourceRevision: Int = -1
     var author: String?
     var publishedAt: Date?
+    var querySortDate: Date = Date.distantPast
     var updatedAtSource: Date?
     var imageURL: String?
     var archivedAt: Date?
@@ -80,9 +82,11 @@ final class Article {
             author: author
         )
         self.searchableTextVersion = ArticleSearchableTextPolicy.currentVersion
-        self.searchableTextSourceUpdatedAt = updatedAt
+        self.searchableTextSourceRevision = 1
+        self.searchableTextMaterializedSourceRevision = 1
         self.author = author
         self.publishedAt = publishedAt
+        self.querySortDate = publishedAt ?? fetchedAt
         self.updatedAtSource = updatedAtSource
         self.imageURL = imageURL
         self.archivedAt = archivedAt
@@ -94,7 +98,7 @@ final class Article {
     @discardableResult
     func rebuildSearchableTextIfNeeded() -> Bool {
         guard searchableTextVersion != ArticleSearchableTextPolicy.currentVersion
-                || searchableTextSourceUpdatedAt < updatedAt else {
+                || searchableTextMaterializedSourceRevision != searchableTextSourceRevision else {
             return false
         }
 
@@ -106,7 +110,19 @@ final class Article {
             author: author
         )
         searchableTextVersion = ArticleSearchableTextPolicy.currentVersion
-        searchableTextSourceUpdatedAt = updatedAt
+        searchableTextMaterializedSourceRevision = searchableTextSourceRevision
         return true
+    }
+
+    func applyPreparedSearchableText(
+        _ value: String,
+        sourceDidChange: Bool
+    ) {
+        if sourceDidChange {
+            searchableTextSourceRevision += 1
+        }
+        searchableText = value
+        searchableTextVersion = ArticleSearchableTextPolicy.currentVersion
+        searchableTextMaterializedSourceRevision = searchableTextSourceRevision
     }
 }

@@ -94,7 +94,7 @@ struct ArticlesScreenControllerMarkAllReadTests {
             isRead: false,
             isStarred: false
         )
-        let nextCursor = ArticleSearchRequest.Cursor(repositoryOffset: 2)
+        let nextCursor = makeArticleSearchCursor(seed: 2)
         var screenState = ArticlesScreenState()
         screenState.applyLoadedArticles(
             [first, second],

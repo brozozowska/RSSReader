@@ -83,7 +83,10 @@ struct ArticleRepositoryTests {
         #expect(reactivatedArticle.searchableText.contains("Reactivated title"))
         #expect(reactivatedArticle.searchableText.contains("Stale reactivated title") == false)
         #expect(reactivatedArticle.searchableTextVersion == ArticleSearchableTextPolicy.currentVersion)
-        #expect(reactivatedArticle.searchableTextSourceUpdatedAt == reactivatedArticle.updatedAt)
+        #expect(
+            reactivatedArticle.searchableTextMaterializedSourceRevision
+                == reactivatedArticle.searchableTextSourceRevision
+        )
         #expect(reactivatedArticle.fetchedAt == fetchedAt)
         #expect(missingArticle.archivedAt == fetchedAt)
         #expect(alreadyArchivedArticle.archivedAt == preservedArchivedAt)
@@ -246,7 +249,7 @@ struct ArticleRepositoryTests {
         )
         let firstHiddenQueryItems = try harness.articleRepository.fetchArticleQueryRecordPage(
             matching: hiddenCriteria,
-            offset: 0,
+            cursor: nil,
             limit: ArticleQueryPaginationPolicy.defaultPageSize
         ).records.map { ArticleListItemDTO(article: $0.article, state: $0.state) }
         let currentQueryItem = try #require(firstHiddenQueryItems.first)
@@ -286,7 +289,7 @@ struct ArticleRepositoryTests {
         let repeatedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
         let repeatedHiddenQueryItems = try harness.articleRepository.fetchArticleQueryRecordPage(
             matching: hiddenCriteria,
-            offset: 0,
+            cursor: nil,
             limit: ArticleQueryPaginationPolicy.defaultPageSize
         ).records.map { ArticleListItemDTO(article: $0.article, state: $0.state) }
         let repeatedStates = try modelContext.fetch(FetchDescriptor<ArticleState>())
@@ -434,17 +437,17 @@ struct ArticleRepositoryTests {
 
         let firstFeedDescending = try harness.articleRepository.fetchArticleQueryRecordPage(
             matching: ArticleQueryCriteria(scope: .feed(firstFeed.id), sortMode: .publishedAtDescending),
-            offset: 0,
+            cursor: nil,
             limit: 10
         ).records.map(\.article)
         let firstFeedAscending = try harness.articleRepository.fetchArticleQueryRecordPage(
             matching: ArticleQueryCriteria(scope: .feed(firstFeed.id), sortMode: .publishedAtAscending),
-            offset: 0,
+            cursor: nil,
             limit: 10
         ).records.map(\.article)
         let inboxDescending = try harness.articleRepository.fetchArticleQueryRecordPage(
             matching: ArticleQueryCriteria(scope: .inbox, sortMode: .publishedAtDescending),
-            offset: 0,
+            cursor: nil,
             limit: 10
         ).records.map(\.article)
 
@@ -553,7 +556,7 @@ struct ArticleRepositoryTests {
         func fetchBoundedArticles(matching criteria: ArticleQueryCriteria) throws -> [Article] {
             try harness.articleRepository.fetchArticleQueryRecordPage(
                 matching: criteria,
-                offset: 0,
+                cursor: nil,
                 limit: 20
             ).records.map(\.article)
         }
@@ -677,7 +680,7 @@ struct ArticleRepositoryTests {
                 read: .isFalse,
                 sortMode: .publishedAtDescending
             ),
-            offset: 0,
+            cursor: nil,
             limit: 10
         ).records
 
@@ -728,23 +731,22 @@ struct ArticleRepositoryTests {
 
         let firstPage = try repository.fetchArticleQueryRecordPage(
             matching: criteria,
-            offset: 0,
+            cursor: nil,
             limit: 2
         )
-
         #expect(firstPage.records.map { $0.article.externalID } == ["paged-5", "paged-4"])
-        #expect(firstPage.nextOffset != nil)
+        #expect(firstPage.nextCursor != nil)
         #expect(observations.map(\.requestedIdentityCount) == [3])
 
         observations.removeAll()
         let secondPage = try repository.fetchArticleQueryRecordPage(
             matching: criteria,
-            offset: try #require(firstPage.nextOffset),
+            cursor: firstPage.nextCursor,
             limit: 2
         )
 
         #expect(secondPage.records.map { $0.article.externalID } == ["paged-3"])
-        #expect(secondPage.nextOffset == nil)
+        #expect(secondPage.nextCursor == nil)
         #expect(observations.allSatisfy { $0.requestedIdentityCount <= 3 })
     }
 

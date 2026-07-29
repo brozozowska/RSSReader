@@ -32,13 +32,13 @@ typealias ArticleSearchScanBatchProbe = @MainActor (ArticleSearchScanBatchObserv
 
 private struct ArticleSearchScanMatch: Sendable {
     let article: ArticleListItemDTO
-    let continuationOffset: Int
+    let continuationCursor: ArticleQueryCursor
 }
 
 private struct ArticleSearchProcessedScanBatch: Sendable {
     let matches: [ArticleSearchScanMatch]
     let hasScopeContent: Bool
-    let nextOffset: Int?
+    let nextCursor: ArticleQueryCursor?
     let rebuiltSearchableText: Bool
     let observation: ArticleSearchScanBatchObservation
 }
@@ -111,14 +111,14 @@ final class DefaultArticleQueryService: ArticleQueryService {
         criteria: ArticleQueryCriteria,
         limit: Int
     ) async throws -> ArticleSearchResultSnapshot {
-        var repositoryOffset = request.cursor?.repositoryOffset ?? 0
+        var repositoryCursor = request.cursor?.repositoryCursor
         var hasScopeContent = request.cursor != nil
 
         guard limit > 0 else {
             let batch = try processSearchScanBatch(
                 request: request,
                 matching: criteria,
-                offset: repositoryOffset,
+                cursor: repositoryCursor,
                 limit: 1
             )
             searchScanBatchProbe?(batch.observation)
@@ -139,7 +139,7 @@ final class DefaultArticleQueryService: ArticleQueryService {
             let batch = try processSearchScanBatch(
                 request: request,
                 matching: criteria,
-                offset: repositoryOffset,
+                cursor: repositoryCursor,
                 limit: ArticleQueryPaginationPolicy.scanBatchSize
             )
             hasScopeContent = hasScopeContent || batch.hasScopeContent
@@ -148,10 +148,10 @@ final class DefaultArticleQueryService: ArticleQueryService {
             searchScanBatchProbe?(batch.observation)
 
             guard matchingRecords.count < targetResultCount,
-                  let nextOffset = batch.nextOffset else {
+                  let nextCursor = batch.nextCursor else {
                 break
             }
-            repositoryOffset = nextOffset
+            repositoryCursor = nextCursor
             try Task.checkCancellation()
             await Task.yield()
             try Task.checkCancellation()
@@ -171,7 +171,7 @@ final class DefaultArticleQueryService: ArticleQueryService {
             articles: matchingRecords.prefix(limit).map(\.article),
             hasScopeContent: hasScopeContent,
             nextCursor: ArticleSearchRequest.Cursor(
-                repositoryOffset: matchingRecords[limit - 1].continuationOffset
+                repositoryCursor: matchingRecords[limit - 1].continuationCursor
             )
         )
     }
@@ -179,12 +179,12 @@ final class DefaultArticleQueryService: ArticleQueryService {
     private func processSearchScanBatch(
         request: ArticleSearchRequest,
         matching criteria: ArticleQueryCriteria,
-        offset: Int,
+        cursor: ArticleQueryCursor?,
         limit: Int
     ) throws -> ArticleSearchProcessedScanBatch {
         let batch = try articleRepository.fetchArticleQueryRecordScanBatch(
             matching: criteria,
-            offset: offset,
+            cursor: cursor,
             limit: limit
         )
         var matches: [ArticleSearchScanMatch] = []
@@ -197,7 +197,7 @@ final class DefaultArticleQueryService: ArticleQueryService {
             matches.append(
                 ArticleSearchScanMatch(
                     article: article,
-                    continuationOffset: record.continuationOffset
+                    continuationCursor: record.continuationCursor
                 )
             )
         }
@@ -205,7 +205,7 @@ final class DefaultArticleQueryService: ArticleQueryService {
         return ArticleSearchProcessedScanBatch(
             matches: matches,
             hasScopeContent: batch.records.isEmpty == false,
-            nextOffset: batch.nextOffset,
+            nextCursor: batch.nextCursor,
             rebuiltSearchableText: batch.rebuiltSearchableText,
             observation: ArticleSearchScanBatchObservation(
                 normalizedQuery: request.normalizedQuery,

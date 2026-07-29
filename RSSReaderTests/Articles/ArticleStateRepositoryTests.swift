@@ -25,6 +25,9 @@ struct ArticleStateRepositoryTests {
             ])
         )
         #expect(articleEntity.indices.contains(["binary", "feedID", "externalID"]))
+        #expect(articleEntity.indices.contains(["binary", "querySortDate"]))
+        #expect(articleEntity.indices.contains(["binary", "feedID", "querySortDate"]))
+        #expect(articleEntity.indices.contains(["binary", "feedFolderName", "querySortDate"]))
         #expect(articleEntity.attributesByName["stateLookupKey"] == nil)
     }
 

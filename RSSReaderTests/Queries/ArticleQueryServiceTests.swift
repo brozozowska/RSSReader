@@ -93,7 +93,7 @@ struct ArticleQueryServiceTests {
                 hidden: .isTrue,
                 sortMode: .publishedAtDescending
             ),
-            offset: 0,
+            cursor: nil,
             limit: ArticleQueryPaginationPolicy.defaultPageSize
         ).records.map { ArticleListItemDTO(article: $0.article, state: $0.state) }
 
@@ -405,6 +405,67 @@ struct ArticleQueryServiceTests {
     }
 
     @Test
+    func articleQueryServiceKeysetPaginationPreservesTiedUnreadIDsAfterEarlierPageMutation() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(into: harness)
+        let queryService = makeQueryService(harness)
+        let tieDate = Date(timeIntervalSince1970: 1_000)
+        var insertedArticles: [Article] = []
+
+        for index in 0..<7 {
+            insertedArticles.append(
+                try insertArticle(
+                    into: harness,
+                    feed: feed,
+                    externalID: "mutable-page-\(index)",
+                    title: "Mutable needle \(index)",
+                    publishedAt: tieDate
+                )
+            )
+        }
+
+        let firstPage = try await queryService.fetchArticleSearchSnapshot(
+            ArticleSearchRequest(
+                selection: .unread,
+                sidebarArticleFilter: .allItems,
+                query: "needle",
+                sortMode: .publishedAtDescending,
+                limit: 2
+            )
+        )
+        let firstCursor = try #require(firstPage.nextCursor)
+        for article in firstPage.articles {
+            try harness.articleStateRepository.upsert(
+                feedID: article.feedID,
+                articleExternalID: article.articleExternalID,
+                update: ArticleStateUpsert(isRead: true)
+            )
+        }
+
+        var cursor: ArticleSearchRequest.Cursor? = firstCursor
+        var remainingIDs: [UUID] = []
+        repeat {
+            let snapshot = try await queryService.fetchArticleSearchSnapshot(
+                ArticleSearchRequest(
+                    selection: .unread,
+                    sidebarArticleFilter: .allItems,
+                    query: "needle",
+                    sortMode: .publishedAtDescending,
+                    limit: 2,
+                    cursor: cursor
+                )
+            )
+            remainingIDs.append(contentsOf: snapshot.articles.map(\.id))
+            cursor = snapshot.nextCursor
+        } while cursor != nil
+
+        let expectedRemainingIDs = Set(insertedArticles.map(\.id))
+            .subtracting(firstPage.articles.map(\.id))
+        #expect(Set(remainingIDs) == expectedRemainingIDs)
+        #expect(remainingIDs.count == expectedRemainingIDs.count)
+    }
+
+    @Test
     func articleQueryServiceRebuildsLegacySearchableTextOnceBeforeFiltering() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)
@@ -417,7 +478,8 @@ struct ArticleQueryServiceTests {
         )
         article.searchableText = ""
         article.searchableTextVersion = 0
-        article.searchableTextSourceUpdatedAt = .distantPast
+        article.searchableTextSourceRevision = 0
+        article.searchableTextMaterializedSourceRevision = -1
         try harness.modelContainer.mainContext.save()
 
         let operations = SwiftDataRepositoryOperationCounter()
@@ -451,7 +513,10 @@ struct ArticleQueryServiceTests {
 
         #expect(firstResults.map(\.articleExternalID) == [article.externalID])
         #expect(article.searchableTextVersion == ArticleSearchableTextPolicy.currentVersion)
-        #expect(article.searchableTextSourceUpdatedAt == article.updatedAt)
+        #expect(
+            article.searchableTextMaterializedSourceRevision
+                == article.searchableTextSourceRevision
+        )
         #expect(operations.saveCount == 1)
 
         operations.reset()
@@ -473,7 +538,7 @@ struct ArticleQueryServiceTests {
             contentHTML: "<p>Old body</p>"
         )
         article.contentHTML = "<p>Replacement body token</p>"
-        article.updatedAt = article.updatedAt.addingTimeInterval(1)
+        article.searchableTextSourceRevision += 1
         try harness.modelContainer.mainContext.save()
         let queryService = makeQueryService(harness)
 
@@ -487,7 +552,57 @@ struct ArticleQueryServiceTests {
         ).articles
 
         #expect(results.map(\.articleExternalID) == [article.externalID])
-        #expect(article.searchableTextSourceUpdatedAt == article.updatedAt)
+        #expect(
+            article.searchableTextMaterializedSourceRevision
+                == article.searchableTextSourceRevision
+        )
+    }
+
+    @Test
+    func articleQueryServiceDoesNotRebuildSearchableTextAfterArchiveOrProjectionOnlyUpdate() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(into: harness)
+        let article = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "projection-only-searchable-text",
+            title: "Projection token",
+            contentHTML: "<p>Stable body token</p>"
+        )
+        let sourceRevision = article.searchableTextSourceRevision
+        let materializedRevision = article.searchableTextMaterializedSourceRevision
+        article.archivedAt = .now
+        article.feedTitle = "Renamed Feed Projection"
+        article.feedFolderName = "Moved Folder Projection"
+        article.updatedAt = article.updatedAt.addingTimeInterval(60)
+        try harness.modelContainer.mainContext.save()
+
+        var rebuildCount = 0
+        let operations = SwiftDataRepositoryOperationCounter()
+        let repository = SwiftDataArticleRepository(
+            modelContext: harness.modelContainer.mainContext,
+            persistenceOperationRecorder: operations.record,
+            searchableTextRebuildProbe: { _ in rebuildCount += 1 }
+        )
+        let queryService = DefaultArticleQueryService(
+            articleRepository: repository,
+            articleStateRepository: harness.articleStateRepository
+        )
+
+        let results = try await queryService.fetchArticleSearchSnapshot(
+            ArticleSearchRequest(
+                selection: .feed(feed.id),
+                sidebarArticleFilter: .allItems,
+                query: "stable body token",
+                sortMode: .publishedAtDescending
+            )
+        ).articles
+
+        #expect(results.map(\.articleExternalID) == [article.externalID])
+        #expect(article.searchableTextSourceRevision == sourceRevision)
+        #expect(article.searchableTextMaterializedSourceRevision == materializedRevision)
+        #expect(rebuildCount == 0)
+        #expect(operations.saveCount == 0)
     }
 
     private func makeQueryService(_ harness: TestHarness) -> DefaultArticleQueryService {

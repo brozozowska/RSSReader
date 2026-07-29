@@ -22,7 +22,8 @@ struct ArticleQueryLoadTests {
         )
         let queryService = DefaultArticleQueryService(
             articleRepository: repository,
-            articleStateRepository: harness.articleStateRepository
+            articleStateRepository: harness.articleStateRepository,
+            searchScanBatchProbe: loadProbe.recordSearchBatch
         )
 
         let requests = [
@@ -66,11 +67,26 @@ struct ArticleQueryLoadTests {
         #expect(ArticleQueryLoadTestContract.articleCount >= 10_000)
         #expect(ArticleQueryLoadTestContract.folderArticleCount == 5_000)
         #expect(ArticleQueryLoadTestContract.searchMatchCount == 100)
-        for request in requests {
+        #expect(
+            requests.count == ArticleQueryLoadTestContract.initialPageBudgets.count
+        )
+        for (request, budget) in zip(
+            requests,
+            ArticleQueryLoadTestContract.initialPageBudgets
+        ) {
+            queryOperations.reset()
+            loadProbe.resetQueryMetrics()
             let snapshot = try await queryService.fetchArticleSearchSnapshot(request)
             #expect(snapshot.articles.count == ArticleQueryLoadTestContract.pageSize)
             #expect(Set(snapshot.articles.map(\.id)).count == snapshot.articles.count)
             #expect(snapshot.nextCursor != nil)
+            #expect(
+                loadProbe.materializedCandidateCount
+                    <= budget.maximumMaterializedCandidateCount
+            )
+            #expect(queryOperations.fetchCount <= budget.maximumFetchCount)
+            #expect(queryOperations.saveCount == 0)
+            #expect(loadProbe.searchScanBatchCount > 0)
         }
         #expect(
             loadProbe.maximumRequestedOverlayIdentityCount
@@ -78,6 +94,7 @@ struct ArticleQueryLoadTests {
         )
 
         queryOperations.reset()
+        loadProbe.resetQueryMetrics()
         for query in ["n", "ne", "nee", "need", "needle"] {
             let snapshot = try await queryService.fetchArticleSearchSnapshot(
                 ArticleSearchRequest(
@@ -138,6 +155,57 @@ struct ArticleQueryLoadTests {
                 <= ArticleQueryLoadTestContract.maximumOverlayIdentityBatchSize
         )
         #expect(cancellationProbe.searchableTextRebuildCount == 0)
+    }
+
+    @Test
+    func sparseSearchPaginatesToTerminalPageWithinIndependentWorkBudgets() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        _ = try ArticleQueryLoadFixture.insert(
+            into: harness.modelContainer.mainContext
+        )
+        let operations = SwiftDataRepositoryOperationCounter()
+        let loadProbe = ArticleQueryLoadProbe()
+        let repository = SwiftDataArticleRepository(
+            modelContext: harness.modelContainer.mainContext,
+            persistenceOperationRecorder: operations.record,
+            articleStateQueryBatchProbe: loadProbe.recordStateBatch,
+            searchableTextRebuildProbe: loadProbe.recordSearchableTextRebuild
+        )
+        let queryService = DefaultArticleQueryService(
+            articleRepository: repository,
+            articleStateRepository: harness.articleStateRepository,
+            searchScanBatchProbe: loadProbe.recordSearchBatch
+        )
+        var cursor: ArticleSearchRequest.Cursor?
+        var articleIDs: [UUID] = []
+
+        repeat {
+            let snapshot = try await queryService.fetchArticleSearchSnapshot(
+                ArticleSearchRequest(
+                    selection: .inbox,
+                    sidebarArticleFilter: .allItems,
+                    query: "needle",
+                    sortMode: .publishedAtDescending,
+                    limit: ArticleQueryLoadTestContract.pageSize,
+                    cursor: cursor
+                )
+            )
+            articleIDs.append(contentsOf: snapshot.articles.map(\.id))
+            cursor = snapshot.nextCursor
+        } while cursor != nil
+
+        #expect(articleIDs.count == ArticleQueryLoadTestContract.searchMatchCount)
+        #expect(Set(articleIDs).count == articleIDs.count)
+        #expect(
+            loadProbe.materializedCandidateCount
+                <= ArticleQueryLoadTestContract.maximumSparseSearchCandidateCount
+        )
+        #expect(
+            operations.fetchCount
+                <= ArticleQueryLoadTestContract.maximumSparseSearchFetchCount
+        )
+        #expect(loadProbe.searchableTextRebuildCount == 0)
+        #expect(operations.saveCount == 0)
     }
 
     @Test

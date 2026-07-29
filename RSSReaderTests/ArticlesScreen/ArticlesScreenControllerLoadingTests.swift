@@ -59,7 +59,7 @@ struct ArticlesScreenControllerLoadingTests {
                     return ArticleSearchResultSnapshot(
                         articles: [first, second],
                         hasScopeContent: true,
-                        nextCursor: ArticleSearchRequest.Cursor(repositoryOffset: 2)
+                        nextCursor: makeArticleSearchCursor(seed: 2)
                     )
                 }
                 return ArticleSearchResultSnapshot(
@@ -83,7 +83,10 @@ struct ArticlesScreenControllerLoadingTests {
         )
 
         #expect(requests.map(\.limit) == [2, 2])
-        #expect(requests.map { $0.cursor?.repositoryOffset } == [nil, 2])
+        #expect(
+            requests.map { $0.cursor?.repositoryCursor.sortDate }
+                == [nil, Date(timeIntervalSince1970: 2)]
+        )
         #expect(controller.visibleArticleIDs() == [first.id, second.id, third.id])
         #expect(controller.screenState.articleListSession.context == originalContext)
         #expect(controller.screenState.articleListSession.nextPageCursor == nil)
@@ -106,6 +109,7 @@ struct ArticlesScreenControllerLoadingTests {
                 title: "Sort Page \(index)"
             )
             article.publishedAt = baseDate.addingTimeInterval(TimeInterval(index))
+            article.querySortDate = try #require(article.publishedAt)
             articles.append(article)
         }
         try harness.saveModelContext()
@@ -352,15 +356,10 @@ struct ArticlesScreenControllerLoadingTests {
             articleExternalID: "new-query-result",
             title: "New Query Result"
         )
-        var debounceInvocationCount = 0
+        let debounceGate = ArticlesScreenSearchDebounceGate()
         var queryRequests: [ArticleSearchRequest] = []
         let controller = ArticlesScreenController(
-            searchDebounceOperation: {
-                debounceInvocationCount += 1
-                if debounceInvocationCount == 1 {
-                    try await Task.sleep(for: .seconds(60))
-                }
-            },
+            searchDebounceOperation: debounceGate.wait,
             searchQueryOperation: { request, _ in
                 queryRequests.append(request)
                 return ArticleSearchResultSnapshot(
@@ -379,7 +378,7 @@ struct ArticlesScreenControllerLoadingTests {
             )
         }
         try await waitUntil("first search entered debounce") {
-            debounceInvocationCount == 1
+            debounceGate.hasSuspendedRequest
         }
 
         await controller.load(
@@ -388,10 +387,11 @@ struct ArticlesScreenControllerLoadingTests {
             searchText: "new",
             dependencies: harness.dependencies
         )
+        debounceGate.releaseSuspendedRequest()
         await supersededLoad.value
 
         #expect(ArticlesScreenSearchPolicy.debounceDuration == .milliseconds(250))
-        #expect(debounceInvocationCount == 2)
+        #expect(debounceGate.invocationCount == 2)
         #expect(queryRequests.map(\.normalizedQuery) == ["new"])
         #expect(controller.screenState.articleListSession.context.normalizedSearchText == "new")
         #expect(controller.screenState.articles == [result])
@@ -673,6 +673,30 @@ private final class ArticlesScreenSearchQueryGate {
 
     func releaseSuspendedRequest() {
         continuation?.resume(returning: suspendedSnapshot)
+        continuation = nil
+    }
+}
+
+@MainActor
+private final class ArticlesScreenSearchDebounceGate {
+    private(set) var invocationCount = 0
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    var hasSuspendedRequest: Bool {
+        continuation != nil
+    }
+
+    func wait() async throws {
+        invocationCount += 1
+        guard invocationCount == 1 else { return }
+
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+        }
+    }
+
+    func releaseSuspendedRequest() {
+        continuation?.resume()
         continuation = nil
     }
 }
