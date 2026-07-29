@@ -337,7 +337,8 @@ struct ArticlesScreenState {
         articleListSession.markArticleAsReadInCurrentSession(id: articleID)
         navigationSubtitle = ArticlesScreenSubtitleResolver.resolve(
             articles: articles,
-            sidebarArticleFilter: articleListSession.context.sidebarArticleFilter
+            sidebarArticleFilter: articleListSession.context.sidebarArticleFilter,
+            hasMorePages: articleListSession.nextPageCursor != nil
         )
 
         if selection == nil {

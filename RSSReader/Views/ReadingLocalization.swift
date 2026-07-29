@@ -39,6 +39,9 @@ enum ReadingLocalization {
         )
         return CommonLocalization.localizedCountTemplate(template, count: count)
     }
+    static func unreadItemsLowerBoundSubtitle(count: Int) -> String {
+        lowerBoundSubtitle(unreadItemsSubtitle(count: count))
+    }
     static func starredItemsSubtitle(count: Int) -> String {
         let template = String(
             localized: "reading.articles.subtitle.starred.count",
@@ -46,6 +49,17 @@ enum ReadingLocalization {
             comment: "Article list subtitle for a starred article count. Placeholder is the starred article count."
         )
         return CommonLocalization.localizedCountTemplate(template, count: count)
+    }
+    static func starredItemsLowerBoundSubtitle(count: Int) -> String {
+        lowerBoundSubtitle(starredItemsSubtitle(count: count))
+    }
+    private static func lowerBoundSubtitle(_ exactCountSubtitle: String) -> String {
+        let template = String(
+            localized: "reading.articles.subtitle.loadedLowerBound.format",
+            defaultValue: "≥ %@",
+            comment: "Article list subtitle format indicating that the loaded count is a lower bound because more pages are available. Placeholder is a localized exact-count subtitle."
+        )
+        return CommonLocalization.localizedTemplate(template, exactCountSubtitle)
     }
     static let noSidebarSelectionTitle = String(
         localized: "reading.articles.placeholder.noSidebarSelection.title",

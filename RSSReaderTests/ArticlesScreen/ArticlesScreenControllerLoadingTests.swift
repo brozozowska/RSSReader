@@ -90,6 +90,100 @@ struct ArticlesScreenControllerLoadingTests {
     }
 
     @Test
+    func articlesScreenControllerResetsPaginationBeforeUsingCursorWithChangedUnreadSortOrder() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let settingsRepository = try #require(harness.dependencies.appSettingsRepository)
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/controller-sort-pages.xml"]).first
+        )
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        var articles: [Article] = []
+        for index in 0..<5 {
+            let article = try harness.insertArticle(
+                feed: feed,
+                externalID: "sort-page-\(index)",
+                url: "https://example.com/articles/sort-page-\(index)",
+                title: "Sort Page \(index)"
+            )
+            article.publishedAt = baseDate.addingTimeInterval(TimeInterval(index))
+            articles.append(article)
+        }
+        try harness.saveModelContext()
+        _ = try settingsRepository.update(
+            AppSettingsUpdate(unreadArticleSortMode: .publishedAtAscending)
+        )
+        let controller = ArticlesScreenController(pageSize: 2)
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies
+        )
+        let ascendingCursor = try #require(
+            controller.screenState.articleListSession.nextPageCursor
+        )
+
+        #expect(controller.screenState.articleListSession.context.sortMode == .publishedAtAscending)
+        #expect(controller.screenState.articles.map(\.id) == [articles[0].id, articles[1].id])
+        #expect(
+            controller.screenState.navigationSubtitle
+                == ReadingLocalization.unreadItemsLowerBoundSubtitle(count: 2)
+        )
+
+        _ = try settingsRepository.update(
+            AppSettingsUpdate(unreadArticleSortMode: .publishedAtDescending)
+        )
+        await controller.loadNextPage(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.articleListSession.context.sortMode == .publishedAtAscending)
+        #expect(controller.screenState.articleListSession.nextPageCursor == ascendingCursor)
+        #expect(controller.screenState.articles.map(\.id) == [articles[0].id, articles[1].id])
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.articleListSession.context.selection == .feed(feed.id))
+        #expect(controller.screenState.articleListSession.context.sortMode == .publishedAtDescending)
+        #expect(controller.screenState.articles.map(\.id) == [articles[4].id, articles[3].id])
+        #expect(
+            controller.screenState.navigationSubtitle
+                == ReadingLocalization.unreadItemsLowerBoundSubtitle(count: 2)
+        )
+
+        await controller.loadNextPage(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies
+        )
+        #expect(
+            controller.screenState.articles.map(\.id)
+                == [articles[4].id, articles[3].id, articles[2].id, articles[1].id]
+        )
+        #expect(
+            controller.screenState.navigationSubtitle
+                == ReadingLocalization.unreadItemsLowerBoundSubtitle(count: 4)
+        )
+        await controller.loadNextPage(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        let loadedArticleIDs = controller.visibleArticleIDs()
+        #expect(loadedArticleIDs == articles.reversed().map(\.id))
+        #expect(Set(loadedArticleIDs).count == articles.count)
+        #expect(controller.screenState.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 5))
+        #expect(controller.screenState.articleListSession.nextPageCursor == nil)
+    }
+
+    @Test
     func articlesScreenControllerIncludesArchivedArticlesForCurrentSelectionUntilCleanupDeletesThem() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-archive.xml"]).first)

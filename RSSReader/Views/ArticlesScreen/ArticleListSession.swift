@@ -5,15 +5,18 @@ struct ArticleListSession: Equatable {
         let selection: SidebarSelection?
         let sidebarArticleFilter: SidebarArticleFilter
         let normalizedSearchText: String
+        let sortMode: ArticleSortMode
 
         init(
             selection: SidebarSelection?,
             sidebarArticleFilter: SidebarArticleFilter,
-            normalizedSearchText: String = ""
+            normalizedSearchText: String = "",
+            sortMode: ArticleSortMode = .publishedAtDescending
         ) {
             self.selection = selection
             self.sidebarArticleFilter = sidebarArticleFilter
             self.normalizedSearchText = normalizedSearchText
+            self.sortMode = sortMode
         }
 
         var articleListFilter: ArticleListFilter {

@@ -109,19 +109,27 @@ final class ArticlesScreenController {
         generation currentLoadGeneration: Int
     ) async {
         let normalizedSearchText = ArticleSearchScope.normalizedSearchText(searchText)
+        let effectiveSortMode = articleListSortMode(
+            for: selection,
+            sidebarArticleFilter: sidebarArticleFilter,
+            dependencies: dependencies
+        )
         let sessionContext = ArticleListSession.Context(
             selection: selection,
             sidebarArticleFilter: sidebarArticleFilter,
-            normalizedSearchText: normalizedSearchText
+            normalizedSearchText: normalizedSearchText,
+            sortMode: effectiveSortMode
         )
         let sessionContextChanged = shouldResetArticleSession(for: sessionContext)
         let navigationTitle = resolveNavigationTitle(
             selection: selection,
             dependencies: dependencies
         )
-        let loadingSubtitle = resolveNavigationSubtitle(
-            for: screenState.articles,
-            sidebarArticleFilter: sidebarArticleFilter
+        let loadingSubtitle = ArticlesScreenSubtitleResolver.resolve(
+            articles: screenState.articles,
+            sidebarArticleFilter: sidebarArticleFilter,
+            hasMorePages: sessionContextChanged == false
+                && screenState.articleListSession.nextPageCursor != nil
         )
 
         do {
@@ -130,7 +138,6 @@ final class ArticlesScreenController {
             }
             try Task.checkCancellation()
             guard currentLoadGeneration == loadGeneration else { return }
-
             screenState.beginLoading(
                 for: selection,
                 navigationTitle: navigationTitle,
@@ -156,7 +163,7 @@ final class ArticlesScreenController {
                 for: selection,
                 sidebarArticleFilter: sidebarArticleFilter,
                 normalizedSearchText: normalizedSearchText,
-                unreadArticleSortMode: loadUnreadArticleSortMode(dependencies: dependencies),
+                sortMode: effectiveSortMode,
                 articleQueryService: articleQueryService
             )
             try Task.checkCancellation()
@@ -167,18 +174,19 @@ final class ArticlesScreenController {
                 retainsCurrentContent: sessionContextChanged == false && retainsSessionFilterMutations,
                 retainedMembershipStatus: retainedSessionMembershipStatus
             )
-            let subtitleArticles = resolvedEntries.map(\.article)
-
+            let resolvedArticles = resolvedEntries.map(\.article)
+            let navigationSubtitle = ArticlesScreenSubtitleResolver.resolve(
+                articles: resolvedArticles,
+                sidebarArticleFilter: sidebarArticleFilter,
+                hasMorePages: loadResult.nextPageCursor != nil
+            )
             guard currentLoadGeneration == loadGeneration else { return }
             lastLoadedSessionContext = sessionContext
             screenState.applyLoadedEntries(
                 resolvedEntries,
                 selection: selection,
                 navigationTitle: navigationTitle,
-                navigationSubtitle: resolveNavigationSubtitle(
-                    for: subtitleArticles,
-                    sidebarArticleFilter: sidebarArticleFilter
-                ),
+                navigationSubtitle: navigationSubtitle,
                 sessionContext: sessionContext,
                 preservesRefreshFeedback: preservesRefreshFeedback,
                 emptyContentKind: loadResult.emptyContentKind,
@@ -208,10 +216,16 @@ final class ArticlesScreenController {
         dependencies: AppDependencies
     ) async {
         let normalizedSearchText = ArticleSearchScope.normalizedSearchText(searchText)
+        let effectiveSortMode = articleListSortMode(
+            for: selection,
+            sidebarArticleFilter: sidebarArticleFilter,
+            dependencies: dependencies
+        )
         let sessionContext = ArticleListSession.Context(
             selection: selection,
             sidebarArticleFilter: sidebarArticleFilter,
-            normalizedSearchText: normalizedSearchText
+            normalizedSearchText: normalizedSearchText,
+            sortMode: effectiveSortMode
         )
         guard sessionContext == lastLoadedSessionContext,
               sessionContext == screenState.articleListSession.context,
@@ -231,14 +245,20 @@ final class ArticlesScreenController {
                 for: selection,
                 sidebarArticleFilter: sidebarArticleFilter,
                 normalizedSearchText: normalizedSearchText,
-                unreadArticleSortMode: loadUnreadArticleSortMode(dependencies: dependencies),
+                sortMode: effectiveSortMode,
                 articleQueryService: articleQueryService,
                 cursor: nextPageCursor
             )
             try Task.checkCancellation()
             guard currentLoadGeneration == loadGeneration,
                   sessionContext == lastLoadedSessionContext,
-                  sessionContext == screenState.articleListSession.context else {
+                  sessionContext == screenState.articleListSession.context,
+                  sessionContext == articleListSessionContext(
+                    selection: selection,
+                    sidebarArticleFilter: sidebarArticleFilter,
+                    normalizedSearchText: normalizedSearchText,
+                    dependencies: dependencies
+                  ) else {
                 screenState.endLoadingNextPage()
                 return
             }
@@ -251,9 +271,10 @@ final class ArticlesScreenController {
             screenState.applyLoadedNextPage(
                 newArticles,
                 nextPageCursor: loadResult.nextPageCursor,
-                navigationSubtitle: resolveNavigationSubtitle(
-                    for: allArticles,
-                    sidebarArticleFilter: sidebarArticleFilter
+                navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
+                    articles: allArticles,
+                    sidebarArticleFilter: sidebarArticleFilter,
+                    hasMorePages: loadResult.nextPageCursor != nil
                 )
             )
         } catch is CancellationError {
@@ -309,16 +330,6 @@ final class ArticlesScreenController {
         )
     }
 
-    private func resolveNavigationSubtitle(
-        for articles: [ArticleListItemDTO],
-        sidebarArticleFilter: SidebarArticleFilter
-    ) -> String {
-        ArticlesScreenSubtitleResolver.resolve(
-            articles: articles,
-            sidebarArticleFilter: sidebarArticleFilter
-        )
-    }
-
     private func loadUnreadArticleSortMode(dependencies: AppDependencies) -> ArticleSortMode {
         guard let appSettingsService = dependencies.appSettingsService else {
             return .publishedAtDescending
@@ -336,24 +347,15 @@ final class ArticlesScreenController {
         for selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter,
         normalizedSearchText: String,
-        unreadArticleSortMode: ArticleSortMode,
+        sortMode: ArticleSortMode,
         articleQueryService: any ArticleQueryService,
         cursor: ArticleSearchRequest.Cursor? = nil
     ) async throws -> ArticleListLoadResult {
-        let articleListFilter = articleListFilter(
-            for: selection,
-            sidebarArticleFilter: sidebarArticleFilter
-        )
-        let articleListSortMode = articleListSortMode(
-            for: articleListFilter,
-            unreadArticleSortMode: unreadArticleSortMode
-        )
-
         let request = ArticleSearchRequest(
             selection: selection,
             sidebarArticleFilter: sidebarArticleFilter,
             query: normalizedSearchText,
-            sortMode: articleListSortMode,
+            sortMode: sortMode,
             limit: pageSize,
             cursor: cursor
         )
@@ -393,6 +395,38 @@ final class ArticlesScreenController {
         unreadArticleSortMode: ArticleSortMode
     ) -> ArticleSortMode {
         filter == .unread ? unreadArticleSortMode : .publishedAtDescending
+    }
+
+    private func articleListSortMode(
+        for selection: SidebarSelection?,
+        sidebarArticleFilter: SidebarArticleFilter,
+        dependencies: AppDependencies
+    ) -> ArticleSortMode {
+        articleListSortMode(
+            for: articleListFilter(
+                for: selection,
+                sidebarArticleFilter: sidebarArticleFilter
+            ),
+            unreadArticleSortMode: loadUnreadArticleSortMode(dependencies: dependencies)
+        )
+    }
+
+    private func articleListSessionContext(
+        selection: SidebarSelection?,
+        sidebarArticleFilter: SidebarArticleFilter,
+        normalizedSearchText: String,
+        dependencies: AppDependencies
+    ) -> ArticleListSession.Context {
+        ArticleListSession.Context(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter,
+            normalizedSearchText: normalizedSearchText,
+            sortMode: articleListSortMode(
+                for: selection,
+                sidebarArticleFilter: sidebarArticleFilter,
+                dependencies: dependencies
+            )
+        )
     }
 
     private func entriesByRetainingSessionItems(

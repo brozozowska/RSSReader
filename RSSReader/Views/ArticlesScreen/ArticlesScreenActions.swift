@@ -69,7 +69,8 @@ extension ArticlesScreenController {
             updatedArticles,
             navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
                 articles: updatedArticles,
-                sidebarArticleFilter: sidebarArticleFilter
+                sidebarArticleFilter: sidebarArticleFilter,
+                hasMorePages: screenState.articleListSession.nextPageCursor != nil
             ),
             emptyContentKind: ArticleSearchScope.normalizedSearchText(searchText).isEmpty
                 ? .selection
@@ -119,7 +120,11 @@ extension ArticlesScreenController {
                 sidebarArticleFilter: sidebarArticleFilter
             )
         )
-        applyArticleRowMutation(mutation, articleID: article.id, sidebarArticleFilter: sidebarArticleFilter)
+        applyArticleRowMutation(
+            mutation,
+            articleID: article.id,
+            sidebarArticleFilter: sidebarArticleFilter
+        )
     }
 
     func toggleStarredState(
@@ -154,7 +159,11 @@ extension ArticlesScreenController {
                 sidebarArticleFilter: sidebarArticleFilter
             )
         )
-        applyArticleRowMutation(mutation, articleID: article.id, sidebarArticleFilter: sidebarArticleFilter)
+        applyArticleRowMutation(
+            mutation,
+            articleID: article.id,
+            sidebarArticleFilter: sidebarArticleFilter
+        )
     }
 
     private func applyArticleRowMutation(
@@ -172,7 +181,8 @@ extension ArticlesScreenController {
             mutation: mutation,
             navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
                 articles: updatedArticles,
-                sidebarArticleFilter: sidebarArticleFilter
+                sidebarArticleFilter: sidebarArticleFilter,
+                hasMorePages: screenState.articleListSession.nextPageCursor != nil
             )
         )
     }

@@ -160,19 +160,26 @@ struct ArticlesScreenNavigationTitleResolver {
 struct ArticlesScreenSubtitleResolver {
     static func resolve(
         articles: [ArticleListItemDTO],
-        sidebarArticleFilter: SidebarArticleFilter
+        sidebarArticleFilter: SidebarArticleFilter,
+        hasMorePages: Bool = false
     ) -> String {
         let count: Int
 
         switch sidebarArticleFilter {
         case .allItems, .unread:
             count = articles.filter { $0.isRead == false }.count
+            if hasMorePages {
+                return ReadingLocalization.unreadItemsLowerBoundSubtitle(count: count)
+            }
             guard count > 0 else {
                 return ReadingLocalization.noUnreadItemsSubtitle
             }
             return ReadingLocalization.unreadItemsSubtitle(count: count)
         case .starred:
             count = articles.filter(\.isStarred).count
+            if hasMorePages {
+                return ReadingLocalization.starredItemsLowerBoundSubtitle(count: count)
+            }
             return ReadingLocalization.starredItemsSubtitle(count: count)
         }
     }

@@ -119,5 +119,9 @@ struct ArticlesScreenControllerMarkAllReadTests {
 
         #expect(controller.screenState.articles.allSatisfy { $0.isRead })
         #expect(controller.screenState.articleListSession.nextPageCursor == nextCursor)
+        #expect(
+            controller.screenState.navigationSubtitle
+                == ReadingLocalization.unreadItemsLowerBoundSubtitle(count: 0)
+        )
     }
 }
