@@ -10,6 +10,7 @@ final class AppSyncRuntimeOrchestrator {
     private let syncBootstrapPreferenceStore: any AppSyncBootstrapPreferenceStoring
     private let syncBootstrapContext: AppSyncBootstrapContext?
     private let appSettingsService: (any AppSettingsService)?
+    private let remoteSyncImportAppAction: RemoteSyncImportAppAction
 
     private var hasStartedSyncCoordinatorAppLifetime = false
     private var hasStartedRemoteSyncReloadAppLifetime = false
@@ -26,7 +27,8 @@ final class AppSyncRuntimeOrchestrator {
         syncBackedStoreReference: SyncBackedStoreReference?,
         syncBootstrapPreferenceStore: any AppSyncBootstrapPreferenceStoring,
         syncBootstrapContext: AppSyncBootstrapContext?,
-        appSettingsService: (any AppSettingsService)?
+        appSettingsService: (any AppSettingsService)?,
+        remoteSyncImportAppAction: RemoteSyncImportAppAction
     ) {
         self.logger = logger
         self.syncCoordinator = syncCoordinator
@@ -37,6 +39,7 @@ final class AppSyncRuntimeOrchestrator {
         self.syncBootstrapPreferenceStore = syncBootstrapPreferenceStore
         self.syncBootstrapContext = syncBootstrapContext
         self.appSettingsService = appSettingsService
+        self.remoteSyncImportAppAction = remoteSyncImportAppAction
     }
 
     deinit {
@@ -214,9 +217,9 @@ final class AppSyncRuntimeOrchestrator {
         remoteSyncReloadPendingImportCompletion = false
         remoteSyncReloadPendingStoreChange = false
         logger.info(
-            "Requesting app-level remote sync reload after matching import completion and persistent store remote change for sync-backed storeIdentifier=\(syncBackedStoreReference?.runtimeStoreIdentifier ?? "nil")"
+            "Requesting app-level remote sync reload and badge refresh after matching import completion and persistent store remote change for sync-backed storeIdentifier=\(syncBackedStoreReference?.runtimeStoreIdentifier ?? "nil")"
         )
-        appState.requestRemoteSyncImportReload()
+        remoteSyncImportAppAction.perform(using: appState)
     }
 
     private func matchesSyncBackedStore(runtimeEventContext: CloudKitRuntimeEventContext) -> Bool {

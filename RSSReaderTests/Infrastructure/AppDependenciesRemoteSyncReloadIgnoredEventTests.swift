@@ -21,7 +21,8 @@ struct AppDependenciesRemoteSyncReloadIgnoredEventTests {
             syncBackedStoreReference: appDependenciesTestSyncBackedStoreReference(),
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             persistentStoreRemoteChangeSource: remoteChangeSource,
-            syncCoordinator: syncCoordinator
+            syncCoordinator: syncCoordinator,
+            unreadAppIconBadgeService: NoOpUnreadAppIconBadgeService()
         )
         let appState = AppState()
         let initialSidebarReloadID = appState.sidebarReloadID
@@ -74,7 +75,8 @@ struct AppDependenciesRemoteSyncReloadIgnoredEventTests {
             syncBackedStoreReference: appDependenciesTestSyncBackedStoreReference(),
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             persistentStoreRemoteChangeSource: remoteChangeSource,
-            syncCoordinator: syncCoordinator
+            syncCoordinator: syncCoordinator,
+            unreadAppIconBadgeService: NoOpUnreadAppIconBadgeService()
         )
         let appState = AppState()
         let initialSidebarReloadID = appState.sidebarReloadID
@@ -126,7 +128,8 @@ struct AppDependenciesRemoteSyncReloadIgnoredEventTests {
             syncBackedStoreReference: appDependenciesTestSyncBackedStoreReference(),
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             persistentStoreRemoteChangeSource: remoteChangeSource,
-            syncCoordinator: syncCoordinator
+            syncCoordinator: syncCoordinator,
+            unreadAppIconBadgeService: NoOpUnreadAppIconBadgeService()
         )
         let appState = AppState()
         let initialSidebarReloadID = appState.sidebarReloadID
@@ -171,6 +174,7 @@ struct AppDependenciesRemoteSyncReloadIgnoredEventTests {
         syncCoordinator.applyAccountAvailability(.available)
         let cloudKitRuntimeEventSource = AppDependenciesTestCloudKitRuntimeEventSource()
         let remoteChangeSource = AppDependenciesTestPersistentStoreRemoteChangeSource()
+        let badgeService = AppDependenciesRecordingUnreadAppIconBadgeService()
         let dependencies = AppDependencies(
             logger: TestLogger(),
             httpClient: harness.httpClient,
@@ -178,7 +182,8 @@ struct AppDependenciesRemoteSyncReloadIgnoredEventTests {
             syncBackedStoreReference: appDependenciesTestSyncBackedStoreReference(),
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             persistentStoreRemoteChangeSource: remoteChangeSource,
-            syncCoordinator: syncCoordinator
+            syncCoordinator: syncCoordinator,
+            unreadAppIconBadgeService: badgeService
         )
         let appState = AppState()
         let initialSidebarReloadID = appState.sidebarReloadID
@@ -213,6 +218,7 @@ struct AppDependenciesRemoteSyncReloadIgnoredEventTests {
             appState.sidebarReloadID != initialSidebarReloadID
                 && appState.articleListReloadID != initialArticleListReloadID
                 && appState.articleScreenReloadID != initialArticleScreenReloadID
+                && badgeService.refreshBadgeCountCallCount == 1
         }
 
         let firstSidebarReloadID = appState.sidebarReloadID
@@ -236,5 +242,6 @@ struct AppDependenciesRemoteSyncReloadIgnoredEventTests {
         #expect(appState.sidebarReloadID == firstSidebarReloadID)
         #expect(appState.articleListReloadID == firstArticleListReloadID)
         #expect(appState.articleScreenReloadID == firstArticleScreenReloadID)
+        #expect(badgeService.refreshBadgeCountCallCount == 1)
     }
 }

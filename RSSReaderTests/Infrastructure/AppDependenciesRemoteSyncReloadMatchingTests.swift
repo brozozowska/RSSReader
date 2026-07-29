@@ -14,6 +14,7 @@ struct AppDependenciesRemoteSyncReloadMatchingTests {
         syncCoordinator.applyAccountAvailability(.available)
         let cloudKitRuntimeEventSource = AppDependenciesTestCloudKitRuntimeEventSource()
         let remoteChangeSource = AppDependenciesTestPersistentStoreRemoteChangeSource()
+        let badgeService = AppDependenciesRecordingUnreadAppIconBadgeService()
         let dependencies = AppDependencies(
             logger: TestLogger(),
             httpClient: harness.httpClient,
@@ -21,7 +22,8 @@ struct AppDependenciesRemoteSyncReloadMatchingTests {
             syncBackedStoreReference: appDependenciesTestSyncBackedStoreReference(),
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             persistentStoreRemoteChangeSource: remoteChangeSource,
-            syncCoordinator: syncCoordinator
+            syncCoordinator: syncCoordinator,
+            unreadAppIconBadgeService: badgeService
         )
         let appState = AppState()
         let initialSidebarReloadID = appState.sidebarReloadID
@@ -56,6 +58,7 @@ struct AppDependenciesRemoteSyncReloadMatchingTests {
             appState.sidebarReloadID != initialSidebarReloadID
                 && appState.articleListReloadID != initialArticleListReloadID
                 && appState.articleScreenReloadID != initialArticleScreenReloadID
+                && badgeService.refreshBadgeCountCallCount == 1
         }
 
         #expect(appState.lastContentReloadTrigger == .remoteSyncImport)
@@ -68,6 +71,7 @@ struct AppDependenciesRemoteSyncReloadMatchingTests {
         syncCoordinator.applyAccountAvailability(.available)
         let cloudKitRuntimeEventSource = AppDependenciesTestCloudKitRuntimeEventSource()
         let remoteChangeSource = AppDependenciesTestPersistentStoreRemoteChangeSource()
+        let badgeService = AppDependenciesRecordingUnreadAppIconBadgeService()
         let dependencies = AppDependencies(
             logger: TestLogger(),
             httpClient: harness.httpClient,
@@ -75,7 +79,8 @@ struct AppDependenciesRemoteSyncReloadMatchingTests {
             syncBackedStoreReference: appDependenciesTestSyncBackedStoreReference(),
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             persistentStoreRemoteChangeSource: remoteChangeSource,
-            syncCoordinator: syncCoordinator
+            syncCoordinator: syncCoordinator,
+            unreadAppIconBadgeService: badgeService
         )
         let appState = AppState()
         let initialSidebarReloadID = appState.sidebarReloadID
@@ -110,6 +115,7 @@ struct AppDependenciesRemoteSyncReloadMatchingTests {
             appState.sidebarReloadID != initialSidebarReloadID
                 && appState.articleListReloadID != initialArticleListReloadID
                 && appState.articleScreenReloadID != initialArticleScreenReloadID
+                && badgeService.refreshBadgeCountCallCount == 1
         }
 
         #expect(appState.lastContentReloadTrigger == .remoteSyncImport)

@@ -21,7 +21,8 @@ struct AppDependenciesRemoteSyncReloadLifecycleTests {
             syncBackedStoreReference: appDependenciesTestSyncBackedStoreReference(),
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             persistentStoreRemoteChangeSource: remoteChangeSource,
-            syncCoordinator: syncCoordinator
+            syncCoordinator: syncCoordinator,
+            unreadAppIconBadgeService: NoOpUnreadAppIconBadgeService()
         )
         let appState = AppState()
         let initialSidebarReloadID = appState.sidebarReloadID

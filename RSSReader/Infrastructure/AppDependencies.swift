@@ -314,7 +314,11 @@ public final class AppDependencies: AppDependenciesProtocol {
             syncBackedStoreReference: syncBackedStoreReference,
             syncBootstrapPreferenceStore: syncBootstrapPreferenceStore,
             syncBootstrapContext: syncBootstrapContext,
-            appSettingsService: appSettingsService
+            appSettingsService: appSettingsService,
+            remoteSyncImportAppAction: RemoteSyncImportAppAction(
+                logger: logger,
+                unreadAppIconBadgeService: resolvedUnreadAppIconBadgeService
+            )
         )
     }
 }
