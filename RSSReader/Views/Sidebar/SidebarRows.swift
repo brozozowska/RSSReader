@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SidebarSmartRowView: View {
     let row: SidebarSmartRowState
-    @Binding var selection: SidebarSelection?
 
     var body: some View {
         SidebarBasicRow(
@@ -11,16 +10,12 @@ struct SidebarSmartRowView: View {
             count: row.count
         )
         .contentShape(Rectangle())
-        .onTapGesture {
-            selection = row.selection
-        }
-        .tag(Optional(row.selection))
+        .tag(row.selection)
     }
 }
 
 struct SidebarFeedRowView: View {
     let row: SidebarFeedRowState
-    @Binding var selection: SidebarSelection?
     let actionHandlers: SidebarActionHandlers
 
     var body: some View {
@@ -39,9 +34,6 @@ struct SidebarFeedRowView: View {
         .font(.body)
         .padding(.leading, row.isIndented ? 24 : 0)
         .contentShape(Rectangle())
-        .onTapGesture {
-            selection = row.selection
-        }
         .contextMenu {
             Button {
                 actionHandlers.showFeedOrganizer(row.id)
@@ -63,7 +55,7 @@ struct SidebarFeedRowView: View {
         }
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
-        .tag(Optional(row.selection))
+        .tag(row.selection)
     }
 }
 
@@ -86,7 +78,6 @@ struct SidebarFolderRowView: View {
             .buttonStyle(.plain)
 
             Button {
-                actionHandlers.showFolder(row.name)
                 selection = row.selection
             } label: {
                 Text(row.name)
@@ -116,7 +107,7 @@ struct SidebarFolderRowView: View {
         }
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
-        .tag(Optional(row.selection))
+        .tag(row.selection)
     }
 }
 

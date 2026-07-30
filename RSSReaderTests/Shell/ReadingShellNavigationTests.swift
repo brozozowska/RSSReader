@@ -10,14 +10,9 @@ struct ReadingShellNavigationTests {
         let appState = AppState()
 
         #expect(appState.selectedSidebarSelection == nil)
+        #expect(appState.presentedSidebarSelection == nil)
         #expect(appState.selectedArticleID == nil)
         #expect(appState.selectedDetailRoute == .none)
-        #expect(
-            ReadingShellCompactNavigationState.preferredCompactColumn(
-                sidebarSelection: appState.selectedSidebarSelection,
-                articleSelection: appState.selectedArticleID
-            ) == .sidebar
-        )
     }
 
     @Test
@@ -74,111 +69,4 @@ struct ReadingShellNavigationTests {
         )
     }
 
-    @Test
-    func readingShellCompactNavigationStateSelectsPreferredCompactColumnForCurrentContext() {
-        #expect(
-            ReadingShellCompactNavigationState.preferredCompactColumn(
-                sidebarSelection: nil,
-                articleSelection: nil
-            ) == .sidebar
-        )
-        #expect(
-            ReadingShellCompactNavigationState.preferredCompactColumn(
-                sidebarSelection: .unread,
-                articleSelection: nil
-            ) == .content
-        )
-        #expect(
-            ReadingShellCompactNavigationState.preferredCompactColumn(
-                sidebarSelection: .feed(UUID()),
-                articleSelection: UUID()
-            ) == .detail
-        )
-    }
-
-    @Test
-    func readingShellCompactNavigationStateShowsArticlesBackButtonOnlyInCompactSidebarContext() {
-        #expect(
-            ReadingShellCompactNavigationState.showsArticlesBackButton(
-                horizontalSizeClass: .compact,
-                sidebarSelection: .starred
-            )
-        )
-        #expect(
-            ReadingShellCompactNavigationState.showsArticlesBackButton(
-                horizontalSizeClass: .regular,
-                sidebarSelection: .starred
-            ) == false
-        )
-        #expect(
-            ReadingShellCompactNavigationState.showsArticlesBackButton(
-                horizontalSizeClass: .compact,
-                sidebarSelection: nil
-            ) == false
-        )
-    }
-
-    @Test
-    func readingShellCompactNavigationStateRecognizesLTRLeadingEdgeBackSwipeToSidebar() {
-        #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
-                startLocationX: 12,
-                containerWidth: 390,
-                layoutDirection: .leftToRight,
-                translation: CGSize(width: 96, height: 8)
-            )
-        )
-        #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
-                startLocationX: 64,
-                containerWidth: 390,
-                layoutDirection: .leftToRight,
-                translation: CGSize(width: 96, height: 8)
-            ) == false
-        )
-        #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
-                startLocationX: 12,
-                containerWidth: 390,
-                layoutDirection: .leftToRight,
-                translation: CGSize(width: 40, height: 8)
-            ) == false
-        )
-        #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
-                startLocationX: 12,
-                containerWidth: 390,
-                layoutDirection: .leftToRight,
-                translation: CGSize(width: 96, height: 72)
-            ) == false
-        )
-    }
-
-    @Test
-    func readingShellCompactNavigationStateRecognizesRTLLeadingEdgeBackSwipeToSidebar() {
-        #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
-                startLocationX: 378,
-                containerWidth: 390,
-                layoutDirection: .rightToLeft,
-                translation: CGSize(width: -96, height: 8)
-            )
-        )
-        #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
-                startLocationX: 12,
-                containerWidth: 390,
-                layoutDirection: .rightToLeft,
-                translation: CGSize(width: -96, height: 8)
-            ) == false
-        )
-        #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
-                startLocationX: 378,
-                containerWidth: 390,
-                layoutDirection: .rightToLeft,
-                translation: CGSize(width: 96, height: 8)
-            ) == false
-        )
-    }
 }

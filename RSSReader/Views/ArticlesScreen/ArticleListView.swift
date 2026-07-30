@@ -6,35 +6,27 @@ struct ArticleListView: View {
     @Environment(\.appDependencies) private var dependencies
     @Environment(AppState.self) private var appState
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Environment(\.layoutDirection) private var layoutDirection
 
     let selectedSidebarSelection: SidebarSelection?
     let selectedSidebarArticleFilter: SidebarArticleFilter
     let reloadID: UUID
-    let showsBackButton: Bool
-    let navigateBackToSidebar: () -> Void
     let previewScreenState: ArticlesScreenState?
 
     @Binding var selection: UUID?
     @State private var controller: ArticlesScreenController
     @State private var searchText = ""
     @State private var refreshStartHapticTrigger = 0
-    @State private var backNavigationContainerWidth: CGFloat = 0
 
     init(
         selectedSidebarSelection: SidebarSelection?,
         selectedSidebarArticleFilter: SidebarArticleFilter,
         reloadID: UUID,
-        showsBackButton: Bool,
-        navigateBackToSidebar: @escaping () -> Void,
         previewScreenState: ArticlesScreenState?,
         selection: Binding<UUID?>
     ) {
         self.selectedSidebarSelection = selectedSidebarSelection
         self.selectedSidebarArticleFilter = selectedSidebarArticleFilter
         self.reloadID = reloadID
-        self.showsBackButton = showsBackButton
-        self.navigateBackToSidebar = navigateBackToSidebar
         self.previewScreenState = previewScreenState
         self._selection = selection
         self._controller = State(initialValue: ArticlesScreenController(previewScreenState: previewScreenState))
@@ -121,6 +113,10 @@ struct ArticleListView: View {
             guard isPreviewMode == false else { return }
             await loadArticles(retainsSessionFilterMutations: true)
         }
+        .onChange(of: selectedSidebarSelection) { oldValue, newValue in
+            guard oldValue != newValue, searchText.isEmpty == false else { return }
+            searchText = ""
+        }
         .onChange(of: selection) { _, newValue in
             guard let newValue else { return }
             appState.updateArticleListScrollPosition(
@@ -136,12 +132,6 @@ struct ArticleListView: View {
             .impact(flexibility: .solid, intensity: 0.65),
             trigger: refreshStartHapticTrigger
         )
-        .onGeometryChange(for: CGFloat.self) { proxy in
-            proxy.size.width
-        } action: { newWidth in
-            backNavigationContainerWidth = newWidth
-        }
-        .simultaneousGesture(backNavigationGesture)
     }
 
     // MARK: Loading
@@ -273,32 +263,36 @@ struct ArticleListView: View {
 
     @MainActor
     private func handleMarkAllAsReadAction() {
-        controller.handleMarkAllAsReadAction(
-            searchText: searchText,
-            selection: selectedSidebarSelection,
-            sidebarArticleFilter: selectedSidebarArticleFilter,
-            dependencies: dependencies,
-            isPreviewMode: isPreviewMode
-        )
-        let visibleArticleIDs = controller.visibleArticleIDs()
-        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
-        syncArticleNavigationContext(visibleArticleIDs)
+        Task { @MainActor in
+            await controller.handleMarkAllAsReadAction(
+                searchText: searchText,
+                selection: selectedSidebarSelection,
+                sidebarArticleFilter: selectedSidebarArticleFilter,
+                dependencies: dependencies,
+                isPreviewMode: isPreviewMode
+            )
+            let visibleArticleIDs = controller.visibleArticleIDs()
+            selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+            syncArticleNavigationContext(visibleArticleIDs)
+        }
     }
 
     // MARK: Bulk Actions
 
     @MainActor
     private func confirmMarkAllAsRead() {
-        controller.confirmMarkAllAsRead(
-            searchText: searchText,
-            selection: selectedSidebarSelection,
-            sidebarArticleFilter: selectedSidebarArticleFilter,
-            dependencies: dependencies,
-            isPreviewMode: isPreviewMode
-        )
-        let visibleArticleIDs = controller.visibleArticleIDs()
-        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
-        syncArticleNavigationContext(visibleArticleIDs)
+        Task { @MainActor in
+            await controller.confirmMarkAllAsRead(
+                searchText: searchText,
+                selection: selectedSidebarSelection,
+                sidebarArticleFilter: selectedSidebarArticleFilter,
+                dependencies: dependencies,
+                isPreviewMode: isPreviewMode
+            )
+            let visibleArticleIDs = controller.visibleArticleIDs()
+            selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+            syncArticleNavigationContext(visibleArticleIDs)
+        }
     }
 
     // MARK: Row Actions
@@ -329,30 +323,6 @@ struct ArticleListView: View {
         let visibleArticleIDs = controller.visibleArticleIDs()
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
-    }
-
-    // MARK: Toolbar
-
-    private var backNavigationGesture: some Gesture {
-        DragGesture(minimumDistance: 20)
-            .onEnded { value in
-                guard showsBackButton else { return }
-                guard ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
-                    startLocationX: value.startLocation.x,
-                    containerWidth: backNavigationContainerWidth,
-                    layoutDirection: layoutDirection,
-                    translation: value.translation
-                ) else {
-                    return
-                }
-                endCurrentArticleListSession()
-                navigateBackToSidebar()
-            }
-    }
-
-    @MainActor
-    private func endCurrentArticleListSession() {
-        appState.requestArticleListReload()
     }
 
     @MainActor

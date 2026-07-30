@@ -31,6 +31,50 @@ struct ArticlesScreenControllerLoadingTests {
     }
 
     @Test
+    func articlesScreenControllerReusesControllerAndReplacesSnapshotWhenSidebarSelectionChanges() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feeds = try harness.insertFeeds(
+            urls: [
+                "https://example.com/controller-first.xml",
+                "https://example.com/controller-second.xml"
+            ]
+        )
+        let firstFeed = try #require(feeds.first)
+        let secondFeed = try #require(feeds.last)
+        let firstArticle = try harness.insertArticle(
+            feed: firstFeed,
+            externalID: "controller-first-article",
+            url: "https://example.com/articles/controller-first",
+            title: "Controller First"
+        )
+        let secondArticle = try harness.insertArticle(
+            feed: secondFeed,
+            externalID: "controller-second-article",
+            url: "https://example.com/articles/controller-second",
+            title: "Controller Second"
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(firstFeed.id),
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        #expect(controller.screenState.articles.map(\.id) == [firstArticle.id])
+
+        await controller.load(
+            selection: .feed(secondFeed.id),
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.selection == .feed(secondFeed.id))
+        #expect(controller.screenState.articleListSession.context.selection == .feed(secondFeed.id))
+        #expect(controller.screenState.articles.map(\.id) == [secondArticle.id])
+    }
+
+    @Test
     func articlesScreenControllerAppendsPagesWithoutReplacingCurrentSessionSnapshot() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(

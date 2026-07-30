@@ -99,10 +99,16 @@ struct SidebarView: View {
                 await loadFeeds(showsFullScreenLoading: false, refreshedAt: nil)
             }
         }
-        .onChange(of: appState.selectedSidebarArticleFilter) { _, _ in
-            selection = controller.resolvedSelection(
-                currentSelection: selection,
-                filter: appState.selectedSidebarArticleFilter
+        .onChange(of: appState.selectedSidebarArticleFilter) { _, filter in
+            let currentSelection = appState.selectedSidebarSelection
+            let resolvedSelection = controller.resolvedSelection(
+                currentSelection: currentSelection,
+                filter: filter
+            )
+            appState.reconcileSidebarSelection(
+                resolvedSelection,
+                expectedSelection: currentSelection,
+                expectedFilter: filter
             )
         }
         .sensoryFeedback(
@@ -113,15 +119,21 @@ struct SidebarView: View {
 
     @MainActor
     private func loadFeeds(showsFullScreenLoading: Bool, refreshedAt: Date?) async {
+        let currentSelection = appState.selectedSidebarSelection
+        let currentFilter = appState.selectedSidebarArticleFilter
         let adjustedSelection = await controller.loadFeeds(
             showsFullScreenLoading: showsFullScreenLoading,
             dependencies: dependencies,
-            currentSelection: selection,
-            filter: appState.selectedSidebarArticleFilter,
+            currentSelection: currentSelection,
+            filter: currentFilter,
             refreshedAt: refreshedAt
         )
 
-        selection = adjustedSelection
+        appState.reconcileSidebarSelection(
+            adjustedSelection,
+            expectedSelection: currentSelection,
+            expectedFilter: currentFilter
+        )
     }
 
     @MainActor
@@ -130,14 +142,20 @@ struct SidebarView: View {
 
         refreshStartHapticTrigger += 1
 
+        let currentSelection = appState.selectedSidebarSelection
+        let currentFilter = appState.selectedSidebarArticleFilter
         let adjustedSelection = await controller.refreshSidebar(
             dependencies: dependencies,
             appState: appState,
-            currentSelection: selection,
-            filter: appState.selectedSidebarArticleFilter
+            currentSelection: currentSelection,
+            filter: currentFilter
         )
 
-        selection = adjustedSelection
+        appState.reconcileSidebarSelection(
+            adjustedSelection,
+            expectedSelection: currentSelection,
+            expectedFilter: currentFilter
+        )
     }
 
     @MainActor
@@ -193,9 +211,6 @@ struct SidebarView: View {
                     title: feedTitle,
                     using: appState
                 )
-            },
-            showFolder: { folderName in
-                dependencies.appActions.showFolder(named: folderName, using: appState)
             },
             showFolderEditor: { folderName in
                 dependencies.appActions.showFolderEditor(named: folderName, using: appState)

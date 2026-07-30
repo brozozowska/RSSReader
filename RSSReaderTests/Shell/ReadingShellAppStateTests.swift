@@ -21,6 +21,7 @@ struct ReadingShellAppStateTests {
         appState.selectSidebarSelection(.inbox)
 
         #expect(appState.selectedSidebarSelection == .inbox)
+        #expect(appState.presentedSidebarSelection == .inbox)
         #expect(appState.selectedArticleID == nil)
         #expect(appState.selectedDetailRoute == .none)
         #expect(appState.presentedSafariRoute == nil)
@@ -42,9 +43,189 @@ struct ReadingShellAppStateTests {
         appState.selectSidebarSelection(.feed(feedID))
 
         #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.presentedSidebarSelection == .feed(feedID))
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))
         #expect(appState.articleListReloadID == reloadIDBeforeReselect)
+    }
+
+    @Test
+    func readingShellNativeSidebarBackPreservesQueryContextAndDoesNotReloadIt() {
+        let appState = AppState()
+        let feedID = UUID()
+
+        appState.selectSidebarSelection(.feed(feedID))
+        let reloadIDBeforeBack = appState.articleListReloadID
+
+        appState.updatePresentedSidebarSelection(nil)
+
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.presentedSidebarSelection == nil)
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
+        #expect(appState.articleListReloadID == reloadIDBeforeBack)
+    }
+
+    @Test
+    func readingShellReselectsSameSidebarRowAfterNativeBackWithoutResettingSession() {
+        let appState = AppState()
+        let feedID = UUID()
+
+        appState.selectSidebarSelection(.feed(feedID))
+        appState.updatePresentedSidebarSelection(nil)
+        let reloadIDBeforeReselect = appState.articleListReloadID
+
+        appState.updatePresentedSidebarSelection(.feed(feedID))
+
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.presentedSidebarSelection == .feed(feedID))
+        #expect(appState.articleListReloadID == reloadIDBeforeReselect)
+    }
+
+    @Test
+    func readingShellSelectsDifferentSidebarRowAfterNativeBackAndReloadsQuery() {
+        let appState = AppState()
+        let firstFeedID = UUID()
+        let secondFeedID = UUID()
+
+        appState.selectSidebarSelection(.feed(firstFeedID))
+        appState.updatePresentedSidebarSelection(nil)
+        let reloadIDBeforeSwitch = appState.articleListReloadID
+
+        appState.updatePresentedSidebarSelection(.feed(secondFeedID))
+
+        #expect(appState.selectedSidebarSelection == .feed(secondFeedID))
+        #expect(appState.presentedSidebarSelection == .feed(secondFeedID))
+        #expect(appState.articleListReloadID != reloadIDBeforeSwitch)
+    }
+
+    @Test
+    func readingShellNativeBackAndReselectWorkForEverySidebarSelectionKind() {
+        let selections: [SidebarSelection] = [
+            .inbox,
+            .unread,
+            .starred,
+            .folder("News"),
+            .feed(UUID())
+        ]
+
+        for selection in selections {
+            let appState = AppState()
+            appState.selectSidebarSelection(selection)
+            appState.updatePresentedSidebarSelection(nil)
+
+            #expect(appState.selectedSidebarSelection == selection)
+            #expect(appState.presentedSidebarSelection == nil)
+
+            appState.updatePresentedSidebarSelection(selection)
+
+            #expect(appState.selectedSidebarSelection == selection)
+            #expect(appState.presentedSidebarSelection == selection)
+        }
+    }
+
+    @Test
+    func readingShellExplicitSidebarInvalidationClearsDomainAndPresentationSelections() {
+        let appState = AppState()
+
+        appState.selectSidebarSelection(.folder("News"))
+        appState.selectSidebarSelection(nil)
+
+        #expect(appState.selectedSidebarSelection == nil)
+        #expect(appState.presentedSidebarSelection == nil)
+    }
+
+    @Test
+    func readingShellSidebarReconciliationPreservesNativeBackPresentationState() {
+        let appState = AppState()
+
+        appState.selectSidebarSelection(.folder("Removed"))
+        appState.updatePresentedSidebarSelection(nil)
+        let didApply = appState.reconcileSidebarSelection(
+            .inbox,
+            expectedSelection: .folder("Removed"),
+            expectedFilter: .allItems
+        )
+
+        #expect(didApply)
+        #expect(appState.selectedSidebarSelection == .inbox)
+        #expect(appState.presentedSidebarSelection == nil)
+    }
+
+    @Test
+    func readingShellSidebarReconciliationKeepsPresentedContentOnValidFallback() {
+        let appState = AppState()
+
+        appState.selectSidebarSelection(.folder("Removed"))
+        let didApply = appState.reconcileSidebarSelection(
+            .inbox,
+            expectedSelection: .folder("Removed"),
+            expectedFilter: .allItems
+        )
+
+        #expect(didApply)
+        #expect(appState.selectedSidebarSelection == .inbox)
+        #expect(appState.presentedSidebarSelection == .inbox)
+    }
+
+    @Test
+    func readingShellRejectsStaleSidebarReconciliationAfterNewerSelection() {
+        let appState = AppState()
+        let firstFeedID = UUID()
+        let secondFeedID = UUID()
+
+        appState.selectSidebarSelection(.feed(firstFeedID))
+        appState.updatePresentedSidebarSelection(.feed(secondFeedID))
+        let reloadIDBeforeStaleCompletion = appState.articleListReloadID
+
+        let didApply = appState.reconcileSidebarSelection(
+            .inbox,
+            expectedSelection: .feed(firstFeedID),
+            expectedFilter: .allItems
+        )
+
+        #expect(didApply == false)
+        #expect(appState.selectedSidebarSelection == .feed(secondFeedID))
+        #expect(appState.presentedSidebarSelection == .feed(secondFeedID))
+        #expect(appState.articleListReloadID == reloadIDBeforeStaleCompletion)
+    }
+
+    @Test
+    func readingShellRejectsStaleSidebarReconciliationAfterNewerFilter() {
+        let appState = AppState()
+        let feedID = UUID()
+
+        appState.selectSidebarSelection(.feed(feedID))
+        appState.selectSidebarArticleFilter(.starred)
+        let reloadIDBeforeStaleCompletion = appState.articleListReloadID
+
+        let didApply = appState.reconcileSidebarSelection(
+            .inbox,
+            expectedSelection: .feed(feedID),
+            expectedFilter: .allItems
+        )
+
+        #expect(didApply == false)
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.presentedSidebarSelection == .feed(feedID))
+        #expect(appState.articleListReloadID == reloadIDBeforeStaleCompletion)
+    }
+
+    @Test
+    func readingShellBackChainClearsPresentationAfterReturningFromArticle() {
+        let appState = AppState()
+        let feedID = UUID()
+        let articleID = UUID()
+
+        appState.selectSidebarSelection(.feed(feedID))
+        appState.selectArticle(articleID)
+        appState.selectArticle(nil)
+        appState.updatePresentedSidebarSelection(nil)
+
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.presentedSidebarSelection == nil)
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
     }
 
     @Test

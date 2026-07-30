@@ -49,11 +49,29 @@ enum ReaderAdjacentArticleNavigationDirection: Equatable, Sendable {
 
 struct ReadingNavigationState: Hashable, Sendable {
     var sidebarSelection: SidebarSelection? = nil
+    var presentedSidebarSelection: SidebarSelection? = nil
     var articleSelection: UUID? = nil
     var detailRoute: ReadingDetailRoute = .none
 
     mutating func selectSidebarSelection(_ sidebarSelection: SidebarSelection?) {
+        presentedSidebarSelection = sidebarSelection
+        guard self.sidebarSelection != sidebarSelection else { return }
+
         self.sidebarSelection = sidebarSelection
+        articleSelection = nil
+        detailRoute = .none
+    }
+
+    mutating func dismissSidebarSelectionPresentation() {
+        presentedSidebarSelection = nil
+    }
+
+    mutating func reconcileSidebarSelection(_ sidebarSelection: SidebarSelection?) {
+        guard self.sidebarSelection != sidebarSelection else { return }
+
+        let preservesPresentation = presentedSidebarSelection != nil
+        self.sidebarSelection = sidebarSelection
+        presentedSidebarSelection = preservesPresentation ? sidebarSelection : nil
         articleSelection = nil
         detailRoute = .none
     }
@@ -167,6 +185,11 @@ public final class AppState {
     var selectedSidebarSelection: SidebarSelection? {
         get { readingNavigation.sidebarSelection }
         set { selectSidebarSelection(newValue) }
+    }
+
+    var presentedSidebarSelection: SidebarSelection? {
+        get { readingNavigation.presentedSidebarSelection }
+        set { updatePresentedSidebarSelection(newValue) }
     }
 
     public var selectedFeedID: UUID? {
@@ -353,11 +376,40 @@ public final class AppState {
 
     func selectSidebarSelection(_ sidebarSelection: SidebarSelection?) {
         let previousSidebarSelection = readingNavigation.sidebarSelection
+        readingNavigation.selectSidebarSelection(sidebarSelection)
         guard previousSidebarSelection != sidebarSelection else { return }
 
-        readingNavigation.selectSidebarSelection(sidebarSelection)
         clearArticleNavigationContext()
         requestArticleListReload()
+    }
+
+    func updatePresentedSidebarSelection(_ sidebarSelection: SidebarSelection?) {
+        guard let sidebarSelection else {
+            readingNavigation.dismissSidebarSelectionPresentation()
+            return
+        }
+
+        selectSidebarSelection(sidebarSelection)
+    }
+
+    @discardableResult
+    func reconcileSidebarSelection(
+        _ sidebarSelection: SidebarSelection?,
+        expectedSelection: SidebarSelection?,
+        expectedFilter: SidebarArticleFilter
+    ) -> Bool {
+        guard selectedSidebarSelection == expectedSelection,
+              selectedSidebarArticleFilter == expectedFilter else {
+            return false
+        }
+
+        let previousSidebarSelection = readingNavigation.sidebarSelection
+        readingNavigation.reconcileSidebarSelection(sidebarSelection)
+        guard previousSidebarSelection != sidebarSelection else { return true }
+
+        clearArticleNavigationContext()
+        requestArticleListReload()
+        return true
     }
 
     func updateArticleNavigationContext(_ articleIDs: [UUID]) {

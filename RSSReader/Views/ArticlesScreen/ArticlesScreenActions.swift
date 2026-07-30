@@ -8,9 +8,9 @@ extension ArticlesScreenController {
         sidebarArticleFilter: SidebarArticleFilter,
         dependencies: AppDependencies,
         isPreviewMode: Bool
-    ) {
+    ) async {
         guard shouldAskBeforeMarkingAllAsRead(dependencies: dependencies) else {
-            confirmMarkAllAsRead(
+            await confirmMarkAllAsRead(
                 searchText: searchText,
                 selection: selection,
                 sidebarArticleFilter: sidebarArticleFilter,
@@ -36,10 +36,16 @@ extension ArticlesScreenController {
         sidebarArticleFilter: SidebarArticleFilter,
         dependencies: AppDependencies,
         isPreviewMode: Bool
-    ) {
+    ) async {
         let visibleArticles = screenState
             .derivedViewState()
             .visibleArticles
+        let articleListFilter = currentArticleListFilter(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter
+        )
+        let shouldReloadPaginatedUnreadSession = articleListFilter == .unread
+            && screenState.articleListSession.nextPageCursor != nil
 
         if isPreviewMode == false {
             guard let articleStateService = dependencies.articleStateService else {
@@ -60,10 +66,7 @@ extension ArticlesScreenController {
         let updatedArticles = ArticlesScreenMutationReducer.reduceAfterMarkAllAsRead(
             visibleArticles: visibleArticles,
             allArticles: screenState.articles,
-            filter: currentArticleListFilter(
-                selection: selection,
-                sidebarArticleFilter: sidebarArticleFilter
-            )
+            filter: articleListFilter
         )
         screenState.applyMarkAllAsRead(
             updatedArticles,
@@ -75,6 +78,17 @@ extension ArticlesScreenController {
             emptyContentKind: ArticleSearchScope.normalizedSearchText(searchText).isEmpty
                 ? .selection
                 : .searchResults
+        )
+
+        guard shouldReloadPaginatedUnreadSession, isPreviewMode == false else {
+            return
+        }
+
+        await load(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter,
+            searchText: searchText,
+            dependencies: dependencies
         )
     }
 

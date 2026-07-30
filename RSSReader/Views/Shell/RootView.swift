@@ -6,7 +6,6 @@ struct RootView: View {
     @Environment(\.colorScheme) private var systemColorScheme
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.layoutDirection) private var layoutDirection
-    @State private var preferredCompactColumn: NavigationSplitViewColumn = .sidebar
     @State private var presentedFeedManagementLaunchContext: FeedManagementScreenLaunchContext = .entry
     @State private var interactiveSafariRoute: ArticleSafariRoute?
     @State private var interactiveSafariProgress: CGFloat = 0
@@ -23,30 +22,24 @@ struct RootView: View {
             selectedArticleID: appState.selectedArticleID
         )
         let sidebarSelection = Binding<SidebarSelection?>(
-            get: { appState.selectedSidebarSelection },
-            set: { appState.selectSidebarSelection($0) }
+            get: { appState.presentedSidebarSelection },
+            set: { appState.updatePresentedSidebarSelection($0) }
         )
         let articleSelection = Binding<UUID?>(
             get: { appState.selectedArticleID },
             set: { selectArticle($0) }
         )
 
-        NavigationSplitView(preferredCompactColumn: $preferredCompactColumn) {
+        NavigationSplitView {
             SidebarView(selection: sidebarSelection)
         } content: {
             ArticleListView(
                 selectedSidebarSelection: appState.selectedSidebarSelection,
                 selectedSidebarArticleFilter: appState.selectedSidebarArticleFilter,
                 reloadID: appState.articleListReloadID,
-                showsBackButton: ReadingShellCompactNavigationState.showsArticlesBackButton(
-                    horizontalSizeClass: horizontalSizeClass,
-                    sidebarSelection: appState.selectedSidebarSelection
-                ),
-                navigateBackToSidebar: { preferredCompactColumn = .sidebar },
                 previewScreenState: nil,
                 selection: articleSelection
             )
-            .id(appState.selectedSidebarSelection)
         } detail: {
             switch detailDestination {
             case .none:
@@ -116,13 +109,6 @@ struct RootView: View {
         .preferredColorScheme(themeApplicationPolicy.preferredColorScheme)
         .environment(\.appThemeVariant, themeApplicationPolicy.resolvedTheme)
         .background(themeApplicationPolicy.resolvedTheme.primaryBackground.ignoresSafeArea())
-        .onAppear(perform: syncPreferredCompactColumn)
-        .onChange(of: appState.selectedSidebarSelection) { _, _ in
-            syncPreferredCompactColumn()
-        }
-        .onChange(of: appState.selectedArticleID) { _, _ in
-            syncPreferredCompactColumn()
-        }
         .onChange(of: appState.isPresentingFeedManagementScreen) { _, isPresenting in
             if isPresenting {
                 presentedFeedManagementLaunchContext = appState.feedManagementLaunchContext
@@ -295,22 +281,13 @@ struct RootView: View {
     private func selectArticle(_ articleID: UUID?) {
         withAnimation(ReadingShellTransitionAnimation.screen) {
             dependencies.appActions.selectArticle(id: articleID, using: appState)
-            syncPreferredCompactColumn()
         }
     }
 
     private func navigateBackToArticles() {
         withAnimation(ReadingShellTransitionAnimation.screen) {
             appState.selectedArticleID = nil
-            syncPreferredCompactColumn()
         }
-    }
-
-    private func syncPreferredCompactColumn() {
-        preferredCompactColumn = ReadingShellCompactNavigationState.preferredCompactColumn(
-            sidebarSelection: appState.selectedSidebarSelection,
-            articleSelection: appState.selectedArticleID
-        )
     }
 }
 
