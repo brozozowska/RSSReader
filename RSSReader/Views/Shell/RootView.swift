@@ -11,6 +11,7 @@ struct RootView: View {
     @State private var interactiveSafariProgress: CGFloat = 0
     @State private var interactiveSafariDismissalRoute: ArticleSafariRoute?
     @State private var interactiveSafariDismissalProgress: CGFloat = 0
+    @State private var articlesScreenController = ArticlesScreenController()
 
     var body: some View {
         let themeApplicationPolicy = AppThemeApplicationPolicy(
@@ -23,7 +24,7 @@ struct RootView: View {
         )
         let sidebarSelection = Binding<SidebarSelection?>(
             get: { appState.presentedSidebarSelection },
-            set: { appState.updatePresentedSidebarSelection($0) }
+            set: { prepareAndPresentSidebarSelection($0) }
         )
         let articleSelection = Binding<UUID?>(
             get: { appState.selectedArticleID },
@@ -37,6 +38,7 @@ struct RootView: View {
                 selectedSidebarSelection: appState.selectedSidebarSelection,
                 selectedSidebarArticleFilter: appState.selectedSidebarArticleFilter,
                 reloadID: appState.articleListReloadID,
+                controller: articlesScreenController,
                 previewScreenState: nil,
                 selection: articleSelection
             )
@@ -118,6 +120,37 @@ struct RootView: View {
             if appState.isPresentingFeedManagementScreen {
                 presentedFeedManagementLaunchContext = launchContext
             }
+        }
+    }
+
+    @MainActor
+    private func prepareAndPresentSidebarSelection(_ selection: SidebarSelection?) {
+        guard let selection else {
+            appState.updatePresentedSidebarSelection(nil)
+            return
+        }
+
+        let sidebarArticleFilter = appState.selectedSidebarArticleFilter
+        let presentationLoadTask = articlesScreenController.prepareForPresentation(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter,
+            dependencies: dependencies
+        )
+        appState.updatePresentedSidebarSelection(selection)
+        guard let presentationLoadTask else { return }
+
+        Task { @MainActor in
+            await presentationLoadTask.value
+            guard appState.selectedSidebarSelection == selection,
+                  appState.selectedSidebarArticleFilter == sidebarArticleFilter else {
+                return
+            }
+
+            appState.updateArticleNavigationContext(
+                articlesScreenController.visibleArticleIDs(),
+                sidebarSelection: selection,
+                sidebarArticleFilter: sidebarArticleFilter
+            )
         }
     }
 

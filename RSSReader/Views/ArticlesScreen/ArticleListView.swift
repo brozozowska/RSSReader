@@ -21,6 +21,7 @@ struct ArticleListView: View {
         selectedSidebarSelection: SidebarSelection?,
         selectedSidebarArticleFilter: SidebarArticleFilter,
         reloadID: UUID,
+        controller: ArticlesScreenController? = nil,
         previewScreenState: ArticlesScreenState?,
         selection: Binding<UUID?>
     ) {
@@ -29,15 +30,15 @@ struct ArticleListView: View {
         self.reloadID = reloadID
         self.previewScreenState = previewScreenState
         self._selection = selection
-        self._controller = State(initialValue: ArticlesScreenController(previewScreenState: previewScreenState))
+        self._controller = State(
+            initialValue: controller ?? ArticlesScreenController(previewScreenState: previewScreenState)
+        )
     }
 
     // MARK: Body
 
     var body: some View {
-        let derivedViewState = controller.screenState.derivedViewState(
-            sidebarArticleFilter: selectedSidebarArticleFilter
-        )
+        let derivedViewState = controller.screenState.derivedViewState()
 
         ArticleListContentView(
             sections: derivedViewState.sections,
@@ -58,12 +59,8 @@ struct ArticleListView: View {
             text: $searchText
         )
         .toolbar {
-            ToolbarItem(placement: .title) {
-                titleView(for: controller.screenState)
-            }
-
-            ToolbarItem(placement: .subtitle) {
-                subtitleView(text: derivedViewState.navigationSubtitle)
+            ToolbarItem(placement: .principal) {
+                navigationChromeView(derivedViewState.navigationChrome)
             }
 
             if derivedViewState.toolbarActions.showsMarkAllAsReadAction {
@@ -144,6 +141,8 @@ struct ArticleListView: View {
     ) async {
         let loadingSidebarSelection = selectedSidebarSelection
         let loadingSidebarArticleFilter = selectedSidebarArticleFilter
+        let loadingNormalizedSearchText = ArticleSearchScope.normalizedSearchText(searchText)
+        let loadingReloadID = reloadID
 
         await controller.load(
             selection: loadingSidebarSelection,
@@ -156,7 +155,9 @@ struct ArticleListView: View {
         )
 
         guard loadingSidebarSelection == appState.selectedSidebarSelection,
-              loadingSidebarArticleFilter == appState.selectedSidebarArticleFilter else {
+              loadingSidebarArticleFilter == appState.selectedSidebarArticleFilter,
+              loadingNormalizedSearchText == ArticleSearchScope.normalizedSearchText(searchText),
+              loadingReloadID == appState.articleListReloadID else {
             return
         }
 
@@ -211,6 +212,33 @@ struct ArticleListView: View {
             sidebarSelection: selectedSidebarSelection,
             sidebarArticleFilter: selectedSidebarArticleFilter
         )
+    }
+
+    private func navigationChromeView(
+        _ navigationChrome: ArticlesScreenNavigationChromeState
+    ) -> some View {
+        VStack(spacing: 0) {
+            Text(navigationChrome.title)
+                .font(.headline)
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            Text(navigationChrome.subtitle.isEmpty ? " " : navigationChrome.subtitle)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .opacity(navigationChrome.subtitle.isEmpty ? 0 : 1)
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .multilineTextAlignment(.center)
+        .frame(width: 240, height: 44, alignment: .center)
+        .fixedSize(horizontal: true, vertical: false)
+        .contentTransition(.identity)
+        .accessibilityElement(children: .combine)
+        .transaction { transaction in
+            transaction.animation = nil
+        }
     }
 
     private var articleListScrollPositionBinding: Binding<UUID?> {
@@ -337,21 +365,6 @@ struct ArticleListView: View {
         let visibleArticleIDs = controller.visibleArticleIDs()
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
-    }
-
-    @ViewBuilder
-    private func titleView(for screenState: ArticlesScreenState) -> some View {
-        Text(screenState.navigationTitle)
-            .font(.title3.weight(.semibold))
-    }
-
-    @ViewBuilder
-    private func subtitleView(text: String) -> some View {
-        if text.isEmpty == false {
-            Text(text)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
     }
 
     // MARK: Search And Overlay

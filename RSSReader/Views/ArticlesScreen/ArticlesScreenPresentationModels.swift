@@ -157,6 +157,12 @@ struct ArticlesScreenNavigationTitleResolver {
     }
 }
 
+struct ArticlesScreenNavigationChromeState: Equatable {
+    let sessionContext: ArticleListSession.Context
+    let title: String
+    let subtitle: String
+}
+
 struct ArticlesScreenSubtitleResolver {
     static func resolve(
         articles: [ArticleListItemDTO],

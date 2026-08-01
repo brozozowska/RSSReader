@@ -75,6 +75,96 @@ struct ArticlesScreenControllerLoadingTests {
     }
 
     @Test
+    func articlesScreenControllerReplacesDelayedScopeAndNavigationChromeAsOneSnapshot() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feeds = try harness.insertFeeds(
+            urls: [
+                "https://example.com/chrome-first.xml",
+                "https://example.com/chrome-second.xml"
+            ]
+        )
+        let firstFeed = try #require(feeds.first)
+        let secondFeed = try #require(feeds.last)
+        let firstArticle = makeArticleListItemDTO(
+            feedID: firstFeed.id,
+            articleExternalID: "chrome-first",
+            title: "First Chrome",
+            isRead: false
+        )
+        let secondArticle = makeArticleListItemDTO(
+            feedID: secondFeed.id,
+            articleExternalID: "chrome-second",
+            title: "Second Chrome",
+            isRead: false
+        )
+        let queryGate = ArticlesScreenSelectionQueryGate(
+            suspendedSelection: .feed(secondFeed.id),
+            immediateSnapshot: ArticleSearchResultSnapshot(
+                articles: [firstArticle],
+                hasScopeContent: true
+            ),
+            suspendedSnapshot: ArticleSearchResultSnapshot(
+                articles: [secondArticle],
+                hasScopeContent: true,
+                nextCursor: makeArticleSearchCursor(seed: 1)
+            )
+        )
+        let controller = ArticlesScreenController(
+            searchQueryOperation: { request, _ in
+                try await queryGate.execute(request)
+            }
+        )
+
+        await controller.load(
+            selection: .feed(firstFeed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies
+        )
+        let firstChrome = controller.screenState.derivedViewState().navigationChrome
+
+        let presentationLoad = try #require(controller.prepareForPresentation(
+            selection: .feed(secondFeed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies
+        ))
+        let preparedChrome = controller.screenState.derivedViewState().navigationChrome
+        #expect(controller.screenState.phase == .loading)
+        #expect(controller.screenState.articles.isEmpty)
+        #expect(preparedChrome != firstChrome)
+        #expect(preparedChrome.sessionContext.selection == .feed(secondFeed.id))
+        #expect(preparedChrome.title == secondFeed.displayTitle)
+        #expect(preparedChrome.subtitle == ReadingLocalization.loadingArticlesTitle)
+
+        try await waitUntil("second feed query suspended") {
+            queryGate.hasSuspendedRequest
+        }
+        let coalescedLoad = Task { @MainActor in
+            await controller.load(
+                selection: .feed(secondFeed.id),
+                sidebarArticleFilter: .unread,
+                dependencies: harness.dependencies,
+                retainsSessionFilterMutations: true
+            )
+        }
+        await Task.yield()
+
+        #expect(controller.screenState.phase == .loading)
+        #expect(controller.screenState.articles.isEmpty)
+        #expect(controller.screenState.derivedViewState().navigationChrome == preparedChrome)
+        #expect(queryGate.requestCount == 2)
+
+        queryGate.releaseSuspendedRequest()
+        await presentationLoad.value
+        await coalescedLoad.value
+
+        let secondChrome = controller.screenState.derivedViewState().navigationChrome
+        #expect(secondChrome.sessionContext.selection == .feed(secondFeed.id))
+        #expect(secondChrome.title == secondFeed.displayTitle)
+        #expect(secondChrome.subtitle == ReadingLocalization.unreadItemsLowerBoundSubtitle(count: 1))
+        #expect(controller.screenState.articles == [secondArticle])
+    }
+
+    @Test
     func articlesScreenControllerAppendsPagesWithoutReplacingCurrentSessionSnapshot() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(
@@ -346,7 +436,7 @@ struct ArticlesScreenControllerLoadingTests {
         #expect(controller.screenState.articles.map(\.id) == [matchingArticle.id])
         #expect(controller.visibleArticleIDs() == [matchingArticle.id])
         #expect(derivedViewState.visibleArticles.map(\.id) == [matchingArticle.id])
-        #expect(derivedViewState.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 1))
+        #expect(derivedViewState.navigationChrome.subtitle == ReadingLocalization.unreadItemsSubtitle(count: 1))
         #expect(derivedViewState.toolbarActions.isMarkAllAsReadEnabled)
     }
 
@@ -551,12 +641,14 @@ struct ArticlesScreenControllerLoadingTests {
             searchText: "new",
             dependencies: harness.dependencies
         )
+        let newestChrome = controller.screenState.derivedViewState().navigationChrome
         queryGate.releaseSuspendedRequest()
         await staleLoad.value
 
         #expect(queryGate.requests.map(\.normalizedQuery) == ["old", "new"])
         #expect(controller.screenState.articleListSession.context.normalizedSearchText == "new")
         #expect(controller.screenState.articles == [newResult])
+        #expect(controller.screenState.derivedViewState().navigationChrome == newestChrome)
     }
 
     @Test
@@ -707,6 +799,45 @@ private final class ArticlesScreenSearchQueryGate {
     func execute(_ request: ArticleSearchRequest) async throws -> ArticleSearchResultSnapshot {
         requests.append(request)
         guard request.normalizedQuery == suspendedQuery else {
+            return immediateSnapshot
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
+        }
+    }
+
+    func releaseSuspendedRequest() {
+        continuation?.resume(returning: suspendedSnapshot)
+        continuation = nil
+    }
+}
+
+@MainActor
+private final class ArticlesScreenSelectionQueryGate {
+    let suspendedSelection: SidebarSelection
+    let immediateSnapshot: ArticleSearchResultSnapshot
+    let suspendedSnapshot: ArticleSearchResultSnapshot
+    private(set) var requestCount = 0
+    private var continuation: CheckedContinuation<ArticleSearchResultSnapshot, Error>?
+
+    init(
+        suspendedSelection: SidebarSelection,
+        immediateSnapshot: ArticleSearchResultSnapshot,
+        suspendedSnapshot: ArticleSearchResultSnapshot
+    ) {
+        self.suspendedSelection = suspendedSelection
+        self.immediateSnapshot = immediateSnapshot
+        self.suspendedSnapshot = suspendedSnapshot
+    }
+
+    var hasSuspendedRequest: Bool {
+        continuation != nil
+    }
+
+    func execute(_ request: ArticleSearchRequest) async throws -> ArticleSearchResultSnapshot {
+        requestCount += 1
+        guard request.selection == suspendedSelection else {
             return immediateSnapshot
         }
 

@@ -23,6 +23,7 @@ final class ArticlesScreenController {
     @ObservationIgnored private let searchQueryOperation: ArticlesScreenSearchQueryOperation
     @ObservationIgnored private let pageSize: Int
     @ObservationIgnored private var activeLoadTask: Task<Void, Never>?
+    @ObservationIgnored private var activeLoadSessionContext: ArticleListSession.Context?
     @ObservationIgnored private var loadGeneration = 0
     private var lastLoadedSessionContext: ArticleListSession.Context
 
@@ -56,6 +57,45 @@ final class ArticlesScreenController {
         lastLoadedSessionContext != context
     }
 
+    func prepareForPresentation(
+        selection: SidebarSelection,
+        sidebarArticleFilter: SidebarArticleFilter,
+        dependencies: AppDependencies
+    ) -> Task<Void, Never>? {
+        let loadPlan = makeLoadPlan(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter,
+            searchText: "",
+            dependencies: dependencies
+        )
+        guard loadPlan.sessionContextChanged else { return nil }
+
+        loadGeneration += 1
+        let currentLoadGeneration = loadGeneration
+        activeLoadTask?.cancel()
+        prepareScreenStateForLoad(loadPlan)
+        let loadTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await performLoad(
+                plan: loadPlan,
+                dependencies: dependencies,
+                retainsSessionFilterMutations: true,
+                retainedSessionMembershipStatus: .retainedAfterFilterMutation,
+                preservesRefreshFeedback: false,
+                generation: currentLoadGeneration
+            )
+        }
+        activeLoadTask = loadTask
+        activeLoadSessionContext = loadPlan.sessionContext
+        Task { @MainActor [weak self] in
+            await loadTask.value
+            guard let self, currentLoadGeneration == loadGeneration else { return }
+            activeLoadTask = nil
+            activeLoadSessionContext = nil
+        }
+        return loadTask
+    }
+
     func markArticleAsReadInCurrentSession(_ articleID: UUID) {
         screenState.markArticleAsReadInCurrentSession(articleID: articleID)
     }
@@ -69,15 +109,26 @@ final class ArticlesScreenController {
         retainedSessionMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterFilterMutation,
         preservesRefreshFeedback: Bool = false
     ) async {
+        let loadPlan = makeLoadPlan(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter,
+            searchText: searchText,
+            dependencies: dependencies
+        )
+        if activeLoadSessionContext == loadPlan.sessionContext,
+           let activeLoadTask {
+            await activeLoadTask.value
+            return
+        }
+
         loadGeneration += 1
         let currentLoadGeneration = loadGeneration
         activeLoadTask?.cancel()
+        prepareScreenStateForLoad(loadPlan)
         let loadTask = Task { @MainActor [weak self] in
             guard let self else { return }
             await performLoad(
-                selection: selection,
-                sidebarArticleFilter: sidebarArticleFilter,
-                searchText: searchText,
+                plan: loadPlan,
                 dependencies: dependencies,
                 retainsSessionFilterMutations: retainsSessionFilterMutations,
                 retainedSessionMembershipStatus: retainedSessionMembershipStatus,
@@ -86,6 +137,7 @@ final class ArticlesScreenController {
             )
         }
         activeLoadTask = loadTask
+        activeLoadSessionContext = loadPlan.sessionContext
 
         await withTaskCancellationHandler {
             await loadTask.value
@@ -95,99 +147,67 @@ final class ArticlesScreenController {
 
         if currentLoadGeneration == loadGeneration {
             activeLoadTask = nil
+            activeLoadSessionContext = nil
         }
     }
 
     private func performLoad(
-        selection: SidebarSelection?,
-        sidebarArticleFilter: SidebarArticleFilter,
-        searchText: String,
+        plan: ArticlesScreenLoadPlan,
         dependencies: AppDependencies,
         retainsSessionFilterMutations: Bool,
         retainedSessionMembershipStatus: ArticleListEntryMembershipStatus,
         preservesRefreshFeedback: Bool,
         generation currentLoadGeneration: Int
     ) async {
-        let normalizedSearchText = ArticleSearchScope.normalizedSearchText(searchText)
-        let effectiveSortMode = articleListSortMode(
-            for: selection,
-            sidebarArticleFilter: sidebarArticleFilter,
-            dependencies: dependencies
-        )
-        let sessionContext = ArticleListSession.Context(
-            selection: selection,
-            sidebarArticleFilter: sidebarArticleFilter,
-            normalizedSearchText: normalizedSearchText,
-            sortMode: effectiveSortMode
-        )
-        let sessionContextChanged = shouldResetArticleSession(for: sessionContext)
-        let navigationTitle = resolveNavigationTitle(
-            selection: selection,
-            dependencies: dependencies
-        )
-        let loadingSubtitle = ArticlesScreenSubtitleResolver.resolve(
-            articles: screenState.articles,
-            sidebarArticleFilter: sidebarArticleFilter,
-            hasMorePages: sessionContextChanged == false
-                && screenState.articleListSession.nextPageCursor != nil
-        )
-
         do {
-            if selection != nil, normalizedSearchText.isEmpty == false {
+            if plan.selection != nil, plan.normalizedSearchText.isEmpty == false {
                 try await searchDebounceOperation()
             }
             try Task.checkCancellation()
             guard currentLoadGeneration == loadGeneration else { return }
-            screenState.beginLoading(
-                for: selection,
-                navigationTitle: navigationTitle,
-                navigationSubtitle: loadingSubtitle,
-                resetsContent: sessionContextChanged,
-                sessionContext: sessionContext
-            )
 
             guard let articleQueryService = dependencies.articleQueryService else {
                 screenState.applyLoadingFailure(
                     ReadingLocalization.articleListQueryUnavailableMessage,
-                    selection: selection,
-                    navigationTitle: navigationTitle,
-                    navigationSubtitle: loadingSubtitle,
+                    selection: plan.selection,
+                    navigationTitle: plan.navigationTitle,
+                    navigationSubtitle: plan.loadingSubtitle,
                     retainsContent: false,
-                    sessionContext: sessionContext
+                    sessionContext: plan.sessionContext
                 )
-                lastLoadedSessionContext = sessionContext
+                lastLoadedSessionContext = plan.sessionContext
                 return
             }
 
             let loadResult = try await loadArticles(
-                for: selection,
-                sidebarArticleFilter: sidebarArticleFilter,
-                normalizedSearchText: normalizedSearchText,
-                sortMode: effectiveSortMode,
+                for: plan.selection,
+                sidebarArticleFilter: plan.sidebarArticleFilter,
+                normalizedSearchText: plan.normalizedSearchText,
+                sortMode: plan.sortMode,
                 articleQueryService: articleQueryService
             )
             try Task.checkCancellation()
             let resolvedEntries = entriesByRetainingSessionItems(
                 loadResult.articles,
-                selection: selection,
-                sidebarArticleFilter: sidebarArticleFilter,
-                retainsCurrentContent: sessionContextChanged == false && retainsSessionFilterMutations,
+                selection: plan.selection,
+                sidebarArticleFilter: plan.sidebarArticleFilter,
+                retainsCurrentContent: plan.sessionContextChanged == false && retainsSessionFilterMutations,
                 retainedMembershipStatus: retainedSessionMembershipStatus
             )
             let resolvedArticles = resolvedEntries.map(\.article)
             let navigationSubtitle = ArticlesScreenSubtitleResolver.resolve(
                 articles: resolvedArticles,
-                sidebarArticleFilter: sidebarArticleFilter,
+                sidebarArticleFilter: plan.sidebarArticleFilter,
                 hasMorePages: loadResult.nextPageCursor != nil
             )
             guard currentLoadGeneration == loadGeneration else { return }
-            lastLoadedSessionContext = sessionContext
+            lastLoadedSessionContext = plan.sessionContext
             screenState.applyLoadedEntries(
                 resolvedEntries,
-                selection: selection,
-                navigationTitle: navigationTitle,
+                selection: plan.selection,
+                navigationTitle: plan.navigationTitle,
                 navigationSubtitle: navigationSubtitle,
-                sessionContext: sessionContext,
+                sessionContext: plan.sessionContext,
                 preservesRefreshFeedback: preservesRefreshFeedback,
                 emptyContentKind: loadResult.emptyContentKind,
                 nextPageCursor: loadResult.nextPageCursor
@@ -196,17 +216,70 @@ final class ArticlesScreenController {
             return
         } catch {
             guard currentLoadGeneration == loadGeneration else { return }
-            lastLoadedSessionContext = sessionContext
-            dependencies.logger.error("Failed to load article list for selection \(String(describing: selection)): \(error)")
+            lastLoadedSessionContext = plan.sessionContext
+            dependencies.logger.error(
+                "Failed to load article list for selection \(String(describing: plan.selection)): \(error)"
+            )
             screenState.applyLoadingFailure(
                 error.localizedDescription,
-                selection: selection,
-                navigationTitle: navigationTitle,
-                navigationSubtitle: loadingSubtitle,
-                retainsContent: sessionContextChanged == false,
-                sessionContext: sessionContext
+                selection: plan.selection,
+                navigationTitle: plan.navigationTitle,
+                navigationSubtitle: plan.loadingSubtitle,
+                retainsContent: plan.sessionContextChanged == false,
+                sessionContext: plan.sessionContext
             )
         }
+    }
+
+    private func makeLoadPlan(
+        selection: SidebarSelection?,
+        sidebarArticleFilter: SidebarArticleFilter,
+        searchText: String,
+        dependencies: AppDependencies
+    ) -> ArticlesScreenLoadPlan {
+        let normalizedSearchText = ArticleSearchScope.normalizedSearchText(searchText)
+        let sortMode = articleListSortMode(
+            for: selection,
+            sidebarArticleFilter: sidebarArticleFilter,
+            dependencies: dependencies
+        )
+        let sessionContext = ArticleListSession.Context(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter,
+            normalizedSearchText: normalizedSearchText,
+            sortMode: sortMode
+        )
+        let sessionContextChanged = shouldResetArticleSession(for: sessionContext)
+
+        return ArticlesScreenLoadPlan(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter,
+            normalizedSearchText: normalizedSearchText,
+            sortMode: sortMode,
+            sessionContext: sessionContext,
+            sessionContextChanged: sessionContextChanged,
+            navigationTitle: resolveNavigationTitle(
+                selection: selection,
+                dependencies: dependencies
+            ),
+            loadingSubtitle: sessionContextChanged
+                ? ReadingLocalization.loadingArticlesTitle
+                : ArticlesScreenSubtitleResolver.resolve(
+                    articles: screenState.articles,
+                    sidebarArticleFilter: sidebarArticleFilter,
+                    hasMorePages: screenState.articleListSession.nextPageCursor != nil
+                )
+        )
+    }
+
+    private func prepareScreenStateForLoad(_ plan: ArticlesScreenLoadPlan) {
+        screenState.beginLoading(
+            for: plan.selection,
+            navigationTitle: plan.navigationTitle,
+            navigationSubtitle: plan.loadingSubtitle,
+            resetsContent: plan.sessionContextChanged,
+            sessionContext: plan.sessionContext
+        )
     }
 
     func loadNextPage(
@@ -487,4 +560,15 @@ private struct ArticleListLoadResult {
     let articles: [ArticleListItemDTO]
     let emptyContentKind: ArticlesScreenEmptyContentKind
     let nextPageCursor: ArticleSearchRequest.Cursor?
+}
+
+private struct ArticlesScreenLoadPlan {
+    let selection: SidebarSelection?
+    let sidebarArticleFilter: SidebarArticleFilter
+    let normalizedSearchText: String
+    let sortMode: ArticleSortMode
+    let sessionContext: ArticleListSession.Context
+    let sessionContextChanged: Bool
+    let navigationTitle: String
+    let loadingSubtitle: String
 }

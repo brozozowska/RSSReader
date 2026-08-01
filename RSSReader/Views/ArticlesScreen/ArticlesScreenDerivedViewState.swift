@@ -3,7 +3,7 @@ import Foundation
 struct ArticlesScreenDerivedViewState {
     let visibleArticles: [ArticleListItemDTO]
     let sections: [ArticlesDaySection]
-    let navigationSubtitle: String
+    let navigationChrome: ArticlesScreenNavigationChromeState
     let toolbarActions: ArticlesScreenToolbarActionsState
     let searchPlaceholder: ArticlesScreenPlaceholderState?
     let customRefreshState: ArticlesScreenCustomRefreshState
@@ -12,17 +12,16 @@ struct ArticlesScreenDerivedViewState {
 }
 
 extension ArticlesScreenState {
-    func derivedViewState(
-        sidebarArticleFilter: SidebarArticleFilter = .allItems
-    ) -> ArticlesScreenDerivedViewState {
+    func derivedViewState() -> ArticlesScreenDerivedViewState {
         let visibleArticles = articleListSession.articles
 
         return ArticlesScreenDerivedViewState(
             visibleArticles: visibleArticles,
             sections: ArticlesDaySectionsBuilder.build(from: visibleArticles),
-            navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
-                articles: visibleArticles,
-                sidebarArticleFilter: sidebarArticleFilter
+            navigationChrome: ArticlesScreenNavigationChromeState(
+                sessionContext: articleListSession.context,
+                title: navigationTitle,
+                subtitle: navigationSubtitle
             ),
             toolbarActions: ArticlesScreenToolbarActionsState(
                 selection: selection,
