@@ -2,8 +2,10 @@ import SwiftUI
 
 struct ArticleListContentView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     let sections: [ArticlesDaySection]
     let visibleArticleIDs: [UUID]
+    let animationState: ArticleListAnimationState
     let customRefreshState: ArticlesScreenCustomRefreshState
     let isLoadingNextPage: Bool
     @Binding var selection: UUID?
@@ -35,7 +37,7 @@ struct ArticleListContentView: View {
         .scrollContentBackground(.hidden)
         .scrollPosition(id: $scrollPositionID)
         .contentMargins(.top, 8, for: .scrollContent)
-        .animation(.snappy(duration: 0.24), value: visibleArticleIDs)
+        .animation(listAnimation, value: animationState)
         .onScrollGeometryChange(for: ArticleListCustomRefreshGeometry.self) { geometry in
             ArticleListCustomRefreshGeometry(
                 contentOffsetY: geometry.contentOffset.y,
@@ -58,6 +60,14 @@ struct ArticleListContentView: View {
                 await customRefreshReleaseAction()
             }
         }
+    }
+
+    private var listAnimation: Animation? {
+        guard animationState.allowsAnimation(reduceMotion: accessibilityReduceMotion) else {
+            return nil
+        }
+
+        return .snappy(duration: 0.24)
     }
 
     @ViewBuilder

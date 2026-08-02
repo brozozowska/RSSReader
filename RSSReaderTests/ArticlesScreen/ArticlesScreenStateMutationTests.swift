@@ -90,6 +90,9 @@ struct ArticlesScreenStateMutationTests {
         #expect(state.articles.count == 1)
         #expect(state.articles.first?.isRead == true)
         #expect(state.toolbarActions.isMarkAllAsReadEnabled == false)
+        #expect(state.listAnimationState.changeKind == .localMutation)
+        #expect(state.listAnimationState.allowsAnimation(reduceMotion: false))
+        #expect(state.listAnimationState.allowsAnimation(reduceMotion: true) == false)
     }
 
     @Test

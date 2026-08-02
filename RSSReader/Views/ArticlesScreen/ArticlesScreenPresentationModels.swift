@@ -163,6 +163,30 @@ struct ArticlesScreenNavigationChromeState: Equatable {
     let subtitle: String
 }
 
+struct ArticleListAnimationState: Equatable {
+    enum ChangeKind: Equatable {
+        case snapshotReplacement
+        case localMutation
+    }
+
+    private(set) var revision: UInt = 0
+    private(set) var changeKind: ChangeKind = .snapshotReplacement
+
+    func allowsAnimation(reduceMotion: Bool) -> Bool {
+        reduceMotion == false && changeKind == .localMutation
+    }
+
+    mutating func prepareForSnapshotReplacement() {
+        revision &+= 1
+        changeKind = .snapshotReplacement
+    }
+
+    mutating func prepareForLocalMutation() {
+        revision &+= 1
+        changeKind = .localMutation
+    }
+}
+
 struct ArticlesScreenSubtitleResolver {
     static func resolve(
         articles: [ArticleListItemDTO],

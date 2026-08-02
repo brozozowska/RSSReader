@@ -82,6 +82,76 @@ struct ArticlesScreenStateLoadingTests {
     }
 
     @Test
+    func articlesScreenStateDisablesListAnimationForContextReplacementSnapshots() {
+        var state = ArticlesScreenState()
+        let firstFeedArticle = makeArticleListItemDTO()
+        let secondFeedArticle = makeArticleListItemDTO()
+
+        state.applyLoadedArticles(
+            [firstFeedArticle],
+            selection: .feed(firstFeedArticle.feedID),
+            navigationTitle: "First Feed",
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1)
+        )
+        state.applyArticleRowMutation(
+            articleID: firstFeedArticle.id,
+            mutation: .update(firstFeedArticle),
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1)
+        )
+
+        #expect(state.listAnimationState.changeKind == .localMutation)
+
+        state.beginLoading(
+            for: .feed(secondFeedArticle.feedID),
+            navigationTitle: "Second Feed",
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1),
+            resetsContent: true
+        )
+
+        #expect(state.listAnimationState.changeKind == .snapshotReplacement)
+        #expect(state.listAnimationState.allowsAnimation(reduceMotion: false) == false)
+
+        state.applyLoadedArticles(
+            [secondFeedArticle],
+            selection: .feed(secondFeedArticle.feedID),
+            navigationTitle: "Second Feed",
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1)
+        )
+
+        #expect(state.articleListSession.context.selection == .feed(secondFeedArticle.feedID))
+        #expect(state.articles.map(\.id) == [secondFeedArticle.id])
+        #expect(state.listAnimationState.changeKind == .snapshotReplacement)
+        #expect(state.listAnimationState.allowsAnimation(reduceMotion: false) == false)
+    }
+
+    @Test
+    func articlesScreenStateAnimatesIncrementalPageAppendUnlessReduceMotionIsEnabled() {
+        var state = ArticlesScreenState()
+        let firstArticle = makeArticleListItemDTO()
+        let nextArticle = makeArticleListItemDTO(feedID: firstArticle.feedID)
+
+        state.applyLoadedArticles(
+            [firstArticle],
+            selection: .feed(firstArticle.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1)
+        )
+        let snapshotRevision = state.listAnimationState.revision
+
+        state.applyLoadedNextPage(
+            [nextArticle],
+            nextPageCursor: nil,
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 2)
+        )
+
+        #expect(state.articles.map(\.id) == [firstArticle.id, nextArticle.id])
+        #expect(state.listAnimationState.revision == snapshotRevision + 1)
+        #expect(state.listAnimationState.changeKind == .localMutation)
+        #expect(state.listAnimationState.allowsAnimation(reduceMotion: false))
+        #expect(state.listAnimationState.allowsAnimation(reduceMotion: true) == false)
+    }
+
+    @Test
     func articlesScreenStatePreservesExplicitEntryMembershipInSessionSnapshot() {
         var state = ArticlesScreenState()
         let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)

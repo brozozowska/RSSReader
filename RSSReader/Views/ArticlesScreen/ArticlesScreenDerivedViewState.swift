@@ -3,6 +3,7 @@ import Foundation
 struct ArticlesScreenDerivedViewState {
     let visibleArticles: [ArticleListItemDTO]
     let sections: [ArticlesDaySection]
+    let listAnimationState: ArticleListAnimationState
     let navigationChrome: ArticlesScreenNavigationChromeState
     let toolbarActions: ArticlesScreenToolbarActionsState
     let searchPlaceholder: ArticlesScreenPlaceholderState?
@@ -18,6 +19,7 @@ extension ArticlesScreenState {
         return ArticlesScreenDerivedViewState(
             visibleArticles: visibleArticles,
             sections: ArticlesDaySectionsBuilder.build(from: visibleArticles),
+            listAnimationState: listAnimationState,
             navigationChrome: ArticlesScreenNavigationChromeState(
                 sessionContext: articleListSession.context,
                 title: navigationTitle,

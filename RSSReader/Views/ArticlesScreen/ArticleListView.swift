@@ -43,6 +43,7 @@ struct ArticleListView: View {
         ArticleListContentView(
             sections: derivedViewState.sections,
             visibleArticleIDs: derivedViewState.visibleArticles.map(\.id),
+            animationState: derivedViewState.listAnimationState,
             customRefreshState: derivedViewState.customRefreshState,
             isLoadingNextPage: controller.screenState.isLoadingNextPage,
             selection: $selection,
