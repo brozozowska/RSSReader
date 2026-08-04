@@ -126,6 +126,9 @@ struct RootView: View {
     @MainActor
     private func prepareAndPresentSidebarSelection(_ selection: SidebarSelection?) {
         guard let selection else {
+            if horizontalSizeClass == .compact {
+                articlesScreenController.endPresentation()
+            }
             appState.updatePresentedSidebarSelection(nil)
             return
         }
@@ -149,7 +152,8 @@ struct RootView: View {
             appState.updateArticleNavigationContext(
                 articlesScreenController.visibleArticleIDs(),
                 sidebarSelection: selection,
-                sidebarArticleFilter: sidebarArticleFilter
+                sidebarArticleFilter: sidebarArticleFilter,
+                articleListSessionID: articlesScreenController.currentArticleListSessionID
             )
         }
     }

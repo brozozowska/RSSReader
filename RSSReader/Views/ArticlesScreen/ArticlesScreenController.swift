@@ -50,11 +50,11 @@ final class ArticlesScreenController {
     }
 
     func shouldResetArticleSelection(for selection: SidebarSelection?) -> Bool {
-        lastLoadedSessionContext.selection != selection
+        screenState.articleListSession.context.selection != selection
     }
 
     func shouldResetArticleSession(for context: ArticleListSession.Context) -> Bool {
-        lastLoadedSessionContext != context
+        screenState.articleListSession.context != context
     }
 
     func prepareForPresentation(
@@ -73,7 +73,8 @@ final class ArticlesScreenController {
         loadGeneration += 1
         let currentLoadGeneration = loadGeneration
         activeLoadTask?.cancel()
-        prepareScreenStateForLoad(loadPlan)
+        prepareScreenStateForLoad(loadPlan, startsNewSession: true)
+        let currentSessionID = screenState.articleListSession.id
         let loadTask = Task { @MainActor [weak self] in
             guard let self else { return }
             await performLoad(
@@ -82,6 +83,7 @@ final class ArticlesScreenController {
                 retainsSessionFilterMutations: true,
                 retainedSessionMembershipStatus: .retainedAfterFilterMutation,
                 preservesRefreshFeedback: false,
+                sessionID: currentSessionID,
                 generation: currentLoadGeneration
             )
         }
@@ -96,8 +98,42 @@ final class ArticlesScreenController {
         return loadTask
     }
 
+    var currentArticleListSessionID: UUID {
+        screenState.articleListSession.id
+    }
+
+    func endPresentation() {
+        loadGeneration += 1
+        activeLoadTask?.cancel()
+        activeLoadTask = nil
+        activeLoadSessionContext = nil
+        lastLoadedSessionContext = .noSelection
+        screenState.endPresentation()
+    }
+
     func markArticleAsReadInCurrentSession(_ articleID: UUID) {
         screenState.markArticleAsReadInCurrentSession(articleID: articleID)
+    }
+
+    @discardableResult
+    func applyArticleReadOnOpenEvent(_ event: ArticleReadOnOpenEvent) -> Bool {
+        guard event.articleListSessionID == currentArticleListSessionID,
+              event.sidebarSelection == screenState.articleListSession.context.selection,
+              event.sidebarArticleFilter == screenState.articleListSession.context.sidebarArticleFilter,
+              let article = screenState.articles.first(where: { $0.id == event.articleID }) else {
+            return false
+        }
+
+        applyArticleRowMutation(
+            ArticlesScreenMutationReducer.mutationAfterSettingReadStatus(
+                article: article,
+                isRead: event.isRead,
+                filter: screenState.articleListSession.context.articleListFilter
+            ),
+            articleID: article.id,
+            sidebarArticleFilter: screenState.articleListSession.context.sidebarArticleFilter
+        )
+        return true
     }
 
     func load(
@@ -115,7 +151,8 @@ final class ArticlesScreenController {
             searchText: searchText,
             dependencies: dependencies
         )
-        if activeLoadSessionContext == loadPlan.sessionContext,
+        if retainsSessionFilterMutations,
+           activeLoadSessionContext == loadPlan.sessionContext,
            let activeLoadTask {
             await activeLoadTask.value
             return
@@ -124,7 +161,11 @@ final class ArticlesScreenController {
         loadGeneration += 1
         let currentLoadGeneration = loadGeneration
         activeLoadTask?.cancel()
-        prepareScreenStateForLoad(loadPlan)
+        prepareScreenStateForLoad(
+            loadPlan,
+            startsNewSession: loadPlan.sessionContextChanged || retainsSessionFilterMutations == false
+        )
+        let currentSessionID = screenState.articleListSession.id
         let loadTask = Task { @MainActor [weak self] in
             guard let self else { return }
             await performLoad(
@@ -133,6 +174,7 @@ final class ArticlesScreenController {
                 retainsSessionFilterMutations: retainsSessionFilterMutations,
                 retainedSessionMembershipStatus: retainedSessionMembershipStatus,
                 preservesRefreshFeedback: preservesRefreshFeedback,
+                sessionID: currentSessionID,
                 generation: currentLoadGeneration
             )
         }
@@ -157,6 +199,7 @@ final class ArticlesScreenController {
         retainsSessionFilterMutations: Bool,
         retainedSessionMembershipStatus: ArticleListEntryMembershipStatus,
         preservesRefreshFeedback: Bool,
+        sessionID currentSessionID: UUID,
         generation currentLoadGeneration: Int
     ) async {
         do {
@@ -164,7 +207,11 @@ final class ArticlesScreenController {
                 try await searchDebounceOperation()
             }
             try Task.checkCancellation()
-            guard currentLoadGeneration == loadGeneration else { return }
+            guard isCurrentLoad(
+                generation: currentLoadGeneration,
+                sessionID: currentSessionID,
+                context: plan.sessionContext
+            ) else { return }
 
             guard let articleQueryService = dependencies.articleQueryService else {
                 screenState.applyLoadingFailure(
@@ -200,7 +247,11 @@ final class ArticlesScreenController {
                 sidebarArticleFilter: plan.sidebarArticleFilter,
                 hasMorePages: loadResult.nextPageCursor != nil
             )
-            guard currentLoadGeneration == loadGeneration else { return }
+            guard isCurrentLoad(
+                generation: currentLoadGeneration,
+                sessionID: currentSessionID,
+                context: plan.sessionContext
+            ) else { return }
             lastLoadedSessionContext = plan.sessionContext
             screenState.applyLoadedEntries(
                 resolvedEntries,
@@ -215,7 +266,11 @@ final class ArticlesScreenController {
         } catch is CancellationError {
             return
         } catch {
-            guard currentLoadGeneration == loadGeneration else { return }
+            guard isCurrentLoad(
+                generation: currentLoadGeneration,
+                sessionID: currentSessionID,
+                context: plan.sessionContext
+            ) else { return }
             lastLoadedSessionContext = plan.sessionContext
             dependencies.logger.error(
                 "Failed to load article list for selection \(String(describing: plan.selection)): \(error)"
@@ -272,14 +327,28 @@ final class ArticlesScreenController {
         )
     }
 
-    private func prepareScreenStateForLoad(_ plan: ArticlesScreenLoadPlan) {
+    private func prepareScreenStateForLoad(
+        _ plan: ArticlesScreenLoadPlan,
+        startsNewSession: Bool
+    ) {
         screenState.beginLoading(
             for: plan.selection,
             navigationTitle: plan.navigationTitle,
             navigationSubtitle: plan.loadingSubtitle,
             resetsContent: plan.sessionContextChanged,
+            startsNewSession: startsNewSession,
             sessionContext: plan.sessionContext
         )
+    }
+
+    private func isCurrentLoad(
+        generation: Int,
+        sessionID: UUID,
+        context: ArticleListSession.Context
+    ) -> Bool {
+        generation == loadGeneration
+            && sessionID == screenState.articleListSession.id
+            && context == screenState.articleListSession.context
     }
 
     func loadNextPage(

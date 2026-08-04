@@ -21,6 +21,34 @@ struct ArticlesScreenStateLoadingTests {
     }
 
     @Test
+    func articlesScreenStateEndsPresentationWithFreshEmptySession() {
+        var state = ArticlesScreenState()
+        let article = makeArticleListItemDTO()
+        let context = ArticleListSession.Context(
+            selection: .feed(article.feedID),
+            sidebarArticleFilter: .unread
+        )
+        state.applyLoadedArticles(
+            [article],
+            selection: context.selection,
+            navigationTitle: "Feed",
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1),
+            sessionContext: context
+        )
+        let previousSessionID = state.articleListSession.id
+
+        state.endPresentation()
+
+        #expect(state.phase == .noSelection)
+        #expect(state.selection == nil)
+        #expect(state.articleListSession.id != previousSessionID)
+        #expect(state.articleListSession.context == .noSelection)
+        #expect(state.articleListSession.entries.isEmpty)
+        #expect(state.toolbarActions.showsSearchAction == false)
+        #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
+    }
+
+    @Test
     func articlesScreenStateBeginsPrimaryLoadingWhenSelectionChanges() {
         var state = ArticlesScreenState()
 

@@ -138,6 +138,14 @@ struct ArticleListScrollPositionKey: Hashable, Sendable {
 struct ArticleReadOnOpenEvent: Equatable, Sendable {
     let id = UUID()
     let articleID: UUID
+    let articleListSessionID: UUID
+    let sidebarSelection: SidebarSelection?
+    let sidebarArticleFilter: SidebarArticleFilter
+    let isRead: Bool
+}
+
+struct ArticleListSessionReference: Equatable, Sendable {
+    let id: UUID
     let sidebarSelection: SidebarSelection?
     let sidebarArticleFilter: SidebarArticleFilter
 }
@@ -172,6 +180,7 @@ public final class AppState {
     var articleNavigationContextIDs: [UUID] = []
     private var articleNavigationContextSidebarSelection: SidebarSelection?
     private var articleNavigationContextSidebarArticleFilter: SidebarArticleFilter = .allItems
+    private var articleNavigationContextListSessionID: UUID?
     private var articleListScrollPositionIDs: [ArticleListScrollPositionKey: UUID] = [:]
     var articleListReloadID = UUID()
     var sidebarReloadID = UUID()
@@ -288,11 +297,27 @@ public final class AppState {
         articleListReloadID = UUID()
     }
 
-    func recordArticleReadOnOpenInCurrentListSession(_ articleID: UUID) {
+    var currentArticleListSessionReference: ArticleListSessionReference? {
+        guard let articleNavigationContextListSessionID else { return nil }
+
+        return ArticleListSessionReference(
+            id: articleNavigationContextListSessionID,
+            sidebarSelection: articleNavigationContextSidebarSelection,
+            sidebarArticleFilter: articleNavigationContextSidebarArticleFilter
+        )
+    }
+
+    func recordArticleReadOnOpen(
+        _ articleID: UUID,
+        isRead: Bool,
+        in listSession: ArticleListSessionReference
+    ) {
         articleReadOnOpenEvent = ArticleReadOnOpenEvent(
             articleID: articleID,
-            sidebarSelection: selectedSidebarSelection,
-            sidebarArticleFilter: selectedSidebarArticleFilter
+            articleListSessionID: listSession.id,
+            sidebarSelection: listSession.sidebarSelection,
+            sidebarArticleFilter: listSession.sidebarArticleFilter,
+            isRead: isRead
         )
     }
 
@@ -386,6 +411,7 @@ public final class AppState {
     func updatePresentedSidebarSelection(_ sidebarSelection: SidebarSelection?) {
         guard let sidebarSelection else {
             readingNavigation.dismissSidebarSelectionPresentation()
+            clearArticleNavigationContext()
             return
         }
 
@@ -416,18 +442,21 @@ public final class AppState {
         updateArticleNavigationContext(
             articleIDs,
             sidebarSelection: selectedSidebarSelection,
-            sidebarArticleFilter: selectedSidebarArticleFilter
+            sidebarArticleFilter: selectedSidebarArticleFilter,
+            articleListSessionID: articleNavigationContextListSessionID
         )
     }
 
     func updateArticleNavigationContext(
         _ articleIDs: [UUID],
         sidebarSelection: SidebarSelection?,
-        sidebarArticleFilter: SidebarArticleFilter
+        sidebarArticleFilter: SidebarArticleFilter,
+        articleListSessionID: UUID? = nil
     ) {
         var seenArticleIDs = Set<UUID>()
         articleNavigationContextSidebarSelection = sidebarSelection
         articleNavigationContextSidebarArticleFilter = sidebarArticleFilter
+        articleNavigationContextListSessionID = articleListSessionID
         articleNavigationContextIDs = articleIDs.filter { articleID in
             seenArticleIDs.insert(articleID).inserted
         }
@@ -437,6 +466,7 @@ public final class AppState {
         articleNavigationContextIDs = []
         articleNavigationContextSidebarSelection = selectedSidebarSelection
         articleNavigationContextSidebarArticleFilter = selectedSidebarArticleFilter
+        articleNavigationContextListSessionID = nil
     }
 
     @discardableResult

@@ -112,12 +112,15 @@ struct ReaderView: View {
         .task(id: ArticleScreenLoadContext(articleID: currentArticleID, reloadID: reloadID)) {
             guard previewScreenState == nil else { return }
             let adjacentTransitionContext = adjacentTransitionContext
+            let readOnOpenHandler = articleReadOnOpenHandler(
+                for: appState.currentArticleListSessionReference
+            )
             loadReaderAdjacentNavigationControlsMode()
             await controller.load(
                 articleID: currentArticleID,
                 dependencies: dependencies,
                 preservesCurrentArticleDuringLoading: adjacentTransitionContext != nil,
-                articleReadOnOpenHandler: recordArticleReadOnOpenInCurrentListSession
+                articleReadOnOpenHandler: readOnOpenHandler
             )
             pendingAdjacentArticleOverscrollDirection = nil
             adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
@@ -360,11 +363,14 @@ struct ReaderView: View {
             return
         }
 
+        let readOnOpenHandler = articleReadOnOpenHandler(
+            for: appState.currentArticleListSessionReference
+        )
         await controller.load(
             articleID: transitionContext.targetArticleID,
             dependencies: dependencies,
             preservesCurrentArticleDuringLoading: true,
-            articleReadOnOpenHandler: recordArticleReadOnOpenInCurrentListSession
+            articleReadOnOpenHandler: readOnOpenHandler
         )
         pendingAdjacentArticleOverscrollDirection = nil
         adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
@@ -397,8 +403,18 @@ struct ReaderView: View {
     }
 
     @MainActor
-    private func recordArticleReadOnOpenInCurrentListSession(_ articleID: UUID) {
-        appState.recordArticleReadOnOpenInCurrentListSession(articleID)
+    private func articleReadOnOpenHandler(
+        for listSession: ArticleListSessionReference?
+    ) -> ArticleReadOnOpenHandler? {
+        guard let listSession else { return nil }
+
+        return { articleID, persistedState in
+            appState.recordArticleReadOnOpen(
+                articleID,
+                isRead: persistedState.isRead,
+                in: listSession
+            )
+        }
     }
 
     private var actionHandlers: ArticleScreenActionHandlers {

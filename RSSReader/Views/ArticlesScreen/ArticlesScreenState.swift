@@ -63,11 +63,23 @@ struct ArticlesScreenState {
         return message
     }
 
+    mutating func endPresentation() {
+        beginLoading(
+            for: nil,
+            navigationTitle: ReadingLocalization.articlesTitle,
+            navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle,
+            resetsContent: true,
+            startsNewSession: true,
+            sessionContext: .noSelection
+        )
+    }
+
     mutating func beginLoading(
         for selection: SidebarSelection?,
         navigationTitle: String,
         navigationSubtitle: String,
         resetsContent: Bool,
+        startsNewSession: Bool = false,
         sessionContext: ArticleListSession.Context? = nil
     ) {
         pendingConfirmation = nil
@@ -80,6 +92,13 @@ struct ArticlesScreenState {
             selection: selection,
             sessionContext: sessionContext
         )
+
+        if startsNewSession {
+            articleListSession.startNewSession(
+                context: resolvedSessionContext,
+                retainsCurrentEntries: resetsContent == false
+            )
+        }
 
         guard selection != nil else {
             listAnimationState.prepareForSnapshotReplacement()

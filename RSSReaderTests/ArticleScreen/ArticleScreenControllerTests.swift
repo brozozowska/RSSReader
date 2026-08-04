@@ -68,7 +68,7 @@ struct ArticleScreenControllerTests {
         await controller.load(
             articleID: article.id,
             dependencies: harness.dependencies,
-            articleReadOnOpenHandler: { recordedReadArticleIDs.append($0) }
+            articleReadOnOpenHandler: { articleID, _ in recordedReadArticleIDs.append(articleID) }
         )
 
         let loadedArticle = try #require(controller.screenState.article)
@@ -107,7 +107,7 @@ struct ArticleScreenControllerTests {
         await controller.load(
             articleID: article.id,
             dependencies: harness.dependencies,
-            articleReadOnOpenHandler: { recordedReadArticleIDs.append($0) }
+            articleReadOnOpenHandler: { articleID, _ in recordedReadArticleIDs.append(articleID) }
         )
 
         let loadedArticle = try #require(controller.screenState.article)
@@ -121,6 +121,44 @@ struct ArticleScreenControllerTests {
             articleExternalID: article.externalID
         )
         #expect(persistedState == nil)
+    }
+
+    @Test
+    func articleScreenControllerUsesPersistedReadStateWhenMarkOnOpenLosesLWWConflict() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/article-screen-mark-on-open-lww.xml"]).first
+        )
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "article-screen-mark-on-open-lww",
+            url: "https://example.com/articles/article-screen-mark-on-open-lww",
+            title: "Article Screen Mark On Open LWW"
+        )
+        _ = try harness.articleStateService.markAsUnread(
+            feedID: feed.id,
+            articleExternalID: article.externalID,
+            at: .distantFuture
+        )
+        let controller = ArticleScreenController()
+        var publishedReadStates: [Bool] = []
+
+        await controller.load(
+            articleID: article.id,
+            dependencies: harness.dependencies,
+            articleReadOnOpenHandler: { _, persistedState in
+                publishedReadStates.append(persistedState.isRead)
+            }
+        )
+
+        #expect(controller.screenState.article?.isRead == false)
+        #expect(publishedReadStates == [false])
+        #expect(
+            try harness.articleStateRepository.fetchStateSnapshot(
+                feedID: feed.id,
+                articleExternalID: article.externalID
+            )?.isRead == false
+        )
     }
 
     @Test

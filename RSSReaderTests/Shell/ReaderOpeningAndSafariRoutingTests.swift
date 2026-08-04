@@ -79,6 +79,13 @@ struct ReaderOpeningAndSafariRoutingTests {
         )
         appState.selectSidebarSelection(.feed(article.feedID))
         appState.selectSidebarArticleFilter(.unread)
+        let listSessionID = UUID()
+        appState.updateArticleNavigationContext(
+            [article.id],
+            sidebarSelection: .feed(article.feedID),
+            sidebarArticleFilter: .unread,
+            articleListSessionID: listSessionID
+        )
 
         harness.dependencies.appActions.selectArticle(id: article.id, using: appState)
 
@@ -88,6 +95,7 @@ struct ReaderOpeningAndSafariRoutingTests {
         )
         #expect(persistedState?.isRead == true)
         #expect(appState.articleReadOnOpenEvent?.articleID == article.id)
+        #expect(appState.articleReadOnOpenEvent?.articleListSessionID == listSessionID)
         #expect(appState.articleReadOnOpenEvent?.sidebarSelection == .feed(article.feedID))
         #expect(appState.articleReadOnOpenEvent?.sidebarArticleFilter == .unread)
     }

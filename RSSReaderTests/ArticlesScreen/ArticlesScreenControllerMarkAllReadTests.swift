@@ -247,4 +247,47 @@ struct ArticlesScreenControllerMarkAllReadTests {
         #expect(controller.screenState.articleListSession.nextPageCursor == nil)
         #expect(controller.screenState.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
     }
+
+    @Test
+    func articlesScreenControllerKeepsUnreadRowWhenMarkAllLosesLWWConflict() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/mark-unread-lww.xml"]).first
+        )
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "mark-unread-lww",
+            url: "https://example.com/articles/mark-unread-lww",
+            title: "Mark Unread LWW"
+        )
+        _ = try harness.articleStateService.markAsUnread(
+            feedID: feed.id,
+            articleExternalID: article.externalID,
+            at: .distantFuture
+        )
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies
+        )
+        await controller.confirmMarkAllAsRead(
+            searchText: "",
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.map(\.id) == [article.id])
+        #expect(controller.screenState.articles.first?.isRead == false)
+        #expect(
+            try harness.articleStateRepository.fetchStateSnapshot(
+                feedID: feed.id,
+                articleExternalID: article.externalID
+            )?.isRead == false
+        )
+    }
 }

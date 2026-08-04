@@ -50,11 +50,18 @@ struct ReadingShellAppStateTests {
     }
 
     @Test
-    func readingShellNativeSidebarBackPreservesQueryContextAndDoesNotReloadIt() {
+    func readingShellNativeSidebarBackPreservesDomainSelectionAndClearsListNavigationContext() {
         let appState = AppState()
         let feedID = UUID()
+        let sessionID = UUID()
 
         appState.selectSidebarSelection(.feed(feedID))
+        appState.updateArticleNavigationContext(
+            [UUID()],
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .unread,
+            articleListSessionID: sessionID
+        )
         let reloadIDBeforeBack = appState.articleListReloadID
 
         appState.updatePresentedSidebarSelection(nil)
@@ -64,10 +71,12 @@ struct ReadingShellAppStateTests {
         #expect(appState.selectedArticleID == nil)
         #expect(appState.selectedDetailRoute == .none)
         #expect(appState.articleListReloadID == reloadIDBeforeBack)
+        #expect(appState.articleNavigationContextIDs.isEmpty)
+        #expect(appState.currentArticleListSessionReference == nil)
     }
 
     @Test
-    func readingShellReselectsSameSidebarRowAfterNativeBackWithoutResettingSession() {
+    func readingShellReselectsSameSidebarRowAfterNativeBackWithoutChangingDomainSelection() {
         let appState = AppState()
         let feedID = UUID()
 
@@ -361,14 +370,29 @@ struct ReadingShellAppStateTests {
         let appState = AppState()
         let feedID = UUID()
         let articleID = UUID()
+        let listSessionID = UUID()
 
         appState.selectSidebarSelection(.feed(feedID))
         appState.selectSidebarArticleFilter(.unread)
-        appState.recordArticleReadOnOpenInCurrentListSession(articleID)
+        appState.updateArticleNavigationContext(
+            [articleID],
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .unread,
+            articleListSessionID: listSessionID
+        )
+        let listSession = ArticleListSessionReference(
+            id: listSessionID,
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .unread
+        )
+        appState.recordArticleReadOnOpen(articleID, isRead: true, in: listSession)
 
         #expect(appState.articleReadOnOpenEvent?.articleID == articleID)
+        #expect(appState.articleReadOnOpenEvent?.articleListSessionID == listSessionID)
         #expect(appState.articleReadOnOpenEvent?.sidebarSelection == .feed(feedID))
         #expect(appState.articleReadOnOpenEvent?.sidebarArticleFilter == .unread)
+        #expect(appState.articleReadOnOpenEvent?.isRead == true)
+        #expect(appState.currentArticleListSessionReference == listSession)
     }
 
     @Test
@@ -376,14 +400,20 @@ struct ReadingShellAppStateTests {
         let appState = AppState()
         let firstArticleID = UUID()
         let secondArticleID = UUID()
+        let listSession = ArticleListSessionReference(
+            id: UUID(),
+            sidebarSelection: nil,
+            sidebarArticleFilter: .allItems
+        )
 
-        appState.recordArticleReadOnOpenInCurrentListSession(firstArticleID)
+        appState.recordArticleReadOnOpen(firstArticleID, isRead: true, in: listSession)
         let firstEvent = appState.articleReadOnOpenEvent
 
-        appState.recordArticleReadOnOpenInCurrentListSession(secondArticleID)
+        appState.recordArticleReadOnOpen(secondArticleID, isRead: false, in: listSession)
 
         #expect(firstEvent?.articleID == firstArticleID)
         #expect(appState.articleReadOnOpenEvent?.articleID == secondArticleID)
+        #expect(appState.articleReadOnOpenEvent?.isRead == false)
         #expect(appState.articleReadOnOpenEvent?.id != firstEvent?.id)
     }
 

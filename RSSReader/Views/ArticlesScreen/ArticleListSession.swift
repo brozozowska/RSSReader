@@ -1,7 +1,7 @@
 import Foundation
 
 struct ArticleListSession: Equatable {
-    struct Context: Equatable {
+    struct Context: Equatable, Sendable {
         let selection: SidebarSelection?
         let sidebarArticleFilter: SidebarArticleFilter
         let normalizedSearchText: String
@@ -29,6 +29,7 @@ struct ArticleListSession: Equatable {
         static let noSelection = Context(selection: nil, sidebarArticleFilter: .allItems)
     }
 
+    private(set) var id: UUID
     private(set) var context: Context
     private(set) var entries: [ArticleListEntry]
     private(set) var nextPageCursor: ArticleSearchRequest.Cursor?
@@ -42,6 +43,7 @@ struct ArticleListSession: Equatable {
         entries: [ArticleListEntry] = [],
         nextPageCursor: ArticleSearchRequest.Cursor? = nil
     ) {
+        self.id = UUID()
         self.context = context
         self.entries = entries
         self.nextPageCursor = nextPageCursor
@@ -69,11 +71,28 @@ struct ArticleListSession: Equatable {
     mutating func replaceEntries(
         _ entries: [ArticleListEntry],
         context: Context,
-        nextPageCursor: ArticleSearchRequest.Cursor? = nil
+        nextPageCursor: ArticleSearchRequest.Cursor? = nil,
+        startsNewSession: Bool = false
     ) {
+        if startsNewSession || self.context != context {
+            id = UUID()
+        }
         self.context = context
         self.entries = entries
         self.nextPageCursor = nextPageCursor
+    }
+
+    mutating func startNewSession(
+        context: Context,
+        retainsCurrentEntries: Bool
+    ) {
+        let canRetainCurrentEntries = retainsCurrentEntries && self.context == context
+        id = UUID()
+        self.context = context
+        if canRetainCurrentEntries == false {
+            entries = []
+            nextPageCursor = nil
+        }
     }
 
     mutating func appendPage(

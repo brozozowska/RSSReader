@@ -1,6 +1,8 @@
 import Foundation
 import Observation
 
+typealias ArticleReadOnOpenHandler = @MainActor (UUID, ArticleUserStateSnapshot) -> Void
+
 @MainActor
 @Observable
 final class ArticleScreenController {
@@ -14,7 +16,7 @@ final class ArticleScreenController {
         articleID: UUID?,
         dependencies: AppDependencies,
         preservesCurrentArticleDuringLoading: Bool = false,
-        articleReadOnOpenHandler: ((UUID) -> Void)? = nil
+        articleReadOnOpenHandler: ArticleReadOnOpenHandler? = nil
     ) async {
         screenState.beginLoading(
             articleID: articleID,
@@ -70,7 +72,8 @@ final class ArticleScreenController {
         isPreviewMode: Bool
     ) {
         guard let article = screenState.article else { return }
-        let newIsRead = article.isRead == false
+        let requestedIsRead = article.isRead == false
+        let resolvedIsRead: Bool
 
         if isPreviewMode == false {
             guard let articleStateService = dependencies.articleStateService else {
@@ -79,26 +82,30 @@ final class ArticleScreenController {
             }
 
             do {
-                if newIsRead {
-                    _ = try articleStateService.markAsRead(
+                let persistedState: ArticleUserStateSnapshot
+                if requestedIsRead {
+                    persistedState = try articleStateService.markAsRead(
                         feedID: article.feedID,
                         articleExternalID: article.articleExternalID,
                         at: .now
                     )
                 } else {
-                    _ = try articleStateService.markAsUnread(
+                    persistedState = try articleStateService.markAsUnread(
                         feedID: article.feedID,
                         articleExternalID: article.articleExternalID,
                         at: .now
                     )
                 }
+                resolvedIsRead = persistedState.isRead
             } catch {
                 dependencies.logger.error("Failed to toggle article read status: \(error)")
                 return
             }
+        } else {
+            resolvedIsRead = requestedIsRead
         }
 
-        screenState.applyArticleMutation(article.updating(isRead: newIsRead))
+        screenState.applyArticleMutation(article.updating(isRead: resolvedIsRead))
     }
 
     func toggleArticleStarredStatus(
@@ -106,7 +113,8 @@ final class ArticleScreenController {
         isPreviewMode: Bool
     ) {
         guard let article = screenState.article else { return }
-        let newIsStarred = article.isStarred == false
+        let requestedIsStarred = article.isStarred == false
+        let resolvedIsStarred: Bool
 
         if isPreviewMode == false {
             guard let articleStateService = dependencies.articleStateService else {
@@ -115,18 +123,21 @@ final class ArticleScreenController {
             }
 
             do {
-                _ = try articleStateService.toggleStarred(
+                let persistedState = try articleStateService.toggleStarred(
                     feedID: article.feedID,
                     articleExternalID: article.articleExternalID,
                     at: .now
                 )
+                resolvedIsStarred = persistedState.isStarred
             } catch {
                 dependencies.logger.error("Failed to toggle article starred status: \(error)")
                 return
             }
+        } else {
+            resolvedIsStarred = requestedIsStarred
         }
 
-        screenState.applyArticleMutation(article.updating(isStarred: newIsStarred))
+        screenState.applyArticleMutation(article.updating(isStarred: resolvedIsStarred))
     }
 
     func openSourceArticle(
@@ -180,7 +191,7 @@ final class ArticleScreenController {
     private func applyMarkAsReadOnOpenPolicy(
         to article: ReaderArticleDTO,
         dependencies: AppDependencies,
-        articleReadOnOpenHandler: ((UUID) -> Void)?
+        articleReadOnOpenHandler: ArticleReadOnOpenHandler?
     ) -> ReaderArticleDTO {
         guard article.isRead == false else {
             return article
@@ -196,13 +207,13 @@ final class ArticleScreenController {
         }
 
         do {
-            _ = try articleStateService.markAsRead(
+            let persistedState = try articleStateService.markAsRead(
                 feedID: article.feedID,
                 articleExternalID: article.articleExternalID,
                 at: .now
             )
-            articleReadOnOpenHandler?(article.id)
-            return article.updating(isRead: true)
+            articleReadOnOpenHandler?(article.id, persistedState)
+            return article.updating(isRead: persistedState.isRead)
         } catch {
             dependencies.logger.error("Failed to apply mark-as-read-on-open policy: \(error)")
             return article

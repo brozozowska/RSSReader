@@ -23,12 +23,42 @@ enum ArticlesScreenMutationReducer {
     static func reduceAfterMarkAllAsRead(
         visibleArticles: [ArticleListItemDTO],
         allArticles: [ArticleListItemDTO],
-        filter: ArticleListFilter
+        filter: ArticleListFilter,
+        persistedStates: [ArticleUserStateSnapshot]? = nil
     ) -> [ArticleListItemDTO] {
         let visibleArticleIDs = Set(visibleArticles.map(\.id))
+        let persistedReadStates = persistedStates.map { states in
+            states.reduce(into: [String: Bool]()) { result, state in
+                result[
+                    ArticleStateIdentity.lookupKey(
+                        feedID: state.feedID,
+                        articleExternalID: state.articleExternalID
+                    )
+                ] = state.isRead
+            }
+        }
+
+        func resolvedIsRead(for article: ArticleListItemDTO) -> Bool {
+            guard let persistedReadStates else { return true }
+            return persistedReadStates[
+                ArticleStateIdentity.lookupKey(
+                    feedID: article.feedID,
+                    articleExternalID: article.articleExternalID
+                )
+            ] ?? article.isRead
+        }
 
         guard filter != .unread else {
-            return allArticles.filter { visibleArticleIDs.contains($0.id) == false }
+            return allArticles.compactMap { article in
+                guard visibleArticleIDs.contains(article.id) else { return article }
+                guard resolvedIsRead(for: article) else {
+                    return article.updating(
+                        isRead: false,
+                        isStarred: article.isStarred
+                    )
+                }
+                return nil
+            }
         }
 
         return allArticles.map { article in
@@ -37,7 +67,7 @@ enum ArticlesScreenMutationReducer {
             }
 
             return article.updating(
-                isRead: true,
+                isRead: resolvedIsRead(for: article),
                 isStarred: article.isStarred
             )
         }
@@ -47,13 +77,24 @@ enum ArticlesScreenMutationReducer {
         article: ArticleListItemDTO,
         filter: ArticleListFilter
     ) -> ArticleRowMutation {
-        let updatedIsRead = article.isRead == false
+        mutationAfterSettingReadStatus(
+            article: article,
+            isRead: article.isRead == false,
+            filter: filter
+        )
+    }
+
+    static func mutationAfterSettingReadStatus(
+        article: ArticleListItemDTO,
+        isRead: Bool,
+        filter: ArticleListFilter
+    ) -> ArticleRowMutation {
         let updatedArticle = article.updating(
-            isRead: updatedIsRead,
+            isRead: isRead,
             isStarred: article.isStarred
         )
 
-        if filter == .unread && updatedIsRead {
+        if filter == .unread && isRead {
             return .update(
                 updatedArticle,
                 membershipStatus: .retainedAfterFilterMutation
@@ -67,13 +108,24 @@ enum ArticlesScreenMutationReducer {
         article: ArticleListItemDTO,
         filter: ArticleListFilter
     ) -> ArticleRowMutation {
-        let updatedIsStarred = article.isStarred == false
+        mutationAfterSettingStarredStatus(
+            article: article,
+            isStarred: article.isStarred == false,
+            filter: filter
+        )
+    }
+
+    static func mutationAfterSettingStarredStatus(
+        article: ArticleListItemDTO,
+        isStarred: Bool,
+        filter: ArticleListFilter
+    ) -> ArticleRowMutation {
         let updatedArticle = article.updating(
             isRead: article.isRead,
-            isStarred: updatedIsStarred
+            isStarred: isStarred
         )
 
-        if filter == .starred && updatedIsStarred == false {
+        if filter == .starred && isStarred == false {
             return .update(
                 updatedArticle,
                 membershipStatus: .retainedAfterFilterMutation

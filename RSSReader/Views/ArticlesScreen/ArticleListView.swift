@@ -211,7 +211,8 @@ struct ArticleListView: View {
         appState.updateArticleNavigationContext(
             visibleArticleIDs,
             sidebarSelection: selectedSidebarSelection,
-            sidebarArticleFilter: selectedSidebarArticleFilter
+            sidebarArticleFilter: selectedSidebarArticleFilter,
+            articleListSessionID: controller.currentArticleListSessionID
         )
     }
 
@@ -357,12 +358,9 @@ struct ArticleListView: View {
     @MainActor
     private func applyArticleReadOnOpenEvent(_ event: ArticleReadOnOpenEvent?) {
         guard let event else { return }
-        guard event.sidebarSelection == selectedSidebarSelection,
-              event.sidebarArticleFilter == selectedSidebarArticleFilter else {
+        guard controller.applyArticleReadOnOpenEvent(event) else {
             return
         }
-
-        controller.markArticleAsReadInCurrentSession(event.articleID)
         let visibleArticleIDs = controller.visibleArticleIDs()
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
