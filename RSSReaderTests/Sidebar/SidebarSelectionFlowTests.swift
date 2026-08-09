@@ -39,6 +39,33 @@ struct SidebarSelectionFlowTests {
     }
 
     @Test
+    func sidebarControllerReloadKeepsExistingSelectionsHiddenByZeroFilteredCount() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/empty-filtered-feed.xml"]).first
+        )
+        let folder = Folder(name: "Filtered Folder")
+        feed.folder = folder
+        try harness.saveModelContext()
+        let controller = SidebarScreenController()
+
+        let feedSelection = await controller.loadFeeds(
+            showsFullScreenLoading: false,
+            dependencies: harness.dependencies,
+            currentSelection: .feed(feed.id),
+            filter: .unread,
+            refreshedAt: nil
+        )
+        let folderSelection = controller.resolvedSelection(
+            currentSelection: .folder(folder.name),
+            filter: .starred
+        )
+
+        #expect(feedSelection == .feed(feed.id))
+        #expect(folderSelection == .folder(folder.name))
+    }
+
+    @Test
     func folderSelectionInheritsActiveSidebarArticleFilterForSelectedFolder() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feeds = try harness.insertFeeds(
@@ -273,22 +300,36 @@ struct SidebarSelectionFlowTests {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: .feed(visibleFeedID),
             filter: .starred,
-            visibleFeedIDs: [visibleFeedID],
-            visibleFolderNames: []
+            existingFeedIDs: [visibleFeedID],
+            existingFolderNames: []
         )
 
         #expect(selection == .feed(visibleFeedID))
     }
 
     @Test
-    func sidebarSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentFeedBecomesHidden() {
+    func sidebarSelectionBehaviorKeepsCurrentFeedSelectionWhenItBecomesHiddenByFilter() {
         let hiddenFeedID = UUID()
 
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: .feed(hiddenFeedID),
             filter: .unread,
-            visibleFeedIDs: [],
-            visibleFolderNames: []
+            existingFeedIDs: [hiddenFeedID],
+            existingFolderNames: []
+        )
+
+        #expect(selection == .feed(hiddenFeedID))
+    }
+
+    @Test
+    func sidebarSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentFeedWasDeleted() {
+        let deletedFeedID = UUID()
+
+        let selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: .feed(deletedFeedID),
+            filter: .unread,
+            existingFeedIDs: [],
+            existingFolderNames: []
         )
 
         #expect(selection == .unread)
@@ -299,8 +340,8 @@ struct SidebarSelectionFlowTests {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: .inbox,
             filter: .starred,
-            visibleFeedIDs: [],
-            visibleFolderNames: []
+            existingFeedIDs: [],
+            existingFolderNames: []
         )
 
         #expect(selection == .starred)
@@ -311,8 +352,8 @@ struct SidebarSelectionFlowTests {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: nil,
             filter: .allItems,
-            visibleFeedIDs: [],
-            visibleFolderNames: []
+            existingFeedIDs: [],
+            existingFolderNames: []
         )
 
         #expect(selection == nil)
@@ -323,20 +364,32 @@ struct SidebarSelectionFlowTests {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: .folder("News"),
             filter: .unread,
-            visibleFeedIDs: [],
-            visibleFolderNames: ["News"]
+            existingFeedIDs: [],
+            existingFolderNames: ["News"]
         )
 
         #expect(selection == .folder("News"))
     }
 
     @Test
-    func sidebarSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentFolderBecomesHidden() {
+    func sidebarSelectionBehaviorKeepsCurrentFolderSelectionWhenItBecomesHiddenByFilter() {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: .folder("News"),
             filter: .starred,
-            visibleFeedIDs: [],
-            visibleFolderNames: []
+            existingFeedIDs: [],
+            existingFolderNames: ["News"]
+        )
+
+        #expect(selection == .folder("News"))
+    }
+
+    @Test
+    func sidebarSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentFolderWasDeleted() {
+        let selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: .folder("News"),
+            filter: .starred,
+            existingFeedIDs: [],
+            existingFolderNames: []
         )
 
         #expect(selection == .starred)

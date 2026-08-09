@@ -21,6 +21,7 @@ struct ArticleSearchRequest: Sendable, Equatable {
     let limit: Int
     let cursor: Cursor?
     let emptyQueryBehavior: EmptyQueryBehavior
+    let requiresUnread: Bool
 
     init(
         selection: SidebarSelection?,
@@ -29,7 +30,8 @@ struct ArticleSearchRequest: Sendable, Equatable {
         sortMode: ArticleSortMode,
         limit: Int = ArticleQueryPaginationPolicy.defaultPageSize,
         cursor: Cursor? = nil,
-        emptyQueryBehavior: EmptyQueryBehavior = .returnsCurrentScope
+        emptyQueryBehavior: EmptyQueryBehavior = .returnsCurrentScope,
+        requiresUnread: Bool = false
     ) {
         self.selection = selection
         self.sidebarArticleFilter = sidebarArticleFilter
@@ -38,6 +40,7 @@ struct ArticleSearchRequest: Sendable, Equatable {
         self.limit = limit
         self.cursor = cursor
         self.emptyQueryBehavior = emptyQueryBehavior
+        self.requiresUnread = requiresUnread
     }
 
     var listFilter: ArticleListFilter {

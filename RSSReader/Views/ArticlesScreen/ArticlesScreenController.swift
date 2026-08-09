@@ -14,6 +14,11 @@ typealias ArticlesScreenSearchQueryOperation = @MainActor (
     ArticleSearchRequest,
     any ArticleQueryService
 ) async throws -> ArticleSearchResultSnapshot
+typealias ArticlesScreenScopeReadMutationOperation = @MainActor (
+    ArticleSearchRequest,
+    any ArticleStateServicing,
+    any ArticleQueryService
+) async throws -> ArticleScopeReadMutationResult
 
 @MainActor
 @Observable
@@ -21,7 +26,8 @@ final class ArticlesScreenController {
     var screenState: ArticlesScreenState
     @ObservationIgnored private let searchDebounceOperation: ArticlesScreenSearchDebounceOperation
     @ObservationIgnored private let searchQueryOperation: ArticlesScreenSearchQueryOperation
-    @ObservationIgnored private let pageSize: Int
+    @ObservationIgnored let scopeReadMutationOperation: ArticlesScreenScopeReadMutationOperation
+    @ObservationIgnored let pageSize: Int
     @ObservationIgnored private var activeLoadTask: Task<Void, Never>?
     @ObservationIgnored private var activeLoadSessionContext: ArticleListSession.Context?
     @ObservationIgnored private var loadGeneration = 0
@@ -31,6 +37,7 @@ final class ArticlesScreenController {
         previewScreenState: ArticlesScreenState? = nil,
         searchDebounceOperation: ArticlesScreenSearchDebounceOperation? = nil,
         searchQueryOperation: ArticlesScreenSearchQueryOperation? = nil,
+        scopeReadMutationOperation: ArticlesScreenScopeReadMutationOperation? = nil,
         pageSize: Int = ArticlesScreenPaginationPolicy.pageSize
     ) {
         precondition(pageSize > 0)
@@ -40,6 +47,16 @@ final class ArticlesScreenController {
         }
         self.searchQueryOperation = searchQueryOperation ?? { request, articleQueryService in
             try await articleQueryService.fetchArticleSearchSnapshot(request)
+        }
+        self.scopeReadMutationOperation = scopeReadMutationOperation ?? {
+            request,
+            articleStateService,
+            articleQueryService in
+            try await articleStateService.markAllMatchingAsRead(
+                request: request,
+                articleQueryService: articleQueryService,
+                at: .now
+            )
         }
         self.pageSize = pageSize
         if let previewScreenState {

@@ -79,7 +79,7 @@ final class DefaultArticleQueryService: ArticleQueryService {
             scope: scope,
             hidden: hiddenFilter(for: request.listFilter),
             archived: .any,
-            read: readFilter(for: request.listFilter),
+            read: readFilter(for: request.listFilter, requiresUnread: request.requiresUnread),
             starred: starredFilter(for: request.listFilter),
             sortMode: request.sortMode,
             requiresSearchableText: request.normalizedQuery.isEmpty == false
@@ -220,7 +220,11 @@ final class DefaultArticleQueryService: ArticleQueryService {
         _ article: ArticleListItemDTO,
         request: ArticleSearchRequest
     ) -> Bool {
-        ArticleSearchScope.filteredArticles(
+        guard request.requiresUnread == false || article.isRead == false else {
+            return false
+        }
+
+        return ArticleSearchScope.filteredArticles(
             [article],
             searchText: request.normalizedQuery,
             selection: request.selection,
@@ -245,8 +249,11 @@ final class DefaultArticleQueryService: ArticleQueryService {
         filter == .hidden ? .isTrue : .isFalse
     }
 
-    private func readFilter(for filter: ArticleListFilter) -> ArticleQueryBooleanFilter {
-        filter == .unread ? .isFalse : .any
+    private func readFilter(
+        for filter: ArticleListFilter,
+        requiresUnread: Bool
+    ) -> ArticleQueryBooleanFilter {
+        filter == .unread || requiresUnread ? .isFalse : .any
     }
 
     private func starredFilter(for filter: ArticleListFilter) -> ArticleQueryBooleanFilter {

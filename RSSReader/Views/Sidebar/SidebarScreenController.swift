@@ -102,22 +102,11 @@ final class SidebarScreenController {
         currentSelection: SidebarSelection?,
         filter: SidebarArticleFilter
     ) -> SidebarSelection? {
-        let visibleFeeds = SidebarFeedVisibility.filteredFeeds(
-            feeds: screenState.feeds,
-            filter: filter,
-            starredFeedIDs: screenState.starredFeedIDs
-        )
-        let folderGroups = FolderSidebarGroup.groups(
-            from: screenState.folders,
-            feeds: visibleFeeds,
-            filter: filter
-        )
-
         return SidebarSelectionBehavior.resolvedSelection(
             currentSelection: currentSelection,
             filter: filter,
-            visibleFeedIDs: Set(visibleFeeds.map(\.id)),
-            visibleFolderNames: Set(folderGroups.map(\.name))
+            existingFeedIDs: Set(screenState.feeds.map(\.id)),
+            existingFolderNames: Set(screenState.folders.map(\.name))
         )
     }
 

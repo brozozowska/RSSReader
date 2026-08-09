@@ -44,15 +44,16 @@ struct ArticlesScreenControllerMarkAllReadTests {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appSettingsRepository = try #require(harness.dependencies.appSettingsRepository)
         let articleStateRepository = try #require(harness.dependencies.articleStateRepository)
-        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
-        let controller = ArticlesScreenController(
-            previewScreenState: .previewLoaded(
-                selection: .feed(unreadItem.feedID),
-                navigationTitle: "Feed",
-                navigationSubtitle: "1 Unread Item",
-                articles: [unreadItem]
-            )
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/mark-immediately.xml"]).first
         )
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "mark-immediately",
+            url: "https://example.com/articles/mark-immediately",
+            title: "Mark Immediately"
+        )
+        let controller = ArticlesScreenController()
 
         _ = try appSettingsRepository.update(
             AppSettingsUpdate(
@@ -61,17 +62,22 @@ struct ArticlesScreenControllerMarkAllReadTests {
             )
         )
 
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies
+        )
         await controller.handleMarkAllAsReadAction(
             searchText: "",
-            selection: .feed(unreadItem.feedID),
+            selection: .feed(feed.id),
             sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
             isPreviewMode: false
         )
 
         let persistedState = try articleStateRepository.fetchStateSnapshot(
-            feedID: unreadItem.feedID,
-            articleExternalID: unreadItem.articleExternalID
+            feedID: feed.id,
+            articleExternalID: article.externalID
         )
 
         #expect(controller.screenState.pendingConfirmation == nil)
@@ -126,7 +132,7 @@ struct ArticlesScreenControllerMarkAllReadTests {
     }
 
     @Test
-    func articlesScreenControllerReloadsPaginatedUnreadSessionAfterMarkingVisiblePageAsRead() async throws {
+    func articlesScreenControllerMarksEntirePaginatedUnreadScopeAndPublishesFinalEmptySnapshot() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(
             try harness.insertFeeds(urls: ["https://example.com/mark-unread-pages.xml"]).first
@@ -158,7 +164,6 @@ struct ArticlesScreenControllerMarkAllReadTests {
             sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies
         )
-        let markedArticle = try #require(controller.screenState.articles.first)
         let originalContext = controller.screenState.articleListSession.context
         _ = try #require(controller.screenState.articleListSession.nextPageCursor)
 
@@ -170,31 +175,19 @@ struct ArticlesScreenControllerMarkAllReadTests {
             isPreviewMode: false
         )
 
-        let continuedArticle = try #require(controller.screenState.articles.first)
-        let markedState = try harness.articleStateRepository.fetchStateSnapshot(
-            feedID: markedArticle.feedID,
-            articleExternalID: markedArticle.articleExternalID
-        )
-        let untouchedArticles = persistedArticles.filter { $0.id != markedArticle.id }
-
         #expect(requests.count == 2)
         #expect(requests.allSatisfy { $0.cursor == nil })
-        #expect(markedState?.isRead == true)
-        #expect(continuedArticle.id != markedArticle.id)
-        #expect(continuedArticle.isRead == false)
-        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.phase == .empty)
+        #expect(controller.screenState.articles.isEmpty)
         #expect(controller.screenState.articleListSession.context == originalContext)
-        #expect(controller.screenState.articleListSession.nextPageCursor != nil)
-        #expect(
-            controller.screenState.navigationSubtitle
-                == ReadingLocalization.unreadItemsLowerBoundSubtitle(count: 1)
-        )
-        for article in untouchedArticles {
+        #expect(controller.screenState.articleListSession.nextPageCursor == nil)
+        #expect(controller.screenState.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
+        for article in persistedArticles {
             let state = try harness.articleStateRepository.fetchStateSnapshot(
                 feedID: article.feedID,
                 articleExternalID: article.externalID
             )
-            #expect(state == nil)
+            #expect(state?.isRead == true)
         }
     }
 
@@ -240,12 +233,275 @@ struct ArticlesScreenControllerMarkAllReadTests {
             articleExternalID: markedArticle.articleExternalID
         )
 
-        #expect(requestCount == 1)
+        #expect(requestCount == 2)
         #expect(markedState?.isRead == true)
         #expect(controller.screenState.phase == .empty)
         #expect(controller.screenState.articles.isEmpty)
         #expect(controller.screenState.articleListSession.nextPageCursor == nil)
         #expect(controller.screenState.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
+    }
+
+    @Test
+    func articlesScreenControllerMarksEveryUnreadSearchMatchAcrossFeedsWithoutTouchingNonmatches() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feeds = try harness.insertFeeds(urls: [
+            "https://example.com/scope-search-a.xml",
+            "https://example.com/scope-search-b.xml"
+        ])
+        let firstFeed = try #require(feeds.first)
+        let secondFeed = try #require(feeds.last)
+        let matchingArticles = try [
+            harness.insertArticle(
+                feed: firstFeed,
+                externalID: "scope-target-a",
+                url: "https://example.com/articles/scope-target-a",
+                title: "Target Alpha"
+            ),
+            harness.insertArticle(
+                feed: secondFeed,
+                externalID: "scope-target-b",
+                url: "https://example.com/articles/scope-target-b",
+                title: "Target Beta"
+            ),
+            harness.insertArticle(
+                feed: secondFeed,
+                externalID: "scope-target-c",
+                url: "https://example.com/articles/scope-target-c",
+                title: "Target Gamma"
+            )
+        ]
+        let nonmatchingArticle = try harness.insertArticle(
+            feed: firstFeed,
+            externalID: "scope-other",
+            url: "https://example.com/articles/scope-other",
+            title: "Unrelated"
+        )
+        let controller = ArticlesScreenController(pageSize: 1)
+
+        await controller.load(
+            selection: .inbox,
+            sidebarArticleFilter: .allItems,
+            searchText: "Target",
+            dependencies: harness.dependencies
+        )
+        #expect(controller.screenState.articles.count == 1)
+        #expect(controller.screenState.articleListSession.nextPageCursor != nil)
+
+        await controller.confirmMarkAllAsRead(
+            searchText: "Target",
+            selection: .inbox,
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.count == 1)
+        #expect(controller.screenState.articles.first?.isRead == true)
+        for article in matchingArticles {
+            #expect(
+                try harness.articleStateRepository.fetchStateSnapshot(
+                    feedID: article.feedID,
+                    articleExternalID: article.externalID
+                )?.isRead == true
+            )
+        }
+        #expect(
+            try harness.articleStateRepository.fetchStateSnapshot(
+                feedID: nonmatchingArticle.feedID,
+                articleExternalID: nonmatchingArticle.externalID
+            ) == nil
+        )
+    }
+
+    @Test
+    func articlesScreenControllerKeepsCurrentSnapshotWhileScopeMutationIsInFlight() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/mark-atomic.xml"]).first
+        )
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "mark-atomic",
+            url: "https://example.com/articles/mark-atomic",
+            title: "Atomic Snapshot"
+        )
+        let gate = ScopeReadMutationGate()
+        let controller = ArticlesScreenController(
+            scopeReadMutationOperation: { _, _, _ in
+                try await gate.suspend()
+            }
+        )
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies
+        )
+        let originalSessionID = controller.currentArticleListSessionID
+        let action = Task { @MainActor in
+            await controller.confirmMarkAllAsRead(
+                searchText: "",
+                selection: .feed(feed.id),
+                sidebarArticleFilter: .unread,
+                dependencies: harness.dependencies,
+                isPreviewMode: false
+            )
+        }
+
+        await gate.waitUntilSuspended()
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.map(\.id) == [article.id])
+        #expect(controller.currentArticleListSessionID == originalSessionID)
+        #expect(controller.screenState.placeholder == nil)
+
+        gate.resume()
+        await action.value
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.map(\.id) == [article.id])
+    }
+
+    @Test
+    func articlesScreenControllerRefreshesPersistedSnapshotAfterPartialScopeMutationFailure() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/mark-partial-failure.xml"]).first
+        )
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "mark-partial-failure",
+            url: "https://example.com/articles/mark-partial-failure",
+            title: "Partial Failure"
+        )
+        let controller = ArticlesScreenController(
+            scopeReadMutationOperation: { _, articleStateService, _ in
+                _ = try articleStateService.markAllVisibleAsRead(
+                    feedID: feed.id,
+                    articleExternalIDs: [article.externalID],
+                    at: .now
+                )
+                throw ScopeReadMutationTestError.injectedFailure
+            }
+        )
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        await controller.confirmMarkAllAsRead(
+            searchText: "",
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        #expect(controller.screenState.phase == .empty)
+        #expect(controller.screenState.articles.isEmpty)
+        #expect(
+            try harness.articleStateRepository.fetchStateSnapshot(
+                feedID: feed.id,
+                articleExternalID: article.externalID
+            )?.isRead == true
+        )
+    }
+
+    @Test
+    func articlesScreenControllerRefreshesPersistedSnapshotAfterCancelledScopeMutation() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/mark-cancelled.xml"]).first
+        )
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "mark-cancelled",
+            url: "https://example.com/articles/mark-cancelled",
+            title: "Cancelled Mutation"
+        )
+        let controller = ArticlesScreenController(
+            scopeReadMutationOperation: { _, articleStateService, _ in
+                _ = try articleStateService.markAllVisibleAsRead(
+                    feedID: feed.id,
+                    articleExternalIDs: [article.externalID],
+                    at: .now
+                )
+                throw CancellationError()
+            }
+        )
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies
+        )
+
+        await controller.confirmMarkAllAsRead(
+            searchText: "",
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        #expect(controller.screenState.phase == .empty)
+        #expect(controller.screenState.articles.isEmpty)
+    }
+
+    @Test
+    func articlesScreenControllerIgnoresScopeMutationCompletionFromReplacedSession() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feeds = try harness.insertFeeds(urls: [
+            "https://example.com/mark-stale-a.xml",
+            "https://example.com/mark-stale-b.xml"
+        ])
+        let firstFeed = try #require(feeds.first)
+        let secondFeed = try #require(feeds.last)
+        _ = try harness.insertArticle(
+            feed: firstFeed,
+            externalID: "mark-stale-a",
+            url: "https://example.com/articles/mark-stale-a",
+            title: "Stale A"
+        )
+        let secondArticle = try harness.insertArticle(
+            feed: secondFeed,
+            externalID: "mark-stale-b",
+            url: "https://example.com/articles/mark-stale-b",
+            title: "Stale B"
+        )
+        let gate = ScopeReadMutationGate()
+        let controller = ArticlesScreenController(
+            scopeReadMutationOperation: { _, _, _ in
+                try await gate.suspend()
+            }
+        )
+        await controller.load(
+            selection: .feed(firstFeed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies
+        )
+        let action = Task { @MainActor in
+            await controller.confirmMarkAllAsRead(
+                searchText: "",
+                selection: .feed(firstFeed.id),
+                sidebarArticleFilter: .unread,
+                dependencies: harness.dependencies,
+                isPreviewMode: false
+            )
+        }
+        await gate.waitUntilSuspended()
+
+        await controller.load(
+            selection: .feed(secondFeed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies
+        )
+        let secondSessionID = controller.currentArticleListSessionID
+        gate.resume()
+        await action.value
+
+        #expect(controller.currentArticleListSessionID == secondSessionID)
+        #expect(controller.screenState.articleListSession.context.selection == .feed(secondFeed.id))
+        #expect(controller.screenState.articles.map(\.id) == [secondArticle.id])
     }
 
     @Test
@@ -290,4 +546,46 @@ struct ArticlesScreenControllerMarkAllReadTests {
             )?.isRead == false
         )
     }
+}
+
+@MainActor
+private final class ScopeReadMutationGate {
+    private var continuation: CheckedContinuation<ArticleScopeReadMutationResult, Error>?
+    private var suspendedWaiter: CheckedContinuation<Void, Never>?
+
+    var isSuspended: Bool {
+        continuation != nil
+    }
+
+    func suspend() async throws -> ArticleScopeReadMutationResult {
+        try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
+            suspendedWaiter?.resume()
+            suspendedWaiter = nil
+        }
+    }
+
+    func waitUntilSuspended() async {
+        guard isSuspended == false else { return }
+
+        await withCheckedContinuation { continuation in
+            suspendedWaiter = continuation
+        }
+    }
+
+    func resume() {
+        continuation?.resume(
+            returning: ArticleScopeReadMutationResult(
+                processedIdentityCount: 0,
+                persistedReadCount: 0,
+                rejectedIdentityCount: 0,
+                processedBatchCount: 0
+            )
+        )
+        continuation = nil
+    }
+}
+
+private enum ScopeReadMutationTestError: Error {
+    case injectedFailure
 }

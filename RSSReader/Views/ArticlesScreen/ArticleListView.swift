@@ -301,6 +301,9 @@ struct ArticleListView: View {
                 dependencies: dependencies,
                 isPreviewMode: isPreviewMode
             )
+            if isPreviewMode == false {
+                appState.requestSidebarReload()
+            }
             let visibleArticleIDs = controller.visibleArticleIDs()
             selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
             syncArticleNavigationContext(visibleArticleIDs)
@@ -319,6 +322,9 @@ struct ArticleListView: View {
                 dependencies: dependencies,
                 isPreviewMode: isPreviewMode
             )
+            if isPreviewMode == false {
+                appState.requestSidebarReload()
+            }
             let visibleArticleIDs = controller.visibleArticleIDs()
             selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
             syncArticleNavigationContext(visibleArticleIDs)

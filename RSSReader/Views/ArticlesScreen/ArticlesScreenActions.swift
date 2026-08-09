@@ -40,60 +40,78 @@ extension ArticlesScreenController {
         let visibleArticles = screenState
             .derivedViewState()
             .visibleArticles
-        let articleListFilter = currentArticleListFilter(
-            selection: selection,
-            sidebarArticleFilter: sidebarArticleFilter
-        )
-        let shouldReloadPaginatedUnreadSession = articleListFilter == .unread
-            && screenState.articleListSession.nextPageCursor != nil
-
-        let persistedStates: [ArticleUserStateSnapshot]?
-        if isPreviewMode == false {
-            guard let articleStateService = dependencies.articleStateService else {
-                dependencies.logger.error("Article state service is unavailable for mark all as read action")
-                screenState.dismissConfirmation()
-                return
-            }
-
-            do {
-                persistedStates = try articleStateService.markAllVisibleAsRead(visibleArticles, at: .now)
-            } catch {
-                dependencies.logger.error("Failed to mark all visible articles as read: \(error)")
-                screenState.dismissConfirmation()
-                return
-            }
-        } else {
-            persistedStates = nil
-        }
-
-        let updatedArticles = ArticlesScreenMutationReducer.reduceAfterMarkAllAsRead(
-            visibleArticles: visibleArticles,
-            allArticles: screenState.articles,
-            filter: articleListFilter,
-            persistedStates: persistedStates
-        )
-        screenState.applyMarkAllAsRead(
-            updatedArticles,
-            navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
-                articles: updatedArticles,
-                sidebarArticleFilter: sidebarArticleFilter,
-                hasMorePages: screenState.articleListSession.nextPageCursor != nil
-            ),
-            emptyContentKind: ArticleSearchScope.normalizedSearchText(searchText).isEmpty
-                ? .selection
-                : .searchResults
-        )
-
-        guard shouldReloadPaginatedUnreadSession, isPreviewMode == false else {
+        guard isPreviewMode == false else {
+            let articleListFilter = currentArticleListFilter(
+                selection: selection,
+                sidebarArticleFilter: sidebarArticleFilter
+            )
+            let updatedArticles = ArticlesScreenMutationReducer.reduceAfterMarkAllAsRead(
+                visibleArticles: visibleArticles,
+                allArticles: screenState.articles,
+                filter: articleListFilter,
+                persistedStates: nil
+            )
+            screenState.applyMarkAllAsRead(
+                updatedArticles,
+                navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
+                    articles: updatedArticles,
+                    sidebarArticleFilter: sidebarArticleFilter,
+                    hasMorePages: screenState.articleListSession.nextPageCursor != nil
+                ),
+                emptyContentKind: ArticleSearchScope.normalizedSearchText(searchText).isEmpty
+                    ? .selection
+                    : .searchResults
+            )
             return
         }
 
-        await load(
-            selection: selection,
-            sidebarArticleFilter: sidebarArticleFilter,
-            searchText: searchText,
-            dependencies: dependencies
+        let sessionID = screenState.articleListSession.id
+        let sessionContext = screenState.articleListSession.context
+        guard sessionContext.selection == selection,
+              sessionContext.sidebarArticleFilter == sidebarArticleFilter,
+              sessionContext.normalizedSearchText == ArticleSearchScope.normalizedSearchText(searchText),
+              let articleStateService = dependencies.articleStateService,
+              let articleQueryService = dependencies.articleQueryService else {
+            dependencies.logger.error("Article services are unavailable for mark all as read action")
+            screenState.dismissConfirmation()
+            return
+        }
+
+        let request = ArticleSearchRequest(
+            selection: sessionContext.selection,
+            sidebarArticleFilter: sessionContext.sidebarArticleFilter,
+            query: sessionContext.normalizedSearchText,
+            sortMode: sessionContext.sortMode,
+            limit: pageSize,
+            requiresUnread: true
         )
+        do {
+            _ = try await scopeReadMutationOperation(
+                request,
+                articleStateService,
+                articleQueryService
+            )
+        } catch is CancellationError {
+            dependencies.logger.debug("Cancelled mark all matching articles as read action")
+        } catch {
+            dependencies.logger.error("Failed to mark all matching articles as read: \(error)")
+        }
+
+        guard sessionID == screenState.articleListSession.id,
+              sessionContext == screenState.articleListSession.context else {
+            return
+        }
+
+        let refreshTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await load(
+                selection: selection,
+                sidebarArticleFilter: sidebarArticleFilter,
+                searchText: searchText,
+                dependencies: dependencies
+            )
+        }
+        await refreshTask.value
     }
 
     func toggleArticleReadStatus(
