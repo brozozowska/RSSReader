@@ -227,6 +227,342 @@ struct ArticlesScreenControllerLoadingTests {
     }
 
     @Test
+    func articlesScreenControllerSharesOneSessionOwnedNextPageLoadAcrossCallers() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/controller-shared-page.xml"]).first
+        )
+        let first = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "shared-page-first",
+            title: "First"
+        )
+        let second = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "shared-page-second",
+            title: "Second"
+        )
+        let queryGate = ArticlesScreenNextPageQueryGate(
+            firstPage: ArticleSearchResultSnapshot(
+                articles: [first],
+                hasScopeContent: true,
+                nextCursor: makeArticleSearchCursor(seed: 1)
+            ),
+            nextPage: ArticleSearchResultSnapshot(
+                articles: [second],
+                hasScopeContent: true
+            )
+        )
+        let controller = ArticlesScreenController(
+            searchQueryOperation: { request, _ in
+                try await queryGate.execute(request)
+            },
+            pageSize: 1
+        )
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        let firstCaller = Task { @MainActor in
+            await controller.loadNextPage(dependencies: harness.dependencies)
+        }
+        try await waitUntil("next page query suspended") {
+            queryGate.hasSuspendedRequest
+        }
+        let secondCaller = Task { @MainActor in
+            await controller.loadNextPage(dependencies: harness.dependencies)
+        }
+        await Task.yield()
+
+        #expect(queryGate.requests.count == 2)
+        queryGate.releaseNextPage()
+        let firstSnapshot = await firstCaller.value
+        let secondSnapshot = await secondCaller.value
+
+        #expect(firstSnapshot == secondSnapshot)
+        #expect(firstSnapshot?.visibleArticleIDs == [first.id, second.id])
+        #expect(firstSnapshot?.hasMorePages == false)
+        #expect(controller.screenState.isLoadingNextPage == false)
+    }
+
+    @Test
+    func articlesScreenControllerRetainsContinuationAfterFailureAndAllowsRetry() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/controller-page-retry.xml"]).first
+        )
+        let first = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "page-retry-first",
+            title: "First"
+        )
+        let second = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "page-retry-second",
+            title: "Second"
+        )
+        var nextPageAttemptCount = 0
+        let controller = ArticlesScreenController(
+            searchQueryOperation: { request, _ in
+                guard request.cursor != nil else {
+                    return ArticleSearchResultSnapshot(
+                        articles: [first],
+                        hasScopeContent: true,
+                        nextCursor: makeArticleSearchCursor(seed: 1)
+                    )
+                }
+                nextPageAttemptCount += 1
+                if nextPageAttemptCount == 1 {
+                    throw URLError(.cannotLoadFromNetwork)
+                }
+                return ArticleSearchResultSnapshot(
+                    articles: [second],
+                    hasScopeContent: true
+                )
+            },
+            pageSize: 1
+        )
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        let originalCursor = controller.screenState.articleListSession.nextPageCursor
+        await controller.loadNextPage(dependencies: harness.dependencies)
+
+        #expect(controller.visibleArticleIDs() == [first.id])
+        #expect(controller.screenState.articleListSession.nextPageCursor == originalCursor)
+        #expect(controller.screenState.canLoadNextPage)
+
+        await controller.loadNextPage(dependencies: harness.dependencies)
+
+        #expect(nextPageAttemptCount == 2)
+        #expect(controller.visibleArticleIDs() == [first.id, second.id])
+        #expect(controller.screenState.articleListSession.nextPageCursor == nil)
+    }
+
+    @Test
+    func articlesScreenControllerRejectsCancelledNextPageAfterSessionReplacement() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/controller-stale-page.xml"]).first
+        )
+        let first = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "stale-page-first",
+            title: "First"
+        )
+        let staleNext = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "stale-page-next",
+            title: "Stale Next"
+        )
+        let replacement = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "stale-page-replacement",
+            title: "Replacement"
+        )
+        let queryGate = ArticlesScreenStaleNextPageQueryGate(
+            firstPage: ArticleSearchResultSnapshot(
+                articles: [first],
+                hasScopeContent: true,
+                nextCursor: makeArticleSearchCursor(seed: 1)
+            ),
+            staleNextPage: ArticleSearchResultSnapshot(
+                articles: [staleNext],
+                hasScopeContent: true
+            ),
+            replacementPage: ArticleSearchResultSnapshot(
+                articles: [replacement],
+                hasScopeContent: true
+            )
+        )
+        let controller = ArticlesScreenController(
+            searchDebounceOperation: {},
+            searchQueryOperation: { request, _ in
+                try await queryGate.execute(request)
+            },
+            pageSize: 1
+        )
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        let staleLoad = Task { @MainActor in
+            await controller.loadNextPage(dependencies: harness.dependencies)
+        }
+        try await waitUntil("stale next page suspended") {
+            queryGate.hasSuspendedRequest
+        }
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            searchText: "replacement",
+            dependencies: harness.dependencies
+        )
+        queryGate.releaseStaleNextPage()
+        _ = await staleLoad.value
+
+        #expect(controller.screenState.articleListSession.context.normalizedSearchText == "replacement")
+        #expect(controller.visibleArticleIDs() == [replacement.id])
+        #expect(controller.screenState.isLoadingNextPage == false)
+    }
+
+    @Test
+    func articleListContinuationCoordinatorExtendsReaderNavigationContextAtPageBoundary() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/controller-reader-page.xml"]).first
+        )
+        let first = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "reader-page-first",
+            title: "First"
+        )
+        let second = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "reader-page-second",
+            title: "Second"
+        )
+        let controller = ArticlesScreenController(
+            searchQueryOperation: { request, _ in
+                if request.cursor == nil {
+                    return ArticleSearchResultSnapshot(
+                        articles: [first],
+                        hasScopeContent: true,
+                        nextCursor: makeArticleSearchCursor(seed: 1)
+                    )
+                }
+                return ArticleSearchResultSnapshot(
+                    articles: [second],
+                    hasScopeContent: true
+                )
+            },
+            pageSize: 1
+        )
+        let appState = AppState()
+        appState.selectSidebarSelection(.feed(feed.id))
+        appState.selectSidebarArticleFilter(.unread)
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies
+        )
+        controller.markArticleAsReadInCurrentSession(first.id)
+        appState.updateArticleNavigationContext(
+            [first.id],
+            sidebarSelection: .feed(feed.id),
+            sidebarArticleFilter: .unread,
+            articleListSessionID: controller.currentArticleListSessionID
+        )
+        appState.selectArticle(first.id)
+
+        #expect(
+            ArticleListContinuationCoordinator.canLoadNextArticle(
+                appState: appState,
+                controller: controller
+            )
+        )
+        let nextArticleID = await ArticleListContinuationCoordinator.loadAdjacentArticle(
+            .next,
+            appState: appState,
+            controller: controller,
+            dependencies: harness.dependencies
+        )
+
+        #expect(nextArticleID == second.id)
+        #expect(appState.articleNavigationContextIDs == [first.id, second.id])
+        #expect(appState.selectedArticleID == first.id)
+        #expect(
+            ArticleListContinuationCoordinator.canLoadNextArticle(
+                appState: appState,
+                controller: controller
+            ) == false
+        )
+    }
+
+    @Test
+    func articleListContinuationCoordinatorKeepsAppendedContextButRejectsRapidlyChangedReaderSelection() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/controller-reader-race.xml"]).first
+        )
+        let first = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "reader-race-first",
+            title: "First"
+        )
+        let second = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "reader-race-second",
+            title: "Second"
+        )
+        let third = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "reader-race-third",
+            title: "Third"
+        )
+        let queryGate = ArticlesScreenNextPageQueryGate(
+            firstPage: ArticleSearchResultSnapshot(
+                articles: [first, second],
+                hasScopeContent: true,
+                nextCursor: makeArticleSearchCursor(seed: 2)
+            ),
+            nextPage: ArticleSearchResultSnapshot(
+                articles: [third],
+                hasScopeContent: true
+            )
+        )
+        let controller = ArticlesScreenController(
+            searchQueryOperation: { request, _ in
+                try await queryGate.execute(request)
+            },
+            pageSize: 2
+        )
+        let appState = AppState()
+        appState.selectSidebarSelection(.feed(feed.id))
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        appState.updateArticleNavigationContext(
+            [first.id, second.id],
+            sidebarSelection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            articleListSessionID: controller.currentArticleListSessionID
+        )
+        appState.selectArticle(second.id)
+
+        let continuationLoad = Task { @MainActor in
+            await ArticleListContinuationCoordinator.loadAdjacentArticle(
+                .next,
+                appState: appState,
+                controller: controller,
+                dependencies: harness.dependencies
+            )
+        }
+        try await waitUntil("reader continuation query suspended") {
+            queryGate.hasSuspendedRequest
+        }
+        appState.selectArticle(first.id)
+        queryGate.releaseNextPage()
+        let resolvedArticleID = await continuationLoad.value
+
+        #expect(resolvedArticleID == nil)
+        #expect(appState.selectedArticleID == first.id)
+        #expect(appState.articleNavigationContextIDs == [first.id, second.id, third.id])
+    }
+
+    @Test
     func articlesScreenControllerResetsPaginationBeforeUsingCursorWithChangedUnreadSortOrder() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let settingsRepository = try #require(harness.dependencies.appSettingsRepository)
@@ -848,6 +1184,76 @@ private final class ArticlesScreenSelectionQueryGate {
 
     func releaseSuspendedRequest() {
         continuation?.resume(returning: suspendedSnapshot)
+        continuation = nil
+    }
+}
+
+@MainActor
+private final class ArticlesScreenNextPageQueryGate {
+    let firstPage: ArticleSearchResultSnapshot
+    let nextPage: ArticleSearchResultSnapshot
+    private(set) var requests: [ArticleSearchRequest] = []
+    private var continuation: CheckedContinuation<ArticleSearchResultSnapshot, Error>?
+
+    init(
+        firstPage: ArticleSearchResultSnapshot,
+        nextPage: ArticleSearchResultSnapshot
+    ) {
+        self.firstPage = firstPage
+        self.nextPage = nextPage
+    }
+
+    var hasSuspendedRequest: Bool {
+        continuation != nil
+    }
+
+    func execute(_ request: ArticleSearchRequest) async throws -> ArticleSearchResultSnapshot {
+        requests.append(request)
+        guard request.cursor != nil else { return firstPage }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
+        }
+    }
+
+    func releaseNextPage() {
+        continuation?.resume(returning: nextPage)
+        continuation = nil
+    }
+}
+
+@MainActor
+private final class ArticlesScreenStaleNextPageQueryGate {
+    let firstPage: ArticleSearchResultSnapshot
+    let staleNextPage: ArticleSearchResultSnapshot
+    let replacementPage: ArticleSearchResultSnapshot
+    private var continuation: CheckedContinuation<ArticleSearchResultSnapshot, Error>?
+
+    init(
+        firstPage: ArticleSearchResultSnapshot,
+        staleNextPage: ArticleSearchResultSnapshot,
+        replacementPage: ArticleSearchResultSnapshot
+    ) {
+        self.firstPage = firstPage
+        self.staleNextPage = staleNextPage
+        self.replacementPage = replacementPage
+    }
+
+    var hasSuspendedRequest: Bool {
+        continuation != nil
+    }
+
+    func execute(_ request: ArticleSearchRequest) async throws -> ArticleSearchResultSnapshot {
+        if request.cursor != nil {
+            return try await withCheckedThrowingContinuation { continuation in
+                self.continuation = continuation
+            }
+        }
+        return request.normalizedQuery.isEmpty ? firstPage : replacementPage
+    }
+
+    func releaseStaleNextPage() {
+        continuation?.resume(returning: staleNextPage)
         continuation = nil
     }
 }

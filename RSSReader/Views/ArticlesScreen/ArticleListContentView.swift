@@ -4,9 +4,9 @@ struct ArticleListContentView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     let sections: [ArticlesDaySection]
-    let visibleArticleIDs: [UUID]
     let animationState: ArticleListAnimationState
     let customRefreshState: ArticlesScreenCustomRefreshState
+    let canLoadNextPage: Bool
     let isLoadingNextPage: Bool
     @Binding var selection: UUID?
     @Binding var scrollPositionID: UUID?
@@ -15,6 +15,8 @@ struct ArticleListContentView: View {
     let loadNextPageAction: @MainActor () async -> Void
     let toggleReadStatusAction: @MainActor (ArticleListItemDTO) -> Void
     let toggleStarredAction: @MainActor (ArticleListItemDTO) -> Void
+    @State private var latestPaginationGeometry = ArticleListPaginationGeometry()
+    @State private var hasUserDrivenScrollDemand = false
 
     var body: some View {
         ZStack {
@@ -38,27 +40,47 @@ struct ArticleListContentView: View {
         .scrollPosition(id: $scrollPositionID)
         .contentMargins(.top, 8, for: .scrollContent)
         .animation(listAnimation, value: animationState)
-        .onScrollGeometryChange(for: ArticleListCustomRefreshGeometry.self) { geometry in
-            ArticleListCustomRefreshGeometry(
-                contentOffsetY: geometry.contentOffset.y,
-                contentInsetTop: geometry.contentInsets.top
+        .onScrollGeometryChange(for: ArticleListScrollObservation.self) { geometry in
+            ArticleListScrollObservation(
+                refreshGeometry: ArticleListCustomRefreshGeometry(
+                    contentOffsetY: geometry.contentOffset.y,
+                    contentInsetTop: geometry.contentInsets.top
+                ),
+                paginationGeometry: ArticleListPaginationGeometry(
+                    contentHeight: geometry.contentSize.height,
+                    visibleMaxY: geometry.visibleRect.maxY
+                )
             )
-        } action: { _, newGeometry in
-            let progress = ArticleListCustomRefreshPullPolicy.progress(for: newGeometry)
+        } action: { _, newObservation in
+            latestPaginationGeometry = newObservation.paginationGeometry
+            let progress = ArticleListCustomRefreshPullPolicy.progress(
+                for: newObservation.refreshGeometry
+            )
             customRefreshPullProgressChanged(progress)
+            requestNextPageIfNeeded()
         }
         .onScrollPhaseChange { oldPhase, newPhase, _ in
-            guard ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
+            if newPhase == .tracking || newPhase == .interacting {
+                hasUserDrivenScrollDemand = true
+            }
+
+            if ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
                 wasInteracting: oldPhase == .interacting,
                 isInteracting: newPhase == .interacting,
                 customRefreshState: customRefreshState
-            ) else {
-                return
+            ) {
+                Task {
+                    await customRefreshReleaseAction()
+                }
             }
 
-            Task {
-                await customRefreshReleaseAction()
+            requestNextPageIfNeeded()
+            if newPhase == .idle {
+                hasUserDrivenScrollDemand = false
             }
+        }
+        .onDisappear {
+            hasUserDrivenScrollDemand = false
         }
     }
 
@@ -97,10 +119,20 @@ struct ArticleListContentView: View {
             .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
-            .task(id: article.id) {
-                guard article.id == visibleArticleIDs.last else { return }
-                await loadNextPageAction()
-            }
+    }
+
+    private func requestNextPageIfNeeded() {
+        guard ArticleListPaginationPrefetchPolicy.shouldRequestNextPage(
+            geometry: latestPaginationGeometry,
+            hasUserDrivenScrollDemand: hasUserDrivenScrollDemand,
+            canLoadNextPage: canLoadNextPage
+        ) else {
+            return
+        }
+
+        Task {
+            await loadNextPageAction()
+        }
     }
 
     @ViewBuilder
@@ -165,4 +197,9 @@ struct ArticleListContentView: View {
         }
         .tint(.gray)
     }
+}
+
+private struct ArticleListScrollObservation: Equatable {
+    let refreshGeometry: ArticleListCustomRefreshGeometry
+    let paginationGeometry: ArticleListPaginationGeometry
 }

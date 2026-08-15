@@ -96,6 +96,40 @@ struct ArticleListCustomRefreshGeometry: Equatable {
     }
 }
 
+struct ArticleListPaginationGeometry: Equatable {
+    var contentHeight: CGFloat
+    var visibleMaxY: CGFloat
+
+    init(
+        contentHeight: CGFloat = 0,
+        visibleMaxY: CGFloat = 0
+    ) {
+        self.contentHeight = contentHeight
+        self.visibleMaxY = visibleMaxY
+    }
+
+    var distanceToEnd: CGFloat {
+        max(0, contentHeight - visibleMaxY)
+    }
+}
+
+enum ArticleListPaginationPrefetchPolicy {
+    static let distanceThreshold: CGFloat = 1_200
+
+    static func shouldRequestNextPage(
+        geometry: ArticleListPaginationGeometry,
+        hasUserDrivenScrollDemand: Bool,
+        canLoadNextPage: Bool,
+        threshold: CGFloat = distanceThreshold
+    ) -> Bool {
+        hasUserDrivenScrollDemand
+            && canLoadNextPage
+            && threshold >= 0
+            && geometry.contentHeight > 0
+            && geometry.distanceToEnd <= threshold
+    }
+}
+
 enum ArticleListCustomRefreshPullPolicy {
     static let pullThreshold: CGFloat = 72
 

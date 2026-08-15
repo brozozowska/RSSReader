@@ -42,9 +42,9 @@ struct ArticleListView: View {
 
         ArticleListContentView(
             sections: derivedViewState.sections,
-            visibleArticleIDs: derivedViewState.visibleArticles.map(\.id),
             animationState: derivedViewState.listAnimationState,
             customRefreshState: derivedViewState.customRefreshState,
+            canLoadNextPage: controller.screenState.canLoadNextPage,
             isLoadingNextPage: controller.screenState.isLoadingNextPage,
             selection: $selection,
             scrollPositionID: articleListScrollPositionBinding,
@@ -176,12 +176,7 @@ struct ArticleListView: View {
 
         let loadingSidebarSelection = selectedSidebarSelection
         let loadingSidebarArticleFilter = selectedSidebarArticleFilter
-        await controller.loadNextPage(
-            selection: loadingSidebarSelection,
-            sidebarArticleFilter: loadingSidebarArticleFilter,
-            searchText: searchText,
-            dependencies: dependencies
-        )
+        await controller.loadNextPage(dependencies: dependencies)
 
         guard loadingSidebarSelection == appState.selectedSidebarSelection,
               loadingSidebarArticleFilter == appState.selectedSidebarArticleFilter else {

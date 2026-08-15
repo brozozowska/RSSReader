@@ -267,6 +267,47 @@ struct ArticlesScreenPresentationTests {
     }
 
     @Test
+    func articleListPaginationPrefetchRequiresUserDemandNearListEnd() {
+        let nearEndGeometry = ArticleListPaginationGeometry(
+            contentHeight: 5_000,
+            visibleMaxY: 4_100
+        )
+        let farFromEndGeometry = ArticleListPaginationGeometry(
+            contentHeight: 5_000,
+            visibleMaxY: 3_000
+        )
+
+        #expect(
+            ArticleListPaginationPrefetchPolicy.shouldRequestNextPage(
+                geometry: nearEndGeometry,
+                hasUserDrivenScrollDemand: true,
+                canLoadNextPage: true
+            )
+        )
+        #expect(
+            ArticleListPaginationPrefetchPolicy.shouldRequestNextPage(
+                geometry: nearEndGeometry,
+                hasUserDrivenScrollDemand: false,
+                canLoadNextPage: true
+            ) == false
+        )
+        #expect(
+            ArticleListPaginationPrefetchPolicy.shouldRequestNextPage(
+                geometry: farFromEndGeometry,
+                hasUserDrivenScrollDemand: true,
+                canLoadNextPage: true
+            ) == false
+        )
+        #expect(
+            ArticleListPaginationPrefetchPolicy.shouldRequestNextPage(
+                geometry: nearEndGeometry,
+                hasUserDrivenScrollDemand: true,
+                canLoadNextPage: false
+            ) == false
+        )
+    }
+
+    @Test
     func articlesDaySectionsBuilderGroupsArticlesByDayAndPreservesVisibleOrder() {
         let calendar = Calendar.current
         let now = Date()

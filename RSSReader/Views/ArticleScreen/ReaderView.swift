@@ -11,6 +11,8 @@ struct ReaderView: View {
     let showsBackButton: Bool
     let navigateBackToArticles: () -> Void
     let sourceArticleSafariInteraction: ReaderSourceArticleSafariInteractionHandlers
+    let canLoadNextArticleContinuation: Bool
+    let loadArticleContinuation: @MainActor (ReaderAdjacentArticleNavigationDirection) async -> UUID?
     let previewScreenState: ArticleScreenState?
     @State private var controller = ArticleScreenController()
     @State private var adjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls
@@ -20,6 +22,7 @@ struct ReaderView: View {
     @State private var adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
     @State private var adjacentArticleOverscrollReadyHapticTrigger = 0
     @State private var hasTriggeredAdjacentArticleOverscrollReadyHaptic = false
+    @State private var isLoadingAdjacentArticleContinuation = false
     @State private var backNavigationContainerWidth: CGFloat = 0
 
     init(
@@ -28,6 +31,8 @@ struct ReaderView: View {
         showsBackButton: Bool,
         navigateBackToArticles: @escaping () -> Void,
         sourceArticleSafariInteraction: ReaderSourceArticleSafariInteractionHandlers = .inactive,
+        canLoadNextArticleContinuation: Bool = false,
+        loadArticleContinuation: @escaping @MainActor (ReaderAdjacentArticleNavigationDirection) async -> UUID? = { _ in nil },
         previewScreenState: ArticleScreenState? = nil
     ) {
         self.articleID = articleID
@@ -35,6 +40,8 @@ struct ReaderView: View {
         self.showsBackButton = showsBackButton
         self.navigateBackToArticles = navigateBackToArticles
         self.sourceArticleSafariInteraction = sourceArticleSafariInteraction
+        self.canLoadNextArticleContinuation = canLoadNextArticleContinuation
+        self.loadArticleContinuation = loadArticleContinuation
         self.previewScreenState = previewScreenState
         self._controller = State(initialValue: ArticleScreenController(previewScreenState: previewScreenState))
     }
@@ -103,7 +110,7 @@ struct ReaderView: View {
                 toolbarActions: viewState.toolbarActions,
                 adjacentNavigationControlsMode: adjacentNavigationControlsMode,
                 previousArticleID: appState.adjacentArticleID(.previous),
-                nextArticleID: appState.adjacentArticleID(.next),
+                canNavigateToNextArticle: canNavigateToNextArticle,
                 actionHandlers: actionHandlers,
                 onPreviousArticleTap: handlePreviousArticleTap,
                 onNextArticleTap: handleNextArticleTap
@@ -306,15 +313,58 @@ struct ReaderView: View {
     ) -> ReaderArticleOverscrollNavigationState {
         ReaderArticleOverscrollNavigationState(
             previousProgress: appState.adjacentArticleID(.previous) == nil ? 0 : overscrollState.previousProgress,
-            nextProgress: appState.adjacentArticleID(.next) == nil ? 0 : overscrollState.nextProgress
+            nextProgress: canNavigateToNextArticle ? overscrollState.nextProgress : 0
         )
     }
 
     private func navigateToAdjacentArticle(_ direction: ReaderAdjacentArticleNavigationDirection) {
-        guard let sourceArticleID = resolvedArticleID,
-              let targetArticleID = appState.adjacentArticleID(direction) else {
+        guard let sourceArticleID = resolvedArticleID else {
             return
         }
+
+        if let targetArticleID = appState.adjacentArticleID(direction) {
+            performAdjacentArticleNavigation(
+                direction: direction,
+                sourceArticleID: sourceArticleID,
+                targetArticleID: targetArticleID
+            )
+            return
+        }
+
+        guard direction == .next,
+              canLoadNextArticleContinuation,
+              isLoadingAdjacentArticleContinuation == false else {
+            return
+        }
+
+        isLoadingAdjacentArticleContinuation = true
+        Task { @MainActor in
+            let targetArticleID = await loadArticleContinuation(direction)
+            guard resolvedArticleID == sourceArticleID else {
+                isLoadingAdjacentArticleContinuation = false
+                return
+            }
+            isLoadingAdjacentArticleContinuation = false
+            guard let targetArticleID else { return }
+            performAdjacentArticleNavigation(
+                direction: direction,
+                sourceArticleID: sourceArticleID,
+                targetArticleID: targetArticleID
+            )
+        }
+    }
+
+    private var canNavigateToNextArticle: Bool {
+        appState.adjacentArticleID(.next) != nil
+            || (canLoadNextArticleContinuation && isLoadingAdjacentArticleContinuation == false)
+    }
+
+    private func performAdjacentArticleNavigation(
+        direction: ReaderAdjacentArticleNavigationDirection,
+        sourceArticleID: UUID,
+        targetArticleID: UUID
+    ) {
+        guard appState.adjacentArticleID(direction) == targetArticleID else { return }
 
         adjacentArticleTransitionGeneration += 1
         let transitionContext = AdjacentArticleTransitionContext(

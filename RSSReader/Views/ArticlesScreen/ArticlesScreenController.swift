@@ -9,6 +9,12 @@ nonisolated enum ArticlesScreenPaginationPolicy {
     static let pageSize = 50
 }
 
+struct ArticleListContinuationSnapshot: Equatable, Sendable {
+    let sessionID: UUID
+    let visibleArticleIDs: [UUID]
+    let hasMorePages: Bool
+}
+
 typealias ArticlesScreenSearchDebounceOperation = @MainActor () async throws -> Void
 typealias ArticlesScreenSearchQueryOperation = @MainActor (
     ArticleSearchRequest,
@@ -30,6 +36,8 @@ final class ArticlesScreenController {
     @ObservationIgnored let pageSize: Int
     @ObservationIgnored private var activeLoadTask: Task<Void, Never>?
     @ObservationIgnored private var activeLoadSessionContext: ArticleListSession.Context?
+    @ObservationIgnored private var activeNextPageTask: Task<ArticleListContinuationSnapshot?, Never>?
+    @ObservationIgnored private var activeNextPageIdentity: ArticleListNextPageIdentity?
     @ObservationIgnored private var loadGeneration = 0
     private var lastLoadedSessionContext: ArticleListSession.Context
 
@@ -90,6 +98,7 @@ final class ArticlesScreenController {
         loadGeneration += 1
         let currentLoadGeneration = loadGeneration
         activeLoadTask?.cancel()
+        cancelActiveNextPageLoad()
         prepareScreenStateForLoad(loadPlan, startsNewSession: true)
         let currentSessionID = screenState.articleListSession.id
         let loadTask = Task { @MainActor [weak self] in
@@ -124,6 +133,7 @@ final class ArticlesScreenController {
         activeLoadTask?.cancel()
         activeLoadTask = nil
         activeLoadSessionContext = nil
+        cancelActiveNextPageLoad()
         lastLoadedSessionContext = .noSelection
         screenState.endPresentation()
     }
@@ -178,6 +188,7 @@ final class ArticlesScreenController {
         loadGeneration += 1
         let currentLoadGeneration = loadGeneration
         activeLoadTask?.cancel()
+        cancelActiveNextPageLoad()
         prepareScreenStateForLoad(
             loadPlan,
             startsNewSession: loadPlan.sessionContextChanged || retainsSessionFilterMutations == false
@@ -368,58 +379,62 @@ final class ArticlesScreenController {
             && context == screenState.articleListSession.context
     }
 
-    func loadNextPage(
-        selection: SidebarSelection?,
-        sidebarArticleFilter: SidebarArticleFilter,
-        searchText: String = "",
+    private func cancelActiveNextPageLoad() {
+        activeNextPageTask?.cancel()
+        activeNextPageTask = nil
+        activeNextPageIdentity = nil
+        screenState.endLoadingNextPage()
+    }
+
+    private func isCurrentNextPageLoad(
+        _ identity: ArticleListNextPageIdentity
+    ) -> Bool {
+        identity.generation == loadGeneration
+            && identity.sessionID == screenState.articleListSession.id
+            && identity.context == lastLoadedSessionContext
+            && identity.context == screenState.articleListSession.context
+            && identity.cursor == screenState.articleListSession.nextPageCursor
+    }
+
+    private func currentContinuationSnapshot(
+        for identity: ArticleListNextPageIdentity
+    ) -> ArticleListContinuationSnapshot? {
+        guard identity.generation == loadGeneration,
+              identity.sessionID == screenState.articleListSession.id,
+              identity.context == screenState.articleListSession.context else {
+            return nil
+        }
+
+        return ArticleListContinuationSnapshot(
+            sessionID: identity.sessionID,
+            visibleArticleIDs: visibleArticleIDs(),
+            hasMorePages: screenState.articleListSession.nextPageCursor != nil
+        )
+    }
+
+    private func performNextPageLoad(
+        identity: ArticleListNextPageIdentity,
+        articleQueryService: any ArticleQueryService,
         dependencies: AppDependencies
-    ) async {
-        let normalizedSearchText = ArticleSearchScope.normalizedSearchText(searchText)
-        let effectiveSortMode = articleListSortMode(
-            for: selection,
-            sidebarArticleFilter: sidebarArticleFilter,
-            dependencies: dependencies
-        )
-        let sessionContext = ArticleListSession.Context(
-            selection: selection,
-            sidebarArticleFilter: sidebarArticleFilter,
-            normalizedSearchText: normalizedSearchText,
-            sortMode: effectiveSortMode
-        )
-        guard sessionContext == lastLoadedSessionContext,
-              sessionContext == screenState.articleListSession.context,
-              let nextPageCursor = screenState.articleListSession.nextPageCursor,
-              screenState.beginLoadingNextPage() else {
-            return
-        }
-
-        let currentLoadGeneration = loadGeneration
-        guard let articleQueryService = dependencies.articleQueryService else {
-            screenState.endLoadingNextPage()
-            return
-        }
-
+    ) async -> ArticleListContinuationSnapshot? {
         do {
             let loadResult = try await loadArticles(
-                for: selection,
-                sidebarArticleFilter: sidebarArticleFilter,
-                normalizedSearchText: normalizedSearchText,
-                sortMode: effectiveSortMode,
+                for: identity.context.selection,
+                sidebarArticleFilter: identity.context.sidebarArticleFilter,
+                normalizedSearchText: identity.context.normalizedSearchText,
+                sortMode: identity.context.sortMode,
                 articleQueryService: articleQueryService,
-                cursor: nextPageCursor
+                cursor: identity.cursor
             )
             try Task.checkCancellation()
-            guard currentLoadGeneration == loadGeneration,
-                  sessionContext == lastLoadedSessionContext,
-                  sessionContext == screenState.articleListSession.context,
-                  sessionContext == articleListSessionContext(
-                    selection: selection,
-                    sidebarArticleFilter: sidebarArticleFilter,
-                    normalizedSearchText: normalizedSearchText,
+            guard isCurrentNextPageLoad(identity),
+                  identity.context == articleListSessionContext(
+                    selection: identity.context.selection,
+                    sidebarArticleFilter: identity.context.sidebarArticleFilter,
+                    normalizedSearchText: identity.context.normalizedSearchText,
                     dependencies: dependencies
                   ) else {
-                screenState.endLoadingNextPage()
-                return
+                return nil
             }
 
             let existingArticleIDs = Set(screenState.articles.map(\.id))
@@ -432,18 +447,101 @@ final class ArticlesScreenController {
                 nextPageCursor: loadResult.nextPageCursor,
                 navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
                     articles: allArticles,
-                    sidebarArticleFilter: sidebarArticleFilter,
+                    sidebarArticleFilter: identity.context.sidebarArticleFilter,
                     hasMorePages: loadResult.nextPageCursor != nil
                 )
             )
+            return currentContinuationSnapshot(for: identity)
         } catch is CancellationError {
-            screenState.endLoadingNextPage()
+            if isCurrentNextPageLoad(identity) {
+                screenState.endLoadingNextPage()
+            }
+            return nil
         } catch {
+            guard isCurrentNextPageLoad(identity) else { return nil }
             dependencies.logger.error(
-                "Failed to load next article list page for selection \(String(describing: selection)): \(error)"
+                "Failed to load next article list page for selection \(String(describing: identity.context.selection)): \(error)"
             )
             screenState.endLoadingNextPage()
+            return currentContinuationSnapshot(for: identity)
         }
+    }
+
+    @discardableResult
+    func loadNextPage(
+        selection: SidebarSelection?,
+        sidebarArticleFilter: SidebarArticleFilter,
+        searchText: String = "",
+        dependencies: AppDependencies
+    ) async -> ArticleListContinuationSnapshot? {
+        let requestedContext = articleListSessionContext(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter,
+            normalizedSearchText: ArticleSearchScope.normalizedSearchText(searchText),
+            dependencies: dependencies
+        )
+        guard requestedContext == screenState.articleListSession.context else {
+            return nil
+        }
+
+        return await loadNextPage(dependencies: dependencies)
+    }
+
+    @discardableResult
+    func loadNextPage(
+        dependencies: AppDependencies
+    ) async -> ArticleListContinuationSnapshot? {
+        let sessionContext = screenState.articleListSession.context
+        guard sessionContext == lastLoadedSessionContext,
+              sessionContext == articleListSessionContext(
+                selection: sessionContext.selection,
+                sidebarArticleFilter: sessionContext.sidebarArticleFilter,
+                normalizedSearchText: sessionContext.normalizedSearchText,
+                dependencies: dependencies
+              ),
+              let nextPageCursor = screenState.articleListSession.nextPageCursor else {
+            return nil
+        }
+
+        let identity = ArticleListNextPageIdentity(
+            generation: loadGeneration,
+            sessionID: screenState.articleListSession.id,
+            context: sessionContext,
+            cursor: nextPageCursor
+        )
+        if activeNextPageIdentity == identity,
+           let activeNextPageTask {
+            return await activeNextPageTask.value
+        }
+
+        guard activeNextPageTask == nil,
+              let articleQueryService = dependencies.articleQueryService,
+              screenState.beginLoadingNextPage() else {
+            return nil
+        }
+
+        let nextPageTask = Task<ArticleListContinuationSnapshot?, Never> { @MainActor [weak self] in
+            guard let self else { return nil }
+            return await performNextPageLoad(
+                identity: identity,
+                articleQueryService: articleQueryService,
+                dependencies: dependencies
+            )
+        }
+        activeNextPageIdentity = identity
+        activeNextPageTask = nextPageTask
+
+        let snapshot = await nextPageTask.value
+        if activeNextPageIdentity == identity {
+            activeNextPageIdentity = nil
+            activeNextPageTask = nil
+        }
+        return snapshot
+    }
+
+    func hasNextPageContinuation(for sessionID: UUID) -> Bool {
+        sessionID == screenState.articleListSession.id
+            && screenState.articleListSession.nextPageCursor != nil
     }
 
     @discardableResult
@@ -646,6 +744,13 @@ private struct ArticleListLoadResult {
     let articles: [ArticleListItemDTO]
     let emptyContentKind: ArticlesScreenEmptyContentKind
     let nextPageCursor: ArticleSearchRequest.Cursor?
+}
+
+private struct ArticleListNextPageIdentity: Equatable {
+    let generation: Int
+    let sessionID: UUID
+    let context: ArticleListSession.Context
+    let cursor: ArticleSearchRequest.Cursor
 }
 
 private struct ArticlesScreenLoadPlan {

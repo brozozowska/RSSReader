@@ -65,7 +65,19 @@ struct RootView: View {
                         articleSelection: articleID
                     ),
                     navigateBackToArticles: navigateBackToArticles,
-                    sourceArticleSafariInteraction: sourceArticleSafariInteraction
+                    sourceArticleSafariInteraction: sourceArticleSafariInteraction,
+                    canLoadNextArticleContinuation: ArticleListContinuationCoordinator.canLoadNextArticle(
+                        appState: appState,
+                        controller: articlesScreenController
+                    ),
+                    loadArticleContinuation: { direction in
+                        await ArticleListContinuationCoordinator.loadAdjacentArticle(
+                            direction,
+                            appState: appState,
+                            controller: articlesScreenController,
+                            dependencies: dependencies
+                        )
+                    }
                 )
                 .id(appState.selectedSidebarSelection)
             }
