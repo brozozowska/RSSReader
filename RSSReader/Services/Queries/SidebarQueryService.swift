@@ -24,14 +24,13 @@ final class DefaultSidebarQueryService: SidebarQueryService {
     func fetchSnapshot() throws -> SidebarSnapshotDTO {
         let baseFeeds = try feedRepository.fetchSidebarItems()
         let folders = try folderRepository.fetchAllFolders().map(FolderSidebarItem.init(folder:))
-        let unreadCounts = try articleStateRepository.fetchUnreadCounts(feedIDs: baseFeeds.map(\.id))
-        let starredCountsByFeedID = try articleStateRepository.fetchStarredCounts(
+        let aggregateCounts = try articleStateRepository.fetchAggregateCounts(
             feedIDs: baseFeeds.map(\.id)
         )
         let feeds = baseFeeds.map { feed in
             feed.withCounts(
-                unreadCount: unreadCounts[feed.id, default: 0],
-                starredCount: starredCountsByFeedID[feed.id, default: 0]
+                unreadCount: aggregateCounts.unreadByFeedID[feed.id, default: 0],
+                starredCount: aggregateCounts.starredByFeedID[feed.id, default: 0]
             )
         }
 
