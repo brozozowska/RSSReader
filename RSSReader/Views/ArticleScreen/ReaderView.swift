@@ -8,8 +8,6 @@ struct ReaderView: View {
     @Environment(\.openURL) private var openURL
     let articleID: UUID?
     let reloadID: UUID
-    let showsBackButton: Bool
-    let navigateBackToArticles: () -> Void
     let sourceArticleSafariInteraction: ReaderSourceArticleSafariInteractionHandlers
     let canLoadNextArticleContinuation: Bool
     let loadArticleContinuation: @MainActor (ReaderAdjacentArticleNavigationDirection) async -> UUID?
@@ -23,13 +21,11 @@ struct ReaderView: View {
     @State private var adjacentArticleOverscrollReadyHapticTrigger = 0
     @State private var hasTriggeredAdjacentArticleOverscrollReadyHaptic = false
     @State private var isLoadingAdjacentArticleContinuation = false
-    @State private var backNavigationContainerWidth: CGFloat = 0
+    @State private var interactionContainerWidth: CGFloat = 0
 
     init(
         articleID: UUID?,
         reloadID: UUID = UUID(),
-        showsBackButton: Bool,
-        navigateBackToArticles: @escaping () -> Void,
         sourceArticleSafariInteraction: ReaderSourceArticleSafariInteractionHandlers = .inactive,
         canLoadNextArticleContinuation: Bool = false,
         loadArticleContinuation: @escaping @MainActor (ReaderAdjacentArticleNavigationDirection) async -> UUID? = { _ in nil },
@@ -37,8 +33,6 @@ struct ReaderView: View {
     ) {
         self.articleID = articleID
         self.reloadID = reloadID
-        self.showsBackButton = showsBackButton
-        self.navigateBackToArticles = navigateBackToArticles
         self.sourceArticleSafariInteraction = sourceArticleSafariInteraction
         self.canLoadNextArticleContinuation = canLoadNextArticleContinuation
         self.loadArticleContinuation = loadArticleContinuation
@@ -142,9 +136,8 @@ struct ReaderView: View {
         .onGeometryChange(for: CGFloat.self) { proxy in
             proxy.size.width
         } action: { newWidth in
-            backNavigationContainerWidth = newWidth
+            interactionContainerWidth = newWidth
         }
-        .simultaneousGesture(backNavigationGesture)
         .simultaneousGesture(openSourceArticleGesture)
     }
 
@@ -199,22 +192,6 @@ struct ReaderView: View {
         return adjacentArticleTransitionContext
     }
 
-    private var backNavigationGesture: some Gesture {
-        DragGesture(minimumDistance: 20)
-            .onEnded { value in
-                guard showsBackButton else { return }
-                guard ArticleScreenNavigationState.shouldNavigateBackOnDrag(
-                    startLocationX: value.startLocation.x,
-                    containerWidth: backNavigationContainerWidth,
-                    layoutDirection: layoutDirection,
-                    translation: value.translation
-                ) else {
-                    return
-                }
-                navigateBackToArticles()
-            }
-    }
-
     private var openSourceArticleGesture: some Gesture {
         DragGesture(minimumDistance: 20)
             .onChanged { value in
@@ -228,7 +205,7 @@ struct ReaderView: View {
     private func handleOpenSourceArticleDragChange(_ value: DragGesture.Value) {
         let progress = ArticleScreenNavigationState.openSourceArticleSwipeProgress(
             layoutDirection: layoutDirection,
-            containerWidth: backNavigationContainerWidth,
+            containerWidth: interactionContainerWidth,
             translation: value.translation
         )
         guard progress > 0 else {
@@ -248,7 +225,7 @@ struct ReaderView: View {
     private func handleOpenSourceArticleDragEnd(_ value: DragGesture.Value) {
         guard ArticleScreenNavigationState.shouldOpenSourceArticleOnDrag(
             layoutDirection: layoutDirection,
-            containerWidth: backNavigationContainerWidth,
+            containerWidth: interactionContainerWidth,
             translation: value.translation
         ) else {
             sourceArticleSafariInteraction.cancel()

@@ -9,8 +9,7 @@ struct RootView: View {
     @State private var presentedFeedManagementLaunchContext: FeedManagementScreenLaunchContext = .entry
     @State private var interactiveSafariRoute: ArticleSafariRoute?
     @State private var interactiveSafariProgress: CGFloat = 0
-    @State private var interactiveSafariDismissalRoute: ArticleSafariRoute?
-    @State private var interactiveSafariDismissalProgress: CGFloat = 0
+    @State private var safariDismissalInteraction = ReadingShellSafariDismissalInteractionState()
     @State private var articlesScreenController = ArticlesScreenController()
 
     var body: some View {
@@ -18,10 +17,11 @@ struct RootView: View {
             interfaceThemeMode: appState.interfaceThemeMode,
             systemColorScheme: systemColorScheme
         )
-        let detailDestination = ReadingShellDetailNavigationState.detailDestination(
-            route: appState.selectedDetailRoute,
-            selectedArticleID: appState.selectedArticleID
-        )
+        let detailDestination = safariDismissalInteraction.transition?.destination
+            ?? ReadingShellDetailNavigationState.detailDestination(
+                route: appState.selectedDetailRoute,
+                selectedArticleID: appState.selectedArticleID
+            )
         let sidebarSelection = Binding<SidebarSelection?>(
             get: { appState.presentedSidebarSelection },
             set: { prepareAndPresentSidebarSelection($0) }
@@ -51,8 +51,6 @@ struct RootView: View {
                 ReaderView(
                     articleID: nil,
                     reloadID: appState.articleScreenReloadID,
-                    showsBackButton: false,
-                    navigateBackToArticles: {},
                     sourceArticleSafariInteraction: sourceArticleSafariInteraction
                 )
                 }
@@ -60,11 +58,6 @@ struct RootView: View {
                 ReaderView(
                     articleID: articleID,
                     reloadID: appState.articleScreenReloadID,
-                    showsBackButton: ArticleScreenNavigationState.showsBackButton(
-                        horizontalSizeClass: horizontalSizeClass,
-                        articleSelection: articleID
-                    ),
-                    navigateBackToArticles: navigateBackToArticles,
                     sourceArticleSafariInteraction: sourceArticleSafariInteraction,
                     canLoadNextArticleContinuation: ArticleListContinuationCoordinator.canLoadNextArticle(
                         appState: appState,
@@ -211,7 +204,7 @@ struct RootView: View {
 
     private var currentSafariPresentationRoute: ArticleSafariRoute? {
         appState.presentedSafariRoute
-            ?? interactiveSafariDismissalRoute
+            ?? safariDismissalInteraction.retainedSafariRoute
             ?? interactiveSafariRoute
     }
 
@@ -236,48 +229,46 @@ struct RootView: View {
     }
 
     private func dismissPresentedSafari() {
-        interactiveSafariDismissalProgress = 0
+        safariDismissalInteraction.cancel()
         withAnimation(safariPresentationAnimation) {
             appState.dismissPresentedSafari()
         }
     }
 
     private func updateInteractiveSafariDismissal(progress: CGFloat) {
-        guard isPresentingDirectArticleSafari else { return }
-        interactiveSafariDismissalProgress = min(max(progress, 0), 1)
+        safariDismissalInteraction.update(
+            sourceRoute: appState.selectedDetailRoute,
+            selectedArticleID: appState.selectedArticleID,
+            progress: progress
+        )
     }
 
     private func cancelInteractiveSafariDismissal() {
-        guard isPresentingDirectArticleSafari else { return }
+        guard safariDismissalInteraction.transition != nil else { return }
         withAnimation(safariPresentationAnimation) {
-            interactiveSafariDismissalProgress = 0
+            safariDismissalInteraction.cancel()
         }
     }
 
     private func finishInteractiveSafariDismissal() {
-        guard case .safari(let route, dismissalTarget: .articleList) = appState.selectedDetailRoute else {
+        let sourceRoute = appState.selectedDetailRoute
+        guard let committedTransition = safariDismissalInteraction.prepareCommit(
+            sourceRoute: sourceRoute,
+            selectedArticleID: appState.selectedArticleID
+        ) else {
             dismissPresentedSafari()
             return
         }
 
-        interactiveSafariDismissalRoute = route
         appState.dismissPresentedSafari()
         withAnimation(
             safariPresentationAnimation,
             completionCriteria: .logicallyComplete
         ) {
-            interactiveSafariDismissalProgress = 1
+            safariDismissalInteraction.finish(committedTransition)
         } completion: {
-            interactiveSafariDismissalRoute = nil
-            interactiveSafariDismissalProgress = 0
+            safariDismissalInteraction.complete(committedTransition)
         }
-    }
-
-    private var isPresentingDirectArticleSafari: Bool {
-        guard case .safari(_, dismissalTarget: .articleList) = appState.selectedDetailRoute else {
-            return false
-        }
-        return true
     }
 
     private func updateInteractiveSafariPresentation(route: ArticleSafariRoute, progress: CGFloat) {
@@ -302,8 +293,8 @@ struct RootView: View {
     }
 
     private func safariPresentationOffset(containerWidth: CGFloat) -> CGFloat {
-        if appState.presentedSafariRoute != nil || interactiveSafariDismissalRoute != nil {
-            let visibleOffset = containerWidth * interactiveSafariDismissalProgress
+        if appState.presentedSafariRoute != nil || safariDismissalInteraction.retainedSafariRoute != nil {
+            let visibleOffset = containerWidth * safariDismissalInteraction.progress
             switch layoutDirection {
             case .leftToRight:
                 return visibleOffset
@@ -328,16 +319,9 @@ struct RootView: View {
     }
 
     private func selectArticle(_ articleID: UUID?) {
-        withAnimation(ReadingShellTransitionAnimation.screen) {
-            dependencies.appActions.selectArticle(id: articleID, using: appState)
-        }
+        dependencies.appActions.selectArticle(id: articleID, using: appState)
     }
 
-    private func navigateBackToArticles() {
-        withAnimation(ReadingShellTransitionAnimation.screen) {
-            appState.selectedArticleID = nil
-        }
-    }
 }
 
 private struct AppThemePresentationScope<Content: View>: View {

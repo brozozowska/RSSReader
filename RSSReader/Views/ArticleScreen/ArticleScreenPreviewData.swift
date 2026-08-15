@@ -57,8 +57,6 @@ private struct ArticleScreenPreviewContainer: View {
         NavigationStack {
             ReaderView(
                 articleID: nil,
-                showsBackButton: true,
-                navigateBackToArticles: {},
                 previewScreenState: screenState
             )
             .environment(\.appDependencies, AppDependencies.makeDefault())

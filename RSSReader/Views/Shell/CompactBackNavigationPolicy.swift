@@ -5,13 +5,6 @@ enum CompactBackNavigationPolicy {
     private static let horizontalTranslationThreshold: CGFloat = 80
     private static let verticalTranslationTolerance: CGFloat = 48
 
-    static func showsBackButton(
-        horizontalSizeClass: UserInterfaceSizeClass?,
-        hasSelection: Bool
-    ) -> Bool {
-        horizontalSizeClass == .compact && hasSelection
-    }
-
     static func shouldNavigateBackOnDrag(
         startLocationX: CGFloat,
         containerWidth: CGFloat,
