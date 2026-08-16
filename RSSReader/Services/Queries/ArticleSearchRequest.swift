@@ -14,6 +14,11 @@ struct ArticleSearchRequest: Sendable, Equatable {
         case returnsEmpty
     }
 
+    enum ScopeMetricLoadingPolicy: Sendable, Equatable {
+        case none
+        case baseScope
+    }
+
     let selection: SidebarSelection?
     let sidebarArticleFilter: SidebarArticleFilter
     let normalizedQuery: String
@@ -22,6 +27,7 @@ struct ArticleSearchRequest: Sendable, Equatable {
     let cursor: Cursor?
     let emptyQueryBehavior: EmptyQueryBehavior
     let requiresUnread: Bool
+    let scopeMetricLoadingPolicy: ScopeMetricLoadingPolicy
 
     init(
         selection: SidebarSelection?,
@@ -31,7 +37,8 @@ struct ArticleSearchRequest: Sendable, Equatable {
         limit: Int = ArticleQueryPaginationPolicy.defaultPageSize,
         cursor: Cursor? = nil,
         emptyQueryBehavior: EmptyQueryBehavior = .returnsCurrentScope,
-        requiresUnread: Bool = false
+        requiresUnread: Bool = false,
+        scopeMetricLoadingPolicy: ScopeMetricLoadingPolicy = .none
     ) {
         self.selection = selection
         self.sidebarArticleFilter = sidebarArticleFilter
@@ -41,6 +48,7 @@ struct ArticleSearchRequest: Sendable, Equatable {
         self.cursor = cursor
         self.emptyQueryBehavior = emptyQueryBehavior
         self.requiresUnread = requiresUnread
+        self.scopeMetricLoadingPolicy = scopeMetricLoadingPolicy
     }
 
     var listFilter: ArticleListFilter {

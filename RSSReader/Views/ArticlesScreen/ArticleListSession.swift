@@ -33,6 +33,7 @@ struct ArticleListSession: Equatable {
     private(set) var context: Context
     private(set) var entries: [ArticleListEntry]
     private(set) var nextPageCursor: ArticleSearchRequest.Cursor?
+    private(set) var scopeMetric: ArticleScopeMetric?
 
     var articles: [ArticleListItemDTO] {
         entries.map(\.article)
@@ -41,12 +42,14 @@ struct ArticleListSession: Equatable {
     init(
         context: Context,
         entries: [ArticleListEntry] = [],
-        nextPageCursor: ArticleSearchRequest.Cursor? = nil
+        nextPageCursor: ArticleSearchRequest.Cursor? = nil,
+        scopeMetric: ArticleScopeMetric? = nil
     ) {
         self.id = UUID()
         self.context = context
         self.entries = entries
         self.nextPageCursor = nextPageCursor
+        self.scopeMetric = scopeMetric
     }
 
     init(context: Context, articles: [ArticleListItemDTO]) {
@@ -59,12 +62,14 @@ struct ArticleListSession: Equatable {
     mutating func replaceArticles(
         _ articles: [ArticleListItemDTO],
         context: Context,
-        nextPageCursor: ArticleSearchRequest.Cursor? = nil
+        nextPageCursor: ArticleSearchRequest.Cursor? = nil,
+        scopeMetric: ArticleScopeMetric? = nil
     ) {
         replaceEntries(
             articles.map { ArticleListEntry(article: $0) },
             context: context,
-            nextPageCursor: nextPageCursor
+            nextPageCursor: nextPageCursor,
+            scopeMetric: scopeMetric
         )
     }
 
@@ -72,14 +77,17 @@ struct ArticleListSession: Equatable {
         _ entries: [ArticleListEntry],
         context: Context,
         nextPageCursor: ArticleSearchRequest.Cursor? = nil,
+        scopeMetric: ArticleScopeMetric? = nil,
         startsNewSession: Bool = false
     ) {
+        let retainsScopeMetric = self.context.hasSameBaseMetricScope(as: context)
         if startsNewSession || self.context != context {
             id = UUID()
         }
         self.context = context
         self.entries = entries
         self.nextPageCursor = nextPageCursor
+        self.scopeMetric = scopeMetric ?? (retainsScopeMetric ? self.scopeMetric : nil)
     }
 
     mutating func startNewSession(
@@ -87,8 +95,12 @@ struct ArticleListSession: Equatable {
         retainsCurrentEntries: Bool
     ) {
         let canRetainCurrentEntries = retainsCurrentEntries && self.context == context
+        let retainsScopeMetric = self.context.hasSameBaseMetricScope(as: context)
         id = UUID()
         self.context = context
+        if retainsScopeMetric == false {
+            scopeMetric = nil
+        }
         if canRetainCurrentEntries == false {
             entries = []
             nextPageCursor = nil
@@ -97,23 +109,34 @@ struct ArticleListSession: Equatable {
 
     mutating func appendPage(
         _ articles: [ArticleListItemDTO],
-        nextPageCursor: ArticleSearchRequest.Cursor?
+        nextPageCursor: ArticleSearchRequest.Cursor?,
+        scopeMetric: ArticleScopeMetric? = nil
     ) {
         var knownArticleIDs = Set(entries.map(\.id))
         for article in articles where knownArticleIDs.insert(article.id).inserted {
             entries.append(ArticleListEntry(article: article))
         }
         self.nextPageCursor = nextPageCursor
+        if let scopeMetric {
+            self.scopeMetric = scopeMetric
+        }
     }
 
     mutating func updateArticle(
         _ article: ArticleListItemDTO,
         membershipStatus: ArticleListEntryMembershipStatus? = nil
     ) {
+        let previousArticle = entries.first(where: { $0.id == article.id })?.article
         entries = entries.map { entry in
             entry.id == article.id
                 ? entry.updating(article: article, membershipStatus: membershipStatus)
                 : entry
+        }
+        if let previousArticle {
+            scopeMetric = scopeMetric?.applyingMutation(
+                from: previousArticle,
+                to: article
+            )
         }
     }
 
@@ -121,25 +144,30 @@ struct ArticleListSession: Equatable {
         id articleID: UUID,
         retainedMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterFilterMutation
     ) {
-        entries = entries.map { entry in
-            guard entry.id == articleID else {
-                return entry
-            }
-
-            return ArticleListEntry(
-                article: entry.article.updating(
-                    isRead: true,
-                    isStarred: entry.article.isStarred
-                ),
-                membershipStatus: context.articleListFilter == .unread
-                    ? retainedMembershipStatus
-                    : entry.membershipStatus
-            )
-        }
+        guard let entry = entries.first(where: { $0.id == articleID }) else { return }
+        updateArticle(
+            entry.article.updating(
+                isRead: true,
+                isStarred: entry.article.isStarred
+            ),
+            membershipStatus: context.articleListFilter == .unread
+                ? retainedMembershipStatus
+                : entry.membershipStatus
+        )
     }
 
     mutating func removeArticle(id articleID: UUID) {
+        if let removedArticle = entries.first(where: { $0.id == articleID })?.article {
+            scopeMetric = scopeMetric?.removing(removedArticle)
+        }
         entries.removeAll { $0.id == articleID }
+    }
+}
+
+private extension ArticleListSession.Context {
+    func hasSameBaseMetricScope(as other: ArticleListSession.Context) -> Bool {
+        selection == other.selection
+            && sidebarArticleFilter == other.sidebarArticleFilter
     }
 }
 

@@ -51,16 +51,20 @@ extension ArticlesScreenController {
                 filter: articleListFilter,
                 persistedStates: nil
             )
+            let updatedScopeMetric = previewScopeMetric(
+                afterMarkingAllAsReadIn: screenState.articleListSession
+            )
             screenState.applyMarkAllAsRead(
                 updatedArticles,
                 navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
                     articles: updatedArticles,
                     sidebarArticleFilter: sidebarArticleFilter,
-                    hasMorePages: screenState.articleListSession.nextPageCursor != nil
+                    scopeMetric: updatedScopeMetric
                 ),
                 emptyContentKind: ArticleSearchScope.normalizedSearchText(searchText).isEmpty
                     ? .selection
-                    : .searchResults
+                    : .searchResults,
+                scopeMetric: updatedScopeMetric
             )
             return
         }
@@ -108,7 +112,8 @@ extension ArticlesScreenController {
                 selection: selection,
                 sidebarArticleFilter: sidebarArticleFilter,
                 searchText: searchText,
-                dependencies: dependencies
+                dependencies: dependencies,
+                refreshesScopeMetric: true
             )
         }
         await refreshTask.value
@@ -174,8 +179,7 @@ extension ArticlesScreenController {
         )
         applyArticleRowMutation(
             mutation,
-            articleID: article.id,
-            sidebarArticleFilter: sidebarArticleFilter
+            articleID: article.id
         )
     }
 
@@ -220,30 +224,30 @@ extension ArticlesScreenController {
         )
         applyArticleRowMutation(
             mutation,
-            articleID: article.id,
-            sidebarArticleFilter: sidebarArticleFilter
+            articleID: article.id
         )
     }
 
     func applyArticleRowMutation(
         _ mutation: ArticleRowMutation,
-        articleID: UUID,
-        sidebarArticleFilter: SidebarArticleFilter
+        articleID: UUID
     ) {
-        let updatedArticles = ArticlesScreenMutationReducer.apply(
-            mutation,
-            articleID: articleID,
-            allArticles: screenState.articles
-        )
         screenState.applyArticleRowMutation(
             articleID: articleID,
-            mutation: mutation,
-            navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
-                articles: updatedArticles,
-                sidebarArticleFilter: sidebarArticleFilter,
-                hasMorePages: screenState.articleListSession.nextPageCursor != nil
-            )
+            mutation: mutation
         )
+    }
+
+    private func previewScopeMetric(
+        afterMarkingAllAsReadIn session: ArticleListSession
+    ) -> ArticleScopeMetric? {
+        guard let scopeMetric = session.scopeMetric else { return nil }
+        switch scopeMetric.kind {
+        case .unread:
+            return ArticleScopeMetric(kind: .unread, count: 0)
+        case .starred:
+            return scopeMetric
+        }
     }
 
     private func currentArticleListFilter(

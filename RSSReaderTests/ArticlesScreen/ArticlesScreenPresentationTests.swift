@@ -105,8 +105,6 @@ struct ArticlesScreenPresentationTests {
         let unreadStarredItem = makeArticleListItemDTO(isRead: false, isStarred: true)
         let articles = [unreadItem, starredItem, unreadStarredItem]
 
-        #expect(ReadingLocalization.unreadItemsLowerBoundSubtitle(count: 2).hasPrefix("≥ "))
-        #expect(ReadingLocalization.starredItemsLowerBoundSubtitle(count: 2).hasPrefix("≥ "))
         #expect(
             ArticlesScreenSubtitleResolver.resolve(
                 articles: articles,
@@ -152,7 +150,7 @@ struct ArticlesScreenPresentationTests {
     }
 
     @Test
-    func articlesScreenSubtitleResolverMarksLoadedCountsAsLowerBoundsWhileMorePagesRemain() {
+    func articlesScreenSubtitleResolverUsesExactScopeMetricIndependentlyOfLoadedRows() {
         let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
         let starredItem = makeArticleListItemDTO(isRead: true, isStarred: true)
         let unreadStarredItem = makeArticleListItemDTO(isRead: false, isStarred: true)
@@ -162,15 +160,15 @@ struct ArticlesScreenPresentationTests {
             ArticlesScreenSubtitleResolver.resolve(
                 articles: articles,
                 sidebarArticleFilter: .unread,
-                hasMorePages: true
-            ) == ReadingLocalization.unreadItemsLowerBoundSubtitle(count: 2)
+                scopeMetric: ArticleScopeMetric(kind: .unread, count: 42)
+            ) == ReadingLocalization.unreadItemsSubtitle(count: 42)
         )
         #expect(
             ArticlesScreenSubtitleResolver.resolve(
                 articles: articles,
-                sidebarArticleFilter: .starred,
-                hasMorePages: true
-            ) == ReadingLocalization.starredItemsLowerBoundSubtitle(count: 2)
+                sidebarArticleFilter: .allItems,
+                scopeMetric: ArticleScopeMetric(kind: .starred, count: 17)
+            ) == ReadingLocalization.starredItemsSubtitle(count: 17)
         )
     }
 

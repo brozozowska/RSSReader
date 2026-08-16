@@ -125,13 +125,15 @@ public final class AppDependencies: AppDependenciesProtocol {
         }
         let articleQueryService: (any ArticleQueryService)? = {
             guard let articleRepository,
-                  let articleStateRepository else {
+                  let articleStateRepository,
+                  let feedRepository else {
                 return nil
             }
 
             return DefaultArticleQueryService(
                 articleRepository: articleRepository,
                 articleStateRepository: articleStateRepository,
+                feedRepository: feedRepository,
                 searchScanBatchProbe: articleSearchScanBatchProbe
             )
         }()

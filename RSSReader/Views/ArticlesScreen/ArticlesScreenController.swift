@@ -91,6 +91,7 @@ final class ArticlesScreenController {
             selection: selection,
             sidebarArticleFilter: sidebarArticleFilter,
             searchText: "",
+            refreshesScopeMetric: true,
             dependencies: dependencies
         )
         guard loadPlan.sessionContextChanged else { return nil }
@@ -157,8 +158,7 @@ final class ArticlesScreenController {
                 isRead: event.isRead,
                 filter: screenState.articleListSession.context.articleListFilter
             ),
-            articleID: article.id,
-            sidebarArticleFilter: screenState.articleListSession.context.sidebarArticleFilter
+            articleID: article.id
         )
         return true
     }
@@ -168,6 +168,7 @@ final class ArticlesScreenController {
         sidebarArticleFilter: SidebarArticleFilter,
         searchText: String = "",
         dependencies: AppDependencies,
+        refreshesScopeMetric: Bool = false,
         retainsSessionFilterMutations: Bool = false,
         retainedSessionMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterFilterMutation,
         preservesRefreshFeedback: Bool = false
@@ -176,6 +177,7 @@ final class ArticlesScreenController {
             selection: selection,
             sidebarArticleFilter: sidebarArticleFilter,
             searchText: searchText,
+            refreshesScopeMetric: refreshesScopeMetric,
             dependencies: dependencies
         )
         if retainsSessionFilterMutations,
@@ -259,6 +261,7 @@ final class ArticlesScreenController {
                 sidebarArticleFilter: plan.sidebarArticleFilter,
                 normalizedSearchText: plan.normalizedSearchText,
                 sortMode: plan.sortMode,
+                loadsScopeMetric: plan.refreshesScopeMetric,
                 articleQueryService: articleQueryService
             )
             try Task.checkCancellation()
@@ -270,10 +273,12 @@ final class ArticlesScreenController {
                 retainedMembershipStatus: retainedSessionMembershipStatus
             )
             let resolvedArticles = resolvedEntries.map(\.article)
+            let resolvedScopeMetric = loadResult.scopeMetric
+                ?? screenState.articleListSession.scopeMetric
             let navigationSubtitle = ArticlesScreenSubtitleResolver.resolve(
                 articles: resolvedArticles,
                 sidebarArticleFilter: plan.sidebarArticleFilter,
-                hasMorePages: loadResult.nextPageCursor != nil
+                scopeMetric: resolvedScopeMetric
             )
             guard isCurrentLoad(
                 generation: currentLoadGeneration,
@@ -289,7 +294,8 @@ final class ArticlesScreenController {
                 sessionContext: plan.sessionContext,
                 preservesRefreshFeedback: preservesRefreshFeedback,
                 emptyContentKind: loadResult.emptyContentKind,
-                nextPageCursor: loadResult.nextPageCursor
+                nextPageCursor: loadResult.nextPageCursor,
+                scopeMetric: resolvedScopeMetric
             )
         } catch is CancellationError {
             return
@@ -318,6 +324,7 @@ final class ArticlesScreenController {
         selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter,
         searchText: String,
+        refreshesScopeMetric: Bool,
         dependencies: AppDependencies
     ) -> ArticlesScreenLoadPlan {
         let normalizedSearchText = ArticleSearchScope.normalizedSearchText(searchText)
@@ -338,6 +345,7 @@ final class ArticlesScreenController {
             selection: selection,
             sidebarArticleFilter: sidebarArticleFilter,
             normalizedSearchText: normalizedSearchText,
+            refreshesScopeMetric: refreshesScopeMetric,
             sortMode: sortMode,
             sessionContext: sessionContext,
             sessionContextChanged: sessionContextChanged,
@@ -350,7 +358,7 @@ final class ArticlesScreenController {
                 : ArticlesScreenSubtitleResolver.resolve(
                     articles: screenState.articles,
                     sidebarArticleFilter: sidebarArticleFilter,
-                    hasMorePages: screenState.articleListSession.nextPageCursor != nil
+                    scopeMetric: screenState.articleListSession.scopeMetric
                 )
         )
     }
@@ -423,6 +431,7 @@ final class ArticlesScreenController {
                 sidebarArticleFilter: identity.context.sidebarArticleFilter,
                 normalizedSearchText: identity.context.normalizedSearchText,
                 sortMode: identity.context.sortMode,
+                loadsScopeMetric: false,
                 articleQueryService: articleQueryService,
                 cursor: identity.cursor
             )
@@ -448,8 +457,10 @@ final class ArticlesScreenController {
                 navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
                     articles: allArticles,
                     sidebarArticleFilter: identity.context.sidebarArticleFilter,
-                    hasMorePages: loadResult.nextPageCursor != nil
-                )
+                    scopeMetric: loadResult.scopeMetric
+                        ?? screenState.articleListSession.scopeMetric
+                ),
+                scopeMetric: loadResult.scopeMetric
             )
             return currentContinuationSnapshot(for: identity)
         } catch is CancellationError {
@@ -605,6 +616,7 @@ final class ArticlesScreenController {
         sidebarArticleFilter: SidebarArticleFilter,
         normalizedSearchText: String,
         sortMode: ArticleSortMode,
+        loadsScopeMetric: Bool,
         articleQueryService: any ArticleQueryService,
         cursor: ArticleSearchRequest.Cursor? = nil
     ) async throws -> ArticleListLoadResult {
@@ -614,14 +626,16 @@ final class ArticlesScreenController {
             query: normalizedSearchText,
             sortMode: sortMode,
             limit: pageSize,
-            cursor: cursor
+            cursor: cursor,
+            scopeMetricLoadingPolicy: loadsScopeMetric ? .baseScope : .none
         )
         let snapshot = try await searchQueryOperation(request, articleQueryService)
 
         return ArticleListLoadResult(
             articles: snapshot.articles,
             emptyContentKind: emptyContentKind(snapshot: snapshot, request: request),
-            nextPageCursor: snapshot.nextCursor
+            nextPageCursor: snapshot.nextCursor,
+            scopeMetric: snapshot.scopeMetric
         )
     }
 
@@ -744,6 +758,7 @@ private struct ArticleListLoadResult {
     let articles: [ArticleListItemDTO]
     let emptyContentKind: ArticlesScreenEmptyContentKind
     let nextPageCursor: ArticleSearchRequest.Cursor?
+    let scopeMetric: ArticleScopeMetric?
 }
 
 private struct ArticleListNextPageIdentity: Equatable {
@@ -757,6 +772,7 @@ private struct ArticlesScreenLoadPlan {
     let selection: SidebarSelection?
     let sidebarArticleFilter: SidebarArticleFilter
     let normalizedSearchText: String
+    let refreshesScopeMetric: Bool
     let sortMode: ArticleSortMode
     let sessionContext: ArticleListSession.Context
     let sessionContextChanged: Bool

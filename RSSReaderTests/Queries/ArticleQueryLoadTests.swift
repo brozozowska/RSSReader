@@ -23,6 +23,7 @@ struct ArticleQueryLoadTests {
         let queryService = DefaultArticleQueryService(
             articleRepository: repository,
             articleStateRepository: harness.articleStateRepository,
+            feedRepository: harness.feedRepository,
             searchScanBatchProbe: loadProbe.recordSearchBatch
         )
 
@@ -132,7 +133,8 @@ struct ArticleQueryLoadTests {
         )
         let cancellingQueryService = DefaultArticleQueryService(
             articleRepository: cancellingRepository,
-            articleStateRepository: harness.articleStateRepository
+            articleStateRepository: harness.articleStateRepository,
+            feedRepository: harness.feedRepository
         )
 
         await #expect(throws: CancellationError.self) {
@@ -174,6 +176,7 @@ struct ArticleQueryLoadTests {
         let queryService = DefaultArticleQueryService(
             articleRepository: repository,
             articleStateRepository: harness.articleStateRepository,
+            feedRepository: harness.feedRepository,
             searchScanBatchProbe: loadProbe.recordSearchBatch
         )
         var cursor: ArticleSearchRequest.Cursor?

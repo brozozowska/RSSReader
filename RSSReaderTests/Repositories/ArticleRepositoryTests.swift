@@ -255,7 +255,8 @@ struct ArticleRepositoryTests {
         let currentQueryItem = try #require(firstHiddenQueryItems.first)
         let queryService = DefaultArticleQueryService(
             articleRepository: harness.articleRepository,
-            articleStateRepository: harness.articleStateRepository
+            articleStateRepository: harness.articleStateRepository,
+            feedRepository: harness.feedRepository
         )
         let currentReaderArticle = try #require(try queryService.fetchReaderArticle(id: firstCurrentArticle.id))
         let firstRepairedStates = try modelContext.fetch(FetchDescriptor<ArticleState>())

@@ -140,7 +140,8 @@ struct ArticlesScreenState {
         sessionContext: ArticleListSession.Context? = nil,
         preservesRefreshFeedback: Bool = false,
         emptyContentKind: ArticlesScreenEmptyContentKind = .selection,
-        nextPageCursor: ArticleSearchRequest.Cursor? = nil
+        nextPageCursor: ArticleSearchRequest.Cursor? = nil,
+        scopeMetric: ArticleScopeMetric? = nil
     ) {
         applyLoadedEntries(
             loadedArticles.map { ArticleListEntry(article: $0) },
@@ -150,7 +151,8 @@ struct ArticlesScreenState {
             sessionContext: sessionContext,
             preservesRefreshFeedback: preservesRefreshFeedback,
             emptyContentKind: emptyContentKind,
-            nextPageCursor: nextPageCursor
+            nextPageCursor: nextPageCursor,
+            scopeMetric: scopeMetric
         )
     }
 
@@ -162,7 +164,8 @@ struct ArticlesScreenState {
         sessionContext: ArticleListSession.Context? = nil,
         preservesRefreshFeedback: Bool = false,
         emptyContentKind: ArticlesScreenEmptyContentKind = .selection,
-        nextPageCursor: ArticleSearchRequest.Cursor? = nil
+        nextPageCursor: ArticleSearchRequest.Cursor? = nil,
+        scopeMetric: ArticleScopeMetric? = nil
     ) {
         listAnimationState.prepareForSnapshotReplacement()
         self.selection = selection
@@ -175,7 +178,8 @@ struct ArticlesScreenState {
                 selection: selection,
                 sessionContext: sessionContext
             ),
-            nextPageCursor: nextPageCursor
+            nextPageCursor: nextPageCursor,
+            scopeMetric: scopeMetric
         )
         isLoadingNextPage = false
         refreshState = .idle
@@ -205,14 +209,16 @@ struct ArticlesScreenState {
     mutating func applyLoadedNextPage(
         _ articles: [ArticleListItemDTO],
         nextPageCursor: ArticleSearchRequest.Cursor?,
-        navigationSubtitle: String
+        navigationSubtitle: String,
+        scopeMetric: ArticleScopeMetric? = nil
     ) {
         if articles.isEmpty == false {
             listAnimationState.prepareForLocalMutation()
         }
         articleListSession.appendPage(
             articles,
-            nextPageCursor: nextPageCursor
+            nextPageCursor: nextPageCursor,
+            scopeMetric: scopeMetric
         )
         self.navigationSubtitle = navigationSubtitle
         isLoadingNextPage = false
@@ -285,13 +291,15 @@ struct ArticlesScreenState {
     mutating func applyMarkAllAsRead(
         _ updatedArticles: [ArticleListItemDTO],
         navigationSubtitle: String,
-        emptyContentKind: ArticlesScreenEmptyContentKind? = nil
+        emptyContentKind: ArticlesScreenEmptyContentKind? = nil,
+        scopeMetric: ArticleScopeMetric? = nil
     ) {
         listAnimationState.prepareForLocalMutation()
         articleListSession.replaceArticles(
             updatedArticles,
             context: articleListSession.context,
-            nextPageCursor: articleListSession.nextPageCursor
+            nextPageCursor: articleListSession.nextPageCursor,
+            scopeMetric: scopeMetric
         )
         self.navigationSubtitle = navigationSubtitle
         if updatedArticles.isEmpty {
@@ -316,8 +324,7 @@ struct ArticlesScreenState {
 
     mutating func applyArticleRowMutation(
         articleID: UUID,
-        mutation: ArticleRowMutation,
-        navigationSubtitle: String
+        mutation: ArticleRowMutation
     ) {
         listAnimationState.prepareForLocalMutation()
         switch mutation {
@@ -330,7 +337,11 @@ struct ArticlesScreenState {
             articleListSession.removeArticle(id: articleID)
         }
 
-        self.navigationSubtitle = navigationSubtitle
+        navigationSubtitle = ArticlesScreenSubtitleResolver.resolve(
+            articles: articles,
+            sidebarArticleFilter: articleListSession.context.sidebarArticleFilter,
+            scopeMetric: articleListSession.scopeMetric
+        )
         refreshState = .idle
         customRefreshState = .idle
         if articles.isEmpty {
@@ -369,7 +380,7 @@ struct ArticlesScreenState {
         navigationSubtitle = ArticlesScreenSubtitleResolver.resolve(
             articles: articles,
             sidebarArticleFilter: articleListSession.context.sidebarArticleFilter,
-            hasMorePages: articleListSession.nextPageCursor != nil
+            scopeMetric: articleListSession.scopeMetric
         )
 
         if selection == nil {

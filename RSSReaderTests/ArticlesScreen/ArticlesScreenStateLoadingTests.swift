@@ -123,8 +123,7 @@ struct ArticlesScreenStateLoadingTests {
         )
         state.applyArticleRowMutation(
             articleID: firstFeedArticle.id,
-            mutation: .update(firstFeedArticle),
-            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1)
+            mutation: .update(firstFeedArticle)
         )
 
         #expect(state.listAnimationState.changeKind == .localMutation)

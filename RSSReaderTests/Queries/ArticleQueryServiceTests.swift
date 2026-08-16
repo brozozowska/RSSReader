@@ -158,6 +158,145 @@ struct ArticleQueryServiceTests {
     }
 
     @Test
+    func articleQueryServiceReturnsExactBaseScopeMetricsIndependentOfPageAndSearch() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let newsFeed = try insertFeed(
+            into: harness,
+            url: "https://example.com/metric-news.xml",
+            title: "Metric News",
+            folderName: "Metric Folder"
+        )
+        let techFeed = try insertFeed(
+            into: harness,
+            url: "https://example.com/metric-tech.xml",
+            title: "Metric Tech"
+        )
+        let queryService = makeQueryService(harness)
+
+        _ = try insertArticle(
+            into: harness,
+            feed: newsFeed,
+            externalID: "metric-unread",
+            title: "Needle Unread",
+            publishedAt: Date(timeIntervalSince1970: 500)
+        )
+        _ = try insertArticle(
+            into: harness,
+            feed: newsFeed,
+            externalID: "metric-archived",
+            title: "Archived Unread",
+            publishedAt: Date(timeIntervalSince1970: 400),
+            archivedAt: Date(timeIntervalSince1970: 600)
+        )
+        _ = try insertArticle(
+            into: harness,
+            feed: newsFeed,
+            externalID: "metric-starred",
+            title: "Starred Read",
+            publishedAt: Date(timeIntervalSince1970: 300)
+        )
+        _ = try insertArticle(
+            into: harness,
+            feed: newsFeed,
+            externalID: "metric-hidden",
+            title: "Hidden",
+            publishedAt: Date(timeIntervalSince1970: 200)
+        )
+        _ = try insertArticle(
+            into: harness,
+            feed: techFeed,
+            externalID: "metric-tech-unread",
+            title: "Tech Unread",
+            publishedAt: Date(timeIntervalSince1970: 100)
+        )
+        try harness.articleStateRepository.upsert(
+            feedID: newsFeed.id,
+            articleExternalID: "metric-starred",
+            update: ArticleStateUpsert(
+                isRead: true,
+                isStarred: true,
+                updatedAt: Date(timeIntervalSince1970: 10)
+            )
+        )
+        try harness.articleStateRepository.upsert(
+            feedID: newsFeed.id,
+            articleExternalID: "metric-hidden",
+            update: ArticleStateUpsert(
+                isStarred: true,
+                isHidden: true,
+                updatedAt: Date(timeIntervalSince1970: 20)
+            )
+        )
+        try harness.articleStateRepository.upsert(
+            feedID: newsFeed.id,
+            articleExternalID: "metric-orphan",
+            update: ArticleStateUpsert(
+                isStarred: true,
+                updatedAt: Date(timeIntervalSince1970: 30)
+            )
+        )
+
+        let inboxPage = try await queryService.fetchArticleSearchSnapshot(
+            ArticleSearchRequest(
+                selection: .inbox,
+                sidebarArticleFilter: .allItems,
+                query: "",
+                sortMode: .publishedAtDescending,
+                limit: 1,
+                scopeMetricLoadingPolicy: .baseScope
+            )
+        )
+        let folderPage = try await queryService.fetchArticleSearchSnapshot(
+            ArticleSearchRequest(
+                selection: .folder("Metric Folder"),
+                sidebarArticleFilter: .unread,
+                query: "",
+                sortMode: .publishedAtDescending,
+                limit: 1,
+                scopeMetricLoadingPolicy: .baseScope
+            )
+        )
+        let feedPage = try await queryService.fetchArticleSearchSnapshot(
+            ArticleSearchRequest(
+                selection: .feed(newsFeed.id),
+                sidebarArticleFilter: .starred,
+                query: "",
+                sortMode: .publishedAtDescending,
+                limit: 1,
+                scopeMetricLoadingPolicy: .baseScope
+            )
+        )
+        let smartStarredPage = try await queryService.fetchArticleSearchSnapshot(
+            ArticleSearchRequest(
+                selection: .starred,
+                sidebarArticleFilter: .allItems,
+                query: "",
+                sortMode: .publishedAtDescending,
+                limit: 1,
+                scopeMetricLoadingPolicy: .baseScope
+            )
+        )
+        let searchPage = try await queryService.fetchArticleSearchSnapshot(
+            ArticleSearchRequest(
+                selection: .feed(newsFeed.id),
+                sidebarArticleFilter: .allItems,
+                query: "needle",
+                sortMode: .publishedAtDescending,
+                limit: 1
+            )
+        )
+
+        #expect(inboxPage.articles.count == 1)
+        #expect(inboxPage.nextCursor != nil)
+        #expect(inboxPage.scopeMetric == ArticleScopeMetric(kind: .unread, count: 3))
+        #expect(folderPage.scopeMetric == ArticleScopeMetric(kind: .unread, count: 2))
+        #expect(feedPage.scopeMetric == ArticleScopeMetric(kind: .starred, count: 1))
+        #expect(smartStarredPage.scopeMetric == ArticleScopeMetric(kind: .starred, count: 1))
+        #expect(searchPage.articles.map(\.articleExternalID) == ["metric-unread"])
+        #expect(searchPage.scopeMetric == nil)
+    }
+
+    @Test
     func articleQueryServiceReturnsReaderArticleForExistingHiddenArticleAndNilForMissingArticle() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)
@@ -489,7 +628,8 @@ struct ArticleQueryServiceTests {
         )
         let queryService = DefaultArticleQueryService(
             articleRepository: repository,
-            articleStateRepository: harness.articleStateRepository
+            articleStateRepository: harness.articleStateRepository,
+            feedRepository: harness.feedRepository
         )
         let request = ArticleSearchRequest(
             selection: .feed(feed.id),
@@ -586,7 +726,8 @@ struct ArticleQueryServiceTests {
         )
         let queryService = DefaultArticleQueryService(
             articleRepository: repository,
-            articleStateRepository: harness.articleStateRepository
+            articleStateRepository: harness.articleStateRepository,
+            feedRepository: harness.feedRepository
         )
 
         let results = try await queryService.fetchArticleSearchSnapshot(
@@ -608,7 +749,8 @@ struct ArticleQueryServiceTests {
     private func makeQueryService(_ harness: TestHarness) -> DefaultArticleQueryService {
         DefaultArticleQueryService(
             articleRepository: harness.articleRepository,
-            articleStateRepository: harness.articleStateRepository
+            articleStateRepository: harness.articleStateRepository,
+            feedRepository: harness.feedRepository
         )
     }
 

@@ -16,6 +16,7 @@ struct ArticleListView: View {
     @State private var controller: ArticlesScreenController
     @State private var searchText = ""
     @State private var refreshStartHapticTrigger = 0
+    @State private var lastScopeMetricReloadContext: ArticleScopeMetricReloadContext?
 
     init(
         selectedSidebarSelection: SidebarSelection?,
@@ -138,18 +139,36 @@ struct ArticleListView: View {
     private func loadArticles(
         retainsSessionFilterMutations: Bool = true,
         retainedSessionMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterFilterMutation,
-        preservesRefreshFeedback: Bool = false
+        preservesRefreshFeedback: Bool = false,
+        refreshesScopeMetric: Bool? = nil
     ) async {
         let loadingSidebarSelection = selectedSidebarSelection
         let loadingSidebarArticleFilter = selectedSidebarArticleFilter
         let loadingNormalizedSearchText = ArticleSearchScope.normalizedSearchText(searchText)
         let loadingReloadID = reloadID
+        let scopeMetricReloadContext = ArticleScopeMetricReloadContext(
+            selection: loadingSidebarSelection,
+            sidebarArticleFilter: loadingSidebarArticleFilter,
+            reloadID: loadingReloadID
+        )
+        let shouldRefreshScopeMetric = refreshesScopeMetric
+            ?? (
+                lastScopeMetricReloadContext != scopeMetricReloadContext
+                    || (
+                        controller.screenState.articleListSession.scopeMetric == nil
+                            && loadingNormalizedSearchText.isEmpty
+                    )
+            )
+        if shouldRefreshScopeMetric {
+            lastScopeMetricReloadContext = scopeMetricReloadContext
+        }
 
         await controller.load(
             selection: loadingSidebarSelection,
             sidebarArticleFilter: loadingSidebarArticleFilter,
             searchText: searchText,
             dependencies: dependencies,
+            refreshesScopeMetric: shouldRefreshScopeMetric,
             retainsSessionFilterMutations: retainsSessionFilterMutations,
             retainedSessionMembershipStatus: retainedSessionMembershipStatus,
             preservesRefreshFeedback: preservesRefreshFeedback
@@ -423,7 +442,8 @@ struct ArticleListView: View {
         await loadArticles(
             retainsSessionFilterMutations: false,
             retainedSessionMembershipStatus: .retainedAfterRefresh,
-            preservesRefreshFeedback: preservesRefreshFeedback
+            preservesRefreshFeedback: preservesRefreshFeedback,
+            refreshesScopeMetric: true
         )
     }
 
@@ -449,6 +469,12 @@ struct ArticleListView: View {
     private func dismissRefreshFeedback() {
         controller.screenState.dismissRefreshFeedback()
     }
+}
+
+private struct ArticleScopeMetricReloadContext: Equatable {
+    let selection: SidebarSelection?
+    let sidebarArticleFilter: SidebarArticleFilter
+    let reloadID: UUID
 }
 
 private struct ArticleListSearchToolbarModifier: ViewModifier {

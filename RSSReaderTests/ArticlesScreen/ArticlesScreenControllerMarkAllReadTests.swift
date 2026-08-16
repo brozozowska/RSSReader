@@ -127,7 +127,7 @@ struct ArticlesScreenControllerMarkAllReadTests {
         #expect(controller.screenState.articleListSession.nextPageCursor == nextCursor)
         #expect(
             controller.screenState.navigationSubtitle
-                == ReadingLocalization.unreadItemsLowerBoundSubtitle(count: 0)
+                == ReadingLocalization.noUnreadItemsSubtitle
         )
     }
 
@@ -526,7 +526,8 @@ struct ArticlesScreenControllerMarkAllReadTests {
         await controller.load(
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
-            dependencies: harness.dependencies
+            dependencies: harness.dependencies,
+            refreshesScopeMetric: true
         )
         await controller.confirmMarkAllAsRead(
             searchText: "",
@@ -539,6 +540,8 @@ struct ArticlesScreenControllerMarkAllReadTests {
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.articles.map(\.id) == [article.id])
         #expect(controller.screenState.articles.first?.isRead == false)
+        #expect(controller.screenState.articleListSession.scopeMetric == ArticleScopeMetric(kind: .unread, count: 1))
+        #expect(controller.screenState.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 1))
         #expect(
             try harness.articleStateRepository.fetchStateSnapshot(
                 feedID: feed.id,

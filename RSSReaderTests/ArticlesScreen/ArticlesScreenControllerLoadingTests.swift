@@ -106,7 +106,8 @@ struct ArticlesScreenControllerLoadingTests {
             suspendedSnapshot: ArticleSearchResultSnapshot(
                 articles: [secondArticle],
                 hasScopeContent: true,
-                nextCursor: makeArticleSearchCursor(seed: 1)
+                nextCursor: makeArticleSearchCursor(seed: 1),
+                scopeMetric: ArticleScopeMetric(kind: .unread, count: 12)
             )
         )
         let controller = ArticlesScreenController(
@@ -160,7 +161,7 @@ struct ArticlesScreenControllerLoadingTests {
         let secondChrome = controller.screenState.derivedViewState().navigationChrome
         #expect(secondChrome.sessionContext.selection == .feed(secondFeed.id))
         #expect(secondChrome.title == secondFeed.displayTitle)
-        #expect(secondChrome.subtitle == ReadingLocalization.unreadItemsLowerBoundSubtitle(count: 1))
+        #expect(secondChrome.subtitle == ReadingLocalization.unreadItemsSubtitle(count: 12))
         #expect(controller.screenState.articles == [secondArticle])
     }
 
@@ -193,7 +194,8 @@ struct ArticlesScreenControllerLoadingTests {
                     return ArticleSearchResultSnapshot(
                         articles: [first, second],
                         hasScopeContent: true,
-                        nextCursor: makeArticleSearchCursor(seed: 2)
+                        nextCursor: makeArticleSearchCursor(seed: 2),
+                        scopeMetric: ArticleScopeMetric(kind: .unread, count: 7)
                     )
                 }
                 return ArticleSearchResultSnapshot(
@@ -207,7 +209,8 @@ struct ArticlesScreenControllerLoadingTests {
         await controller.load(
             selection: .feed(feed.id),
             sidebarArticleFilter: .allItems,
-            dependencies: harness.dependencies
+            dependencies: harness.dependencies,
+            refreshesScopeMetric: true
         )
         let originalContext = controller.screenState.articleListSession.context
         await controller.loadNextPage(
@@ -217,6 +220,7 @@ struct ArticlesScreenControllerLoadingTests {
         )
 
         #expect(requests.map(\.limit) == [2, 2])
+        #expect(requests.map(\.scopeMetricLoadingPolicy) == [.baseScope, .none])
         #expect(
             requests.map { $0.cursor?.repositoryCursor.sortDate }
                 == [nil, Date(timeIntervalSince1970: 2)]
@@ -224,6 +228,11 @@ struct ArticlesScreenControllerLoadingTests {
         #expect(controller.visibleArticleIDs() == [first.id, second.id, third.id])
         #expect(controller.screenState.articleListSession.context == originalContext)
         #expect(controller.screenState.articleListSession.nextPageCursor == nil)
+        #expect(controller.screenState.articleListSession.scopeMetric?.count == 7)
+        #expect(
+            controller.screenState.navigationSubtitle
+                == ReadingLocalization.unreadItemsSubtitle(count: 7)
+        )
     }
 
     @Test
@@ -591,7 +600,8 @@ struct ArticlesScreenControllerLoadingTests {
         await controller.load(
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
-            dependencies: harness.dependencies
+            dependencies: harness.dependencies,
+            refreshesScopeMetric: true
         )
         let ascendingCursor = try #require(
             controller.screenState.articleListSession.nextPageCursor
@@ -601,7 +611,7 @@ struct ArticlesScreenControllerLoadingTests {
         #expect(controller.screenState.articles.map(\.id) == [articles[0].id, articles[1].id])
         #expect(
             controller.screenState.navigationSubtitle
-                == ReadingLocalization.unreadItemsLowerBoundSubtitle(count: 2)
+                == ReadingLocalization.unreadItemsSubtitle(count: 5)
         )
 
         _ = try settingsRepository.update(
@@ -620,7 +630,8 @@ struct ArticlesScreenControllerLoadingTests {
         await controller.load(
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
-            dependencies: harness.dependencies
+            dependencies: harness.dependencies,
+            refreshesScopeMetric: true
         )
 
         #expect(controller.screenState.articleListSession.context.selection == .feed(feed.id))
@@ -628,7 +639,7 @@ struct ArticlesScreenControllerLoadingTests {
         #expect(controller.screenState.articles.map(\.id) == [articles[4].id, articles[3].id])
         #expect(
             controller.screenState.navigationSubtitle
-                == ReadingLocalization.unreadItemsLowerBoundSubtitle(count: 2)
+                == ReadingLocalization.unreadItemsSubtitle(count: 5)
         )
 
         await controller.loadNextPage(
@@ -642,7 +653,7 @@ struct ArticlesScreenControllerLoadingTests {
         )
         #expect(
             controller.screenState.navigationSubtitle
-                == ReadingLocalization.unreadItemsLowerBoundSubtitle(count: 4)
+                == ReadingLocalization.unreadItemsSubtitle(count: 5)
         )
         await controller.loadNextPage(
             selection: .feed(feed.id),
@@ -945,11 +956,13 @@ struct ArticlesScreenControllerLoadingTests {
             suspendedQuery: "old",
             suspendedSnapshot: ArticleSearchResultSnapshot(
                 articles: [oldResult],
-                hasScopeContent: true
+                hasScopeContent: true,
+                scopeMetric: ArticleScopeMetric(kind: .unread, count: 99)
             ),
             immediateSnapshot: ArticleSearchResultSnapshot(
                 articles: [newResult],
-                hasScopeContent: true
+                hasScopeContent: true,
+                scopeMetric: ArticleScopeMetric(kind: .unread, count: 3)
             )
         )
         let controller = ArticlesScreenController(
@@ -964,7 +977,8 @@ struct ArticlesScreenControllerLoadingTests {
                 selection: .feed(feed.id),
                 sidebarArticleFilter: .allItems,
                 searchText: "old",
-                dependencies: harness.dependencies
+                dependencies: harness.dependencies,
+                refreshesScopeMetric: true
             )
         }
         try await waitUntil("old query suspended") {
@@ -975,7 +989,8 @@ struct ArticlesScreenControllerLoadingTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .allItems,
             searchText: "new",
-            dependencies: harness.dependencies
+            dependencies: harness.dependencies,
+            refreshesScopeMetric: true
         )
         let newestChrome = controller.screenState.derivedViewState().navigationChrome
         queryGate.releaseSuspendedRequest()
@@ -984,7 +999,59 @@ struct ArticlesScreenControllerLoadingTests {
         #expect(queryGate.requests.map(\.normalizedQuery) == ["old", "new"])
         #expect(controller.screenState.articleListSession.context.normalizedSearchText == "new")
         #expect(controller.screenState.articles == [newResult])
+        #expect(controller.screenState.articleListSession.scopeMetric == ArticleScopeMetric(kind: .unread, count: 3))
+        #expect(controller.screenState.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 3))
         #expect(controller.screenState.derivedViewState().navigationChrome == newestChrome)
+    }
+
+    @Test
+    func articlesScreenControllerReusesBaseScopeMetricAcrossSearchQueriesWithoutAggregateReload() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/search-scope-metric.xml"]).first
+        )
+        let article = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "search-scope-metric",
+            title: "Needle"
+        )
+        var requests: [ArticleSearchRequest] = []
+        let controller = ArticlesScreenController(
+            searchDebounceOperation: {},
+            searchQueryOperation: { request, _ in
+                requests.append(request)
+                return ArticleSearchResultSnapshot(
+                    articles: [article],
+                    hasScopeContent: true,
+                    scopeMetric: request.scopeMetricLoadingPolicy == .baseScope
+                        ? ArticleScopeMetric(kind: .unread, count: 80)
+                        : nil
+                )
+            }
+        )
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies,
+            refreshesScopeMetric: true
+        )
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            searchText: "n",
+            dependencies: harness.dependencies
+        )
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            searchText: "ne",
+            dependencies: harness.dependencies
+        )
+
+        #expect(requests.map(\.scopeMetricLoadingPolicy) == [.baseScope, .none, .none])
+        #expect(controller.screenState.articleListSession.scopeMetric == ArticleScopeMetric(kind: .unread, count: 80))
+        #expect(controller.screenState.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 80))
     }
 
     @Test

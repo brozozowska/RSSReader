@@ -225,25 +225,29 @@ struct ArticlesScreenSubtitleResolver {
     static func resolve(
         articles: [ArticleListItemDTO],
         sidebarArticleFilter: SidebarArticleFilter,
-        hasMorePages: Bool = false
+        scopeMetric: ArticleScopeMetric? = nil
     ) -> String {
-        let count: Int
+        if let scopeMetric {
+            switch scopeMetric.kind {
+            case .unread:
+                guard scopeMetric.count > 0 else {
+                    return ReadingLocalization.noUnreadItemsSubtitle
+                }
+                return ReadingLocalization.unreadItemsSubtitle(count: scopeMetric.count)
+            case .starred:
+                return ReadingLocalization.starredItemsSubtitle(count: scopeMetric.count)
+            }
+        }
 
         switch sidebarArticleFilter {
         case .allItems, .unread:
-            count = articles.filter { $0.isRead == false }.count
-            if hasMorePages {
-                return ReadingLocalization.unreadItemsLowerBoundSubtitle(count: count)
-            }
+            let count = articles.filter { $0.isRead == false && $0.isHidden == false }.count
             guard count > 0 else {
                 return ReadingLocalization.noUnreadItemsSubtitle
             }
             return ReadingLocalization.unreadItemsSubtitle(count: count)
         case .starred:
-            count = articles.filter(\.isStarred).count
-            if hasMorePages {
-                return ReadingLocalization.starredItemsLowerBoundSubtitle(count: count)
-            }
+            let count = articles.filter { $0.isStarred && $0.isHidden == false }.count
             return ReadingLocalization.starredItemsSubtitle(count: count)
         }
     }

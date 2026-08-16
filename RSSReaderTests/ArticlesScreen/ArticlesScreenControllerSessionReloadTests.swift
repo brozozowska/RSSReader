@@ -523,8 +523,10 @@ struct ArticlesScreenControllerSessionReloadTests {
         await controller.load(
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
-            dependencies: harness.dependencies
+            dependencies: harness.dependencies,
+            refreshesScopeMetric: true
         )
+        #expect(controller.screenState.articleListSession.scopeMetric == ArticleScopeMetric(kind: .unread, count: 1))
         let loadedArticle = try #require(controller.screenState.articles.first)
         controller.toggleArticleReadStatus(
             loadedArticle,
@@ -535,6 +537,8 @@ struct ArticlesScreenControllerSessionReloadTests {
         )
 
         #expect(controller.screenState.articles.first?.isRead == false)
+        #expect(controller.screenState.articleListSession.scopeMetric == ArticleScopeMetric(kind: .unread, count: 1))
+        #expect(controller.screenState.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 1))
         #expect(
             controller.screenState.articleListSession.entries.first?.membershipStatus
                 == .matchesCurrentQuery

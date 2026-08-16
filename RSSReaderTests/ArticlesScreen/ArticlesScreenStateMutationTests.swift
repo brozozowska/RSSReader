@@ -79,12 +79,11 @@ struct ArticlesScreenStateMutationTests {
         )
         state.applyArticleRowMutation(
             articleID: unreadItem.id,
-            mutation: .update(updatedItem),
-            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 0)
+            mutation: .update(updatedItem)
         )
 
         #expect(state.phase == .loaded)
-        #expect(state.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 0))
+        #expect(state.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
         #expect(state.articleListSession.entries.count == 1)
         #expect(state.articleListSession.entries.first?.article.isRead == true)
         #expect(state.articles.count == 1)
@@ -93,6 +92,36 @@ struct ArticlesScreenStateMutationTests {
         #expect(state.listAnimationState.changeKind == .localMutation)
         #expect(state.listAnimationState.allowsAnimation(reduceMotion: false))
         #expect(state.listAnimationState.allowsAnimation(reduceMotion: true) == false)
+    }
+
+    @Test
+    func articlesScreenStateUpdatesExactScopeMetricFromPersistedRowMutations() {
+        var state = ArticlesScreenState()
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: true)
+        let readItem = unreadItem.updating(isRead: true, isStarred: true)
+
+        state.applyLoadedArticles(
+            [unreadItem],
+            selection: .feed(unreadItem.feedID),
+            navigationTitle: "Feed",
+            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 42),
+            scopeMetric: ArticleScopeMetric(kind: .unread, count: 42)
+        )
+        state.applyArticleRowMutation(
+            articleID: unreadItem.id,
+            mutation: .update(readItem)
+        )
+
+        #expect(state.articleListSession.scopeMetric == ArticleScopeMetric(kind: .unread, count: 41))
+        #expect(state.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 41))
+
+        state.applyArticleRowMutation(
+            articleID: unreadItem.id,
+            mutation: .update(readItem)
+        )
+
+        #expect(state.articleListSession.scopeMetric == ArticleScopeMetric(kind: .unread, count: 41))
+        #expect(state.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 41))
     }
 
     @Test
@@ -150,8 +179,7 @@ struct ArticlesScreenStateMutationTests {
             mutation: .update(
                 updatedItem,
                 membershipStatus: .retainedAfterFilterMutation
-            ),
-            navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle
+            )
         )
 
         #expect(state.phase == .loaded)
@@ -182,8 +210,7 @@ struct ArticlesScreenStateMutationTests {
         )
         state.applyArticleRowMutation(
             articleID: item.id,
-            mutation: .update(updatedItem),
-            navigationSubtitle: ReadingLocalization.unreadItemsSubtitle(count: 1)
+            mutation: .update(updatedItem)
         )
 
         #expect(state.phase == .loaded)
@@ -207,15 +234,18 @@ struct ArticlesScreenStateMutationTests {
             [starredItem],
             selection: .starred,
             navigationTitle: ReadingLocalization.starredTitle,
-            navigationSubtitle: ReadingLocalization.starredItemsSubtitle(count: 1)
+            navigationSubtitle: ReadingLocalization.starredItemsSubtitle(count: 1),
+            sessionContext: ArticleListSession.Context(
+                selection: .starred,
+                sidebarArticleFilter: .starred
+            )
         )
         state.applyArticleRowMutation(
             articleID: starredItem.id,
             mutation: .update(
                 updatedItem,
                 membershipStatus: .retainedAfterFilterMutation
-            ),
-            navigationSubtitle: ReadingLocalization.starredItemsSubtitle(count: 0)
+            )
         )
 
         #expect(state.phase == .loaded)
@@ -226,5 +256,34 @@ struct ArticlesScreenStateMutationTests {
         #expect(
             state.articleListSession.entries.map(\.membershipStatus) == [.retainedAfterFilterMutation]
         )
+    }
+
+    @Test
+    func articlesScreenStateUpdatesExactStarredMetricWhenPersistedMutationRemovesMembership() {
+        var state = ArticlesScreenState()
+        let starredItem = makeArticleListItemDTO(isRead: true, isStarred: true)
+        let unstarredItem = starredItem.updating(isRead: true, isStarred: false)
+
+        state.applyLoadedArticles(
+            [starredItem],
+            selection: .starred,
+            navigationTitle: ReadingLocalization.starredTitle,
+            navigationSubtitle: ReadingLocalization.starredItemsSubtitle(count: 8),
+            sessionContext: ArticleListSession.Context(
+                selection: .starred,
+                sidebarArticleFilter: .starred
+            ),
+            scopeMetric: ArticleScopeMetric(kind: .starred, count: 8)
+        )
+        state.applyArticleRowMutation(
+            articleID: starredItem.id,
+            mutation: .update(
+                unstarredItem,
+                membershipStatus: .retainedAfterFilterMutation
+            )
+        )
+
+        #expect(state.articleListSession.scopeMetric == ArticleScopeMetric(kind: .starred, count: 7))
+        #expect(state.navigationSubtitle == ReadingLocalization.starredItemsSubtitle(count: 7))
     }
 }

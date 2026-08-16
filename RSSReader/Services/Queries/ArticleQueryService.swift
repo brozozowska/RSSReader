@@ -5,19 +5,66 @@ nonisolated enum ArticleQueryPaginationPolicy {
     static let scanBatchSize = 64
 }
 
+struct ArticleScopeMetric: Sendable, Equatable {
+    enum Kind: Sendable, Equatable {
+        case unread
+        case starred
+    }
+
+    let kind: Kind
+    let count: Int
+
+    init(kind: Kind, count: Int) {
+        self.kind = kind
+        self.count = max(0, count)
+    }
+
+    func applyingMutation(
+        from previousArticle: ArticleListItemDTO,
+        to updatedArticle: ArticleListItemDTO
+    ) -> ArticleScopeMetric {
+        let previousMatches = matches(previousArticle)
+        let updatedMatches = matches(updatedArticle)
+        guard previousMatches != updatedMatches else { return self }
+
+        return ArticleScopeMetric(
+            kind: kind,
+            count: count + (updatedMatches ? 1 : -1)
+        )
+    }
+
+    func removing(_ article: ArticleListItemDTO) -> ArticleScopeMetric {
+        guard matches(article) else { return self }
+        return ArticleScopeMetric(kind: kind, count: count - 1)
+    }
+
+    private func matches(_ article: ArticleListItemDTO) -> Bool {
+        guard article.isHidden == false else { return false }
+        return switch kind {
+        case .unread:
+            article.isRead == false
+        case .starred:
+            article.isStarred
+        }
+    }
+}
+
 struct ArticleSearchResultSnapshot: Sendable, Equatable {
     let articles: [ArticleListItemDTO]
     let hasScopeContent: Bool
     let nextCursor: ArticleSearchRequest.Cursor?
+    let scopeMetric: ArticleScopeMetric?
 
     init(
         articles: [ArticleListItemDTO],
         hasScopeContent: Bool,
-        nextCursor: ArticleSearchRequest.Cursor? = nil
+        nextCursor: ArticleSearchRequest.Cursor? = nil,
+        scopeMetric: ArticleScopeMetric? = nil
     ) {
         self.articles = articles
         self.hasScopeContent = hasScopeContent
         self.nextCursor = nextCursor
+        self.scopeMetric = scopeMetric
     }
 }
 
@@ -53,15 +100,18 @@ protocol ArticleQueryService {
 final class DefaultArticleQueryService: ArticleQueryService {
     private let articleRepository: any ArticleRepository
     private let articleStateRepository: any ArticleStateRepository
+    private let feedRepository: any FeedRepository
     private let searchScanBatchProbe: ArticleSearchScanBatchProbe?
 
     init(
         articleRepository: any ArticleRepository,
         articleStateRepository: any ArticleStateRepository,
+        feedRepository: any FeedRepository,
         searchScanBatchProbe: ArticleSearchScanBatchProbe? = nil
     ) {
         self.articleRepository = articleRepository
         self.articleStateRepository = articleStateRepository
+        self.feedRepository = feedRepository
         self.searchScanBatchProbe = searchScanBatchProbe
     }
 
@@ -84,7 +134,13 @@ final class DefaultArticleQueryService: ArticleQueryService {
             sortMode: request.sortMode,
             requiresSearchableText: request.normalizedQuery.isEmpty == false
         )
-        return try await fetchSearchPage(request, criteria: criteria, limit: request.limit)
+        let scopeMetric = try fetchScopeMetric(for: request, scope: scope)
+        return try await fetchSearchPage(
+            request,
+            criteria: criteria,
+            limit: request.limit,
+            scopeMetric: scopeMetric
+        )
     }
 
     func fetchReaderArticle(id: UUID) throws -> ReaderArticleDTO? {
@@ -109,7 +165,8 @@ final class DefaultArticleQueryService: ArticleQueryService {
     private func fetchSearchPage(
         _ request: ArticleSearchRequest,
         criteria: ArticleQueryCriteria,
-        limit: Int
+        limit: Int,
+        scopeMetric: ArticleScopeMetric?
     ) async throws -> ArticleSearchResultSnapshot {
         var repositoryCursor = request.cursor?.repositoryCursor
         var hasScopeContent = request.cursor != nil
@@ -127,7 +184,8 @@ final class DefaultArticleQueryService: ArticleQueryService {
             }
             return ArticleSearchResultSnapshot(
                 articles: [],
-                hasScopeContent: hasScopeContent || batch.hasScopeContent
+                hasScopeContent: hasScopeContent || batch.hasScopeContent,
+                scopeMetric: scopeMetric
             )
         }
 
@@ -163,7 +221,8 @@ final class DefaultArticleQueryService: ArticleQueryService {
         guard matchingRecords.count > limit else {
             return ArticleSearchResultSnapshot(
                 articles: matchingRecords.map(\.article),
-                hasScopeContent: hasScopeContent
+                hasScopeContent: hasScopeContent,
+                scopeMetric: scopeMetric
             )
         }
 
@@ -172,7 +231,47 @@ final class DefaultArticleQueryService: ArticleQueryService {
             hasScopeContent: hasScopeContent,
             nextCursor: ArticleSearchRequest.Cursor(
                 repositoryCursor: matchingRecords[limit - 1].continuationCursor
-            )
+            ),
+            scopeMetric: scopeMetric
+        )
+    }
+
+    private func fetchScopeMetric(
+        for request: ArticleSearchRequest,
+        scope: ArticleQueryScope
+    ) throws -> ArticleScopeMetric? {
+        guard request.scopeMetricLoadingPolicy == .baseScope else { return nil }
+        try Task.checkCancellation()
+
+        let feedIDs: [UUID]
+        switch scope {
+        case .inbox:
+            feedIDs = try feedRepository.fetchAllFeeds().map(\.id)
+        case .folder(let folderName):
+            feedIDs = try feedRepository.fetchAllFeeds().compactMap { feed in
+                feed.folder?.name == folderName ? feed.id : nil
+            }
+        case .feed(let feedID):
+            feedIDs = [feedID]
+        }
+
+        let kind: ArticleScopeMetric.Kind
+        let counts: [UUID: Int]
+        switch request.listFilter {
+        case .all, .unread:
+            kind = .unread
+            counts = try articleStateRepository.fetchUnreadCounts(feedIDs: feedIDs)
+        case .starred:
+            kind = .starred
+            counts = try articleStateRepository.fetchStarredCounts(feedIDs: feedIDs)
+        case .hidden:
+            return nil
+        }
+        try Task.checkCancellation()
+
+        return ArticleScopeMetric(
+            kind: kind,
+            count: feedIDs.reduce(0) { $0 + counts[$1, default: 0] }
         )
     }
 
