@@ -270,7 +270,8 @@ final class ArticlesScreenController {
                 selection: plan.selection,
                 sidebarArticleFilter: plan.sidebarArticleFilter,
                 retainsCurrentContent: plan.sessionContextChanged == false && retainsSessionFilterMutations,
-                retainedMembershipStatus: retainedSessionMembershipStatus
+                retainedMembershipStatus: retainedSessionMembershipStatus,
+                sortMode: plan.sortMode
             )
             let resolvedArticles = resolvedEntries.map(\.article)
             let resolvedScopeMetric = loadResult.scopeMetric
@@ -705,7 +706,8 @@ final class ArticlesScreenController {
         selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter,
         retainsCurrentContent: Bool,
-        retainedMembershipStatus: ArticleListEntryMembershipStatus
+        retainedMembershipStatus: ArticleListEntryMembershipStatus,
+        sortMode: ArticleSortMode
     ) -> [ArticleListEntry] {
         let filter = ArticlesScreenMutationReducer.articleListFilter(
             selection: selection,
@@ -718,7 +720,8 @@ final class ArticlesScreenController {
                 loadedArticles: loadedArticles,
                 retainedArticleIDs: [],
                 retainsCurrentContent: false,
-                retainedMembershipStatus: retainedMembershipStatus
+                retainedMembershipStatus: retainedMembershipStatus,
+                sortMode: sortMode
             )
         }
 
@@ -727,7 +730,8 @@ final class ArticlesScreenController {
             loadedArticles: loadedArticles,
             retainedArticleIDs: [],
             retainsCurrentContent: true,
-            retainedMembershipStatus: retainedMembershipStatus
+            retainedMembershipStatus: retainedMembershipStatus,
+            sortMode: sortMode
         )
     }
 

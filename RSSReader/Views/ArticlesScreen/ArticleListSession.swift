@@ -112,10 +112,19 @@ struct ArticleListSession: Equatable {
         nextPageCursor: ArticleSearchRequest.Cursor?,
         scopeMetric: ArticleScopeMetric? = nil
     ) {
-        var knownArticleIDs = Set(entries.map(\.id))
-        for article in articles where knownArticleIDs.insert(article.id).inserted {
-            entries.append(ArticleListEntry(article: article))
+        var entriesByArticleID: [UUID: ArticleListEntry] = [:]
+        for entry in entries where entriesByArticleID[entry.id] == nil {
+            entriesByArticleID[entry.id] = entry
         }
+
+        var loadedArticleIDs = Set<UUID>()
+        for article in articles where loadedArticleIDs.insert(article.id).inserted {
+            entriesByArticleID[article.id] = ArticleListEntry(article: article)
+        }
+        entries = ArticleListSessionOrderingPolicy.ordered(
+            Array(entriesByArticleID.values),
+            sortMode: context.sortMode
+        )
         self.nextPageCursor = nextPageCursor
         if let scopeMetric {
             self.scopeMetric = scopeMetric
@@ -177,52 +186,75 @@ enum ArticleListSessionMergePolicy {
         loadedArticles: [ArticleListItemDTO],
         retainedArticleIDs: Set<UUID>,
         retainsCurrentContent: Bool,
-        retainedMembershipStatus: ArticleListEntryMembershipStatus
+        retainedMembershipStatus: ArticleListEntryMembershipStatus,
+        sortMode: ArticleSortMode
     ) -> [ArticleListEntry] {
-        guard retainsCurrentContent else {
-            return loadedArticles.map {
-                ArticleListEntry(article: $0, membershipStatus: .matchesCurrentQuery)
-            }
-        }
-
         var loadedArticlesByID: [UUID: ArticleListItemDTO] = [:]
         for loadedArticle in loadedArticles where loadedArticlesByID[loadedArticle.id] == nil {
             loadedArticlesByID[loadedArticle.id] = loadedArticle
         }
 
-        var emittedArticleIDs = Set<UUID>()
-        var mergedEntries: [ArticleListEntry] = []
-
-        for currentEntry in currentEntries {
-            if let loadedArticle = loadedArticlesByID[currentEntry.id] {
-                mergedEntries.append(
-                    ArticleListEntry(
-                        article: loadedArticle,
-                        membershipStatus: .matchesCurrentQuery
-                    )
-                )
-                emittedArticleIDs.insert(loadedArticle.id)
-            } else if currentEntry.isRetained || retainedArticleIDs.contains(currentEntry.id) {
-                mergedEntries.append(
-                    ArticleListEntry(
-                        article: currentEntry.article,
-                        membershipStatus: retainedMembershipStatus
-                    )
-                )
-                emittedArticleIDs.insert(currentEntry.id)
-            }
-        }
-
-        for loadedArticle in loadedArticles where emittedArticleIDs.contains(loadedArticle.id) == false {
-            mergedEntries.append(
-                ArticleListEntry(
-                    article: loadedArticle,
-                    membershipStatus: .matchesCurrentQuery
-                )
+        guard retainsCurrentContent else {
+            return ArticleListSessionOrderingPolicy.ordered(
+                loadedArticlesByID.values.map {
+                    ArticleListEntry(article: $0, membershipStatus: .matchesCurrentQuery)
+                },
+                sortMode: sortMode
             )
         }
 
-        return mergedEntries
+        var mergedEntriesByID: [UUID: ArticleListEntry] = [:]
+
+        for currentEntry in currentEntries {
+            guard mergedEntriesByID[currentEntry.id] == nil,
+                  currentEntry.isRetained || retainedArticleIDs.contains(currentEntry.id) else {
+                continue
+            }
+            mergedEntriesByID[currentEntry.id] = ArticleListEntry(
+                article: currentEntry.article,
+                membershipStatus: retainedMembershipStatus
+            )
+        }
+
+        for loadedArticle in loadedArticlesByID.values {
+            mergedEntriesByID[loadedArticle.id] = ArticleListEntry(
+                article: loadedArticle,
+                membershipStatus: .matchesCurrentQuery
+            )
+        }
+
+        return ArticleListSessionOrderingPolicy.ordered(
+            Array(mergedEntriesByID.values),
+            sortMode: sortMode
+        )
+    }
+}
+
+enum ArticleListSessionOrderingPolicy {
+    static func ordered(
+        _ entries: [ArticleListEntry],
+        sortMode: ArticleSortMode
+    ) -> [ArticleListEntry] {
+        entries.sorted { lhs, rhs in
+            let lhsSortDate = lhs.article.publishedAt ?? lhs.article.fetchedAt
+            let rhsSortDate = rhs.article.publishedAt ?? rhs.article.fetchedAt
+
+            if lhsSortDate != rhsSortDate {
+                switch sortMode {
+                case .publishedAtDescending:
+                    return lhsSortDate > rhsSortDate
+                case .publishedAtAscending:
+                    return lhsSortDate < rhsSortDate
+                }
+            }
+
+            switch sortMode {
+            case .publishedAtDescending:
+                return lhs.id.uuidString > rhs.id.uuidString
+            case .publishedAtAscending:
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+        }
     }
 }
 

@@ -174,17 +174,20 @@ struct ArticlesScreenControllerLoadingTests {
         let first = makeArticleListItemDTO(
             feedID: feed.id,
             articleExternalID: "page-first",
-            title: "First"
+            title: "First",
+            publishedAt: Date(timeIntervalSince1970: 300)
         )
         let second = makeArticleListItemDTO(
             feedID: feed.id,
             articleExternalID: "page-second",
-            title: "Second"
+            title: "Second",
+            publishedAt: Date(timeIntervalSince1970: 200)
         )
         let third = makeArticleListItemDTO(
             feedID: feed.id,
             articleExternalID: "page-third",
-            title: "Third"
+            title: "Third",
+            publishedAt: Date(timeIntervalSince1970: 100)
         )
         var requests: [ArticleSearchRequest] = []
         let controller = ArticlesScreenController(
@@ -244,12 +247,14 @@ struct ArticlesScreenControllerLoadingTests {
         let first = makeArticleListItemDTO(
             feedID: feed.id,
             articleExternalID: "shared-page-first",
-            title: "First"
+            title: "First",
+            publishedAt: Date(timeIntervalSince1970: 200)
         )
         let second = makeArticleListItemDTO(
             feedID: feed.id,
             articleExternalID: "shared-page-second",
-            title: "Second"
+            title: "Second",
+            publishedAt: Date(timeIntervalSince1970: 100)
         )
         let queryGate = ArticlesScreenNextPageQueryGate(
             firstPage: ArticleSearchResultSnapshot(
@@ -305,12 +310,14 @@ struct ArticlesScreenControllerLoadingTests {
         let first = makeArticleListItemDTO(
             feedID: feed.id,
             articleExternalID: "page-retry-first",
-            title: "First"
+            title: "First",
+            publishedAt: Date(timeIntervalSince1970: 200)
         )
         let second = makeArticleListItemDTO(
             feedID: feed.id,
             articleExternalID: "page-retry-second",
-            title: "Second"
+            title: "Second",
+            publishedAt: Date(timeIntervalSince1970: 100)
         )
         var nextPageAttemptCount = 0
         let controller = ArticlesScreenController(
@@ -432,12 +439,14 @@ struct ArticlesScreenControllerLoadingTests {
         let first = makeArticleListItemDTO(
             feedID: feed.id,
             articleExternalID: "reader-page-first",
-            title: "First"
+            title: "First",
+            publishedAt: Date(timeIntervalSince1970: 200)
         )
         let second = makeArticleListItemDTO(
             feedID: feed.id,
             articleExternalID: "reader-page-second",
-            title: "Second"
+            title: "Second",
+            publishedAt: Date(timeIntervalSince1970: 100)
         )
         let controller = ArticlesScreenController(
             searchQueryOperation: { request, _ in
@@ -506,17 +515,20 @@ struct ArticlesScreenControllerLoadingTests {
         let first = makeArticleListItemDTO(
             feedID: feed.id,
             articleExternalID: "reader-race-first",
-            title: "First"
+            title: "First",
+            publishedAt: Date(timeIntervalSince1970: 300)
         )
         let second = makeArticleListItemDTO(
             feedID: feed.id,
             articleExternalID: "reader-race-second",
-            title: "Second"
+            title: "Second",
+            publishedAt: Date(timeIntervalSince1970: 200)
         )
         let third = makeArticleListItemDTO(
             feedID: feed.id,
             articleExternalID: "reader-race-third",
-            title: "Third"
+            title: "Third",
+            publishedAt: Date(timeIntervalSince1970: 100)
         )
         let queryGate = ArticlesScreenNextPageQueryGate(
             firstPage: ArticleSearchResultSnapshot(

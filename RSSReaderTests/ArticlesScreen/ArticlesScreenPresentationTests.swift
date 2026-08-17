@@ -329,6 +329,36 @@ struct ArticlesScreenPresentationTests {
     }
 
     @Test
+    func articlesDaySectionsBuilderCoalescesNoncontiguousArticlesIntoUniqueDaySections() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        let today = Date(timeIntervalSince1970: 1_786_838_400)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+        let firstToday = makeArticleListItemDTO(
+            title: "Today First",
+            publishedAt: today.addingTimeInterval(100)
+        )
+        let yesterdayArticle = makeArticleListItemDTO(
+            title: "Yesterday",
+            publishedAt: yesterday.addingTimeInterval(100)
+        )
+        let secondToday = makeArticleListItemDTO(
+            title: "Today Second",
+            publishedAt: today.addingTimeInterval(50)
+        )
+
+        let sections = ArticlesDaySectionsBuilder.build(
+            from: [firstToday, yesterdayArticle, secondToday],
+            calendar: calendar
+        )
+
+        #expect(sections.count == 2)
+        #expect(Set(sections.map(\.id)).count == sections.count)
+        #expect(sections[0].articles.map(\.title) == ["Today First", "Today Second"])
+        #expect(sections[1].articles.map(\.title) == ["Yesterday"])
+    }
+
+    @Test
     func articlesDaySectionsBuilderBuildsTodayYesterdayAndDateHeaders() {
         let calendar = Calendar.current
         let now = Date()
