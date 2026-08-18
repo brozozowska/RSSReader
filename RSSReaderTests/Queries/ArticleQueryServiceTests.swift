@@ -352,6 +352,58 @@ struct ArticleQueryServiceTests {
     }
 
     @Test
+    func articleQueryServiceKeepsReaderAndSearchPayloadOutOfPaginatedListSession() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(into: harness)
+        let queryService = makeQueryService(harness)
+        let contentText = "candidate-only-token " + String(repeating: "body ", count: 8_000)
+        let article = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "lightweight-list-payload",
+            title: "Lightweight List Payload",
+            summary: "Row summary",
+            contentHTML: "<article><p>Reader HTML body</p></article>",
+            contentText: contentText,
+            author: "List Author",
+            publishedAt: Date(timeIntervalSince1970: 100)
+        )
+
+        let snapshot = try await queryService.fetchArticleSearchSnapshot(
+            ArticleSearchRequest(
+                selection: .feed(feed.id),
+                sidebarArticleFilter: .allItems,
+                query: "candidate-only-token",
+                sortMode: .publishedAtDescending
+            )
+        )
+        let listItem = try #require(snapshot.articles.first)
+        let session = ArticleListSession(
+            context: ArticleListSession.Context(
+                selection: .feed(feed.id),
+                sidebarArticleFilter: .allItems
+            ),
+            articles: snapshot.articles
+        )
+        let readerArticle = try #require(try queryService.fetchReaderArticle(id: article.id))
+        let listPayloadFieldNames = Set(
+            Mirror(reflecting: listItem).children.compactMap(\.label)
+        )
+
+        #expect(snapshot.articles.count == 1)
+        #expect(session.articles == [listItem])
+        #expect(listItem.title == "Lightweight List Payload")
+        #expect(listItem.summary == "Row summary")
+        #expect(listItem.feedTitle == feed.displayTitle)
+        #expect(listItem.author == "List Author")
+        #expect(listPayloadFieldNames.isDisjoint(with: [
+            "contentHTML", "contentText", "searchableText"
+        ]))
+        #expect(readerArticle.contentHTML == "<article><p>Reader HTML body</p></article>")
+        #expect(readerArticle.contentText == contentText)
+    }
+
+    @Test
     func articleQueryServiceSearchesDocumentedFieldsWithinSelectionScope() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let newsFeed = try insertFeed(

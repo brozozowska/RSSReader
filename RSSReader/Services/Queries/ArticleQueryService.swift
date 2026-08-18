@@ -291,11 +291,14 @@ final class DefaultArticleQueryService: ArticleQueryService {
 
         for record in batch.records {
             try Task.checkCancellation()
-            let article = ArticleListItemDTO(article: record.article, state: record.state)
-            guard matchesSearch(article, request: request) else { continue }
+            let candidate = ArticleSearchCandidateDTO(
+                article: record.article,
+                state: record.state
+            )
+            guard matchesSearch(candidate, request: request) else { continue }
             matches.append(
                 ArticleSearchScanMatch(
-                    article: article,
+                    article: candidate.listItem,
                     continuationCursor: record.continuationCursor
                 )
             )
@@ -316,15 +319,15 @@ final class DefaultArticleQueryService: ArticleQueryService {
     }
 
     private func matchesSearch(
-        _ article: ArticleListItemDTO,
+        _ candidate: ArticleSearchCandidateDTO,
         request: ArticleSearchRequest
     ) -> Bool {
-        guard request.requiresUnread == false || article.isRead == false else {
+        guard request.requiresUnread == false || candidate.listItem.isRead == false else {
             return false
         }
 
-        return ArticleSearchScope.filteredArticles(
-            [article],
+        return ArticleSearchScope.filteredCandidates(
+            [candidate],
             searchText: request.normalizedQuery,
             selection: request.selection,
             sidebarArticleFilter: request.sidebarArticleFilter

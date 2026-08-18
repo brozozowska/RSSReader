@@ -1,5 +1,22 @@
 import Foundation
 
+struct ArticleSearchCandidateDTO: Sendable, Equatable {
+    let listItem: ArticleListItemDTO
+    let searchableText: String
+
+    init(listItem: ArticleListItemDTO, searchableText: String) {
+        self.listItem = listItem
+        self.searchableText = searchableText
+    }
+
+    init(article: Article, state: ArticleUserStateSnapshot?) {
+        self.init(
+            listItem: ArticleListItemDTO(article: article, state: state),
+            searchableText: article.searchableText
+        )
+    }
+}
+
 struct ArticleSearchScope: Sendable, Equatable {
     let selection: SidebarSelection?
     let sidebarArticleFilter: SidebarArticleFilter
@@ -24,8 +41,8 @@ struct ArticleSearchScope: Sendable, Equatable {
         normalizedQuery.isEmpty == false
     }
 
-    func contains(_ article: ArticleListItemDTO) -> Bool {
-        guard Self.isVisibleInCurrentListScope(article, listFilter: listFilter) else {
+    func contains(_ candidate: ArticleSearchCandidateDTO) -> Bool {
+        guard Self.isVisibleInCurrentListScope(candidate.listItem, listFilter: listFilter) else {
             return false
         }
 
@@ -33,22 +50,22 @@ struct ArticleSearchScope: Sendable, Equatable {
             return true
         }
 
-        return [article.searchableText, article.feedTitle]
+        return [candidate.searchableText, candidate.listItem.feedTitle]
             .contains { $0.localizedCaseInsensitiveContains(normalizedQuery) }
     }
 
-    static func filteredArticles(
-        _ articles: [ArticleListItemDTO],
+    static func filteredCandidates(
+        _ candidates: [ArticleSearchCandidateDTO],
         searchText: String,
         selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter
-    ) -> [ArticleListItemDTO] {
+    ) -> [ArticleSearchCandidateDTO] {
         let scope = ArticleSearchScope(
             searchText: searchText,
             selection: selection,
             sidebarArticleFilter: sidebarArticleFilter
         )
-        return articles.filter { scope.contains($0) }
+        return candidates.filter { scope.contains($0) }
     }
 
     static func listFilter(

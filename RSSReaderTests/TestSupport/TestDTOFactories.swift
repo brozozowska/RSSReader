@@ -8,9 +8,6 @@ func makeArticleListItemDTO(
     articleExternalID: String = "article",
     title: String = "Article",
     summary: String? = "Summary",
-    contentHTML: String? = nil,
-    contentText: String? = nil,
-    searchableText: String? = nil,
     author: String? = nil,
     publishedAt: Date? = nil,
     archivedAt: Date? = nil,
@@ -25,9 +22,6 @@ func makeArticleListItemDTO(
         articleExternalID: articleExternalID,
         title: title,
         summary: summary,
-        contentHTML: contentHTML,
-        contentText: contentText,
-        searchableText: searchableText,
         author: author,
         publishedAt: publishedAt,
         fetchedAt: .now,
@@ -35,6 +29,49 @@ func makeArticleListItemDTO(
         isRead: isRead,
         isStarred: isStarred,
         isHidden: isHidden
+    )
+}
+
+func makeArticleSearchCandidateDTO(
+    id: UUID = UUID(),
+    feedID: UUID = UUID(),
+    feedTitle: String = "Feed",
+    articleExternalID: String = "article",
+    title: String = "Article",
+    summary: String? = "Summary",
+    contentHTML: String? = nil,
+    contentText: String? = nil,
+    searchableText: String? = nil,
+    author: String? = nil,
+    publishedAt: Date? = nil,
+    archivedAt: Date? = nil,
+    isRead: Bool = false,
+    isStarred: Bool = false,
+    isHidden: Bool = false
+) -> ArticleSearchCandidateDTO {
+    let listItem = makeArticleListItemDTO(
+        id: id,
+        feedID: feedID,
+        feedTitle: feedTitle,
+        articleExternalID: articleExternalID,
+        title: title,
+        summary: summary,
+        author: author,
+        publishedAt: publishedAt,
+        archivedAt: archivedAt,
+        isRead: isRead,
+        isStarred: isStarred,
+        isHidden: isHidden
+    )
+    return ArticleSearchCandidateDTO(
+        listItem: listItem,
+        searchableText: searchableText ?? ArticleSearchableTextPolicy.materialize(
+            title: title,
+            summary: summary,
+            contentHTML: contentHTML,
+            contentText: contentText,
+            author: author
+        )
     )
 }
 

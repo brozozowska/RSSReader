@@ -944,7 +944,10 @@ struct ArticlesScreenControllerLoadingTests {
         #expect(controller.screenState.articleListSession.context.normalizedSearchText == "needle")
         #expect(controller.screenState.articles.count == ArticlesScreenPaginationPolicy.pageSize)
         #expect(controller.screenState.articles.allSatisfy { article in
-            article.searchableText.localizedCaseInsensitiveContains("needle")
+            guard let index = Int(article.articleExternalID.split(separator: "-").last ?? "") else {
+                return false
+            }
+            return index.isMultiple(of: ArticleQueryLoadTestContract.searchMatchInterval)
         })
     }
 

@@ -7,27 +7,27 @@ import Testing
 struct ArticleSearchScopeTests {
     @Test
     func articleSearchScopeMatchesDocumentedSearchableFields() {
-        let titleMatch = makeArticleListItemDTO(articleExternalID: "title", title: "Swift concurrency")
-        let summaryMatch = makeArticleListItemDTO(articleExternalID: "summary", title: "Article", summary: "Architecture notes")
-        let contentTextMatch = makeArticleListItemDTO(
+        let titleMatch = makeArticleSearchCandidateDTO(articleExternalID: "title", title: "Swift concurrency")
+        let summaryMatch = makeArticleSearchCandidateDTO(articleExternalID: "summary", title: "Article", summary: "Architecture notes")
+        let contentTextMatch = makeArticleSearchCandidateDTO(
             articleExternalID: "content-text",
             title: "Article",
             summary: nil,
             contentText: "Reader polish foundation"
         )
-        let contentHTMLMatch = makeArticleListItemDTO(
+        let contentHTMLMatch = makeArticleSearchCandidateDTO(
             articleExternalID: "content-html",
             title: "Article",
             summary: nil,
             contentHTML: "<p>Searchable <strong>HTML fallback</strong></p>"
         )
-        let authorMatch = makeArticleListItemDTO(articleExternalID: "author", title: "Article", author: "Jane Search")
-        let feedTitleMatch = makeArticleListItemDTO(
+        let authorMatch = makeArticleSearchCandidateDTO(articleExternalID: "author", title: "Article", author: "Jane Search")
+        let feedTitleMatch = makeArticleSearchCandidateDTO(
             feedTitle: "Searchable Feed",
             articleExternalID: "feed-title",
             title: "Article"
         )
-        let miss = makeArticleListItemDTO(articleExternalID: "miss", title: "Other")
+        let miss = makeArticleSearchCandidateDTO(articleExternalID: "miss", title: "Other")
         let articles = [titleMatch, summaryMatch, contentTextMatch, contentHTMLMatch, authorMatch, feedTitleMatch, miss]
 
         #expect(matchingExternalIDs(in: articles, query: "concurrency") == ["title"])
@@ -40,11 +40,11 @@ struct ArticleSearchScopeTests {
 
     @Test
     func articleSearchScopeInheritsSelectionAndSidebarFilterVisibilityContract() {
-        let unread = makeArticleListItemDTO(articleExternalID: "unread", title: "Needle", isRead: false)
-        let read = makeArticleListItemDTO(articleExternalID: "read", title: "Needle", isRead: true)
-        let starred = makeArticleListItemDTO(articleExternalID: "starred", title: "Needle", isRead: true, isStarred: true)
-        let hidden = makeArticleListItemDTO(articleExternalID: "hidden", title: "Needle", isHidden: true)
-        let archived = makeArticleListItemDTO(
+        let unread = makeArticleSearchCandidateDTO(articleExternalID: "unread", title: "Needle", isRead: false)
+        let read = makeArticleSearchCandidateDTO(articleExternalID: "read", title: "Needle", isRead: true)
+        let starred = makeArticleSearchCandidateDTO(articleExternalID: "starred", title: "Needle", isRead: true, isStarred: true)
+        let hidden = makeArticleSearchCandidateDTO(articleExternalID: "hidden", title: "Needle", isHidden: true)
+        let archived = makeArticleSearchCandidateDTO(
             articleExternalID: "archived",
             title: "Needle",
             archivedAt: Date(timeIntervalSince1970: 100)
@@ -87,27 +87,27 @@ struct ArticleSearchScopeTests {
 
     @Test
     func articleSearchScopeReturnsCurrentVisibleScopeForEmptySearchText() {
-        let unread = makeArticleListItemDTO(articleExternalID: "unread", title: "Unread", isRead: false)
-        let read = makeArticleListItemDTO(articleExternalID: "read", title: "Read", isRead: true)
-        let archived = makeArticleListItemDTO(
+        let unread = makeArticleSearchCandidateDTO(articleExternalID: "unread", title: "Unread", isRead: false)
+        let read = makeArticleSearchCandidateDTO(articleExternalID: "read", title: "Read", isRead: true)
+        let archived = makeArticleSearchCandidateDTO(
             articleExternalID: "archived",
             title: "Archived",
             archivedAt: Date(timeIntervalSince1970: 100)
         )
 
-        let results = ArticleSearchScope.filteredArticles(
+        let results = ArticleSearchScope.filteredCandidates(
             [unread, read, archived],
             searchText: "   ",
-            selection: .feed(unread.feedID),
+            selection: .feed(unread.listItem.feedID),
             sidebarArticleFilter: .unread
         )
 
-        #expect(results.map(\.articleExternalID) == ["unread", "archived"])
+        #expect(results.map { $0.listItem.articleExternalID } == ["unread", "archived"])
     }
 
     @Test
     func articleSearchScopeUsesMaterializedTextWithoutParsingRawHTML() {
-        let article = makeArticleListItemDTO(
+        let article = makeArticleSearchCandidateDTO(
             articleExternalID: "materialized",
             title: "Article",
             summary: nil,
@@ -142,17 +142,17 @@ struct ArticleSearchScopeTests {
     }
 
     private func matchingExternalIDs(
-        in articles: [ArticleListItemDTO],
+        in candidates: [ArticleSearchCandidateDTO],
         query: String,
         selection: SidebarSelection? = .inbox,
         sidebarArticleFilter: SidebarArticleFilter = .allItems
     ) -> [String] {
-        ArticleSearchScope.filteredArticles(
-            articles,
+        ArticleSearchScope.filteredCandidates(
+            candidates,
             searchText: query,
             selection: selection,
             sidebarArticleFilter: sidebarArticleFilter
         )
-        .map(\.articleExternalID)
+        .map { $0.listItem.articleExternalID }
     }
 }
