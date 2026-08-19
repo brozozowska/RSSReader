@@ -75,7 +75,7 @@ struct ArticleSearchScanBatchObservation: Sendable {
     let searchMatchingCandidateCount: Int
 }
 
-typealias ArticleSearchScanBatchProbe = @MainActor (ArticleSearchScanBatchObservation) -> Void
+typealias ArticleSearchScanBatchProbe = @MainActor (ArticleSearchScanBatchObservation) async -> Void
 
 private struct ArticleSearchScanMatch: Sendable {
     let article: ArticleListItemDTO
@@ -178,7 +178,7 @@ final class DefaultArticleQueryService: ArticleQueryService {
                 cursor: repositoryCursor,
                 limit: 1
             )
-            searchScanBatchProbe?(batch.observation)
+            await searchScanBatchProbe?(batch.observation)
             if batch.rebuiltSearchableText {
                 try articleRepository.save()
             }
@@ -203,7 +203,7 @@ final class DefaultArticleQueryService: ArticleQueryService {
             hasScopeContent = hasScopeContent || batch.hasScopeContent
             rebuiltSearchableText = batch.rebuiltSearchableText || rebuiltSearchableText
             matchingRecords.append(contentsOf: batch.matches.prefix(targetResultCount - matchingRecords.count))
-            searchScanBatchProbe?(batch.observation)
+            await searchScanBatchProbe?(batch.observation)
 
             guard matchingRecords.count < targetResultCount,
                   let nextCursor = batch.nextCursor else {

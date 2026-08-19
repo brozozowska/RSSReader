@@ -12,6 +12,7 @@ nonisolated enum ArticleQueryLoadTestContract {
     static let searchMatchCount = articleCount / searchMatchInterval
     static let maximumOverlayIdentityBatchSize = 65
     static let cancellationCheckCount = 320
+    static let maximumCancelledSearchCandidateCount = 64
     static let maximumSparseSearchCandidateCount = 10_128
     static let maximumSparseSearchFetchCount = 324
 

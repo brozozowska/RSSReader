@@ -892,56 +892,60 @@ struct ArticlesScreenControllerLoadingTests {
 
     @Test
     func articlesScreenControllerCancelsProductionSearchBetweenBoundedScanBatches() async throws {
-        var scanObservations: [ArticleSearchScanBatchObservation] = []
+        let cancelledQuery = "missing-query-token"
+        let publishedQuery = "needle"
+        let cancellationGate = ArticlesScreenProductionSearchCancellationGate(
+            cancelledQuery: cancelledQuery
+        )
         let harness = try TestHarness.make(
             httpClient: ScriptedHTTPClient(),
-            articleSearchScanBatchProbe: { observation in
-                scanObservations.append(observation)
-            }
+            articleSearchScanBatchProbe: cancellationGate.observe
         )
         _ = try ArticleQueryLoadFixture.insert(
             into: harness.modelContainer.mainContext
         )
         let controller = ArticlesScreenController(searchDebounceOperation: {})
-        var scannedCandidateCountBeforeSupersedingInput = 0
 
-        let supersedingLoad = Task { @MainActor in
-            while scanObservations.contains(where: { observation in
-                observation.normalizedQuery == "missing-query-token"
-            }) == false {
-                await Task.yield()
-            }
-            scannedCandidateCountBeforeSupersedingInput = scanObservations
-                .filter { observation in
-                    observation.normalizedQuery == "missing-query-token"
-                }
-                .reduce(0) { partialResult, observation in
-                    partialResult + observation.scannedCandidateCount
-                }
-
+        let cancelledLoad = Task { @MainActor in
             await controller.load(
                 selection: .inbox,
                 sidebarArticleFilter: .allItems,
-                searchText: "needle",
+                searchText: cancelledQuery,
                 dependencies: harness.dependencies
             )
         }
+        defer {
+            cancelledLoad.cancel()
+            cancellationGate.releaseCancelledQuery()
+        }
+        let firstCancelledBatch = try await cancellationGate.waitForFirstCancelledBatch()
+        let scannedCandidateCountAtSupersedingInput = cancellationGate.cancelledQueryScannedCandidateCount
 
+        #expect(cancellationGate.isCancelledQuerySuspended)
         await controller.load(
             selection: .inbox,
             sidebarArticleFilter: .allItems,
-            searchText: "missing-query-token",
+            searchText: publishedQuery,
             dependencies: harness.dependencies
         )
-        await supersedingLoad.value
+        cancellationGate.releaseCancelledQuery()
+        await cancelledLoad.value
 
-        #expect(scannedCandidateCountBeforeSupersedingInput > 0)
+        let finalCancelledQueryScannedCandidateCount = cancellationGate.cancelledQueryScannedCandidateCount
+
+        #expect(firstCancelledBatch.scannedCandidateCount > 0)
+        #expect(scannedCandidateCountAtSupersedingInput > 0)
         #expect(
-            scannedCandidateCountBeforeSupersedingInput
-                < ArticleQueryLoadTestContract.articleCount
+            finalCancelledQueryScannedCandidateCount
+                == scannedCandidateCountAtSupersedingInput
         )
+        #expect(
+            finalCancelledQueryScannedCandidateCount
+                <= ArticleQueryLoadTestContract.maximumCancelledSearchCandidateCount
+        )
+        #expect(cancellationGate.scannedCandidateCount(for: publishedQuery) > 0)
         #expect(controller.screenState.phase == .loaded)
-        #expect(controller.screenState.articleListSession.context.normalizedSearchText == "needle")
+        #expect(controller.screenState.articleListSession.context.normalizedSearchText == publishedQuery)
         #expect(controller.screenState.articles.count == ArticlesScreenPaginationPolicy.pageSize)
         #expect(controller.screenState.articles.allSatisfy { article in
             guard let index = Int(article.articleExternalID.split(separator: "-").last ?? "") else {
@@ -1361,6 +1365,90 @@ private final class ArticlesScreenSearchDebounceGate {
     func releaseSuspendedRequest() {
         continuation?.resume()
         continuation = nil
+    }
+}
+
+@MainActor
+private final class ArticlesScreenProductionSearchCancellationGate {
+    private enum WaitError: Error {
+        case progressStreamFinished
+        case timedOut
+    }
+
+    private let cancelledQuery: String
+    private let progressStream: AsyncStream<ArticleSearchScanBatchObservation>
+    private let progressContinuation: AsyncStream<ArticleSearchScanBatchObservation>.Continuation
+    private var didSignalFirstCancelledBatch = false
+    private var cancelledQueryContinuation: CheckedContinuation<Void, Never>?
+    private var observations: [ArticleSearchScanBatchObservation] = []
+
+    init(cancelledQuery: String) {
+        self.cancelledQuery = cancelledQuery
+        let progress = AsyncStream.makeStream(of: ArticleSearchScanBatchObservation.self)
+        self.progressStream = progress.stream
+        self.progressContinuation = progress.continuation
+    }
+
+    var cancelledQueryScannedCandidateCount: Int {
+        scannedCandidateCount(for: cancelledQuery)
+    }
+
+    var isCancelledQuerySuspended: Bool {
+        cancelledQueryContinuation != nil
+    }
+
+    func scannedCandidateCount(for query: String) -> Int {
+        observations
+            .filter { $0.normalizedQuery == query }
+            .reduce(0) { partialResult, observation in
+                partialResult + observation.scannedCandidateCount
+            }
+    }
+
+    func observe(_ observation: ArticleSearchScanBatchObservation) async {
+        observations.append(observation)
+        guard observation.normalizedQuery == cancelledQuery,
+              didSignalFirstCancelledBatch == false else {
+            return
+        }
+
+        didSignalFirstCancelledBatch = true
+        progressContinuation.yield(observation)
+        progressContinuation.finish()
+        await withCheckedContinuation { continuation in
+            cancelledQueryContinuation = continuation
+        }
+    }
+
+    func releaseCancelledQuery() {
+        cancelledQueryContinuation?.resume()
+        cancelledQueryContinuation = nil
+    }
+
+    func waitForFirstCancelledBatch(
+        timeout: Duration = .seconds(5)
+    ) async throws -> ArticleSearchScanBatchObservation {
+        let progressStream = progressStream
+        return try await withThrowingTaskGroup(
+            of: ArticleSearchScanBatchObservation.self
+        ) { group in
+            group.addTask {
+                for await observation in progressStream {
+                    return observation
+                }
+                throw WaitError.progressStreamFinished
+            }
+            group.addTask {
+                try await Task.sleep(for: timeout)
+                throw WaitError.timedOut
+            }
+
+            guard let observation = try await group.next() else {
+                throw WaitError.progressStreamFinished
+            }
+            group.cancelAll()
+            return observation
+        }
     }
 }
 
