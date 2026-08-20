@@ -397,7 +397,7 @@ struct ArticleStateRepositoryTests {
     }
 
     @Test
-    func articleStateRepositoryCombinesUnreadAndStarredKeysetAggregatesWithinProductionBudgets() throws {
+    func articleStateRepositoryKeepsUnreadAndStarredAggregatesWithinIndependentBudgets() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let fixture = try ArticleQueryLoadFixture.insert(
             into: harness.modelContainer.mainContext
@@ -417,7 +417,6 @@ struct ArticleStateRepositoryTests {
         let repository = SwiftDataArticleStateRepository(
             modelContext: modelContext,
             persistenceOperationRecorder: operations.record,
-            queryBatchSize: ArticleStateQueryPolicy.batchSize,
             queryBatchProbe: { observations.append($0) }
         )
         let expectedCounts = Dictionary(uniqueKeysWithValues: fixture.feedIDs.enumerated().map {
@@ -435,51 +434,85 @@ struct ArticleStateRepositoryTests {
             uniqueKeysWithValues: fixture.feedIDs.map { ($0, 125) }
         )
 
-        let aggregateCounts = try repository.fetchAggregateCounts(feedIDs: fixture.feedIDs)
-        let stateScanObservations = observations.filter { $0.kind == .aggregateStateScan }
-        let unreadArticleCountObservations = observations.filter { $0.kind == .unreadArticleCount }
-        let starredArticleCountObservations = observations.filter { $0.kind == .starredArticleCount }
-        let expectedStateBatchCount = stateCountsByFeedID.values.reduce(into: 0) { count, stateCount in
-            count += Int(ceil(Double(stateCount) / Double(ArticleStateQueryPolicy.batchSize)))
-        }
+        let unreadCounts = try repository.fetchUnreadCounts(feedIDs: fixture.feedIDs)
+        let unreadStateScans = observations.filter { $0.kind == .aggregateStateScan }
+        let unreadArticleCounts = observations.filter { $0.kind == .unreadArticleCount }
+        let unreadBudget = ArticleQueryLoadTestContract.unreadAggregateBudget
 
-        #expect(aggregateCounts.unreadByFeedID == expectedCounts)
-        #expect(aggregateCounts.starredByFeedID == expectedStarredCounts)
-        #expect(stateScanObservations.count == expectedStateBatchCount)
-        #expect(stateScanObservations.reduce(0) { $0 + $1.materializedStateCount } == stateCount)
+        #expect(unreadCounts == expectedCounts)
+        #expect(unreadStateScans.reduce(0) { $0 + $1.materializedStateCount } == stateCount)
+        #expect(unreadStateScans.count <= unreadBudget.maximumStateScanBatchCount)
+        #expect(unreadArticleCounts.isEmpty == false)
+        #expect(unreadArticleCounts.count <= unreadBudget.maximumIdentityCountBatchCount)
         #expect(
-            stateScanObservations.allSatisfy {
+            unreadStateScans.allSatisfy {
                 $0.feedIDs.count == 1
                     && $0.feedIDs.isSubset(of: Set(fixture.feedIDs))
-                    && $0.materializedStateCount <= ArticleStateQueryPolicy.batchSize
+                    && $0.materializedStateCount
+                        <= ArticleQueryLoadTestContract.maximumAggregateMaterializedStateBatchSize
             }
         )
         #expect(
-            unreadArticleCountObservations.allSatisfy {
+            unreadArticleCounts.allSatisfy {
                 $0.feedIDs.count == 1
-                    && $0.requestedIdentityCount <= ArticleStateQueryPolicy.batchSize
+                    && $0.requestedIdentityCount
+                        <= ArticleQueryLoadTestContract.maximumAggregateRequestedIdentityBatchSize
                     && $0.materializedStateCount == 0
             }
         )
+        #expect(observations.contains { $0.kind == .starredArticleCount } == false)
+        #expect(operations.fetchQueryCount <= unreadBudget.maximumFetchQueryCount)
+        #expect(operations.fetchQueryCount == unreadStateScans.count + fixture.feedIDs.count)
         #expect(
-            starredArticleCountObservations.allSatisfy {
-                $0.feedIDs.count == 1
-                    && $0.requestedIdentityCount <= ArticleStateQueryPolicy.batchSize
-                    && $0.materializedStateCount == 0
-            }
+            operations.fetchCountQueryCount <= unreadBudget.maximumFetchCountQueryCount
         )
         #expect(
-            operations.fetchCountQueryCount
-                == fixture.feedIDs.count
-                    + unreadArticleCountObservations.count
-                    + starredArticleCountObservations.count
-        )
-        #expect(
-            operations.fetchCount - operations.fetchCountQueryCount
-                == stateScanObservations.count + fixture.feedIDs.count
+            operations.fetchCountQueryCount == fixture.feedIDs.count + unreadArticleCounts.count
         )
         for feedID in fixture.feedIDs {
-            let feedScans = stateScanObservations.filter { $0.feedIDs == [feedID] }
+            let feedScans = unreadStateScans.filter { $0.feedIDs == [feedID] }
+            #expect(feedScans.first?.appliedKeysetCursor == false)
+            #expect(feedScans.dropFirst().allSatisfy { $0.appliedKeysetCursor })
+        }
+
+        operations.reset()
+        observations.removeAll()
+
+        let starredCounts = try repository.fetchStarredCounts(feedIDs: fixture.feedIDs)
+        let starredStateScans = observations.filter { $0.kind == .aggregateStateScan }
+        let starredArticleCounts = observations.filter { $0.kind == .starredArticleCount }
+        let starredBudget = ArticleQueryLoadTestContract.starredAggregateBudget
+
+        #expect(starredCounts == expectedStarredCounts)
+        #expect(starredStateScans.reduce(0) { $0 + $1.materializedStateCount } == stateCount)
+        #expect(starredStateScans.count <= starredBudget.maximumStateScanBatchCount)
+        #expect(starredArticleCounts.isEmpty == false)
+        #expect(starredArticleCounts.count <= starredBudget.maximumIdentityCountBatchCount)
+        #expect(
+            starredStateScans.allSatisfy {
+                $0.feedIDs.count == 1
+                    && $0.feedIDs.isSubset(of: Set(fixture.feedIDs))
+                    && $0.materializedStateCount
+                        <= ArticleQueryLoadTestContract.maximumAggregateMaterializedStateBatchSize
+            }
+        )
+        #expect(
+            starredArticleCounts.allSatisfy {
+                $0.feedIDs.count == 1
+                    && $0.requestedIdentityCount
+                        <= ArticleQueryLoadTestContract.maximumAggregateRequestedIdentityBatchSize
+                    && $0.materializedStateCount == 0
+            }
+        )
+        #expect(observations.contains { $0.kind == .unreadArticleCount } == false)
+        #expect(operations.fetchQueryCount <= starredBudget.maximumFetchQueryCount)
+        #expect(operations.fetchQueryCount == starredStateScans.count + fixture.feedIDs.count)
+        #expect(
+            operations.fetchCountQueryCount <= starredBudget.maximumFetchCountQueryCount
+        )
+        #expect(operations.fetchCountQueryCount == starredArticleCounts.count)
+        for feedID in fixture.feedIDs {
+            let feedScans = starredStateScans.filter { $0.feedIDs == [feedID] }
             #expect(feedScans.first?.appliedKeysetCursor == false)
             #expect(feedScans.dropFirst().allSatisfy { $0.appliedKeysetCursor })
         }

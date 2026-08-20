@@ -7,6 +7,10 @@ final class SwiftDataRepositoryOperationCounter {
     private(set) var fetchCountQueryCount = 0
     private(set) var saveCount = 0
 
+    var fetchQueryCount: Int {
+        fetchCount - fetchCountQueryCount
+    }
+
     func record(_ operation: SwiftDataRepositoryOperation) {
         switch operation {
         case .fetch:

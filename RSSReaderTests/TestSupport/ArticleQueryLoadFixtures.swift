@@ -10,7 +10,10 @@ nonisolated enum ArticleQueryLoadTestContract {
     static let folderArticleCount = articlesPerFeed * 2
     static let searchMatchInterval = 100
     static let searchMatchCount = articleCount / searchMatchInterval
-    static let maximumOverlayIdentityBatchSize = 65
+    static let maximumRequestedOverlayIdentityCount = 65
+    static let maximumMaterializedOverlayStateCount = 65
+    static let maximumAggregateMaterializedStateBatchSize = 256
+    static let maximumAggregateRequestedIdentityBatchSize = 256
     static let cancellationCheckCount = 320
     static let maximumCancelledSearchCandidateCount = 64
     static let maximumSparseSearchCandidateCount = 10_128
@@ -21,6 +24,13 @@ nonisolated enum ArticleQueryLoadTestContract {
         let maximumFetchCount: Int
     }
 
+    struct AggregateBudget {
+        let maximumStateScanBatchCount: Int
+        let maximumIdentityCountBatchCount: Int
+        let maximumFetchQueryCount: Int
+        let maximumFetchCountQueryCount: Int
+    }
+
     static let initialPageBudgets = [
         QueryBudget(maximumMaterializedCandidateCount: 64, maximumFetchCount: 2),
         QueryBudget(maximumMaterializedCandidateCount: 64, maximumFetchCount: 2),
@@ -28,6 +38,19 @@ nonisolated enum ArticleQueryLoadTestContract {
         QueryBudget(maximumMaterializedCandidateCount: 128, maximumFetchCount: 4),
         QueryBudget(maximumMaterializedCandidateCount: 1_100, maximumFetchCount: 36)
     ]
+
+    static let unreadAggregateBudget = AggregateBudget(
+        maximumStateScanBatchCount: 20,
+        maximumIdentityCountBatchCount: 20,
+        maximumFetchQueryCount: 24,
+        maximumFetchCountQueryCount: 24
+    )
+    static let starredAggregateBudget = AggregateBudget(
+        maximumStateScanBatchCount: 20,
+        maximumIdentityCountBatchCount: 8,
+        maximumFetchQueryCount: 24,
+        maximumFetchCountQueryCount: 8
+    )
 }
 
 struct ArticleQueryLoadFixture {
@@ -107,6 +130,7 @@ struct ArticleQueryLoadFixture {
 @MainActor
 final class ArticleQueryLoadProbe {
     private(set) var maximumRequestedOverlayIdentityCount = 0
+    private(set) var maximumMaterializedOverlayStateCount = 0
     private(set) var searchableTextRebuildCount = 0
     private(set) var cancellationCheckCount = 0
     private(set) var materializedCandidateCount = 0
@@ -123,6 +147,10 @@ final class ArticleQueryLoadProbe {
             maximumRequestedOverlayIdentityCount,
             observation.requestedIdentityCount
         )
+        maximumMaterializedOverlayStateCount = max(
+            maximumMaterializedOverlayStateCount,
+            observation.materializedStateCount
+        )
     }
 
     func recordSearchableTextRebuild(articleID _: UUID) {
@@ -136,6 +164,7 @@ final class ArticleQueryLoadProbe {
 
     func resetQueryMetrics() {
         maximumRequestedOverlayIdentityCount = 0
+        maximumMaterializedOverlayStateCount = 0
         materializedCandidateCount = 0
         searchScanBatchCount = 0
     }

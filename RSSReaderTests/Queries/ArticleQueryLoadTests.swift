@@ -88,11 +88,15 @@ struct ArticleQueryLoadTests {
             #expect(queryOperations.fetchCount <= budget.maximumFetchCount)
             #expect(queryOperations.saveCount == 0)
             #expect(loadProbe.searchScanBatchCount > 0)
+            #expect(
+                loadProbe.maximumRequestedOverlayIdentityCount
+                    <= ArticleQueryLoadTestContract.maximumRequestedOverlayIdentityCount
+            )
+            #expect(
+                loadProbe.maximumMaterializedOverlayStateCount
+                    <= ArticleQueryLoadTestContract.maximumMaterializedOverlayStateCount
+            )
         }
-        #expect(
-            loadProbe.maximumRequestedOverlayIdentityCount
-                <= ArticleQueryLoadTestContract.maximumOverlayIdentityBatchSize
-        )
 
         queryOperations.reset()
         loadProbe.resetQueryMetrics()
@@ -154,7 +158,11 @@ struct ArticleQueryLoadTests {
         )
         #expect(
             cancellationProbe.maximumRequestedOverlayIdentityCount
-                <= ArticleQueryLoadTestContract.maximumOverlayIdentityBatchSize
+                <= ArticleQueryLoadTestContract.maximumRequestedOverlayIdentityCount
+        )
+        #expect(
+            cancellationProbe.maximumMaterializedOverlayStateCount
+                <= ArticleQueryLoadTestContract.maximumMaterializedOverlayStateCount
         )
         #expect(cancellationProbe.searchableTextRebuildCount == 0)
     }
