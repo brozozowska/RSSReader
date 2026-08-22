@@ -7,7 +7,7 @@ import Testing
 @MainActor
 struct ArticleStateRepositoryTests {
     @Test
-    func articleStateSchemaIndexesProductionIdentityPredicatesWithoutArticleLookupProjection() throws {
+    func articleAndStateSchemaIndexProductionIdentityAggregateAndKeysetPredicates() throws {
         let schema = AppComposition.persistenceModelPartition.schema
         let articleStateEntity = try #require(
             schema.entities.first { $0.name == String(describing: ArticleState.self) }

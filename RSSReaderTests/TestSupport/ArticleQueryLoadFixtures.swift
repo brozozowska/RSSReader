@@ -10,6 +10,7 @@ nonisolated enum ArticleQueryLoadTestContract {
     static let folderArticleCount = articlesPerFeed * 2
     static let searchMatchInterval = 100
     static let searchMatchCount = articleCount / searchMatchInterval
+    static let starredInterval = 20
     static let maximumRequestedOverlayIdentityCount = 65
     static let maximumMaterializedOverlayStateCount = 65
     static let maximumAggregateMaterializedStateBatchSize = 256
@@ -18,6 +19,12 @@ nonisolated enum ArticleQueryLoadTestContract {
     static let maximumCancelledSearchCandidateCount = 64
     static let maximumSparseSearchCandidateCount = 10_128
     static let maximumSparseSearchFetchCount = 324
+
+    struct DenseTiePaginationBudget {
+        let maximumMaterializedCandidateCount: Int
+        let maximumSearchScanBatchCount: Int
+        let maximumFetchCount: Int
+    }
 
     struct QueryBudget {
         let maximumMaterializedCandidateCount: Int
@@ -51,14 +58,35 @@ nonisolated enum ArticleQueryLoadTestContract {
         maximumFetchQueryCount: 24,
         maximumFetchCountQueryCount: 8
     )
+    static let denseTieUnreadDescendingBudget = DenseTiePaginationBudget(
+        maximumMaterializedCandidateCount: 20_000,
+        maximumSearchScanBatchCount: 300,
+        maximumFetchCount: 700
+    )
+    static let denseTieStarredAscendingBudget = DenseTiePaginationBudget(
+        maximumMaterializedCandidateCount: 11_000,
+        maximumSearchScanBatchCount: 200,
+        maximumFetchCount: 400
+    )
 }
 
 struct ArticleQueryLoadFixture {
+    enum SortDateDistribution {
+        case unique
+        case denseTie
+    }
+
     let folderName: String
     let feedIDs: [UUID]
+    let initiallyUnreadArticleIDsInAscendingSortOrder: [UUID]
+    let initiallyStarredArticleIDsInAscendingSortOrder: [UUID]
+    let mutationDate: Date
 
     @MainActor
-    static func insert(into modelContext: ModelContext) throws -> ArticleQueryLoadFixture {
+    static func insert(
+        into modelContext: ModelContext,
+        sortDateDistribution: SortDateDistribution = .unique
+    ) throws -> ArticleQueryLoadFixture {
         let folderName = "Query Load Folder"
         let folder = Folder(name: folderName)
         modelContext.insert(folder)
@@ -75,7 +103,19 @@ struct ArticleQueryLoadFixture {
         }
 
         let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
-        for index in 0..<ArticleQueryLoadTestContract.articleCount {
+        let insertionIndices: [Int]
+        switch sortDateDistribution {
+        case .unique:
+            insertionIndices = Array(0..<ArticleQueryLoadTestContract.articleCount)
+        case .denseTie:
+            insertionIndices = Array(
+                stride(from: 1, to: ArticleQueryLoadTestContract.articleCount, by: 2)
+            ) + Array(
+                stride(from: 0, to: ArticleQueryLoadTestContract.articleCount, by: 2)
+            )
+        }
+
+        for index in insertionIndices {
             let feed = feeds[index / ArticleQueryLoadTestContract.articlesPerFeed]
             let externalID = "query-load-article-\(index)"
             let isSearchMatch = index.isMultiple(
@@ -88,6 +128,7 @@ struct ArticleQueryLoadFixture {
                 ? "<article><p>Query load <strong>needle</strong> \(index)</p><span>html-only-token</span></article>"
                 : "<article><p>Query load body \(index)</p><span>html-only-token</span></article>"
             let article = Article(
+                id: articleID(for: index),
                 feedID: feed.id,
                 feedTitle: feed.displayTitle,
                 feedSiteURL: feed.siteURL,
@@ -97,7 +138,11 @@ struct ArticleQueryLoadFixture {
                 title: "Query Load Article \(index)",
                 contentHTML: contentHTML,
                 searchableText: searchableText,
-                publishedAt: baseDate.addingTimeInterval(TimeInterval(index)),
+                publishedAt: sortDate(
+                    for: index,
+                    baseDate: baseDate,
+                    distribution: sortDateDistribution
+                ),
                 fetchedAt: baseDate,
                 createdAt: baseDate,
                 updatedAt: baseDate
@@ -105,7 +150,7 @@ struct ArticleQueryLoadFixture {
             modelContext.insert(article)
 
             let isRead = index.isMultiple(of: 3)
-            let isStarred = index.isMultiple(of: 20)
+            let isStarred = index.isMultiple(of: ArticleQueryLoadTestContract.starredInterval)
             if isRead || isStarred {
                 modelContext.insert(
                     ArticleState(
@@ -120,10 +165,41 @@ struct ArticleQueryLoadFixture {
         }
 
         try modelContext.save()
+        let articleIDsInAscendingSortOrder = (0..<ArticleQueryLoadTestContract.articleCount)
+            .map(articleID(for:))
         return ArticleQueryLoadFixture(
             folderName: folderName,
-            feedIDs: feeds.map(\.id)
+            feedIDs: feeds.map(\.id),
+            initiallyUnreadArticleIDsInAscendingSortOrder: articleIDsInAscendingSortOrder.enumerated()
+                .compactMap { index, articleID in
+                    index.isMultiple(of: 3) ? nil : articleID
+                },
+            initiallyStarredArticleIDsInAscendingSortOrder: articleIDsInAscendingSortOrder.enumerated()
+                .compactMap { index, articleID in
+                    index.isMultiple(of: ArticleQueryLoadTestContract.starredInterval)
+                        ? articleID
+                        : nil
+                },
+            mutationDate: baseDate.addingTimeInterval(1)
         )
+    }
+
+    private static func articleID(for index: Int) -> UUID {
+        let suffix = String(format: "%012llX", UInt64(index + 1))
+        return UUID(uuidString: "00000000-0000-0000-0000-\(suffix)")!
+    }
+
+    private static func sortDate(
+        for index: Int,
+        baseDate: Date,
+        distribution: SortDateDistribution
+    ) -> Date {
+        switch distribution {
+        case .unique:
+            baseDate.addingTimeInterval(TimeInterval(index))
+        case .denseTie:
+            baseDate
+        }
     }
 }
 
