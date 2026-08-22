@@ -87,7 +87,7 @@ struct ArticleQueryServiceTests {
             selection: .inbox,
             filter: .starred
         )
-        let hiddenItems = try harness.articleRepository.fetchArticleQueryRecordPage(
+        let hiddenItems = try harness.articleRepository.fetchArticleQueryRecordScanBatch(
             matching: ArticleQueryCriteria(
                 scope: .inbox,
                 hidden: .isTrue,

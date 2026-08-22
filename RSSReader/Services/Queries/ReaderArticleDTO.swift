@@ -63,28 +63,6 @@ struct ReaderArticleDTO: Sendable, Identifiable {
         self.isHidden = isHidden
     }
 
-    init(article: Article, state: ArticleState?) {
-        self.id = article.id
-        self.feedID = article.feedID
-        self.feedTitle = article.feedTitle
-        self.feedSiteURL = article.feedSiteURL
-        self.articleExternalID = article.externalID
-        self.title = article.title
-        self.summary = article.summary
-        self.contentHTML = article.contentHTML
-        self.contentText = article.contentText
-        self.author = article.author
-        self.publishedAt = article.publishedAt
-        self.updatedAtSource = article.updatedAtSource
-        self.articleURL = article.url
-        self.canonicalURL = article.canonicalURL
-        self.imageURL = article.imageURL
-        self.archivedAt = article.archivedAt
-        self.isRead = state?.isRead ?? false
-        self.isStarred = state?.isStarred ?? false
-        self.isHidden = state?.isHidden ?? false
-    }
-
     init(article: Article, state: ArticleUserStateSnapshot?) {
         self.id = article.id
         self.feedID = article.feedID

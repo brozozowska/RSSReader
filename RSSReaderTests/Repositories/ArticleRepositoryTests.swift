@@ -247,7 +247,7 @@ struct ArticleRepositoryTests {
             hidden: .isTrue,
             sortMode: .publishedAtDescending
         )
-        let firstHiddenQueryItems = try harness.articleRepository.fetchArticleQueryRecordPage(
+        let firstHiddenQueryItems = try harness.articleRepository.fetchArticleQueryRecordScanBatch(
             matching: hiddenCriteria,
             cursor: nil,
             limit: ArticleQueryPaginationPolicy.defaultPageSize
@@ -288,7 +288,7 @@ struct ArticleRepositoryTests {
         )
 
         let repeatedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
-        let repeatedHiddenQueryItems = try harness.articleRepository.fetchArticleQueryRecordPage(
+        let repeatedHiddenQueryItems = try harness.articleRepository.fetchArticleQueryRecordScanBatch(
             matching: hiddenCriteria,
             cursor: nil,
             limit: ArticleQueryPaginationPolicy.defaultPageSize
@@ -436,17 +436,17 @@ struct ArticleRepositoryTests {
             publishedAt: Date(timeIntervalSince1970: 200)
         )
 
-        let firstFeedDescending = try harness.articleRepository.fetchArticleQueryRecordPage(
+        let firstFeedDescending = try harness.articleRepository.fetchArticleQueryRecordScanBatch(
             matching: ArticleQueryCriteria(scope: .feed(firstFeed.id), sortMode: .publishedAtDescending),
             cursor: nil,
             limit: 10
         ).records.map(\.article)
-        let firstFeedAscending = try harness.articleRepository.fetchArticleQueryRecordPage(
+        let firstFeedAscending = try harness.articleRepository.fetchArticleQueryRecordScanBatch(
             matching: ArticleQueryCriteria(scope: .feed(firstFeed.id), sortMode: .publishedAtAscending),
             cursor: nil,
             limit: 10
         ).records.map(\.article)
-        let inboxDescending = try harness.articleRepository.fetchArticleQueryRecordPage(
+        let inboxDescending = try harness.articleRepository.fetchArticleQueryRecordScanBatch(
             matching: ArticleQueryCriteria(scope: .inbox, sortMode: .publishedAtDescending),
             cursor: nil,
             limit: 10
@@ -555,7 +555,7 @@ struct ArticleRepositoryTests {
         )
 
         func fetchBoundedArticles(matching criteria: ArticleQueryCriteria) throws -> [Article] {
-            try harness.articleRepository.fetchArticleQueryRecordPage(
+            try harness.articleRepository.fetchArticleQueryRecordScanBatch(
                 matching: criteria,
                 cursor: nil,
                 limit: 20
@@ -675,7 +675,7 @@ struct ArticleRepositoryTests {
             queryBatchSize: 2,
             articleStateQueryBatchProbe: { observations.append($0) }
         )
-        let records = try repository.fetchArticleQueryRecordPage(
+        let records = try repository.fetchArticleQueryRecordScanBatch(
             matching: ArticleQueryCriteria(
                 scope: .feed(queriedFeed.id),
                 read: .isFalse,
@@ -695,7 +695,7 @@ struct ArticleRepositoryTests {
     }
 
     @Test
-    func articleRepositoryStopsAtPageBoundaryBeforeMaterializingRemainingQueryRecords() throws {
+    func articleRepositoryReturnsBoundedScanBatchCursorWithoutMaterializingRemainingCandidates() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)
         let modelContext = harness.modelContainer.mainContext
@@ -730,25 +730,27 @@ struct ArticleRepositoryTests {
             sortMode: .publishedAtDescending
         )
 
-        let firstPage = try repository.fetchArticleQueryRecordPage(
+        let firstBatch = try repository.fetchArticleQueryRecordScanBatch(
             matching: criteria,
             cursor: nil,
-            limit: 2
+            limit: 4
         )
-        #expect(firstPage.records.map { $0.article.externalID } == ["paged-5", "paged-4"])
-        #expect(firstPage.nextCursor != nil)
-        #expect(observations.map(\.requestedIdentityCount) == [3])
+        #expect(firstBatch.records.map { $0.article.externalID } == ["paged-5", "paged-4", "paged-3"])
+        #expect(firstBatch.scannedCandidateCount == 4)
+        #expect(firstBatch.nextCursor != nil)
+        #expect(observations.map(\.requestedIdentityCount) == [4])
 
         observations.removeAll()
-        let secondPage = try repository.fetchArticleQueryRecordPage(
+        let secondBatch = try repository.fetchArticleQueryRecordScanBatch(
             matching: criteria,
-            cursor: firstPage.nextCursor,
-            limit: 2
+            cursor: firstBatch.nextCursor,
+            limit: 4
         )
 
-        #expect(secondPage.records.map { $0.article.externalID } == ["paged-3"])
-        #expect(secondPage.nextCursor == nil)
-        #expect(observations.allSatisfy { $0.requestedIdentityCount <= 3 })
+        #expect(secondBatch.records.isEmpty)
+        #expect(secondBatch.scannedCandidateCount == 2)
+        #expect(secondBatch.nextCursor == nil)
+        #expect(observations.map(\.requestedIdentityCount) == [2])
     }
 
     @Test

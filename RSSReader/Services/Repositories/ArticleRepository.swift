@@ -68,11 +68,6 @@ struct ArticleQueryRecord {
     let continuationCursor: ArticleQueryCursor
 }
 
-struct ArticleQueryRecordPage {
-    let records: [ArticleQueryRecord]
-    let nextCursor: ArticleQueryCursor?
-}
-
 struct ArticleQueryRecordScanBatch {
     let records: [ArticleQueryRecord]
     let nextCursor: ArticleQueryCursor?
@@ -132,11 +127,6 @@ protocol ArticleRepository {
     func fetchArticle(id: UUID) throws -> Article?
     func containsArticle(feedID: UUID, externalID: String) throws -> Bool
     func fetchArticles(feedID: UUID) throws -> [Article]
-    func fetchArticleQueryRecordPage(
-        matching criteria: ArticleQueryCriteria,
-        cursor: ArticleQueryCursor?,
-        limit: Int
-    ) throws -> ArticleQueryRecordPage
     func fetchArticleQueryRecordScanBatch(
         matching criteria: ArticleQueryCriteria,
         cursor: ArticleQueryCursor?,
@@ -186,7 +176,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     private let reconciliationProgressProbe: ArticleFeedSnapshotReconciliationProgressProbe?
     private let articleStateIdentityRepairer: SwiftDataArticleStateIdentityRepairer
     private let articleStateSnapshotFetcher: SwiftDataArticleStateSnapshotFetcher
-    private let queryBatchSize: Int
     private let queryCancellationCheck: ArticleQueryCancellationCheck
     private let searchableTextRebuildProbe: ArticleSearchableTextRebuildProbe?
 
@@ -209,7 +198,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         self.persistenceOperationRecorder = persistenceOperationRecorder
         self.cancellationCheckpoint = cancellationCheckpoint
         self.reconciliationProgressProbe = reconciliationProgressProbe
-        self.queryBatchSize = queryBatchSize
         self.queryCancellationCheck = queryCancellationCheck
         self.searchableTextRebuildProbe = searchableTextRebuildProbe
         self.articleStateIdentityRepairer = SwiftDataArticleStateIdentityRepairer(
@@ -358,51 +346,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             }
         )
         return try performFetch(descriptor)
-    }
-
-    func fetchArticleQueryRecordPage(
-        matching criteria: ArticleQueryCriteria,
-        cursor: ArticleQueryCursor?,
-        limit: Int
-    ) throws -> ArticleQueryRecordPage {
-        precondition(limit > 0)
-
-        let targetRecordCount = limit + 1
-        var candidateCursor = cursor
-        var records: [ArticleQueryRecord] = []
-        var rebuiltSearchableText = false
-
-        while records.count < targetRecordCount {
-            let remainingRecordCount = targetRecordCount - records.count
-            let candidateLimit = min(queryBatchSize, remainingRecordCount)
-            let articles = try fetchArticleQueryCandidates(
-                matching: criteria,
-                cursor: candidateCursor,
-                limit: candidateLimit
-            )
-            guard articles.isEmpty == false else { break }
-
-            let materialization = try materializeArticleQueryRecords(
-                from: articles,
-                matching: criteria
-            )
-            candidateCursor = materialization.nextCursor
-            records.append(contentsOf: materialization.records)
-            rebuiltSearchableText = materialization.rebuiltSearchableText || rebuiltSearchableText
-            if articles.count < candidateLimit { break }
-        }
-        if rebuiltSearchableText {
-            try saveIfNeeded()
-        }
-
-        guard records.count > limit else {
-            return ArticleQueryRecordPage(records: records, nextCursor: nil)
-        }
-
-        return ArticleQueryRecordPage(
-            records: Array(records.prefix(limit)),
-            nextCursor: records[limit - 1].continuationCursor
-        )
     }
 
     func fetchArticleQueryRecordScanBatch(

@@ -95,12 +95,12 @@ struct ArticleSearchScopeTests {
             archivedAt: Date(timeIntervalSince1970: 100)
         )
 
-        let results = ArticleSearchScope.filteredCandidates(
-            [unread, read, archived],
-            searchText: " \t\n\r ",
+        let scope = ArticleSearchScope(
+            normalizedQuery: ArticleSearchScope.normalizedSearchText(" \t\n\r "),
             selection: .feed(unread.listItem.feedID),
             sidebarArticleFilter: .unread
         )
+        let results = [unread, read, archived].filter(scope.contains)
 
         #expect(results.map { $0.listItem.articleExternalID } == ["unread", "archived"])
     }
@@ -113,7 +113,7 @@ struct ArticleSearchScopeTests {
         )
         let rawQuery = "  Cafe\u{301}   reader\t\npolish  "
         let scope = ArticleSearchScope(
-            searchText: rawQuery,
+            normalizedQuery: ArticleSearchScope.normalizedSearchText(rawQuery),
             selection: .inbox,
             sidebarArticleFilter: .allItems
         )
@@ -197,12 +197,11 @@ struct ArticleSearchScopeTests {
         selection: SidebarSelection? = .inbox,
         sidebarArticleFilter: SidebarArticleFilter = .allItems
     ) -> [String] {
-        ArticleSearchScope.filteredCandidates(
-            candidates,
-            searchText: query,
+        let scope = ArticleSearchScope(
+            normalizedQuery: ArticleSearchScope.normalizedSearchText(query),
             selection: selection,
             sidebarArticleFilter: sidebarArticleFilter
         )
-        .map { $0.listItem.articleExternalID }
+        return candidates.filter(scope.contains).map { $0.listItem.articleExternalID }
     }
 }

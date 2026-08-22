@@ -45,22 +45,6 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
         self.isHidden = isHidden
     }
 
-    init(article: Article, state: ArticleState?) {
-        self.id = article.id
-        self.feedID = article.feedID
-        self.feedTitle = article.feedTitle
-        self.articleExternalID = article.externalID
-        self.title = article.title
-        self.summary = article.summary
-        self.author = article.author
-        self.publishedAt = article.publishedAt
-        self.fetchedAt = article.fetchedAt
-        self.archivedAt = article.archivedAt
-        self.isRead = state?.isRead ?? false
-        self.isStarred = state?.isStarred ?? false
-        self.isHidden = state?.isHidden ?? false
-    }
-
     init(article: Article, state: ArticleUserStateSnapshot?) {
         self.id = article.id
         self.feedID = article.feedID

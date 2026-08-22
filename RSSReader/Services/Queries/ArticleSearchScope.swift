@@ -18,30 +18,14 @@ struct ArticleSearchCandidateDTO: Sendable, Equatable {
 }
 
 struct ArticleSearchScope: Sendable, Equatable {
-    let selection: SidebarSelection?
-    let sidebarArticleFilter: SidebarArticleFilter
     let normalizedQuery: String
     let listFilter: ArticleListFilter
-
-    init(
-        searchText: String,
-        selection: SidebarSelection?,
-        sidebarArticleFilter: SidebarArticleFilter
-    ) {
-        self.init(
-            normalizedQuery: Self.normalizedSearchText(searchText),
-            selection: selection,
-            sidebarArticleFilter: sidebarArticleFilter
-        )
-    }
 
     init(
         normalizedQuery: String,
         selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter
     ) {
-        self.selection = selection
-        self.sidebarArticleFilter = sidebarArticleFilter
         self.normalizedQuery = normalizedQuery
         self.listFilter = Self.listFilter(
             selection: selection,
@@ -62,22 +46,8 @@ struct ArticleSearchScope: Sendable, Equatable {
             return true
         }
 
-        return [candidate.searchableText, candidate.listItem.feedTitle]
-            .contains { $0.localizedCaseInsensitiveContains(normalizedQuery) }
-    }
-
-    static func filteredCandidates(
-        _ candidates: [ArticleSearchCandidateDTO],
-        searchText: String,
-        selection: SidebarSelection?,
-        sidebarArticleFilter: SidebarArticleFilter
-    ) -> [ArticleSearchCandidateDTO] {
-        let scope = ArticleSearchScope(
-            searchText: searchText,
-            selection: selection,
-            sidebarArticleFilter: sidebarArticleFilter
-        )
-        return candidates.filter { scope.contains($0) }
+        return candidate.searchableText.localizedCaseInsensitiveContains(normalizedQuery)
+            || candidate.listItem.feedTitle.localizedCaseInsensitiveContains(normalizedQuery)
     }
 
     static func listFilter(
