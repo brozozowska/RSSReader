@@ -1,5 +1,16 @@
 import Foundation
 
+nonisolated enum ArticleSearchQueryNormalizationPolicy {
+    static let maximumUTF8ByteCount = ArticleSearchableTextPolicy.maximumUTF8ByteCount
+
+    static func normalize(_ query: String) -> String {
+        ArticleSearchTextNormalization.normalizedWhitespace(
+            query,
+            maximumSourceUTF8ByteCount: maximumUTF8ByteCount
+        )
+    }
+}
+
 nonisolated enum ArticleSearchableTextPolicy {
     static let currentVersion = 1
     static let maximumUTF8ByteCount = 16 * 1_024
@@ -34,7 +45,7 @@ nonisolated enum ArticleSearchableTextPolicy {
         let remainingByteCount = maximumUTF8ByteCount - result.utf8.count
         guard remainingByteCount > separator.utf8.count else { return }
 
-        let boundedValue = boundedUTF8Prefix(
+        let boundedValue = ArticleSearchTextNormalization.boundedUTF8Prefix(
             normalizedValue,
             maximumByteCount: remainingByteCount - separator.utf8.count
         )
@@ -47,14 +58,10 @@ nonisolated enum ArticleSearchableTextPolicy {
     private static func normalizedPlainText(_ value: String?) -> String? {
         guard let value else { return nil }
 
-        let boundedValue = boundedUTF8Prefix(
+        let normalizedValue = ArticleSearchTextNormalization.normalizedWhitespace(
             value,
-            maximumByteCount: maximumSourceUTF8ByteCount
+            maximumSourceUTF8ByteCount: maximumSourceUTF8ByteCount
         )
-        let normalizedValue = boundedValue
-            .precomposedStringWithCanonicalMapping
-            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
 
         return normalizedValue.isEmpty ? nil : normalizedValue
     }
@@ -62,7 +69,7 @@ nonisolated enum ArticleSearchableTextPolicy {
     private static func plainTextFallback(fromHTML html: String?) -> String? {
         guard let html else { return nil }
 
-        let boundedHTML = boundedUTF8Prefix(
+        let boundedHTML = ArticleSearchTextNormalization.boundedUTF8Prefix(
             html,
             maximumByteCount: maximumSourceUTF8ByteCount
         )
@@ -76,8 +83,23 @@ nonisolated enum ArticleSearchableTextPolicy {
             .replacingOccurrences(of: #"<[^>]+>"#, with: "", options: .regularExpression)
             .decodingBasicHTMLEntities()
     }
+}
 
-    private static func boundedUTF8Prefix(
+private nonisolated enum ArticleSearchTextNormalization {
+    static func normalizedWhitespace(
+        _ value: String,
+        maximumSourceUTF8ByteCount: Int
+    ) -> String {
+        boundedUTF8Prefix(
+            value,
+            maximumByteCount: maximumSourceUTF8ByteCount
+        )
+        .precomposedStringWithCanonicalMapping
+        .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func boundedUTF8Prefix(
         _ value: String,
         maximumByteCount: Int
     ) -> String {

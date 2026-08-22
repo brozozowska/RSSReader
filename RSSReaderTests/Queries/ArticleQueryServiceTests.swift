@@ -464,6 +464,37 @@ struct ArticleQueryServiceTests {
     }
 
     @Test
+    func articleQueryServiceReusesCanonicalWhitespaceQueryAcrossCandidateScan() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(into: harness)
+        var observations: [ArticleSearchScanBatchObservation] = []
+        let queryService = makeQueryService(harness) { observation in
+            observations.append(observation)
+        }
+
+        _ = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "canonical-whitespace",
+            title: "Café\treader\npolish",
+            publishedAt: Date(timeIntervalSince1970: 100)
+        )
+
+        let snapshot = try await queryService.fetchArticleSearchSnapshot(
+            ArticleSearchRequest(
+                selection: .feed(feed.id),
+                sidebarArticleFilter: .allItems,
+                query: "  Cafe\u{301}   reader\t\npolish  ",
+                sortMode: .publishedAtDescending
+            )
+        )
+
+        #expect(snapshot.articles.map(\.articleExternalID) == ["canonical-whitespace"])
+        #expect(observations.isEmpty == false)
+        #expect(observations.allSatisfy { $0.normalizedQuery == "Café reader polish" })
+    }
+
+    @Test
     func articleQueryServiceSearchRespectsFilterLimitAndEmptyQueryBehavior() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)
@@ -798,11 +829,15 @@ struct ArticleQueryServiceTests {
         #expect(operations.saveCount == 0)
     }
 
-    private func makeQueryService(_ harness: TestHarness) -> DefaultArticleQueryService {
+    private func makeQueryService(
+        _ harness: TestHarness,
+        searchScanBatchProbe: ArticleSearchScanBatchProbe? = nil
+    ) -> DefaultArticleQueryService {
         DefaultArticleQueryService(
             articleRepository: harness.articleRepository,
             articleStateRepository: harness.articleStateRepository,
-            feedRepository: harness.feedRepository
+            feedRepository: harness.feedRepository,
+            searchScanBatchProbe: searchScanBatchProbe
         )
     }
 

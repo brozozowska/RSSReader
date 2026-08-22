@@ -97,12 +97,62 @@ struct ArticleSearchScopeTests {
 
         let results = ArticleSearchScope.filteredCandidates(
             [unread, read, archived],
-            searchText: "   ",
+            searchText: " \t\n\r ",
             selection: .feed(unread.listItem.feedID),
             sidebarArticleFilter: .unread
         )
 
         #expect(results.map { $0.listItem.articleExternalID } == ["unread", "archived"])
+    }
+
+    @Test
+    func articleSearchQueryNormalizationAlignsCanonicalAndWhitespaceForms() {
+        let candidate = makeArticleSearchCandidateDTO(
+            articleExternalID: "canonical-whitespace",
+            title: "Café\treader\npolish"
+        )
+        let rawQuery = "  Cafe\u{301}   reader\t\npolish  "
+        let scope = ArticleSearchScope(
+            searchText: rawQuery,
+            selection: .inbox,
+            sidebarArticleFilter: .allItems
+        )
+        let request = ArticleSearchRequest(
+            selection: .inbox,
+            sidebarArticleFilter: .allItems,
+            query: rawQuery,
+            sortMode: .publishedAtDescending
+        )
+
+        #expect(scope.normalizedQuery == "Café reader polish")
+        #expect(request.normalizedQuery == scope.normalizedQuery)
+        #expect(scope.contains(candidate))
+        #expect(matchingExternalIDs(in: [candidate], query: "Café reader polish") == ["canonical-whitespace"])
+        #expect(matchingExternalIDs(in: [candidate], query: "Café   reader\tpolish") == ["canonical-whitespace"])
+    }
+
+    @Test
+    func articleSearchQueryNormalizationBoundsInputAndPreservesBlankSemantics() {
+        let oversizedQuery = String(
+            repeating: "а",
+            count: ArticleSearchQueryNormalizationPolicy.maximumUTF8ByteCount
+        )
+        let normalizedOversizedQuery = ArticleSearchScope.normalizedSearchText(oversizedQuery)
+        let blankRequest = ArticleSearchRequest(
+            selection: .inbox,
+            sidebarArticleFilter: .allItems,
+            query: " \t\n ",
+            sortMode: .publishedAtDescending,
+            emptyQueryBehavior: .returnsEmpty
+        )
+
+        #expect(
+            normalizedOversizedQuery.utf8.count
+                <= ArticleSearchQueryNormalizationPolicy.maximumUTF8ByteCount
+        )
+        #expect(normalizedOversizedQuery.isEmpty == false)
+        #expect(blankRequest.normalizedQuery.isEmpty)
+        #expect(blankRequest.shouldReturnEmptyForBlankQuery)
     }
 
     @Test

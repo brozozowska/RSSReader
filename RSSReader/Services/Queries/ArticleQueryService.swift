@@ -281,6 +281,11 @@ final class DefaultArticleQueryService: ArticleQueryService {
         cursor: ArticleQueryCursor?,
         limit: Int
     ) throws -> ArticleSearchProcessedScanBatch {
+        let searchScope = ArticleSearchScope(
+            normalizedQuery: request.normalizedQuery,
+            selection: request.selection,
+            sidebarArticleFilter: request.sidebarArticleFilter
+        )
         let batch = try articleRepository.fetchArticleQueryRecordScanBatch(
             matching: criteria,
             cursor: cursor,
@@ -295,7 +300,11 @@ final class DefaultArticleQueryService: ArticleQueryService {
                 article: record.article,
                 state: record.state
             )
-            guard matchesSearch(candidate, request: request) else { continue }
+            guard matchesSearch(
+                candidate,
+                request: request,
+                searchScope: searchScope
+            ) else { continue }
             matches.append(
                 ArticleSearchScanMatch(
                     article: candidate.listItem,
@@ -320,18 +329,14 @@ final class DefaultArticleQueryService: ArticleQueryService {
 
     private func matchesSearch(
         _ candidate: ArticleSearchCandidateDTO,
-        request: ArticleSearchRequest
+        request: ArticleSearchRequest,
+        searchScope: ArticleSearchScope
     ) -> Bool {
         guard request.requiresUnread == false || candidate.listItem.isRead == false else {
             return false
         }
 
-        return ArticleSearchScope.filteredCandidates(
-            [candidate],
-            searchText: request.normalizedQuery,
-            selection: request.selection,
-            sidebarArticleFilter: request.sidebarArticleFilter
-        ).isEmpty == false
+        return searchScope.contains(candidate)
     }
 
     private func queryScope(for selection: SidebarSelection?) -> ArticleQueryScope? {

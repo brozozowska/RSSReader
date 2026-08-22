@@ -28,9 +28,21 @@ struct ArticleSearchScope: Sendable, Equatable {
         selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter
     ) {
+        self.init(
+            normalizedQuery: Self.normalizedSearchText(searchText),
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter
+        )
+    }
+
+    init(
+        normalizedQuery: String,
+        selection: SidebarSelection?,
+        sidebarArticleFilter: SidebarArticleFilter
+    ) {
         self.selection = selection
         self.sidebarArticleFilter = sidebarArticleFilter
-        self.normalizedQuery = Self.normalizedSearchText(searchText)
+        self.normalizedQuery = normalizedQuery
         self.listFilter = Self.listFilter(
             selection: selection,
             sidebarArticleFilter: sidebarArticleFilter
@@ -83,7 +95,7 @@ struct ArticleSearchScope: Sendable, Equatable {
     }
 
     static func normalizedSearchText(_ searchText: String) -> String {
-        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        ArticleSearchQueryNormalizationPolicy.normalize(searchText)
     }
 
     private static func listFilter(sidebarArticleFilter: SidebarArticleFilter) -> ArticleListFilter {
