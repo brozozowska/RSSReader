@@ -23,7 +23,13 @@ struct ArticlesScreenControllerStarredSessionTests {
         await controller.load(
             selection: .feed(feed.id),
             sidebarArticleFilter: .starred,
-            dependencies: harness.dependencies
+            dependencies: harness.dependencies,
+            refreshesScopeMetric: true
+        )
+
+        #expect(
+            controller.screenState.articleListSession.scopeMetric
+                == ArticleScopeMetric(kind: .starred, count: 1)
         )
 
         let loadedArticle = try #require(controller.screenState.articles.first)
@@ -48,12 +54,57 @@ struct ArticlesScreenControllerStarredSessionTests {
         #expect(controller.visibleArticleIDs() == [article.id])
         #expect(controller.screenState.articles.first?.isStarred == false)
         #expect(
+            controller.screenState.articleListSession.scopeMetric
+                == ArticleScopeMetric(kind: .starred, count: 0)
+        )
+        #expect(
             controller.screenState.articleListSession.entries.map(\.membershipStatus)
                 == [.retainedAfterFilterMutation]
         )
         #expect(
             controller.screenState.navigationSubtitle
                 == ReadingLocalization.starredItemsSubtitle(count: 0)
+        )
+    }
+
+    @Test
+    func articlesScreenControllerKeepsExactStarredMetricWhenToggleLosesLWWConflict() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/starred-toggle-lww.xml"]).first
+        )
+        let article = try harness.insertArticle(
+            feed: feed,
+            externalID: "starred-toggle-lww",
+            url: "https://example.com/articles/starred-toggle-lww",
+            title: "Starred Toggle LWW"
+        )
+        _ = try harness.articleStateService.toggleStarred(article: article, at: .distantFuture)
+        let controller = ArticlesScreenController()
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .starred,
+            dependencies: harness.dependencies,
+            refreshesScopeMetric: true
+        )
+        let loadedArticle = try #require(controller.screenState.articles.first)
+        controller.toggleStarredState(
+            for: loadedArticle,
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .starred,
+            dependencies: harness.dependencies,
+            isPreviewMode: false
+        )
+
+        #expect(controller.screenState.articles.first?.isStarred == true)
+        #expect(
+            controller.screenState.articleListSession.scopeMetric
+                == ArticleScopeMetric(kind: .starred, count: 1)
+        )
+        #expect(
+            controller.screenState.navigationSubtitle
+                == ReadingLocalization.starredItemsSubtitle(count: 1)
         )
     }
 

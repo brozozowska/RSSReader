@@ -3,6 +3,17 @@ import Foundation
 import Testing
 @testable import RSSReader
 
+@MainActor
+final class AppDependenciesRecordingUnreadAppIconBadgeService: UnreadAppIconBadgeServicing {
+    private(set) var refreshBadgeCountCallCount = 0
+
+    func refreshBadgeCount() async {
+        refreshBadgeCountCallCount += 1
+    }
+
+    func applyBadgePreference(isEnabled: Bool) async {}
+}
+
 final class AppDependenciesTestICloudAccountAvailabilityService: ICloudAccountAvailabilityService, @unchecked Sendable {
     private let initialAvailability: ICloudAccountAvailability
     private let queue = DispatchQueue(label: "RSSReaderTests.AppDependencies.AccountAvailability")

@@ -56,6 +56,7 @@ struct CrossDeviceReadingScenarioTests {
                 ]
             )
         )
+        let articleQueryService = try #require(harness.dependencies.articleQueryService)
         let folder = try harness.folderRepository.insert(Folder(name: "News"))
         let feed = try harness.feedRepository.insert(
             Feed(
@@ -79,11 +80,10 @@ struct CrossDeviceReadingScenarioTests {
         )
 
         let preRefreshSidebar = try #require(try harness.dependencies.sidebarQueryService?.fetchSnapshot())
-        let preRefreshAllItems = try #require(
-            try harness.dependencies.articleQueryService?.fetchInboxListItems(
-                sortMode: .publishedAtDescending,
-                filter: .all
-            )
+        let preRefreshAllItems = try await fetchArticleTestPage(
+            from: articleQueryService,
+            selection: .inbox,
+            filter: .all
         )
 
         #expect(preRefreshSidebar.feeds.count == 1)
@@ -96,23 +96,20 @@ struct CrossDeviceReadingScenarioTests {
         #expect(refreshResult.status == .fetched)
         #expect(refreshResult.upsertedEntryCount == 1)
 
-        let postRefreshAllItems = try #require(
-            try harness.dependencies.articleQueryService?.fetchInboxListItems(
-                sortMode: .publishedAtDescending,
-                filter: .all
-            )
+        let postRefreshAllItems = try await fetchArticleTestPage(
+            from: articleQueryService,
+            selection: .inbox,
+            filter: .all
         )
-        let postRefreshUnreadItems = try #require(
-            try harness.dependencies.articleQueryService?.fetchInboxListItems(
-                sortMode: .publishedAtDescending,
-                filter: .unread
-            )
+        let postRefreshUnreadItems = try await fetchArticleTestPage(
+            from: articleQueryService,
+            selection: .inbox,
+            filter: .unread
         )
-        let postRefreshStarredItems = try #require(
-            try harness.dependencies.articleQueryService?.fetchInboxListItems(
-                sortMode: .publishedAtDescending,
-                filter: .starred
-            )
+        let postRefreshStarredItems = try await fetchArticleTestPage(
+            from: articleQueryService,
+            selection: .inbox,
+            filter: .starred
         )
         let refreshedArticle = try #require(postRefreshAllItems.first)
         let postRefreshSidebar = try #require(try harness.dependencies.sidebarQueryService?.fetchSnapshot())
@@ -165,6 +162,7 @@ struct CrossDeviceReadingScenarioTests {
                 ]
             )
         )
+        let articleQueryService = try #require(harness.dependencies.articleQueryService)
         let feed = try harness.feedRepository.insert(
             Feed(
                 url: feedURL,
@@ -194,11 +192,10 @@ struct CrossDeviceReadingScenarioTests {
         )
         let backgroundRefreshService = try #require(harness.dependencies.backgroundRefreshService)
 
-        let preRefreshAllItems = try #require(
-            try harness.dependencies.articleQueryService?.fetchInboxListItems(
-                sortMode: .publishedAtDescending,
-                filter: .all
-            )
+        let preRefreshAllItems = try await fetchArticleTestPage(
+            from: articleQueryService,
+            selection: .inbox,
+            filter: .all
         )
         #expect(preRefreshAllItems.isEmpty)
 
@@ -219,23 +216,20 @@ struct CrossDeviceReadingScenarioTests {
         #expect(resolvedBackgroundResult.summary.cancelledCount == 0)
         #expect(resolvedBackgroundResult.summary.totalUpsertedEntryCount == 1)
 
-        let postRefreshAllItems = try #require(
-            try harness.dependencies.articleQueryService?.fetchInboxListItems(
-                sortMode: .publishedAtDescending,
-                filter: .all
-            )
+        let postRefreshAllItems = try await fetchArticleTestPage(
+            from: articleQueryService,
+            selection: .inbox,
+            filter: .all
         )
-        let postRefreshUnreadItems = try #require(
-            try harness.dependencies.articleQueryService?.fetchInboxListItems(
-                sortMode: .publishedAtDescending,
-                filter: .unread
-            )
+        let postRefreshUnreadItems = try await fetchArticleTestPage(
+            from: articleQueryService,
+            selection: .inbox,
+            filter: .unread
         )
-        let postRefreshStarredItems = try #require(
-            try harness.dependencies.articleQueryService?.fetchInboxListItems(
-                sortMode: .publishedAtDescending,
-                filter: .starred
-            )
+        let postRefreshStarredItems = try await fetchArticleTestPage(
+            from: articleQueryService,
+            selection: .inbox,
+            filter: .starred
         )
         let refreshedArticle = try #require(postRefreshAllItems.first)
 

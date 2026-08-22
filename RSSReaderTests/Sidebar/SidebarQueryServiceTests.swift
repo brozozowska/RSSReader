@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import RSSReader
 
@@ -48,9 +49,20 @@ struct SidebarQueryServiceTests {
         _ = try stateService.toggleStarred(article: starredArticle, at: .now)
         _ = try stateService.markAsRead(feedID: secondFeed.id, articleExternalID: "sidebar-read", at: .now)
         _ = unreadArticle
+        var observations: [ArticleStateQueryBatchObservation] = []
+        let aggregateRepository = SwiftDataArticleStateRepository(
+            modelContext: harness.modelContainer.mainContext,
+            queryBatchSize: 1,
+            queryBatchProbe: { observations.append($0) }
+        )
+        let queryService = DefaultSidebarQueryService(
+            feedRepository: harness.feedRepository,
+            folderRepository: harness.folderRepository,
+            articleStateRepository: aggregateRepository
+        )
 
-        let snapshot = try harness.dependencies.sidebarQueryService?.fetchSnapshot()
-        let resolvedSnapshot = try #require(snapshot)
+        let resolvedSnapshot = try queryService.fetchSnapshot()
+        let stateScans = observations.filter { $0.kind == .aggregateStateScan }
 
         #expect(resolvedSnapshot.folders.map(\.id) == [emptyFolder.id])
         #expect(resolvedSnapshot.folders.map(\.name) == ["Empty"])
@@ -60,5 +72,8 @@ struct SidebarQueryServiceTests {
         #expect(resolvedSnapshot.unreadSmartCount == 3)
         #expect(resolvedSnapshot.starredSmartCount == 1)
         #expect(resolvedSnapshot.starredFeedIDs == [secondFeed.id])
+        #expect(stateScans.reduce(0) { $0 + $1.materializedStateCount } == 2)
+        #expect(stateScans.allSatisfy { $0.materializedStateCount <= 1 })
+        #expect(stateScans.filter(\.appliedKeysetCursor).isEmpty == false)
     }
 }

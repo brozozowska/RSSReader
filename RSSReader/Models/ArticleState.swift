@@ -1,9 +1,19 @@
 import Foundation
 import SwiftData
 
+nonisolated enum ArticleStateIdentity {
+    static func lookupKey(feedID: UUID, articleExternalID: String) -> String {
+        let normalizedExternalID = articleExternalID.trimmingCharacters(in: .whitespacesAndNewlines)
+        return "\(feedID.uuidString)|\(normalizedExternalID)"
+    }
+}
+
 @Model
 final class ArticleState {
-    #Index<ArticleState>([\.updatedAt])
+    #Index<ArticleState>(
+        [\.updatedAt],
+        [\.feedID, \.articleExternalID, \.updatedAt]
+    )
 
     var id: UUID = UUID()
     var articleExternalID: String = ""

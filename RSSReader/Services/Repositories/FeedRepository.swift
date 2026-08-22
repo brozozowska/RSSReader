@@ -3,6 +3,7 @@ import SwiftData
 
 enum SwiftDataRepositoryOperation: Equatable, Sendable {
     case fetch
+    case fetchCount
     case save
 }
 
@@ -50,7 +51,7 @@ extension SwiftDataRepositoryContext {
 
     func performFetchCount<Model>(_ descriptor: FetchDescriptor<Model>) throws -> Int
     where Model: PersistentModel {
-        persistenceOperationRecorder(.fetch)
+        persistenceOperationRecorder(.fetchCount)
         return try modelContext.fetchCount(descriptor)
     }
 
@@ -64,7 +65,10 @@ extension SwiftDataRepositoryContext {
     }
 
     func articleCompositeKey(feedID: UUID, articleExternalID: String) -> String {
-        "\(feedID.uuidString)|\(articleExternalID)"
+        ArticleStateIdentity.lookupKey(
+            feedID: feedID,
+            articleExternalID: articleExternalID
+        )
     }
 }
 
@@ -188,11 +192,25 @@ struct FeedFolderAssignmentUpdate: Sendable {
     var updatedAt: Date = .now
 }
 
+enum FeedIdentityQueryScope: Equatable, Sendable {
+    case inbox
+    case folder(String)
+}
+
+nonisolated enum FeedIdentityQueryPolicy {
+    static let batchSize = 256
+}
+
 @MainActor
 protocol FeedRepository {
     func fetchFeed(id: UUID) throws -> Feed?
     func fetchFeed(url: String) throws -> Feed?
     func fetchAllFeeds() throws -> [Feed]
+    func fetchFeedIDBatch(
+        matching scope: FeedIdentityQueryScope,
+        offset: Int,
+        limit: Int
+    ) throws -> [UUID]
     func fetchRetentionFeedIDBatch(offset: Int, limit: Int) throws -> [UUID]
     func fetchActiveFeeds() throws -> [Feed]
     func countFeeds(inFolderID folderID: UUID?) throws -> Int
@@ -291,6 +309,36 @@ final class SwiftDataFeedRepository: FeedRepository, SwiftDataRepositoryContext 
             ]
         )
         return try performFetch(descriptor)
+    }
+
+    func fetchFeedIDBatch(
+        matching scope: FeedIdentityQueryScope,
+        offset: Int,
+        limit: Int
+    ) throws -> [UUID] {
+        precondition(offset >= 0)
+        precondition(limit > 0)
+
+        let sortDescriptors = [
+            SortDescriptor(\Feed.createdAt, order: .forward),
+            SortDescriptor(\Feed.id, order: .forward)
+        ]
+        var descriptor: FetchDescriptor<Feed>
+        switch scope {
+        case .inbox:
+            descriptor = FetchDescriptor(sortBy: sortDescriptors)
+        case .folder(let folderName):
+            descriptor = FetchDescriptor(
+                predicate: #Predicate<Feed> { feed in
+                    feed.folder?.name == folderName
+                },
+                sortBy: sortDescriptors
+            )
+        }
+        descriptor.fetchOffset = offset
+        descriptor.fetchLimit = limit
+        descriptor.propertiesToFetch = [\Feed.id]
+        return try performFetch(descriptor).map(\.id)
     }
 
     func fetchRetentionFeedIDBatch(offset: Int, limit: Int) throws -> [UUID] {

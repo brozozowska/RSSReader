@@ -31,6 +31,7 @@ struct FeedParsingWorkerTests {
         let payload = try #require(result.articlePayloads.first)
         #expect(result.articlePayloads.count == result.acceptedEntryCount)
         #expect(payload.title == "Richer duplicate title")
+        #expect(payload.searchableText.contains("Richer duplicate title"))
         #expect(payload.publishedAt == FeedDateParsingService.parse("Tue, 02 Jan 2024 10:15:30 +0000"))
         #expect(payload.fetchedAt == fetchedAt)
     }

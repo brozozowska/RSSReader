@@ -76,6 +76,26 @@ struct ShellActionCompletionTests {
     }
 
     @Test
+    func shellActionCompletionHelpersEditFolderDoesNotReopenArticlesAfterNativeBack() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+
+        harness.dependencies.appActions.showFolder(named: "News", using: appState)
+        appState.updatePresentedSidebarSelection(nil)
+        harness.dependencies.appActions.showFeedManagement(using: appState)
+
+        harness.dependencies.appActions.finishFolderEditing(
+            previousName: "News",
+            updatedFolderName: "World News",
+            using: appState
+        )
+
+        #expect(appState.isPresentingFeedManagementScreen == false)
+        #expect(appState.selectedSidebarSelection == .folder("World News"))
+        #expect(appState.presentedSidebarSelection == nil)
+    }
+
+    @Test
     func shellActionCompletionHelpersSaveFeedDismissesThenRefreshesSelection() async throws {
         let feedURL = "https://example.com/helper-save.xml"
         let harness = try TestHarness.make(
@@ -155,6 +175,21 @@ struct ShellActionCompletionTests {
     }
 
     @Test
+    func shellActionCompletionHelpersUnsubscribeSelectedFeedDoesNotReopenArticlesAfterNativeBack() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+        let removedFeedID = UUID()
+
+        harness.dependencies.appActions.showFeed(id: removedFeedID, using: appState)
+        appState.updatePresentedSidebarSelection(nil)
+
+        harness.dependencies.appActions.finishUnsubscribingFeed(id: removedFeedID, using: appState)
+
+        #expect(appState.selectedSidebarSelection == .inbox)
+        #expect(appState.presentedSidebarSelection == nil)
+    }
+
+    @Test
     func shellActionCompletionHelpersDeleteFolderKeepsCurrentSelectionWhenAnotherFolderIsRemoved() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let appState = AppState()
@@ -175,5 +210,19 @@ struct ShellActionCompletionTests {
         #expect(appState.selectedSidebarSelection == .feed(feed.id))
         #expect(appState.sidebarReloadID != sidebarReloadIDBeforeCompletion)
         #expect(appState.articleListReloadID != articleReloadIDBeforeCompletion)
+    }
+
+    @Test
+    func shellActionCompletionHelpersDeleteSelectedFolderDoesNotReopenArticlesAfterNativeBack() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let appState = AppState()
+
+        harness.dependencies.appActions.showFolder(named: "Archived", using: appState)
+        appState.updatePresentedSidebarSelection(nil)
+
+        harness.dependencies.appActions.finishDeletingFolder(named: "Archived", using: appState)
+
+        #expect(appState.selectedSidebarSelection == .inbox)
+        #expect(appState.presentedSidebarSelection == nil)
     }
 }

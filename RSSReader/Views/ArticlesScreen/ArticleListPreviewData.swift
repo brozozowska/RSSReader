@@ -57,8 +57,6 @@ private struct ArticlesScreenPreviewContainer: View {
                 selectedSidebarSelection: .unread,
                 selectedSidebarArticleFilter: .unread,
                 reloadID: UUID(),
-                showsBackButton: true,
-                navigateBackToSidebar: {},
                 previewScreenState: screenState,
                 selection: $selection
             )

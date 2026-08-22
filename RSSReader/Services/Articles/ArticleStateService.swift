@@ -14,6 +14,18 @@ protocol ArticleStateServicing {
     func markAllVisibleAsRead(feedID: UUID, articleExternalIDs: [String], at: Date) throws -> [ArticleUserStateSnapshot]
     func markAllVisibleAsRead(_ items: [ArticleListItemDTO], at: Date) throws -> [ArticleUserStateSnapshot]
     func markAllVisibleAsRead(_ articles: [Article], at: Date) throws -> [ArticleUserStateSnapshot]
+    func markAllMatchingAsRead(
+        request: ArticleSearchRequest,
+        articleQueryService: any ArticleQueryService,
+        at: Date
+    ) async throws -> ArticleScopeReadMutationResult
+}
+
+struct ArticleScopeReadMutationResult: Equatable, Sendable {
+    let processedIdentityCount: Int
+    let persistedReadCount: Int
+    let rejectedIdentityCount: Int
+    let processedBatchCount: Int
 }
 
 @MainActor
@@ -184,6 +196,76 @@ final class ArticleStateService: ArticleStateServicing {
                     at: at
                 )
             }
+    }
+
+    func markAllMatchingAsRead(
+        request: ArticleSearchRequest,
+        articleQueryService: any ArticleQueryService,
+        at: Date = .now
+    ) async throws -> ArticleScopeReadMutationResult {
+        precondition(request.limit > 0)
+
+        var cursor = request.cursor
+        var processedIdentityCount = 0
+        var persistedReadCount = 0
+        var processedBatchCount = 0
+        var didPersistMutation = false
+
+        defer {
+            if didPersistMutation {
+                scheduleUnreadAppIconBadgeRefresh()
+            }
+        }
+
+        repeat {
+            try Task.checkCancellation()
+            let batchRequest = ArticleSearchRequest(
+                selection: request.selection,
+                sidebarArticleFilter: request.sidebarArticleFilter,
+                query: request.normalizedQuery,
+                sortMode: request.sortMode,
+                limit: request.limit,
+                cursor: cursor,
+                emptyQueryBehavior: request.emptyQueryBehavior,
+                requiresUnread: true
+            )
+            let snapshot = try await articleQueryService.fetchArticleSearchSnapshot(batchRequest)
+            try Task.checkCancellation()
+
+            if snapshot.articles.isEmpty == false {
+                processedBatchCount += 1
+            }
+            let identitiesByFeedID = Dictionary(grouping: snapshot.articles, by: \.feedID)
+            for feedID in identitiesByFeedID.keys.sorted(by: { $0.uuidString < $1.uuidString }) {
+                try Task.checkCancellation()
+                let externalIDs = identitiesByFeedID[feedID, default: []].map(\.articleExternalID)
+                let states = try articleStateRepository.bulkSetRead(
+                    feedID: feedID,
+                    articleExternalIDs: externalIDs,
+                    isRead: true,
+                    at: at
+                )
+                didPersistMutation = didPersistMutation || states.isEmpty == false
+                processedIdentityCount += externalIDs.count
+                persistedReadCount += states.lazy.filter(\.isRead).count
+            }
+
+            guard let nextCursor = snapshot.nextCursor else { break }
+            guard nextCursor != cursor else { break }
+            cursor = nextCursor
+            try Task.checkCancellation()
+            await Task.yield()
+        } while true
+
+        logger.info(
+            "Marked \(persistedReadCount) of \(processedIdentityCount) matching articles as read in \(processedBatchCount) batches"
+        )
+        return ArticleScopeReadMutationResult(
+            processedIdentityCount: processedIdentityCount,
+            persistedReadCount: persistedReadCount,
+            rejectedIdentityCount: processedIdentityCount - persistedReadCount,
+            processedBatchCount: processedBatchCount
+        )
     }
 
     private func makeReadUpdate(isRead: Bool, at: Date) -> ArticleStateUpsert {

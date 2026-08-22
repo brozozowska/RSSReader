@@ -1,19 +1,32 @@
 import Foundation
 
+struct ArticleSearchCandidateDTO: Sendable, Equatable {
+    let listItem: ArticleListItemDTO
+    let searchableText: String
+
+    init(listItem: ArticleListItemDTO, searchableText: String) {
+        self.listItem = listItem
+        self.searchableText = searchableText
+    }
+
+    init(article: Article, state: ArticleUserStateSnapshot?) {
+        self.init(
+            listItem: ArticleListItemDTO(article: article, state: state),
+            searchableText: article.searchableText
+        )
+    }
+}
+
 struct ArticleSearchScope: Sendable, Equatable {
-    let selection: SidebarSelection?
-    let sidebarArticleFilter: SidebarArticleFilter
     let normalizedQuery: String
     let listFilter: ArticleListFilter
 
     init(
-        searchText: String,
+        normalizedQuery: String,
         selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter
     ) {
-        self.selection = selection
-        self.sidebarArticleFilter = sidebarArticleFilter
-        self.normalizedQuery = Self.normalizedSearchText(searchText)
+        self.normalizedQuery = normalizedQuery
         self.listFilter = Self.listFilter(
             selection: selection,
             sidebarArticleFilter: sidebarArticleFilter
@@ -24,8 +37,8 @@ struct ArticleSearchScope: Sendable, Equatable {
         normalizedQuery.isEmpty == false
     }
 
-    func contains(_ article: ArticleListItemDTO) -> Bool {
-        guard Self.isVisibleInCurrentListScope(article, listFilter: listFilter) else {
+    func contains(_ candidate: ArticleSearchCandidateDTO) -> Bool {
+        guard Self.isVisibleInCurrentListScope(candidate.listItem, listFilter: listFilter) else {
             return false
         }
 
@@ -33,22 +46,8 @@ struct ArticleSearchScope: Sendable, Equatable {
             return true
         }
 
-        return Self.searchableValues(for: article)
-            .contains { $0.localizedCaseInsensitiveContains(normalizedQuery) }
-    }
-
-    static func filteredArticles(
-        _ articles: [ArticleListItemDTO],
-        searchText: String,
-        selection: SidebarSelection?,
-        sidebarArticleFilter: SidebarArticleFilter
-    ) -> [ArticleListItemDTO] {
-        let scope = ArticleSearchScope(
-            searchText: searchText,
-            selection: selection,
-            sidebarArticleFilter: sidebarArticleFilter
-        )
-        return articles.filter { scope.contains($0) }
+        return candidate.searchableText.localizedCaseInsensitiveContains(normalizedQuery)
+            || candidate.listItem.feedTitle.localizedCaseInsensitiveContains(normalizedQuery)
     }
 
     static func listFilter(
@@ -66,7 +65,7 @@ struct ArticleSearchScope: Sendable, Equatable {
     }
 
     static func normalizedSearchText(_ searchText: String) -> String {
-        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        ArticleSearchQueryNormalizationPolicy.normalize(searchText)
     }
 
     private static func listFilter(sidebarArticleFilter: SidebarArticleFilter) -> ArticleListFilter {
@@ -96,51 +95,4 @@ struct ArticleSearchScope: Sendable, Equatable {
         }
     }
 
-    private static func searchableValues(for article: ArticleListItemDTO) -> [String] {
-        [
-            article.title,
-            article.summary,
-            article.contentText,
-            plainTextFallback(fromHTML: article.contentHTML),
-            article.author,
-            article.feedTitle
-        ]
-        .compactMap { $0?.nilIfBlank }
-    }
-
-    private static func plainTextFallback(fromHTML html: String?) -> String? {
-        guard let html = html?.nilIfBlank else {
-            return nil
-        }
-
-        return html
-            .replacingOccurrences(of: #"(?i)<br\s*/?>"#, with: " ", options: .regularExpression)
-            .replacingOccurrences(
-                of: #"(?i)</?(p|div|section|article|blockquote|ul|ol|li|h[1-6]|pre|figure|figcaption|table|tbody|thead|tr|td|th)\b[^>]*>"#,
-                with: " ",
-                options: .regularExpression
-            )
-            .replacingOccurrences(of: #"<[^>]+>"#, with: "", options: .regularExpression)
-            .decodingBasicHTMLEntities()
-            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .nilIfBlank
-    }
-}
-
-private extension String {
-    var nilIfBlank: String? {
-        let trimmedValue = trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedValue.isEmpty ? nil : trimmedValue
-    }
-
-    func decodingBasicHTMLEntities() -> String {
-        replacingOccurrences(of: "&nbsp;", with: " ")
-            .replacingOccurrences(of: "&amp;", with: "&")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&#39;", with: "'")
-            .replacingOccurrences(of: "&apos;", with: "'")
-    }
 }

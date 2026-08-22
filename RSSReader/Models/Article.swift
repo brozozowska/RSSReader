@@ -3,7 +3,12 @@ import SwiftData
 
 @Model
 final class Article {
-    #Index<Article>([\.publishedAt])
+    #Index<Article>(
+        [\.querySortDate],
+        [\.feedID, \.querySortDate],
+        [\.feedFolderName, \.querySortDate],
+        [\.feedID, \.externalID]
+    )
 
     var id: UUID = UUID()
     var feedID: UUID = UUID()
@@ -18,8 +23,10 @@ final class Article {
     var summary: String?
     var contentHTML: String?
     var contentText: String?
+    var searchableText: String = ""
     var author: String?
     var publishedAt: Date?
+    var querySortDate: Date = Date.distantPast
     var updatedAtSource: Date?
     var imageURL: String?
     var archivedAt: Date?
@@ -41,6 +48,7 @@ final class Article {
         summary: String? = nil,
         contentHTML: String? = nil,
         contentText: String? = nil,
+        searchableText: String? = nil,
         author: String? = nil,
         publishedAt: Date? = nil,
         updatedAtSource: Date? = nil,
@@ -63,8 +71,16 @@ final class Article {
         self.summary = summary
         self.contentHTML = contentHTML
         self.contentText = contentText
+        self.searchableText = searchableText ?? ArticleSearchableTextPolicy.materialize(
+            title: title,
+            summary: summary,
+            contentHTML: contentHTML,
+            contentText: contentText,
+            author: author
+        )
         self.author = author
         self.publishedAt = publishedAt
+        self.querySortDate = publishedAt ?? fetchedAt
         self.updatedAtSource = updatedAtSource
         self.imageURL = imageURL
         self.archivedAt = archivedAt

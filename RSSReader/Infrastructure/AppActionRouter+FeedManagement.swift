@@ -186,7 +186,11 @@ extension AppActionRouter {
     ) {
         appState.requestSidebarReload()
         if appState.selectedSidebarSelection == .folder(previousName) {
-            showFolder(named: updatedFolderName, using: appState)
+            appState.reconcileSidebarSelection(
+                .folder(updatedFolderName),
+                expectedSelection: .folder(previousName),
+                expectedFilter: appState.selectedSidebarArticleFilter
+            )
         }
         dismissFeedManagement(using: appState)
     }
@@ -300,7 +304,11 @@ extension AppActionRouter {
     func finishUnsubscribingFeed(id feedID: UUID, using appState: AppState) {
         appState.requestSidebarReload()
         if appState.selectedSidebarSelection == .feed(feedID) {
-            showInbox(using: appState)
+            appState.reconcileSidebarSelection(
+                .inbox,
+                expectedSelection: .feed(feedID),
+                expectedFilter: appState.selectedSidebarArticleFilter
+            )
         } else {
             appState.requestArticleListReload()
         }
@@ -360,7 +368,11 @@ extension AppActionRouter {
     func finishDeletingFolder(named folderName: String, using appState: AppState) {
         appState.requestSidebarReload()
         if appState.selectedSidebarSelection == .folder(folderName) {
-            showInbox(using: appState)
+            appState.reconcileSidebarSelection(
+                .inbox,
+                expectedSelection: .folder(folderName),
+                expectedFilter: appState.selectedSidebarArticleFilter
+            )
         } else {
             appState.requestArticleListReload()
         }

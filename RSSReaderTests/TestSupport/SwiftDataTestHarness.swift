@@ -27,7 +27,8 @@ struct TestHarness {
         ) throws -> Void = { _ in
             try Task.checkCancellation()
         },
-        articleReconciliationProgressProbe: ArticleFeedSnapshotReconciliationProgressProbe? = nil
+        articleReconciliationProgressProbe: ArticleFeedSnapshotReconciliationProgressProbe? = nil,
+        articleSearchScanBatchProbe: ArticleSearchScanBatchProbe? = nil
     ) throws -> TestHarness {
         let resolvedFeedIconDiscoveryService = feedIconDiscoveryService ?? NoOpFeedIconDiscoveryService()
         let schema = AppComposition.persistenceModelPartition.schema
@@ -51,6 +52,7 @@ struct TestHarness {
             modelContainer: modelContainer,
             feedIconDiscoveryService: resolvedFeedIconDiscoveryService,
             unreadAppIconBadgeService: unreadAppIconBadgeService ?? NoOpUnreadAppIconBadgeService(),
+            articleSearchScanBatchProbe: articleSearchScanBatchProbe,
             tracksFeedSaveRefreshTasks: true
         )
 

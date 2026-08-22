@@ -150,6 +150,29 @@ struct ArticlesScreenPresentationTests {
     }
 
     @Test
+    func articlesScreenSubtitleResolverUsesExactScopeMetricIndependentlyOfLoadedRows() {
+        let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)
+        let starredItem = makeArticleListItemDTO(isRead: true, isStarred: true)
+        let unreadStarredItem = makeArticleListItemDTO(isRead: false, isStarred: true)
+        let articles = [unreadItem, starredItem, unreadStarredItem]
+
+        #expect(
+            ArticlesScreenSubtitleResolver.resolve(
+                articles: articles,
+                sidebarArticleFilter: .unread,
+                scopeMetric: ArticleScopeMetric(kind: .unread, count: 42)
+            ) == ReadingLocalization.unreadItemsSubtitle(count: 42)
+        )
+        #expect(
+            ArticlesScreenSubtitleResolver.resolve(
+                articles: articles,
+                sidebarArticleFilter: .allItems,
+                scopeMetric: ArticleScopeMetric(kind: .starred, count: 17)
+            ) == ReadingLocalization.starredItemsSubtitle(count: 17)
+        )
+    }
+
+    @Test
     func customRefreshStateMapsPullProgressToIndicatorContract() {
         let idleState = ArticlesScreenCustomRefreshState.pulling(progress: -0.1)
         let pullingState = ArticlesScreenCustomRefreshState.pulling(progress: 0.4)
@@ -242,6 +265,47 @@ struct ArticlesScreenPresentationTests {
     }
 
     @Test
+    func articleListPaginationPrefetchRequiresUserDemandNearListEnd() {
+        let nearEndGeometry = ArticleListPaginationGeometry(
+            contentHeight: 5_000,
+            visibleMaxY: 4_100
+        )
+        let farFromEndGeometry = ArticleListPaginationGeometry(
+            contentHeight: 5_000,
+            visibleMaxY: 3_000
+        )
+
+        #expect(
+            ArticleListPaginationPrefetchPolicy.shouldRequestNextPage(
+                geometry: nearEndGeometry,
+                hasUserDrivenScrollDemand: true,
+                canLoadNextPage: true
+            )
+        )
+        #expect(
+            ArticleListPaginationPrefetchPolicy.shouldRequestNextPage(
+                geometry: nearEndGeometry,
+                hasUserDrivenScrollDemand: false,
+                canLoadNextPage: true
+            ) == false
+        )
+        #expect(
+            ArticleListPaginationPrefetchPolicy.shouldRequestNextPage(
+                geometry: farFromEndGeometry,
+                hasUserDrivenScrollDemand: true,
+                canLoadNextPage: true
+            ) == false
+        )
+        #expect(
+            ArticleListPaginationPrefetchPolicy.shouldRequestNextPage(
+                geometry: nearEndGeometry,
+                hasUserDrivenScrollDemand: true,
+                canLoadNextPage: false
+            ) == false
+        )
+    }
+
+    @Test
     func articlesDaySectionsBuilderGroupsArticlesByDayAndPreservesVisibleOrder() {
         let calendar = Calendar.current
         let now = Date()
@@ -261,6 +325,36 @@ struct ArticlesScreenPresentationTests {
 
         #expect(sections.count == 2)
         #expect(sections[0].articles.map(\.title) == ["Today One", "Today Two"])
+        #expect(sections[1].articles.map(\.title) == ["Yesterday"])
+    }
+
+    @Test
+    func articlesDaySectionsBuilderCoalescesNoncontiguousArticlesIntoUniqueDaySections() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        let today = Date(timeIntervalSince1970: 1_786_838_400)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+        let firstToday = makeArticleListItemDTO(
+            title: "Today First",
+            publishedAt: today.addingTimeInterval(100)
+        )
+        let yesterdayArticle = makeArticleListItemDTO(
+            title: "Yesterday",
+            publishedAt: yesterday.addingTimeInterval(100)
+        )
+        let secondToday = makeArticleListItemDTO(
+            title: "Today Second",
+            publishedAt: today.addingTimeInterval(50)
+        )
+
+        let sections = ArticlesDaySectionsBuilder.build(
+            from: [firstToday, yesterdayArticle, secondToday],
+            calendar: calendar
+        )
+
+        #expect(sections.count == 2)
+        #expect(Set(sections.map(\.id)).count == sections.count)
+        #expect(sections[0].articles.map(\.title) == ["Today First", "Today Second"])
         #expect(sections[1].articles.map(\.title) == ["Yesterday"])
     }
 

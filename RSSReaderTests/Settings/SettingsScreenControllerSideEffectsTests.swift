@@ -7,6 +7,29 @@ import UIKit
 @MainActor
 struct SettingsScreenControllerSideEffectsTests {
     @Test
+    func applyingUnreadSortOrderRequestsArticleListReload() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let controller = SettingsScreenController()
+        let appState = AppState()
+        controller.loadSettings(dependencies: harness.dependencies)
+        let reloadIDBeforeChange = appState.articleListReloadID
+
+        controller.handlePickerOptionSelection(
+            itemID: .unreadArticleSortOrder,
+            optionID: UnreadArticleSortOrder.oldestFirst.rawValue,
+            dependencies: harness.dependencies
+        )
+
+        #expect(
+            controller.applySettingsChanges(
+                dependencies: harness.dependencies,
+                appState: appState
+            )
+        )
+        #expect(appState.articleListReloadID != reloadIDBeforeChange)
+    }
+
+    @Test
     func settingsScreenControllerClearsArticleImageCacheWithoutChangingSettings() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let settingsService = try #require(harness.dependencies.appSettingsService)

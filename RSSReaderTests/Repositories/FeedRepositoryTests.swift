@@ -1,10 +1,67 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import RSSReader
 
 @Suite("Repositories / Feed")
 @MainActor
 struct FeedRepositoryTests {
+    @Test
+    func feedRepositoryReturnsBoundedIdentityBatchesForInboxAndFolderMetrics() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let folder = try harness.folderRepository.insert(Folder(name: "Metric Folder", sortOrder: 0))
+        let feeds = try harness.insertFeeds(
+            urls: [
+                "https://example.com/metric-1.xml",
+                "https://example.com/metric-2.xml",
+                "https://example.com/metric-3.xml"
+            ]
+        )
+        _ = try harness.feedRepository.updateFolderAssignment(
+            for: feeds[0].id,
+            with: FeedFolderAssignmentUpdate(folder: folder)
+        )
+        _ = try harness.feedRepository.updateFolderAssignment(
+            for: feeds[2].id,
+            with: FeedFolderAssignmentUpdate(folder: folder)
+        )
+        let operations = SwiftDataRepositoryOperationCounter()
+        let repository = SwiftDataFeedRepository(
+            modelContext: harness.modelContainer.mainContext,
+            persistenceOperationRecorder: operations.record
+        )
+
+        let firstInboxBatch = try repository.fetchFeedIDBatch(
+            matching: .inbox,
+            offset: 0,
+            limit: 2
+        )
+        let secondInboxBatch = try repository.fetchFeedIDBatch(
+            matching: .inbox,
+            offset: firstInboxBatch.count,
+            limit: 2
+        )
+        let folderBatch = try repository.fetchFeedIDBatch(
+            matching: .folder(folder.name),
+            offset: 0,
+            limit: 1
+        )
+        let remainingFolderBatch = try repository.fetchFeedIDBatch(
+            matching: .folder(folder.name),
+            offset: folderBatch.count,
+            limit: 1
+        )
+
+        #expect(firstInboxBatch.count == 2)
+        #expect(secondInboxBatch.count == 1)
+        #expect(Set(firstInboxBatch + secondInboxBatch) == Set(feeds.map(\.id)))
+        #expect(folderBatch.count == 1)
+        #expect(remainingFolderBatch.count == 1)
+        #expect(Set(folderBatch + remainingFolderBatch) == Set([feeds[0].id, feeds[2].id]))
+        #expect(operations.fetchCount == 4)
+        #expect(operations.saveCount == 0)
+    }
+
     @Test
     func feedRepositoryUpdatesFolderAssignmentThroughExplicitPersistencePath() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
@@ -93,7 +150,7 @@ struct FeedRepositoryTests {
         )
 
         let deleted = try harness.feedRepository.delete(feedID: feed.id)
-        let remainingArticles = try harness.articleRepository.fetchInbox(sortMode: .publishedAtDescending)
+        let remainingArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
 
         #expect(deleted)
         #expect(remainingArticles.isEmpty)

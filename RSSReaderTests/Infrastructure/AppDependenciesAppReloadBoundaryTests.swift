@@ -23,7 +23,8 @@ struct AppDependenciesAppReloadBoundaryTests {
             backgroundRefreshForegroundHandoffCoordinator: backgroundRefreshHandoffCoordinator,
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             persistentStoreRemoteChangeSource: remoteChangeSource,
-            syncCoordinator: syncCoordinator
+            syncCoordinator: syncCoordinator,
+            unreadAppIconBadgeService: NoOpUnreadAppIconBadgeService()
         )
         let appState = AppState()
         let initialSidebarReloadID = appState.sidebarReloadID

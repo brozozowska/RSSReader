@@ -120,6 +120,72 @@ struct ArticleStateServiceTests {
     }
 
     @Test
+    func articleStateMarksMatchingUnreadScopeInBoundedBatchesAndIsIdempotent() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/state-scope.xml"]).first
+        )
+        let unreadStarredArticles = try (0..<3).map { index in
+            try harness.insertArticle(
+                feed: feed,
+                externalID: "scope-starred-\(index)",
+                url: "https://example.com/state-scope/articles/\(index)",
+                title: "Scope Starred \(index)"
+            )
+        }
+        let unreadNotStarred = try harness.insertArticle(
+            feed: feed,
+            externalID: "scope-not-starred",
+            url: "https://example.com/state-scope/articles/not-starred",
+            title: "Scope Not Starred"
+        )
+        for article in unreadStarredArticles {
+            _ = try harness.articleStateService.toggleStarred(article: article, at: .distantPast)
+        }
+        let request = ArticleSearchRequest(
+            selection: .starred,
+            sidebarArticleFilter: .allItems,
+            query: "",
+            sortMode: .publishedAtDescending,
+            limit: 1,
+            requiresUnread: true
+        )
+        let queryService = try #require(harness.dependencies.articleQueryService)
+
+        let firstResult = try await harness.articleStateService.markAllMatchingAsRead(
+            request: request,
+            articleQueryService: queryService,
+            at: .now
+        )
+        let repeatedResult = try await harness.articleStateService.markAllMatchingAsRead(
+            request: request,
+            articleQueryService: queryService,
+            at: .now
+        )
+
+        #expect(firstResult.processedIdentityCount == 3)
+        #expect(firstResult.persistedReadCount == 3)
+        #expect(firstResult.rejectedIdentityCount == 0)
+        #expect(firstResult.processedBatchCount == 3)
+        #expect(repeatedResult.processedIdentityCount == 0)
+        #expect(repeatedResult.processedBatchCount == 0)
+        for article in unreadStarredArticles {
+            #expect(
+                try harness.articleStateRepository.fetchStateSnapshot(
+                    feedID: feed.id,
+                    articleExternalID: article.externalID
+                )?.isRead == true
+            )
+        }
+        #expect(
+            try harness.articleStateRepository.fetchStateSnapshot(
+                feedID: feed.id,
+                articleExternalID: unreadNotStarred.externalID
+            ) == nil
+        )
+    }
+
+    @Test
     func articleStateRejectsStaleTransitionWhenUpdatedAtIsOlderThanCurrentState() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/state-lww.xml"]).first)

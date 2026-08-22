@@ -269,8 +269,8 @@ enum SidebarSelectionBehavior {
     static func resolvedSelection(
         currentSelection: SidebarSelection?,
         filter: SidebarArticleFilter,
-        visibleFeedIDs: Set<UUID>,
-        visibleFolderNames: Set<String>
+        existingFeedIDs: Set<UUID>,
+        existingFolderNames: Set<String>
     ) -> SidebarSelection? {
         let fallbackSelection = SmartSidebarItem.selection(for: filter)
 
@@ -280,9 +280,9 @@ enum SidebarSelectionBehavior {
 
         switch currentSelection {
         case .feed(let feedID):
-            return visibleFeedIDs.contains(feedID) ? currentSelection : fallbackSelection
+            return existingFeedIDs.contains(feedID) ? currentSelection : fallbackSelection
         case .folder(let folderName):
-            return visibleFolderNames.contains(folderName) ? currentSelection : fallbackSelection
+            return existingFolderNames.contains(folderName) ? currentSelection : fallbackSelection
         case .inbox, .unread, .starred:
             return currentSelection == fallbackSelection ? currentSelection : fallbackSelection
         }

@@ -10,14 +10,9 @@ struct ReadingShellNavigationTests {
         let appState = AppState()
 
         #expect(appState.selectedSidebarSelection == nil)
+        #expect(appState.presentedSidebarSelection == nil)
         #expect(appState.selectedArticleID == nil)
         #expect(appState.selectedDetailRoute == .none)
-        #expect(
-            ReadingShellCompactNavigationState.preferredCompactColumn(
-                sidebarSelection: appState.selectedSidebarSelection,
-                articleSelection: appState.selectedArticleID
-            ) == .sidebar
-        )
     }
 
     @Test
@@ -75,110 +70,128 @@ struct ReadingShellNavigationTests {
     }
 
     @Test
-    func readingShellCompactNavigationStateSelectsPreferredCompactColumnForCurrentContext() {
-        #expect(
-            ReadingShellCompactNavigationState.preferredCompactColumn(
-                sidebarSelection: nil,
-                articleSelection: nil
-            ) == .sidebar
+    func readingShellSafariDismissalTracksReaderOwnedTargetThroughSingleCommit() throws {
+        let articleID = UUID()
+        let safariRoute = ArticleSafariRoute(
+            articleID: articleID,
+            url: URL(string: "https://example.com/reader-owned-dismissal")!
         )
-        #expect(
-            ReadingShellCompactNavigationState.preferredCompactColumn(
-                sidebarSelection: .unread,
-                articleSelection: nil
-            ) == .content
+        let sourceRoute = ReadingDetailRoute.safari(
+            safariRoute,
+            dismissalTarget: .article
         )
-        #expect(
-            ReadingShellCompactNavigationState.preferredCompactColumn(
-                sidebarSelection: .feed(UUID()),
-                articleSelection: UUID()
-            ) == .detail
+        var interaction = ReadingShellSafariDismissalInteractionState()
+
+        interaction.update(
+            sourceRoute: sourceRoute,
+            selectedArticleID: articleID,
+            progress: 0.35
         )
+
+        #expect(interaction.retainedSafariRoute == safariRoute)
+        #expect(interaction.progress == 0.35)
+        #expect(interaction.transition?.dismissalTarget == .article)
+        #expect(interaction.transition?.destination == .article(articleID))
+
+        let preparedTransition = interaction.prepareCommit(
+            sourceRoute: sourceRoute,
+            selectedArticleID: articleID
+        )
+        let committedTransition = try #require(preparedTransition)
+        interaction.finish(committedTransition)
+        interaction.finish(committedTransition)
+
+        #expect(interaction.progress == 1)
+
+        interaction.complete(committedTransition)
+        interaction.complete(committedTransition)
+
+        #expect(interaction.transition == nil)
     }
 
     @Test
-    func readingShellCompactNavigationStateShowsArticlesBackButtonOnlyInCompactSidebarContext() {
-        #expect(
-            ReadingShellCompactNavigationState.showsArticlesBackButton(
-                horizontalSizeClass: .compact,
-                sidebarSelection: .starred
-            )
+    func readingShellSafariDismissalCancelsDirectTargetWithoutChangingRoute() {
+        let appState = AppState()
+        let articleID = UUID()
+        let articleURL = URL(string: "https://example.com/direct-dismissal-cancel")!
+        appState.presentSafariFromArticleList(articleID: articleID, url: articleURL)
+        let sourceRoute = appState.selectedDetailRoute
+        var interaction = ReadingShellSafariDismissalInteractionState()
+
+        interaction.update(
+            sourceRoute: sourceRoute,
+            selectedArticleID: appState.selectedArticleID,
+            progress: 1.4
         )
-        #expect(
-            ReadingShellCompactNavigationState.showsArticlesBackButton(
-                horizontalSizeClass: .regular,
-                sidebarSelection: .starred
-            ) == false
-        )
-        #expect(
-            ReadingShellCompactNavigationState.showsArticlesBackButton(
-                horizontalSizeClass: .compact,
-                sidebarSelection: nil
-            ) == false
-        )
+
+        #expect(interaction.progress == 1)
+        #expect(interaction.transition?.dismissalTarget == .articleList)
+        #expect(interaction.transition?.destination == ReadingShellDetailDestination.none)
+
+        interaction.cancel()
+
+        #expect(interaction.transition == nil)
+        #expect(appState.selectedDetailRoute == sourceRoute)
+        #expect(appState.presentedSafariRoute?.articleID == articleID)
     }
 
     @Test
-    func readingShellCompactNavigationStateRecognizesLTRLeadingEdgeBackSwipeToSidebar() {
-        #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
-                startLocationX: 12,
-                containerWidth: 390,
-                layoutDirection: .leftToRight,
-                translation: CGSize(width: 96, height: 8)
-            )
+    func readingShellSafariDismissalCancelsReaderOwnedTargetWithoutChangingRoute() {
+        let appState = AppState()
+        let articleID = UUID()
+        appState.selectArticle(articleID)
+        appState.presentSafari(
+            articleID: articleID,
+            url: URL(string: "https://example.com/reader-owned-dismissal-cancel")!
         )
-        #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
-                startLocationX: 64,
-                containerWidth: 390,
-                layoutDirection: .leftToRight,
-                translation: CGSize(width: 96, height: 8)
-            ) == false
+        let sourceRoute = appState.selectedDetailRoute
+        var interaction = ReadingShellSafariDismissalInteractionState()
+
+        interaction.update(
+            sourceRoute: sourceRoute,
+            selectedArticleID: articleID,
+            progress: 0.45
         )
-        #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
-                startLocationX: 12,
-                containerWidth: 390,
-                layoutDirection: .leftToRight,
-                translation: CGSize(width: 40, height: 8)
-            ) == false
-        )
-        #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
-                startLocationX: 12,
-                containerWidth: 390,
-                layoutDirection: .leftToRight,
-                translation: CGSize(width: 96, height: 72)
-            ) == false
-        )
+        interaction.cancel()
+
+        #expect(interaction.transition == nil)
+        #expect(appState.selectedDetailRoute == sourceRoute)
+        #expect(appState.selectedArticleID == articleID)
     }
 
     @Test
-    func readingShellCompactNavigationStateRecognizesRTLLeadingEdgeBackSwipeToSidebar() {
-        #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
-                startLocationX: 378,
-                containerWidth: 390,
-                layoutDirection: .rightToLeft,
-                translation: CGSize(width: -96, height: 8)
-            )
+    func readingShellSafariDismissalCommitsDirectTargetOnce() throws {
+        let articleID = UUID()
+        let safariRoute = ArticleSafariRoute(
+            articleID: articleID,
+            url: URL(string: "https://example.com/direct-dismissal-commit")!
         )
-        #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
-                startLocationX: 12,
-                containerWidth: 390,
-                layoutDirection: .rightToLeft,
-                translation: CGSize(width: -96, height: 8)
-            ) == false
+        let sourceRoute = ReadingDetailRoute.safari(
+            safariRoute,
+            dismissalTarget: .articleList
         )
-        #expect(
-            ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
-                startLocationX: 378,
-                containerWidth: 390,
-                layoutDirection: .rightToLeft,
-                translation: CGSize(width: 96, height: 8)
-            ) == false
+        var interaction = ReadingShellSafariDismissalInteractionState()
+
+        interaction.update(
+            sourceRoute: sourceRoute,
+            selectedArticleID: nil,
+            progress: 0.25
         )
+        let preparedTransition = interaction.prepareCommit(
+            sourceRoute: sourceRoute,
+            selectedArticleID: nil
+        )
+        let committedTransition = try #require(preparedTransition)
+        interaction.finish(committedTransition)
+
+        #expect(interaction.progress == 1)
+        #expect(interaction.transition?.dismissalTarget == .articleList)
+        #expect(interaction.transition?.destination == ReadingShellDetailDestination.none)
+
+        interaction.complete(committedTransition)
+        interaction.complete(committedTransition)
+
+        #expect(interaction.transition == nil)
     }
+
 }

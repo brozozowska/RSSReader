@@ -51,6 +51,7 @@ extension AppActionRouter {
                 return
             }
 
+            let listSession = appState.currentArticleListSessionReference
             guard openArticleDirectlyInSafari(article, using: appState) else {
                 appState.selectedArticleID = articleID
                 return
@@ -58,6 +59,7 @@ extension AppActionRouter {
 
             applyMarkAsReadOnDirectSafariOpenPolicy(
                 to: article,
+                listSession: listSession,
                 using: appState
             )
         } catch {
@@ -143,6 +145,7 @@ extension AppActionRouter {
     @MainActor
     private func applyMarkAsReadOnDirectSafariOpenPolicy(
         to article: ReaderArticleDTO,
+        listSession: ArticleListSessionReference?,
         using appState: AppState
     ) {
         guard article.isRead == false else { return }
@@ -154,12 +157,18 @@ extension AppActionRouter {
         }
 
         do {
-            _ = try articleStateService.markAsRead(
+            let persistedState = try articleStateService.markAsRead(
                 feedID: article.feedID,
                 articleExternalID: article.articleExternalID,
                 at: .now
             )
-            appState.recordArticleReadOnOpenInCurrentListSession(article.id)
+            if let listSession {
+                appState.recordArticleReadOnOpen(
+                    article.id,
+                    isRead: persistedState.isRead,
+                    in: listSession
+                )
+            }
         } catch {
             logger.error("Failed to apply direct Safari mark-as-read-on-open policy: \(error)")
         }

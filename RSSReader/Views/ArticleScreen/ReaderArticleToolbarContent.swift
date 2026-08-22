@@ -4,7 +4,7 @@ struct ReaderArticleToolbarContent: ToolbarContent {
     let toolbarActions: ArticleScreenToolbarActionsState
     let adjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode
     let previousArticleID: UUID?
-    let nextArticleID: UUID?
+    let canNavigateToNextArticle: Bool
     let actionHandlers: ArticleScreenActionHandlers
     let onPreviousArticleTap: () -> Void
     let onNextArticleTap: () -> Void
@@ -52,7 +52,7 @@ struct ReaderArticleToolbarContent: ToolbarContent {
                     Button(action: onNextArticleTap) {
                         Image(systemName: "chevron.down")
                     }
-                    .disabled(nextArticleID == nil)
+                    .disabled(canNavigateToNextArticle == false)
                     .accessibilityLabel(ReadingLocalization.nextArticleAccessibilityLabel)
                 }
 

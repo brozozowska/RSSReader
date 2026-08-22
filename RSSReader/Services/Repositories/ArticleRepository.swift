@@ -6,6 +6,71 @@ enum ArticleRetentionBatchScope: Sendable {
     case archived
 }
 
+enum ArticleQueryScope: Equatable, Sendable {
+    case inbox
+    case folder(String)
+    case feed(UUID)
+}
+
+enum ArticleQueryBooleanFilter: Equatable, Sendable {
+    case any
+    case isFalse
+    case isTrue
+
+    func matches(_ value: Bool) -> Bool {
+        switch self {
+        case .any:
+            true
+        case .isFalse:
+            value == false
+        case .isTrue:
+            value
+        }
+    }
+}
+
+struct ArticleQueryCriteria: Equatable, Sendable {
+    let scope: ArticleQueryScope
+    let hidden: ArticleQueryBooleanFilter
+    let archived: ArticleQueryBooleanFilter
+    let read: ArticleQueryBooleanFilter
+    let starred: ArticleQueryBooleanFilter
+    let sortMode: ArticleSortMode
+
+    init(
+        scope: ArticleQueryScope,
+        hidden: ArticleQueryBooleanFilter = .any,
+        archived: ArticleQueryBooleanFilter = .any,
+        read: ArticleQueryBooleanFilter = .any,
+        starred: ArticleQueryBooleanFilter = .any,
+        sortMode: ArticleSortMode
+    ) {
+        self.scope = scope
+        self.hidden = hidden
+        self.archived = archived
+        self.read = read
+        self.starred = starred
+        self.sortMode = sortMode
+    }
+}
+
+struct ArticleQueryCursor: Equatable, Sendable {
+    let sortDate: Date
+    let articleID: UUID
+}
+
+struct ArticleQueryRecord {
+    let article: Article
+    let state: ArticleUserStateSnapshot?
+    let continuationCursor: ArticleQueryCursor
+}
+
+struct ArticleQueryRecordScanBatch {
+    let records: [ArticleQueryRecord]
+    let nextCursor: ArticleQueryCursor?
+    let scannedCandidateCount: Int
+}
+
 struct ArticleFeedSnapshotReconciliationResult {
     let projectionUpdateCount: Int
     let reconciledArticleCount: Int
@@ -32,6 +97,7 @@ struct ArticleFeedSnapshotReconciliationProgress: Sendable {
 typealias ArticleFeedSnapshotReconciliationProgressProbe = @MainActor (
     ArticleFeedSnapshotReconciliationProgress
 ) -> Void
+typealias ArticleQueryCancellationCheck = @MainActor () throws -> Void
 
 enum ArticleFeedSnapshotCancellationCheckpoint: Equatable, Sendable {
     case beforeSnapshot
@@ -56,9 +122,12 @@ protocol ArticleRepository {
     func fetchArticle(id: UUID) throws -> Article?
     func containsArticle(feedID: UUID, externalID: String) throws -> Bool
     func fetchArticles(feedID: UUID) throws -> [Article]
-    func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article]
-    func fetchInbox(sortMode: ArticleSortMode) throws -> [Article]
-    func fetchArchivedArticles() throws -> [Article]
+    func fetchArticleQueryRecordScanBatch(
+        matching criteria: ArticleQueryCriteria,
+        cursor: ArticleQueryCursor?,
+        limit: Int
+    ) throws -> ArticleQueryRecordScanBatch
+    func hasArchivedArticles() throws -> Bool
     func fetchRetentionBatch(
         feedID: UUID,
         scope: ArticleRetentionBatchScope,
@@ -66,7 +135,6 @@ protocol ArticleRepository {
         limit: Int
     ) throws -> [Article]
 
-    func save() throws
     func delete(_ article: Article) throws
     func delete(_ articles: [Article], saveAfterOperation: Bool) throws
 }
@@ -101,6 +169,8 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     private let cancellationCheckpoint: (ArticleFeedSnapshotCancellationCheckpoint) throws -> Void
     private let reconciliationProgressProbe: ArticleFeedSnapshotReconciliationProgressProbe?
     private let articleStateIdentityRepairer: SwiftDataArticleStateIdentityRepairer
+    private let articleStateSnapshotFetcher: SwiftDataArticleStateSnapshotFetcher
+    private let queryCancellationCheck: ArticleQueryCancellationCheck
 
     init(
         modelContext: ModelContext,
@@ -108,15 +178,28 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         cancellationCheckpoint: @escaping (ArticleFeedSnapshotCancellationCheckpoint) throws -> Void = { _ in
             try Task.checkCancellation()
         },
-        reconciliationProgressProbe: ArticleFeedSnapshotReconciliationProgressProbe? = nil
+        reconciliationProgressProbe: ArticleFeedSnapshotReconciliationProgressProbe? = nil,
+        queryBatchSize: Int = ArticleStateQueryPolicy.batchSize,
+        articleStateQueryBatchProbe: ArticleStateQueryBatchProbe? = nil,
+        queryCancellationCheck: @escaping ArticleQueryCancellationCheck = {
+            try Task.checkCancellation()
+        }
     ) {
+        precondition(queryBatchSize > 0)
         self.modelContext = modelContext
         self.persistenceOperationRecorder = persistenceOperationRecorder
         self.cancellationCheckpoint = cancellationCheckpoint
         self.reconciliationProgressProbe = reconciliationProgressProbe
+        self.queryCancellationCheck = queryCancellationCheck
         self.articleStateIdentityRepairer = SwiftDataArticleStateIdentityRepairer(
             modelContext: modelContext,
             persistenceOperationRecorder: persistenceOperationRecorder
+        )
+        self.articleStateSnapshotFetcher = SwiftDataArticleStateSnapshotFetcher(
+            modelContext: modelContext,
+            persistenceOperationRecorder: persistenceOperationRecorder,
+            batchSize: queryBatchSize,
+            batchProbe: articleStateQueryBatchProbe
         )
     }
 
@@ -256,30 +339,246 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         return try performFetch(descriptor)
     }
 
-    func fetchArticles(feedID: UUID, sortMode: ArticleSortMode) throws -> [Article] {
-        let descriptor = FetchDescriptor<Article>(
-            predicate: #Predicate<Article> { article in
-                article.feedID == feedID
-            },
-            sortBy: sortDescriptors(for: sortMode)
+    func fetchArticleQueryRecordScanBatch(
+        matching criteria: ArticleQueryCriteria,
+        cursor: ArticleQueryCursor?,
+        limit: Int
+    ) throws -> ArticleQueryRecordScanBatch {
+        precondition(limit > 0)
+
+        let articles = try fetchArticleQueryCandidates(
+            matching: criteria,
+            cursor: cursor,
+            limit: limit
         )
-        return try performFetch(descriptor)
+        guard articles.isEmpty == false else {
+            return ArticleQueryRecordScanBatch(
+                records: [],
+                nextCursor: nil,
+                scannedCandidateCount: 0
+            )
+        }
+
+        let materialization = try materializeArticleQueryRecords(
+            from: articles,
+            matching: criteria
+        )
+        return ArticleQueryRecordScanBatch(
+            records: materialization.records,
+            nextCursor: articles.count == limit ? materialization.nextCursor : nil,
+            scannedCandidateCount: articles.count
+        )
     }
 
-    func fetchInbox(sortMode: ArticleSortMode) throws -> [Article] {
-        let descriptor = FetchDescriptor<Article>(
-            sortBy: sortDescriptors(for: sortMode)
-        )
-        return try performFetch(descriptor)
+    private func fetchArticleQueryCandidates(
+        matching criteria: ArticleQueryCriteria,
+        cursor: ArticleQueryCursor?,
+        limit: Int
+    ) throws -> [Article] {
+        let matchesInbox: Bool
+        let matchesFolder: Bool
+        let matchesFeed: Bool
+        let folderName: String
+        let feedID: UUID
+        switch criteria.scope {
+        case .inbox:
+            matchesInbox = true
+            matchesFolder = false
+            matchesFeed = false
+            folderName = ""
+            feedID = UUID()
+        case .folder(let scopedFolderName):
+            matchesInbox = false
+            matchesFolder = true
+            matchesFeed = false
+            folderName = scopedFolderName
+            feedID = UUID()
+        case .feed(let scopedFeedID):
+            matchesInbox = false
+            matchesFolder = false
+            matchesFeed = true
+            folderName = ""
+            feedID = scopedFeedID
+        }
+
+        let includesCurrent = criteria.archived != .isTrue
+        let includesArchived = criteria.archived != .isFalse
+        var fetchDescriptor: FetchDescriptor<Article>
+        if let cursor {
+            let cursorSortDate = cursor.sortDate
+            let cursorArticleID = cursor.articleID
+            switch (criteria.scope, criteria.sortMode) {
+            case (.inbox, .publishedAtDescending):
+                let predicate = #Predicate<Article> { article in
+                    (
+                        (includesCurrent && article.archivedAt == nil)
+                            || (includesArchived && article.archivedAt != nil)
+                    )
+                        && (
+                            article.querySortDate < cursorSortDate
+                                || (
+                                    article.querySortDate == cursorSortDate
+                                        && article.id < cursorArticleID
+                                )
+                        )
+                }
+                fetchDescriptor = FetchDescriptor(
+                    predicate: predicate,
+                    sortBy: sortDescriptors(for: criteria.sortMode)
+                )
+            case (.inbox, .publishedAtAscending):
+                let predicate = #Predicate<Article> { article in
+                    (
+                        (includesCurrent && article.archivedAt == nil)
+                            || (includesArchived && article.archivedAt != nil)
+                    )
+                        && (
+                            article.querySortDate > cursorSortDate
+                                || (
+                                    article.querySortDate == cursorSortDate
+                                        && article.id > cursorArticleID
+                                )
+                        )
+                }
+                fetchDescriptor = FetchDescriptor(
+                    predicate: predicate,
+                    sortBy: sortDescriptors(for: criteria.sortMode)
+                )
+            case (.folder(let scopedFolderName), .publishedAtDescending):
+                let predicate = #Predicate<Article> { article in
+                    article.feedFolderName == scopedFolderName
+                        && (
+                            (includesCurrent && article.archivedAt == nil)
+                                || (includesArchived && article.archivedAt != nil)
+                        )
+                        && (
+                            article.querySortDate < cursorSortDate
+                                || (
+                                    article.querySortDate == cursorSortDate
+                                        && article.id < cursorArticleID
+                                )
+                        )
+                }
+                fetchDescriptor = FetchDescriptor(
+                    predicate: predicate,
+                    sortBy: sortDescriptors(for: criteria.sortMode)
+                )
+            case (.folder(let scopedFolderName), .publishedAtAscending):
+                let predicate = #Predicate<Article> { article in
+                    article.feedFolderName == scopedFolderName
+                        && (
+                            (includesCurrent && article.archivedAt == nil)
+                                || (includesArchived && article.archivedAt != nil)
+                        )
+                        && (
+                            article.querySortDate > cursorSortDate
+                                || (
+                                    article.querySortDate == cursorSortDate
+                                        && article.id > cursorArticleID
+                                )
+                        )
+                }
+                fetchDescriptor = FetchDescriptor(
+                    predicate: predicate,
+                    sortBy: sortDescriptors(for: criteria.sortMode)
+                )
+            case (.feed(let scopedFeedID), .publishedAtDescending):
+                let predicate = #Predicate<Article> { article in
+                    article.feedID == scopedFeedID
+                        && (
+                            (includesCurrent && article.archivedAt == nil)
+                                || (includesArchived && article.archivedAt != nil)
+                        )
+                        && (
+                            article.querySortDate < cursorSortDate
+                                || (
+                                    article.querySortDate == cursorSortDate
+                                        && article.id < cursorArticleID
+                                )
+                        )
+                }
+                fetchDescriptor = FetchDescriptor(
+                    predicate: predicate,
+                    sortBy: sortDescriptors(for: criteria.sortMode)
+                )
+            case (.feed(let scopedFeedID), .publishedAtAscending):
+                let predicate = #Predicate<Article> { article in
+                    article.feedID == scopedFeedID
+                        && (
+                            (includesCurrent && article.archivedAt == nil)
+                                || (includesArchived && article.archivedAt != nil)
+                        )
+                        && (
+                            article.querySortDate > cursorSortDate
+                                || (
+                                    article.querySortDate == cursorSortDate
+                                        && article.id > cursorArticleID
+                                )
+                        )
+                }
+                fetchDescriptor = FetchDescriptor(
+                    predicate: predicate,
+                    sortBy: sortDescriptors(for: criteria.sortMode)
+                )
+            }
+        } else {
+            let predicate = #Predicate<Article> { article in
+                (
+                    matchesInbox
+                        || (matchesFolder && article.feedFolderName == folderName)
+                        || (matchesFeed && article.feedID == feedID)
+                )
+                    && (
+                        (includesCurrent && article.archivedAt == nil)
+                            || (includesArchived && article.archivedAt != nil)
+                    )
+            }
+            fetchDescriptor = FetchDescriptor(
+                predicate: predicate,
+                sortBy: sortDescriptors(for: criteria.sortMode)
+            )
+        }
+        fetchDescriptor.fetchLimit = limit
+        return try performFetch(fetchDescriptor)
     }
 
-    func fetchArchivedArticles() throws -> [Article] {
+    private func materializeArticleQueryRecords(
+        from articles: [Article],
+        matching criteria: ArticleQueryCriteria
+    ) throws -> (
+        records: [ArticleQueryRecord],
+        nextCursor: ArticleQueryCursor?
+    ) {
+        let statesByCompositeKey = try articleStateSnapshotFetcher.fetchSnapshots(for: articles)
+        var records: [ArticleQueryRecord] = []
+        records.reserveCapacity(articles.count)
+
+        for article in articles {
+            try queryCancellationCheck()
+            let state = statesByCompositeKey[articleCompositeKey(
+                feedID: article.feedID,
+                articleExternalID: article.externalID
+            )]
+            guard matchesStateCriteria(state, criteria: criteria) else { continue }
+            records.append(
+                ArticleQueryRecord(
+                    article: article,
+                    state: state,
+                    continuationCursor: queryCursor(for: article)
+                )
+            )
+        }
+
+        return (records, articles.last.map { queryCursor(for: $0) })
+    }
+
+    func hasArchivedArticles() throws -> Bool {
         let descriptor = FetchDescriptor<Article>(
             predicate: #Predicate<Article> { article in
                 article.archivedAt != nil
             }
         )
-        return try performFetch(descriptor)
+        return try performFetchCount(descriptor) > 0
     }
 
     func fetchRetentionBatch(
@@ -311,10 +610,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         descriptor.fetchOffset = offset
         descriptor.fetchLimit = limit
         return try performFetch(descriptor)
-    }
-
-    func save() throws {
-        try saveIfNeeded(force: true)
     }
 
     func delete(_ article: Article) throws {
@@ -369,6 +664,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
 
         article.archivedAt = newArchivedAt
         article.fetchedAt = fetchedAt
+        article.querySortDate = article.publishedAt ?? fetchedAt
         article.updatedAt = .now
         return true
     }
@@ -420,6 +716,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     }
 
     private func apply(_ payload: ArticleUpsertPayload, to article: Article) {
+        let updatedAt = Date.now
         article.guid = payload.guid
         article.url = payload.url
         article.canonicalURL = payload.canonicalURL
@@ -427,13 +724,15 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         article.summary = payload.summary
         article.contentHTML = payload.contentHTML
         article.contentText = payload.contentText
+        article.searchableText = payload.searchableText
         article.author = payload.author
         article.publishedAt = payload.publishedAt
         article.updatedAtSource = payload.updatedAtSource
         article.imageURL = payload.imageURL
         article.archivedAt = payload.archivedAt
         article.fetchedAt = payload.fetchedAt
-        article.updatedAt = .now
+        article.querySortDate = payload.publishedAt ?? payload.fetchedAt
+        article.updatedAt = updatedAt
     }
 
     private func makeArticle(from payload: ArticleUpsertPayload, feed: Feed) -> Article {
@@ -450,6 +749,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             summary: payload.summary,
             contentHTML: payload.contentHTML,
             contentText: payload.contentText,
+            searchableText: payload.searchableText,
             author: payload.author,
             publishedAt: payload.publishedAt,
             updatedAtSource: payload.updatedAtSource,
@@ -461,6 +761,15 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
 
     private func normalizedArticleIdentity(_ externalID: String) -> String {
         normalizedIdentifier(externalID) ?? externalID
+    }
+
+    private func matchesStateCriteria(
+        _ state: ArticleUserStateSnapshot?,
+        criteria: ArticleQueryCriteria
+    ) -> Bool {
+        criteria.hidden.matches(state?.isHidden ?? false)
+            && criteria.read.matches(state?.isRead ?? false)
+            && criteria.starred.matches(state?.isStarred ?? false)
     }
 
     private func incomingIdentitySet(
@@ -589,15 +898,22 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         switch sortMode {
         case .publishedAtDescending:
             [
-                SortDescriptor(\Article.publishedAt, order: .reverse),
-                SortDescriptor(\Article.fetchedAt, order: .reverse)
+                SortDescriptor(\Article.querySortDate, order: .reverse),
+                SortDescriptor(\Article.id, order: .reverse)
             ]
         case .publishedAtAscending:
             [
-                SortDescriptor(\Article.publishedAt, order: .forward),
-                SortDescriptor(\Article.fetchedAt, order: .forward)
+                SortDescriptor(\Article.querySortDate, order: .forward),
+                SortDescriptor(\Article.id, order: .forward)
             ]
         }
+    }
+
+    private func queryCursor(for article: Article) -> ArticleQueryCursor {
+        ArticleQueryCursor(
+            sortDate: article.querySortDate,
+            articleID: article.id
+        )
     }
 
     private var retentionBatchSortDescriptors: [SortDescriptor<Article>] {

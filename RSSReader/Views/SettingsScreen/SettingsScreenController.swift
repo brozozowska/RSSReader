@@ -81,7 +81,7 @@ final class SettingsScreenController {
 
     func refreshArchivedArticlesAvailability(dependencies: AppDependencies) {
         do {
-            let hasArchivedArticles = try dependencies.articleRepository?.fetchArchivedArticles().isEmpty == false
+            let hasArchivedArticles = try dependencies.articleRepository?.hasArchivedArticles() == true
             screenState.applyArchivedArticlesAvailability(hasArchivedArticles)
         } catch {
             dependencies.logger.error("Failed to inspect archived articles: \(error)")

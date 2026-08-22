@@ -7,30 +7,6 @@ enum ArticleScreenNavigationState {
     private static let openSourceArticleVerticalTranslationTolerance: CGFloat = 48
     private static let openSourceArticleCommitProgressThreshold: CGFloat = 0.33
 
-    static func showsBackButton(
-        horizontalSizeClass: UserInterfaceSizeClass?,
-        articleSelection: UUID?
-    ) -> Bool {
-        CompactBackNavigationPolicy.showsBackButton(
-            horizontalSizeClass: horizontalSizeClass,
-            hasSelection: articleSelection != nil
-        )
-    }
-
-    static func shouldNavigateBackOnDrag(
-        startLocationX: CGFloat,
-        containerWidth: CGFloat,
-        layoutDirection: LayoutDirection,
-        translation: CGSize
-    ) -> Bool {
-        CompactBackNavigationPolicy.shouldNavigateBackOnDrag(
-            startLocationX: startLocationX,
-            containerWidth: containerWidth,
-            layoutDirection: layoutDirection,
-            translation: translation
-        )
-    }
-
     static func shouldOpenSourceArticleOnDrag(
         layoutDirection: LayoutDirection,
         containerWidth: CGFloat,

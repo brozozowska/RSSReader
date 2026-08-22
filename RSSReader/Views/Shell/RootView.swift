@@ -6,47 +6,42 @@ struct RootView: View {
     @Environment(\.colorScheme) private var systemColorScheme
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.layoutDirection) private var layoutDirection
-    @State private var preferredCompactColumn: NavigationSplitViewColumn = .sidebar
     @State private var presentedFeedManagementLaunchContext: FeedManagementScreenLaunchContext = .entry
     @State private var interactiveSafariRoute: ArticleSafariRoute?
     @State private var interactiveSafariProgress: CGFloat = 0
-    @State private var interactiveSafariDismissalRoute: ArticleSafariRoute?
-    @State private var interactiveSafariDismissalProgress: CGFloat = 0
+    @State private var safariDismissalInteraction = ReadingShellSafariDismissalInteractionState()
+    @State private var articlesScreenController = ArticlesScreenController()
 
     var body: some View {
         let themeApplicationPolicy = AppThemeApplicationPolicy(
             interfaceThemeMode: appState.interfaceThemeMode,
             systemColorScheme: systemColorScheme
         )
-        let detailDestination = ReadingShellDetailNavigationState.detailDestination(
-            route: appState.selectedDetailRoute,
-            selectedArticleID: appState.selectedArticleID
-        )
+        let detailDestination = safariDismissalInteraction.transition?.destination
+            ?? ReadingShellDetailNavigationState.detailDestination(
+                route: appState.selectedDetailRoute,
+                selectedArticleID: appState.selectedArticleID
+            )
         let sidebarSelection = Binding<SidebarSelection?>(
-            get: { appState.selectedSidebarSelection },
-            set: { appState.selectSidebarSelection($0) }
+            get: { appState.presentedSidebarSelection },
+            set: { prepareAndPresentSidebarSelection($0) }
         )
         let articleSelection = Binding<UUID?>(
             get: { appState.selectedArticleID },
             set: { selectArticle($0) }
         )
 
-        NavigationSplitView(preferredCompactColumn: $preferredCompactColumn) {
+        NavigationSplitView {
             SidebarView(selection: sidebarSelection)
         } content: {
             ArticleListView(
                 selectedSidebarSelection: appState.selectedSidebarSelection,
                 selectedSidebarArticleFilter: appState.selectedSidebarArticleFilter,
                 reloadID: appState.articleListReloadID,
-                showsBackButton: ReadingShellCompactNavigationState.showsArticlesBackButton(
-                    horizontalSizeClass: horizontalSizeClass,
-                    sidebarSelection: appState.selectedSidebarSelection
-                ),
-                navigateBackToSidebar: { preferredCompactColumn = .sidebar },
+                controller: articlesScreenController,
                 previewScreenState: nil,
                 selection: articleSelection
             )
-            .id(appState.selectedSidebarSelection)
         } detail: {
             switch detailDestination {
             case .none:
@@ -56,8 +51,6 @@ struct RootView: View {
                 ReaderView(
                     articleID: nil,
                     reloadID: appState.articleScreenReloadID,
-                    showsBackButton: false,
-                    navigateBackToArticles: {},
                     sourceArticleSafariInteraction: sourceArticleSafariInteraction
                 )
                 }
@@ -65,12 +58,19 @@ struct RootView: View {
                 ReaderView(
                     articleID: articleID,
                     reloadID: appState.articleScreenReloadID,
-                    showsBackButton: ArticleScreenNavigationState.showsBackButton(
-                        horizontalSizeClass: horizontalSizeClass,
-                        articleSelection: articleID
+                    sourceArticleSafariInteraction: sourceArticleSafariInteraction,
+                    canLoadNextArticleContinuation: ArticleListContinuationCoordinator.canLoadNextArticle(
+                        appState: appState,
+                        controller: articlesScreenController
                     ),
-                    navigateBackToArticles: navigateBackToArticles,
-                    sourceArticleSafariInteraction: sourceArticleSafariInteraction
+                    loadArticleContinuation: { direction in
+                        await ArticleListContinuationCoordinator.loadAdjacentArticle(
+                            direction,
+                            appState: appState,
+                            controller: articlesScreenController,
+                            dependencies: dependencies
+                        )
+                    }
                 )
                 .id(appState.selectedSidebarSelection)
             }
@@ -116,13 +116,6 @@ struct RootView: View {
         .preferredColorScheme(themeApplicationPolicy.preferredColorScheme)
         .environment(\.appThemeVariant, themeApplicationPolicy.resolvedTheme)
         .background(themeApplicationPolicy.resolvedTheme.primaryBackground.ignoresSafeArea())
-        .onAppear(perform: syncPreferredCompactColumn)
-        .onChange(of: appState.selectedSidebarSelection) { _, _ in
-            syncPreferredCompactColumn()
-        }
-        .onChange(of: appState.selectedArticleID) { _, _ in
-            syncPreferredCompactColumn()
-        }
         .onChange(of: appState.isPresentingFeedManagementScreen) { _, isPresenting in
             if isPresenting {
                 presentedFeedManagementLaunchContext = appState.feedManagementLaunchContext
@@ -132,6 +125,41 @@ struct RootView: View {
             if appState.isPresentingFeedManagementScreen {
                 presentedFeedManagementLaunchContext = launchContext
             }
+        }
+    }
+
+    @MainActor
+    private func prepareAndPresentSidebarSelection(_ selection: SidebarSelection?) {
+        guard let selection else {
+            if horizontalSizeClass == .compact {
+                articlesScreenController.endPresentation()
+            }
+            appState.updatePresentedSidebarSelection(nil)
+            return
+        }
+
+        let sidebarArticleFilter = appState.selectedSidebarArticleFilter
+        let presentationLoadTask = articlesScreenController.prepareForPresentation(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter,
+            dependencies: dependencies
+        )
+        appState.updatePresentedSidebarSelection(selection)
+        guard let presentationLoadTask else { return }
+
+        Task { @MainActor in
+            await presentationLoadTask.value
+            guard appState.selectedSidebarSelection == selection,
+                  appState.selectedSidebarArticleFilter == sidebarArticleFilter else {
+                return
+            }
+
+            appState.updateArticleNavigationContext(
+                articlesScreenController.visibleArticleIDs(),
+                sidebarSelection: selection,
+                sidebarArticleFilter: sidebarArticleFilter,
+                articleListSessionID: articlesScreenController.currentArticleListSessionID
+            )
         }
     }
 
@@ -176,7 +204,7 @@ struct RootView: View {
 
     private var currentSafariPresentationRoute: ArticleSafariRoute? {
         appState.presentedSafariRoute
-            ?? interactiveSafariDismissalRoute
+            ?? safariDismissalInteraction.retainedSafariRoute
             ?? interactiveSafariRoute
     }
 
@@ -201,48 +229,46 @@ struct RootView: View {
     }
 
     private func dismissPresentedSafari() {
-        interactiveSafariDismissalProgress = 0
+        safariDismissalInteraction.cancel()
         withAnimation(safariPresentationAnimation) {
             appState.dismissPresentedSafari()
         }
     }
 
     private func updateInteractiveSafariDismissal(progress: CGFloat) {
-        guard isPresentingDirectArticleSafari else { return }
-        interactiveSafariDismissalProgress = min(max(progress, 0), 1)
+        safariDismissalInteraction.update(
+            sourceRoute: appState.selectedDetailRoute,
+            selectedArticleID: appState.selectedArticleID,
+            progress: progress
+        )
     }
 
     private func cancelInteractiveSafariDismissal() {
-        guard isPresentingDirectArticleSafari else { return }
+        guard safariDismissalInteraction.transition != nil else { return }
         withAnimation(safariPresentationAnimation) {
-            interactiveSafariDismissalProgress = 0
+            safariDismissalInteraction.cancel()
         }
     }
 
     private func finishInteractiveSafariDismissal() {
-        guard case .safari(let route, dismissalTarget: .articleList) = appState.selectedDetailRoute else {
+        let sourceRoute = appState.selectedDetailRoute
+        guard let committedTransition = safariDismissalInteraction.prepareCommit(
+            sourceRoute: sourceRoute,
+            selectedArticleID: appState.selectedArticleID
+        ) else {
             dismissPresentedSafari()
             return
         }
 
-        interactiveSafariDismissalRoute = route
         appState.dismissPresentedSafari()
         withAnimation(
             safariPresentationAnimation,
             completionCriteria: .logicallyComplete
         ) {
-            interactiveSafariDismissalProgress = 1
+            safariDismissalInteraction.finish(committedTransition)
         } completion: {
-            interactiveSafariDismissalRoute = nil
-            interactiveSafariDismissalProgress = 0
+            safariDismissalInteraction.complete(committedTransition)
         }
-    }
-
-    private var isPresentingDirectArticleSafari: Bool {
-        guard case .safari(_, dismissalTarget: .articleList) = appState.selectedDetailRoute else {
-            return false
-        }
-        return true
     }
 
     private func updateInteractiveSafariPresentation(route: ArticleSafariRoute, progress: CGFloat) {
@@ -267,8 +293,8 @@ struct RootView: View {
     }
 
     private func safariPresentationOffset(containerWidth: CGFloat) -> CGFloat {
-        if appState.presentedSafariRoute != nil || interactiveSafariDismissalRoute != nil {
-            let visibleOffset = containerWidth * interactiveSafariDismissalProgress
+        if appState.presentedSafariRoute != nil || safariDismissalInteraction.retainedSafariRoute != nil {
+            let visibleOffset = containerWidth * safariDismissalInteraction.progress
             switch layoutDirection {
             case .leftToRight:
                 return visibleOffset
@@ -293,25 +319,9 @@ struct RootView: View {
     }
 
     private func selectArticle(_ articleID: UUID?) {
-        withAnimation(ReadingShellTransitionAnimation.screen) {
-            dependencies.appActions.selectArticle(id: articleID, using: appState)
-            syncPreferredCompactColumn()
-        }
+        dependencies.appActions.selectArticle(id: articleID, using: appState)
     }
 
-    private func navigateBackToArticles() {
-        withAnimation(ReadingShellTransitionAnimation.screen) {
-            appState.selectedArticleID = nil
-            syncPreferredCompactColumn()
-        }
-    }
-
-    private func syncPreferredCompactColumn() {
-        preferredCompactColumn = ReadingShellCompactNavigationState.preferredCompactColumn(
-            sidebarSelection: appState.selectedSidebarSelection,
-            articleSelection: appState.selectedArticleID
-        )
-    }
 }
 
 private struct AppThemePresentationScope<Content: View>: View {

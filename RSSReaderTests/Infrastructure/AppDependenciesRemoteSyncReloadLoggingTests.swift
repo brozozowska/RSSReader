@@ -22,7 +22,8 @@ struct AppDependenciesRemoteSyncReloadLoggingTests {
             syncBackedStoreReference: appDependenciesTestSyncBackedStoreReference(),
             cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
             persistentStoreRemoteChangeSource: remoteChangeSource,
-            syncCoordinator: syncCoordinator
+            syncCoordinator: syncCoordinator,
+            unreadAppIconBadgeService: NoOpUnreadAppIconBadgeService()
         )
         let appState = AppState()
 
@@ -52,7 +53,7 @@ struct AppDependenciesRemoteSyncReloadLoggingTests {
 
         try await expectAppDependenciesEventually {
             logger.contains(
-                "Requesting app-level remote sync reload after matching import completion and persistent store remote change for sync-backed storeIdentifier=SyncBackedStore"
+                "Requesting app-level remote sync reload and badge refresh after matching import completion and persistent store remote change for sync-backed storeIdentifier=SyncBackedStore"
             )
         }
 

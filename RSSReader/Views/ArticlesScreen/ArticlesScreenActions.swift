@@ -8,9 +8,9 @@ extension ArticlesScreenController {
         sidebarArticleFilter: SidebarArticleFilter,
         dependencies: AppDependencies,
         isPreviewMode: Bool
-    ) {
+    ) async {
         guard shouldAskBeforeMarkingAllAsRead(dependencies: dependencies) else {
-            confirmMarkAllAsRead(
+            await confirmMarkAllAsRead(
                 searchText: searchText,
                 selection: selection,
                 sidebarArticleFilter: sidebarArticleFilter,
@@ -36,45 +36,87 @@ extension ArticlesScreenController {
         sidebarArticleFilter: SidebarArticleFilter,
         dependencies: AppDependencies,
         isPreviewMode: Bool
-    ) {
+    ) async {
         let visibleArticles = screenState
             .derivedViewState()
             .visibleArticles
-
-        if isPreviewMode == false {
-            guard let articleStateService = dependencies.articleStateService else {
-                dependencies.logger.error("Article state service is unavailable for mark all as read action")
-                screenState.dismissConfirmation()
-                return
-            }
-
-            do {
-                _ = try articleStateService.markAllVisibleAsRead(visibleArticles, at: .now)
-            } catch {
-                dependencies.logger.error("Failed to mark all visible articles as read: \(error)")
-                screenState.dismissConfirmation()
-                return
-            }
-        }
-
-        let updatedArticles = ArticlesScreenMutationReducer.reduceAfterMarkAllAsRead(
-            visibleArticles: visibleArticles,
-            allArticles: screenState.articles,
-            filter: currentArticleListFilter(
+        guard isPreviewMode == false else {
+            let articleListFilter = currentArticleListFilter(
                 selection: selection,
                 sidebarArticleFilter: sidebarArticleFilter
             )
+            let updatedArticles = ArticlesScreenMutationReducer.reduceAfterMarkAllAsRead(
+                visibleArticles: visibleArticles,
+                allArticles: screenState.articles,
+                filter: articleListFilter,
+                persistedStates: nil
+            )
+            let updatedScopeMetric = previewScopeMetric(
+                afterMarkingAllAsReadIn: screenState.articleListSession
+            )
+            screenState.applyMarkAllAsRead(
+                updatedArticles,
+                navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
+                    articles: updatedArticles,
+                    sidebarArticleFilter: sidebarArticleFilter,
+                    scopeMetric: updatedScopeMetric
+                ),
+                emptyContentKind: ArticleSearchScope.normalizedSearchText(searchText).isEmpty
+                    ? .selection
+                    : .searchResults,
+                scopeMetric: updatedScopeMetric
+            )
+            return
+        }
+
+        let sessionID = screenState.articleListSession.id
+        let sessionContext = screenState.articleListSession.context
+        guard sessionContext.selection == selection,
+              sessionContext.sidebarArticleFilter == sidebarArticleFilter,
+              sessionContext.normalizedSearchText == ArticleSearchScope.normalizedSearchText(searchText),
+              let articleStateService = dependencies.articleStateService,
+              let articleQueryService = dependencies.articleQueryService else {
+            dependencies.logger.error("Article services are unavailable for mark all as read action")
+            screenState.dismissConfirmation()
+            return
+        }
+
+        let request = ArticleSearchRequest(
+            selection: sessionContext.selection,
+            sidebarArticleFilter: sessionContext.sidebarArticleFilter,
+            query: sessionContext.normalizedSearchText,
+            sortMode: sessionContext.sortMode,
+            limit: pageSize,
+            requiresUnread: true
         )
-        screenState.applyMarkAllAsRead(
-            updatedArticles,
-            navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
-                articles: updatedArticles,
-                sidebarArticleFilter: sidebarArticleFilter
-            ),
-            emptyContentKind: ArticleSearchScope.normalizedSearchText(searchText).isEmpty
-                ? .selection
-                : .searchResults
-        )
+        do {
+            _ = try await scopeReadMutationOperation(
+                request,
+                articleStateService,
+                articleQueryService
+            )
+        } catch is CancellationError {
+            dependencies.logger.debug("Cancelled mark all matching articles as read action")
+        } catch {
+            dependencies.logger.error("Failed to mark all matching articles as read: \(error)")
+        }
+
+        guard sessionID == screenState.articleListSession.id,
+              sessionContext == screenState.articleListSession.context else {
+            return
+        }
+
+        let refreshTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await load(
+                selection: selection,
+                sidebarArticleFilter: sidebarArticleFilter,
+                searchText: searchText,
+                dependencies: dependencies,
+                refreshesScopeMetric: true
+            )
+        }
+        await refreshTask.value
     }
 
     func toggleArticleReadStatus(
@@ -84,7 +126,16 @@ extension ArticlesScreenController {
         dependencies: AppDependencies,
         isPreviewMode: Bool
     ) {
-        let newIsRead = article.isRead == false
+        let requestedIsRead = article.isRead == false
+        let currentSessionID = screenState.articleListSession.id
+        let currentSessionContext = screenState.articleListSession.context
+        guard currentSessionContext.selection == selection,
+              currentSessionContext.sidebarArticleFilter == sidebarArticleFilter,
+              screenState.articles.contains(where: { $0.id == article.id }) else {
+            return
+        }
+
+        let resolvedIsRead: Bool
 
         if isPreviewMode == false {
             guard let articleStateService = dependencies.articleStateService else {
@@ -93,33 +144,43 @@ extension ArticlesScreenController {
             }
 
             do {
-                if newIsRead {
-                    _ = try articleStateService.markAsRead(
+                let persistedState: ArticleUserStateSnapshot
+                if requestedIsRead {
+                    persistedState = try articleStateService.markAsRead(
                         feedID: article.feedID,
                         articleExternalID: article.articleExternalID,
                         at: .now
                     )
                 } else {
-                    _ = try articleStateService.markAsUnread(
+                    persistedState = try articleStateService.markAsUnread(
                         feedID: article.feedID,
                         articleExternalID: article.articleExternalID,
                         at: .now
                     )
                 }
+                resolvedIsRead = persistedState.isRead
             } catch {
                 dependencies.logger.error("Failed to toggle article read status: \(error)")
                 return
             }
+        } else {
+            resolvedIsRead = requestedIsRead
         }
 
-        let mutation = ArticlesScreenMutationReducer.mutationAfterToggleReadStatus(
+        guard currentSessionID == screenState.articleListSession.id else { return }
+
+        let mutation = ArticlesScreenMutationReducer.mutationAfterSettingReadStatus(
             article: article,
+            isRead: resolvedIsRead,
             filter: currentArticleListFilter(
                 selection: selection,
                 sidebarArticleFilter: sidebarArticleFilter
             )
         )
-        applyArticleRowMutation(mutation, articleID: article.id, sidebarArticleFilter: sidebarArticleFilter)
+        applyArticleRowMutation(
+            mutation,
+            articleID: article.id
+        )
     }
 
     func toggleStarredState(
@@ -129,6 +190,9 @@ extension ArticlesScreenController {
         dependencies: AppDependencies,
         isPreviewMode: Bool
     ) {
+        let requestedIsStarred = article.isStarred == false
+        let resolvedIsStarred: Bool
+
         if isPreviewMode == false {
             guard let articleStateService = dependencies.articleStateService else {
                 dependencies.logger.error("Article state service is unavailable for star action")
@@ -136,45 +200,54 @@ extension ArticlesScreenController {
             }
 
             do {
-                _ = try articleStateService.toggleStarred(
+                let persistedState = try articleStateService.toggleStarred(
                     feedID: article.feedID,
                     articleExternalID: article.articleExternalID,
                     at: .now
                 )
+                resolvedIsStarred = persistedState.isStarred
             } catch {
                 dependencies.logger.error("Failed to toggle starred state for article: \(error)")
                 return
             }
+        } else {
+            resolvedIsStarred = requestedIsStarred
         }
 
-        let mutation = ArticlesScreenMutationReducer.mutationAfterToggleStarred(
+        let mutation = ArticlesScreenMutationReducer.mutationAfterSettingStarredStatus(
             article: article,
+            isStarred: resolvedIsStarred,
             filter: currentArticleListFilter(
                 selection: selection,
                 sidebarArticleFilter: sidebarArticleFilter
             )
         )
-        applyArticleRowMutation(mutation, articleID: article.id, sidebarArticleFilter: sidebarArticleFilter)
+        applyArticleRowMutation(
+            mutation,
+            articleID: article.id
+        )
     }
 
-    private func applyArticleRowMutation(
+    func applyArticleRowMutation(
         _ mutation: ArticleRowMutation,
-        articleID: UUID,
-        sidebarArticleFilter: SidebarArticleFilter
+        articleID: UUID
     ) {
-        let updatedArticles = ArticlesScreenMutationReducer.apply(
-            mutation,
-            articleID: articleID,
-            allArticles: screenState.articles
-        )
         screenState.applyArticleRowMutation(
             articleID: articleID,
-            mutation: mutation,
-            navigationSubtitle: ArticlesScreenSubtitleResolver.resolve(
-                articles: updatedArticles,
-                sidebarArticleFilter: sidebarArticleFilter
-            )
+            mutation: mutation
         )
+    }
+
+    private func previewScopeMetric(
+        afterMarkingAllAsReadIn session: ArticleListSession
+    ) -> ArticleScopeMetric? {
+        guard let scopeMetric = session.scopeMetric else { return nil }
+        switch scopeMetric.kind {
+        case .unread:
+            return ArticleScopeMetric(kind: .unread, count: 0)
+        case .starred:
+            return scopeMetric
+        }
     }
 
     private func currentArticleListFilter(

@@ -39,7 +39,34 @@ struct SidebarSelectionFlowTests {
     }
 
     @Test
-    func folderSelectionInheritsActiveSidebarArticleFilterForSelectedFolder() throws {
+    func sidebarControllerReloadKeepsExistingSelectionsHiddenByZeroFilteredCount() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/empty-filtered-feed.xml"]).first
+        )
+        let folder = Folder(name: "Filtered Folder")
+        feed.folder = folder
+        try harness.saveModelContext()
+        let controller = SidebarScreenController()
+
+        let feedSelection = await controller.loadFeeds(
+            showsFullScreenLoading: false,
+            dependencies: harness.dependencies,
+            currentSelection: .feed(feed.id),
+            filter: .unread,
+            refreshedAt: nil
+        )
+        let folderSelection = controller.resolvedSelection(
+            currentSelection: .folder(folder.name),
+            filter: .starred
+        )
+
+        #expect(feedSelection == .feed(feed.id))
+        #expect(folderSelection == .folder(folder.name))
+    }
+
+    @Test
+    func folderSelectionInheritsActiveSidebarArticleFilterForSelectedFolder() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feeds = try harness.insertFeeds(
             urls: [
@@ -81,6 +108,10 @@ struct SidebarSelectionFlowTests {
         starredNewsArticle.publishedAt = Date(timeIntervalSince1970: 100)
         readNewsArticle.publishedAt = Date(timeIntervalSince1970: 50)
         unreadTechArticle.publishedAt = Date(timeIntervalSince1970: 300)
+        unreadNewsArticle.querySortDate = try #require(unreadNewsArticle.publishedAt)
+        starredNewsArticle.querySortDate = try #require(starredNewsArticle.publishedAt)
+        readNewsArticle.querySortDate = try #require(readNewsArticle.publishedAt)
+        unreadTechArticle.querySortDate = try #require(unreadTechArticle.publishedAt)
         try harness.saveModelContext()
 
         try upsertState(
@@ -134,19 +165,19 @@ struct SidebarSelectionFlowTests {
 
         let queryService = try #require(harness.dependencies.articleQueryService)
 
-        let resolvedUnreadItems = try queryService.fetchFolderListItems(
-            folderName: newsFolder.name,
-            sortMode: .publishedAtDescending,
+        let resolvedUnreadItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .folder(newsFolder.name),
             filter: .unread
         )
-        let resolvedStarredItems = try queryService.fetchFolderListItems(
-            folderName: newsFolder.name,
-            sortMode: .publishedAtDescending,
+        let resolvedStarredItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .folder(newsFolder.name),
             filter: .starred
         )
-        let resolvedAllItems = try queryService.fetchFolderListItems(
-            folderName: newsFolder.name,
-            sortMode: .publishedAtDescending,
+        let resolvedAllItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .folder(newsFolder.name),
             filter: .all
         )
 
@@ -163,7 +194,7 @@ struct SidebarSelectionFlowTests {
     }
 
     @Test
-    func feedSelectionInheritsActiveSidebarArticleFilterForSelectedFeed() throws {
+    func feedSelectionInheritsActiveSidebarArticleFilterForSelectedFeed() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(
             try harness.insertFeeds(urls: ["https://example.com/filter-feed.xml"]).first
@@ -190,6 +221,9 @@ struct SidebarSelectionFlowTests {
         unreadArticle.publishedAt = Date(timeIntervalSince1970: 100)
         starredArticle.publishedAt = Date(timeIntervalSince1970: 200)
         readArticle.publishedAt = Date(timeIntervalSince1970: 300)
+        unreadArticle.querySortDate = try #require(unreadArticle.publishedAt)
+        starredArticle.querySortDate = try #require(starredArticle.publishedAt)
+        readArticle.querySortDate = try #require(readArticle.publishedAt)
         try harness.saveModelContext()
 
         try upsertState(
@@ -231,19 +265,19 @@ struct SidebarSelectionFlowTests {
 
         let queryService = try #require(harness.dependencies.articleQueryService)
 
-        let resolvedUnreadItems = try queryService.fetchArticleListItems(
-            feedID: feed.id,
-            sortMode: .publishedAtDescending,
+        let resolvedUnreadItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .feed(feed.id),
             filter: .unread
         )
-        let resolvedStarredItems = try queryService.fetchArticleListItems(
-            feedID: feed.id,
-            sortMode: .publishedAtDescending,
+        let resolvedStarredItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .feed(feed.id),
             filter: .starred
         )
-        let resolvedAllItems = try queryService.fetchArticleListItems(
-            feedID: feed.id,
-            sortMode: .publishedAtDescending,
+        let resolvedAllItems = try await fetchArticleTestPage(
+            from: queryService,
+            selection: .feed(feed.id),
             filter: .all
         )
 
@@ -266,22 +300,36 @@ struct SidebarSelectionFlowTests {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: .feed(visibleFeedID),
             filter: .starred,
-            visibleFeedIDs: [visibleFeedID],
-            visibleFolderNames: []
+            existingFeedIDs: [visibleFeedID],
+            existingFolderNames: []
         )
 
         #expect(selection == .feed(visibleFeedID))
     }
 
     @Test
-    func sidebarSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentFeedBecomesHidden() {
+    func sidebarSelectionBehaviorKeepsCurrentFeedSelectionWhenItBecomesHiddenByFilter() {
         let hiddenFeedID = UUID()
 
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: .feed(hiddenFeedID),
             filter: .unread,
-            visibleFeedIDs: [],
-            visibleFolderNames: []
+            existingFeedIDs: [hiddenFeedID],
+            existingFolderNames: []
+        )
+
+        #expect(selection == .feed(hiddenFeedID))
+    }
+
+    @Test
+    func sidebarSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentFeedWasDeleted() {
+        let deletedFeedID = UUID()
+
+        let selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: .feed(deletedFeedID),
+            filter: .unread,
+            existingFeedIDs: [],
+            existingFolderNames: []
         )
 
         #expect(selection == .unread)
@@ -292,8 +340,8 @@ struct SidebarSelectionFlowTests {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: .inbox,
             filter: .starred,
-            visibleFeedIDs: [],
-            visibleFolderNames: []
+            existingFeedIDs: [],
+            existingFolderNames: []
         )
 
         #expect(selection == .starred)
@@ -304,8 +352,8 @@ struct SidebarSelectionFlowTests {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: nil,
             filter: .allItems,
-            visibleFeedIDs: [],
-            visibleFolderNames: []
+            existingFeedIDs: [],
+            existingFolderNames: []
         )
 
         #expect(selection == nil)
@@ -316,20 +364,32 @@ struct SidebarSelectionFlowTests {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: .folder("News"),
             filter: .unread,
-            visibleFeedIDs: [],
-            visibleFolderNames: ["News"]
+            existingFeedIDs: [],
+            existingFolderNames: ["News"]
         )
 
         #expect(selection == .folder("News"))
     }
 
     @Test
-    func sidebarSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentFolderBecomesHidden() {
+    func sidebarSelectionBehaviorKeepsCurrentFolderSelectionWhenItBecomesHiddenByFilter() {
         let selection = SidebarSelectionBehavior.resolvedSelection(
             currentSelection: .folder("News"),
             filter: .starred,
-            visibleFeedIDs: [],
-            visibleFolderNames: []
+            existingFeedIDs: [],
+            existingFolderNames: ["News"]
+        )
+
+        #expect(selection == .folder("News"))
+    }
+
+    @Test
+    func sidebarSelectionBehaviorFallsBackToActiveSmartRowWhenCurrentFolderWasDeleted() {
+        let selection = SidebarSelectionBehavior.resolvedSelection(
+            currentSelection: .folder("News"),
+            filter: .starred,
+            existingFeedIDs: [],
+            existingFolderNames: []
         )
 
         #expect(selection == .starred)

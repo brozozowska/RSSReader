@@ -74,7 +74,7 @@ private struct SidebarSections: View {
         if viewState.smartRows.isEmpty == false {
             Section {
                 ForEach(viewState.smartRows) { row in
-                    SidebarSmartRowView(row: row, selection: $selection)
+                    SidebarSmartRowView(row: row)
                 }
             } header: {
                 if viewState.smartRows.count > 1 {
@@ -103,7 +103,6 @@ private struct SidebarSections: View {
                 ForEach(viewState.ungroupedFeedRows) { feed in
                     SidebarFeedRowView(
                         row: feed,
-                        selection: $selection,
                         actionHandlers: actionHandlers
                     )
                 }
@@ -132,7 +131,6 @@ private struct SidebarFolderSectionRowView: View {
         case .feed(let feed):
             SidebarFeedRowView(
                 row: feed,
-                selection: $selection,
                 actionHandlers: actionHandlers
             )
         }

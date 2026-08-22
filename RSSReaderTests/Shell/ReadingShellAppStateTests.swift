@@ -21,6 +21,7 @@ struct ReadingShellAppStateTests {
         appState.selectSidebarSelection(.inbox)
 
         #expect(appState.selectedSidebarSelection == .inbox)
+        #expect(appState.presentedSidebarSelection == .inbox)
         #expect(appState.selectedArticleID == nil)
         #expect(appState.selectedDetailRoute == .none)
         #expect(appState.presentedSafariRoute == nil)
@@ -42,9 +43,198 @@ struct ReadingShellAppStateTests {
         appState.selectSidebarSelection(.feed(feedID))
 
         #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.presentedSidebarSelection == .feed(feedID))
         #expect(appState.selectedArticleID == articleID)
         #expect(appState.selectedDetailRoute == .article(articleID))
         #expect(appState.articleListReloadID == reloadIDBeforeReselect)
+    }
+
+    @Test
+    func readingShellNativeSidebarBackPreservesDomainSelectionAndClearsListNavigationContext() {
+        let appState = AppState()
+        let feedID = UUID()
+        let sessionID = UUID()
+
+        appState.selectSidebarSelection(.feed(feedID))
+        appState.updateArticleNavigationContext(
+            [UUID()],
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .unread,
+            articleListSessionID: sessionID
+        )
+        let reloadIDBeforeBack = appState.articleListReloadID
+
+        appState.updatePresentedSidebarSelection(nil)
+
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.presentedSidebarSelection == nil)
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
+        #expect(appState.articleListReloadID == reloadIDBeforeBack)
+        #expect(appState.articleNavigationContextIDs.isEmpty)
+        #expect(appState.currentArticleListSessionReference == nil)
+    }
+
+    @Test
+    func readingShellReselectsSameSidebarRowAfterNativeBackWithoutChangingDomainSelection() {
+        let appState = AppState()
+        let feedID = UUID()
+
+        appState.selectSidebarSelection(.feed(feedID))
+        appState.updatePresentedSidebarSelection(nil)
+        let reloadIDBeforeReselect = appState.articleListReloadID
+
+        appState.updatePresentedSidebarSelection(.feed(feedID))
+
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.presentedSidebarSelection == .feed(feedID))
+        #expect(appState.articleListReloadID == reloadIDBeforeReselect)
+    }
+
+    @Test
+    func readingShellSelectsDifferentSidebarRowAfterNativeBackAndReloadsQuery() {
+        let appState = AppState()
+        let firstFeedID = UUID()
+        let secondFeedID = UUID()
+
+        appState.selectSidebarSelection(.feed(firstFeedID))
+        appState.updatePresentedSidebarSelection(nil)
+        let reloadIDBeforeSwitch = appState.articleListReloadID
+
+        appState.updatePresentedSidebarSelection(.feed(secondFeedID))
+
+        #expect(appState.selectedSidebarSelection == .feed(secondFeedID))
+        #expect(appState.presentedSidebarSelection == .feed(secondFeedID))
+        #expect(appState.articleListReloadID != reloadIDBeforeSwitch)
+    }
+
+    @Test
+    func readingShellNativeBackAndReselectWorkForEverySidebarSelectionKind() {
+        let selections: [SidebarSelection] = [
+            .inbox,
+            .unread,
+            .starred,
+            .folder("News"),
+            .feed(UUID())
+        ]
+
+        for selection in selections {
+            let appState = AppState()
+            appState.selectSidebarSelection(selection)
+            appState.updatePresentedSidebarSelection(nil)
+
+            #expect(appState.selectedSidebarSelection == selection)
+            #expect(appState.presentedSidebarSelection == nil)
+
+            appState.updatePresentedSidebarSelection(selection)
+
+            #expect(appState.selectedSidebarSelection == selection)
+            #expect(appState.presentedSidebarSelection == selection)
+        }
+    }
+
+    @Test
+    func readingShellExplicitSidebarInvalidationClearsDomainAndPresentationSelections() {
+        let appState = AppState()
+
+        appState.selectSidebarSelection(.folder("News"))
+        appState.selectSidebarSelection(nil)
+
+        #expect(appState.selectedSidebarSelection == nil)
+        #expect(appState.presentedSidebarSelection == nil)
+    }
+
+    @Test
+    func readingShellSidebarReconciliationPreservesNativeBackPresentationState() {
+        let appState = AppState()
+
+        appState.selectSidebarSelection(.folder("Removed"))
+        appState.updatePresentedSidebarSelection(nil)
+        let didApply = appState.reconcileSidebarSelection(
+            .inbox,
+            expectedSelection: .folder("Removed"),
+            expectedFilter: .allItems
+        )
+
+        #expect(didApply)
+        #expect(appState.selectedSidebarSelection == .inbox)
+        #expect(appState.presentedSidebarSelection == nil)
+    }
+
+    @Test
+    func readingShellSidebarReconciliationKeepsPresentedContentOnValidFallback() {
+        let appState = AppState()
+
+        appState.selectSidebarSelection(.folder("Removed"))
+        let didApply = appState.reconcileSidebarSelection(
+            .inbox,
+            expectedSelection: .folder("Removed"),
+            expectedFilter: .allItems
+        )
+
+        #expect(didApply)
+        #expect(appState.selectedSidebarSelection == .inbox)
+        #expect(appState.presentedSidebarSelection == .inbox)
+    }
+
+    @Test
+    func readingShellRejectsStaleSidebarReconciliationAfterNewerSelection() {
+        let appState = AppState()
+        let firstFeedID = UUID()
+        let secondFeedID = UUID()
+
+        appState.selectSidebarSelection(.feed(firstFeedID))
+        appState.updatePresentedSidebarSelection(.feed(secondFeedID))
+        let reloadIDBeforeStaleCompletion = appState.articleListReloadID
+
+        let didApply = appState.reconcileSidebarSelection(
+            .inbox,
+            expectedSelection: .feed(firstFeedID),
+            expectedFilter: .allItems
+        )
+
+        #expect(didApply == false)
+        #expect(appState.selectedSidebarSelection == .feed(secondFeedID))
+        #expect(appState.presentedSidebarSelection == .feed(secondFeedID))
+        #expect(appState.articleListReloadID == reloadIDBeforeStaleCompletion)
+    }
+
+    @Test
+    func readingShellRejectsStaleSidebarReconciliationAfterNewerFilter() {
+        let appState = AppState()
+        let feedID = UUID()
+
+        appState.selectSidebarSelection(.feed(feedID))
+        appState.selectSidebarArticleFilter(.starred)
+        let reloadIDBeforeStaleCompletion = appState.articleListReloadID
+
+        let didApply = appState.reconcileSidebarSelection(
+            .inbox,
+            expectedSelection: .feed(feedID),
+            expectedFilter: .allItems
+        )
+
+        #expect(didApply == false)
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.presentedSidebarSelection == .feed(feedID))
+        #expect(appState.articleListReloadID == reloadIDBeforeStaleCompletion)
+    }
+
+    @Test
+    func readingShellBackChainClearsPresentationAfterReturningFromArticle() {
+        let appState = AppState()
+        let feedID = UUID()
+        let articleID = UUID()
+
+        appState.selectSidebarSelection(.feed(feedID))
+        appState.selectArticle(articleID)
+        appState.selectArticle(nil)
+        appState.updatePresentedSidebarSelection(nil)
+
+        #expect(appState.selectedSidebarSelection == .feed(feedID))
+        #expect(appState.presentedSidebarSelection == nil)
+        #expect(appState.selectedArticleID == nil)
+        #expect(appState.selectedDetailRoute == .none)
     }
 
     @Test
@@ -180,14 +370,29 @@ struct ReadingShellAppStateTests {
         let appState = AppState()
         let feedID = UUID()
         let articleID = UUID()
+        let listSessionID = UUID()
 
         appState.selectSidebarSelection(.feed(feedID))
         appState.selectSidebarArticleFilter(.unread)
-        appState.recordArticleReadOnOpenInCurrentListSession(articleID)
+        appState.updateArticleNavigationContext(
+            [articleID],
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .unread,
+            articleListSessionID: listSessionID
+        )
+        let listSession = ArticleListSessionReference(
+            id: listSessionID,
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .unread
+        )
+        appState.recordArticleReadOnOpen(articleID, isRead: true, in: listSession)
 
         #expect(appState.articleReadOnOpenEvent?.articleID == articleID)
+        #expect(appState.articleReadOnOpenEvent?.articleListSessionID == listSessionID)
         #expect(appState.articleReadOnOpenEvent?.sidebarSelection == .feed(feedID))
         #expect(appState.articleReadOnOpenEvent?.sidebarArticleFilter == .unread)
+        #expect(appState.articleReadOnOpenEvent?.isRead == true)
+        #expect(appState.currentArticleListSessionReference == listSession)
     }
 
     @Test
@@ -195,14 +400,20 @@ struct ReadingShellAppStateTests {
         let appState = AppState()
         let firstArticleID = UUID()
         let secondArticleID = UUID()
+        let listSession = ArticleListSessionReference(
+            id: UUID(),
+            sidebarSelection: nil,
+            sidebarArticleFilter: .allItems
+        )
 
-        appState.recordArticleReadOnOpenInCurrentListSession(firstArticleID)
+        appState.recordArticleReadOnOpen(firstArticleID, isRead: true, in: listSession)
         let firstEvent = appState.articleReadOnOpenEvent
 
-        appState.recordArticleReadOnOpenInCurrentListSession(secondArticleID)
+        appState.recordArticleReadOnOpen(secondArticleID, isRead: false, in: listSession)
 
         #expect(firstEvent?.articleID == firstArticleID)
         #expect(appState.articleReadOnOpenEvent?.articleID == secondArticleID)
+        #expect(appState.articleReadOnOpenEvent?.isRead == false)
         #expect(appState.articleReadOnOpenEvent?.id != firstEvent?.id)
     }
 

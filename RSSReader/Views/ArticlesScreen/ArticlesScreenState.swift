@@ -10,6 +10,8 @@ struct ArticlesScreenState {
     private(set) var customRefreshState: ArticlesScreenCustomRefreshState = .idle
     private(set) var refreshFeedback: ArticlesScreenRefreshFeedback?
     private(set) var emptyContentKind: ArticlesScreenEmptyContentKind = .selection
+    private(set) var listAnimationState = ArticleListAnimationState()
+    private(set) var isLoadingNextPage = false
     private(set) var toolbarActions = ArticlesScreenToolbarActionsState(
         selection: nil,
         visibleArticles: [],
@@ -19,6 +21,10 @@ struct ArticlesScreenState {
 
     var articles: [ArticleListItemDTO] {
         articleListSession.articles
+    }
+
+    var canLoadNextPage: Bool {
+        articleListSession.nextPageCursor != nil && isLoadingNextPage == false
     }
 
     var placeholder: ArticlesScreenPlaceholderState? {
@@ -57,14 +63,27 @@ struct ArticlesScreenState {
         return message
     }
 
+    mutating func endPresentation() {
+        beginLoading(
+            for: nil,
+            navigationTitle: ReadingLocalization.articlesTitle,
+            navigationSubtitle: ReadingLocalization.noUnreadItemsSubtitle,
+            resetsContent: true,
+            startsNewSession: true,
+            sessionContext: .noSelection
+        )
+    }
+
     mutating func beginLoading(
         for selection: SidebarSelection?,
         navigationTitle: String,
         navigationSubtitle: String,
         resetsContent: Bool,
+        startsNewSession: Bool = false,
         sessionContext: ArticleListSession.Context? = nil
     ) {
         pendingConfirmation = nil
+        isLoadingNextPage = false
         emptyContentKind = .selection
         self.selection = selection
         self.navigationTitle = navigationTitle
@@ -74,7 +93,15 @@ struct ArticlesScreenState {
             sessionContext: sessionContext
         )
 
+        if startsNewSession {
+            articleListSession.startNewSession(
+                context: resolvedSessionContext,
+                retainsCurrentEntries: resetsContent == false
+            )
+        }
+
         guard selection != nil else {
+            listAnimationState.prepareForSnapshotReplacement()
             articleListSession.replaceArticles([], context: resolvedSessionContext)
             phase = .noSelection
             refreshState = .idle
@@ -88,6 +115,7 @@ struct ArticlesScreenState {
             refreshFeedback = nil
             customRefreshState = .idle
             if resetsContent {
+                listAnimationState.prepareForSnapshotReplacement()
                 articleListSession.replaceArticles([], context: resolvedSessionContext)
             }
             phase = .loading
@@ -95,7 +123,8 @@ struct ArticlesScreenState {
         } else {
             articleListSession.replaceEntries(
                 articleListSession.entries,
-                context: resolvedSessionContext
+                context: resolvedSessionContext,
+                nextPageCursor: articleListSession.nextPageCursor
             )
             refreshState = .refreshing
         }
@@ -110,7 +139,9 @@ struct ArticlesScreenState {
         navigationSubtitle: String,
         sessionContext: ArticleListSession.Context? = nil,
         preservesRefreshFeedback: Bool = false,
-        emptyContentKind: ArticlesScreenEmptyContentKind = .selection
+        emptyContentKind: ArticlesScreenEmptyContentKind = .selection,
+        nextPageCursor: ArticleSearchRequest.Cursor? = nil,
+        scopeMetric: ArticleScopeMetric? = nil
     ) {
         applyLoadedEntries(
             loadedArticles.map { ArticleListEntry(article: $0) },
@@ -119,7 +150,9 @@ struct ArticlesScreenState {
             navigationSubtitle: navigationSubtitle,
             sessionContext: sessionContext,
             preservesRefreshFeedback: preservesRefreshFeedback,
-            emptyContentKind: emptyContentKind
+            emptyContentKind: emptyContentKind,
+            nextPageCursor: nextPageCursor,
+            scopeMetric: scopeMetric
         )
     }
 
@@ -130,8 +163,11 @@ struct ArticlesScreenState {
         navigationSubtitle: String,
         sessionContext: ArticleListSession.Context? = nil,
         preservesRefreshFeedback: Bool = false,
-        emptyContentKind: ArticlesScreenEmptyContentKind = .selection
+        emptyContentKind: ArticlesScreenEmptyContentKind = .selection,
+        nextPageCursor: ArticleSearchRequest.Cursor? = nil,
+        scopeMetric: ArticleScopeMetric? = nil
     ) {
+        listAnimationState.prepareForSnapshotReplacement()
         self.selection = selection
         self.navigationTitle = navigationTitle
         self.navigationSubtitle = navigationSubtitle
@@ -141,8 +177,11 @@ struct ArticlesScreenState {
             context: resolvedContext(
                 selection: selection,
                 sessionContext: sessionContext
-            )
+            ),
+            nextPageCursor: nextPageCursor,
+            scopeMetric: scopeMetric
         )
+        isLoadingNextPage = false
         refreshState = .idle
         customRefreshState = .idle
         if preservesRefreshFeedback == false {
@@ -158,6 +197,40 @@ struct ArticlesScreenState {
         }
 
         updateToolbarActions(for: selection)
+    }
+
+    @discardableResult
+    mutating func beginLoadingNextPage() -> Bool {
+        guard canLoadNextPage else { return false }
+        isLoadingNextPage = true
+        return true
+    }
+
+    mutating func applyLoadedNextPage(
+        _ articles: [ArticleListItemDTO],
+        nextPageCursor: ArticleSearchRequest.Cursor?,
+        navigationSubtitle: String,
+        scopeMetric: ArticleScopeMetric? = nil
+    ) {
+        if articles.isEmpty == false {
+            listAnimationState.prepareForLocalMutation()
+        }
+        articleListSession.appendPage(
+            articles,
+            nextPageCursor: nextPageCursor,
+            scopeMetric: scopeMetric
+        )
+        self.navigationSubtitle = navigationSubtitle
+        isLoadingNextPage = false
+        if self.articles.isEmpty == false {
+            phase = .loaded
+            emptyContentKind = .selection
+        }
+        updateToolbarActions(for: selection)
+    }
+
+    mutating func endLoadingNextPage() {
+        isLoadingNextPage = false
     }
 
     mutating func applyLoadingFailure(
@@ -183,10 +256,12 @@ struct ArticlesScreenState {
             phase = .loaded
             refreshFeedback = ArticlesScreenRefreshFeedback(message: message)
         } else if selection == nil {
+            listAnimationState.prepareForSnapshotReplacement()
             articleListSession.replaceArticles([], context: resolvedSessionContext)
             phase = .noSelection
             refreshFeedback = nil
         } else {
+            listAnimationState.prepareForSnapshotReplacement()
             articleListSession.replaceArticles([], context: resolvedSessionContext)
             phase = .failed(message)
             refreshFeedback = nil
@@ -216,11 +291,15 @@ struct ArticlesScreenState {
     mutating func applyMarkAllAsRead(
         _ updatedArticles: [ArticleListItemDTO],
         navigationSubtitle: String,
-        emptyContentKind: ArticlesScreenEmptyContentKind? = nil
+        emptyContentKind: ArticlesScreenEmptyContentKind? = nil,
+        scopeMetric: ArticleScopeMetric? = nil
     ) {
+        listAnimationState.prepareForLocalMutation()
         articleListSession.replaceArticles(
             updatedArticles,
-            context: articleListSession.context
+            context: articleListSession.context,
+            nextPageCursor: articleListSession.nextPageCursor,
+            scopeMetric: scopeMetric
         )
         self.navigationSubtitle = navigationSubtitle
         if updatedArticles.isEmpty {
@@ -245,9 +324,9 @@ struct ArticlesScreenState {
 
     mutating func applyArticleRowMutation(
         articleID: UUID,
-        mutation: ArticleRowMutation,
-        navigationSubtitle: String
+        mutation: ArticleRowMutation
     ) {
+        listAnimationState.prepareForLocalMutation()
         switch mutation {
         case .update(let updatedArticle, let membershipStatus):
             articleListSession.updateArticle(
@@ -258,7 +337,11 @@ struct ArticlesScreenState {
             articleListSession.removeArticle(id: articleID)
         }
 
-        self.navigationSubtitle = navigationSubtitle
+        navigationSubtitle = ArticlesScreenSubtitleResolver.resolve(
+            articles: articles,
+            sidebarArticleFilter: articleListSession.context.sidebarArticleFilter,
+            scopeMetric: articleListSession.scopeMetric
+        )
         refreshState = .idle
         customRefreshState = .idle
         if articles.isEmpty {
@@ -292,10 +375,12 @@ struct ArticlesScreenState {
     }
 
     mutating func markArticleAsReadInCurrentSession(articleID: UUID) {
+        listAnimationState.prepareForLocalMutation()
         articleListSession.markArticleAsReadInCurrentSession(id: articleID)
         navigationSubtitle = ArticlesScreenSubtitleResolver.resolve(
             articles: articles,
-            sidebarArticleFilter: articleListSession.context.sidebarArticleFilter
+            sidebarArticleFilter: articleListSession.context.sidebarArticleFilter,
+            scopeMetric: articleListSession.scopeMetric
         )
 
         if selection == nil {

@@ -6,55 +6,52 @@ struct ArticleListView: View {
     @Environment(\.appDependencies) private var dependencies
     @Environment(AppState.self) private var appState
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Environment(\.layoutDirection) private var layoutDirection
 
     let selectedSidebarSelection: SidebarSelection?
     let selectedSidebarArticleFilter: SidebarArticleFilter
     let reloadID: UUID
-    let showsBackButton: Bool
-    let navigateBackToSidebar: () -> Void
     let previewScreenState: ArticlesScreenState?
 
     @Binding var selection: UUID?
     @State private var controller: ArticlesScreenController
     @State private var searchText = ""
     @State private var refreshStartHapticTrigger = 0
-    @State private var backNavigationContainerWidth: CGFloat = 0
+    @State private var lastScopeMetricReloadContext: ArticleScopeMetricReloadContext?
 
     init(
         selectedSidebarSelection: SidebarSelection?,
         selectedSidebarArticleFilter: SidebarArticleFilter,
         reloadID: UUID,
-        showsBackButton: Bool,
-        navigateBackToSidebar: @escaping () -> Void,
+        controller: ArticlesScreenController? = nil,
         previewScreenState: ArticlesScreenState?,
         selection: Binding<UUID?>
     ) {
         self.selectedSidebarSelection = selectedSidebarSelection
         self.selectedSidebarArticleFilter = selectedSidebarArticleFilter
         self.reloadID = reloadID
-        self.showsBackButton = showsBackButton
-        self.navigateBackToSidebar = navigateBackToSidebar
         self.previewScreenState = previewScreenState
         self._selection = selection
-        self._controller = State(initialValue: ArticlesScreenController(previewScreenState: previewScreenState))
+        self._controller = State(
+            initialValue: controller ?? ArticlesScreenController(previewScreenState: previewScreenState)
+        )
     }
 
     // MARK: Body
 
     var body: some View {
-        let derivedViewState = controller.screenState.derivedViewState(
-            sidebarArticleFilter: selectedSidebarArticleFilter
-        )
+        let derivedViewState = controller.screenState.derivedViewState()
 
         ArticleListContentView(
             sections: derivedViewState.sections,
-            visibleArticleIDs: derivedViewState.visibleArticles.map(\.id),
+            animationState: derivedViewState.listAnimationState,
             customRefreshState: derivedViewState.customRefreshState,
+            canLoadNextPage: controller.screenState.canLoadNextPage,
+            isLoadingNextPage: controller.screenState.isLoadingNextPage,
             selection: $selection,
             scrollPositionID: articleListScrollPositionBinding,
             customRefreshPullProgressChanged: updateCustomRefreshPullProgress,
             customRefreshReleaseAction: triggerCustomRefresh,
+            loadNextPageAction: loadNextPage,
             toggleReadStatusAction: toggleArticleReadStatus,
             toggleStarredAction: toggleStarredState
         )
@@ -64,12 +61,8 @@ struct ArticleListView: View {
             text: $searchText
         )
         .toolbar {
-            ToolbarItem(placement: .title) {
-                titleView(for: controller.screenState)
-            }
-
-            ToolbarItem(placement: .subtitle) {
-                subtitleView(text: derivedViewState.navigationSubtitle)
+            ToolbarItem(placement: .principal) {
+                navigationChromeView(derivedViewState.navigationChrome)
             }
 
             if derivedViewState.toolbarActions.showsMarkAllAsReadAction {
@@ -119,6 +112,10 @@ struct ArticleListView: View {
             guard isPreviewMode == false else { return }
             await loadArticles(retainsSessionFilterMutations: true)
         }
+        .onChange(of: selectedSidebarSelection) { oldValue, newValue in
+            guard oldValue != newValue, searchText.isEmpty == false else { return }
+            searchText = ""
+        }
         .onChange(of: selection) { _, newValue in
             guard let newValue else { return }
             appState.updateArticleListScrollPosition(
@@ -134,12 +131,6 @@ struct ArticleListView: View {
             .impact(flexibility: .solid, intensity: 0.65),
             trigger: refreshStartHapticTrigger
         )
-        .onGeometryChange(for: CGFloat.self) { proxy in
-            proxy.size.width
-        } action: { newWidth in
-            backNavigationContainerWidth = newWidth
-        }
-        .simultaneousGesture(backNavigationGesture)
     }
 
     // MARK: Loading
@@ -148,20 +139,63 @@ struct ArticleListView: View {
     private func loadArticles(
         retainsSessionFilterMutations: Bool = true,
         retainedSessionMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterFilterMutation,
-        preservesRefreshFeedback: Bool = false
+        preservesRefreshFeedback: Bool = false,
+        refreshesScopeMetric: Bool? = nil
     ) async {
         let loadingSidebarSelection = selectedSidebarSelection
         let loadingSidebarArticleFilter = selectedSidebarArticleFilter
+        let loadingNormalizedSearchText = ArticleSearchScope.normalizedSearchText(searchText)
+        let loadingReloadID = reloadID
+        let scopeMetricReloadContext = ArticleScopeMetricReloadContext(
+            selection: loadingSidebarSelection,
+            sidebarArticleFilter: loadingSidebarArticleFilter,
+            reloadID: loadingReloadID
+        )
+        let shouldRefreshScopeMetric = refreshesScopeMetric
+            ?? (
+                lastScopeMetricReloadContext != scopeMetricReloadContext
+                    || (
+                        controller.screenState.articleListSession.scopeMetric == nil
+                            && loadingNormalizedSearchText.isEmpty
+                    )
+            )
+        if shouldRefreshScopeMetric {
+            lastScopeMetricReloadContext = scopeMetricReloadContext
+        }
 
         await controller.load(
             selection: loadingSidebarSelection,
             sidebarArticleFilter: loadingSidebarArticleFilter,
             searchText: searchText,
             dependencies: dependencies,
+            refreshesScopeMetric: shouldRefreshScopeMetric,
             retainsSessionFilterMutations: retainsSessionFilterMutations,
             retainedSessionMembershipStatus: retainedSessionMembershipStatus,
             preservesRefreshFeedback: preservesRefreshFeedback
         )
+
+        guard loadingSidebarSelection == appState.selectedSidebarSelection,
+              loadingSidebarArticleFilter == appState.selectedSidebarArticleFilter,
+              loadingNormalizedSearchText == ArticleSearchScope.normalizedSearchText(searchText),
+              loadingReloadID == appState.articleListReloadID else {
+            return
+        }
+
+        let visibleArticleIDs = controller.visibleArticleIDs()
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
+    }
+
+    @MainActor
+    private func loadNextPage() async {
+        guard isPreviewMode == false,
+              controller.screenState.canLoadNextPage else {
+            return
+        }
+
+        let loadingSidebarSelection = selectedSidebarSelection
+        let loadingSidebarArticleFilter = selectedSidebarArticleFilter
+        await controller.loadNextPage(dependencies: dependencies)
 
         guard loadingSidebarSelection == appState.selectedSidebarSelection,
               loadingSidebarArticleFilter == appState.selectedSidebarArticleFilter else {
@@ -191,8 +225,36 @@ struct ArticleListView: View {
         appState.updateArticleNavigationContext(
             visibleArticleIDs,
             sidebarSelection: selectedSidebarSelection,
-            sidebarArticleFilter: selectedSidebarArticleFilter
+            sidebarArticleFilter: selectedSidebarArticleFilter,
+            articleListSessionID: controller.currentArticleListSessionID
         )
+    }
+
+    private func navigationChromeView(
+        _ navigationChrome: ArticlesScreenNavigationChromeState
+    ) -> some View {
+        VStack(spacing: 0) {
+            Text(navigationChrome.title)
+                .font(.headline)
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            Text(navigationChrome.subtitle.isEmpty ? " " : navigationChrome.subtitle)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .opacity(navigationChrome.subtitle.isEmpty ? 0 : 1)
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .multilineTextAlignment(.center)
+        .frame(width: 240, height: 44, alignment: .center)
+        .fixedSize(horizontal: true, vertical: false)
+        .contentTransition(.identity)
+        .accessibilityElement(children: .combine)
+        .transaction { transaction in
+            transaction.animation = nil
+        }
     }
 
     private var articleListScrollPositionBinding: Binding<UUID?> {
@@ -245,32 +307,42 @@ struct ArticleListView: View {
 
     @MainActor
     private func handleMarkAllAsReadAction() {
-        controller.handleMarkAllAsReadAction(
-            searchText: searchText,
-            selection: selectedSidebarSelection,
-            sidebarArticleFilter: selectedSidebarArticleFilter,
-            dependencies: dependencies,
-            isPreviewMode: isPreviewMode
-        )
-        let visibleArticleIDs = controller.visibleArticleIDs()
-        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
-        syncArticleNavigationContext(visibleArticleIDs)
+        Task { @MainActor in
+            await controller.handleMarkAllAsReadAction(
+                searchText: searchText,
+                selection: selectedSidebarSelection,
+                sidebarArticleFilter: selectedSidebarArticleFilter,
+                dependencies: dependencies,
+                isPreviewMode: isPreviewMode
+            )
+            if isPreviewMode == false {
+                appState.requestSidebarReload()
+            }
+            let visibleArticleIDs = controller.visibleArticleIDs()
+            selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+            syncArticleNavigationContext(visibleArticleIDs)
+        }
     }
 
     // MARK: Bulk Actions
 
     @MainActor
     private func confirmMarkAllAsRead() {
-        controller.confirmMarkAllAsRead(
-            searchText: searchText,
-            selection: selectedSidebarSelection,
-            sidebarArticleFilter: selectedSidebarArticleFilter,
-            dependencies: dependencies,
-            isPreviewMode: isPreviewMode
-        )
-        let visibleArticleIDs = controller.visibleArticleIDs()
-        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
-        syncArticleNavigationContext(visibleArticleIDs)
+        Task { @MainActor in
+            await controller.confirmMarkAllAsRead(
+                searchText: searchText,
+                selection: selectedSidebarSelection,
+                sidebarArticleFilter: selectedSidebarArticleFilter,
+                dependencies: dependencies,
+                isPreviewMode: isPreviewMode
+            )
+            if isPreviewMode == false {
+                appState.requestSidebarReload()
+            }
+            let visibleArticleIDs = controller.visibleArticleIDs()
+            selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+            syncArticleNavigationContext(visibleArticleIDs)
+        }
     }
 
     // MARK: Row Actions
@@ -303,57 +375,15 @@ struct ArticleListView: View {
         syncArticleNavigationContext(visibleArticleIDs)
     }
 
-    // MARK: Toolbar
-
-    private var backNavigationGesture: some Gesture {
-        DragGesture(minimumDistance: 20)
-            .onEnded { value in
-                guard showsBackButton else { return }
-                guard ReadingShellCompactNavigationState.shouldNavigateBackToSidebarOnDrag(
-                    startLocationX: value.startLocation.x,
-                    containerWidth: backNavigationContainerWidth,
-                    layoutDirection: layoutDirection,
-                    translation: value.translation
-                ) else {
-                    return
-                }
-                endCurrentArticleListSession()
-                navigateBackToSidebar()
-            }
-    }
-
-    @MainActor
-    private func endCurrentArticleListSession() {
-        appState.requestArticleListReload()
-    }
-
     @MainActor
     private func applyArticleReadOnOpenEvent(_ event: ArticleReadOnOpenEvent?) {
         guard let event else { return }
-        guard event.sidebarSelection == selectedSidebarSelection,
-              event.sidebarArticleFilter == selectedSidebarArticleFilter else {
+        guard controller.applyArticleReadOnOpenEvent(event) else {
             return
         }
-
-        controller.markArticleAsReadInCurrentSession(event.articleID)
         let visibleArticleIDs = controller.visibleArticleIDs()
         selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
         syncArticleNavigationContext(visibleArticleIDs)
-    }
-
-    @ViewBuilder
-    private func titleView(for screenState: ArticlesScreenState) -> some View {
-        Text(screenState.navigationTitle)
-            .font(.title3.weight(.semibold))
-    }
-
-    @ViewBuilder
-    private func subtitleView(text: String) -> some View {
-        if text.isEmpty == false {
-            Text(text)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
     }
 
     // MARK: Search And Overlay
@@ -412,7 +442,8 @@ struct ArticleListView: View {
         await loadArticles(
             retainsSessionFilterMutations: false,
             retainedSessionMembershipStatus: .retainedAfterRefresh,
-            preservesRefreshFeedback: preservesRefreshFeedback
+            preservesRefreshFeedback: preservesRefreshFeedback,
+            refreshesScopeMetric: true
         )
     }
 
@@ -438,6 +469,12 @@ struct ArticleListView: View {
     private func dismissRefreshFeedback() {
         controller.screenState.dismissRefreshFeedback()
     }
+}
+
+private struct ArticleScopeMetricReloadContext: Equatable {
+    let selection: SidebarSelection?
+    let sidebarArticleFilter: SidebarArticleFilter
+    let reloadID: UUID
 }
 
 private struct ArticleListSearchToolbarModifier: ViewModifier {

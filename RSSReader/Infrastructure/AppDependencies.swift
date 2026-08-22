@@ -102,6 +102,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         persistentStoreRemoteChangeSource: (any PersistentStoreRemoteChangeSource)? = nil,
         syncCoordinator: SyncCoordinator? = nil,
         unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = nil,
+        articleSearchScanBatchProbe: ArticleSearchScanBatchProbe? = nil,
         tracksFeedSaveRefreshTasks: Bool = false
     ) {
         let feedRepository = modelContainer.map { container in
@@ -124,13 +125,16 @@ public final class AppDependencies: AppDependenciesProtocol {
         }
         let articleQueryService: (any ArticleQueryService)? = {
             guard let articleRepository,
-                  let articleStateRepository else {
+                  let articleStateRepository,
+                  let feedRepository else {
                 return nil
             }
 
             return DefaultArticleQueryService(
                 articleRepository: articleRepository,
-                articleStateRepository: articleStateRepository
+                articleStateRepository: articleStateRepository,
+                feedRepository: feedRepository,
+                searchScanBatchProbe: articleSearchScanBatchProbe
             )
         }()
         let resolvedUnreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = unreadAppIconBadgeService ?? {
@@ -167,16 +171,14 @@ public final class AppDependencies: AppDependenciesProtocol {
         let sidebarQueryService: (any SidebarQueryService)? = {
             guard let feedRepository,
                   let folderRepository,
-                  let articleStateRepository,
-                  let articleQueryService else {
+                  let articleStateRepository else {
                 return nil
             }
 
             return DefaultSidebarQueryService(
                 feedRepository: feedRepository,
                 folderRepository: folderRepository,
-                articleStateRepository: articleStateRepository,
-                articleQueryService: articleQueryService
+                articleStateRepository: articleStateRepository
             )
         }()
         let feedFetchLogRepository = modelContainer.map { container in
@@ -314,7 +316,11 @@ public final class AppDependencies: AppDependenciesProtocol {
             syncBackedStoreReference: syncBackedStoreReference,
             syncBootstrapPreferenceStore: syncBootstrapPreferenceStore,
             syncBootstrapContext: syncBootstrapContext,
-            appSettingsService: appSettingsService
+            appSettingsService: appSettingsService,
+            remoteSyncImportAppAction: RemoteSyncImportAppAction(
+                logger: logger,
+                unreadAppIconBadgeService: resolvedUnreadAppIconBadgeService
+            )
         )
     }
 }

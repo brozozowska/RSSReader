@@ -14,16 +14,18 @@ enum ArticlesDaySectionsBuilder {
         calendar: Calendar = .current
     ) -> [ArticlesDaySection] {
         var sections: [ArticlesDaySection] = []
+        var sectionIndexByDay: [Date: Int] = [:]
 
         for article in articles {
             let referenceDate = article.publishedAt ?? article.fetchedAt
             let day = calendar.startOfDay(for: referenceDate)
 
-            if sections.last?.date == day {
-                sections[sections.count - 1].articles.append(article)
+            if let sectionIndex = sectionIndexByDay[day] {
+                sections[sectionIndex].articles.append(article)
                 continue
             }
 
+            sectionIndexByDay[day] = sections.count
             sections.append(
                 ArticlesDaySection(
                     date: day,

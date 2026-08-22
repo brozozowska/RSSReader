@@ -80,11 +80,15 @@ struct ArticleRepositoryTests {
         #expect(reactivatedArticle.archivedAt == nil)
         #expect(reactivatedArticle.url == "https://example.com/reactivated-updated")
         #expect(reactivatedArticle.title == "Reactivated title")
+        #expect(reactivatedArticle.searchableText.contains("Reactivated title"))
+        #expect(reactivatedArticle.searchableText.contains("Stale reactivated title") == false)
         #expect(reactivatedArticle.fetchedAt == fetchedAt)
         #expect(missingArticle.archivedAt == fetchedAt)
         #expect(alreadyArchivedArticle.archivedAt == preservedArchivedAt)
         #expect(insertedArticle.url == "https://example.com/new-updated")
         #expect(insertedArticle.title == "Updated duplicate title")
+        #expect(insertedArticle.searchableText.contains("Updated duplicate title"))
+        #expect(insertedArticle.searchableText.utf8.count <= ArticleSearchableTextPolicy.maximumUTF8ByteCount)
         #expect(insertedArticle.fetchedAt == fetchedAt)
         #expect(otherFeedArticle.title == "Other feed title")
         #expect(persistedArticles.allSatisfy { $0.feedTitle == "Display Feed" })
@@ -233,19 +237,23 @@ struct ArticleRepositoryTests {
         let firstMissingArticle = try #require(
             firstRepairedArticles.first { $0.externalID == "synced-missing" }
         )
+        let hiddenCriteria = ArticleQueryCriteria(
+            scope: .feed(feed.id),
+            hidden: .isTrue,
+            sortMode: .publishedAtDescending
+        )
+        let firstHiddenQueryItems = try harness.articleRepository.fetchArticleQueryRecordScanBatch(
+            matching: hiddenCriteria,
+            cursor: nil,
+            limit: ArticleQueryPaginationPolicy.defaultPageSize
+        ).records.map { ArticleListItemDTO(article: $0.article, state: $0.state) }
+        let currentQueryItem = try #require(firstHiddenQueryItems.first)
         let queryService = DefaultArticleQueryService(
             articleRepository: harness.articleRepository,
-            articleStateRepository: harness.articleStateRepository
+            articleStateRepository: harness.articleStateRepository,
+            feedRepository: harness.feedRepository
         )
-        let firstHiddenQueryItems = try queryService.fetchArticleListItems(
-            feedID: feed.id,
-            sortMode: .publishedAtDescending,
-            filter: .hidden
-        )
-        let currentQueryItem = try #require(firstHiddenQueryItems.first)
-        let currentReaderArticle = try #require(
-            try queryService.fetchReaderArticle(id: firstCurrentArticle.id)
-        )
+        let currentReaderArticle = try #require(try queryService.fetchReaderArticle(id: firstCurrentArticle.id))
         let firstRepairedStates = try modelContext.fetch(FetchDescriptor<ArticleState>())
 
         #expect(firstRepairedArticles.count == 3)
@@ -275,11 +283,11 @@ struct ArticleRepositoryTests {
         )
 
         let repeatedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
-        let repeatedHiddenQueryItems = try queryService.fetchArticleListItems(
-            feedID: feed.id,
-            sortMode: .publishedAtDescending,
-            filter: .hidden
-        )
+        let repeatedHiddenQueryItems = try harness.articleRepository.fetchArticleQueryRecordScanBatch(
+            matching: hiddenCriteria,
+            cursor: nil,
+            limit: ArticleQueryPaginationPolicy.defaultPageSize
+        ).records.map { ArticleListItemDTO(article: $0.article, state: $0.state) }
         let repeatedStates = try modelContext.fetch(FetchDescriptor<ArticleState>())
 
         #expect(Set(repeatedArticles.map(\.id)) == Set(firstRepairedArticles.map(\.id)))
@@ -423,19 +431,321 @@ struct ArticleRepositoryTests {
             publishedAt: Date(timeIntervalSince1970: 200)
         )
 
-        let firstFeedDescending = try harness.articleRepository.fetchArticles(
-            feedID: firstFeed.id,
-            sortMode: .publishedAtDescending
-        )
-        let firstFeedAscending = try harness.articleRepository.fetchArticles(
-            feedID: firstFeed.id,
-            sortMode: .publishedAtAscending
-        )
-        let inboxDescending = try harness.articleRepository.fetchInbox(sortMode: .publishedAtDescending)
+        let firstFeedDescending = try harness.articleRepository.fetchArticleQueryRecordScanBatch(
+            matching: ArticleQueryCriteria(scope: .feed(firstFeed.id), sortMode: .publishedAtDescending),
+            cursor: nil,
+            limit: 10
+        ).records.map(\.article)
+        let firstFeedAscending = try harness.articleRepository.fetchArticleQueryRecordScanBatch(
+            matching: ArticleQueryCriteria(scope: .feed(firstFeed.id), sortMode: .publishedAtAscending),
+            cursor: nil,
+            limit: 10
+        ).records.map(\.article)
+        let inboxDescending = try harness.articleRepository.fetchArticleQueryRecordScanBatch(
+            matching: ArticleQueryCriteria(scope: .inbox, sortMode: .publishedAtDescending),
+            cursor: nil,
+            limit: 10
+        ).records.map(\.article)
 
         #expect(firstFeedDescending.map { $0.externalID } == ["new", "old"])
         #expect(firstFeedAscending.map { $0.externalID } == ["old", "new"])
         #expect(inboxDescending.map { $0.externalID } == ["new", "other-feed", "old"])
+    }
+
+    @Test
+    func articleRepositoryAppliesScopeStateArchiveAndSortPredicateCombinations() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let newsFolder = try harness.folderRepository.insert(Folder(name: "News", sortOrder: 0))
+        let newsFeed = try insertFeed(
+            into: harness,
+            url: "https://example.com/news.xml",
+            folder: newsFolder
+        )
+        let techFeed = try insertFeed(
+            into: harness,
+            url: "https://example.com/tech.xml"
+        )
+        let archivedAt = Date(timeIntervalSince1970: 1_000)
+
+        _ = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-default",
+            url: "https://example.com/news-default",
+            title: "News Default",
+            publishedAt: Date(timeIntervalSince1970: 600)
+        )
+        _ = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-read",
+            url: "https://example.com/news-read",
+            title: "News Read",
+            publishedAt: Date(timeIntervalSince1970: 500)
+        )
+        _ = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-starred",
+            url: "https://example.com/news-starred",
+            title: "News Starred",
+            publishedAt: Date(timeIntervalSince1970: 400)
+        )
+        _ = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-hidden",
+            url: "https://example.com/news-hidden",
+            title: "News Hidden",
+            publishedAt: Date(timeIntervalSince1970: 300)
+        )
+        _ = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-archived-unread",
+            url: "https://example.com/news-archived-unread",
+            title: "News Archived Unread",
+            publishedAt: Date(timeIntervalSince1970: 200),
+            archivedAt: archivedAt
+        )
+        _ = try harness.insertArticle(
+            feed: newsFeed,
+            externalID: "news-archived-hidden-starred",
+            url: "https://example.com/news-archived-hidden-starred",
+            title: "News Archived Hidden Starred",
+            publishedAt: Date(timeIntervalSince1970: 100),
+            archivedAt: archivedAt
+        )
+        _ = try harness.insertArticle(
+            feed: techFeed,
+            externalID: "news-starred",
+            url: "https://example.com/tech-default",
+            title: "Tech Default",
+            publishedAt: Date(timeIntervalSince1970: 550)
+        )
+
+        try harness.articleStateRepository.upsert(
+            feedID: newsFeed.id,
+            articleExternalID: "news-read",
+            update: ArticleStateUpsert(isRead: true, updatedAt: Date(timeIntervalSince1970: 10))
+        )
+        try harness.articleStateRepository.upsert(
+            feedID: newsFeed.id,
+            articleExternalID: "news-starred",
+            update: ArticleStateUpsert(
+                isRead: true,
+                isStarred: true,
+                updatedAt: Date(timeIntervalSince1970: 20)
+            )
+        )
+        try harness.articleStateRepository.upsert(
+            feedID: newsFeed.id,
+            articleExternalID: "news-hidden",
+            update: ArticleStateUpsert(isHidden: true, updatedAt: Date(timeIntervalSince1970: 30))
+        )
+        try harness.articleStateRepository.upsert(
+            feedID: newsFeed.id,
+            articleExternalID: "news-archived-hidden-starred",
+            update: ArticleStateUpsert(
+                isRead: true,
+                isStarred: true,
+                isHidden: true,
+                updatedAt: Date(timeIntervalSince1970: 40)
+            )
+        )
+
+        func fetchBoundedArticles(matching criteria: ArticleQueryCriteria) throws -> [Article] {
+            try harness.articleRepository.fetchArticleQueryRecordScanBatch(
+                matching: criteria,
+                cursor: nil,
+                limit: 20
+            ).records.map(\.article)
+        }
+
+        let currentUnreadInbox = try fetchBoundedArticles(
+            matching: ArticleQueryCriteria(
+                scope: .inbox,
+                hidden: .isFalse,
+                archived: .isFalse,
+                read: .isFalse,
+                sortMode: .publishedAtDescending
+            )
+        )
+        let archivedUnreadFolder = try fetchBoundedArticles(
+            matching: ArticleQueryCriteria(
+                scope: .folder("News"),
+                hidden: .isFalse,
+                archived: .isTrue,
+                read: .isFalse,
+                sortMode: .publishedAtDescending
+            )
+        )
+        let visibleStarredFeed = try fetchBoundedArticles(
+            matching: ArticleQueryCriteria(
+                scope: .feed(newsFeed.id),
+                hidden: .isFalse,
+                starred: .isTrue,
+                sortMode: .publishedAtDescending
+            )
+        )
+        let starredInbox = try fetchBoundedArticles(
+            matching: ArticleQueryCriteria(
+                scope: .inbox,
+                hidden: .isFalse,
+                starred: .isTrue,
+                sortMode: .publishedAtDescending
+            )
+        )
+        let hiddenReadStarredFolder = try fetchBoundedArticles(
+            matching: ArticleQueryCriteria(
+                scope: .folder("News"),
+                hidden: .isTrue,
+                read: .isTrue,
+                starred: .isTrue,
+                sortMode: .publishedAtAscending
+            )
+        )
+        let negativeDefaults = try fetchBoundedArticles(
+            matching: ArticleQueryCriteria(
+                scope: .feed(newsFeed.id),
+                hidden: .isFalse,
+                read: .isFalse,
+                starred: .isFalse,
+                sortMode: .publishedAtAscending
+            )
+        )
+
+        #expect(currentUnreadInbox.map(\.feedID) == [newsFeed.id, techFeed.id])
+        #expect(currentUnreadInbox.map(\.externalID) == ["news-default", "news-starred"])
+        #expect(archivedUnreadFolder.map(\.externalID) == ["news-archived-unread"])
+        #expect(visibleStarredFeed.map(\.externalID) == ["news-starred"])
+        #expect(starredInbox.map(\.feedID) == [newsFeed.id])
+        #expect(hiddenReadStarredFolder.map(\.externalID) == ["news-archived-hidden-starred"])
+        #expect(negativeDefaults.map(\.externalID) == ["news-archived-unread", "news-default"])
+    }
+
+    @Test
+    func articleRepositoryBuildsStateOverlayOnlyForBoundedQueryIdentityBatches() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let queriedFeed = try insertFeed(
+            into: harness,
+            url: "https://example.com/batched-query.xml"
+        )
+        let unrelatedFeed = try insertFeed(
+            into: harness,
+            url: "https://example.com/unrelated-query.xml"
+        )
+        let modelContext = harness.modelContainer.mainContext
+
+        for index in 0..<5 {
+            _ = try harness.insertArticle(
+                feed: queriedFeed,
+                externalID: "queried-\(index)",
+                url: "https://example.com/queried-\(index)",
+                title: "Queried \(index)",
+                publishedAt: Date(timeIntervalSince1970: TimeInterval(index))
+            )
+            modelContext.insert(
+                ArticleState(
+                    articleExternalID: "queried-\(index)",
+                    feedID: queriedFeed.id,
+                    isRead: index.isMultiple(of: 2),
+                    updatedAt: Date(timeIntervalSince1970: TimeInterval(index))
+                )
+            )
+        }
+        _ = try harness.insertArticle(
+            feed: unrelatedFeed,
+            externalID: "unrelated",
+            url: "https://example.com/unrelated",
+            title: "Unrelated"
+        )
+        modelContext.insert(
+            ArticleState(
+                articleExternalID: "unrelated",
+                feedID: unrelatedFeed.id,
+                isRead: true
+            )
+        )
+        try modelContext.save()
+
+        var observations: [ArticleStateQueryBatchObservation] = []
+        let repository = SwiftDataArticleRepository(
+            modelContext: modelContext,
+            queryBatchSize: 2,
+            articleStateQueryBatchProbe: { observations.append($0) }
+        )
+        let records = try repository.fetchArticleQueryRecordScanBatch(
+            matching: ArticleQueryCriteria(
+                scope: .feed(queriedFeed.id),
+                read: .isFalse,
+                sortMode: .publishedAtDescending
+            ),
+            cursor: nil,
+            limit: 10
+        ).records
+
+        #expect(records.map { $0.article.externalID } == ["queried-3", "queried-1"])
+        #expect(records.allSatisfy { $0.state?.isRead == false })
+        #expect(observations.count == 3)
+        #expect(observations.allSatisfy { $0.kind == .overlay })
+        #expect(observations.allSatisfy { $0.feedIDs == [queriedFeed.id] })
+        #expect(observations.map(\.requestedIdentityCount) == [2, 2, 1])
+        #expect(observations.reduce(0) { $0 + $1.materializedStateCount } == 5)
+    }
+
+    @Test
+    func articleRepositoryReturnsBoundedScanBatchCursorWithoutMaterializingRemainingCandidates() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(into: harness)
+        let modelContext = harness.modelContainer.mainContext
+
+        for index in 0..<6 {
+            _ = try harness.insertArticle(
+                feed: feed,
+                externalID: "paged-\(index)",
+                url: "https://example.com/paged-\(index)",
+                title: "Paged \(index)",
+                publishedAt: Date(timeIntervalSince1970: TimeInterval(index))
+            )
+            modelContext.insert(
+                ArticleState(
+                    articleExternalID: "paged-\(index)",
+                    feedID: feed.id,
+                    isRead: index < 3
+                )
+            )
+        }
+        try modelContext.save()
+
+        var observations: [ArticleStateQueryBatchObservation] = []
+        let repository = SwiftDataArticleRepository(
+            modelContext: modelContext,
+            queryBatchSize: 4,
+            articleStateQueryBatchProbe: { observations.append($0) }
+        )
+        let criteria = ArticleQueryCriteria(
+            scope: .feed(feed.id),
+            read: .isFalse,
+            sortMode: .publishedAtDescending
+        )
+
+        let firstBatch = try repository.fetchArticleQueryRecordScanBatch(
+            matching: criteria,
+            cursor: nil,
+            limit: 4
+        )
+        #expect(firstBatch.records.map { $0.article.externalID } == ["paged-5", "paged-4", "paged-3"])
+        #expect(firstBatch.scannedCandidateCount == 4)
+        #expect(firstBatch.nextCursor != nil)
+        #expect(observations.map(\.requestedIdentityCount) == [4])
+
+        observations.removeAll()
+        let secondBatch = try repository.fetchArticleQueryRecordScanBatch(
+            matching: criteria,
+            cursor: firstBatch.nextCursor,
+            limit: 4
+        )
+
+        #expect(secondBatch.records.isEmpty)
+        #expect(secondBatch.scannedCandidateCount == 2)
+        #expect(secondBatch.nextCursor == nil)
+        #expect(observations.map(\.requestedIdentityCount) == [2])
     }
 
     @Test

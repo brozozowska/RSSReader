@@ -8,9 +8,9 @@ struct ReaderView: View {
     @Environment(\.openURL) private var openURL
     let articleID: UUID?
     let reloadID: UUID
-    let showsBackButton: Bool
-    let navigateBackToArticles: () -> Void
     let sourceArticleSafariInteraction: ReaderSourceArticleSafariInteractionHandlers
+    let canLoadNextArticleContinuation: Bool
+    let loadArticleContinuation: @MainActor (ReaderAdjacentArticleNavigationDirection) async -> UUID?
     let previewScreenState: ArticleScreenState?
     @State private var controller = ArticleScreenController()
     @State private var adjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls
@@ -20,21 +20,22 @@ struct ReaderView: View {
     @State private var adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
     @State private var adjacentArticleOverscrollReadyHapticTrigger = 0
     @State private var hasTriggeredAdjacentArticleOverscrollReadyHaptic = false
-    @State private var backNavigationContainerWidth: CGFloat = 0
+    @State private var isLoadingAdjacentArticleContinuation = false
+    @State private var interactionContainerWidth: CGFloat = 0
 
     init(
         articleID: UUID?,
         reloadID: UUID = UUID(),
-        showsBackButton: Bool,
-        navigateBackToArticles: @escaping () -> Void,
         sourceArticleSafariInteraction: ReaderSourceArticleSafariInteractionHandlers = .inactive,
+        canLoadNextArticleContinuation: Bool = false,
+        loadArticleContinuation: @escaping @MainActor (ReaderAdjacentArticleNavigationDirection) async -> UUID? = { _ in nil },
         previewScreenState: ArticleScreenState? = nil
     ) {
         self.articleID = articleID
         self.reloadID = reloadID
-        self.showsBackButton = showsBackButton
-        self.navigateBackToArticles = navigateBackToArticles
         self.sourceArticleSafariInteraction = sourceArticleSafariInteraction
+        self.canLoadNextArticleContinuation = canLoadNextArticleContinuation
+        self.loadArticleContinuation = loadArticleContinuation
         self.previewScreenState = previewScreenState
         self._controller = State(initialValue: ArticleScreenController(previewScreenState: previewScreenState))
     }
@@ -103,7 +104,7 @@ struct ReaderView: View {
                 toolbarActions: viewState.toolbarActions,
                 adjacentNavigationControlsMode: adjacentNavigationControlsMode,
                 previousArticleID: appState.adjacentArticleID(.previous),
-                nextArticleID: appState.adjacentArticleID(.next),
+                canNavigateToNextArticle: canNavigateToNextArticle,
                 actionHandlers: actionHandlers,
                 onPreviousArticleTap: handlePreviousArticleTap,
                 onNextArticleTap: handleNextArticleTap
@@ -112,12 +113,15 @@ struct ReaderView: View {
         .task(id: ArticleScreenLoadContext(articleID: currentArticleID, reloadID: reloadID)) {
             guard previewScreenState == nil else { return }
             let adjacentTransitionContext = adjacentTransitionContext
+            let readOnOpenHandler = articleReadOnOpenHandler(
+                for: appState.currentArticleListSessionReference
+            )
             loadReaderAdjacentNavigationControlsMode()
             await controller.load(
                 articleID: currentArticleID,
                 dependencies: dependencies,
                 preservesCurrentArticleDuringLoading: adjacentTransitionContext != nil,
-                articleReadOnOpenHandler: recordArticleReadOnOpenInCurrentListSession
+                articleReadOnOpenHandler: readOnOpenHandler
             )
             pendingAdjacentArticleOverscrollDirection = nil
             adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
@@ -132,9 +136,8 @@ struct ReaderView: View {
         .onGeometryChange(for: CGFloat.self) { proxy in
             proxy.size.width
         } action: { newWidth in
-            backNavigationContainerWidth = newWidth
+            interactionContainerWidth = newWidth
         }
-        .simultaneousGesture(backNavigationGesture)
         .simultaneousGesture(openSourceArticleGesture)
     }
 
@@ -189,22 +192,6 @@ struct ReaderView: View {
         return adjacentArticleTransitionContext
     }
 
-    private var backNavigationGesture: some Gesture {
-        DragGesture(minimumDistance: 20)
-            .onEnded { value in
-                guard showsBackButton else { return }
-                guard ArticleScreenNavigationState.shouldNavigateBackOnDrag(
-                    startLocationX: value.startLocation.x,
-                    containerWidth: backNavigationContainerWidth,
-                    layoutDirection: layoutDirection,
-                    translation: value.translation
-                ) else {
-                    return
-                }
-                navigateBackToArticles()
-            }
-    }
-
     private var openSourceArticleGesture: some Gesture {
         DragGesture(minimumDistance: 20)
             .onChanged { value in
@@ -218,7 +205,7 @@ struct ReaderView: View {
     private func handleOpenSourceArticleDragChange(_ value: DragGesture.Value) {
         let progress = ArticleScreenNavigationState.openSourceArticleSwipeProgress(
             layoutDirection: layoutDirection,
-            containerWidth: backNavigationContainerWidth,
+            containerWidth: interactionContainerWidth,
             translation: value.translation
         )
         guard progress > 0 else {
@@ -238,7 +225,7 @@ struct ReaderView: View {
     private func handleOpenSourceArticleDragEnd(_ value: DragGesture.Value) {
         guard ArticleScreenNavigationState.shouldOpenSourceArticleOnDrag(
             layoutDirection: layoutDirection,
-            containerWidth: backNavigationContainerWidth,
+            containerWidth: interactionContainerWidth,
             translation: value.translation
         ) else {
             sourceArticleSafariInteraction.cancel()
@@ -303,15 +290,58 @@ struct ReaderView: View {
     ) -> ReaderArticleOverscrollNavigationState {
         ReaderArticleOverscrollNavigationState(
             previousProgress: appState.adjacentArticleID(.previous) == nil ? 0 : overscrollState.previousProgress,
-            nextProgress: appState.adjacentArticleID(.next) == nil ? 0 : overscrollState.nextProgress
+            nextProgress: canNavigateToNextArticle ? overscrollState.nextProgress : 0
         )
     }
 
     private func navigateToAdjacentArticle(_ direction: ReaderAdjacentArticleNavigationDirection) {
-        guard let sourceArticleID = resolvedArticleID,
-              let targetArticleID = appState.adjacentArticleID(direction) else {
+        guard let sourceArticleID = resolvedArticleID else {
             return
         }
+
+        if let targetArticleID = appState.adjacentArticleID(direction) {
+            performAdjacentArticleNavigation(
+                direction: direction,
+                sourceArticleID: sourceArticleID,
+                targetArticleID: targetArticleID
+            )
+            return
+        }
+
+        guard direction == .next,
+              canLoadNextArticleContinuation,
+              isLoadingAdjacentArticleContinuation == false else {
+            return
+        }
+
+        isLoadingAdjacentArticleContinuation = true
+        Task { @MainActor in
+            let targetArticleID = await loadArticleContinuation(direction)
+            guard resolvedArticleID == sourceArticleID else {
+                isLoadingAdjacentArticleContinuation = false
+                return
+            }
+            isLoadingAdjacentArticleContinuation = false
+            guard let targetArticleID else { return }
+            performAdjacentArticleNavigation(
+                direction: direction,
+                sourceArticleID: sourceArticleID,
+                targetArticleID: targetArticleID
+            )
+        }
+    }
+
+    private var canNavigateToNextArticle: Bool {
+        appState.adjacentArticleID(.next) != nil
+            || (canLoadNextArticleContinuation && isLoadingAdjacentArticleContinuation == false)
+    }
+
+    private func performAdjacentArticleNavigation(
+        direction: ReaderAdjacentArticleNavigationDirection,
+        sourceArticleID: UUID,
+        targetArticleID: UUID
+    ) {
+        guard appState.adjacentArticleID(direction) == targetArticleID else { return }
 
         adjacentArticleTransitionGeneration += 1
         let transitionContext = AdjacentArticleTransitionContext(
@@ -360,11 +390,14 @@ struct ReaderView: View {
             return
         }
 
+        let readOnOpenHandler = articleReadOnOpenHandler(
+            for: appState.currentArticleListSessionReference
+        )
         await controller.load(
             articleID: transitionContext.targetArticleID,
             dependencies: dependencies,
             preservesCurrentArticleDuringLoading: true,
-            articleReadOnOpenHandler: recordArticleReadOnOpenInCurrentListSession
+            articleReadOnOpenHandler: readOnOpenHandler
         )
         pendingAdjacentArticleOverscrollDirection = nil
         adjacentArticleOverscrollState = ReaderArticleOverscrollNavigationState()
@@ -397,8 +430,18 @@ struct ReaderView: View {
     }
 
     @MainActor
-    private func recordArticleReadOnOpenInCurrentListSession(_ articleID: UUID) {
-        appState.recordArticleReadOnOpenInCurrentListSession(articleID)
+    private func articleReadOnOpenHandler(
+        for listSession: ArticleListSessionReference?
+    ) -> ArticleReadOnOpenHandler? {
+        guard let listSession else { return nil }
+
+        return { articleID, persistedState in
+            appState.recordArticleReadOnOpen(
+                articleID,
+                isRead: persistedState.isRead,
+                in: listSession
+            )
+        }
     }
 
     private var actionHandlers: ArticleScreenActionHandlers {

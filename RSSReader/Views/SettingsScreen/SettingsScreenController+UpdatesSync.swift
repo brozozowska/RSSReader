@@ -83,6 +83,10 @@ extension SettingsScreenController {
             appState?.applyInterfaceThemeMode(updatedSnapshot.interfaceThemeMode)
         }
 
+        if previousSnapshot.unreadArticleSortMode != updatedSnapshot.unreadArticleSortMode {
+            appState?.requestArticleListReload()
+        }
+
         if previousSnapshot.articleRetentionPolicy != updatedSnapshot.articleRetentionPolicy {
             let cleanupResult = dependencies.appActions.cleanupArticles(
                 policy: updatedSnapshot.articleRetentionPolicy,
