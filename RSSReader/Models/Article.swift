@@ -24,9 +24,6 @@ final class Article {
     var contentHTML: String?
     var contentText: String?
     var searchableText: String = ""
-    var searchableTextVersion: Int = 0
-    var searchableTextSourceRevision: Int = 0
-    var searchableTextMaterializedSourceRevision: Int = -1
     var author: String?
     var publishedAt: Date?
     var querySortDate: Date = Date.distantPast
@@ -81,9 +78,6 @@ final class Article {
             contentText: contentText,
             author: author
         )
-        self.searchableTextVersion = ArticleSearchableTextPolicy.currentVersion
-        self.searchableTextSourceRevision = 1
-        self.searchableTextMaterializedSourceRevision = 1
         self.author = author
         self.publishedAt = publishedAt
         self.querySortDate = publishedAt ?? fetchedAt
@@ -93,36 +87,5 @@ final class Article {
         self.fetchedAt = fetchedAt
         self.createdAt = createdAt
         self.updatedAt = updatedAt
-    }
-
-    @discardableResult
-    func rebuildSearchableTextIfNeeded() -> Bool {
-        guard searchableTextVersion != ArticleSearchableTextPolicy.currentVersion
-                || searchableTextMaterializedSourceRevision != searchableTextSourceRevision else {
-            return false
-        }
-
-        searchableText = ArticleSearchableTextPolicy.materialize(
-            title: title,
-            summary: summary,
-            contentHTML: contentHTML,
-            contentText: contentText,
-            author: author
-        )
-        searchableTextVersion = ArticleSearchableTextPolicy.currentVersion
-        searchableTextMaterializedSourceRevision = searchableTextSourceRevision
-        return true
-    }
-
-    func applyPreparedSearchableText(
-        _ value: String,
-        sourceDidChange: Bool
-    ) {
-        if sourceDidChange {
-            searchableTextSourceRevision += 1
-        }
-        searchableText = value
-        searchableTextVersion = ArticleSearchableTextPolicy.currentVersion
-        searchableTextMaterializedSourceRevision = searchableTextSourceRevision
     }
 }

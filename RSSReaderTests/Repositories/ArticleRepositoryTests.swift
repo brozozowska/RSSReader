@@ -82,11 +82,6 @@ struct ArticleRepositoryTests {
         #expect(reactivatedArticle.title == "Reactivated title")
         #expect(reactivatedArticle.searchableText.contains("Reactivated title"))
         #expect(reactivatedArticle.searchableText.contains("Stale reactivated title") == false)
-        #expect(reactivatedArticle.searchableTextVersion == ArticleSearchableTextPolicy.currentVersion)
-        #expect(
-            reactivatedArticle.searchableTextMaterializedSourceRevision
-                == reactivatedArticle.searchableTextSourceRevision
-        )
         #expect(reactivatedArticle.fetchedAt == fetchedAt)
         #expect(missingArticle.archivedAt == fetchedAt)
         #expect(alreadyArchivedArticle.archivedAt == preservedArchivedAt)

@@ -688,20 +688,17 @@ struct ArticleQueryServiceTests {
     }
 
     @Test
-    func articleQueryServiceRebuildsLegacySearchableTextOnceBeforeFiltering() async throws {
+    func articleQueryServiceTreatsPreparedSearchableTextAsReadOnlyQueryInput() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)
         let article = try insertArticle(
             into: harness,
             feed: feed,
-            externalID: "legacy-searchable-text",
+            externalID: "prepared-searchable-text",
             title: "Article",
-            contentHTML: "<p>Legacy <strong>search token</strong></p>"
+            contentHTML: "<p>Raw <strong>HTML-only token</strong></p>"
         )
         article.searchableText = ""
-        article.searchableTextVersion = 0
-        article.searchableTextSourceRevision = 0
-        article.searchableTextMaterializedSourceRevision = -1
         try harness.modelContainer.mainContext.save()
 
         let operations = SwiftDataRepositoryOperationCounter()
@@ -717,115 +714,14 @@ struct ArticleQueryServiceTests {
         let request = ArticleSearchRequest(
             selection: .feed(feed.id),
             sidebarArticleFilter: .allItems,
-            query: "search token",
+            query: "html-only token",
             sortMode: .publishedAtDescending
         )
 
-        let listItems = try await fetchArticleTestPage(
-            from: queryService,
-            selection: .feed(feed.id),
-            filter: .all
-        )
+        let results = try await queryService.fetchArticleSearchSnapshot(request).articles
 
-        #expect(listItems.map(\.articleExternalID) == [article.externalID])
-        #expect(article.searchableTextVersion == 0)
-        #expect(operations.saveCount == 0)
-        operations.reset()
-
-        let firstResults = try await queryService.fetchArticleSearchSnapshot(request).articles
-
-        #expect(firstResults.map(\.articleExternalID) == [article.externalID])
-        #expect(article.searchableTextVersion == ArticleSearchableTextPolicy.currentVersion)
-        #expect(
-            article.searchableTextMaterializedSourceRevision
-                == article.searchableTextSourceRevision
-        )
-        #expect(operations.saveCount == 1)
-
-        operations.reset()
-        let secondResults = try await queryService.fetchArticleSearchSnapshot(request).articles
-
-        #expect(secondResults.map(\.articleExternalID) == [article.externalID])
-        #expect(operations.saveCount == 0)
-    }
-
-    @Test
-    func articleQueryServiceRebuildsSearchableTextAfterNewerSourceUpdate() async throws {
-        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
-        let feed = try insertFeed(into: harness)
-        let article = try insertArticle(
-            into: harness,
-            feed: feed,
-            externalID: "updated-searchable-text",
-            title: "Article",
-            contentHTML: "<p>Old body</p>"
-        )
-        article.contentHTML = "<p>Replacement body token</p>"
-        article.searchableTextSourceRevision += 1
-        try harness.modelContainer.mainContext.save()
-        let queryService = makeQueryService(harness)
-
-        let results = try await queryService.fetchArticleSearchSnapshot(
-            ArticleSearchRequest(
-                selection: .feed(feed.id),
-                sidebarArticleFilter: .allItems,
-                query: "replacement body token",
-                sortMode: .publishedAtDescending
-            )
-        ).articles
-
-        #expect(results.map(\.articleExternalID) == [article.externalID])
-        #expect(
-            article.searchableTextMaterializedSourceRevision
-                == article.searchableTextSourceRevision
-        )
-    }
-
-    @Test
-    func articleQueryServiceDoesNotRebuildSearchableTextAfterArchiveOrProjectionOnlyUpdate() async throws {
-        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
-        let feed = try insertFeed(into: harness)
-        let article = try insertArticle(
-            into: harness,
-            feed: feed,
-            externalID: "projection-only-searchable-text",
-            title: "Projection token",
-            contentHTML: "<p>Stable body token</p>"
-        )
-        let sourceRevision = article.searchableTextSourceRevision
-        let materializedRevision = article.searchableTextMaterializedSourceRevision
-        article.archivedAt = .now
-        article.feedTitle = "Renamed Feed Projection"
-        article.feedFolderName = "Moved Folder Projection"
-        article.updatedAt = article.updatedAt.addingTimeInterval(60)
-        try harness.modelContainer.mainContext.save()
-
-        var rebuildCount = 0
-        let operations = SwiftDataRepositoryOperationCounter()
-        let repository = SwiftDataArticleRepository(
-            modelContext: harness.modelContainer.mainContext,
-            persistenceOperationRecorder: operations.record,
-            searchableTextRebuildProbe: { _ in rebuildCount += 1 }
-        )
-        let queryService = DefaultArticleQueryService(
-            articleRepository: repository,
-            articleStateRepository: harness.articleStateRepository,
-            feedRepository: harness.feedRepository
-        )
-
-        let results = try await queryService.fetchArticleSearchSnapshot(
-            ArticleSearchRequest(
-                selection: .feed(feed.id),
-                sidebarArticleFilter: .allItems,
-                query: "stable body token",
-                sortMode: .publishedAtDescending
-            )
-        ).articles
-
-        #expect(results.map(\.articleExternalID) == [article.externalID])
-        #expect(article.searchableTextSourceRevision == sourceRevision)
-        #expect(article.searchableTextMaterializedSourceRevision == materializedRevision)
-        #expect(rebuildCount == 0)
+        #expect(results.isEmpty)
+        #expect(article.searchableText.isEmpty)
         #expect(operations.saveCount == 0)
     }
 

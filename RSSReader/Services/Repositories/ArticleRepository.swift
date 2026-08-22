@@ -36,7 +36,6 @@ struct ArticleQueryCriteria: Equatable, Sendable {
     let read: ArticleQueryBooleanFilter
     let starred: ArticleQueryBooleanFilter
     let sortMode: ArticleSortMode
-    let requiresSearchableText: Bool
 
     init(
         scope: ArticleQueryScope,
@@ -44,8 +43,7 @@ struct ArticleQueryCriteria: Equatable, Sendable {
         archived: ArticleQueryBooleanFilter = .any,
         read: ArticleQueryBooleanFilter = .any,
         starred: ArticleQueryBooleanFilter = .any,
-        sortMode: ArticleSortMode,
-        requiresSearchableText: Bool = false
+        sortMode: ArticleSortMode
     ) {
         self.scope = scope
         self.hidden = hidden
@@ -53,7 +51,6 @@ struct ArticleQueryCriteria: Equatable, Sendable {
         self.read = read
         self.starred = starred
         self.sortMode = sortMode
-        self.requiresSearchableText = requiresSearchableText
     }
 }
 
@@ -72,7 +69,6 @@ struct ArticleQueryRecordScanBatch {
     let records: [ArticleQueryRecord]
     let nextCursor: ArticleQueryCursor?
     let scannedCandidateCount: Int
-    let rebuiltSearchableText: Bool
 }
 
 struct ArticleFeedSnapshotReconciliationResult {
@@ -102,7 +98,6 @@ typealias ArticleFeedSnapshotReconciliationProgressProbe = @MainActor (
     ArticleFeedSnapshotReconciliationProgress
 ) -> Void
 typealias ArticleQueryCancellationCheck = @MainActor () throws -> Void
-typealias ArticleSearchableTextRebuildProbe = @MainActor (UUID) -> Void
 
 enum ArticleFeedSnapshotCancellationCheckpoint: Equatable, Sendable {
     case beforeSnapshot
@@ -140,7 +135,6 @@ protocol ArticleRepository {
         limit: Int
     ) throws -> [Article]
 
-    func save() throws
     func delete(_ article: Article) throws
     func delete(_ articles: [Article], saveAfterOperation: Bool) throws
 }
@@ -177,7 +171,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
     private let articleStateIdentityRepairer: SwiftDataArticleStateIdentityRepairer
     private let articleStateSnapshotFetcher: SwiftDataArticleStateSnapshotFetcher
     private let queryCancellationCheck: ArticleQueryCancellationCheck
-    private let searchableTextRebuildProbe: ArticleSearchableTextRebuildProbe?
 
     init(
         modelContext: ModelContext,
@@ -190,8 +183,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         articleStateQueryBatchProbe: ArticleStateQueryBatchProbe? = nil,
         queryCancellationCheck: @escaping ArticleQueryCancellationCheck = {
             try Task.checkCancellation()
-        },
-        searchableTextRebuildProbe: ArticleSearchableTextRebuildProbe? = nil
+        }
     ) {
         precondition(queryBatchSize > 0)
         self.modelContext = modelContext
@@ -199,7 +191,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         self.cancellationCheckpoint = cancellationCheckpoint
         self.reconciliationProgressProbe = reconciliationProgressProbe
         self.queryCancellationCheck = queryCancellationCheck
-        self.searchableTextRebuildProbe = searchableTextRebuildProbe
         self.articleStateIdentityRepairer = SwiftDataArticleStateIdentityRepairer(
             modelContext: modelContext,
             persistenceOperationRecorder: persistenceOperationRecorder
@@ -364,8 +355,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             return ArticleQueryRecordScanBatch(
                 records: [],
                 nextCursor: nil,
-                scannedCandidateCount: 0,
-                rebuiltSearchableText: false
+                scannedCandidateCount: 0
             )
         }
 
@@ -376,8 +366,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         return ArticleQueryRecordScanBatch(
             records: materialization.records,
             nextCursor: articles.count == limit ? materialization.nextCursor : nil,
-            scannedCandidateCount: articles.count,
-            rebuiltSearchableText: materialization.rebuiltSearchableText
+            scannedCandidateCount: articles.count
         )
     }
 
@@ -558,23 +547,14 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         matching criteria: ArticleQueryCriteria
     ) throws -> (
         records: [ArticleQueryRecord],
-        nextCursor: ArticleQueryCursor?,
-        rebuiltSearchableText: Bool
+        nextCursor: ArticleQueryCursor?
     ) {
         let statesByCompositeKey = try articleStateSnapshotFetcher.fetchSnapshots(for: articles)
         var records: [ArticleQueryRecord] = []
         records.reserveCapacity(articles.count)
-        var rebuiltSearchableText = false
 
         for article in articles {
             try queryCancellationCheck()
-            if criteria.requiresSearchableText {
-                let didRebuildSearchableText = article.rebuildSearchableTextIfNeeded()
-                if didRebuildSearchableText {
-                    searchableTextRebuildProbe?(article.id)
-                }
-                rebuiltSearchableText = didRebuildSearchableText || rebuiltSearchableText
-            }
             let state = statesByCompositeKey[articleCompositeKey(
                 feedID: article.feedID,
                 articleExternalID: article.externalID
@@ -589,7 +569,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             )
         }
 
-        return (records, articles.last.map { queryCursor(for: $0) }, rebuiltSearchableText)
+        return (records, articles.last.map { queryCursor(for: $0) })
     }
 
     func hasArchivedArticles() throws -> Bool {
@@ -630,10 +610,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         descriptor.fetchOffset = offset
         descriptor.fetchLimit = limit
         return try performFetch(descriptor)
-    }
-
-    func save() throws {
-        try saveIfNeeded(force: true)
     }
 
     func delete(_ article: Article) throws {
@@ -741,11 +717,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
 
     private func apply(_ payload: ArticleUpsertPayload, to article: Article) {
         let updatedAt = Date.now
-        let searchableSourceDidChange = article.title != payload.title
-            || article.summary != payload.summary
-            || article.contentHTML != payload.contentHTML
-            || article.contentText != payload.contentText
-            || article.author != payload.author
         article.guid = payload.guid
         article.url = payload.url
         article.canonicalURL = payload.canonicalURL
@@ -753,10 +724,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         article.summary = payload.summary
         article.contentHTML = payload.contentHTML
         article.contentText = payload.contentText
-        article.applyPreparedSearchableText(
-            payload.searchableText,
-            sourceDidChange: searchableSourceDidChange
-        )
+        article.searchableText = payload.searchableText
         article.author = payload.author
         article.publishedAt = payload.publishedAt
         article.updatedAtSource = payload.updatedAtSource

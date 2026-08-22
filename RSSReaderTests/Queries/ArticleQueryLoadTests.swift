@@ -17,8 +17,7 @@ struct ArticleQueryLoadTests {
         let repository = SwiftDataArticleRepository(
             modelContext: harness.modelContainer.mainContext,
             persistenceOperationRecorder: queryOperations.record,
-            articleStateQueryBatchProbe: loadProbe.recordStateBatch,
-            searchableTextRebuildProbe: loadProbe.recordSearchableTextRebuild
+            articleStateQueryBatchProbe: loadProbe.recordStateBatch
         )
         let queryService = DefaultArticleQueryService(
             articleRepository: repository,
@@ -123,7 +122,6 @@ struct ArticleQueryLoadTests {
         )
         #expect(rawHTMLOnlySnapshot.articles.isEmpty)
         #expect(rawHTMLOnlySnapshot.hasScopeContent)
-        #expect(loadProbe.searchableTextRebuildCount == 0)
         #expect(queryOperations.saveCount == 0)
 
         let cancellationProbe = ArticleQueryLoadProbe(
@@ -132,8 +130,7 @@ struct ArticleQueryLoadTests {
         let cancellingRepository = SwiftDataArticleRepository(
             modelContext: harness.modelContainer.mainContext,
             articleStateQueryBatchProbe: cancellationProbe.recordStateBatch,
-            queryCancellationCheck: cancellationProbe.checkCancellation,
-            searchableTextRebuildProbe: cancellationProbe.recordSearchableTextRebuild
+            queryCancellationCheck: cancellationProbe.checkCancellation
         )
         let cancellingQueryService = DefaultArticleQueryService(
             articleRepository: cancellingRepository,
@@ -164,7 +161,6 @@ struct ArticleQueryLoadTests {
             cancellationProbe.maximumMaterializedOverlayStateCount
                 <= ArticleQueryLoadTestContract.maximumMaterializedOverlayStateCount
         )
-        #expect(cancellationProbe.searchableTextRebuildCount == 0)
     }
 
     @Test
@@ -178,8 +174,7 @@ struct ArticleQueryLoadTests {
         let repository = SwiftDataArticleRepository(
             modelContext: harness.modelContainer.mainContext,
             persistenceOperationRecorder: operations.record,
-            articleStateQueryBatchProbe: loadProbe.recordStateBatch,
-            searchableTextRebuildProbe: loadProbe.recordSearchableTextRebuild
+            articleStateQueryBatchProbe: loadProbe.recordStateBatch
         )
         let queryService = DefaultArticleQueryService(
             articleRepository: repository,
@@ -215,7 +210,6 @@ struct ArticleQueryLoadTests {
             operations.fetchCount
                 <= ArticleQueryLoadTestContract.maximumSparseSearchFetchCount
         )
-        #expect(loadProbe.searchableTextRebuildCount == 0)
         #expect(operations.saveCount == 0)
     }
 
@@ -231,8 +225,7 @@ struct ArticleQueryLoadTests {
         let repository = SwiftDataArticleRepository(
             modelContext: harness.modelContainer.mainContext,
             persistenceOperationRecorder: operations.record,
-            articleStateQueryBatchProbe: loadProbe.recordStateBatch,
-            searchableTextRebuildProbe: loadProbe.recordSearchableTextRebuild
+            articleStateQueryBatchProbe: loadProbe.recordStateBatch
         )
         let queryService = DefaultArticleQueryService(
             articleRepository: repository,
@@ -405,7 +398,6 @@ struct ArticleQueryLoadTests {
         #expect(loadProbe.searchScanBatchCount <= budget.maximumSearchScanBatchCount)
         #expect(operations.fetchCount <= budget.maximumFetchCount)
         #expect(operations.saveCount == 0)
-        #expect(loadProbe.searchableTextRebuildCount == 0)
         #expect(
             loadProbe.maximumRequestedOverlayIdentityCount
                 <= ArticleQueryLoadTestContract.maximumRequestedOverlayIdentityCount

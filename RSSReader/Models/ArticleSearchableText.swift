@@ -12,7 +12,6 @@ nonisolated enum ArticleSearchQueryNormalizationPolicy {
 }
 
 nonisolated enum ArticleSearchableTextPolicy {
-    static let currentVersion = 1
     static let maximumUTF8ByteCount = 16 * 1_024
     private static let maximumSourceUTF8ByteCount = 64 * 1_024
 

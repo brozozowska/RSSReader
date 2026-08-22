@@ -207,7 +207,6 @@ struct ArticleQueryLoadFixture {
 final class ArticleQueryLoadProbe {
     private(set) var maximumRequestedOverlayIdentityCount = 0
     private(set) var maximumMaterializedOverlayStateCount = 0
-    private(set) var searchableTextRebuildCount = 0
     private(set) var cancellationCheckCount = 0
     private(set) var materializedCandidateCount = 0
     private(set) var searchScanBatchCount = 0
@@ -227,10 +226,6 @@ final class ArticleQueryLoadProbe {
             maximumMaterializedOverlayStateCount,
             observation.materializedStateCount
         )
-    }
-
-    func recordSearchableTextRebuild(articleID _: UUID) {
-        searchableTextRebuildCount += 1
     }
 
     func recordSearchBatch(_ observation: ArticleSearchScanBatchObservation) {

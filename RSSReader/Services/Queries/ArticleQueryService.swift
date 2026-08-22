@@ -86,7 +86,6 @@ private struct ArticleSearchProcessedScanBatch: Sendable {
     let matches: [ArticleSearchScanMatch]
     let hasScopeContent: Bool
     let nextCursor: ArticleQueryCursor?
-    let rebuiltSearchableText: Bool
     let observation: ArticleSearchScanBatchObservation
 }
 
@@ -131,8 +130,7 @@ final class DefaultArticleQueryService: ArticleQueryService {
             archived: .any,
             read: readFilter(for: request.listFilter, requiresUnread: request.requiresUnread),
             starred: starredFilter(for: request.listFilter),
-            sortMode: request.sortMode,
-            requiresSearchableText: request.normalizedQuery.isEmpty == false
+            sortMode: request.sortMode
         )
         let scopeMetric = try fetchScopeMetric(for: request, scope: scope)
         return try await fetchSearchPage(
@@ -179,9 +177,6 @@ final class DefaultArticleQueryService: ArticleQueryService {
                 limit: 1
             )
             await searchScanBatchProbe?(batch.observation)
-            if batch.rebuiltSearchableText {
-                try articleRepository.save()
-            }
             return ArticleSearchResultSnapshot(
                 articles: [],
                 hasScopeContent: hasScopeContent || batch.hasScopeContent,
@@ -191,7 +186,6 @@ final class DefaultArticleQueryService: ArticleQueryService {
 
         let targetResultCount = limit + 1
         var matchingRecords: [ArticleSearchScanMatch] = []
-        var rebuiltSearchableText = false
 
         while matchingRecords.count < targetResultCount {
             let batch = try processSearchScanBatch(
@@ -201,7 +195,6 @@ final class DefaultArticleQueryService: ArticleQueryService {
                 limit: ArticleQueryPaginationPolicy.scanBatchSize
             )
             hasScopeContent = hasScopeContent || batch.hasScopeContent
-            rebuiltSearchableText = batch.rebuiltSearchableText || rebuiltSearchableText
             matchingRecords.append(contentsOf: batch.matches.prefix(targetResultCount - matchingRecords.count))
             await searchScanBatchProbe?(batch.observation)
 
@@ -213,9 +206,6 @@ final class DefaultArticleQueryService: ArticleQueryService {
             try Task.checkCancellation()
             await Task.yield()
             try Task.checkCancellation()
-        }
-        if rebuiltSearchableText {
-            try articleRepository.save()
         }
 
         guard matchingRecords.count > limit else {
@@ -243,36 +233,72 @@ final class DefaultArticleQueryService: ArticleQueryService {
         guard request.scopeMetricLoadingPolicy == .baseScope else { return nil }
         try Task.checkCancellation()
 
-        let feedIDs: [UUID]
-        switch scope {
-        case .inbox:
-            feedIDs = try feedRepository.fetchAllFeeds().map(\.id)
-        case .folder(let folderName):
-            feedIDs = try feedRepository.fetchAllFeeds().compactMap { feed in
-                feed.folder?.name == folderName ? feed.id : nil
-            }
-        case .feed(let feedID):
-            feedIDs = [feedID]
-        }
-
         let kind: ArticleScopeMetric.Kind
-        let counts: [UUID: Int]
         switch request.listFilter {
         case .all, .unread:
             kind = .unread
-            counts = try articleStateRepository.fetchUnreadCounts(feedIDs: feedIDs)
         case .starred:
             kind = .starred
-            counts = try articleStateRepository.fetchStarredCounts(feedIDs: feedIDs)
         case .hidden:
             return nil
         }
-        try Task.checkCancellation()
 
-        return ArticleScopeMetric(
-            kind: kind,
-            count: feedIDs.reduce(0) { $0 + counts[$1, default: 0] }
-        )
+        switch scope {
+        case .feed(let feedID):
+            return ArticleScopeMetric(
+                kind: kind,
+                count: try fetchScopeMetricCount(kind: kind, feedIDs: [feedID])
+            )
+        case .inbox:
+            return try fetchScopeMetric(
+                kind: kind,
+                feedIdentityScope: .inbox
+            )
+        case .folder(let folderName):
+            return try fetchScopeMetric(
+                kind: kind,
+                feedIdentityScope: .folder(folderName)
+            )
+        }
+    }
+
+    private func fetchScopeMetric(
+        kind: ArticleScopeMetric.Kind,
+        feedIdentityScope: FeedIdentityQueryScope
+    ) throws -> ArticleScopeMetric {
+        var offset = 0
+        var totalCount = 0
+
+        while true {
+            try Task.checkCancellation()
+            let feedIDs = try feedRepository.fetchFeedIDBatch(
+                matching: feedIdentityScope,
+                offset: offset,
+                limit: FeedIdentityQueryPolicy.batchSize
+            )
+            guard feedIDs.isEmpty == false else { break }
+
+            totalCount += try fetchScopeMetricCount(kind: kind, feedIDs: feedIDs)
+            guard feedIDs.count == FeedIdentityQueryPolicy.batchSize else { break }
+            offset += feedIDs.count
+        }
+        try Task.checkCancellation()
+        return ArticleScopeMetric(kind: kind, count: totalCount)
+    }
+
+    private func fetchScopeMetricCount(
+        kind: ArticleScopeMetric.Kind,
+        feedIDs: [UUID]
+    ) throws -> Int {
+        let counts: [UUID: Int]
+        switch kind {
+        case .unread:
+            counts = try articleStateRepository.fetchUnreadCounts(feedIDs: feedIDs)
+        case .starred:
+            counts = try articleStateRepository.fetchStarredCounts(feedIDs: feedIDs)
+        }
+        try Task.checkCancellation()
+        return feedIDs.reduce(0) { $0 + counts[$1, default: 0] }
     }
 
     private func processSearchScanBatch(
@@ -317,7 +343,6 @@ final class DefaultArticleQueryService: ArticleQueryService {
             matches: matches,
             hasScopeContent: batch.records.isEmpty == false,
             nextCursor: batch.nextCursor,
-            rebuiltSearchableText: batch.rebuiltSearchableText,
             observation: ArticleSearchScanBatchObservation(
                 normalizedQuery: request.normalizedQuery,
                 scannedCandidateCount: batch.scannedCandidateCount,
