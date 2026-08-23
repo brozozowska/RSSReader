@@ -118,7 +118,7 @@ struct ArticlesScreenStateToolbarTests {
     }
 
     @Test
-    func articlesScreenToolbarActionsAreHiddenDuringPrimaryLoading() {
+    func articlesScreenMutationActionsAreHiddenDuringPrimaryLoading() {
         var state = ArticlesScreenState()
 
         state.beginLoading(
@@ -128,23 +128,132 @@ struct ArticlesScreenStateToolbarTests {
             resetsContent: true
         )
 
-        #expect(state.toolbarActions.showsSearchAction == false)
         #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
     }
 
     @Test
-    func articlesScreenToolbarActionsAreHiddenAfterPrimaryFailure() {
+    func articlesScreenQueryFailurePreservesSearchContextAndHidesMutationActions() {
         var state = ArticlesScreenState()
+        let sessionContext = ArticleListSession.Context(
+            selection: .unread,
+            sidebarArticleFilter: .allItems,
+            normalizedSearchText: "swift"
+        )
+
+        state.beginLoading(
+            for: .unread,
+            navigationTitle: "Unread",
+            navigationSubtitle: "0 Unread Items",
+            resetsContent: true,
+            startsNewSession: true,
+            sessionContext: sessionContext
+        )
 
         state.applyLoadingFailure(
             "Unable to load the current selection.",
             selection: .unread,
             navigationTitle: "Unread",
             navigationSubtitle: "0 Unread Items",
-            retainsContent: false
+            retainsContent: false,
+            sessionContext: sessionContext
         )
 
-        #expect(state.toolbarActions.showsSearchAction == false)
         #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
+        #expect(state.articleListSession.context.normalizedSearchText == "swift")
+    }
+
+    @Test
+    func articlesScreenMutationActionsPreservePhaseGuardsAcrossSearchAndClearTransitions() {
+        var state = ArticlesScreenState()
+        let baseItem = makeArticleListItemDTO(title: "SwiftUI Weekly", isRead: false)
+        let selection = SidebarSelection.feed(baseItem.feedID)
+
+        state.applyLoadedArticles(
+            [baseItem],
+            selection: selection,
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
+        )
+        #expect(state.toolbarActions.showsMarkAllAsReadAction)
+
+        state.beginLoading(
+            for: selection,
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item",
+            resetsContent: true,
+            startsNewSession: true,
+            sessionContext: ArticleListSession.Context(
+                selection: selection,
+                sidebarArticleFilter: .allItems,
+                normalizedSearchText: "swift"
+            )
+        )
+        #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
+
+        state.applyLoadedArticles(
+            [],
+            selection: selection,
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item",
+            sessionContext: ArticleListSession.Context(
+                selection: selection,
+                sidebarArticleFilter: .allItems,
+                normalizedSearchText: "swift"
+            ),
+            emptyContentKind: .searchResults
+        )
+        #expect(state.toolbarActions.showsMarkAllAsReadAction)
+
+        state.beginLoading(
+            for: selection,
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item",
+            resetsContent: true,
+            startsNewSession: true,
+            sessionContext: ArticleListSession.Context(
+                selection: selection,
+                sidebarArticleFilter: .allItems,
+                normalizedSearchText: ""
+            )
+        )
+        #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
+
+        state.applyLoadedArticles(
+            [baseItem],
+            selection: selection,
+            navigationTitle: "Feed",
+            navigationSubtitle: "1 Unread Item"
+        )
+        #expect(state.toolbarActions.showsMarkAllAsReadAction)
+    }
+
+    @Test
+    func articleListSearchLifecycleKeepsSearchUIAttachedAcrossCompactBackAndReentry() {
+        let selection = SidebarSelection.unread
+        let activeState = ArticleListSearchLifecycleState(
+            retainedSelection: selection,
+            presentedSelection: selection
+        )
+        let compactBackState = ArticleListSearchLifecycleState(
+            retainedSelection: selection,
+            presentedSelection: nil
+        )
+        let reentryState = ArticleListSearchLifecycleState(
+            retainedSelection: selection,
+            presentedSelection: selection
+        )
+        let invalidatedState = ArticleListSearchLifecycleState(
+            retainedSelection: nil,
+            presentedSelection: nil
+        )
+
+        #expect(activeState.keepsSearchUIAttached)
+        #expect(activeState.allowsQueryLoad)
+        #expect(compactBackState.keepsSearchUIAttached)
+        #expect(compactBackState.allowsQueryLoad == false)
+        #expect(reentryState.keepsSearchUIAttached)
+        #expect(reentryState.allowsQueryLoad)
+        #expect(invalidatedState.keepsSearchUIAttached == false)
+        #expect(invalidatedState.allowsQueryLoad == false)
     }
 }

@@ -16,7 +16,6 @@ struct ArticlesScreenStateLoadingTests {
         #expect(state.articleListSession.context == .noSelection)
         #expect(state.articleListSession.entries.isEmpty)
         #expect(state.placeholder?.title == ReadingLocalization.noSidebarSelectionTitle)
-        #expect(state.toolbarActions.showsSearchAction == false)
         #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
     }
 
@@ -44,7 +43,6 @@ struct ArticlesScreenStateLoadingTests {
         #expect(state.articleListSession.id != previousSessionID)
         #expect(state.articleListSession.context == .noSelection)
         #expect(state.articleListSession.entries.isEmpty)
-        #expect(state.toolbarActions.showsSearchAction == false)
         #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
     }
 
@@ -63,7 +61,6 @@ struct ArticlesScreenStateLoadingTests {
         #expect(state.navigationTitle == ReadingLocalization.unreadTitle)
         #expect(state.navigationSubtitle == ReadingLocalization.unreadItemsSubtitle(count: 3))
         #expect(state.showsPrimaryLoadingIndicator)
-        #expect(state.toolbarActions.showsSearchAction == false)
         #expect(state.toolbarActions.showsMarkAllAsReadAction == false)
     }
 

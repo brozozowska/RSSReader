@@ -254,7 +254,6 @@ struct ArticlesScreenSubtitleResolver {
 }
 
 struct ArticlesScreenToolbarActionsState: Equatable {
-    let showsSearchAction: Bool
     let showsMarkAllAsReadAction: Bool
     let isMarkAllAsReadEnabled: Bool
 
@@ -264,10 +263,21 @@ struct ArticlesScreenToolbarActionsState: Equatable {
         phase: ArticlesScreenPhase
     ) {
         let hasSelection = selection != nil
-        let showsInteractiveActions = hasSelection && phase != .loading && phase.isFailed == false
-        self.showsSearchAction = showsInteractiveActions
-        self.showsMarkAllAsReadAction = showsInteractiveActions
+        self.showsMarkAllAsReadAction = hasSelection && phase != .loading && phase.isFailed == false
         self.isMarkAllAsReadEnabled = visibleArticles.contains(where: { $0.isRead == false })
+    }
+}
+
+struct ArticleListSearchLifecycleState: Equatable {
+    let keepsSearchUIAttached: Bool
+    let allowsQueryLoad: Bool
+
+    init(
+        retainedSelection: SidebarSelection?,
+        presentedSelection: SidebarSelection?
+    ) {
+        self.keepsSearchUIAttached = retainedSelection != nil
+        self.allowsQueryLoad = presentedSelection != nil
     }
 }
 

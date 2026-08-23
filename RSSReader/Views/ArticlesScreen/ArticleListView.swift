@@ -40,6 +40,10 @@ struct ArticleListView: View {
 
     var body: some View {
         let derivedViewState = controller.screenState.derivedViewState()
+        let searchLifecycleState = ArticleListSearchLifecycleState(
+            retainedSelection: selectedSidebarSelection,
+            presentedSelection: appState.presentedSidebarSelection
+        )
 
         ArticleListContentView(
             sections: derivedViewState.sections,
@@ -57,7 +61,7 @@ struct ArticleListView: View {
         )
         .toolbarTitleDisplayMode(.inline)
         .applySearchableToolbar(
-            isEnabled: derivedViewState.toolbarActions.showsSearchAction,
+            isEnabled: searchLifecycleState.keepsSearchUIAttached,
             text: $searchText
         )
         .toolbar {
@@ -76,11 +80,11 @@ struct ArticleListView: View {
             }
 
             if derivedViewState.toolbarActions.showsMarkAllAsReadAction
-                && derivedViewState.toolbarActions.showsSearchAction {
+                && searchLifecycleState.keepsSearchUIAttached {
                 ToolbarSpacer(placement: .bottomBar)
             }
 
-            if derivedViewState.toolbarActions.showsSearchAction {
+            if searchLifecycleState.keepsSearchUIAttached {
                 DefaultToolbarItem(kind: .search, placement: .bottomBar)
             }
         }
@@ -109,8 +113,15 @@ struct ArticleListView: View {
             normalizedSearchText: ArticleSearchScope.normalizedSearchText(searchText),
             reloadID: reloadID
         )) {
-            guard isPreviewMode == false else { return }
+            guard isPreviewMode == false,
+                  searchLifecycleState.allowsQueryLoad else {
+                return
+            }
             await loadArticles(retainsSessionFilterMutations: true)
+        }
+        .onChange(of: appState.presentedSidebarSelection) { _, newValue in
+            guard newValue == nil, searchText.isEmpty == false else { return }
+            searchText = ""
         }
         .onChange(of: selectedSidebarSelection) { oldValue, newValue in
             guard oldValue != newValue, searchText.isEmpty == false else { return }
