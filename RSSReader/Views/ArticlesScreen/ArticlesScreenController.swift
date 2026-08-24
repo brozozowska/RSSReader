@@ -110,6 +110,7 @@ final class ArticlesScreenController {
                 retainsSessionFilterMutations: true,
                 retainedSessionMembershipStatus: .retainedAfterFilterMutation,
                 preservesRefreshFeedback: false,
+                preservesMaterializedSessionSnapshot: false,
                 sessionID: currentSessionID,
                 generation: currentLoadGeneration
             )
@@ -137,6 +138,17 @@ final class ArticlesScreenController {
         cancelActiveNextPageLoad()
         lastLoadedSessionContext = .noSelection
         screenState.endPresentation()
+    }
+
+    @discardableResult
+    func suspendLoadsForCoveredArticleList() -> Bool {
+        let hadActivePrimaryLoad = activeLoadTask != nil
+        loadGeneration += 1
+        activeLoadTask?.cancel()
+        activeLoadTask = nil
+        activeLoadSessionContext = nil
+        cancelActiveNextPageLoad()
+        return hadActivePrimaryLoad
     }
 
     func markArticleAsReadInCurrentSession(_ articleID: UUID) {
@@ -171,7 +183,8 @@ final class ArticlesScreenController {
         refreshesScopeMetric: Bool = false,
         retainsSessionFilterMutations: Bool = false,
         retainedSessionMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterFilterMutation,
-        preservesRefreshFeedback: Bool = false
+        preservesRefreshFeedback: Bool = false,
+        preservesMaterializedSessionSnapshot: Bool = false
     ) async {
         let loadPlan = makeLoadPlan(
             selection: selection,
@@ -204,6 +217,7 @@ final class ArticlesScreenController {
                 retainsSessionFilterMutations: retainsSessionFilterMutations,
                 retainedSessionMembershipStatus: retainedSessionMembershipStatus,
                 preservesRefreshFeedback: preservesRefreshFeedback,
+                preservesMaterializedSessionSnapshot: preservesMaterializedSessionSnapshot,
                 sessionID: currentSessionID,
                 generation: currentLoadGeneration
             )
@@ -229,6 +243,7 @@ final class ArticlesScreenController {
         retainsSessionFilterMutations: Bool,
         retainedSessionMembershipStatus: ArticleListEntryMembershipStatus,
         preservesRefreshFeedback: Bool,
+        preservesMaterializedSessionSnapshot: Bool,
         sessionID currentSessionID: UUID,
         generation currentLoadGeneration: Int
     ) async {
@@ -265,11 +280,14 @@ final class ArticlesScreenController {
                 articleQueryService: articleQueryService
             )
             try Task.checkCancellation()
+            let preservesCurrentMaterializedSnapshot = plan.sessionContextChanged == false
+                && preservesMaterializedSessionSnapshot
             let resolvedEntries = entriesByRetainingSessionItems(
                 loadResult.articles,
                 selection: plan.selection,
                 sidebarArticleFilter: plan.sidebarArticleFilter,
                 retainsCurrentContent: plan.sessionContextChanged == false && retainsSessionFilterMutations,
+                preservesMaterializedSessionSnapshot: preservesCurrentMaterializedSnapshot,
                 retainedMembershipStatus: retainedSessionMembershipStatus,
                 sortMode: plan.sortMode
             )
@@ -295,7 +313,9 @@ final class ArticlesScreenController {
                 sessionContext: plan.sessionContext,
                 preservesRefreshFeedback: preservesRefreshFeedback,
                 emptyContentKind: loadResult.emptyContentKind,
-                nextPageCursor: loadResult.nextPageCursor,
+                nextPageCursor: preservesCurrentMaterializedSnapshot
+                    ? screenState.articleListSession.nextPageCursor
+                    : loadResult.nextPageCursor,
                 scopeMetric: resolvedScopeMetric
             )
         } catch is CancellationError {
@@ -706,9 +726,18 @@ final class ArticlesScreenController {
         selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter,
         retainsCurrentContent: Bool,
+        preservesMaterializedSessionSnapshot: Bool,
         retainedMembershipStatus: ArticleListEntryMembershipStatus,
         sortMode: ArticleSortMode
     ) -> [ArticleListEntry] {
+        if preservesMaterializedSessionSnapshot {
+            return ArticleListSessionMergePolicy.mergePreservingMaterializedSnapshot(
+                currentEntries: screenState.articleListSession.entries,
+                loadedArticles: loadedArticles,
+                sortMode: sortMode
+            )
+        }
+
         let filter = ArticlesScreenMutationReducer.articleListFilter(
             selection: selection,
             sidebarArticleFilter: sidebarArticleFilter

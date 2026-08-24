@@ -233,6 +233,13 @@ public final class AppState {
         return route
     }
 
+    var isArticleListCoveredByDetailRoute: Bool {
+        if case .none = selectedDetailRoute {
+            return false
+        }
+        return true
+    }
+
     @discardableResult
     func presentSafari(articleID: UUID, url: URL) -> Bool {
         readingNavigation.presentSafari(articleID: articleID, url: url)
@@ -338,6 +345,8 @@ public final class AppState {
         sidebarSelection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter
     ) {
+        guard isArticleListCoveredByDetailRoute == false else { return }
+
         let key = ArticleListScrollPositionKey(
             sidebarSelection: sidebarSelection,
             sidebarArticleFilter: sidebarArticleFilter

@@ -366,6 +366,62 @@ struct ReadingShellAppStateTests {
     }
 
     @Test
+    func readingShellFreezesViewportAnchorWhileReaderOrDirectSafariCoversArticleList() {
+        let appState = AppState()
+        let feedID = UUID()
+        let viewportAnchorID = UUID()
+        let selectedArticleID = UUID()
+        let competingAnchorID = UUID()
+        let safariURL = URL(string: "https://example.com/article")!
+
+        appState.selectSidebarSelection(.feed(feedID))
+        appState.updateArticleListScrollPosition(
+            viewportAnchorID,
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .allItems
+        )
+        appState.selectArticle(selectedArticleID)
+        appState.updateArticleListScrollPosition(
+            competingAnchorID,
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .allItems
+        )
+
+        #expect(
+            appState.articleListScrollPositionID(
+                sidebarSelection: .feed(feedID),
+                sidebarArticleFilter: .allItems
+            ) == viewportAnchorID
+        )
+
+        appState.selectArticle(nil)
+        appState.updateArticleListScrollPosition(
+            competingAnchorID,
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .allItems
+        )
+        #expect(
+            appState.articleListScrollPositionID(
+                sidebarSelection: .feed(feedID),
+                sidebarArticleFilter: .allItems
+            ) == competingAnchorID
+        )
+
+        #expect(appState.presentSafariFromArticleList(articleID: selectedArticleID, url: safariURL))
+        appState.updateArticleListScrollPosition(
+            viewportAnchorID,
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .allItems
+        )
+        #expect(
+            appState.articleListScrollPositionID(
+                sidebarSelection: .feed(feedID),
+                sidebarArticleFilter: .allItems
+            ) == competingAnchorID
+        )
+    }
+
+    @Test
     func readingShellPublishesReadOnOpenEventWithinCurrentListContext() {
         let appState = AppState()
         let feedID = UUID()

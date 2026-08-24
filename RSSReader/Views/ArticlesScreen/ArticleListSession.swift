@@ -228,6 +228,29 @@ enum ArticleListSessionMergePolicy {
             sortMode: sortMode
         )
     }
+
+    static func mergePreservingMaterializedSnapshot(
+        currentEntries: [ArticleListEntry],
+        loadedArticles: [ArticleListItemDTO],
+        sortMode: ArticleSortMode
+    ) -> [ArticleListEntry] {
+        var mergedEntriesByID: [UUID: ArticleListEntry] = [:]
+        for currentEntry in currentEntries where mergedEntriesByID[currentEntry.id] == nil {
+            mergedEntriesByID[currentEntry.id] = currentEntry
+        }
+
+        for loadedArticle in loadedArticles {
+            mergedEntriesByID[loadedArticle.id] = ArticleListEntry(
+                article: loadedArticle,
+                membershipStatus: .matchesCurrentQuery
+            )
+        }
+
+        return ArticleListSessionOrderingPolicy.ordered(
+            Array(mergedEntriesByID.values),
+            sortMode: sortMode
+        )
+    }
 }
 
 enum ArticleListSessionOrderingPolicy {
