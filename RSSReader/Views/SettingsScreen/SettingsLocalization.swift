@@ -100,8 +100,8 @@ enum SettingsLocalization {
     )
     static let articleListSectionFooter = String(
         localized: "settings.articleList.section.footer",
-        defaultValue: "Retention applies to all unstarred articles, including entries still in the feed: keep them from their feed date for the selected time, up to 2,000 per feed. \"While in Feed\" removes entries after they disappear. Missing-date entries use the count limit. Starred articles are kept until unstarred.",
-        comment: "Footer explaining the time, count, missing-date, and starred article retention rules."
+        defaultValue: "Articles stay on your device while a feed keeps returning them. After an article disappears, \"While in Feed\" removes it immediately and time-based options start their retention period. Up to 2,000 archived unstarred articles are kept per feed. Starred articles are kept until unstarred.",
+        comment: "Footer summarizing feed-absence retention, the archived article count limit, and the starred exception."
     )
     static let sortUnreadArticlesTitle = String(
         localized: "settings.articleList.sortUnread.title",
@@ -121,7 +121,7 @@ enum SettingsLocalization {
     static let keepArticlesTitle = String(
         localized: "settings.articleList.keepArticles.title",
         defaultValue: "Keep Articles",
-        comment: "Picker title for current and archived article retention."
+        comment: "Picker title for automatic article retention."
     )
     static let updatesSyncSectionTitle = String(
         localized: "settings.updatesSync.section.title",

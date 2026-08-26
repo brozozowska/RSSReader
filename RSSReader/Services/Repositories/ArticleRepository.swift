@@ -1,11 +1,6 @@
 import Foundation
 import SwiftData
 
-enum ArticleRetentionBatchScope: Sendable {
-    case all
-    case archived
-}
-
 enum ArticleQueryScope: Equatable, Sendable {
     case inbox
     case folder(String)
@@ -128,9 +123,8 @@ protocol ArticleRepository {
         limit: Int
     ) throws -> ArticleQueryRecordScanBatch
     func hasArchivedArticles() throws -> Bool
-    func fetchRetentionBatch(
+    func fetchArchivedRetentionBatch(
         feedID: UUID,
-        scope: ArticleRetentionBatchScope,
         offset: Int,
         limit: Int
     ) throws -> [Article]
@@ -581,32 +575,20 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         return try performFetchCount(descriptor) > 0
     }
 
-    func fetchRetentionBatch(
+    func fetchArchivedRetentionBatch(
         feedID: UUID,
-        scope: ArticleRetentionBatchScope,
         offset: Int,
         limit: Int
     ) throws -> [Article] {
         precondition(offset >= 0)
         precondition(limit > 0)
 
-        var descriptor: FetchDescriptor<Article>
-        switch scope {
-        case .all:
-            descriptor = FetchDescriptor<Article>(
-                predicate: #Predicate<Article> { article in
-                    article.feedID == feedID
-                },
-                sortBy: retentionBatchSortDescriptors
-            )
-        case .archived:
-            descriptor = FetchDescriptor<Article>(
-                predicate: #Predicate<Article> { article in
-                    article.feedID == feedID && article.archivedAt != nil
-                },
-                sortBy: retentionBatchSortDescriptors
-            )
-        }
+        var descriptor = FetchDescriptor<Article>(
+            predicate: #Predicate<Article> { article in
+                article.feedID == feedID && article.archivedAt != nil
+            },
+            sortBy: retentionBatchSortDescriptors
+        )
         descriptor.fetchOffset = offset
         descriptor.fetchLimit = limit
         return try performFetch(descriptor)
@@ -729,7 +711,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         article.publishedAt = payload.publishedAt
         article.updatedAtSource = payload.updatedAtSource
         article.imageURL = payload.imageURL
-        article.archivedAt = payload.archivedAt
         article.fetchedAt = payload.fetchedAt
         article.querySortDate = payload.publishedAt ?? payload.fetchedAt
         article.updatedAt = updatedAt
@@ -754,7 +735,6 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             publishedAt: payload.publishedAt,
             updatedAtSource: payload.updatedAtSource,
             imageURL: payload.imageURL,
-            archivedAt: payload.archivedAt,
             fetchedAt: payload.fetchedAt
         )
     }

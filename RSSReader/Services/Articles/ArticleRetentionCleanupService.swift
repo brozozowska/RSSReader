@@ -23,7 +23,7 @@ struct ArticleRetentionCleanupResult: Equatable, Sendable {
     let deletedByCountLimitCount: Int
     let retainedStarredCount: Int
     let deletedOrphanArticleStateCount: Int
-    let sourceAgeCutoffDate: Date?
+    let archiveCutoffDate: Date?
     let diagnostics: ArticleRetentionCleanupDiagnostics
 }
 
@@ -159,7 +159,7 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
         scope: ArticleRetentionCleanupScope,
         now: Date = .now
     ) throws -> ArticleRetentionCleanupResult {
-        let sourceAgeCutoffDate = contract.sourceAgeCutoffDate(for: policy, now: now)
+        let archiveCutoffDate = contract.archiveCutoffDate(for: policy, now: now)
         var inspectedArticleCount = 0
         var deletedByTimeOrMembershipCount = 0
         var deletedByCountLimitCount = 0
@@ -171,7 +171,7 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
             deletedByTimeOrMembershipCount += try deleteTimeOrMembershipExpiredArticles(
                 feedID: feedID,
                 policy: policy,
-                sourceAgeCutoffDate: sourceAgeCutoffDate,
+                archiveCutoffDate: archiveCutoffDate,
                 diagnostics: &diagnostics
             )
 
@@ -182,7 +182,7 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
             inspectedArticleCount += countSelection.inspectedCount
             retainedStarredCount += countSelection.starredCount
 
-            if countSelection.unstarredCount > contract.maximumUnstarredArticleCountPerFeed {
+            if countSelection.unstarredCount > contract.maximumArchivedUnstarredArticleCountPerFeed {
                 deletedByCountLimitCount += try deleteArticlesOutsideCountBudget(
                     feedID: feedID,
                     retainedArticleIDs: countSelection.retainedArticleIDs,
@@ -207,7 +207,7 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
             deletedByCountLimitCount: deletedByCountLimitCount,
             retainedStarredCount: retainedStarredCount,
             deletedOrphanArticleStateCount: deletedOrphanArticleStateCount,
-            sourceAgeCutoffDate: sourceAgeCutoffDate,
+            archiveCutoffDate: archiveCutoffDate,
             diagnostics: diagnostics.snapshot
         )
         logger.info(
@@ -228,9 +228,8 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
             var offset = 0
 
             while true {
-                let batch = try articleRepository.fetchRetentionBatch(
+                let batch = try articleRepository.fetchArchivedRetentionBatch(
                     feedID: feedID,
-                    scope: .archived,
                     offset: offset,
                     limit: batchSize
                 )
@@ -308,22 +307,15 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
     private func deleteTimeOrMembershipExpiredArticles(
         feedID: UUID,
         policy: ArticleRetentionPolicy,
-        sourceAgeCutoffDate: Date?,
+        archiveCutoffDate: Date?,
         diagnostics: inout MutableDiagnostics
     ) throws -> Int {
-        let scope: ArticleRetentionBatchScope = switch contract.timeRule(for: policy) {
-        case .whileReturnedByFeed:
-            .archived
-        case .sourceAge:
-            .all
-        }
         var offset = 0
         var deletedCount = 0
 
         while true {
-            let batch = try articleRepository.fetchRetentionBatch(
+            let batch = try articleRepository.fetchArchivedRetentionBatch(
                 feedID: feedID,
-                scope: scope,
                 offset: offset,
                 limit: batchSize
             )
@@ -336,23 +328,19 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
             )
 
             let articlesToDelete = batch.filter { article in
-                guard starredExternalIDs.contains(article.externalID) == false else {
+                guard let archivedAt = article.archivedAt,
+                      starredExternalIDs.contains(article.externalID) == false else {
                     return false
                 }
 
                 switch contract.timeRule(for: policy) {
-                case .whileReturnedByFeed:
-                    return article.archivedAt != nil
-                case .sourceAge:
-                    guard let sourceAgeCutoffDate,
-                          let referenceDate = contract.sourceAgeReferenceDate(
-                            publishedAt: article.publishedAt,
-                            updatedAtSource: article.updatedAtSource,
-                            firstMaterializedAt: article.createdAt
-                          ) else {
+                case .removeOnFeedAbsence:
+                    return true
+                case .archivedAge:
+                    guard let archiveCutoffDate else {
                         return false
                     }
-                    return referenceDate <= sourceAgeCutoffDate
+                    return archivedAt <= archiveCutoffDate
                 }
             }
 
@@ -375,9 +363,8 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
         var retainedArticles: [RankedArticle] = []
 
         while true {
-            let batch = try articleRepository.fetchRetentionBatch(
+            let batch = try articleRepository.fetchArchivedRetentionBatch(
                 feedID: feedID,
-                scope: .all,
                 offset: offset,
                 limit: batchSize
             )
@@ -395,6 +382,9 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
             rankedBatch.reserveCapacity(batch.count)
 
             for article in batch {
+                guard let archivedAt = article.archivedAt else {
+                    continue
+                }
                 if starredExternalIDs.contains(article.externalID) {
                     starredCount += 1
                     continue
@@ -405,11 +395,7 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
                     RankedArticle(
                         id: article.id,
                         externalID: article.externalID,
-                        orderingDate: contract.countOrderingDate(
-                            publishedAt: article.publishedAt,
-                            updatedAtSource: article.updatedAtSource,
-                            firstMaterializedAt: article.createdAt
-                        ),
+                        orderingDate: archivedAt,
                         createdAt: article.createdAt
                     )
                 )
@@ -417,9 +403,9 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
 
             retainedArticles.append(contentsOf: rankedBatch)
             retainedArticles.sort(by: ranksBefore)
-            if retainedArticles.count > contract.maximumUnstarredArticleCountPerFeed {
+            if retainedArticles.count > contract.maximumArchivedUnstarredArticleCountPerFeed {
                 retainedArticles.removeLast(
-                    retainedArticles.count - contract.maximumUnstarredArticleCountPerFeed
+                    retainedArticles.count - contract.maximumArchivedUnstarredArticleCountPerFeed
                 )
             }
         }
@@ -441,9 +427,8 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
         var deletedCount = 0
 
         while true {
-            let batch = try articleRepository.fetchRetentionBatch(
+            let batch = try articleRepository.fetchArchivedRetentionBatch(
                 feedID: feedID,
-                scope: .all,
                 offset: offset,
                 limit: batchSize
             )
@@ -456,7 +441,8 @@ final class ArticleRetentionCleanupService: ArticleRetentionCleanupServicing {
             )
 
             let articlesToDelete = batch.filter { article in
-                starredExternalIDs.contains(article.externalID) == false
+                article.archivedAt != nil
+                    && starredExternalIDs.contains(article.externalID) == false
                     && retainedArticleIDs.contains(article.id) == false
             }
             try articleRepository.delete(articlesToDelete, saveAfterOperation: true)

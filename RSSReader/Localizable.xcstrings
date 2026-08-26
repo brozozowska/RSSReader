@@ -23643,7 +23643,7 @@
       }
     },
     "settings.articleList.keepArticles.title" : {
-      "comment" : "Picker title for current and archived article retention.",
+      "comment" : "Picker title for automatic article retention.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -23732,7 +23732,7 @@
       }
     },
     "settings.articleList.section.footer" : {
-      "comment" : "Footer explaining the time, count, missing-date, and starred article retention rules.",
+      "comment" : "Footer summarizing feed-absence retention, the archived article count limit, and the starred exception.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -23749,7 +23749,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Retention applies to all unstarred articles, including entries still in the feed: keep them from their feed date for the selected time, up to 2,000 per feed. \"While in Feed\" removes entries after they disappear. Missing-date entries use the count limit. Starred articles are kept until unstarred."
+            "value" : "Articles stay on your device while a feed keeps returning them. After an article disappears, \"While in Feed\" removes it immediately and time-based options start their retention period. Up to 2,000 archived unstarred articles are kept per feed. Starred articles are kept until unstarred."
           }
         },
         "es" : {
@@ -23803,7 +23803,7 @@
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Срок хранения применяется ко всем статьям без звезды, включая те, которые ещё есть в ленте: они хранятся выбранное время от даты в ленте, но не более 2 000 на ленту. «Пока есть в ленте» удаляет пропавшие записи. Для записей без даты действует лимит количества. Статьи со звездой хранятся, пока звезда не снята."
+            "value" : "Статьи остаются на устройстве, пока лента продолжает их возвращать. После исчезновения «Пока есть в ленте» удаляет статью сразу, а для временных вариантов начинается отсчёт срока. Для каждой ленты хранится до 2 000 архивных статей без звезды. Статьи со звездой хранятся, пока звезда не снята."
           }
         },
         "ur" : {

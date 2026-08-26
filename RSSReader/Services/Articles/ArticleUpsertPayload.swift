@@ -20,13 +20,11 @@ nonisolated struct ArticleUpsertPayload: Sendable {
     let publishedAt: Date?
     let updatedAtSource: Date?
     let imageURL: String?
-    let archivedAt: Date?
     let fetchedAt: Date
 
     private init?(
         preparedEntry entry: ParsedFeedEntryDTO,
-        fetchedAt: Date,
-        archivedAt: Date?
+        fetchedAt: Date
     ) {
         guard let externalID = Self.firstNonEmptyValue(entry.externalID) else {
             return nil
@@ -51,14 +49,12 @@ nonisolated struct ArticleUpsertPayload: Sendable {
         self.publishedAt = entry.publishedAt
         self.updatedAtSource = entry.updatedAt
         self.imageURL = entry.imageURL
-        self.archivedAt = archivedAt
         self.fetchedAt = fetchedAt
     }
 
     static func makeAllPrepared(
         entries: [ParsedFeedEntryDTO],
         fetchedAt: Date,
-        archivedAt: Date? = nil,
         cancellationCheck: FeedParsingCancellationCheck = { try Task.checkCancellation() },
         materializationProbe: ArticleUpsertPayloadMaterializationProbe? = nil
     ) throws -> [ArticleUpsertPayload] {
@@ -72,8 +68,7 @@ nonisolated struct ArticleUpsertPayload: Sendable {
             )
             guard let payload = ArticleUpsertPayload(
                 preparedEntry: entry,
-                fetchedAt: fetchedAt,
-                archivedAt: archivedAt
+                fetchedAt: fetchedAt
             ) else {
                 throw ArticleUpsertPayloadConstructionError.nonPersistableEntry(index: index)
             }

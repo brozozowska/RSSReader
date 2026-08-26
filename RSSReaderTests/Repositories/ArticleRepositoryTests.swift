@@ -778,7 +778,7 @@ struct ArticleRepositoryTests {
     }
 
     @Test
-    func articleRepositoryFetchesStableFeedScopedRetentionBatches() throws {
+    func articleRepositoryFetchesStableArchivedFeedScopedRetentionBatches() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let firstFeed = try insertFeed(into: harness, url: "https://example.com/retention-first.xml")
         let secondFeed = try insertFeed(into: harness, url: "https://example.com/retention-second.xml")
@@ -802,28 +802,19 @@ struct ArticleRepositoryTests {
             createdAt: baseDate
         )
 
-        let firstBatch = try harness.articleRepository.fetchRetentionBatch(
+        let firstBatch = try harness.articleRepository.fetchArchivedRetentionBatch(
             feedID: firstFeed.id,
-            scope: .all,
             offset: 0,
             limit: 2
         )
-        let secondBatch = try harness.articleRepository.fetchRetentionBatch(
+        let secondBatch = try harness.articleRepository.fetchArchivedRetentionBatch(
             feedID: firstFeed.id,
-            scope: .all,
             offset: 2,
             limit: 2
         )
-        let archivedBatch = try harness.articleRepository.fetchRetentionBatch(
-            feedID: firstFeed.id,
-            scope: .archived,
-            offset: 1,
-            limit: 2
-        )
 
-        #expect(firstBatch.map(\.externalID) == ["first-0", "first-1"])
-        #expect(secondBatch.map(\.externalID) == ["first-2", "first-3"])
-        #expect(archivedBatch.map(\.externalID) == ["first-2", "first-4"])
+        #expect(firstBatch.map(\.externalID) == ["first-0", "first-2"])
+        #expect(secondBatch.map(\.externalID) == ["first-4"])
     }
 
     private func insertFeed(

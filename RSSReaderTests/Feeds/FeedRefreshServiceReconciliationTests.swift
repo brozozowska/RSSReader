@@ -146,6 +146,90 @@ struct FeedRefreshServiceReconciliationTests {
     }
 
     @Test
+    func sequentialSnapshotsStartRetentionOnlyOnAbsenceAndClearItOnReappearance() async throws {
+        let feedURL = "https://example.com/sequential-retention-feed.xml"
+        let currentArticleXML = makeValidRSSFeedXML(
+            channelTitle: "Sequential Retention Feed",
+            channelLink: "https://example.com/sequential/",
+            language: "en",
+            itemTitle: "Long-Lived Current Article",
+            itemLink: "https://example.com/sequential/articles/current",
+            itemGUID: "long-lived-current",
+            itemDescription: "Still returned despite its old publication date",
+            pubDate: "Mon, 01 Jan 2024 10:00:00 GMT"
+        )
+        let replacementArticleXML = makeValidRSSFeedXML(
+            channelTitle: "Sequential Retention Feed",
+            channelLink: "https://example.com/sequential/",
+            language: "en",
+            itemTitle: "Replacement Article",
+            itemLink: "https://example.com/sequential/articles/replacement",
+            itemGUID: "replacement",
+            itemDescription: "Temporarily replaces the long-lived article",
+            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+        )
+        let client = ScriptedHTTPClient(
+            steps: [
+                .response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                    body: currentArticleXML
+                ),
+                .response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                    body: replacementArticleXML
+                ),
+                .response(statusCode: 304, headers: [:], body: ""),
+                .response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                    body: currentArticleXML
+                )
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let feed = Feed(url: feedURL, title: "Sequential Retention Feed")
+        try harness.feedRepository.insert(feed)
+
+        let initialResult = await harness.service.refresh(feedID: feed.id)
+        let initialArticle = try #require(
+            try harness.articleRepository.fetchArticles(feedID: feed.id).first {
+                $0.guid == "long-lived-current"
+            }
+        )
+        #expect(initialResult.status == .fetched)
+        #expect(initialArticle.archivedAt == nil)
+
+        let disappearanceResult = await harness.service.refresh(feedID: feed.id)
+        let archivedArticle = try #require(
+            try harness.articleRepository.fetchArticles(feedID: feed.id).first {
+                $0.guid == "long-lived-current"
+            }
+        )
+        let firstArchivedAt = try #require(archivedArticle.archivedAt)
+        #expect(disappearanceResult.status == .fetched)
+
+        let notModifiedResult = await harness.service.refresh(feedID: feed.id)
+        let unchangedArchivedArticle = try #require(
+            try harness.articleRepository.fetchArticles(feedID: feed.id).first {
+                $0.guid == "long-lived-current"
+            }
+        )
+        #expect(notModifiedResult.status == .notModified)
+        #expect(unchangedArchivedArticle.archivedAt == firstArchivedAt)
+
+        let reappearanceResult = await harness.service.refresh(feedID: feed.id)
+        let reappearedArticle = try #require(
+            try harness.articleRepository.fetchArticles(feedID: feed.id).first {
+                $0.guid == "long-lived-current"
+            }
+        )
+        #expect(reappearanceResult.status == .fetched)
+        #expect(reappearedArticle.archivedAt == nil)
+    }
+
+    @Test
     func refreshRollsBackFeedAndArticleSnapshotWhenReconciliationFailsBeforeCommit() async throws {
         let feedURL = "https://example.com/rollback-feed.xml"
         let client = ScriptedHTTPClient(
