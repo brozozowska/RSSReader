@@ -124,6 +124,7 @@ private enum ArticleScreenPreviewData {
             author: "Юлия Зубарева",
             publishedAt: Date(timeIntervalSince1970: 1_775_358_720),
             updatedAtSource: nil,
+            effectiveDate: Date(timeIntervalSince1970: 1_775_358_720),
             articleURL: "https://thecode.media/sber-vtb-tbank-failure",
             canonicalURL: "https://thecode.media/sber-vtb-tbank-failure",
             imageURL: nil,

@@ -329,6 +329,32 @@ struct ArticlesScreenPresentationTests {
     }
 
     @Test
+    func articleListSectionsAndRowTimeUseUpdatedDateBeforeFetchFallback() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        let updatedAtSource = Date(timeIntervalSince1970: 1_704_110_400)
+        let laterFetchedAt = updatedAtSource.addingTimeInterval(3 * 24 * 60 * 60)
+        let article = makeArticleListItemDTO(
+            title: "Updated-only Atom",
+            publishedAt: nil,
+            updatedAtSource: updatedAtSource,
+            fetchedAt: laterFetchedAt
+        )
+
+        let sections = ArticlesDaySectionsBuilder.build(from: [article], calendar: calendar)
+
+        #expect(sections.map(\.date) == [calendar.startOfDay(for: updatedAtSource)])
+        #expect(
+            ArticleListRowTimeFormatter.string(for: article)
+            == updatedAtSource.formatted(
+                .dateTime
+                    .hour(.twoDigits(amPM: .omitted))
+                    .minute(.twoDigits)
+            )
+        )
+    }
+
+    @Test
     func articlesDaySectionsBuilderCoalescesNoncontiguousArticlesIntoUniqueDaySections() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current

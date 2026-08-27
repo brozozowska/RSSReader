@@ -259,8 +259,8 @@ enum ArticleListSessionOrderingPolicy {
         sortMode: ArticleSortMode
     ) -> [ArticleListEntry] {
         entries.sorted { lhs, rhs in
-            let lhsSortDate = lhs.article.publishedAt ?? lhs.article.fetchedAt
-            let rhsSortDate = rhs.article.publishedAt ?? rhs.article.fetchedAt
+            let lhsSortDate = lhs.article.effectiveDate
+            let rhsSortDate = rhs.article.effectiveDate
 
             if lhsSortDate != rhsSortDate {
                 switch sortMode {

@@ -26,11 +26,9 @@ private struct ReaderArticleHeaderView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: ReaderArticleContentLayout.headerSpacing) {
-            if let publishedAtText = header.publishedAtText {
-                Text(publishedAtText)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+            Text(header.effectiveDateText)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
 
             if header.canOpenSourceArticle {
                 Button(action: actionHandlers.openSourceArticle) {

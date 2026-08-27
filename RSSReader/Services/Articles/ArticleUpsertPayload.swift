@@ -22,6 +22,14 @@ nonisolated struct ArticleUpsertPayload: Sendable {
     let imageURL: String?
     let fetchedAt: Date
 
+    var effectiveDate: Date {
+        ArticleEffectiveDatePolicy.resolve(
+            publishedAt: publishedAt,
+            updatedAtSource: updatedAtSource,
+            fetchedAt: fetchedAt
+        )
+    }
+
     private init?(
         preparedEntry entry: ParsedFeedEntryDTO,
         fetchedAt: Date

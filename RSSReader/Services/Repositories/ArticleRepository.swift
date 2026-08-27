@@ -646,7 +646,11 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
 
         article.archivedAt = newArchivedAt
         article.fetchedAt = fetchedAt
-        article.querySortDate = article.publishedAt ?? fetchedAt
+        article.querySortDate = ArticleEffectiveDatePolicy.resolve(
+            publishedAt: article.publishedAt,
+            updatedAtSource: article.updatedAtSource,
+            fetchedAt: fetchedAt
+        )
         article.updatedAt = .now
         return true
     }
@@ -712,7 +716,7 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
         article.updatedAtSource = payload.updatedAtSource
         article.imageURL = payload.imageURL
         article.fetchedAt = payload.fetchedAt
-        article.querySortDate = payload.publishedAt ?? payload.fetchedAt
+        article.querySortDate = payload.effectiveDate
         article.updatedAt = updatedAt
     }
 

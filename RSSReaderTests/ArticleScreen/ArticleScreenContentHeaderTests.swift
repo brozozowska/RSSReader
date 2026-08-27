@@ -7,34 +7,48 @@ import UIKit
 @MainActor
 struct ArticleScreenContentHeaderTests {
     @Test
-    func articleScreenContentHeaderFormatsFieldsInPublishedTitleAuthorFeedOrder() {
+    func articleScreenContentHeaderPrefersPublishedDateAndFormatsMetadata() {
         let publishedAt = Date(timeIntervalSince1970: 1_700_000_000)
         let content = ArticleScreenContentState(
             article: makeReaderArticleDTO(
                 feedTitle: "THECODE.MEDIA",
                 author: "Юлия Зубарева",
-                publishedAt: publishedAt
+                publishedAt: publishedAt,
+                updatedAtSource: Date(timeIntervalSince1970: 1_800_000_000),
+                fetchedAt: Date(timeIntervalSince1970: 1_900_000_000)
             )
         )
 
-        #expect(content.header.publishedAtText == ArticleScreenDateFormatter.string(from: publishedAt))
+        #expect(content.header.effectiveDateText == ArticleScreenDateFormatter.string(from: publishedAt))
         #expect(content.header.title == "Article")
         #expect(content.header.author == "Юлия Зубарева")
         #expect(content.header.feedTitle == "THECODE.MEDIA")
     }
 
     @Test
-    func articleScreenContentHeaderHidesBlankMetadataAndFallsBackForBlankTitle() {
+    func articleScreenContentHeaderUsesUpdatedThenFetchedFallbackAndNormalizesMetadata() {
+        let updatedAtSource = Date(timeIntervalSince1970: 1_700_000_100)
+        let fetchedAt = Date(timeIntervalSince1970: 1_700_000_200)
         let content = ArticleScreenContentState(
             article: makeReaderArticleDTO(
                 feedTitle: "   ",
                 title: "   ",
                 author: " \n ",
-                publishedAt: nil
+                publishedAt: nil,
+                updatedAtSource: updatedAtSource,
+                fetchedAt: fetchedAt
+            )
+        )
+        let undatedContent = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                publishedAt: nil,
+                updatedAtSource: nil,
+                fetchedAt: fetchedAt
             )
         )
 
-        #expect(content.header.publishedAtText == nil)
+        #expect(content.header.effectiveDateText == ArticleScreenDateFormatter.string(from: updatedAtSource))
+        #expect(undatedContent.header.effectiveDateText == ArticleScreenDateFormatter.string(from: fetchedAt))
         #expect(content.header.title == ReadingLocalization.untitledArticleTitle)
         #expect(content.header.author == nil)
         #expect(content.header.feedTitle == nil)

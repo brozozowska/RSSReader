@@ -17,8 +17,7 @@ enum ArticlesDaySectionsBuilder {
         var sectionIndexByDay: [Date: Int] = [:]
 
         for article in articles {
-            let referenceDate = article.publishedAt ?? article.fetchedAt
-            let day = calendar.startOfDay(for: referenceDate)
+            let day = calendar.startOfDay(for: article.effectiveDate)
 
             if let sectionIndex = sectionIndexByDay[day] {
                 sections[sectionIndex].articles.append(article)

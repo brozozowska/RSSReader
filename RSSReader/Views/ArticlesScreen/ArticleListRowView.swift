@@ -63,10 +63,9 @@ struct ArticleListRowView: View {
     }
 }
 
-private enum ArticleListRowTimeFormatter {
+enum ArticleListRowTimeFormatter {
     static func string(for article: ArticleListItemDTO) -> String {
-        let referenceDate = article.publishedAt ?? article.fetchedAt
-        return referenceDate.formatted(
+        article.effectiveDate.formatted(
             .dateTime
                 .hour(.twoDigits(amPM: .omitted))
                 .minute(.twoDigits)

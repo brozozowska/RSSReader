@@ -88,7 +88,7 @@ struct ArticlesScreenControllerViewportContinuityTests {
                 feedTitle: article.feedTitle,
                 articleExternalID: article.articleExternalID,
                 title: "Refreshed \(index)",
-                publishedAt: article.publishedAt,
+                effectiveDate: article.effectiveDate,
                 isRead: article.isRead,
                 isStarred: article.isStarred
             )

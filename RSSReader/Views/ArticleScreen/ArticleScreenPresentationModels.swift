@@ -53,14 +53,14 @@ struct ArticleScreenContentState: Equatable {
 
 @MainActor
 struct ArticleScreenHeaderState: Equatable {
-    let publishedAtText: String?
+    let effectiveDateText: String
     let title: String
     let author: String?
     let feedTitle: String?
     let canOpenSourceArticle: Bool
 
     init(article: ReaderArticleDTO) {
-        self.publishedAtText = article.publishedAt.map(ArticleScreenDateFormatter.string(from:))
+        self.effectiveDateText = ArticleScreenDateFormatter.string(from: article.effectiveDate)
         self.title = article.title.nilIfBlank ?? ReadingLocalization.untitledArticleTitle
         self.author = article.author?.nilIfBlank
         self.feedTitle = article.feedTitle.nilIfBlank

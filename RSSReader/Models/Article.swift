@@ -1,6 +1,16 @@
 import Foundation
 import SwiftData
 
+nonisolated enum ArticleEffectiveDatePolicy {
+    static func resolve(
+        publishedAt: Date?,
+        updatedAtSource: Date?,
+        fetchedAt: Date
+    ) -> Date {
+        publishedAt ?? updatedAtSource ?? fetchedAt
+    }
+}
+
 @Model
 final class Article {
     #Index<Article>(
@@ -80,8 +90,12 @@ final class Article {
         )
         self.author = author
         self.publishedAt = publishedAt
-        self.querySortDate = publishedAt ?? fetchedAt
         self.updatedAtSource = updatedAtSource
+        self.querySortDate = ArticleEffectiveDatePolicy.resolve(
+            publishedAt: publishedAt,
+            updatedAtSource: updatedAtSource,
+            fetchedAt: fetchedAt
+        )
         self.imageURL = imageURL
         self.archivedAt = archivedAt
         self.fetchedAt = fetchedAt

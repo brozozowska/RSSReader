@@ -349,8 +349,16 @@ struct ArticlesScreenStateLoadingTests {
         let lowerID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
         let higherID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000002"))
         let tieDate = Date(timeIntervalSince1970: 500)
-        let lowerArticle = makeArticleListItemDTO(id: lowerID, publishedAt: tieDate)
-        let higherArticle = makeArticleListItemDTO(id: higherID, publishedAt: tieDate)
+        let lowerArticle = makeArticleListItemDTO(
+            id: lowerID,
+            updatedAtSource: tieDate,
+            fetchedAt: Date(timeIntervalSince1970: 800)
+        )
+        let higherArticle = makeArticleListItemDTO(
+            id: higherID,
+            updatedAtSource: tieDate,
+            fetchedAt: Date(timeIntervalSince1970: 900)
+        )
 
         let descendingEntries = ArticleListSessionMergePolicy.merge(
             currentEntries: [],

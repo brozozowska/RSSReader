@@ -342,6 +342,7 @@ struct ArticleQueryServiceTests {
         #expect(readerArticle.contentHTML == "<p>Readable body</p>")
         #expect(readerArticle.contentText == "Readable body")
         #expect(readerArticle.author == "Author")
+        #expect(readerArticle.effectiveDate == Date(timeIntervalSince1970: 100))
         #expect(readerArticle.articleURL == "https://example.com/hidden-reader")
         #expect(readerArticle.canonicalURL == "https://example.com/canonical")
         #expect(readerArticle.imageURL == "https://example.com/image.jpg")
@@ -349,6 +350,124 @@ struct ArticleQueryServiceTests {
         #expect(readerArticle.isStarred)
         #expect(readerArticle.isHidden)
         #expect(missingReaderArticle == nil)
+    }
+
+    @Test
+    func articleQueryServiceUsesOneEffectiveDateContractAcrossSourceShapes() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(into: harness)
+        let queryService = makeQueryService(harness)
+        let fetchedAt = Date(timeIntervalSince1970: 1_000)
+        let publishedWins = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "atom-published-updated",
+            title: "Atom Published And Updated",
+            publishedAt: Date(timeIntervalSince1970: 400),
+            updatedAtSource: Date(timeIntervalSince1970: 900),
+            fetchedAt: fetchedAt
+        )
+        let updatedOnly = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "atom-updated-only",
+            title: "Atom Updated Only",
+            updatedAtSource: Date(timeIntervalSince1970: 300),
+            fetchedAt: fetchedAt
+        )
+        let rssPublished = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "rss-pub-date",
+            title: "RSS Published",
+            publishedAt: Date(timeIntervalSince1970: 200),
+            fetchedAt: fetchedAt
+        )
+        let undated = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "undated",
+            title: "Undated",
+            fetchedAt: Date(timeIntervalSince1970: 100)
+        )
+
+        let descending = try await fetchAllArticleItems(
+            from: queryService,
+            feedID: feed.id,
+            sortMode: .publishedAtDescending,
+            pageSize: 2
+        )
+        let ascending = try await fetchAllArticleItems(
+            from: queryService,
+            feedID: feed.id,
+            sortMode: .publishedAtAscending,
+            pageSize: 2
+        )
+        let readerArticle = try #require(try queryService.fetchReaderArticle(id: updatedOnly.id))
+
+        #expect(publishedWins.publishedAt == Date(timeIntervalSince1970: 400))
+        #expect(publishedWins.updatedAtSource == Date(timeIntervalSince1970: 900))
+        #expect(publishedWins.querySortDate == Date(timeIntervalSince1970: 400))
+        #expect(updatedOnly.publishedAt == nil)
+        #expect(updatedOnly.updatedAtSource == Date(timeIntervalSince1970: 300))
+        #expect(updatedOnly.querySortDate == Date(timeIntervalSince1970: 300))
+        #expect(rssPublished.querySortDate == Date(timeIntervalSince1970: 200))
+        #expect(undated.querySortDate == Date(timeIntervalSince1970: 100))
+        #expect(descending.map(\.articleExternalID) == [
+            "atom-published-updated", "atom-updated-only", "rss-pub-date", "undated"
+        ])
+        #expect(descending.map(\.effectiveDate) == [
+            Date(timeIntervalSince1970: 400),
+            Date(timeIntervalSince1970: 300),
+            Date(timeIntervalSince1970: 200),
+            Date(timeIntervalSince1970: 100)
+        ])
+        #expect(ascending.map(\.articleExternalID) == [
+            "undated", "rss-pub-date", "atom-updated-only", "atom-published-updated"
+        ])
+        #expect(readerArticle.effectiveDate == updatedOnly.querySortDate)
+    }
+
+    @Test
+    func articleQueryServicePaginatesUpdatedOnlyDenseTiesByStableIdentityInBothDirections() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(into: harness)
+        let queryService = makeQueryService(harness)
+        let tieDate = Date(timeIntervalSince1970: 500)
+        let ids = try (1...7).map { index in
+            try #require(UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", index)))
+        }
+
+        for (index, id) in ids.reversed().enumerated() {
+            _ = try insertArticle(
+                into: harness,
+                feed: feed,
+                id: id,
+                externalID: "updated-tie-\(index)",
+                title: "Updated Tie \(index)",
+                updatedAtSource: tieDate,
+                fetchedAt: Date(timeIntervalSince1970: 1_000 + TimeInterval(index))
+            )
+        }
+
+        let descending = try await fetchAllArticleItems(
+            from: queryService,
+            feedID: feed.id,
+            sortMode: .publishedAtDescending,
+            pageSize: 2
+        )
+        let ascending = try await fetchAllArticleItems(
+            from: queryService,
+            feedID: feed.id,
+            sortMode: .publishedAtAscending,
+            pageSize: 2
+        )
+
+        #expect(descending.map(\.id) == Array(ids.reversed()))
+        #expect(ascending.map(\.id) == ids)
+        #expect(descending.allSatisfy { $0.effectiveDate == tieDate })
+        #expect(Set(descending.map(\.id)).count == ids.count)
+        #expect(Set(ascending.map(\.id)).count == ids.count)
     }
 
     @Test
@@ -763,6 +882,7 @@ struct ArticleQueryServiceTests {
     private func insertArticle(
         into harness: TestHarness,
         feed: Feed,
+        id: UUID = UUID(),
         externalID: String,
         title: String,
         summary: String? = nil,
@@ -773,9 +893,11 @@ struct ArticleQueryServiceTests {
         updatedAtSource: Date? = nil,
         canonicalURL: String? = nil,
         imageURL: String? = nil,
-        archivedAt: Date? = nil
+        archivedAt: Date? = nil,
+        fetchedAt: Date? = nil
     ) throws -> Article {
         let article = Article(
+            id: id,
             feedID: feed.id,
             feedTitle: feed.displayTitle,
             feedSiteURL: feed.siteURL,
@@ -792,10 +914,37 @@ struct ArticleQueryServiceTests {
             updatedAtSource: updatedAtSource,
             imageURL: imageURL,
             archivedAt: archivedAt,
-            fetchedAt: publishedAt ?? Date(timeIntervalSince1970: 0)
+            fetchedAt: fetchedAt ?? publishedAt ?? Date(timeIntervalSince1970: 0)
         )
         harness.modelContainer.mainContext.insert(article)
         try harness.modelContainer.mainContext.save()
         return article
+    }
+
+    private func fetchAllArticleItems(
+        from queryService: DefaultArticleQueryService,
+        feedID: UUID,
+        sortMode: ArticleSortMode,
+        pageSize: Int
+    ) async throws -> [ArticleListItemDTO] {
+        var cursor: ArticleSearchRequest.Cursor?
+        var articles: [ArticleListItemDTO] = []
+
+        repeat {
+            let snapshot = try await queryService.fetchArticleSearchSnapshot(
+                ArticleSearchRequest(
+                    selection: .feed(feedID),
+                    sidebarArticleFilter: .allItems,
+                    query: "",
+                    sortMode: sortMode,
+                    limit: pageSize,
+                    cursor: cursor
+                )
+            )
+            articles.append(contentsOf: snapshot.articles)
+            cursor = snapshot.nextCursor
+        } while cursor != nil
+
+        return articles
     }
 }

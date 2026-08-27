@@ -134,8 +134,7 @@ private enum ArticlesScreenPreviewData {
             title: title,
             summary: summary,
             author: nil,
-            publishedAt: publishedAt,
-            fetchedAt: publishedAt,
+            effectiveDate: publishedAt,
             isRead: false,
             isStarred: false,
             isHidden: false
