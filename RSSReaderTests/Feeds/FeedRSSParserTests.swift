@@ -58,12 +58,64 @@ struct FeedRSSParserTests {
         }
     }
 
+    @Test
+    func mapsQualifiedDublinCoreDatesBySemanticRoleAndCoreRSSPrecedence() throws {
+        let document = try parseDocument("""
+        <rss
+            xmlns:dc="http://purl.org/dc/elements/1.1/"
+            xmlns:dcterms="http://purl.org/dc/terms/"
+            xmlns:foreign="https://example.com/date-extension"
+            version="2.0">
+          <channel>
+            <title>Dublin Core dates</title>
+            <link>https://example.com/</link>
+            <lastBuildDate>Tue, 09 Jan 2024 12:00:00 GMT</lastBuildDate>
+            <item>
+              <title>Core RSS wins publication conflicts</title>
+              <link>https://example.com/articles/core</link>
+              <pubDate>Tue, 02 Jan 2024 10:15:30 GMT</pubDate>
+              <dc:date>2024-01-01</dc:date>
+              <dcterms:created>2023-12-31</dcterms:created>
+              <dcterms:modified>2024-01-03T12:30:00Z</dcterms:modified>
+            </item>
+            <item>
+              <title>Qualified creation fallback</title>
+              <link>https://example.com/articles/created</link>
+              <dcterms:created>2024-01-04</dcterms:created>
+              <dc:date>2024-01-03</dc:date>
+            </item>
+            <item>
+              <title>Generic Dublin Core fallback</title>
+              <link>https://example.com/articles/dc-date</link>
+              <dc:date>2024-01-05</dc:date>
+            </item>
+            <item>
+              <title>Foreign date is not source metadata</title>
+              <link>https://example.com/articles/foreign</link>
+              <foreign:date>2024-01-06</foreign:date>
+            </item>
+          </channel>
+        </rss>
+        """)
+
+        let entries = try FeedParserService.parseRSS(document).entries
+
+        #expect(entries[0].publishedAtRaw == "Tue, 02 Jan 2024 10:15:30 GMT")
+        #expect(entries[0].updatedAtRaw == "2024-01-03T12:30:00Z")
+        #expect(entries[1].publishedAtRaw == "2024-01-04")
+        #expect(entries[1].updatedAtRaw == nil)
+        #expect(entries[2].publishedAtRaw == "2024-01-05")
+        #expect(entries[3].publishedAtRaw == nil)
+        #expect(entries[3].updatedAtRaw == nil)
+    }
+
     private var rssFixture: String {
         """
         <?xml version="1.0" encoding="UTF-8"?>
         <rss
             xmlns:content="http://purl.org/rss/1.0/modules/content/"
             xmlns:dc="http://purl.org/dc/elements/1.1/"
+            xmlns:dcterms="http://purl.org/dc/terms/"
             version="2.0">
           <channel>
             <title>Example RSS Feed</title>
@@ -82,7 +134,7 @@ struct FeedRSSParserTests {
               <content:encoded><![CDATA[<p>Full first article body</p>]]></content:encoded>
               <dc:creator>Author One</dc:creator>
               <pubDate>Tue, 02 Jan 2024 10:15:30 +0000</pubDate>
-              <dc:date>Tue, 02 Jan 2024 11:00:00 +0000</dc:date>
+              <dcterms:modified>Tue, 02 Jan 2024 11:00:00 +0000</dcterms:modified>
               <enclosure url=" https://example.com/images/first.jpg " type="image/jpeg" />
             </item>
             <item>

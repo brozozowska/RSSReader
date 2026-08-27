@@ -42,6 +42,10 @@ struct FeedDateParsingServiceTests {
             "Tue, 02 Jan 2024 10:15 +0000",
             equals: makeUTCDate(year: 2024, month: 1, day: 2, hour: 10, minute: 15)
         )
+        assertParsedDate(
+            "Tue, 02 Jan 24 10:15:30 GMT",
+            equals: makeUTCDate(year: 2024, month: 1, day: 2, hour: 10, minute: 15, second: 30)
+        )
     }
 
     @Test
@@ -90,6 +94,26 @@ struct FeedDateParsingServiceTests {
                 nanosecond: 123_000_000
             )
         )
+        assertParsedDate(
+            "2024-01-02",
+            equals: makeUTCDate(year: 2024, month: 1, day: 2, hour: 0, minute: 0)
+        )
+    }
+
+    @Test
+    func trimsWhitespaceAroundSupportedDates() {
+        assertParsedDate(
+            "  \n2024-01-02T10:15:30.486Z\t ",
+            equals: makeUTCDate(
+                year: 2024,
+                month: 1,
+                day: 2,
+                hour: 10,
+                minute: 15,
+                second: 30,
+                nanosecond: 486_000_000
+            )
+        )
     }
 
     @Test
@@ -99,6 +123,7 @@ struct FeedDateParsingServiceTests {
         #expect(FeedDateParsingService.parse("   \n\t  ") == nil)
         #expect(FeedDateParsingService.parse("not a date") == nil)
         #expect(FeedDateParsingService.parse("2024-13-99T99:99:99Z") == nil)
+        #expect(FeedDateParsingService.parse("2024-02-30") == nil)
     }
 
     private func assertParsedDate(_ value: String, equals expectedDate: Date) {
