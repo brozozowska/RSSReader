@@ -6,6 +6,117 @@ import Testing
 @MainActor
 struct SidebarSelectionFlowTests {
     @Test
+    func sidebarAllFeedsRefreshRetriesOnlyFailedFeedThroughPostCleanupBoundary() async throws {
+        let firstFeedURL = "https://example.com/sidebar-retry-first.xml"
+        let failedFeedURL = "https://example.com/sidebar-retry-failed.xml"
+        let logger = RecordingLogger()
+        let badgeService = SidebarRecordingBadgeService()
+        let client = ScriptedHTTPClient(
+            responseSequencesByURL: [
+                firstFeedURL: [
+                    .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: makeValidRSSFeedXML(
+                            channelTitle: "First Feed",
+                            channelLink: "https://example.com/first/",
+                            language: "en",
+                            itemTitle: "First Article",
+                            itemLink: "https://example.com/first/article",
+                            itemGUID: "first-article",
+                            itemDescription: "First feed succeeds once",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ],
+                failedFeedURL: [
+                    .response(statusCode: 500, headers: [:], body: ""),
+                    .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: makeValidRSSFeedXML(
+                            channelTitle: "Retried Feed",
+                            channelLink: "https://example.com/retried/",
+                            language: "en",
+                            itemTitle: "Retried Article",
+                            itemLink: "https://example.com/retried/article",
+                            itemGUID: "retried-article",
+                            itemDescription: "Failed feed succeeds on retry",
+                            pubDate: "Wed, 03 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            ]
+        )
+        let harness = try TestHarness.make(
+            httpClient: client,
+            unreadAppIconBadgeService: badgeService,
+            logger: logger
+        )
+        let feeds = try harness.insertFeeds(urls: [firstFeedURL, failedFeedURL])
+        let failedFeed = feeds[1]
+        let controller = SidebarScreenController()
+        let appState = AppState()
+        let firstSidebarReloadID = appState.sidebarReloadID
+        let firstArticleReloadID = appState.articleListReloadID
+
+        _ = await controller.refreshSidebar(
+            dependencies: harness.dependencies,
+            appState: appState,
+            currentSelection: .inbox,
+            filter: .allItems
+        )
+
+        #expect(controller.screenState.refreshStatus == .failed(lastUpdatedAt: nil))
+        #expect(appState.sidebarReloadID != firstSidebarReloadID)
+        #expect(appState.articleListReloadID != firstArticleReloadID)
+        #expect(badgeService.refreshBadgeCountCallCount == 1)
+
+        _ = try harness.insertArticle(
+            feed: failedFeed,
+            externalID: "expired-before-retry",
+            url: "https://example.com/expired-before-retry",
+            title: "Expired Before Retry",
+            publishedAt: .distantPast,
+            archivedAt: .distantPast,
+            fetchedAt: .distantPast,
+            createdAt: .distantPast
+        )
+        _ = try harness.dependencies.appSettingsRepository?.update(
+            AppSettingsUpdate(articleRetentionPolicy: .oneWeek, updatedAt: .distantPast)
+        )
+        let retrySidebarReloadID = appState.sidebarReloadID
+        let retryArticleReloadID = appState.articleListReloadID
+
+        _ = await controller.refreshSidebar(
+            dependencies: harness.dependencies,
+            appState: appState,
+            currentSelection: .inbox,
+            filter: .allItems
+        )
+
+        let requests = await client.recordedRequests()
+        let requestCounts = Dictionary(grouping: requests.map { $0.url.absoluteString }, by: { $0 })
+            .mapValues(\.count)
+        let retriedArticles = try harness.articleRepository.fetchArticles(feedID: failedFeed.id)
+
+        #expect(requestCounts[firstFeedURL] == 1)
+        #expect(requestCounts[failedFeedURL] == 2)
+        #expect(retriedArticles.count == 1)
+        #expect(retriedArticles.first?.guid == "retried-article")
+        #expect(retriedArticles.contains { $0.externalID == "expired-before-retry" } == false)
+        #expect(controller.screenState.refreshStatus.lastUpdatedAt != nil)
+        #expect(controller.screenState.refreshStatus.isSyncing == false)
+        #expect(appState.sidebarReloadID != retrySidebarReloadID)
+        #expect(appState.articleListReloadID != retryArticleReloadID)
+        #expect(badgeService.refreshBadgeCountCallCount == 2)
+        #expect(logger.contains("Manual feed refresh batch phase=initial", level: .info))
+        #expect(logger.contains("retryTargets=[\(failedFeed.id.uuidString)]", level: .info))
+        #expect(logger.contains("Manual feed refresh batch phase=retry", level: .info))
+        #expect(logger.contains("targets=[\(failedFeed.id.uuidString)]", level: .info))
+    }
+
+    @Test
     func sidebarControllerLoadsPersistedLastFeedsRefreshTimestampWithoutRewritingIt() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
@@ -406,4 +517,15 @@ struct SidebarSelectionFlowTests {
             update: update
         )
     }
+}
+
+@MainActor
+private final class SidebarRecordingBadgeService: UnreadAppIconBadgeServicing {
+    private(set) var refreshBadgeCountCallCount = 0
+
+    func refreshBadgeCount() async {
+        refreshBadgeCountCallCount += 1
+    }
+
+    func applyBadgePreference(isEnabled: Bool) async {}
 }

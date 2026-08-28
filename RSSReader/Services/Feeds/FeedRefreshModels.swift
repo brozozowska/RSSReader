@@ -315,18 +315,27 @@ struct FeedRefreshBatchError: Sendable, Equatable, Identifiable {
 struct FeedRefreshBatchResult: Sendable {
     let startedAt: Date
     let finishedAt: Date
+    let targetFeedIDs: [UUID]
     let results: [FeedRefreshResult]
+    let batchErrorDescription: String?
     let summary: FeedRefreshBatchSummary
 
     init(
         startedAt: Date,
         finishedAt: Date,
-        results: [FeedRefreshResult]
+        results: [FeedRefreshResult],
+        targetFeedIDs: [UUID]? = nil,
+        batchErrorDescription: String? = nil
     ) {
         self.startedAt = startedAt
         self.finishedAt = finishedAt
+        self.targetFeedIDs = targetFeedIDs ?? results.map(\.feedID)
         self.results = results
-        self.summary = Self.makeSummary(from: results)
+        self.batchErrorDescription = batchErrorDescription
+        self.summary = Self.makeSummary(
+            from: results,
+            targetFeedCount: self.targetFeedIDs.count
+        )
     }
 
     var duration: TimeInterval {
@@ -345,6 +354,28 @@ struct FeedRefreshBatchResult: Sendable {
         failedResults.map(\.feedID)
     }
 
+    var retryFeedIDs: [UUID] {
+        let resultsByFeedID = Dictionary(grouping: results, by: \.feedID)
+        return targetFeedIDs.filter { feedID in
+            guard let matchingResults = resultsByFeedID[feedID],
+                  matchingResults.count == 1,
+                  let result = matchingResults.first else {
+                return true
+            }
+            return result.status == .failed || result.status == .cancelled
+        }
+    }
+
+    var hasUnsuccessfulOutcome: Bool {
+        batchErrorDescription != nil
+            || hasExactlyOneOutcomePerTarget == false
+            || retryFeedIDs.isEmpty == false
+    }
+
+    var isCompleteSuccess: Bool {
+        hasUnsuccessfulOutcome == false
+    }
+
     var errors: [FeedRefreshBatchError] {
         failedResults.compactMap { result in
             guard let message = result.errorDescription, message.isEmpty == false else {
@@ -359,12 +390,21 @@ struct FeedRefreshBatchResult: Sendable {
     }
 
     var failureDescriptions: [String] {
-        errors.map(\.message)
+        [batchErrorDescription].compactMap { $0 } + errors.map(\.message)
     }
 
-    private static func makeSummary(from results: [FeedRefreshResult]) -> FeedRefreshBatchSummary {
+    private var hasExactlyOneOutcomePerTarget: Bool {
+        guard results.count == targetFeedIDs.count else { return false }
+        return Dictionary(grouping: results, by: \.feedID).mapValues(\.count)
+            == Dictionary(grouping: targetFeedIDs, by: { $0 }).mapValues(\.count)
+    }
+
+    private static func makeSummary(
+        from results: [FeedRefreshResult],
+        targetFeedCount: Int
+    ) -> FeedRefreshBatchSummary {
         FeedRefreshBatchSummary(
-            totalFeedCount: results.count,
+            totalFeedCount: targetFeedCount,
             fetchedCount: results.filter { $0.status == .fetched }.count,
             notModifiedCount: results.filter { $0.status == .notModified }.count,
             failedCount: results.filter { $0.status == .failed }.count,

@@ -42,10 +42,67 @@ extension AppActionRouter {
         }
 
         let result = await feedRefreshService.refreshAllActiveFeeds()
+        recordManualRefreshBatchDiagnostics(
+            result,
+            phase: "initial",
+            requestedTargetFeedIDs: result.targetFeedIDs
+        )
         recordFeedsRefreshIfNeeded(from: result)
         cleanupArticlesUsingCurrentSettings(scope: .allFeeds)
         await refreshUnreadAppIconBadgeCount()
         return result
+    }
+
+    @MainActor
+    func retryFeeds(
+        _ feedIDs: [UUID],
+        using appState: AppState,
+        requestsArticleListReload: Bool = true
+    ) async -> FeedRefreshBatchResult? {
+        guard let feedRefreshService else {
+            logger.error("Feed refresh service is unavailable for failed-feed retry")
+            return nil
+        }
+        guard let feedRepository else {
+            logger.error("Feed repository is unavailable for failed-feed retry")
+            return nil
+        }
+
+        let requestedFeedIDs = uniquePreservingOrder(feedIDs)
+        do {
+            let activeFeedIDs = Set(try feedRepository.fetchActiveFeeds().map(\.id))
+            let retryFeedIDs = requestedFeedIDs.filter(activeFeedIDs.contains)
+            let result = await feedRefreshService.refreshFeeds(retryFeedIDs)
+            recordManualRefreshBatchDiagnostics(
+                result,
+                phase: "retry",
+                requestedTargetFeedIDs: requestedFeedIDs
+            )
+            recordFeedsRefreshIfNeeded(from: result)
+            cleanupArticlesUsingCurrentSettings(scope: .feedIDs(result.targetFeedIDs))
+            await refreshUnreadAppIconBadgeCount()
+            appState.requestSidebarReload()
+            if requestsArticleListReload {
+                appState.requestArticleListReload()
+            }
+            return result
+        } catch {
+            logger.error("Failed to resolve active feeds for failed-feed retry: \(error)")
+            let now = Date()
+            let result = FeedRefreshBatchResult(
+                startedAt: now,
+                finishedAt: now,
+                results: [],
+                targetFeedIDs: requestedFeedIDs,
+                batchErrorDescription: String(describing: error)
+            )
+            recordManualRefreshBatchDiagnostics(
+                result,
+                phase: "retry",
+                requestedTargetFeedIDs: requestedFeedIDs
+            )
+            return result
+        }
     }
 
     @MainActor
@@ -131,7 +188,8 @@ extension AppActionRouter {
 
     @MainActor
     private func recordFeedsRefreshIfNeeded(from result: FeedRefreshBatchResult) {
-        guard result.summary.fetchedCount + result.summary.notModifiedCount > 0 else {
+        guard result.isCompleteSuccess,
+              result.summary.fetchedCount + result.summary.notModifiedCount > 0 else {
             return
         }
 
@@ -191,5 +249,31 @@ extension AppActionRouter {
                 + "deletedByRetention=\(cleanupResult?.deletedCount ?? 0) "
                 + "retentionCleanupCompleted=\(cleanupResult != nil)"
         )
+    }
+
+    @MainActor
+    private func recordManualRefreshBatchDiagnostics(
+        _ result: FeedRefreshBatchResult,
+        phase: String,
+        requestedTargetFeedIDs: [UUID]
+    ) {
+        let requestedTargets = requestedTargetFeedIDs.map(\.uuidString).joined(separator: ",")
+        let targets = result.targetFeedIDs.map(\.uuidString).joined(separator: ",")
+        let outcomes = result.results.map {
+            "\($0.feedID.uuidString):\($0.status.rawValue)"
+        }.joined(separator: ",")
+        let retryTargets = result.retryFeedIDs.map(\.uuidString).joined(separator: ",")
+        logger.info(
+            "Manual feed refresh batch phase=\(phase) "
+                + "requestedTargets=[\(requestedTargets)] "
+                + "targets=[\(targets)] outcomes=[\(outcomes)] "
+                + "retryTargets=[\(retryTargets)] "
+                + "batchError=\(result.batchErrorDescription ?? "none")"
+        )
+    }
+
+    private func uniquePreservingOrder(_ feedIDs: [UUID]) -> [UUID] {
+        var seen = Set<UUID>()
+        return feedIDs.filter { seen.insert($0).inserted }
     }
 }

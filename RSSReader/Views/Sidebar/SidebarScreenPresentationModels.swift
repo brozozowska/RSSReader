@@ -11,12 +11,22 @@ enum SidebarContentPhase: Equatable {
 enum SidebarRefreshStatus: Equatable {
     case idle(lastUpdatedAt: Date?)
     case syncing
+    case failed(lastUpdatedAt: Date?)
 
     var isSyncing: Bool {
         if case .syncing = self {
             return true
         }
         return false
+    }
+
+    var lastUpdatedAt: Date? {
+        switch self {
+        case .idle(let lastUpdatedAt), .failed(let lastUpdatedAt):
+            lastUpdatedAt
+        case .syncing:
+            nil
+        }
     }
 }
 

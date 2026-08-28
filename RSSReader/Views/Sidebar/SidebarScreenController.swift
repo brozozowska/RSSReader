@@ -7,6 +7,7 @@ final class SidebarScreenController {
     var screenState: SidebarScreenState
     private(set) var expandedFolderNames: Set<String>
     let isPreviewMode: Bool
+    private var pendingAllFeedsRetryFeedIDs: [UUID] = []
 
     init(previewScreenState: SidebarScreenState? = nil) {
         self.screenState = previewScreenState ?? SidebarScreenState()
@@ -64,7 +65,16 @@ final class SidebarScreenController {
 
         let previousStatus = screenState.refreshStatus
         screenState.beginRefreshing()
-        let result = await dependencies.appActions.refreshVisibleFeeds(using: appState)
+        let result: FeedRefreshBatchResult?
+        if pendingAllFeedsRetryFeedIDs.isEmpty {
+            result = await dependencies.appActions.refreshVisibleFeeds(using: appState)
+        } else {
+            result = await dependencies.appActions.retryFeeds(
+                pendingAllFeedsRetryFeedIDs,
+                using: appState
+            )
+        }
+        pendingAllFeedsRetryFeedIDs = result?.retryFeedIDs ?? pendingAllFeedsRetryFeedIDs
         let refreshedAt = result.flatMap(Self.sidebarRefreshDisplayDate)
         let adjustedSelection = await loadFeeds(
             showsFullScreenLoading: false,
@@ -74,7 +84,9 @@ final class SidebarScreenController {
             refreshedAt: refreshedAt
         )
 
-        if refreshedAt == nil {
+        if result?.hasUnsuccessfulOutcome == true {
+            screenState.applyRefreshFailure(lastUpdatedAt: previousStatus.lastUpdatedAt)
+        } else if refreshedAt == nil {
             screenState.restoreRefreshStatus(previousStatus)
         }
 
@@ -91,7 +103,8 @@ final class SidebarScreenController {
     }
 
     private static func sidebarRefreshDisplayDate(from result: FeedRefreshBatchResult) -> Date? {
-        guard result.summary.fetchedCount + result.summary.notModifiedCount > 0 else {
+        guard result.isCompleteSuccess,
+              result.summary.fetchedCount + result.summary.notModifiedCount > 0 else {
             return nil
         }
 

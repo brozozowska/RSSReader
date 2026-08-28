@@ -45,6 +45,10 @@ struct SidebarScreenState {
         refreshStatus = previousStatus
     }
 
+    mutating func applyRefreshFailure(lastUpdatedAt: Date?) {
+        refreshStatus = .failed(lastUpdatedAt: lastUpdatedAt)
+    }
+
     mutating func applyLoadedSnapshot(
         _ snapshot: SidebarSnapshotDTO,
         refreshedAt: Date?

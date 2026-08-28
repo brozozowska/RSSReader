@@ -58,6 +58,10 @@ struct FeedRefreshServiceBatchTests {
         #expect(result.summary.notModifiedCount == 1)
         #expect(result.summary.failedCount == 1)
         #expect(result.summary.cancelledCount == 0)
+        #expect(result.targetFeedIDs == feeds.map(\.id))
+        #expect(result.retryFeedIDs == [feeds[2].id])
+        #expect(result.hasUnsuccessfulOutcome)
+        #expect(result.isCompleteSuccess == false)
         #expect(result.errors.count == 1)
         #expect(result.failedResults.count == 1)
         #expect(result.results.map(\.status) == [.fetched, .notModified, .failed])
@@ -173,12 +177,14 @@ struct FeedRefreshServiceBatchTests {
             return await client.currentInFlightExecutionCount() == 0 && hasActiveExecution == false
         }
 
-        #expect(result.summary.totalFeedCount == expectedInFlightRequestCount)
+        #expect(result.summary.totalFeedCount == feeds.count)
         #expect(result.summary.fetchedCount == 0)
-        #expect(result.summary.cancelledCount == expectedInFlightRequestCount)
+        #expect(result.summary.cancelledCount == feeds.count)
         #expect(result.summary.failedCount == 0)
         #expect(result.summary.notModifiedCount == 0)
-        #expect(result.results.map(\.status) == Array(repeating: .cancelled, count: expectedInFlightRequestCount))
+        #expect(result.targetFeedIDs == feeds.map(\.id))
+        #expect(result.results.map(\.status) == Array(repeating: .cancelled, count: feeds.count))
+        #expect(result.retryFeedIDs == feeds.map(\.id))
 
         let requests = await client.recordedRequests()
         let requestedURLs = requests.map { $0.url.absoluteString }
@@ -186,6 +192,176 @@ struct FeedRefreshServiceBatchTests {
         #expect(await client.maxConcurrentExecutions() == expectedInFlightRequestCount)
         #expect(Set(requestedURLs) == Set(urls.prefix(expectedInFlightRequestCount)))
         #expect(requestedURLs.contains(urls[expectedInFlightRequestCount]) == false)
+    }
+
+    @Test
+    func batchResultTreatsMissingTerminalOutcomeAsRetryable() {
+        let completedFeedID = UUID()
+        let omittedFeedID = UUID()
+        let now = Date()
+        let result = FeedRefreshBatchResult(
+            startedAt: now,
+            finishedAt: now,
+            results: [
+                .notModified(feedID: completedFeedID, startedAt: now, finishedAt: now)
+            ],
+            targetFeedIDs: [completedFeedID, omittedFeedID]
+        )
+
+        #expect(result.summary.totalFeedCount == 2)
+        #expect(result.results.count == 1)
+        #expect(result.retryFeedIDs == [omittedFeedID])
+        #expect(result.hasUnsuccessfulOutcome)
+        #expect(result.isCompleteSuccess == false)
+    }
+
+    @Test
+    func batchResultRejectsDuplicateOrUnexpectedTerminalOutcomes() {
+        let targetFeedID = UUID()
+        let unexpectedFeedID = UUID()
+        let now = Date()
+        let duplicateResult = FeedRefreshBatchResult(
+            startedAt: now,
+            finishedAt: now,
+            results: [
+                .notModified(feedID: targetFeedID, startedAt: now, finishedAt: now),
+                .notModified(feedID: targetFeedID, startedAt: now, finishedAt: now)
+            ],
+            targetFeedIDs: [targetFeedID]
+        )
+        let unexpectedResult = FeedRefreshBatchResult(
+            startedAt: now,
+            finishedAt: now,
+            results: [
+                .notModified(feedID: unexpectedFeedID, startedAt: now, finishedAt: now)
+            ],
+            targetFeedIDs: [targetFeedID]
+        )
+
+        #expect(duplicateResult.retryFeedIDs == [targetFeedID])
+        #expect(duplicateResult.isCompleteSuccess == false)
+        #expect(unexpectedResult.retryFeedIDs == [targetFeedID])
+        #expect(unexpectedResult.isCompleteSuccess == false)
+    }
+
+    @Test
+    func overlappingBatchesShareOneExecutionPerFeedAndReturnCompleteOrderedOutcomes() async throws {
+        let urls = (1...3).map { "https://example.com/overlap-\($0).xml" }
+        let responseGate = ScriptedHTTPClientResponseGate()
+        let client = ScriptedHTTPClient(
+            responsesByURL: Dictionary(
+                uniqueKeysWithValues: urls.enumerated().map { index, url in
+                    (
+                        url,
+                        .gatedResponse(
+                            statusCode: 200,
+                            headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                            body: makeValidRSSFeedXML(
+                                channelTitle: "Overlap Feed \(index + 1)",
+                                channelLink: "https://example.com/overlap/\(index + 1)/",
+                                language: "en",
+                                itemTitle: "Overlap Article \(index + 1)",
+                                itemLink: "https://example.com/overlap/\(index + 1)/articles/1",
+                                itemGUID: "overlap-\(index + 1)",
+                                itemDescription: "Overlap fixture",
+                                pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                            ),
+                            gate: responseGate
+                        )
+                    )
+                }
+            )
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let feeds = try harness.insertFeeds(urls: urls)
+        let feedIDs = feeds.map(\.id)
+
+        let firstTask = Task { @MainActor in
+            await harness.service.refreshFeeds(feedIDs)
+        }
+        try await waitUntil("first batch started every target") {
+            await responseGate.enteredCount() == feedIDs.count
+        }
+
+        let secondTask = Task { @MainActor in
+            await harness.service.refreshFeeds(feedIDs)
+        }
+        try await waitUntil("second batch joined every target") {
+            feedIDs.allSatisfy { harness.service.inFlightRefreshTasks[$0]?.waiterCount == 2 }
+        }
+        await responseGate.release()
+
+        let firstResult = await firstTask.value
+        let secondResult = await secondTask.value
+
+        #expect(firstResult.targetFeedIDs == feedIDs)
+        #expect(secondResult.targetFeedIDs == feedIDs)
+        #expect(firstResult.results.map(\.status) == Array(repeating: .fetched, count: feedIDs.count))
+        #expect(secondResult.results.map(\.status) == Array(repeating: .fetched, count: feedIDs.count))
+        #expect(await client.recordedRequests().count == feedIDs.count)
+    }
+
+    @Test
+    func allFeedsTargetSnapshotIgnoresConcurrentAddAndKeepsRemovedFeedOutcome() async throws {
+        let urls = (1...2).map { "https://example.com/target-snapshot-\($0).xml" }
+        let responseGate = ScriptedHTTPClientResponseGate()
+        let client = ScriptedHTTPClient(
+            responsesByURL: Dictionary(
+                uniqueKeysWithValues: urls.enumerated().map { index, url in
+                    (
+                        url,
+                        .gatedResponse(
+                            statusCode: 200,
+                            headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                            body: makeValidRSSFeedXML(
+                                channelTitle: "Snapshot Feed \(index + 1)",
+                                channelLink: "https://example.com/snapshot/\(index + 1)/",
+                                language: "en",
+                                itemTitle: "Snapshot Article \(index + 1)",
+                                itemLink: "https://example.com/snapshot/\(index + 1)/articles/1",
+                                itemGUID: "snapshot-\(index + 1)",
+                                itemDescription: "Snapshot fixture",
+                                pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                            ),
+                            gate: responseGate
+                        )
+                    )
+                }
+            )
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let feeds = try harness.insertFeeds(urls: urls)
+        let originalFeedIDs = feeds.map(\.id)
+
+        let task = Task { @MainActor in
+            await harness.service.refreshAllActiveFeeds()
+        }
+        try await waitUntil("all original targets entered the response gate") {
+            await responseGate.enteredCount() == originalFeedIDs.count
+        }
+
+        let addedFeed = try harness.feedRepository.insert(
+            Feed(url: "https://example.com/target-snapshot-added.xml", title: "Added")
+        )
+        _ = try harness.feedRepository.delete(feedID: feeds[1].id)
+        await responseGate.release()
+
+        let result = await task.value
+        let retryResult = await harness.dependencies.appActions.retryFeeds(
+            result.retryFeedIDs,
+            using: AppState()
+        )
+        let requestedURLs = await client.recordedRequests().map { $0.url.absoluteString }
+
+        #expect(result.targetFeedIDs == originalFeedIDs)
+        #expect(result.results.count == originalFeedIDs.count)
+        #expect(result.results[0].status == .fetched)
+        #expect(result.results[1].feedID == feeds[1].id)
+        #expect(result.results[1].status == .failed)
+        #expect(result.retryFeedIDs == [feeds[1].id])
+        #expect(retryResult?.targetFeedIDs.isEmpty == true)
+        #expect(requestedURLs == urls)
+        #expect(requestedURLs.contains(addedFeed.url) == false)
     }
 
     private func waitUntil(

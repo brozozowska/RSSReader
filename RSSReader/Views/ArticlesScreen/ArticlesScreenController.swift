@@ -39,6 +39,8 @@ final class ArticlesScreenController {
     @ObservationIgnored private var activeNextPageTask: Task<ArticleListContinuationSnapshot?, Never>?
     @ObservationIgnored private var activeNextPageIdentity: ArticleListNextPageIdentity?
     @ObservationIgnored private var loadGeneration = 0
+    @ObservationIgnored private var manualRefreshGeneration = 0
+    @ObservationIgnored private var pendingAllFeedsRetryFeedIDs: [UUID] = []
     private var lastLoadedSessionContext: ArticleListSession.Context
 
     init(
@@ -95,6 +97,7 @@ final class ArticlesScreenController {
             dependencies: dependencies
         )
         guard loadPlan.sessionContextChanged else { return nil }
+        pendingAllFeedsRetryFeedIDs = []
 
         loadGeneration += 1
         let currentLoadGeneration = loadGeneration
@@ -132,6 +135,8 @@ final class ArticlesScreenController {
 
     func endPresentation() {
         loadGeneration += 1
+        manualRefreshGeneration += 1
+        pendingAllFeedsRetryFeedIDs = []
         activeLoadTask?.cancel()
         activeLoadTask = nil
         activeLoadSessionContext = nil
@@ -193,6 +198,9 @@ final class ArticlesScreenController {
             refreshesScopeMetric: refreshesScopeMetric,
             dependencies: dependencies
         )
+        if loadPlan.sessionContextChanged {
+            pendingAllFeedsRetryFeedIDs = []
+        }
         if retainsSessionFilterMutations,
            activeLoadSessionContext == loadPlan.sessionContext,
            let activeLoadTask {
@@ -584,10 +592,34 @@ final class ArticlesScreenController {
         requestsArticleListReload: Bool = true
     ) async -> FeedRefreshBatchResult? {
         screenState.dismissRefreshFeedback()
-        let result = await dependencies.appActions.refreshCurrentSelection(
-            using: appState,
-            requestsArticleListReload: requestsArticleListReload
-        )
+        manualRefreshGeneration += 1
+        let currentRefreshGeneration = manualRefreshGeneration
+        let refreshContext = screenState.articleListSession.context
+        let refreshesAllFeeds = selection?.refreshesAllFeeds == true
+        let result: FeedRefreshBatchResult?
+        if refreshesAllFeeds, pendingAllFeedsRetryFeedIDs.isEmpty == false {
+            result = await dependencies.appActions.retryFeeds(
+                pendingAllFeedsRetryFeedIDs,
+                using: appState,
+                requestsArticleListReload: requestsArticleListReload
+            )
+        } else {
+            result = await dependencies.appActions.refreshCurrentSelection(
+                using: appState,
+                requestsArticleListReload: requestsArticleListReload
+            )
+        }
+
+        guard currentRefreshGeneration == manualRefreshGeneration,
+              refreshContext == screenState.articleListSession.context else {
+            return result
+        }
+
+        if refreshesAllFeeds {
+            pendingAllFeedsRetryFeedIDs = result?.retryFeedIDs ?? pendingAllFeedsRetryFeedIDs
+        } else {
+            pendingAllFeedsRetryFeedIDs = []
+        }
 
         if let result, let refreshFailureMessage = refreshFailureMessage(for: result) {
             screenState.presentRefreshFailure(refreshFailureMessage)
@@ -765,25 +797,41 @@ final class ArticlesScreenController {
     }
 
     private func refreshFailureMessage(for result: FeedRefreshBatchResult) -> String? {
-        guard result.summary.failedCount > 0 else {
+        guard result.hasUnsuccessfulOutcome else {
             return nil
         }
 
+        let unsuccessfulCount = max(
+            result.retryFeedIDs.count,
+            result.batchErrorDescription == nil ? 0 : 1
+        )
+
         if let firstError = result.failureDescriptions.first {
-            if result.summary.failedCount == 1 {
+            if unsuccessfulCount == 1 {
                 return firstError
             }
             return ReadingLocalization.multipleFeedsRefreshFailed(
-                count: result.summary.failedCount,
+                count: unsuccessfulCount,
                 firstError: firstError
             )
         }
 
-        if result.summary.failedCount == 1 {
+        if unsuccessfulCount == 1 {
             return ReadingLocalization.singleFeedRefreshFailed
         }
 
-        return ReadingLocalization.multipleFeedsRefreshFailed(count: result.summary.failedCount)
+        return ReadingLocalization.multipleFeedsRefreshFailed(count: unsuccessfulCount)
+    }
+}
+
+private extension SidebarSelection {
+    var refreshesAllFeeds: Bool {
+        switch self {
+        case .inbox, .unread, .starred:
+            true
+        case .feed, .folder:
+            false
+        }
     }
 }
 

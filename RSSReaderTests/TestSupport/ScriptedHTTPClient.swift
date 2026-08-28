@@ -20,16 +20,19 @@ actor ScriptedHTTPClient: HTTPClient {
 
     private var steps: [Step]
     private var responsesByURL: [String: Step]
+    private var responseSequencesByURL: [String: [Step]]
     private var requests: [HTTPRequest] = []
     private var inFlightExecutions = 0
     private var maxConcurrentExecutionCount = 0
 
     init(
         steps: [Step] = [],
-        responsesByURL: [String: Step] = [:]
+        responsesByURL: [String: Step] = [:],
+        responseSequencesByURL: [String: [Step]] = [:]
     ) {
         self.steps = steps
         self.responsesByURL = responsesByURL
+        self.responseSequencesByURL = responseSequencesByURL
     }
 
     private func beginExecution() {
@@ -67,7 +70,15 @@ actor ScriptedHTTPClient: HTTPClient {
         }
 
         let step: Step
-        if let routedStep = responsesByURL.removeValue(forKey: requestURLString) {
+        if var routedSteps = responseSequencesByURL[requestURLString],
+           routedSteps.isEmpty == false {
+            step = routedSteps.removeFirst()
+            if routedSteps.isEmpty {
+                responseSequencesByURL.removeValue(forKey: requestURLString)
+            } else {
+                responseSequencesByURL[requestURLString] = routedSteps
+            }
+        } else if let routedStep = responsesByURL.removeValue(forKey: requestURLString) {
             step = routedStep
         } else if steps.isEmpty == false {
             step = steps.removeFirst()

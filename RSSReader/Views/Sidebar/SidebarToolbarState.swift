@@ -48,6 +48,8 @@ struct SidebarSubtitleFormatter {
             return lastUpdatedText(for: lastUpdatedAt)
         case .syncing:
             return RuntimeFeedbackLocalization.syncingStatusTitle
+        case .failed:
+            return RuntimeFeedbackLocalization.syncFailedStatusTitle
         }
     }
 

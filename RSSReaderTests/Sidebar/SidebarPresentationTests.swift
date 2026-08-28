@@ -68,6 +68,16 @@ struct SidebarPresentationTests {
     }
 
     @Test
+    func sidebarSubtitleFormatterReturnsFailureTitleForPartialRefresh() {
+        let formatter = SidebarSubtitleFormatter()
+
+        #expect(
+            formatter.text(for: .failed(lastUpdatedAt: .distantPast))
+                == RuntimeFeedbackLocalization.syncFailedStatusTitle
+        )
+    }
+
+    @Test
     func sidebarSubtitleFormatterReturnsPlaceholderWhenNoRefreshDateIsAvailable() {
         let formatter = SidebarSubtitleFormatter()
 

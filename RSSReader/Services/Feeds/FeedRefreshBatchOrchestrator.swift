@@ -11,7 +11,8 @@ extension FeedRefreshService {
         return FeedRefreshBatchResult(
             startedAt: startedAt,
             finishedAt: Date(),
-            results: results
+            results: results,
+            targetFeedIDs: batchFeedIDs
         )
     }
 
@@ -26,7 +27,9 @@ extension FeedRefreshService {
             return FeedRefreshBatchResult(
                 startedAt: startedAt,
                 finishedAt: Date(),
-                results: []
+                results: [],
+                targetFeedIDs: [],
+                batchErrorDescription: String(describing: error)
             )
         }
     }
@@ -123,10 +126,33 @@ extension FeedRefreshService {
             }
         }
 
-        let orderedResults = feedIDs.indices.compactMap { resultsByIndex[$0] }
+        let orderedResults = feedIDs.indices.map { index in
+            if let result = resultsByIndex[index] {
+                return result
+            }
+
+            let feedID = feedIDs[index]
+            if batchWasCancelled || Task.isCancelled {
+                return FeedRefreshResult.cancelled(
+                    feedID: feedID,
+                    startedAt: Date(),
+                    errorDescription: "Batch refresh cancelled before execution"
+                )
+            }
+
+            logger.error("Batch refresh omitted terminal outcome for feed \(feedID.uuidString)")
+            return FeedRefreshResult.failed(
+                feedID: feedID,
+                startedAt: Date(),
+                errorDescription: "Batch refresh omitted terminal outcome"
+            )
+        }
 
         if batchWasCancelled {
-            logger.info("Batch refresh cancelled after completing \(orderedResults.count) feed refresh tasks")
+            logger.info(
+                "Batch refresh cancelled completedTargets=\(resultsByIndex.count) "
+                    + "terminalOutcomes=\(orderedResults.count)"
+            )
         }
 
         return orderedResults

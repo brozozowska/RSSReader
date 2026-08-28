@@ -6,6 +6,71 @@ import Testing
 @Suite("Articles Screen / Controller / Refresh Feedback")
 @MainActor
 struct ArticlesScreenControllerRefreshFeedbackTests {
+    @Test
+    func articlesScreenAllFeedsRetryRefreshesOnlyFailedTargetsAndClearsFeedback() async throws {
+        let successfulFeedURL = "https://example.com/articles-retry-success.xml"
+        let retriedFeedURL = "https://example.com/articles-retry-failed.xml"
+        let client = ScriptedHTTPClient(
+            responseSequencesByURL: [
+                successfulFeedURL: [
+                    .response(statusCode: 304, headers: [:], body: "")
+                ],
+                retriedFeedURL: [
+                    .response(statusCode: 500, headers: [:], body: ""),
+                    .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: makeValidRSSFeedXML(
+                            channelTitle: "Retried Articles Feed",
+                            channelLink: "https://example.com/articles-retry/",
+                            language: "en",
+                            itemTitle: "Retried Articles Item",
+                            itemLink: "https://example.com/articles-retry/item",
+                            itemGUID: "retried-articles-item",
+                            itemDescription: "Retry succeeds",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        _ = try harness.insertFeeds(urls: [successfulFeedURL, retriedFeedURL])
+        let controller = ArticlesScreenController()
+        let appState = AppState()
+        harness.dependencies.appActions.showInbox(using: appState)
+
+        await controller.load(
+            selection: .inbox,
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        let initialResult = await controller.refreshCurrentSelection(
+            selection: .inbox,
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+
+        #expect(initialResult?.retryFeedIDs.count == 1)
+        #expect(controller.screenState.refreshFeedback != nil)
+
+        let retryResult = await controller.refreshCurrentSelection(
+            selection: .inbox,
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+        let requests = await client.recordedRequests()
+        let requestCounts = Dictionary(grouping: requests.map { $0.url.absoluteString }, by: { $0 })
+            .mapValues(\.count)
+
+        #expect(retryResult?.isCompleteSuccess == true)
+        #expect(retryResult?.targetFeedIDs.count == 1)
+        #expect(requestCounts[successfulFeedURL] == 1)
+        #expect(requestCounts[retriedFeedURL] == 2)
+        #expect(controller.screenState.refreshFeedback == nil)
+    }
+
+    @Test
     func articlesScreenControllerPresentsRefreshFailureFromBatchRefreshResult() async throws {
         let client = ScriptedHTTPClient(
             responsesByURL: [
@@ -167,4 +232,72 @@ struct ArticlesScreenControllerRefreshFeedbackTests {
         #expect(controller.screenState.articles.first?.title == "Second Selection")
         #expect(controller.screenState.refreshFeedback == nil)
     }
+
+    @Test
+    func inFlightAllFeedsFailureDoesNotPublishIntoChangedSelection() async throws {
+        let firstFeedURL = "https://example.com/stale-refresh-a.xml"
+        let secondFeedURL = "https://example.com/stale-refresh-b.xml"
+        let responseGate = ScriptedHTTPClientResponseGate()
+        let client = ScriptedHTTPClient(
+            responsesByURL: [
+                firstFeedURL: .gatedResponse(
+                    statusCode: 500,
+                    headers: [:],
+                    body: "",
+                    gate: responseGate
+                )
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let feeds = try harness.insertFeeds(urls: [firstFeedURL, secondFeedURL])
+        let controller = ArticlesScreenController()
+        let appState = AppState()
+        harness.dependencies.appActions.showInbox(using: appState)
+
+        await controller.load(
+            selection: .inbox,
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        let refreshTask = Task { @MainActor in
+            await controller.refreshCurrentSelection(
+                selection: .inbox,
+                dependencies: harness.dependencies,
+                appState: appState
+            )
+        }
+        try await waitForArticlesRefreshCondition("stale refresh request entered gate") {
+            await responseGate.hasEntered()
+        }
+
+        harness.dependencies.appActions.showFeed(id: feeds[1].id, using: appState)
+        await controller.load(
+            selection: .feed(feeds[1].id),
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        await responseGate.release()
+        _ = await refreshTask.value
+
+        #expect(controller.screenState.selection == .feed(feeds[1].id))
+        #expect(controller.screenState.refreshFeedback == nil)
+    }
+}
+
+private func waitForArticlesRefreshCondition(
+    _ expectation: String,
+    condition: () async -> Bool
+) async throws {
+    let deadline = ContinuousClock.now + .seconds(2)
+    while ContinuousClock.now < deadline {
+        if await condition() {
+            return
+        }
+        await Task.yield()
+    }
+    throw ArticlesRefreshWaitError.timedOut(expectation)
+}
+
+private enum ArticlesRefreshWaitError: Error {
+    case timedOut(String)
 }
