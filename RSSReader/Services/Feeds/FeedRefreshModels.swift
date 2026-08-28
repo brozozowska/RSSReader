@@ -160,6 +160,7 @@ struct FeedRefreshResult: Sendable, Identifiable {
     let finishedAt: Date
     let processedEntryCount: Int
     let upsertedEntryCount: Int
+    let reconciledEntryCount: Int
     let rejectedEntryCount: Int
     let diagnosticsSummary: FeedRefreshDiagnosticsSummary
     let errorDescription: String?
@@ -188,6 +189,7 @@ struct FeedRefreshResult: Sendable, Identifiable {
         finishedAt: Date,
         processedEntryCount: Int = 0,
         upsertedEntryCount: Int = 0,
+        reconciledEntryCount: Int = 0,
         rejectedEntryCount: Int = 0,
         diagnosticsSummary: FeedRefreshDiagnosticsSummary = FeedRefreshDiagnosticsSummary(),
         errorDescription: String? = nil
@@ -198,6 +200,7 @@ struct FeedRefreshResult: Sendable, Identifiable {
         self.finishedAt = finishedAt
         self.processedEntryCount = max(0, processedEntryCount)
         self.upsertedEntryCount = max(0, upsertedEntryCount)
+        self.reconciledEntryCount = max(0, reconciledEntryCount)
         self.rejectedEntryCount = max(0, rejectedEntryCount)
         self.diagnosticsSummary = diagnosticsSummary
         self.errorDescription = errorDescription
@@ -209,6 +212,7 @@ struct FeedRefreshResult: Sendable, Identifiable {
         finishedAt: Date = Date(),
         processedEntryCount: Int,
         upsertedEntryCount: Int,
+        reconciledEntryCount: Int = 0,
         rejectedEntryCount: Int,
         diagnosticsSummary: FeedRefreshDiagnosticsSummary = FeedRefreshDiagnosticsSummary()
     ) -> FeedRefreshResult {
@@ -219,6 +223,7 @@ struct FeedRefreshResult: Sendable, Identifiable {
             finishedAt: finishedAt,
             processedEntryCount: processedEntryCount,
             upsertedEntryCount: upsertedEntryCount,
+            reconciledEntryCount: reconciledEntryCount,
             rejectedEntryCount: rejectedEntryCount,
             diagnosticsSummary: diagnosticsSummary
         )
@@ -294,6 +299,7 @@ struct FeedRefreshBatchSummary: Sendable, Equatable {
     let cancelledCount: Int
     let totalProcessedEntryCount: Int
     let totalUpsertedEntryCount: Int
+    let totalReconciledEntryCount: Int
     let totalRejectedEntryCount: Int
 }
 
@@ -365,6 +371,7 @@ struct FeedRefreshBatchResult: Sendable {
             cancelledCount: results.filter { $0.status == .cancelled }.count,
             totalProcessedEntryCount: results.reduce(0) { $0 + $1.processedEntryCount },
             totalUpsertedEntryCount: results.reduce(0) { $0 + $1.upsertedEntryCount },
+            totalReconciledEntryCount: results.reduce(0) { $0 + $1.reconciledEntryCount },
             totalRejectedEntryCount: results.reduce(0) { $0 + $1.rejectedEntryCount }
         )
     }

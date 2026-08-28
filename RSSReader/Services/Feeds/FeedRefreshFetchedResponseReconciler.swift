@@ -79,6 +79,7 @@ extension FeedRefreshService {
             finishedAt: finishedAt,
             processedEntryCount: processedEntryCount,
             upsertedEntryCount: articleReconciliationResult.upsertedArticleCount,
+            reconciledEntryCount: articleReconciliationResult.reconciledArticleCount,
             rejectedEntryCount: diagnostics.rejectedEntries.count,
             diagnosticsSummary: diagnosticsSummary
         )

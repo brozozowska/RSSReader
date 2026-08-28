@@ -36,10 +36,6 @@ extension FeedRefreshService {
         return BackgroundFeedRefreshResult(batchResult: batchResult)
     }
 
-    func refreshAfterAddingFeed(feedID: UUID) async -> FeedRefreshResult {
-        await refresh(feedID: feedID)
-    }
-
     func fetchActiveFeedIDs() throws -> [UUID] {
         try feedRepository.fetchActiveFeeds().map(\.id)
     }

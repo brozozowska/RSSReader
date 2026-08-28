@@ -427,14 +427,8 @@ extension AppActionRouter {
         id feedID: UUID,
         using appState: AppState
     ) {
-        guard let feedRefreshService else {
-            logger.error("Feed refresh service is unavailable for feed save completion")
-            return
-        }
-
         let task = Task { @MainActor in
-            _ = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
-            await refreshUnreadAppIconBadgeCount()
+            _ = await refreshFeed(id: feedID)
             appState.requestSidebarReload()
             appState.requestArticleListReload()
         }

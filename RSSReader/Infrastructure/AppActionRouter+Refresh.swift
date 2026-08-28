@@ -9,21 +9,15 @@ extension AppActionRouter {
         }
 
         let result = await feedRefreshService.refresh(feedID: feedID)
-        cleanupArticlesUsingCurrentSettings(scope: .feedIDs([result.feedID]))
+        let cleanupResult = cleanupArticlesUsingCurrentSettings(scope: .feedIDs([result.feedID]))
+        recordRefreshLifecycleDiagnostics(refreshResult: result, cleanupResult: cleanupResult)
         await refreshUnreadAppIconBadgeCount()
         return result
     }
 
     @MainActor
     func refreshAfterAddingFeed(id feedID: UUID, using appState: AppState) async -> FeedRefreshResult? {
-        guard let feedRefreshService else {
-            logger.error("Feed refresh service is unavailable for feed save completion")
-            return nil
-        }
-
-        let result = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
-        cleanupArticlesUsingCurrentSettings(scope: .feedIDs([result.feedID]))
-        await refreshUnreadAppIconBadgeCount()
+        guard let result = await refreshFeed(id: feedID) else { return nil }
         appState.requestSidebarReload()
         showFeed(id: feedID, using: appState)
         dismissFeedManagement(using: appState)
@@ -178,5 +172,24 @@ extension AppActionRouter {
             logger.error("Failed to load folder feeds for refresh: \(error)")
             return nil
         }
+    }
+
+    @MainActor
+    private func recordRefreshLifecycleDiagnostics(
+        refreshResult: FeedRefreshResult,
+        cleanupResult: ArticleRetentionCleanupResult?
+    ) {
+        let fetchedEntryCount = refreshResult.status == .fetched
+            ? max(0, refreshResult.processedEntryCount - refreshResult.rejectedEntryCount)
+            : 0
+        logger.info(
+            "Feed refresh lifecycle completed feed=\(refreshResult.feedID.uuidString) "
+                + "status=\(refreshResult.status.rawValue) "
+                + "fetchedEntries=\(fetchedEntryCount) "
+                + "upsertedEntries=\(refreshResult.upsertedEntryCount) "
+                + "reconciledEntries=\(refreshResult.reconciledEntryCount) "
+                + "deletedByRetention=\(cleanupResult?.deletedCount ?? 0) "
+                + "retentionCleanupCompleted=\(cleanupResult != nil)"
+        )
     }
 }
