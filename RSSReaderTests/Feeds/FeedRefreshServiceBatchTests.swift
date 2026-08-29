@@ -349,6 +349,7 @@ struct FeedRefreshServiceBatchTests {
         let result = await task.value
         let retryResult = await harness.dependencies.appActions.retryFeeds(
             result.retryFeedIDs,
+            context: ManualFeedRefreshContext(selection: .inbox, sidebarArticleFilter: .allItems),
             using: AppState()
         )
         let requestedURLs = await client.recordedRequests().map { $0.url.absoluteString }

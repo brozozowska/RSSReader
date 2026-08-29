@@ -498,6 +498,7 @@ struct ArticleListView: View {
 
         await controller.refreshCurrentSelection(
             selection: selectedSidebarSelection,
+            sidebarArticleFilter: selectedSidebarArticleFilter,
             dependencies: dependencies,
             appState: appState,
             requestsArticleListReload: false

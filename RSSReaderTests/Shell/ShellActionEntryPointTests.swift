@@ -320,7 +320,10 @@ struct ShellActionEntryPointTests {
         let sidebarReloadIDBeforeRefresh = appState.sidebarReloadID
         let unreadCountsBeforeRefresh = try harness.articleStateRepository.fetchUnreadCounts(feedIDs: [firstFeed.id])
 
-        let result = await harness.dependencies.appActions.refreshVisibleFeeds(using: appState)
+        let result = await harness.dependencies.appActions.refreshSelection(
+            ManualFeedRefreshContext(selection: nil, sidebarArticleFilter: .allItems),
+            using: appState
+        )
         let unreadCountsAfterRefresh = try harness.articleStateRepository.fetchUnreadCounts(feedIDs: [firstFeed.id])
 
         #expect(result?.summary.totalFeedCount == 2)
@@ -367,7 +370,10 @@ struct ShellActionEntryPointTests {
 
         harness.dependencies.appActions.showFolder(named: "Tech", using: appState)
 
-        let result = await harness.dependencies.appActions.refreshCurrentSelection(using: appState)
+        let result = await harness.dependencies.appActions.refreshSelection(
+            ManualFeedRefreshContext(selection: .folder("Tech"), sidebarArticleFilter: .allItems),
+            using: appState
+        )
 
         #expect(result?.summary.totalFeedCount == 2)
         #expect(result?.summary.notModifiedCount == 2)
@@ -393,7 +399,8 @@ struct ShellActionEntryPointTests {
         let articleReloadIDBeforeRefresh = appState.articleListReloadID
         let sidebarReloadIDBeforeRefresh = appState.sidebarReloadID
 
-        let result = await harness.dependencies.appActions.refreshCurrentSelection(
+        let result = await harness.dependencies.appActions.refreshSelection(
+            ManualFeedRefreshContext(selection: .feed(feed.id), sidebarArticleFilter: .allItems),
             using: appState,
             requestsArticleListReload: false
         )
@@ -428,7 +435,10 @@ struct ShellActionEntryPointTests {
 
         harness.dependencies.appActions.showInbox(using: appState)
 
-        let result = await harness.dependencies.appActions.refreshCurrentSelection(using: appState)
+        let result = await harness.dependencies.appActions.refreshSelection(
+            ManualFeedRefreshContext(selection: .inbox, sidebarArticleFilter: .allItems),
+            using: appState
+        )
 
         #expect(result?.summary.totalFeedCount == 2)
         #expect(result?.summary.notModifiedCount == 2)

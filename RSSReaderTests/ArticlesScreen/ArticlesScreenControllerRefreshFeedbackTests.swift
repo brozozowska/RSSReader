@@ -7,6 +7,140 @@ import Testing
 @MainActor
 struct ArticlesScreenControllerRefreshFeedbackTests {
     @Test
+    func smartStarredSuccessRefreshesAllFeedsWithoutGenericFailureFromStaleAppState() async throws {
+        let urls = [
+            "https://example.com/starred-success-a.xml",
+            "https://example.com/starred-success-b.xml"
+        ]
+        let client = ScriptedHTTPClient(
+            responsesByURL: Dictionary(
+                uniqueKeysWithValues: urls.map { url in
+                    (url, .response(statusCode: 304, headers: [:], body: ""))
+                }
+            )
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let feeds = try harness.insertFeeds(urls: urls)
+        let controller = ArticlesScreenController()
+        let appState = AppState()
+        harness.dependencies.appActions.showFeed(id: feeds[0].id, using: appState)
+
+        await controller.load(
+            selection: .starred,
+            sidebarArticleFilter: .starred,
+            dependencies: harness.dependencies
+        )
+        let result = await controller.refreshCurrentSelection(
+            selection: .starred,
+            sidebarArticleFilter: .starred,
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+
+        #expect(result?.isCompleteSuccess == true)
+        #expect(result?.targetFeedIDs == feeds.map(\.id))
+        #expect(await client.recordedRequests().count == feeds.count)
+        #expect(controller.screenState.refreshFeedback == nil)
+    }
+
+    @Test
+    func feedStarredRefreshUsesDisplayedFeedInsteadOfStaleAppStateSelection() async throws {
+        let displayedURL = "https://example.com/starred-displayed-feed.xml"
+        let staleURL = "https://example.com/starred-stale-feed.xml"
+        let client = ScriptedHTTPClient(
+            responsesByURL: [
+                displayedURL: .response(statusCode: 304, headers: [:], body: ""),
+                staleURL: .response(statusCode: 500, headers: [:], body: "")
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let feeds = try harness.insertFeeds(urls: [displayedURL, staleURL])
+        let displayedFeed = feeds[0]
+        let staleFeed = feeds[1]
+        let controller = ArticlesScreenController()
+        let appState = AppState()
+        harness.dependencies.appActions.showFeed(id: staleFeed.id, using: appState)
+
+        await controller.load(
+            selection: .feed(displayedFeed.id),
+            sidebarArticleFilter: .starred,
+            dependencies: harness.dependencies
+        )
+        let result = await controller.refreshCurrentSelection(
+            selection: .feed(displayedFeed.id),
+            sidebarArticleFilter: .starred,
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+        let requestedURLs = await client.recordedRequests().map { $0.url.absoluteString }
+
+        #expect(result?.targetFeedIDs == [displayedFeed.id])
+        #expect(result?.isCompleteSuccess == true)
+        #expect(requestedURLs == [displayedURL])
+        #expect(controller.screenState.refreshFeedback == nil)
+    }
+
+    @Test
+    func folderStarredPartialFailureRetriesOnlyFailedDisplayedScope() async throws {
+        let urls = [
+            "https://example.com/starred-folder-success.xml",
+            "https://example.com/starred-folder-retry.xml",
+            "https://example.com/starred-folder-outside.xml"
+        ]
+        let client = ScriptedHTTPClient(
+            responseSequencesByURL: [
+                urls[0]: [.response(statusCode: 304, headers: [:], body: "")],
+                urls[1]: [
+                    .response(statusCode: 500, headers: [:], body: ""),
+                    .response(statusCode: 304, headers: [:], body: "")
+                ],
+                urls[2]: [.response(statusCode: 500, headers: [:], body: "")]
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let feeds = try harness.insertFeeds(urls: urls)
+        let folder = Folder(name: "Starred Folder")
+        feeds[0].folder = folder
+        feeds[1].folder = folder
+        try harness.saveModelContext()
+        let controller = ArticlesScreenController()
+        let appState = AppState()
+        harness.dependencies.appActions.showStarred(using: appState)
+        harness.dependencies.appActions.applySidebarArticleFilter(.starred, using: appState)
+
+        await controller.load(
+            selection: .folder(folder.name),
+            sidebarArticleFilter: .starred,
+            dependencies: harness.dependencies
+        )
+        let initialResult = await controller.refreshCurrentSelection(
+            selection: .folder(folder.name),
+            sidebarArticleFilter: .starred,
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+        let retryResult = await controller.refreshCurrentSelection(
+            selection: .folder(folder.name),
+            sidebarArticleFilter: .starred,
+            dependencies: harness.dependencies,
+            appState: appState
+        )
+        let requestCounts = Dictionary(
+            grouping: await client.recordedRequests().map { $0.url.absoluteString },
+            by: { $0 }
+        ).mapValues(\.count)
+
+        #expect(Set(initialResult?.targetFeedIDs ?? []) == Set([feeds[0].id, feeds[1].id]))
+        #expect(initialResult?.retryFeedIDs == [feeds[1].id])
+        #expect(retryResult?.targetFeedIDs == [feeds[1].id])
+        #expect(retryResult?.isCompleteSuccess == true)
+        #expect(requestCounts[urls[0]] == 1)
+        #expect(requestCounts[urls[1]] == 2)
+        #expect(requestCounts[urls[2]] == nil)
+        #expect(controller.screenState.refreshFeedback == nil)
+    }
+
+    @Test
     func articlesScreenAllFeedsRetryRefreshesOnlyFailedTargetsAndClearsFeedback() async throws {
         let successfulFeedURL = "https://example.com/articles-retry-success.xml"
         let retriedFeedURL = "https://example.com/articles-retry-failed.xml"
@@ -47,6 +181,7 @@ struct ArticlesScreenControllerRefreshFeedbackTests {
         )
         let initialResult = await controller.refreshCurrentSelection(
             selection: .inbox,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
             appState: appState
         )
@@ -56,6 +191,7 @@ struct ArticlesScreenControllerRefreshFeedbackTests {
 
         let retryResult = await controller.refreshCurrentSelection(
             selection: .inbox,
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
             appState: appState
         )
@@ -101,6 +237,7 @@ struct ArticlesScreenControllerRefreshFeedbackTests {
 
         await controller.refreshCurrentSelection(
             selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
             appState: appState
         )
@@ -185,6 +322,7 @@ struct ArticlesScreenControllerRefreshFeedbackTests {
 
         await controller.refreshCurrentSelection(
             selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
             appState: appState
         )
@@ -250,6 +388,12 @@ struct ArticlesScreenControllerRefreshFeedbackTests {
         )
         let harness = try TestHarness.make(httpClient: client)
         let feeds = try harness.insertFeeds(urls: [firstFeedURL, secondFeedURL])
+        _ = try harness.insertArticle(
+            feed: feeds[0],
+            externalID: "stale-refresh-visible-article",
+            url: "https://example.com/stale-refresh-visible-article",
+            title: "Visible While Refreshing"
+        )
         let controller = ArticlesScreenController()
         let appState = AppState()
         harness.dependencies.appActions.showInbox(using: appState)
@@ -262,6 +406,7 @@ struct ArticlesScreenControllerRefreshFeedbackTests {
         let refreshTask = Task { @MainActor in
             await controller.refreshCurrentSelection(
                 selection: .inbox,
+                sidebarArticleFilter: .allItems,
                 dependencies: harness.dependencies,
                 appState: appState
             )
@@ -269,6 +414,9 @@ struct ArticlesScreenControllerRefreshFeedbackTests {
         try await waitForArticlesRefreshCondition("stale refresh request entered gate") {
             await responseGate.hasEntered()
         }
+
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.articles.map(\.title) == ["Visible While Refreshing"])
 
         harness.dependencies.appActions.showFeed(id: feeds[1].id, using: appState)
         await controller.load(
@@ -280,6 +428,64 @@ struct ArticlesScreenControllerRefreshFeedbackTests {
         _ = await refreshTask.value
 
         #expect(controller.screenState.selection == .feed(feeds[1].id))
+        #expect(controller.screenState.refreshFeedback == nil)
+    }
+
+    @Test
+    func inFlightFeedFailureDoesNotPublishIntoChangedSidebarFilter() async throws {
+        let feedURL = "https://example.com/stale-filter-refresh.xml"
+        let responseGate = ScriptedHTTPClientResponseGate()
+        let client = ScriptedHTTPClient(
+            responsesByURL: [
+                feedURL: .gatedResponse(
+                    statusCode: 500,
+                    headers: [:],
+                    body: "",
+                    gate: responseGate
+                )
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let feed = try #require(try harness.insertFeeds(urls: [feedURL]).first)
+        _ = try harness.insertArticle(
+            feed: feed,
+            externalID: "stale-filter-visible-article",
+            url: "https://example.com/stale-filter-visible-article",
+            title: "Visible Before Filter Change"
+        )
+        let controller = ArticlesScreenController()
+        let appState = AppState()
+        harness.dependencies.appActions.showFeed(id: feed.id, using: appState)
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        let refreshTask = Task { @MainActor in
+            await controller.refreshCurrentSelection(
+                selection: .feed(feed.id),
+                sidebarArticleFilter: .allItems,
+                dependencies: harness.dependencies,
+                appState: appState
+            )
+        }
+        try await waitForArticlesRefreshCondition("stale filter refresh request entered gate") {
+            await responseGate.hasEntered()
+        }
+
+        harness.dependencies.appActions.applySidebarArticleFilter(.starred, using: appState)
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .starred,
+            dependencies: harness.dependencies
+        )
+        await responseGate.release()
+        _ = await refreshTask.value
+
+        #expect(controller.screenState.articleListSession.context.selection == .feed(feed.id))
+        #expect(controller.screenState.articleListSession.context.sidebarArticleFilter == .starred)
+        #expect(controller.screenState.articles.isEmpty)
         #expect(controller.screenState.refreshFeedback == nil)
     }
 }

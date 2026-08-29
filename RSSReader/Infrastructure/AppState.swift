@@ -15,6 +15,28 @@ enum SidebarArticleFilter: String, Hashable, Sendable, CaseIterable {
     case starred
 }
 
+enum ManualFeedRefreshScope: Equatable, Sendable {
+    case allFeeds
+    case folder(String)
+    case feed(UUID)
+}
+
+struct ManualFeedRefreshContext: Equatable, Sendable {
+    let selection: SidebarSelection?
+    let sidebarArticleFilter: SidebarArticleFilter
+
+    var scope: ManualFeedRefreshScope {
+        switch selection {
+        case .feed(let feedID):
+            .feed(feedID)
+        case .folder(let folderName):
+            .folder(folderName)
+        case .inbox, .unread, .starred, .none:
+            .allFeeds
+        }
+    }
+}
+
 struct ArticleSafariRoute: Hashable, Sendable {
     let articleID: UUID
     let url: URL

@@ -7,7 +7,7 @@ final class SidebarScreenController {
     var screenState: SidebarScreenState
     private(set) var expandedFolderNames: Set<String>
     let isPreviewMode: Bool
-    private var pendingAllFeedsRetryFeedIDs: [UUID] = []
+    private var pendingRetry: PendingManualFeedRefreshRetry?
 
     init(previewScreenState: SidebarScreenState? = nil) {
         self.screenState = previewScreenState ?? SidebarScreenState()
@@ -62,20 +62,50 @@ final class SidebarScreenController {
         guard screenState.isSyncing == false else {
             return currentSelection
         }
+        guard appState.selectedSidebarSelection == currentSelection,
+              appState.selectedSidebarArticleFilter == filter else {
+            return appState.selectedSidebarSelection
+        }
 
+        let refreshContext = ManualFeedRefreshContext(
+            selection: currentSelection,
+            sidebarArticleFilter: filter
+        )
         let previousStatus = screenState.refreshStatus
         screenState.beginRefreshing()
         let result: FeedRefreshBatchResult?
-        if pendingAllFeedsRetryFeedIDs.isEmpty {
-            result = await dependencies.appActions.refreshVisibleFeeds(using: appState)
-        } else {
+        if let pendingRetry, pendingRetry.context == refreshContext {
             result = await dependencies.appActions.retryFeeds(
-                pendingAllFeedsRetryFeedIDs,
+                pendingRetry.feedIDs,
+                context: refreshContext,
+                using: appState
+            )
+        } else {
+            pendingRetry = nil
+            result = await dependencies.appActions.refreshSelection(
+                refreshContext,
                 using: appState
             )
         }
-        pendingAllFeedsRetryFeedIDs = result?.retryFeedIDs ?? pendingAllFeedsRetryFeedIDs
-        let refreshedAt = result.flatMap(Self.sidebarRefreshDisplayDate)
+
+        guard appState.selectedSidebarSelection == refreshContext.selection,
+              appState.selectedSidebarArticleFilter == refreshContext.sidebarArticleFilter else {
+            pendingRetry = nil
+            screenState.restoreRefreshStatus(previousStatus)
+            return appState.selectedSidebarSelection
+        }
+
+        if let retryFeedIDs = result?.retryFeedIDs, retryFeedIDs.isEmpty == false {
+            pendingRetry = PendingManualFeedRefreshRetry(
+                context: refreshContext,
+                feedIDs: retryFeedIDs
+            )
+        } else if result != nil {
+            pendingRetry = nil
+        }
+        let refreshedAt = result.flatMap {
+            Self.sidebarRefreshDisplayDate(from: $0, context: refreshContext)
+        }
         let adjustedSelection = await loadFeeds(
             showsFullScreenLoading: false,
             dependencies: dependencies,
@@ -86,6 +116,8 @@ final class SidebarScreenController {
 
         if result?.hasUnsuccessfulOutcome == true {
             screenState.applyRefreshFailure(lastUpdatedAt: previousStatus.lastUpdatedAt)
+        } else if result != nil, refreshedAt == nil {
+            screenState.restoreRefreshStatus(.idle(lastUpdatedAt: previousStatus.lastUpdatedAt))
         } else if refreshedAt == nil {
             screenState.restoreRefreshStatus(previousStatus)
         }
@@ -102,8 +134,12 @@ final class SidebarScreenController {
         }
     }
 
-    private static func sidebarRefreshDisplayDate(from result: FeedRefreshBatchResult) -> Date? {
-        guard result.isCompleteSuccess,
+    private static func sidebarRefreshDisplayDate(
+        from result: FeedRefreshBatchResult,
+        context: ManualFeedRefreshContext
+    ) -> Date? {
+        guard context.scope == .allFeeds,
+              result.isCompleteSuccess,
               result.summary.fetchedCount + result.summary.notModifiedCount > 0 else {
             return nil
         }
@@ -150,4 +186,9 @@ final class SidebarScreenController {
     func syncExpandedFolderNames(filter: SidebarArticleFilter) {
         expandedFolderNames = visibleFolderNames(filter: filter)
     }
+}
+
+private struct PendingManualFeedRefreshRetry {
+    let context: ManualFeedRefreshContext
+    let feedIDs: [UUID]
 }

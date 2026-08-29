@@ -40,7 +40,7 @@ final class ArticlesScreenController {
     @ObservationIgnored private var activeNextPageIdentity: ArticleListNextPageIdentity?
     @ObservationIgnored private var loadGeneration = 0
     @ObservationIgnored private var manualRefreshGeneration = 0
-    @ObservationIgnored private var pendingAllFeedsRetryFeedIDs: [UUID] = []
+    @ObservationIgnored private var pendingRetryFeedIDs: [UUID] = []
     private var lastLoadedSessionContext: ArticleListSession.Context
 
     init(
@@ -97,7 +97,7 @@ final class ArticlesScreenController {
             dependencies: dependencies
         )
         guard loadPlan.sessionContextChanged else { return nil }
-        pendingAllFeedsRetryFeedIDs = []
+        pendingRetryFeedIDs = []
 
         loadGeneration += 1
         let currentLoadGeneration = loadGeneration
@@ -136,7 +136,7 @@ final class ArticlesScreenController {
     func endPresentation() {
         loadGeneration += 1
         manualRefreshGeneration += 1
-        pendingAllFeedsRetryFeedIDs = []
+        pendingRetryFeedIDs = []
         activeLoadTask?.cancel()
         activeLoadTask = nil
         activeLoadSessionContext = nil
@@ -199,7 +199,7 @@ final class ArticlesScreenController {
             dependencies: dependencies
         )
         if loadPlan.sessionContextChanged {
-            pendingAllFeedsRetryFeedIDs = []
+            pendingRetryFeedIDs = []
         }
         if retainsSessionFilterMutations,
            activeLoadSessionContext == loadPlan.sessionContext,
@@ -587,39 +587,48 @@ final class ArticlesScreenController {
     @discardableResult
     func refreshCurrentSelection(
         selection: SidebarSelection?,
+        sidebarArticleFilter: SidebarArticleFilter,
         dependencies: AppDependencies,
         appState: AppState,
         requestsArticleListReload: Bool = true
     ) async -> FeedRefreshBatchResult? {
+        let refreshContext = ManualFeedRefreshContext(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter
+        )
+        let currentSessionContext = screenState.articleListSession.context
+        guard currentSessionContext.selection == refreshContext.selection,
+              currentSessionContext.sidebarArticleFilter == refreshContext.sidebarArticleFilter else {
+            dependencies.logger.info("Skipped manual refresh for stale article-list context")
+            return nil
+        }
+
         screenState.dismissRefreshFeedback()
         manualRefreshGeneration += 1
         let currentRefreshGeneration = manualRefreshGeneration
-        let refreshContext = screenState.articleListSession.context
-        let refreshesAllFeeds = selection?.refreshesAllFeeds == true
+        let articleListContext = screenState.articleListSession.context
         let result: FeedRefreshBatchResult?
-        if refreshesAllFeeds, pendingAllFeedsRetryFeedIDs.isEmpty == false {
+        if pendingRetryFeedIDs.isEmpty == false {
             result = await dependencies.appActions.retryFeeds(
-                pendingAllFeedsRetryFeedIDs,
+                pendingRetryFeedIDs,
+                context: refreshContext,
                 using: appState,
                 requestsArticleListReload: requestsArticleListReload
             )
         } else {
-            result = await dependencies.appActions.refreshCurrentSelection(
+            result = await dependencies.appActions.refreshSelection(
+                refreshContext,
                 using: appState,
                 requestsArticleListReload: requestsArticleListReload
             )
         }
 
         guard currentRefreshGeneration == manualRefreshGeneration,
-              refreshContext == screenState.articleListSession.context else {
+              articleListContext == screenState.articleListSession.context else {
             return result
         }
 
-        if refreshesAllFeeds {
-            pendingAllFeedsRetryFeedIDs = result?.retryFeedIDs ?? pendingAllFeedsRetryFeedIDs
-        } else {
-            pendingAllFeedsRetryFeedIDs = []
-        }
+        pendingRetryFeedIDs = result?.retryFeedIDs ?? pendingRetryFeedIDs
 
         if let result, let refreshFailureMessage = refreshFailureMessage(for: result) {
             screenState.presentRefreshFailure(refreshFailureMessage)
@@ -821,17 +830,6 @@ final class ArticlesScreenController {
         }
 
         return ReadingLocalization.multipleFeedsRefreshFailed(count: unsuccessfulCount)
-    }
-}
-
-private extension SidebarSelection {
-    var refreshesAllFeeds: Bool {
-        switch self {
-        case .inbox, .unread, .starred:
-            true
-        case .feed, .folder:
-            false
-        }
     }
 }
 

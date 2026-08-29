@@ -524,7 +524,10 @@ struct ArticleRetentionCleanupServiceTests {
         let appState = AppState()
         harness.dependencies.appActions.showFolder(named: "Scoped", using: appState)
 
-        let refreshResult = await harness.dependencies.appActions.refreshCurrentSelection(using: appState)
+        let refreshResult = await harness.dependencies.appActions.refreshSelection(
+            ManualFeedRefreshContext(selection: .folder("Scoped"), sidebarArticleFilter: .allItems),
+            using: appState
+        )
 
         #expect(refreshResult?.summary.totalFeedCount == 2)
         #expect(try harness.articleRepository.fetchArticles(feedID: feeds[0].id).map(\.externalID) == ["folder-expired-0"])

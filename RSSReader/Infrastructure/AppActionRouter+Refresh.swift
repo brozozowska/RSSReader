@@ -56,6 +56,7 @@ extension AppActionRouter {
     @MainActor
     func retryFeeds(
         _ feedIDs: [UUID],
+        context: ManualFeedRefreshContext,
         using appState: AppState,
         requestsArticleListReload: Bool = true
     ) async -> FeedRefreshBatchResult? {
@@ -78,7 +79,9 @@ extension AppActionRouter {
                 phase: "retry",
                 requestedTargetFeedIDs: requestedFeedIDs
             )
-            recordFeedsRefreshIfNeeded(from: result)
+            if context.scope == .allFeeds {
+                recordFeedsRefreshIfNeeded(from: result)
+            }
             cleanupArticlesUsingCurrentSettings(scope: .feedIDs(result.targetFeedIDs))
             await refreshUnreadAppIconBadgeCount()
             appState.requestSidebarReload()
@@ -121,17 +124,13 @@ extension AppActionRouter {
     }
 
     @MainActor
-    func refreshCurrentSelection(
+    func refreshSelection(
+        _ context: ManualFeedRefreshContext,
         using appState: AppState,
         requestsArticleListReload: Bool = true
     ) async -> FeedRefreshBatchResult? {
-        guard let selection = appState.selectedSidebarSelection else {
-            logger.info("Skipped selection refresh because no sidebar selection is active")
-            return nil
-        }
-
         let result: FeedRefreshBatchResult?
-        switch selection {
+        switch context.scope {
         case .feed(let feedID):
             if let refreshResult = await refreshFeed(id: feedID) {
                 result = FeedRefreshBatchResult(
@@ -144,7 +143,7 @@ extension AppActionRouter {
             }
         case .folder(let folderName):
             result = await refreshFeeds(in: folderName)
-        case .inbox, .unread, .starred:
+        case .allFeeds:
             result = await refreshAllFeeds()
         }
 
@@ -155,16 +154,6 @@ extension AppActionRouter {
             }
         }
 
-        return result
-    }
-
-    @MainActor
-    func refreshVisibleFeeds(using appState: AppState) async -> FeedRefreshBatchResult? {
-        let result = await refreshAllFeeds()
-        if result != nil {
-            appState.requestSidebarReload()
-            appState.requestArticleListReload()
-        }
         return result
     }
 
