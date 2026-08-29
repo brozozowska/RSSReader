@@ -100,8 +100,8 @@ enum SettingsLocalization {
     )
     static let articleListSectionFooter = String(
         localized: "settings.articleList.section.footer",
-        defaultValue: "Articles stay on your device while a feed keeps returning them. After an article disappears, \"While in Feed\" removes it immediately and time-based options start their retention period. Up to 2,000 archived unstarred articles are kept per feed. Starred articles are kept until unstarred.",
-        comment: "Footer summarizing feed-absence retention, the archived article count limit, and the starred exception."
+        defaultValue: "Articles stay on your device while a feed keeps returning them. If an article disappears from the list during an update, \"While Listed\" removes it immediately, while time-based options remove it after the selected period starting from that update. No more than 2,000 articles are kept per feed. Articles in Starred are kept until you remove them from Starred.",
+        comment: "Footer explaining that articles are kept while returned by a feed, timed retention starts when an article disappears during an update, no more than 2,000 articles are kept per feed, and articles in Starred are kept until removed from Starred."
     )
     static let sortUnreadArticlesTitle = String(
         localized: "settings.articleList.sortUnread.title",
@@ -283,8 +283,8 @@ enum SettingsLocalization {
     )
     static let currentFeedOnlyOptionTitle = String(
         localized: "settings.option.retention.currentFeedOnly",
-        defaultValue: "While in Feed",
-        comment: "Picker option that keeps unstarred articles only while their feed continues returning them."
+        defaultValue: "While Listed",
+        comment: "Picker option that removes an article immediately when it no longer appears in the feed's returned article list."
     )
     static let twoDaysOptionTitle = String(
         localized: "settings.option.retention.twoDays",

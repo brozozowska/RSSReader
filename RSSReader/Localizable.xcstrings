@@ -23732,90 +23732,90 @@
       }
     },
     "settings.articleList.section.footer" : {
-      "comment" : "Footer summarizing feed-absence retention, the archived article count limit, and the starred exception.",
+      "comment" : "Footer explaining that articles are kept while returned by a feed, timed retention starts when an article disappears during an update, no more than 2,000 articles are kept per feed, and articles in Starred are kept until removed from Starred.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ينطبق الاحتفاظ على جميع المقالات غير المميزة بنجمة، بما فيها العناصر التي لا تزال في الخلاصة: تُحفظ من تاريخها في الخلاصة للمدة المحددة، بحد أقصى ٢٬٠٠٠ مقال لكل خلاصة. يزيل خيار «ما دامت في الخلاصة» العناصر بعد اختفائها. تخضع العناصر بلا تاريخ لحد العدد. تُحفظ المقالات المميزة بنجمة حتى إزالة النجمة."
+            "value" : "تبقى المقالات على الجهاز ما دامت الخلاصة تواصل إرجاعها. إذا اختفت مقالة من القائمة أثناء التحديث، يزيلها خيار «ما دامت في القائمة» فورًا، بينما تزيلها الخيارات المحددة بمدة بعد انقضاء المدة المختارة بدءًا من ذلك التحديث. يُحتفظ بحد أقصى ٢٬٠٠٠ مقالة لكل خلاصة. تُحفظ المقالات في المفضلة حتى تزيلها من المفضلة."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die Aufbewahrung gilt für alle Artikel ohne Stern, auch wenn sie noch im Feed stehen: Sie werden ab ihrem Feed-Datum für die gewählte Dauer aufbewahrt, höchstens 2.000 pro Feed. „Solange im Feed“ entfernt Einträge nach ihrem Verschwinden. Einträge ohne Datum unterliegen dem Anzahl-Limit. Artikel mit Stern bleiben bis zum Entfernen des Sterns erhalten."
+            "value" : "Artikel bleiben auf dem Gerät, solange ein Feed sie weiterhin zurückgibt. Wenn ein Artikel bei einer Aktualisierung nicht mehr in der Liste erscheint, wird er mit „Solange gelistet“ sofort entfernt; bei den zeitbasierten Optionen wird er nach Ablauf des gewählten Zeitraums ab dieser Aktualisierung entfernt. Pro Feed werden höchstens 2.000 Artikel gespeichert. Artikel unter „Mit Stern“ bleiben gespeichert, bis sie daraus entfernt werden."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Articles stay on your device while a feed keeps returning them. After an article disappears, \"While in Feed\" removes it immediately and time-based options start their retention period. Up to 2,000 archived unstarred articles are kept per feed. Starred articles are kept until unstarred."
+            "value" : "Articles stay on your device while a feed keeps returning them. If an article disappears from the list during an update, \"While Listed\" removes it immediately, while time-based options remove it after the selected period starting from that update. No more than 2,000 articles are kept per feed. Articles in Starred are kept until you remove them from Starred."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La retención se aplica a todos los artículos sin estrella, incluidos los que aún aparecen en el feed: se conservan desde su fecha en el feed durante el tiempo elegido, con un máximo de 2.000 por feed. «Mientras esté en el feed» elimina las entradas cuando desaparecen. Las entradas sin fecha usan el límite de cantidad. Los artículos con estrella se conservan hasta quitarles la estrella."
+            "value" : "Los artículos permanecen en el dispositivo mientras el feed siga incluyéndolos. Si un artículo desaparece de la lista durante una actualización, «Mientras aparezca» lo elimina de inmediato; las opciones temporales lo eliminan cuando transcurre el periodo elegido desde esa actualización. Se guardan como máximo 2.000 artículos por feed. Los artículos en Favoritos se guardan hasta que los elimines de Favoritos."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "نگهداری برای همهٔ مقاله‌های بدون ستاره، از جمله مواردی که هنوز در فید هستند، اعمال می‌شود: آن‌ها از تاریخ درج‌شده در فید تا مدت انتخابی و حداکثر ۲٬۰۰۰ مورد برای هر فید نگه داشته می‌شوند. «تا وقتی در فید است» موارد ناپدیدشده را حذف می‌کند. موارد بدون تاریخ فقط تابع سقف تعداد هستند. مقاله‌های ستاره‌دار تا برداشتن ستاره نگه داشته می‌شوند."
+            "value" : "مقاله‌ها تا زمانی که فید همچنان آن‌ها را برمی‌گرداند روی دستگاه باقی می‌مانند. اگر مقاله‌ای هنگام به‌روزرسانی از فهرست ناپدید شود، گزینهٔ «تا وقتی در فهرست است» آن را فوراً حذف می‌کند و گزینه‌های زمان‌دار پس از پایان مدت انتخابی از زمان همان به‌روزرسانی آن را حذف می‌کنند. برای هر فید حداکثر ۲٬۰۰۰ مقاله نگه داشته می‌شود. مقاله‌های موجود در ستاره‌دارها تا وقتی آن‌ها را از ستاره‌دارها حذف کنید نگه داشته می‌شوند."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La conservation s’applique à tous les articles non marqués, y compris ceux encore présents dans le flux : ils sont conservés depuis leur date dans le flux pendant la durée choisie, dans la limite de 2 000 par flux. « Tant que présent » supprime les entrées après leur disparition. Les entrées sans date utilisent la limite de nombre. Les articles marqués sont conservés jusqu’au retrait de l’étoile."
+            "value" : "Les articles restent sur l’appareil tant que le flux continue de les fournir. Si un article disparaît de la liste lors d’une actualisation, « Tant qu’il apparaît » le supprime immédiatement ; les options de durée le suppriment à la fin de la période choisie à compter de cette actualisation. Chaque flux conserve au maximum 2 000 articles. Les articles dans Favoris sont conservés jusqu’à ce que vous les retiriez de Favoris."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "השמירה חלה על כל הכתבות ללא כוכב, כולל פריטים שעדיין מופיעים בפיד: הן נשמרות מתאריך הפיד למשך הזמן שנבחר, עד 2,000 בכל פיד. ״כל עוד בפיד״ מסיר פריטים לאחר שהם נעלמים. פריטים ללא תאריך כפופים למגבלת הכמות. כתבות עם כוכב נשמרות עד להסרת הכוכב."
+            "value" : "הכתבות נשארות במכשיר כל עוד הפיד ממשיך להחזיר אותן. אם כתבה נעלמה מהרשימה במהלך עדכון, האפשרות ״כל עוד ברשימה״ מסירה אותה מיד, ואפשרויות הזמן מסירות אותה בתום התקופה שנבחרה החל מאותו עדכון. בכל פיד נשמרות לכל היותר 2,000 כתבות. כתבות במועדפים נשמרות עד להסרתן מהמועדפים."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La conservazione si applica a tutti gli articoli senza stella, inclusi quelli ancora presenti nel feed: vengono conservati dalla data nel feed per il periodo scelto, fino a 2.000 per feed. “Finché nel feed” rimuove le voci quando scompaiono. Le voci senza data usano il limite numerico. Gli articoli con stella restano finché la stella non viene rimossa."
+            "value" : "Gli articoli restano sul dispositivo finché il feed continua a restituirli. Se durante un aggiornamento un articolo scompare dall’elenco, “Finché è presente” lo rimuove subito, mentre le opzioni a tempo lo rimuovono allo scadere del periodo scelto a partire da quell’aggiornamento. Per ogni feed vengono conservati al massimo 2.000 articoli. Gli articoli nei Preferiti vengono conservati finché non li rimuovi dai Preferiti."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "保持期間は、フィードにまだある項目を含むスターなしの記事すべてに適用されます。フィードの日付から選択した期間、1フィードにつき最大2,000件を保持します。「フィードにある間」は、消えた項目を削除します。日付のない項目には件数上限のみが適用されます。スター付きの記事はスターを外すまで保持されます。"
+            "value" : "記事は、フィードが返し続けている間はデバイスに残ります。更新時に記事が配信一覧から消えた場合、「配信一覧にある間」ではすぐに削除され、期間を指定するオプションでは、その更新時点から選択した期間が経過した後に削除されます。フィードごとに保存される記事は最大2,000件です。スター付きの記事は、「スター付き」から削除するまで保存されます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "보관 정책은 피드에 아직 있는 항목을 포함한 별표 없는 모든 기사에 적용됩니다. 피드 날짜부터 선택한 기간 동안 피드당 최대 2,000개를 보관합니다. ‘피드에 있는 동안’은 사라진 항목을 삭제합니다. 날짜가 없는 항목에는 개수 제한만 적용됩니다. 별표 표시한 기사는 별표를 해제할 때까지 보관됩니다."
+            "value" : "기사는 피드가 계속 반환하는 동안 기기에 남아 있습니다. 업데이트할 때 기사가 피드 목록에서 사라지면 ‘목록에 있는 동안’ 옵션은 즉시 삭제하고, 기간 옵션은 해당 업데이트부터 선택한 기간이 지난 후 삭제합니다. 피드당 최대 2,000개의 기사가 저장됩니다. 별표 표시된 기사는 ‘별표 표시됨’에서 제거할 때까지 저장됩니다."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A retenção vale para todos os artigos sem estrela, inclusive os que ainda estão no feed: eles são mantidos desde a data no feed pelo período escolhido, até 2.000 por feed. “Enquanto estiver no feed” remove itens após desaparecerem. Itens sem data usam o limite de quantidade. Artigos com estrela são mantidos até você remover a estrela."
+            "value" : "Os artigos permanecem no dispositivo enquanto o feed continuar a fornecê-los. Se um artigo desaparecer da lista durante uma atualização, “Enquanto aparecer” o removerá imediatamente; as opções com prazo o removerão após o período escolhido, contado a partir dessa atualização. São mantidos no máximo 2.000 artigos por feed. Os artigos nos Favoritos são mantidos até você removê-los dos Favoritos."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Статьи остаются на устройстве, пока лента продолжает их возвращать. После исчезновения «Пока есть в ленте» удаляет статью сразу, а для временных вариантов начинается отсчёт срока. Для каждой ленты хранится до 2 000 архивных статей без звезды. Статьи со звездой хранятся, пока звезда не снята."
+            "value" : "Статьи остаются на устройстве, пока лента продолжает их возвращать. Если при обновлении статья пропала из выдачи, вариант «Пока есть в выдаче» удалит её сразу, а варианты со сроком — по истечении выбранного срока с этого обновления. Для каждой ленты сохраняется не более 2 000 статей. Статьи в Избранном хранятся, пока вы не удалите их из Избранного."
           }
         },
         "ur" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "حفاظت کا اصول ستارے کے بغیر تمام مضامین پر لاگو ہوتا ہے، ان پر بھی جو ابھی فیڈ میں ہیں: انہیں فیڈ کی تاریخ سے منتخب مدت تک، ہر فیڈ میں زیادہ سے زیادہ 2,000، رکھا جاتا ہے۔ ”جب تک فیڈ میں ہو“ غائب ہونے والی اندراجات ہٹا دیتا ہے۔ بغیر تاریخ اندراجات پر تعداد کی حد لاگو ہوتی ہے۔ ستارے والے مضامین ستارہ ہٹانے تک محفوظ رہتے ہیں۔"
+            "value" : "مضامین اس وقت تک ڈیوائس پر رہتے ہیں جب تک فیڈ انہیں واپس بھیجتی رہتی ہے۔ اگر اپ ڈیٹ کے دوران کوئی مضمون فہرست سے غائب ہو جائے تو ”جب تک فہرست میں ہو“ اسے فوراً حذف کر دیتا ہے، جبکہ مدت والے اختیارات اسے اسی اپ ڈیٹ سے منتخب مدت پوری ہونے کے بعد حذف کرتے ہیں۔ ہر فیڈ کے لیے زیادہ سے زیادہ 2,000 مضامین محفوظ رکھے جاتے ہیں۔ پسندیدہ مضامین اس وقت تک محفوظ رہتے ہیں جب تک آپ انہیں پسندیدہ سے ہٹا نہ دیں۔"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "保留规则适用于所有未加星标的文章，包括仍在订阅源中的条目：从订阅源日期起按所选时长保留，每个订阅源最多 2,000 篇。“仍在订阅源中”会在条目消失后将其删除。无日期条目仅受数量上限约束。加星标文章会保留到取消星标为止。"
+            "value" : "只要订阅源继续返回文章，文章就会保留在设备上。如果文章在更新时从列表中消失，“仍在列表中”选项会立即将其删除，按时长保留的选项则会从此次更新起，在所选时限到期后将其删除。每个订阅源最多保留 2,000 篇文章。已加星标的文章会保留，直到你将其从“已加星标”中移除。"
           }
         }
       }
@@ -29533,90 +29533,90 @@
       }
     },
     "settings.option.retention.currentFeedOnly" : {
-      "comment" : "Picker option that keeps unstarred articles only while their feed continues returning them.",
+      "comment" : "Picker option that removes an article immediately when it no longer appears in the feed's returned article list.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ما دامت في الخلاصة"
+            "value" : "ما دامت في القائمة"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Solange im Feed"
+            "value" : "Solange gelistet"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "While in Feed"
+            "value" : "While Listed"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mientras esté en el feed"
+            "value" : "Mientras aparezca"
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "تا وقتی در فید است"
+            "value" : "تا وقتی در فهرست است"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tant que présent"
+            "value" : "Tant qu’il apparaît"
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "כל עוד בפיד"
+            "value" : "כל עוד ברשימה"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Finché nel feed"
+            "value" : "Finché è presente"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "フィードにある間"
+            "value" : "配信一覧にある間"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "피드에 있는 동안"
+            "value" : "목록에 있는 동안"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Enquanto estiver no feed"
+            "value" : "Enquanto aparecer"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Пока есть в ленте"
+            "value" : "Пока есть в выдаче"
           }
         },
         "ur" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "جب تک فیڈ میں ہو"
+            "value" : "جب تک فہرست میں ہو"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "仍在订阅源中"
+            "value" : "仍在列表中"
           }
         }
       }

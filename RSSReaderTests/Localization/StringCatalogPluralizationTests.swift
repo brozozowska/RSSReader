@@ -70,6 +70,56 @@ struct StringCatalogPluralizationTests {
         }
     }
 
+    @Test
+    func articleRetentionCopyMatchesApprovedRussianContract() throws {
+        let strings = try Self.catalogStrings()
+
+        #expect(
+            Self.localizedValue(
+                in: strings,
+                key: "settings.articleList.section.footer",
+                language: "ru"
+            ) == "Статьи остаются на устройстве, пока лента продолжает их возвращать. Если при обновлении статья пропала из выдачи, вариант «Пока есть в выдаче» удалит её сразу, а варианты со сроком — по истечении выбранного срока с этого обновления. Для каждой ленты сохраняется не более 2 000 статей. Статьи в Избранном хранятся, пока вы не удалите их из Избранного."
+        )
+        #expect(
+            Self.localizedValue(
+                in: strings,
+                key: "settings.option.retention.currentFeedOnly",
+                language: "ru"
+            ) == "Пока есть в выдаче"
+        )
+    }
+
+    @Test
+    func articleRetentionCopyCoversEverySupportedLocaleAndUpdatedTranslatorContext() throws {
+        let strings = try Self.catalogStrings()
+        let keys = [
+            "settings.articleList.section.footer",
+            "settings.option.retention.currentFeedOnly"
+        ]
+
+        for key in keys {
+            let entry = try #require(strings[key] as? [String: Any])
+            let localizations = try #require(entry["localizations"] as? [String: Any])
+
+            #expect(Set(localizations.keys) == Set(Self.supportedLanguages))
+            for language in Self.supportedLanguages {
+                #expect(Self.hasTranslatedLocalization(in: entry, language: language))
+            }
+        }
+
+        let footerEntry = try #require(strings[keys[0]] as? [String: Any])
+        let optionEntry = try #require(strings[keys[1]] as? [String: Any])
+        #expect(
+            footerEntry["comment"] as? String
+                == "Footer explaining that articles are kept while returned by a feed, timed retention starts when an article disappears during an update, no more than 2,000 articles are kept per feed, and articles in Starred are kept until removed from Starred."
+        )
+        #expect(
+            optionEntry["comment"] as? String
+                == "Picker option that removes an article immediately when it no longer appears in the feed's returned article list."
+        )
+    }
+
     private static let russianPluralExpectations: [PluralExpectation] = [
         .init(key: "reading.articles.subtitle.unread.count", category: "one", value: "%lld непрочитанная"),
         .init(key: "reading.articles.subtitle.unread.count", category: "few", value: "%lld непрочитанные"),
@@ -135,6 +185,9 @@ struct StringCatalogPluralizationTests {
     ]
 
     private static let cjkLanguages = ["ja", "zh-Hans", "ko"]
+    private static let supportedLanguages = [
+        "ar", "de", "en", "es", "fa", "fr", "he", "it", "ja", "ko", "pt-BR", "ru", "ur", "zh-Hans"
+    ]
 
     private static func catalogStrings() throws -> [String: Any] {
         let catalogURL = try #require(localizableCatalogURL())
@@ -216,6 +269,23 @@ struct StringCatalogPluralizationTests {
             let plural = variations["plural"] as? [String: Any],
             let categoryEntry = plural[category] as? [String: Any],
             let stringUnit = categoryEntry["stringUnit"] as? [String: Any]
+        else {
+            return nil
+        }
+
+        return stringUnit["value"] as? String
+    }
+
+    private static func localizedValue(
+        in strings: [String: Any],
+        key: String,
+        language: String
+    ) -> String? {
+        guard
+            let entry = strings[key] as? [String: Any],
+            let localizations = entry["localizations"] as? [String: Any],
+            let localization = localizations[language] as? [String: Any],
+            let stringUnit = localization["stringUnit"] as? [String: Any]
         else {
             return nil
         }
