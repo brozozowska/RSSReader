@@ -43,7 +43,7 @@ struct ArticleImageLoaderTests {
         #expect(cachedDecodedByteCost == cgImage.bytesPerRow * cgImage.height)
         #expect(cachedDecodedByteCost != imageData.count)
         #expect(fixture.memoryCache.image(for: imageURL) === image)
-        #expect(try await fixture.diskCache.data(for: imageURL) == imageData)
+        #expect(try await waitForCachedData(in: fixture.diskCache, for: imageURL) == imageData)
 
         let request = try #require(await fixture.httpClient.recordedRequests().first)
         #expect(
@@ -119,6 +119,7 @@ struct ArticleImageLoaderTests {
         let displayTarget = ArticleImageDisplayTarget(maximumPixelWidth: 32)
 
         let coldImage = try await fixture.loader.loadImage(from: imageURL, displayTarget: displayTarget)
+        _ = try await waitForCachedData(in: fixture.diskCache, for: imageURL)
         let warmImage = try await fixture.loader.loadImage(from: imageURL, displayTarget: displayTarget)
 
         #expect(warmImage === coldImage)
@@ -141,6 +142,7 @@ struct ArticleImageLoaderTests {
         defer { fixture.removeTemporaryDirectory() }
         let displayTarget = ArticleImageDisplayTarget(maximumPixelWidth: 40)
         _ = try await fixture.loader.loadImage(from: imageURL, displayTarget: displayTarget)
+        _ = try await waitForCachedData(in: fixture.diskCache, for: imageURL)
 
         let restoredHTTPClient = ScriptedHTTPClient()
         let restoredMemoryCache = ArticleImageMemoryCache(
@@ -178,7 +180,11 @@ struct ArticleImageLoaderTests {
                 body: imageData
             )
         }
-        let fixture = try makeFixture(steps: steps, memoryCountLimit: 3)
+        let fixture = try makeFixture(
+            steps: steps,
+            memoryCountLimit: 3,
+            diskCache: DiscardingArticleImageDiskCache()
+        )
         defer { fixture.removeTemporaryDirectory() }
 
         for index in 0..<loadCount {
@@ -338,10 +344,53 @@ struct ArticleImageLoaderTests {
         #expect(try await fixture.diskCache.data(for: imageURL) == nil)
     }
 
+    @Test
+    func decodedImageReturnsBeforeOptionalDiskWriteCompletes() async throws {
+        let imageURL = try #require(URL(string: "https://example.com/images/nonblocking-disk.png"))
+        let imageData = makePNGData(width: 48, height: 24)
+        let diskCache = SuspendedArticleImageDiskCache()
+        let fixture = try makeFixture(
+            steps: [
+                .dataResponse(
+                    statusCode: 200,
+                    headers: ["Content-Type": "image/png"],
+                    body: imageData
+                )
+            ],
+            diskCache: diskCache
+        )
+        defer { fixture.removeTemporaryDirectory() }
+        let completion = ArticleImageLoadCompletionProbe()
+
+        let task = Task { @MainActor in
+            let image = try await fixture.loader.loadImage(
+                from: imageURL,
+                displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 24)
+            )
+            await completion.markCompleted()
+            return image
+        }
+
+        await diskCache.waitUntilInsertStarts()
+        for _ in 0..<100 {
+            if await completion.isCompleted { break }
+            await Task.yield()
+        }
+
+        #expect(await completion.isCompleted)
+        #expect(fixture.memoryCache.image(for: imageURL) != nil)
+        #expect(await diskCache.data(for: imageURL) == nil)
+
+        await diskCache.resumeInsert()
+        _ = try await task.value
+        #expect(await diskCache.data(for: imageURL) == imageData)
+    }
+
     private func makeFixture(
         steps: [ScriptedHTTPClient.Step],
         budget: RuntimeImageInputBudget = AppResourceBudgetContract.current.articleImage,
-        memoryCountLimit: Int = 8
+        memoryCountLimit: Int = 8,
+        diskCache: (any ArticleImageDiskCaching)? = nil
     ) throws -> ArticleImageLoaderFixture {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -355,7 +404,7 @@ struct ArticleImageLoaderTests {
             countLimit: memoryCountLimit,
             totalCostLimit: 4 * 1024 * 1024
         )
-        let diskCache = ArticleImageDiskCache(
+        let diskCache = diskCache ?? ArticleImageDiskCache(
             directoryURL: directoryURL,
             capacityLimit: 4 * 1024 * 1024
         )
@@ -406,6 +455,19 @@ struct ArticleImageLoaderTests {
             context.fill(CGRect(x: 0, y: 0, width: width, height: height))
         }
     }
+
+    private func waitForCachedData(
+        in diskCache: any ArticleImageDiskCaching,
+        for url: URL
+    ) async throws -> Data? {
+        for _ in 0..<1_000 {
+            if let data = try await diskCache.data(for: url) {
+                return data
+            }
+            await Task.yield()
+        }
+        return nil
+    }
 }
 
 @MainActor
@@ -413,10 +475,67 @@ private struct ArticleImageLoaderFixture {
     let directoryURL: URL
     let httpClient: ScriptedHTTPClient
     let memoryCache: ArticleImageMemoryCache
-    let diskCache: ArticleImageDiskCache
+    let diskCache: any ArticleImageDiskCaching
     let loader: ArticleImageLoader
 
     func removeTemporaryDirectory() {
         try? FileManager.default.removeItem(at: directoryURL)
+    }
+}
+
+private actor DiscardingArticleImageDiskCache: ArticleImageDiskCaching {
+    func data(for url: URL) -> Data? { nil }
+    func data(for url: URL, maximumBytes: Int64) -> Data? { nil }
+    func insert(_ data: Data, for url: URL) {}
+    func removeData(for url: URL) {}
+}
+
+private actor SuspendedArticleImageDiskCache: ArticleImageDiskCaching {
+    private var storage: [URL: Data] = [:]
+    private var insertStarted = false
+    private var insertStartWaiters: [CheckedContinuation<Void, Never>] = []
+    private var insertContinuation: CheckedContinuation<Void, Never>?
+
+    func data(for url: URL) -> Data? {
+        storage[url]
+    }
+
+    func data(for url: URL, maximumBytes: Int64) -> Data? {
+        storage[url]
+    }
+
+    func insert(_ data: Data, for url: URL) async {
+        insertStarted = true
+        insertStartWaiters.forEach { $0.resume() }
+        insertStartWaiters.removeAll()
+
+        await withCheckedContinuation { continuation in
+            insertContinuation = continuation
+        }
+        storage[url] = data
+    }
+
+    func removeData(for url: URL) {
+        storage[url] = nil
+    }
+
+    func waitUntilInsertStarts() async {
+        guard insertStarted == false else { return }
+        await withCheckedContinuation { continuation in
+            insertStartWaiters.append(continuation)
+        }
+    }
+
+    func resumeInsert() {
+        insertContinuation?.resume()
+        insertContinuation = nil
+    }
+}
+
+private actor ArticleImageLoadCompletionProbe {
+    private(set) var isCompleted = false
+
+    func markCompleted() {
+        isCompleted = true
     }
 }

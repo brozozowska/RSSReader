@@ -98,6 +98,80 @@ struct ArticleScreenImageCacheRenderingTests {
         #expect(layout.horizontalAlignment == .center)
     }
 
+    @Test
+    func cancelledCurrentLoadReturnsToRetryableEmptyPhase() throws {
+        let request = CachedArticleImageLoadRequest(
+            url: try #require(URL(string: "https://example.com/cancelled.png")),
+            displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 320)
+        )
+        var lifecycle = CachedArticleImageLoadLifecycle(initialPhase: .empty)
+
+        let cancelledToken = lifecycle.begin(request)
+        lifecycle.cancel(cancelledToken)
+        #expect(lifecycle.phase.isEmpty)
+
+        _ = lifecycle.begin(request)
+        #expect(lifecycle.phase.isLoading)
+    }
+
+    @Test
+    func displayTargetChangeIgnoresStaleCompletion() throws {
+        let imageURL = try #require(URL(string: "https://example.com/responsive.png"))
+        let narrowRequest = CachedArticleImageLoadRequest(
+            url: imageURL,
+            displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 320)
+        )
+        let wideRequest = CachedArticleImageLoadRequest(
+            url: imageURL,
+            displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 640)
+        )
+        let staleImage = makeTestImage()
+        let currentImage = makeSizedTestImage(size: CGSize(width: 2, height: 2))
+        var lifecycle = CachedArticleImageLoadLifecycle(initialPhase: .empty)
+
+        let staleToken = lifecycle.begin(narrowRequest)
+        let currentToken = lifecycle.begin(wideRequest)
+        lifecycle.succeed(with: staleImage, token: staleToken)
+        #expect(lifecycle.phase.isLoading)
+
+        lifecycle.succeed(with: currentImage, token: currentToken)
+        #expect(lifecycle.phase.successfulImage === currentImage)
+    }
+
+    @Test
+    func URLChangeAndRetryCannotBeOverwrittenByStaleTask() throws {
+        let firstRequest = CachedArticleImageLoadRequest(
+            url: try #require(URL(string: "https://example.com/first.png")),
+            displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 320)
+        )
+        let secondRequest = CachedArticleImageLoadRequest(
+            url: try #require(URL(string: "https://example.com/second.png")),
+            displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 320)
+        )
+        var lifecycle = CachedArticleImageLoadLifecycle(initialPhase: .empty)
+
+        let staleToken = lifecycle.begin(firstRequest)
+        let failedToken = lifecycle.begin(secondRequest)
+        lifecycle.fail(failedToken)
+        #expect(lifecycle.phase.isFailure)
+
+        let retryToken = lifecycle.begin(secondRequest)
+        lifecycle.cancel(staleToken)
+        #expect(lifecycle.phase.isLoading)
+
+        let retryImage = makeTestImage()
+        lifecycle.succeed(with: retryImage, token: retryToken)
+        #expect(lifecycle.phase.successfulImage === retryImage)
+    }
+
+    @Test
+    func memoryCacheHitStartsInSuccessPhase() {
+        let image = makeTestImage()
+        let lifecycle = CachedArticleImageLoadLifecycle(initialPhase: .success(image))
+
+        #expect(lifecycle.phase.successfulImage === image)
+    }
+
     private func makeSizedTestImage(size: CGSize) -> UIImage {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
@@ -105,5 +179,27 @@ struct ArticleScreenImageCacheRenderingTests {
             UIColor.systemBlue.setFill()
             context.fill(CGRect(origin: .zero, size: size))
         }
+    }
+}
+
+private extension CachedArticleImagePhase {
+    var isEmpty: Bool {
+        if case .empty = self { return true }
+        return false
+    }
+
+    var isLoading: Bool {
+        if case .loading = self { return true }
+        return false
+    }
+
+    var isFailure: Bool {
+        if case .failure = self { return true }
+        return false
+    }
+
+    var successfulImage: UIImage? {
+        if case .success(let image) = self { return image }
+        return nil
     }
 }

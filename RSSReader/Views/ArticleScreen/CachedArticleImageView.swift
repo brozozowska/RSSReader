@@ -4,8 +4,9 @@ import UIKit
 struct CachedArticleImageView: View {
     let url: URL
     @Environment(\.displayScale) private var displayScale
-    @State private var phase: CachedArticleImagePhase
+    @State private var lifecycle: CachedArticleImageLoadLifecycle
     @State private var displayWidth: CGFloat = 0
+    @State private var retryGeneration = 0
 
     @MainActor
     init(url: URL) {
@@ -17,9 +18,13 @@ struct CachedArticleImageView: View {
         self.url = url
 
         if let cachedImage = cache.image(for: url) {
-            self._phase = State(initialValue: .success(cachedImage))
+            self._lifecycle = State(
+                initialValue: CachedArticleImageLoadLifecycle(initialPhase: .success(cachedImage))
+            )
         } else {
-            self._phase = State(initialValue: .empty)
+            self._lifecycle = State(
+                initialValue: CachedArticleImageLoadLifecycle(initialPhase: .empty)
+            )
         }
     }
 
@@ -30,9 +35,9 @@ struct CachedArticleImageView: View {
             } action: { newWidth in
                 displayWidth = newWidth
             }
-            .task(id: loadRequest) {
+            .task(id: loadTaskID) {
                 guard let loadRequest else { return }
-                await loadImage(displayTarget: loadRequest.displayTarget)
+                await loadImage(loadRequest)
             }
     }
 
@@ -47,9 +52,15 @@ struct CachedArticleImageView: View {
         )
     }
 
+    private var loadTaskID: CachedArticleImageLoadTaskID? {
+        loadRequest.map {
+            CachedArticleImageLoadTaskID(request: $0, retryGeneration: retryGeneration)
+        }
+    }
+
     @ViewBuilder
     private var content: some View {
-        switch phase {
+        switch lifecycle.phase {
         case .empty, .loading:
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -74,46 +85,112 @@ struct CachedArticleImageView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .frame(maxWidth: .infinity, alignment: layout.swiftUIAlignment)
         case .failure:
-            HStack(alignment: .center, spacing: 12) {
-                Image(systemName: "photo")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
+            Button {
+                retryGeneration &+= 1
+            } label: {
+                HStack(alignment: .center, spacing: 12) {
+                    Image(systemName: "photo")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(ReadingLocalization.imageUnavailableTitle)
-                        .font(.subheadline.weight(.semibold))
-                    Text(ReadingLocalization.imageUnavailableDescription)
-                        .font(.caption)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(ReadingLocalization.imageUnavailableTitle)
+                            .font(.subheadline.weight(.semibold))
+                        Text(ReadingLocalization.imageUnavailableDescription)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Label(CommonLocalization.retryAction, systemImage: "arrow.clockwise")
+                        .labelStyle(.iconOnly)
                         .foregroundStyle(.secondary)
                 }
             }
+            .buttonStyle(.plain)
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .accessibilityHint(CommonLocalization.retryAction)
         }
     }
 
     @MainActor
-    private func loadImage(displayTarget: ArticleImageDisplayTarget) async {
-        phase = .loading
+    private func loadImage(_ request: CachedArticleImageLoadRequest) async {
+        let token = lifecycle.begin(request)
 
         do {
             let image = try await ArticleImageLoader.shared.loadImage(
-                from: url,
-                displayTarget: displayTarget
+                from: request.url,
+                displayTarget: request.displayTarget
             )
-            phase = .success(image)
+            if Task.isCancelled {
+                lifecycle.cancel(token)
+            } else {
+                lifecycle.succeed(with: image, token: token)
+            }
         } catch is CancellationError {
-            return
+            lifecycle.cancel(token)
         } catch {
-            phase = .failure
+            if Task.isCancelled {
+                lifecycle.cancel(token)
+            } else {
+                lifecycle.fail(token)
+            }
         }
     }
 }
 
-private struct CachedArticleImageLoadRequest: Hashable {
+struct CachedArticleImageLoadRequest: Hashable {
     let url: URL
     let displayTarget: ArticleImageDisplayTarget
+}
+
+private struct CachedArticleImageLoadTaskID: Hashable {
+    let request: CachedArticleImageLoadRequest
+    let retryGeneration: Int
+}
+
+struct CachedArticleImageLoadToken: Equatable {
+    fileprivate let generation: Int
+    let request: CachedArticleImageLoadRequest
+}
+
+struct CachedArticleImageLoadLifecycle {
+    private(set) var phase: CachedArticleImagePhase
+    private var generation = 0
+    private var activeToken: CachedArticleImageLoadToken?
+
+    init(initialPhase: CachedArticleImagePhase) {
+        phase = initialPhase
+    }
+
+    mutating func begin(_ request: CachedArticleImageLoadRequest) -> CachedArticleImageLoadToken {
+        generation &+= 1
+        let token = CachedArticleImageLoadToken(generation: generation, request: request)
+        activeToken = token
+        phase = .loading
+        return token
+    }
+
+    mutating func succeed(with image: UIImage, token: CachedArticleImageLoadToken) {
+        guard activeToken == token else { return }
+        activeToken = nil
+        phase = .success(image)
+    }
+
+    mutating func fail(_ token: CachedArticleImageLoadToken) {
+        guard activeToken == token else { return }
+        activeToken = nil
+        phase = .failure
+    }
+
+    mutating func cancel(_ token: CachedArticleImageLoadToken) {
+        guard activeToken == token else { return }
+        activeToken = nil
+        phase = .empty
+    }
 }
 
 enum CachedArticleImagePhase {

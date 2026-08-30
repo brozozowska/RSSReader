@@ -34,13 +34,13 @@ final class ArticleImageLoader {
 
     private let httpClient: any HTTPClient
     private let memoryCache: ArticleImageMemoryCache
-    private let diskCache: ArticleImageDiskCache
+    private let diskCache: any ArticleImageDiskCaching
     private let budget: RuntimeImageInputBudget
 
     init(
         httpClient: any HTTPClient,
         memoryCache: ArticleImageMemoryCache? = nil,
-        diskCache: ArticleImageDiskCache = .shared,
+        diskCache: any ArticleImageDiskCaching = ArticleImageDiskCache.shared,
         budget: RuntimeImageInputBudget = AppComposition.resourceBudgetContract.articleImage
     ) {
         self.httpClient = httpClient
@@ -131,9 +131,8 @@ final class ArticleImageLoader {
         )
         try Task.checkCancellation()
 
-        try? await diskCache.insert(response.body, for: url)
-        try Task.checkCancellation()
         storeInMemory(decodedImage, for: url)
+        persistInDiskCache(response.body, for: url)
         return decodedImage.image
     }
 
@@ -168,6 +167,13 @@ final class ArticleImageLoader {
             sourcePixelWidth: decodedImage.sourcePixelWidth,
             sourcePixelHeight: decodedImage.sourcePixelHeight
         )
+    }
+
+    private func persistInDiskCache(_ data: Data, for url: URL) {
+        let diskCache = diskCache
+        Task.detached(priority: .utility) {
+            try? await diskCache.insert(data, for: url)
+        }
     }
 }
 
