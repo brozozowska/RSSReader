@@ -127,6 +127,96 @@ struct ArticleImageLoaderTests {
     }
 
     @Test
+    func concurrentSufficientTargetLoadsShareNetworkAndDecodeExecution() async throws {
+        let imageURL = try #require(URL(string: "https://example.com/images/shared-flight.png"))
+        let imageData = makePNGData(width: 120, height: 60)
+        let responseGate = ScriptedHTTPClientResponseGate()
+        let fixture = try makeFixture(
+            steps: [
+                .gatedDataResponse(
+                    statusCode: 200,
+                    headers: ["Content-Type": "image/png"],
+                    body: imageData,
+                    gate: responseGate
+                )
+            ]
+        )
+        defer { fixture.removeTemporaryDirectory() }
+
+        let largerTargetTask = Task { @MainActor in
+            try await fixture.loader.loadImage(
+                from: imageURL,
+                displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 80)
+            )
+        }
+        await waitUntilResponseGateIsEntered(responseGate)
+
+        let smallerTargetTask = Task { @MainActor in
+            try await fixture.loader.loadImage(
+                from: imageURL,
+                displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 40)
+            )
+        }
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        #expect(await responseGate.enteredCount() == 1)
+        #expect(await fixture.httpClient.recordedRequests().count == 1)
+
+        await responseGate.release()
+        let largerImage = try await largerTargetTask.value
+        let smallerImage = try await smallerTargetTask.value
+
+        #expect(largerImage === smallerImage)
+        #expect(await fixture.httpClient.recordedRequests().count == 1)
+    }
+
+    @Test
+    func cancellingOneJoinedWaiterKeepsSharedExecutionAliveForReaderConsumer() async throws {
+        let imageURL = try #require(URL(string: "https://example.com/images/shared-cancellation.png"))
+        let imageData = makePNGData(width: 120, height: 60)
+        let responseGate = ScriptedHTTPClientResponseGate()
+        let fixture = try makeFixture(
+            steps: [
+                .gatedDataResponse(
+                    statusCode: 200,
+                    headers: ["Content-Type": "image/png"],
+                    body: imageData,
+                    gate: responseGate
+                )
+            ]
+        )
+        defer { fixture.removeTemporaryDirectory() }
+        let displayTarget = ArticleImageDisplayTarget(maximumPixelWidth: 80)
+
+        let prefetchTask = Task { @MainActor in
+            try await fixture.loader.loadImage(from: imageURL, displayTarget: displayTarget)
+        }
+        await waitUntilResponseGateIsEntered(responseGate)
+
+        let readerTask = Task { @MainActor in
+            try await fixture.loader.loadImage(from: imageURL, displayTarget: displayTarget)
+        }
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+        prefetchTask.cancel()
+
+        await #expect(throws: CancellationError.self) {
+            try await prefetchTask.value
+        }
+        #expect(await fixture.httpClient.currentInFlightExecutionCount() == 1)
+        #expect(await fixture.httpClient.recordedRequests().count == 1)
+
+        await responseGate.release()
+        let image = try await readerTask.value
+
+        #expect(fixture.memoryCache.image(for: imageURL) === image)
+        #expect(await fixture.httpClient.recordedRequests().count == 1)
+    }
+
+    @Test
     func relaunchLoadRestoresImageFromCustomDiskCacheWithoutNetworkRequest() async throws {
         let imageURL = try #require(URL(string: "https://example.com/images/relaunch.png"))
         let imageData = makePNGData(width: 80, height: 40)
@@ -383,7 +473,7 @@ struct ArticleImageLoaderTests {
 
         await diskCache.resumeInsert()
         _ = try await task.value
-        #expect(await diskCache.data(for: imageURL) == imageData)
+        #expect(try await waitForCachedData(in: diskCache, for: imageURL) == imageData)
     }
 
     private func makeFixture(
@@ -467,6 +557,17 @@ struct ArticleImageLoaderTests {
             await Task.yield()
         }
         return nil
+    }
+
+    private func waitUntilResponseGateIsEntered(
+        _ responseGate: ScriptedHTTPClientResponseGate
+    ) async {
+        for _ in 0..<1_000 {
+            if await responseGate.hasEntered() {
+                return
+            }
+            await Task.yield()
+        }
     }
 }
 

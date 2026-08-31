@@ -353,6 +353,56 @@ struct ArticleQueryServiceTests {
     }
 
     @Test
+    func articleQueryServiceBatchReaderFetchPreservesRequestedOrderAndDeduplicatesIDs() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try insertFeed(into: harness)
+        let first = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "reader-batch-first",
+            title: "First",
+            publishedAt: Date(timeIntervalSince1970: 100)
+        )
+        let second = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "reader-batch-second",
+            title: "Second",
+            publishedAt: Date(timeIntervalSince1970: 200)
+        )
+        let third = try insertArticle(
+            into: harness,
+            feed: feed,
+            externalID: "reader-batch-third",
+            title: "Third",
+            publishedAt: Date(timeIntervalSince1970: 300)
+        )
+        try harness.articleStateRepository.upsert(
+            feedID: feed.id,
+            articleExternalID: second.externalID,
+            update: ArticleStateUpsert(isRead: true, updatedAt: .now)
+        )
+        let operations = SwiftDataRepositoryOperationCounter()
+        let queryService = DefaultArticleQueryService(
+            articleRepository: SwiftDataArticleRepository(
+                modelContext: harness.modelContainer.mainContext,
+                persistenceOperationRecorder: operations.record
+            ),
+            articleStateRepository: harness.articleStateRepository,
+            feedRepository: harness.feedRepository
+        )
+
+        let articles = try queryService.fetchReaderArticles(
+            ids: [third.id, UUID(), first.id, third.id, second.id]
+        )
+
+        #expect(articles.map(\.id) == [third.id, first.id, second.id])
+        #expect(articles.map(\.title) == ["Third", "First", "Second"])
+        #expect(articles.map(\.isRead) == [false, false, true])
+        #expect(operations.fetchQueryCount == 1)
+    }
+
+    @Test
     func articleQueryServiceUsesOneEffectiveDateContractAcrossSourceShapes() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try insertFeed(into: harness)

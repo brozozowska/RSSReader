@@ -83,6 +83,96 @@ struct ArticleScreenImageCacheRenderingTests {
     }
 
     @Test
+    func adjacentPrefetchReservationsSurviveOrdinaryCacheChurn() throws {
+        let cache = ArticleImageMemoryCache(countLimit: 3, totalCostLimit: 16_384)
+        let previousURL = try #require(URL(string: "https://example.com/previous.png"))
+        let nextURL = try #require(URL(string: "https://example.com/next.png"))
+        cache.replacePrefetchReservations(with: [previousURL, nextURL])
+
+        let previousImage = makeSizedTestImage(size: CGSize(width: 16, height: 8))
+        let nextImage = makeSizedTestImage(size: CGSize(width: 16, height: 8))
+        cache.insert(previousImage, for: previousURL)
+        cache.insert(nextImage, for: nextURL)
+
+        for index in 0..<20 {
+            let churnURL = try #require(URL(string: "https://example.com/churn-\(index).png"))
+            cache.insert(makeSizedTestImage(size: CGSize(width: 16, height: 8)), for: churnURL)
+        }
+
+        #expect(cache.image(for: previousURL) === previousImage)
+        #expect(cache.image(for: nextURL) === nextImage)
+        #expect(cache.cachedImageCount <= 3)
+    }
+
+    @Test
+    func replacingAdjacentReservationsReleasesOldWindowAndProtectsNewWindow() throws {
+        let cache = ArticleImageMemoryCache(countLimit: 3, totalCostLimit: 16_384)
+        let oldURL = try #require(URL(string: "https://example.com/old.png"))
+        let newURL = try #require(URL(string: "https://example.com/new.png"))
+        cache.replacePrefetchReservations(with: [oldURL])
+        cache.insert(makeSizedTestImage(size: CGSize(width: 16, height: 8)), for: oldURL)
+
+        cache.replacePrefetchReservations(with: [newURL])
+        let newImage = makeSizedTestImage(size: CGSize(width: 16, height: 8))
+        cache.insert(newImage, for: newURL)
+        for index in 0..<4 {
+            let churnURL = try #require(URL(string: "https://example.com/replacement-\(index).png"))
+            cache.insert(makeSizedTestImage(size: CGSize(width: 16, height: 8)), for: churnURL)
+        }
+
+        #expect(cache.image(for: newURL) === newImage)
+        #expect(cache.image(for: oldURL) == nil)
+        #expect(cache.cachedImageCount <= 3)
+    }
+
+    @Test
+    func currentAndFourAdjacentImageReservationsSurviveOrdinaryCacheChurnWithinOriginalBudget() throws {
+        let cache = ArticleImageMemoryCache(countLimit: 6, totalCostLimit: 32_768)
+        let reservedURLs = try (0..<5).map { index in
+            try #require(URL(string: "https://example.com/reserved-\(index).png"))
+        }
+        cache.replacePrefetchReservations(with: reservedURLs)
+        let reservedImages = reservedURLs.map { url in
+            let image = makeSizedTestImage(size: CGSize(width: 16, height: 8))
+            cache.insert(image, for: url)
+            return image
+        }
+
+        for index in 0..<8 {
+            let churnURL = try #require(URL(string: "https://example.com/four-window-churn-\(index).png"))
+            cache.insert(makeSizedTestImage(size: CGSize(width: 16, height: 8)), for: churnURL)
+        }
+
+        for (index, url) in reservedURLs.enumerated() {
+            #expect(cache.image(for: url) === reservedImages[index])
+        }
+        #expect(cache.cachedImageCount <= 6)
+    }
+
+    @Test
+    func reservedURLUsesNewestSufficientDecodedEntry() throws {
+        let cache = ArticleImageMemoryCache(countLimit: 3, totalCostLimit: 32_768)
+        let imageURL = try #require(URL(string: "https://example.com/resized.png"))
+        cache.replacePrefetchReservations(with: [imageURL])
+        cache.insert(
+            makeSizedTestImage(size: CGSize(width: 16, height: 8)),
+            for: imageURL,
+            sourcePixelWidth: 64,
+            sourcePixelHeight: 32
+        )
+
+        let largerImage = makeSizedTestImage(size: CGSize(width: 48, height: 24))
+        cache.insert(
+            largerImage,
+            for: imageURL,
+            sourcePixelWidth: 64,
+            sourcePixelHeight: 32
+        )
+
+        #expect(cache.image(for: imageURL, targetMaximumPixelWidth: 48) === largerImage)
+    }
+
+    @Test
     func cachedArticleImageLayoutPolicyDoesNotUpscaleSmallImages() {
         let layout = CachedArticleImageLayoutPolicy.layout(for: CGSize(width: 120, height: 80))
 
@@ -170,6 +260,22 @@ struct ArticleScreenImageCacheRenderingTests {
         let lifecycle = CachedArticleImageLoadLifecycle(initialPhase: .success(image))
 
         #expect(lifecycle.phase.successfulImage === image)
+    }
+
+    @Test
+    func geometryTriggeredTaskKeepsSufficientMemoryCacheHitVisible() throws {
+        let request = CachedArticleImageLoadRequest(
+            url: try #require(URL(string: "https://example.com/prefetched.png")),
+            displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 640)
+        )
+        let prefetchedImage = makeSizedTestImage(size: CGSize(width: 640, height: 320))
+        var lifecycle = CachedArticleImageLoadLifecycle(initialPhase: .empty)
+
+        let token = lifecycle.beginLoadingIfNeeded(request, cachedImage: prefetchedImage)
+
+        #expect(token == nil)
+        #expect(lifecycle.phase.successfulImage === prefetchedImage)
+        #expect(lifecycle.phase.isLoading == false)
     }
 
     private func makeSizedTestImage(size: CGSize) -> UIImage {

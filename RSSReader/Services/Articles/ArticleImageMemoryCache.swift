@@ -6,8 +6,24 @@ final class ArticleImageMemoryCache {
 
     private let storage = NSCache<NSURL, ArticleImageMemoryCacheEntry>()
     private let entryTracker = URLIdentifiedNSCacheTracker<ArticleImageMemoryCacheEntry>()
+    private let totalCountLimit: Int
+    private let totalCostLimit: Int
+    private let prefetchReservationCountLimit: Int
+    private var desiredPrefetchURLs: [URL] = []
+    private var prefetchedEntries: [URL: ArticleImageMemoryCacheEntry] = [:]
+    private var prefetchedDecodedByteCost = 0
 
     init(countLimit: Int = 256, totalCostLimit: Int = 80 * 1024 * 1024) {
+        precondition(countLimit > 0)
+        precondition(totalCostLimit > 0)
+
+        let reservationCountLimit = min(
+            ReaderAdjacentArticleImagePrefetchPolicy.maximumReservedImageCount,
+            max(0, countLimit - 1)
+        )
+        self.totalCountLimit = countLimit
+        self.totalCostLimit = totalCostLimit
+        self.prefetchReservationCountLimit = reservationCountLimit
         storage.countLimit = countLimit
         storage.totalCostLimit = totalCostLimit
         storage.delegate = entryTracker
@@ -62,20 +78,30 @@ final class ArticleImageMemoryCache {
             decodedByteCost: decodedByteCost
         )
 
-        entryTracker.track(entry)
-        storage.setObject(
-            entry,
-            forKey: url as NSURL,
-            cost: decodedByteCost
-        )
+        insertOrdinaryEntry(entry)
+        reconcilePrefetchReservations()
+    }
+
+    func replacePrefetchReservations(with urls: [URL]) {
+        var seenURLs = Set<URL>()
+        desiredPrefetchURLs = urls
+            .filter { seenURLs.insert($0).inserted }
+            .prefix(prefetchReservationCountLimit)
+            .map { $0 }
+        reconcilePrefetchReservations()
+    }
+
+    func clearPrefetchReservations() {
+        desiredPrefetchURLs = []
+        reconcilePrefetchReservations()
     }
 
     var hasImages: Bool {
-        entryTracker.hasEntries
+        prefetchedEntries.isEmpty == false || entryTracker.hasEntries
     }
 
     var cachedImageCount: Int {
-        entryTracker.entryCount
+        prefetchedEntries.count + entryTracker.entryCount
     }
 
     func cachedDecodedByteCost(for url: URL) -> Int? {
@@ -83,17 +109,70 @@ final class ArticleImageMemoryCache {
     }
 
     func removeAllImages() {
+        desiredPrefetchURLs = []
+        prefetchedEntries.removeAll()
+        prefetchedDecodedByteCost = 0
         storage.removeAllObjects()
         entryTracker.removeAllEntries()
     }
 
     private func entry(for url: URL) -> ArticleImageMemoryCacheEntry? {
+        if let prefetchedEntry = prefetchedEntries[url] {
+            return prefetchedEntry
+        }
+
         guard let entry = storage.object(forKey: url as NSURL) else {
             entryTracker.removeEntry(for: url)
             return nil
         }
 
         return entry
+    }
+
+    private func insertOrdinaryEntry(_ entry: ArticleImageMemoryCacheEntry) {
+        entryTracker.track(entry)
+        storage.setObject(
+            entry,
+            forKey: entry.cacheURL as NSURL,
+            cost: entry.decodedByteCost
+        )
+    }
+
+    private func reconcilePrefetchReservations() {
+        let previousPrefetchedEntries = prefetchedEntries
+        var candidatesByURL = previousPrefetchedEntries
+        for url in desiredPrefetchURLs {
+            if let entry = storage.object(forKey: url as NSURL) {
+                candidatesByURL[url] = entry
+            }
+        }
+
+        var nextPrefetchedEntries: [URL: ArticleImageMemoryCacheEntry] = [:]
+        var nextPrefetchedDecodedByteCost = 0
+        for url in desiredPrefetchURLs {
+            guard let entry = candidatesByURL[url] else { continue }
+            let nextCost = nextPrefetchedDecodedByteCost.addingReportingOverflow(entry.decodedByteCost)
+            guard nextCost.overflow == false,
+                  nextCost.partialValue <= totalCostLimit else {
+                continue
+            }
+
+            nextPrefetchedEntries[url] = entry
+            nextPrefetchedDecodedByteCost = nextCost.partialValue
+        }
+
+        prefetchedEntries = nextPrefetchedEntries
+        prefetchedDecodedByteCost = nextPrefetchedDecodedByteCost
+        storage.countLimit = max(1, totalCountLimit - nextPrefetchedEntries.count)
+        storage.totalCostLimit = max(1, totalCostLimit - nextPrefetchedDecodedByteCost)
+
+        for (url, entry) in previousPrefetchedEntries where nextPrefetchedEntries[url] == nil {
+            insertOrdinaryEntry(entry)
+        }
+        for url in nextPrefetchedEntries.keys {
+            storage.removeObject(forKey: url as NSURL)
+            entryTracker.removeEntry(for: url)
+        }
     }
 
     static func decodedByteCost(for image: UIImage) -> Int {

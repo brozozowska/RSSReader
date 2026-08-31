@@ -511,14 +511,22 @@ public final class AppState {
     }
 
     func adjacentArticleID(_ direction: ReaderAdjacentArticleNavigationDirection) -> UUID? {
+        adjacentArticleIDs(direction, limit: 1).first
+    }
+
+    func adjacentArticleIDs(
+        _ direction: ReaderAdjacentArticleNavigationDirection,
+        limit: Int
+    ) -> [UUID] {
+        guard limit > 0 else { return [] }
         guard articleNavigationContextSidebarSelection == selectedSidebarSelection,
               articleNavigationContextSidebarArticleFilter == selectedSidebarArticleFilter else {
-            return nil
+            return []
         }
 
         guard let selectedArticleID,
               let currentIndex = articleNavigationContextIDs.firstIndex(of: selectedArticleID) else {
-            return nil
+            return []
         }
 
         let step: Int
@@ -529,17 +537,19 @@ public final class AppState {
             step = 1
         }
 
+        var adjacentArticleIDs: [UUID] = []
+        var seenArticleIDs: Set<UUID> = [selectedArticleID]
         var targetIndex = currentIndex + step
-        while articleNavigationContextIDs.indices.contains(targetIndex) {
+        while articleNavigationContextIDs.indices.contains(targetIndex),
+              adjacentArticleIDs.count < limit {
             let targetArticleID = articleNavigationContextIDs[targetIndex]
-            if targetArticleID != selectedArticleID {
-                return targetArticleID
+            if seenArticleIDs.insert(targetArticleID).inserted {
+                adjacentArticleIDs.append(targetArticleID)
             }
-
             targetIndex += step
         }
 
-        return nil
+        return adjacentArticleIDs
     }
 
     public init() {}

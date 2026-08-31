@@ -507,6 +507,74 @@ struct ArticlesScreenControllerLoadingTests {
     }
 
     @Test
+    func articleListContinuationCoordinatorPrefetchesBeforeReaderReachesPageBoundary() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/controller-reader-lookahead.xml"]).first
+        )
+        let first = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "reader-lookahead-first",
+            title: "First",
+            publishedAt: Date(timeIntervalSince1970: 300)
+        )
+        let second = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "reader-lookahead-second",
+            title: "Second",
+            publishedAt: Date(timeIntervalSince1970: 200)
+        )
+        let third = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "reader-lookahead-third",
+            title: "Third",
+            publishedAt: Date(timeIntervalSince1970: 100)
+        )
+        let controller = ArticlesScreenController(
+            searchQueryOperation: { request, _ in
+                if request.cursor == nil {
+                    return ArticleSearchResultSnapshot(
+                        articles: [first, second],
+                        hasScopeContent: true,
+                        nextCursor: makeArticleSearchCursor(seed: 2)
+                    )
+                }
+                return ArticleSearchResultSnapshot(
+                    articles: [third],
+                    hasScopeContent: true
+                )
+            },
+            pageSize: 2
+        )
+        let appState = AppState()
+        appState.selectSidebarSelection(.feed(feed.id))
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        appState.updateArticleNavigationContext(
+            [first.id, second.id],
+            sidebarSelection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            articleListSessionID: controller.currentArticleListSessionID
+        )
+        appState.selectArticle(first.id)
+
+        await ArticleListContinuationCoordinator.prefetchNextPageIfNeeded(
+            minimumNextArticleCount: 2,
+            appState: appState,
+            controller: controller,
+            dependencies: harness.dependencies
+        )
+
+        #expect(appState.articleNavigationContextIDs == [first.id, second.id, third.id])
+        #expect(appState.selectedArticleID == first.id)
+        #expect(appState.adjacentArticleIDs(.next, limit: 2) == [second.id, third.id])
+    }
+
+    @Test
     func articleListContinuationCoordinatorKeepsAppendedContextButRejectsRapidlyChangedReaderSelection() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(

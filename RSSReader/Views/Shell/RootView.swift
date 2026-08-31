@@ -70,6 +70,14 @@ struct RootView: View {
                             controller: articlesScreenController,
                             dependencies: dependencies
                         )
+                    },
+                    prefetchArticleContinuation: { minimumNextArticleCount in
+                        await ArticleListContinuationCoordinator.prefetchNextPageIfNeeded(
+                            minimumNextArticleCount: minimumNextArticleCount,
+                            appState: appState,
+                            controller: articlesScreenController,
+                            dependencies: dependencies
+                        )
                     }
                 )
                 .id(appState.selectedSidebarSelection)
@@ -116,6 +124,10 @@ struct RootView: View {
         .preferredColorScheme(themeApplicationPolicy.preferredColorScheme)
         .environment(\.appThemeVariant, themeApplicationPolicy.resolvedTheme)
         .background(themeApplicationPolicy.resolvedTheme.primaryBackground.ignoresSafeArea())
+        .onChange(of: appState.selectedArticleID) { _, selectedArticleID in
+            guard selectedArticleID == nil else { return }
+            ReaderAdjacentArticleImagePrefetchCoordinator.shared.clear()
+        }
         .onChange(of: appState.isPresentingFeedManagementScreen) { _, isPresenting in
             if isPresenting {
                 presentedFeedManagementLaunchContext = appState.feedManagementLaunchContext

@@ -36,6 +36,7 @@ final class ArticleImageLoader {
     private let memoryCache: ArticleImageMemoryCache
     private let diskCache: any ArticleImageDiskCaching
     private let budget: RuntimeImageInputBudget
+    private var inFlightLoads: [UUID: InFlightArticleImageLoad] = [:]
 
     init(
         httpClient: any HTTPClient,
@@ -50,6 +51,136 @@ final class ArticleImageLoader {
     }
 
     func loadImage(from url: URL, displayTarget: ArticleImageDisplayTarget) async throws -> UIImage {
+        try Task.checkCancellation()
+
+        if let image = memoryCache.image(
+            for: url,
+            targetMaximumPixelWidth: displayTarget.maximumPixelWidth
+        ) {
+            return image
+        }
+
+        let waiterID = UUID()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                registerWaiter(
+                    continuation,
+                    id: waiterID,
+                    url: url,
+                    displayTarget: displayTarget
+                )
+
+                if Task.isCancelled {
+                    cancelWaiter(id: waiterID)
+                }
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.cancelWaiter(id: waiterID)
+            }
+        }
+    }
+
+    func prefetchImage(from url: URL, displayTarget: ArticleImageDisplayTarget) async {
+        _ = try? await loadImage(from: url, displayTarget: displayTarget)
+    }
+
+    func replacePrefetchReservations(with urls: [URL]) {
+        memoryCache.replacePrefetchReservations(with: urls)
+    }
+
+    func clearPrefetchReservations() {
+        memoryCache.clearPrefetchReservations()
+    }
+
+    private func registerWaiter(
+        _ continuation: CheckedContinuation<UIImage, Error>,
+        id waiterID: UUID,
+        url: URL,
+        displayTarget: ArticleImageDisplayTarget
+    ) {
+        if let loadID = reusableInFlightLoadID(for: url, displayTarget: displayTarget) {
+            inFlightLoads[loadID]?.waiters[waiterID] = continuation
+            return
+        }
+
+        let loadID = UUID()
+        inFlightLoads[loadID] = InFlightArticleImageLoad(
+            url: url,
+            displayTarget: displayTarget,
+            waiters: [waiterID: continuation],
+            task: nil
+        )
+
+        let task = Task(priority: Task.currentPriority) { [self] in
+            let result: Result<UIImage, Error>
+            do {
+                result = .success(
+                    try await loadImageUncoalesced(from: url, displayTarget: displayTarget)
+                )
+            } catch {
+                result = .failure(error)
+            }
+            completeInFlightLoad(id: loadID, result: result)
+        }
+
+        guard inFlightLoads[loadID] != nil else {
+            task.cancel()
+            return
+        }
+        inFlightLoads[loadID]?.task = task
+    }
+
+    private func reusableInFlightLoadID(
+        for url: URL,
+        displayTarget: ArticleImageDisplayTarget
+    ) -> UUID? {
+        inFlightLoads
+            .filter { _, load in
+                load.url == url
+                    && load.displayTarget.maximumPixelWidth >= displayTarget.maximumPixelWidth
+            }
+            .min { lhs, rhs in
+                lhs.value.displayTarget.maximumPixelWidth
+                    < rhs.value.displayTarget.maximumPixelWidth
+            }?
+            .key
+    }
+
+    private func cancelWaiter(id waiterID: UUID) {
+        guard let loadID = inFlightLoads.first(where: { _, load in
+            load.waiters[waiterID] != nil
+        })?.key,
+        var load = inFlightLoads[loadID],
+        let continuation = load.waiters.removeValue(forKey: waiterID) else {
+            return
+        }
+
+        continuation.resume(throwing: CancellationError())
+        guard load.waiters.isEmpty else {
+            inFlightLoads[loadID] = load
+            return
+        }
+
+        inFlightLoads.removeValue(forKey: loadID)
+        load.task?.cancel()
+    }
+
+    private func completeInFlightLoad(
+        id loadID: UUID,
+        result: Result<UIImage, Error>
+    ) {
+        guard let load = inFlightLoads.removeValue(forKey: loadID) else { return }
+
+        for continuation in load.waiters.values {
+            continuation.resume(with: result)
+        }
+    }
+
+    private func loadImageUncoalesced(
+        from url: URL,
+        displayTarget: ArticleImageDisplayTarget
+    ) async throws -> UIImage {
         try Task.checkCancellation()
 
         if let image = memoryCache.image(
@@ -175,6 +306,14 @@ final class ArticleImageLoader {
             try? await diskCache.insert(data, for: url)
         }
     }
+}
+
+@MainActor
+private struct InFlightArticleImageLoad {
+    let url: URL
+    let displayTarget: ArticleImageDisplayTarget
+    var waiters: [UUID: CheckedContinuation<UIImage, Error>]
+    var task: Task<Void, Never>?
 }
 
 extension URLSessionConfiguration {

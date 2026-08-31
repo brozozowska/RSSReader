@@ -580,6 +580,21 @@ struct ReadingShellAppStateTests {
     }
 
     @Test
+    func readingShellReturnsBoundedAdjacentWindowsInNavigationOrder() {
+        let appState = AppState()
+        let articleIDs = (0..<7).map { _ in UUID() }
+
+        appState.updateArticleNavigationContext(articleIDs)
+        appState.selectedArticleID = articleIDs[3]
+
+        #expect(appState.adjacentArticleIDs(.previous, limit: 2) == [articleIDs[2], articleIDs[1]])
+        #expect(appState.adjacentArticleIDs(.next, limit: 2) == [articleIDs[4], articleIDs[5]])
+        #expect(appState.adjacentArticleIDs(.previous, limit: 0).isEmpty)
+        #expect(appState.adjacentArticleID(.previous) == articleIDs[2])
+        #expect(appState.adjacentArticleID(.next) == articleIDs[4])
+    }
+
+    @Test
     func readingShellDeduplicatesAdjacentArticleNavigationContext() {
         let appState = AppState()
         let firstArticleID = UUID()

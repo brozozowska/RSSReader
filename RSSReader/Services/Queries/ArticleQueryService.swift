@@ -93,6 +93,7 @@ private struct ArticleSearchProcessedScanBatch: Sendable {
 protocol ArticleQueryService {
     func fetchArticleSearchSnapshot(_ request: ArticleSearchRequest) async throws -> ArticleSearchResultSnapshot
     func fetchReaderArticle(id: UUID) throws -> ReaderArticleDTO?
+    func fetchReaderArticles(ids: [UUID]) throws -> [ReaderArticleDTO]
 }
 
 @MainActor
@@ -142,16 +143,28 @@ final class DefaultArticleQueryService: ArticleQueryService {
     }
 
     func fetchReaderArticle(id: UUID) throws -> ReaderArticleDTO? {
-        guard let article = try articleRepository.fetchArticle(id: id) else { return nil }
+        try fetchReaderArticles(ids: [id]).first
+    }
 
-        let stateByCompositeKey = try fetchStateByCompositeKey(for: [article])
-        let state = stateByCompositeKey[
-            ArticleStateIdentity.lookupKey(
-                feedID: article.feedID,
-                articleExternalID: article.externalID
-            )
-        ]
-        return ReaderArticleDTO(article: article, state: state)
+    func fetchReaderArticles(ids: [UUID]) throws -> [ReaderArticleDTO] {
+        var seenIDs = Set<UUID>()
+        let orderedIDs = ids.filter { seenIDs.insert($0).inserted }
+        guard orderedIDs.isEmpty == false else { return [] }
+
+        let articles = try articleRepository.fetchArticles(ids: orderedIDs)
+        let articlesByID = Dictionary(uniqueKeysWithValues: articles.map { ($0.id, $0) })
+
+        let stateByCompositeKey = try fetchStateByCompositeKey(for: articles)
+        return orderedIDs.compactMap { articleID in
+            guard let article = articlesByID[articleID] else { return nil }
+            let state = stateByCompositeKey[
+                ArticleStateIdentity.lookupKey(
+                    feedID: article.feedID,
+                    articleExternalID: article.externalID
+                )
+            ]
+            return ReaderArticleDTO(article: article, state: state)
+        }
     }
 
     private func fetchStateByCompositeKey(for articles: [Article]) throws -> [String: ArticleUserStateSnapshot] {

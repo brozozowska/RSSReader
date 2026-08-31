@@ -3,6 +3,7 @@ import UIKit
 
 struct CachedArticleImageView: View {
     let url: URL
+    private let cache: ArticleImageMemoryCache
     @Environment(\.displayScale) private var displayScale
     @State private var lifecycle: CachedArticleImageLoadLifecycle
     @State private var displayWidth: CGFloat = 0
@@ -16,6 +17,7 @@ struct CachedArticleImageView: View {
     @MainActor
     init(url: URL, cache: ArticleImageMemoryCache) {
         self.url = url
+        self.cache = cache
 
         if let cachedImage = cache.image(for: url) {
             self._lifecycle = State(
@@ -118,7 +120,16 @@ struct CachedArticleImageView: View {
 
     @MainActor
     private func loadImage(_ request: CachedArticleImageLoadRequest) async {
-        let token = lifecycle.begin(request)
+        let cachedImage = cache.image(
+            for: request.url,
+            targetMaximumPixelWidth: request.displayTarget.maximumPixelWidth
+        )
+        guard let token = lifecycle.beginLoadingIfNeeded(
+            request,
+            cachedImage: cachedImage
+        ) else {
+            return
+        }
 
         do {
             let image = try await ArticleImageLoader.shared.loadImage(
@@ -172,6 +183,20 @@ struct CachedArticleImageLoadLifecycle {
         activeToken = token
         phase = .loading
         return token
+    }
+
+    mutating func beginLoadingIfNeeded(
+        _ request: CachedArticleImageLoadRequest,
+        cachedImage: UIImage?
+    ) -> CachedArticleImageLoadToken? {
+        guard let cachedImage else {
+            return begin(request)
+        }
+
+        generation &+= 1
+        activeToken = nil
+        phase = .success(cachedImage)
+        return nil
     }
 
     mutating func succeed(with image: UIImage, token: CachedArticleImageLoadToken) {

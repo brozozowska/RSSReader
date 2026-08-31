@@ -115,6 +115,7 @@ protocol ArticleRepository {
         saveAfterOperation: Bool
     ) throws -> ArticleFeedSnapshotReconciliationResult
     func fetchArticle(id: UUID) throws -> Article?
+    func fetchArticles(ids: [UUID]) throws -> [Article]
     func containsArticle(feedID: UUID, externalID: String) throws -> Bool
     func fetchArticles(feedID: UUID) throws -> [Article]
     func fetchArticleQueryRecordScanBatch(
@@ -313,6 +314,17 @@ final class SwiftDataArticleRepository: ArticleRepository, SwiftDataRepositoryCo
             }
         )
         return try fetchFirst(descriptor)
+    }
+
+    func fetchArticles(ids: [UUID]) throws -> [Article] {
+        guard ids.isEmpty == false else { return [] }
+        let uniqueIDs = Array(Set(ids))
+        let descriptor = FetchDescriptor<Article>(
+            predicate: #Predicate<Article> { article in
+                uniqueIDs.contains(article.id)
+            }
+        )
+        return try performFetch(descriptor)
     }
 
     func containsArticle(feedID: UUID, externalID: String) throws -> Bool {

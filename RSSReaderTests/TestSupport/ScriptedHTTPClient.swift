@@ -12,6 +12,12 @@ actor ScriptedHTTPClient: HTTPClient {
             body: String,
             gate: ScriptedHTTPClientResponseGate
         )
+        case gatedDataResponse(
+            statusCode: Int,
+            headers: [String: String],
+            body: Data,
+            gate: ScriptedHTTPClientResponseGate
+        )
         case invalidResponse
         case responseBodyTooLarge(maximumBytes: Int64, actualBytes: Int64)
         case urlError(URLError.Code)
@@ -116,6 +122,14 @@ actor ScriptedHTTPClient: HTTPClient {
                 statusCode: statusCode,
                 headers: headers,
                 body: Data(body.utf8)
+            )
+        case .gatedDataResponse(let statusCode, let headers, let body, let gate):
+            try await gate.enterAndWaitForRelease()
+            return await makeResponse(
+                request: request,
+                statusCode: statusCode,
+                headers: headers,
+                body: body
             )
         case .invalidResponse:
             throw HTTPClientError.invalidResponse
