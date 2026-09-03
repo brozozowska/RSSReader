@@ -87,13 +87,35 @@ struct ArticleScreenStateTests {
         )
         let viewState = state.derivedViewState(
             selectedArticleID: UUID(),
-            preservesStaleContent: true
+            preservesStaleContent: true,
+            preservedStaleArticleID: article.id
         )
 
         #expect(viewState.content?.articleID == article.id)
         #expect(viewState.content?.header.title == "Transition Source Article")
         #expect(viewState.primaryLoadingState == nil)
         #expect(viewState.toolbarActions.showsBottomActions)
+    }
+
+    @Test
+    func articleScreenStateDoesNotPreserveContentFromDifferentTransitionSource() {
+        var state = ArticleScreenState()
+        let article = makeReaderArticleDTO(title: "Unrelated Stale Article")
+
+        state.applyLoadedArticle(article)
+        state.beginLoading(
+            articleID: UUID(),
+            preservesCurrentArticle: true
+        )
+        let viewState = state.derivedViewState(
+            selectedArticleID: UUID(),
+            preservesStaleContent: true,
+            preservedStaleArticleID: UUID()
+        )
+
+        #expect(viewState.content == nil)
+        #expect(viewState.primaryLoadingState?.title == ReadingLocalization.loadingArticleTitle)
+        #expect(viewState.toolbarActions.showsBottomActions == false)
     }
 
     @Test

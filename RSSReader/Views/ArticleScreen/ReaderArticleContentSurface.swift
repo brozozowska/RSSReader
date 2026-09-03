@@ -19,6 +19,7 @@ struct ReaderArticleContentSurface: View {
                     .padding(.top, contentSafeAreaInsets.top + ReaderChromeUnderlayLayout.contentMargin)
                     .padding(.bottom, contentSafeAreaInsets.bottom + ReaderChromeUnderlayLayout.contentMargin)
                 }
+                .scrollEdgeEffectHidden(true, for: .vertical)
                 .ignoresSafeArea(.container, edges: [.top, .bottom])
                 .onScrollGeometryChange(for: ReaderArticleScrollGeometry.self) { geometry in
                     ReaderArticleScrollGeometry(

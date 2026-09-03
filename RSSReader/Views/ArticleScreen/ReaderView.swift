@@ -67,6 +67,7 @@ struct ReaderView: View {
                     onScrollGeometryChange: handleArticleScrollGeometryChange,
                     onScrollPhaseChange: handleArticleScrollPhaseChange
                 )
+                .background(appThemeVariant.primaryBackground)
                 .id(contentTransitionID)
                 .transition(articleTransition)
             }
@@ -248,13 +249,13 @@ struct ReaderView: View {
 
     private func adjacentArticleTransition(insertionEdge: Edge, removalEdge: Edge) -> AnyTransition {
         .asymmetric(
-            insertion: .move(edge: insertionEdge).combined(with: .opacity),
-            removal: .move(edge: removalEdge).combined(with: .opacity)
+            insertion: .move(edge: insertionEdge),
+            removal: .move(edge: removalEdge)
         )
     }
 
     private var adjacentArticleAnimation: Animation {
-        .snappy(duration: 0.28)
+        .easeInOut(duration: 0.28)
     }
 
     private func activeAdjacentArticleTransitionContext(
@@ -428,10 +429,7 @@ struct ReaderView: View {
         )
         adjacentArticleTransitionContext = transitionContext
 
-        var didSelectAdjacentArticle = false
-        withAnimation(adjacentArticleAnimation) {
-            didSelectAdjacentArticle = appState.selectAdjacentArticle(direction)
-        }
+        let didSelectAdjacentArticle = appState.selectAdjacentArticle(direction)
 
         if didSelectAdjacentArticle == false {
             clearAdjacentArticleTransitionContext(transitionContext)
