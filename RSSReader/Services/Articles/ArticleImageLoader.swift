@@ -296,7 +296,8 @@ final class ArticleImageLoader {
             decodedImage.image,
             for: url,
             sourcePixelWidth: decodedImage.sourcePixelWidth,
-            sourcePixelHeight: decodedImage.sourcePixelHeight
+            sourcePixelHeight: decodedImage.sourcePixelHeight,
+            preparedForMaximumPixelWidth: decodedImage.preparedMaximumPixelWidth
         )
     }
 
@@ -347,6 +348,7 @@ private nonisolated struct DecodedArticleImage: @unchecked Sendable {
     let image: UIImage
     let sourcePixelWidth: Int
     let sourcePixelHeight: Int
+    let preparedMaximumPixelWidth: Int
 }
 
 private nonisolated enum ArticleImageDecoder {
@@ -423,7 +425,8 @@ private nonisolated enum ArticleImageDecoder {
         return DecodedArticleImage(
             image: UIImage(cgImage: cgImage),
             sourcePixelWidth: sourceWidth,
-            sourcePixelHeight: sourceHeight
+            sourcePixelHeight: sourceHeight,
+            preparedMaximumPixelWidth: displayTarget.maximumPixelWidth
         )
     }
 }

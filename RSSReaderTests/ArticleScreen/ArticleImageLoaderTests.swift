@@ -6,6 +6,71 @@ import UIKit
 @Suite("Article Screen / Bounded Article Image Loader")
 @MainActor
 struct ArticleImageLoaderTests {
+    @Test(arguments: [true, false])
+    func prefetchedRoundedJPEGIsReusedForCompletedTargetAndSmaller(reserved: Bool) async throws {
+        let url = try #require(URL(string: "https://example.com/rounded.jpg"))
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let data = UIGraphicsImageRenderer(size: CGSize(width: 1200, height: 1801), format: format)
+            .jpegData(withCompressionQuality: 0.8) { context in
+                UIColor.systemBlue.setFill()
+                context.fill(CGRect(x: 0, y: 0, width: 1200, height: 1801))
+            }
+        let fixture = try makeFixture(
+            steps: [.dataResponse(statusCode: 200, headers: ["Content-Type": "image/jpeg"], body: data)],
+            diskCache: DiscardingArticleImageDiskCache()
+        )
+        defer { fixture.removeTemporaryDirectory() }
+        if reserved { fixture.loader.replacePrefetchReservations(with: [url]) }
+
+        await fixture.loader.prefetchImage(from: url, displayTarget: .init(maximumPixelWidth: 600))
+        let prefetched = try #require(fixture.memoryCache.image(for: url))
+        for width in [600, 599, 300, 600] {
+            let image = try await fixture.loader.loadImage(from: url, displayTarget: .init(maximumPixelWidth: width))
+            #expect(image === prefetched)
+        }
+        #expect(fixture.memoryCache.image(for: url, targetMaximumPixelWidth: 640) == nil)
+        #expect(await fixture.httpClient.recordedRequests().count == 1)
+    }
+
+    @Test(arguments: [true, false])
+    func lateSmallerLoadDoesNotReplaceLargerDecodedImage(reserved: Bool) async throws {
+        let url = try #require(URL(string: "https://example.com/out-of-order.png"))
+        let data = makePNGData(width: 120, height: 60)
+        let smallGate = ScriptedHTTPClientResponseGate()
+        let largeGate = ScriptedHTTPClientResponseGate()
+        let fixture = try makeFixture(
+            steps: [
+                .gatedDataResponse(statusCode: 200, headers: ["Content-Type": "image/png"], body: data, gate: smallGate),
+                .gatedDataResponse(statusCode: 200, headers: ["Content-Type": "image/png"], body: data, gate: largeGate)
+            ],
+            diskCache: DiscardingArticleImageDiskCache()
+        )
+        defer { fixture.removeTemporaryDirectory() }
+        if reserved { fixture.loader.replacePrefetchReservations(with: [url]) }
+
+        let smallTask = Task { @MainActor in
+            try await fixture.loader.loadImage(from: url, displayTarget: .init(maximumPixelWidth: 40))
+        }
+        await waitUntilResponseGateIsEntered(smallGate)
+        let largeTask = Task { @MainActor in
+            try await fixture.loader.loadImage(from: url, displayTarget: .init(maximumPixelWidth: 80))
+        }
+        await waitUntilResponseGateIsEntered(largeGate)
+        #expect(await smallGate.hasEntered())
+        #expect(await largeGate.hasEntered())
+        await largeGate.release()
+        let largeImage = try await largeTask.value
+        await smallGate.release()
+        _ = try await smallTask.value
+
+        let reused = try await fixture.loader.loadImage(from: url, displayTarget: .init(maximumPixelWidth: 80))
+        #expect(reused === largeImage)
+        #expect(fixture.memoryCache.image(for: url) === largeImage)
+        #expect(await fixture.httpClient.recordedRequests().count == 2)
+    }
+
     @Test
     func articleImageRequestConfigurationBypassesSharedURLCache() {
         let configuration = URLSessionConfiguration.articleImageRequestsDefault()

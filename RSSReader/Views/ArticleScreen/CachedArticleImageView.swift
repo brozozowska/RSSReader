@@ -21,7 +21,7 @@ struct CachedArticleImageView: View {
 
         if let cachedImage = cache.image(for: url) {
             self._lifecycle = State(
-                initialValue: CachedArticleImageLoadLifecycle(initialPhase: .success(cachedImage))
+                initialValue: CachedArticleImageLoadLifecycle(initialPhase: .success(cachedImage), imageURL: url)
             )
         } else {
             self._lifecycle = State(
@@ -172,16 +172,21 @@ struct CachedArticleImageLoadLifecycle {
     private(set) var phase: CachedArticleImagePhase
     private var generation = 0
     private var activeToken: CachedArticleImageLoadToken?
+    private var displayedImageURL: URL?
 
-    init(initialPhase: CachedArticleImagePhase) {
+    init(initialPhase: CachedArticleImagePhase, imageURL: URL? = nil) {
         phase = initialPhase
+        displayedImageURL = imageURL
     }
 
     mutating func begin(_ request: CachedArticleImageLoadRequest) -> CachedArticleImageLoadToken {
         generation &+= 1
         let token = CachedArticleImageLoadToken(generation: generation, request: request)
         activeToken = token
-        phase = .loading
+        if displayedImageURL != request.url || phase.image == nil {
+            displayedImageURL = nil
+            phase = .loading
+        }
         return token
     }
 
@@ -195,6 +200,7 @@ struct CachedArticleImageLoadLifecycle {
 
         generation &+= 1
         activeToken = nil
+        displayedImageURL = request.url
         phase = .success(cachedImage)
         return nil
     }
@@ -202,19 +208,24 @@ struct CachedArticleImageLoadLifecycle {
     mutating func succeed(with image: UIImage, token: CachedArticleImageLoadToken) {
         guard activeToken == token else { return }
         activeToken = nil
+        displayedImageURL = token.request.url
         phase = .success(image)
     }
 
     mutating func fail(_ token: CachedArticleImageLoadToken) {
         guard activeToken == token else { return }
         activeToken = nil
-        phase = .failure
+        if phase.image == nil {
+            phase = .failure
+        }
     }
 
     mutating func cancel(_ token: CachedArticleImageLoadToken) {
         guard activeToken == token else { return }
         activeToken = nil
-        phase = .empty
+        if phase.image == nil {
+            phase = .empty
+        }
     }
 }
 
@@ -223,6 +234,11 @@ enum CachedArticleImagePhase {
     case loading
     case success(UIImage)
     case failure
+
+    fileprivate var image: UIImage? {
+        guard case .success(let image) = self else { return nil }
+        return image
+    }
 }
 
 struct CachedArticleImageLayout: Equatable {

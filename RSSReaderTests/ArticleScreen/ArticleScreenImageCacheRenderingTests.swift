@@ -7,6 +7,98 @@ import UIKit
 @MainActor
 struct ArticleScreenImageCacheRenderingTests {
     @Test
+    func reservedUpgradeUsesReplacementBudgetBeforeOrdinaryEviction() throws {
+        let small = makeSizedTestImage(size: CGSize(width: 16, height: 8))
+        let large = makeSizedTestImage(size: CGSize(width: 32, height: 16))
+        let smallCost = ArticleImageMemoryCache.decodedByteCost(for: small)
+        let largeCost = ArticleImageMemoryCache.decodedByteCost(for: large)
+        let budget = smallCost * 4 + largeCost
+        let cache = ArticleImageMemoryCache(countLimit: 6, totalCostLimit: budget)
+        let urls = (0..<5).map { URL(string: "https://example.com/reservation-\($0).png")! }
+        cache.replacePrefetchReservations(with: urls)
+        for url in urls {
+            cache.insert(small, for: url, sourcePixelWidth: 64, sourcePixelHeight: 32)
+        }
+        cache.insert(large, for: urls[2], sourcePixelWidth: 64, sourcePixelHeight: 32)
+
+        #expect(cache.image(for: urls[2], targetMaximumPixelWidth: 32) === large)
+        #expect(urls.compactMap { cache.cachedDecodedByteCost(for: $0) }.reduce(0, +) == budget)
+        for index in 0..<10 {
+            cache.insert(small, for: URL(string: "https://example.com/churn-upgrade-\(index).png")!)
+        }
+        #expect(cache.image(for: urls[2]) === large)
+        #expect(urls.allSatisfy { cache.image(for: $0) != nil })
+        #expect(cache.cachedImageCount == 5)
+        cache.removeAllImages()
+        #expect(cache.cachedImageCount == 0)
+        #expect(cache.hasImages == false)
+    }
+
+    @Test
+    func reservedImagesOverBudgetDoNotBypassMemoryLimit() {
+        let image = makeSizedTestImage(size: CGSize(width: 16, height: 8))
+        let cost = ArticleImageMemoryCache.decodedByteCost(for: image)
+        let cache = ArticleImageMemoryCache(countLimit: 4, totalCostLimit: cost * 2)
+        let urls = (0..<3).map { URL(string: "https://example.com/budget-\($0).png")! }
+        cache.replacePrefetchReservations(with: urls)
+        for url in urls { cache.insert(image, for: url) }
+        #expect(urls.compactMap { cache.cachedDecodedByteCost(for: $0) }.reduce(0, +) <= cost * 2)
+        #expect(cache.cachedImageCount <= 2)
+    }
+
+    @Test
+    func changedSourceDimensionsDoNotInheritCompletedTargetCoverage() {
+        let cache = ArticleImageMemoryCache()
+        let url = URL(string: "https://example.com/replaced-source.png")!
+        cache.insert(makeSizedTestImage(size: CGSize(width: 24, height: 12)), for: url,
+                     sourcePixelWidth: 48, sourcePixelHeight: 24, preparedForMaximumPixelWidth: 24)
+        let replacement = makeSizedTestImage(size: CGSize(width: 8, height: 8))
+        cache.insert(replacement, for: url, sourcePixelWidth: 80, sourcePixelHeight: 80,
+                     preparedForMaximumPixelWidth: 8)
+        #expect(cache.image(for: url) === replacement)
+        #expect(cache.image(for: url, targetMaximumPixelWidth: 24) == nil)
+    }
+
+    @Test
+    func largerTargetKeepsVisibleImageThroughFailureCancellationAndRetry() throws {
+        let url = URL(string: "https://example.com/upgrade.png")!
+        let image = makeTestImage()
+        var lifecycle = CachedArticleImageLoadLifecycle(initialPhase: .success(image), imageURL: url)
+        let request = CachedArticleImageLoadRequest(url: url, displayTarget: .init(maximumPixelWidth: 640))
+        let pendingToken = lifecycle.beginLoadingIfNeeded(request, cachedImage: nil)
+        let failed = try #require(pendingToken)
+        #expect(lifecycle.phase.successfulImage === image)
+        lifecycle.fail(failed)
+        #expect(lifecycle.phase.successfulImage === image)
+        let cancelled = lifecycle.begin(request)
+        lifecycle.cancel(cancelled)
+        #expect(lifecycle.phase.successfulImage === image)
+        let retry = lifecycle.begin(request)
+        lifecycle.fail(failed)
+        lifecycle.cancel(cancelled)
+        #expect(lifecycle.phase.successfulImage === image)
+        let upgraded = makeSizedTestImage(size: CGSize(width: 32, height: 16))
+        lifecycle.succeed(with: upgraded, token: retry)
+        #expect(lifecycle.phase.successfulImage === upgraded)
+    }
+
+    @Test
+    func URLChangeDoesNotKeepPreviousSuccessfulImageOrAcceptStaleUpgrade() {
+        let firstURL = URL(string: "https://example.com/first.png")!
+        let secondURL = URL(string: "https://example.com/second.png")!
+        let image = makeTestImage()
+        var lifecycle = CachedArticleImageLoadLifecycle(initialPhase: .success(image), imageURL: firstURL)
+        let stale = lifecycle.begin(.init(url: firstURL, displayTarget: .init(maximumPixelWidth: 640)))
+        let current = lifecycle.begin(.init(url: secondURL, displayTarget: .init(maximumPixelWidth: 640)))
+        #expect(lifecycle.phase.isLoading)
+        lifecycle.succeed(with: image, token: stale)
+        lifecycle.cancel(stale)
+        #expect(lifecycle.phase.isLoading)
+        lifecycle.fail(current)
+        #expect(lifecycle.phase.isFailure)
+    }
+
+    @Test
     func articleImageMemoryCacheStoresDecodedImagesByURL() throws {
         let cache = ArticleImageMemoryCache(countLimit: 2, totalCostLimit: 1_024)
         let imageURL = URL(string: "https://example.com/article-image.png")!
