@@ -120,6 +120,31 @@ struct StringCatalogPluralizationTests {
         )
     }
 
+    @Test
+    func emptyFeedsCopyMatchesApprovedDeviceNeutralContract() throws {
+        let strings = try Self.catalogStrings()
+        let key = "sidebar.empty.description"
+        let entry = try #require(strings[key] as? [String: Any])
+        let localizations = try #require(entry["localizations"] as? [String: Any])
+
+        #expect(
+            Self.localizedValue(in: strings, key: key, language: "en")
+                == "Add your first feed to start reading articles."
+        )
+        #expect(
+            Self.localizedValue(in: strings, key: key, language: "ru")
+                == "Добавьте первую ленту, чтобы начать читать статьи."
+        )
+        #expect(Set(localizations.keys) == Set(Self.supportedLanguages))
+        for language in Self.supportedLanguages {
+            #expect(Self.hasTranslatedLocalization(in: entry, language: language))
+        }
+        #expect(
+            entry["comment"] as? String
+                == "Device-neutral empty state description inviting the user to add their first feed and start reading articles."
+        )
+    }
+
     private static let russianPluralExpectations: [PluralExpectation] = [
         .init(key: "reading.articles.subtitle.unread.count", category: "one", value: "%lld непрочитанная"),
         .init(key: "reading.articles.subtitle.unread.count", category: "few", value: "%lld непрочитанные"),

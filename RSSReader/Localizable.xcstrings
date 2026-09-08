@@ -36475,90 +36475,90 @@
       }
     },
     "sidebar.empty.description" : {
-      "comment" : "Empty state description for the feeds sidebar.",
+      "comment" : "Device-neutral empty state description inviting the user to add their first feed and start reading articles.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "أضف خلاصة لملء الشريط الجانبي للخلاصات."
+            "value" : "أضف خلاصتك الأولى لبدء قراءة المقالات."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Füge einen Feed hinzu, um die Feed-Seitenleiste zu füllen."
+            "value" : "Füge deinen ersten Feed hinzu, um Artikel zu lesen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Add a feed to populate the Feeds sidebar."
+            "value" : "Add your first feed to start reading articles."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Añade una fuente para llenar la barra lateral de fuentes."
+            "value" : "Añade tu primera fuente para empezar a leer artículos."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "برای نمایش محتوا در نوار کناری فیدها، یک فید اضافه کنید."
+            "value" : "اولین فید خود را اضافه کنید تا خواندن مقاله‌ها را شروع کنید."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajoutez un flux pour remplir la barre latérale des flux."
+            "value" : "Ajoutez votre premier flux pour commencer à lire des articles."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "הוסף פיד כדי למלא את סרגל הצד של הפידים."
+            "value" : "הוסף את הפיד הראשון שלך כדי להתחיל לקרוא כתבות."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aggiungi una fonte per popolare la barra laterale."
+            "value" : "Aggiungi il tuo primo feed per iniziare a leggere gli articoli."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "フィードを追加すると、フィードのサイドバーに表示されます。"
+            "value" : "最初のフィードを追加して、記事を読み始めましょう。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "피드를 추가하면 피드 사이드바에 표시됩니다."
+            "value" : "첫 번째 피드를 추가하고 기사를 읽어 보세요."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Adicione um feed para preencher a barra lateral."
+            "value" : "Adicione seu primeiro feed para começar a ler artigos."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Добавьте ленту, чтобы заполнить боковую панель."
+            "value" : "Добавьте первую ленту, чтобы начать читать статьи."
           }
         },
         "ur" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "فیڈز کی سائیڈبار میں مواد دکھانے کے لیے ایک فیڈ شامل کریں۔"
+            "value" : "مضامین پڑھنا شروع کرنے کے لیے اپنی پہلی فیڈ شامل کریں۔"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "添加订阅源后，侧边栏会显示内容。"
+            "value" : "添加第一个订阅源，开始阅读文章。"
           }
         }
       }
