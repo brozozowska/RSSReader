@@ -103,6 +103,7 @@ private struct SidebarSections: View {
                 ForEach(viewState.ungroupedFeedRows) { feed in
                     SidebarFeedRowView(
                         row: feed,
+                        isSelected: selection == feed.selection,
                         actionHandlers: actionHandlers
                     )
                 }
@@ -131,6 +132,7 @@ private struct SidebarFolderSectionRowView: View {
         case .feed(let feed):
             SidebarFeedRowView(
                 row: feed,
+                isSelected: selection == feed.selection,
                 actionHandlers: actionHandlers
             )
         }
