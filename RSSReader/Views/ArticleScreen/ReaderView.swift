@@ -135,10 +135,7 @@ struct ReaderView: View {
             )
         }
         .task(id: adjacentImagePrefetchContext, priority: .utility) {
-            ReaderAdjacentArticleImagePrefetchCoordinator.shared.update(
-                context: adjacentImagePrefetchContext,
-                articleQueryService: dependencies.articleQueryService
-            )
+            updateAdjacentImagePrefetchWindow()
         }
         .task(id: articleContinuationPrefetchContext, priority: .utility) {
             guard let articleContinuationPrefetchContext else { return }
@@ -436,11 +433,20 @@ struct ReaderView: View {
             return
         }
 
+        updateAdjacentImagePrefetchWindow()
+
         Task {
             await loadCurrentArticleAfterAdjacentNavigationIfNeeded(
                 transitionContext: transitionContext
             )
         }
+    }
+
+    private func updateAdjacentImagePrefetchWindow() {
+        ReaderAdjacentArticleImagePrefetchCoordinator.shared.update(
+            context: adjacentImagePrefetchContext,
+            articleQueryService: dependencies.articleQueryService
+        )
     }
 
     @MainActor
