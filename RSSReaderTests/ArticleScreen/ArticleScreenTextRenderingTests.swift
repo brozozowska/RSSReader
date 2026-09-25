@@ -7,6 +7,62 @@ import UIKit
 @MainActor
 struct ArticleScreenTextRenderingTests {
     @Test
+    func articleScreenContentRendererRecoversMalformedAbbreviationMarkup() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentText: """
+                Практические приёмы снижения копипасты и упрощения конфигурирования множества сходных проектов в <abbr class="habraabbri title="тим сити" data-title=" тим сити
+                " data-abbr="TeamCity">TeamCity.
+                """
+            )
+        )
+
+        #expect(
+            content.body.blocks == [
+                .paragraph(
+                    .plainText(
+                        "Практические приёмы снижения копипасты и упрощения конфигурирования множества сходных проектов в TeamCity."
+                    )
+                )
+            ]
+        )
+        #expect(content.body.source == .contentText)
+    }
+
+    @Test
+    func articleScreenContentRendererRendersValidAndEscapedInlineMarkupWithoutDamagingComparisons() {
+        let validContent = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentText: #"<p>Use <abbr title="Continuous Integration">CI</abbr>, <span>keep spans</span>, <strong>bold</strong>, <em>emphasis</em>, and <code>2 < 3</code>. Outside 5 > 4.</p>"#
+            )
+        )
+        let escapedContent = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentText: #"Use &amp;lt;abbr title=&amp;quot;Continuous Integration&amp;quot;&amp;gt;CI&amp;lt;/abbr&amp;gt; once."#
+            )
+        )
+
+        #expect(
+            validContent.body.blocks == [
+                .paragraph(
+                    ArticleScreenTextBlock(
+                        spans: [
+                            ArticleScreenTextSpan(text: "Use CI, keep spans, "),
+                            ArticleScreenTextSpan(text: "bold", isStrong: true),
+                            ArticleScreenTextSpan(text: ", "),
+                            ArticleScreenTextSpan(text: "emphasis", isEmphasized: true),
+                            ArticleScreenTextSpan(text: ", and "),
+                            ArticleScreenTextSpan(text: "2 < 3", isCode: true),
+                            ArticleScreenTextSpan(text: ". Outside 5 > 4.")
+                        ]
+                    )
+                )
+            ]
+        )
+        #expect(escapedContent.body.blocks == [.paragraph(.plainText("Use CI once."))])
+    }
+
+    @Test
     func articleScreenContentRendererRendersEscapedHTMLTextAsReadableParagraphsAndLinks() {
         let content = ArticleScreenContentState(
             article: makeReaderArticleDTO(

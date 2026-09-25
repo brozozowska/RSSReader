@@ -101,7 +101,7 @@ extension ArticleScreenBodyPayloadRenderer {
                 options: .regularExpression
             )
             .replacingOccurrences(
-                of: #"<[^>]+>"#,
+                of: #"(?i)<\s*/?\s*(?:\#(ArticleScreenBodyPayloadNormalizer.recognizedHTMLTagNamePattern))\b[^>]*>"#,
                 with: "",
                 options: .regularExpression
             )

@@ -35,4 +35,37 @@ struct ArticleScreenBodyPayloadNormalizerTests {
         #expect(payload.kind == .plainText)
         #expect(payload.value == "Зарплата ₽ и аванс ₽")
     }
+
+    @Test
+    func articleScreenBodyPayloadNormalizerClassifiesAbbreviationMarkupAsHTML() throws {
+        let rawPayload = try #require(
+            ArticleScreenBodyPayloadNormalizer.normalize(
+                #"Read <abbr title="Continuous Integration">CI</abbr> safely."#,
+                preferredKind: .plainText
+            )
+        )
+        let repeatedlyEscapedPayload = try #require(
+            ArticleScreenBodyPayloadNormalizer.normalize(
+                #"Read &amp;lt;abbr title=&amp;quot;Continuous Integration&amp;quot;&amp;gt;CI&amp;lt;/abbr&amp;gt; safely."#,
+                preferredKind: .plainText
+            )
+        )
+
+        #expect(rawPayload.kind == .html)
+        #expect(repeatedlyEscapedPayload.kind == .html)
+        #expect(repeatedlyEscapedPayload.value == rawPayload.value)
+    }
+
+    @Test
+    func articleScreenBodyPayloadNormalizerDoesNotTreatComparisonsAsHTML() throws {
+        let payload = try #require(
+            ArticleScreenBodyPayloadNormalizer.normalize(
+                "Bounds stay 2 < 3 and 5 > 4.",
+                preferredKind: .plainText
+            )
+        )
+
+        #expect(payload.kind == .plainText)
+        #expect(payload.value == "Bounds stay 2 < 3 and 5 > 4.")
+    }
 }

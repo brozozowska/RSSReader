@@ -11,6 +11,8 @@ struct ArticleScreenBodyPayload: Equatable {
 }
 
 enum ArticleScreenBodyPayloadNormalizer {
+    static let recognizedHTMLTagNamePattern = #"a|abbr|address|article|aside|audio|b|bdi|bdo|blockquote|br|caption|cite|code|col|colgroup|data|dd|del|details|dfn|div|dl|dt|em|embed|figcaption|figure|footer|h[1-6]|header|hgroup|hr|i|iframe|img|ins|kbd|label|li|main|mark|nav|ol|p|picture|pre|q|rp|rt|ruby|s|samp|section|small|source|span|strong|sub|summary|sup|table|tbody|td|tfoot|th|thead|time|tr|u|ul|var|video|wbr"#
+
     static func normalize(
         _ rawValue: String?,
         preferredKind: ArticleScreenBodyPayloadKind
@@ -106,14 +108,14 @@ enum ArticleScreenBodyPayloadNormalizer {
 
     private static func containsHTMLTag(_ value: String) -> Bool {
         value.range(
-            of: #"<\s*/?\s*(a|article|blockquote|br|code|div|em|figcaption|figure|h[1-6]|hr|iframe|img|li|ol|p|picture|pre|section|source|span|strong|table|tbody|td|th|thead|tr|ul|video|audio)\b"#,
+            of: #"<\s*/?\s*(\#(recognizedHTMLTagNamePattern))\b"#,
             options: [.regularExpression, .caseInsensitive]
         ) != nil
     }
 
     private static func containsEscapedHTMLTag(_ value: String) -> Bool {
         value.range(
-            of: #"&lt;\s*/?\s*(a|article|blockquote|br|code|div|em|figcaption|figure|h[1-6]|hr|iframe|img|li|ol|p|picture|pre|section|source|span|strong|table|tbody|td|th|thead|tr|ul|video|audio)\b"#,
+            of: #"&lt;\s*/?\s*(\#(recognizedHTMLTagNamePattern))\b"#,
             options: [.regularExpression, .caseInsensitive]
         ) != nil
     }
