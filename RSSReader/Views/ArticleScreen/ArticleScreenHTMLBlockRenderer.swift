@@ -1,5 +1,28 @@
 import Foundation
 
+private struct ArticleScreenParsedTableCell {
+    let isHeader: Bool
+    let content: ArticleScreenTextBlock?
+
+    var isStronglyEmphasized: Bool {
+        guard let content, content.spans.isEmpty == false else { return false }
+        return content.spans.allSatisfy { span in
+            span.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || span.isStrong
+        }
+    }
+}
+
+private struct ArticleScreenParsedTableRow {
+    let isInTableHead: Bool
+    let cells: [ArticleScreenParsedTableCell]
+}
+
+private extension Collection {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}
+
 extension ArticleScreenBodyPayloadRenderer {
     static func renderHTML(
         _ contentHTML: String,
@@ -7,7 +30,7 @@ extension ArticleScreenBodyPayloadRenderer {
     ) -> [ArticleScreenBodyBlock] {
         let readableHTML = removingNonReadableHTMLBlocks(from: contentHTML)
         let htmlNSString = readableHTML as NSString
-        let blockPattern = #"(?is)<(h[1-6]|p|blockquote|pre|ul|ol|figure|table|picture|iframe|video|audio)\b[^>]*>.*?</\1\s*>|<(img|hr|embed)\b[^>]*>"#
+        let blockPattern = #"(?is)<(h[1-6]|p|blockquote|pre|ul|ol|figure|figcaption|table|picture|iframe|video|audio)\b[^>]*>.*?</\1\s*>|<(img|hr|embed)\b[^>]*>"#
         guard let blockRegex = try? NSRegularExpression(pattern: blockPattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) else {
             return renderTextBlock(stripHTML(readableHTML))
         }
@@ -82,8 +105,10 @@ extension ArticleScreenBodyPayloadRenderer {
             return renderHTMLList(innerHTML, kind: .ordered, article: article)
         case "figure":
             return renderHTMLFigure(innerHTML, article: article)
+        case "figcaption":
+            return makeTextBlock(fromHTML: innerHTML, article: article).map { [.caption($0)] } ?? []
         case "table":
-            return renderHTMLTableFallback(innerHTML, article: article)
+            return renderHTMLTable(innerHTML, article: article)
         case "picture":
             return renderHTMLPicture(innerHTML, article: article)
         case "iframe", "video", "audio":
@@ -129,6 +154,117 @@ extension ArticleScreenBodyPayloadRenderer {
         return items.isEmpty ? [] : [.list(ArticleScreenListBlock(kind: kind, items: items))]
     }
 
+    static func renderHTMLTable(
+        _ innerHTML: String,
+        article: ReaderArticleDTO
+    ) -> [ArticleScreenBodyBlock] {
+        guard innerHTML.range(of: #"(?i)<table\b"#, options: .regularExpression) == nil,
+              innerHTML.range(of: #"(?i)\b(colspan|rowspan)\s*="#, options: .regularExpression) == nil,
+              let parsedRows = parseHTMLTableRows(innerHTML, article: article),
+              parsedRows.isEmpty == false else {
+            return renderHTMLTableFallback(innerHTML, article: article)
+        }
+
+        let firstRow = parsedRows[0]
+        let hasExplicitColumnHeaders = firstRow.isInTableHead || firstRow.cells.allSatisfy(\.isHeader)
+        let hasInferredColumnHeaders = hasExplicitColumnHeaders == false
+            && parsedRows.count > 1
+            && parsedRows.dropFirst().allSatisfy { $0.cells.count == firstRow.cells.count }
+            && firstRow.cells.allSatisfy(\.isStronglyEmphasized)
+        let hasColumnHeaders = hasExplicitColumnHeaders || hasInferredColumnHeaders
+        let headerSource: ArticleScreenTableHeaderSource? = if hasExplicitColumnHeaders {
+            .explicit
+        } else if hasInferredColumnHeaders {
+            .inferred
+        } else {
+            nil
+        }
+        let columnHeaders = hasColumnHeaders ? firstRow.cells.map(\.content) : []
+        let dataRows = hasColumnHeaders ? parsedRows.dropFirst() : parsedRows[...]
+
+        let rows = dataRows.map { parsedRow -> ArticleScreenTableRow in
+            let parsedCells = parsedRow.cells
+            let firstCellIsRowHeading = columnHeaders.count > 1 && parsedCells.count == columnHeaders.count
+            let heading = firstCellIsRowHeading ? parsedCells.first?.content : nil
+            let valueCells = firstCellIsRowHeading ? parsedCells.dropFirst() : parsedCells[...]
+            let headerOffset = firstCellIsRowHeading ? 1 : 0
+            let cells = valueCells.enumerated().map { index, parsedCell in
+                ArticleScreenTableCell(
+                    columnHeader: columnHeaders[safe: index + headerOffset] ?? nil,
+                    content: parsedCell.content
+                )
+            }
+            return ArticleScreenTableRow(heading: heading, cells: cells)
+        }
+
+        guard rows.isEmpty == false else {
+            return renderHTMLTableFallback(innerHTML, article: article)
+        }
+
+        return [
+            .table(
+                ArticleScreenTableBlock(
+                    columnHeaders: columnHeaders,
+                    headerSource: headerSource,
+                    rows: rows
+                )
+            )
+        ]
+    }
+
+    fileprivate static func parseHTMLTableRows(
+        _ innerHTML: String,
+        article: ReaderArticleDTO
+    ) -> [ArticleScreenParsedTableRow]? {
+        let rowPattern = #"(?is)<tr\b[^>]*>(.*?)</tr\s*>"#
+        let cellPattern = #"(?is)<(th|td)\b([^>]*)>(.*?)</\1\s*>"#
+        let tableHeadPattern = #"(?is)<thead\b[^>]*>.*?</thead\s*>"#
+        guard let rowRegex = try? NSRegularExpression(pattern: rowPattern),
+              let cellRegex = try? NSRegularExpression(pattern: cellPattern),
+              let tableHeadRegex = try? NSRegularExpression(pattern: tableHeadPattern) else {
+            return nil
+        }
+
+        let nsHTML = innerHTML as NSString
+        let rowMatches = rowRegex.matches(
+            in: innerHTML,
+            range: NSRange(location: 0, length: nsHTML.length)
+        )
+        let lowercaseHTML = innerHTML.lowercased()
+        let tableHeadRanges = tableHeadRegex.matches(
+            in: innerHTML,
+            range: NSRange(location: 0, length: nsHTML.length)
+        ).map(\.range)
+        let openingRowCount = lowercaseHTML.matches(of: /<tr\b/).count
+        let openingCellCount = lowercaseHTML.matches(of: /<(?:th|td)\b/).count
+        guard rowMatches.isEmpty == false,
+              rowMatches.count == openingRowCount else { return nil }
+
+        let rows = rowMatches.map { rowMatch in
+            let rowHTML = nsHTML.substring(with: rowMatch.range(at: 1))
+            let nsRowHTML = rowHTML as NSString
+            let cells = cellRegex.matches(
+                in: rowHTML,
+                range: NSRange(location: 0, length: nsRowHTML.length)
+            ).map { cellMatch in
+                ArticleScreenParsedTableCell(
+                    isHeader: nsRowHTML.substring(with: cellMatch.range(at: 1)).lowercased() == "th",
+                    content: makeTextBlock(
+                        fromHTML: nsRowHTML.substring(with: cellMatch.range(at: 3)),
+                        article: article
+                    )
+                )
+            }
+            return ArticleScreenParsedTableRow(
+                isInTableHead: tableHeadRanges.contains { NSIntersectionRange($0, rowMatch.range).length > 0 },
+                cells: cells
+            )
+        }
+        guard rows.allSatisfy({ $0.cells.isEmpty == false }),
+              rows.reduce(0, { $0 + $1.cells.count }) == openingCellCount else { return nil }
+        return rows
+    }
+
     static func renderHTMLTableFallback(
         _ innerHTML: String,
         article: ReaderArticleDTO
@@ -136,12 +272,12 @@ extension ArticleScreenBodyPayloadRenderer {
         let fallbackHTML = innerHTML
             .replacingOccurrences(
                 of: #"(?i)</(th|td)\s*>"#,
-                with: " ",
+                with: "\n\n",
                 options: .regularExpression
             )
             .replacingOccurrences(
                 of: #"(?i)</tr\s*>"#,
-                with: "\n",
+                with: "\n\n",
                 options: .regularExpression
             )
 
@@ -152,22 +288,7 @@ extension ArticleScreenBodyPayloadRenderer {
         _ innerHTML: String,
         article: ReaderArticleDTO
     ) -> [ArticleScreenBodyBlock] {
-        var blocks: [ArticleScreenBodyBlock] = []
-
-        if let imageBlocks = firstHTMLMediaImageBlocks(in: innerHTML, article: article) {
-            blocks.append(contentsOf: imageBlocks)
-        }
-
-        if let captionHTML = firstHTMLBlock(named: "figcaption", in: innerHTML),
-           let captionText = makeTextBlock(fromHTML: unwrapHTMLBlock(captionHTML), article: article) {
-            blocks.append(.caption(captionText))
-        }
-
-        if blocks.isEmpty {
-            return renderHTMLTextSegment(innerHTML, article: article)
-        }
-
-        return blocks
+        renderHTML(innerHTML, article: article)
     }
 
     static func renderHTMLPicture(

@@ -4,6 +4,7 @@ enum ArticleScreenBodyBlock: Equatable {
     case heading(level: Int, ArticleScreenTextBlock)
     case paragraph(ArticleScreenTextBlock)
     case list(ArticleScreenListBlock)
+    case table(ArticleScreenTableBlock)
     case blockquote([ArticleScreenTextBlock])
     case codeBlock(String)
     case divider
@@ -21,6 +22,41 @@ struct ArticleScreenListBlock: Equatable, Sendable {
     let kind: ArticleScreenListKind
     let items: [ArticleScreenTextBlock]
 }
+
+struct ArticleScreenTableBlock: Equatable, Sendable {
+    let columnHeaders: [ArticleScreenTextBlock?]
+    let headerSource: ArticleScreenTableHeaderSource?
+    let rows: [ArticleScreenTableRow]
+}
+
+enum ArticleScreenTableHeaderSource: Equatable, Sendable {
+    case explicit
+    case inferred
+}
+
+struct ArticleScreenTableRow: Identifiable, Sendable {
+    let id = UUID()
+    let heading: ArticleScreenTextBlock?
+    let cells: [ArticleScreenTableCell]
+
+    static func == (lhs: ArticleScreenTableRow, rhs: ArticleScreenTableRow) -> Bool {
+        lhs.heading == rhs.heading && lhs.cells == rhs.cells
+    }
+}
+
+extension ArticleScreenTableRow: Equatable {}
+
+struct ArticleScreenTableCell: Identifiable, Sendable {
+    let id = UUID()
+    let columnHeader: ArticleScreenTextBlock?
+    let content: ArticleScreenTextBlock?
+
+    static func == (lhs: ArticleScreenTableCell, rhs: ArticleScreenTableCell) -> Bool {
+        lhs.columnHeader == rhs.columnHeader && lhs.content == rhs.content
+    }
+}
+
+extension ArticleScreenTableCell: Equatable {}
 
 struct ArticleScreenTextSpan: Equatable, Sendable {
     let text: String

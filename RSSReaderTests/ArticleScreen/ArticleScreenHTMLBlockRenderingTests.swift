@@ -383,7 +383,7 @@ struct ArticleScreenHTMLBlockRenderingTests {
     }
 
     @Test
-    func articleScreenContentRendererFallsBackToReadableTextForSimpleTables() {
+    func articleScreenContentRendererBuildsSemanticModelForSimpleTables() {
         let content = ArticleScreenContentState(
             article: makeReaderArticleDTO(
                 contentHTML: """
@@ -397,8 +397,144 @@ struct ArticleScreenHTMLBlockRenderingTests {
 
         #expect(
             content.body.blocks == [
-                .paragraph(.plainText("Платёж Дата Аванс 15 мая"))
+                .table(
+                    ArticleScreenTableBlock(
+                        columnHeaders: [.plainText("Платёж"), .plainText("Дата")],
+                        headerSource: .explicit,
+                        rows: [
+                            ArticleScreenTableRow(
+                                heading: .plainText("Аванс"),
+                                cells: [
+                                    ArticleScreenTableCell(
+                                        columnHeader: .plainText("Дата"),
+                                        content: .plainText("15 мая")
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                )
             ]
         )
+    }
+
+    @Test
+    func articleScreenContentRendererKeepsConfirmedArticleTableCellsSeparate() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <figure class="wp-block-table is-style-stripes" style="font-size:17px">
+                    <table class="has-fixed-layout"><tbody><tr>
+                        <td><strong><mark>Критерий</mark></strong></td>
+                        <td><strong><mark>Экспертный трек</mark></strong></td>
+                        <td><strong><mark>Управленческий трек</mark></strong></td>
+                    </tr><tr>
+                        <td>Главный результат</td>
+                        <td>Личная экспертиза</td>
+                        <td>Результат команды</td>
+                    </tr></tbody></table>
+                </figure>
+                """
+            )
+        )
+
+        guard case .table(let table) = content.body.blocks.first else {
+            Issue.record("Expected a semantic table block")
+            return
+        }
+
+        #expect(table.columnHeaders.map { $0?.plainText } == ["Критерий", "Экспертный трек", "Управленческий трек"])
+        #expect(table.headerSource == .inferred)
+        #expect(table.rows.count == 1)
+        #expect(table.rows[0].heading?.plainText == "Главный результат")
+        #expect(table.rows[0].cells.map { $0.content?.plainText } == ["Личная экспертиза", "Результат команды"])
+    }
+
+    @Test
+    func articleScreenContentRendererPreservesInlineFormattingAndLinksInTableCells() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <table>
+                    <tr><th>Тип</th><th>Описание</th></tr>
+                    <tr><td><strong>Swift</strong></td><td><em>Читайте</em> <a href="/guide"><code>guide</code></a></td></tr>
+                </table>
+                """,
+                articleURL: "https://example.com/articles/1"
+            )
+        )
+
+        guard case .table(let table) = content.body.blocks.first,
+              let heading = table.rows.first?.heading,
+              let value = table.rows.first?.cells.first?.content else {
+            Issue.record("Expected formatted semantic table cells")
+            return
+        }
+
+        #expect(heading.spans.first?.isStrong == true)
+        #expect(value.spans.contains { $0.isEmphasized })
+        #expect(value.spans.contains {
+            $0.isCode && $0.linkURL == URL(string: "https://example.com/guide")
+        })
+    }
+
+    @Test
+    func articleScreenContentRendererUsesStructuredFallbackForMalformedAndSpanningTables() {
+        let malformed = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: "<table><tr><th>Заголовок</th></tr><tr><td>Значение</table>"
+            )
+        )
+        let spanning = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: "<table><tr><th colspan=\"2\">Итог</th></tr><tr><td>Один</td><td>Два</td></tr></table>"
+            )
+        )
+
+        #expect(malformed.body.blocks.map(\.textForTest) == ["Заголовок", "Значение"])
+        #expect(spanning.body.blocks.map(\.textForTest) == ["Итог", "Один", "Два"])
+    }
+
+    @Test
+    func articleScreenContentRendererPreservesEmptyCellsAndHeaderlessColumnOrder() {
+        let withEmptyCell = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: "<table><tr><th>Имя</th><th></th><th>Статус</th></tr><tr><td>Анна</td><td></td><td>Готово</td></tr></table>"
+            )
+        )
+        let withoutHeaders = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: "<table><tr><td>Первый</td><td>Второй</td></tr></table>"
+            )
+        )
+
+        guard case .table(let emptyCellTable) = withEmptyCell.body.blocks.first,
+              case .table(let headerlessTable) = withoutHeaders.body.blocks.first else {
+            Issue.record("Expected semantic table blocks")
+            return
+        }
+
+        #expect(emptyCellTable.columnHeaders.count == 3)
+        #expect(emptyCellTable.columnHeaders[1] == nil)
+        #expect(emptyCellTable.rows[0].cells[0].content == nil)
+        #expect(emptyCellTable.rows[0].cells[1].content?.plainText == "Готово")
+        #expect(headerlessTable.columnHeaders.isEmpty)
+        #expect(headerlessTable.rows[0].cells.map { $0.content?.plainText } == ["Первый", "Второй"])
+    }
+
+    @Test
+    func articleScreenContentRendererDoesNotTreatAngleBracketTextAsTableMarkup() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(contentHTML: "<p>Если 2 < 3 и 5 > 4, сравнение верно.</p>")
+        )
+
+        #expect(content.body.blocks == [.paragraph(.plainText("Если 2 < 3 и 5 > 4, сравнение верно."))])
+    }
+}
+
+private extension ArticleScreenBodyBlock {
+    var textForTest: String? {
+        guard case .paragraph(let text) = self else { return nil }
+        return text.plainText
     }
 }

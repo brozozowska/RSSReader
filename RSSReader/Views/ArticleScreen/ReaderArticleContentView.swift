@@ -105,6 +105,11 @@ private struct ReaderArticleBodyBlockView: View {
                 }
             }
             .padding(.vertical, 2)
+        case .table(let tableBlock):
+            ReaderArticleTableView(
+                table: tableBlock,
+                actionHandlers: actionHandlers
+            )
         case .blockquote(let paragraphs):
             HStack(alignment: .top, spacing: 12) {
                 Rectangle()
@@ -171,6 +176,91 @@ private struct ReaderArticleBodyBlockView: View {
         case .unordered:
             "•"
         }
+    }
+}
+
+private struct ReaderArticleTableView: View {
+    let table: ArticleScreenTableBlock
+    let actionHandlers: ArticleScreenActionHandlers
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(table.rows) { row in
+                ReaderArticleTableRowView(
+                    firstColumnHeader: table.columnHeaders.first ?? nil,
+                    row: row,
+                    actionHandlers: actionHandlers
+                )
+
+                if row.id != table.rows.last?.id {
+                    Divider()
+                }
+            }
+        }
+        .background(.quaternary.opacity(0.22), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(.separator.opacity(0.45), lineWidth: 0.5)
+        }
+    }
+}
+
+private struct ReaderArticleTableRowView: View {
+    let firstColumnHeader: ArticleScreenTextBlock?
+    let row: ArticleScreenTableRow
+    let actionHandlers: ArticleScreenActionHandlers
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let heading = row.heading {
+                ReaderArticleTableCellView(
+                    header: firstColumnHeader,
+                    content: heading,
+                    contentIsHeading: true,
+                    actionHandlers: actionHandlers
+                )
+            }
+
+            ForEach(row.cells) { cell in
+                ReaderArticleTableCellView(
+                    header: cell.columnHeader,
+                    content: cell.content,
+                    contentIsHeading: false,
+                    actionHandlers: actionHandlers
+                )
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct ReaderArticleTableCellView: View {
+    let header: ArticleScreenTextBlock?
+    let content: ArticleScreenTextBlock?
+    let contentIsHeading: Bool
+    let actionHandlers: ArticleScreenActionHandlers
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            if let header {
+                Text(header.attributedString)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
+            }
+
+            if let content {
+                Text(content.attributedString)
+                    .font(contentIsHeading ? .headline : .body)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .environment(\.openURL, OpenURLAction { url in
+                        actionHandlers.bodyLinkTapped(url)
+                        return .handled
+                    })
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
