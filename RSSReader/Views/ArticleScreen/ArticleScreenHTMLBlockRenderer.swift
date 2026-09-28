@@ -25,7 +25,7 @@ private extension Collection {
 
 extension ArticleScreenBodyPayloadRenderer {
     private static let maximumHTMLContainerDepth = 12
-    private static let structuralHTMLContainerNames = "div|section|article|main|header|footer"
+    private static let semanticHTMLContainerNames = "div|section|article|main|header|footer|aside|details"
 
     static func renderHTML(
         _ contentHTML: String,
@@ -66,13 +66,35 @@ extension ArticleScreenBodyPayloadRenderer {
                 )
             }
 
-            blocks.append(
-                contentsOf: renderHTML(
-                    htmlNSString.substring(with: container.innerRange),
+            let innerHTML = htmlNSString.substring(with: container.innerRange)
+            switch container.tagName {
+            case "aside":
+                let asideContent = renderHTML(
+                    innerHTML,
                     article: article,
                     containerDepth: containerDepth + 1
                 )
-            )
+                if asideContent.isEmpty == false {
+                    blocks.append(.aside(asideContent))
+                }
+            case "details":
+                blocks.append(
+                    contentsOf: renderHTMLDisclosure(
+                        innerHTML,
+                        openingTagHTML: container.openingTagHTML,
+                        article: article,
+                        containerDepth: containerDepth + 1
+                    )
+                )
+            default:
+                blocks.append(
+                    contentsOf: renderHTML(
+                        innerHTML,
+                        article: article,
+                        containerDepth: containerDepth + 1
+                    )
+                )
+            }
             currentLocation = NSMaxRange(container.outerRange)
         }
 
@@ -99,7 +121,7 @@ extension ArticleScreenBodyPayloadRenderer {
         containerDepth: Int
     ) -> [ArticleScreenBodyBlock] {
         let htmlNSString = contentHTML as NSString
-        let blockPattern = #"(?is)<(h[1-6]|p|blockquote|pre|ul|ol|figure|figcaption|table|picture|iframe|video|audio)\b[^>]*>.*?</\1\s*>|<(img|hr|embed)\b[^>]*>"#
+        let blockPattern = #"(?is)<(h[1-6]|p|blockquote|pre|ul|ol|dl|address|figure|figcaption|table|picture|iframe|video|audio)\b[^>]*>.*?</\1\s*>|<(img|hr|embed)\b[^>]*>"#
         guard let blockRegex = try? NSRegularExpression(pattern: blockPattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) else {
             return renderTextBlock(stripHTML(contentHTML))
         }
@@ -143,8 +165,8 @@ extension ArticleScreenBodyPayloadRenderer {
     private static func firstStructuralHTMLContainer(
         in html: String,
         startingAt location: Int
-    ) -> (outerRange: NSRange, innerRange: NSRange)? {
-        let pattern = #"(?is)<\s*(/?)\s*("# + structuralHTMLContainerNames + #")\b[^>]*>"#
+    ) -> (tagName: String, openingTagHTML: String, outerRange: NSRange, innerRange: NSRange)? {
+        let pattern = #"(?is)<\s*(/?)\s*("# + semanticHTMLContainerNames + #")\b[^>]*>"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
 
         let nsHTML = html as NSString
@@ -154,7 +176,7 @@ extension ArticleScreenBodyPayloadRenderer {
 
         for tag in tags {
             let tagHTML = nsHTML.substring(with: tag.range)
-            let isClosing = tag.range(at: 1).location != NSNotFound
+            let isClosing = tag.range(at: 1).length > 0
             let tagName = nsHTML.substring(with: tag.range(at: 2)).lowercased()
 
             if isClosing == false {
@@ -179,7 +201,12 @@ extension ArticleScreenBodyPayloadRenderer {
                     location: innerStart,
                     length: tag.range.location - innerStart
                 )
-                return (outerRange, innerRange)
+                return (
+                    openingTag.name,
+                    nsHTML.substring(with: openingTag.range),
+                    outerRange,
+                    innerRange
+                )
             }
         }
 
@@ -225,6 +252,10 @@ extension ArticleScreenBodyPayloadRenderer {
             return renderHTMLList(innerHTML, kind: .unordered, article: article)
         case "ol":
             return renderHTMLList(innerHTML, kind: .ordered, article: article)
+        case "dl":
+            return renderHTMLDefinitionList(innerHTML, article: article)
+        case "address":
+            return makeTextBlock(fromHTML: innerHTML, article: article).map { [.address($0)] } ?? []
         case "figure":
             return renderHTMLFigure(innerHTML, article: article, containerDepth: containerDepth)
         case "figcaption":
@@ -274,6 +305,121 @@ extension ArticleScreenBodyPayloadRenderer {
         }
 
         return items.isEmpty ? [] : [.list(ArticleScreenListBlock(kind: kind, items: items))]
+    }
+
+    static func renderHTMLDefinitionList(
+        _ innerHTML: String,
+        article: ReaderArticleDTO
+    ) -> [ArticleScreenBodyBlock] {
+        let itemPattern = #"(?is)<(dt|dd)\b[^>]*>(.*?)</\1\s*>"#
+        guard let itemRegex = try? NSRegularExpression(pattern: itemPattern) else {
+            return renderHTMLDefinitionListFallback(innerHTML, article: article)
+        }
+
+        let nsHTML = innerHTML as NSString
+        let matches = itemRegex.matches(
+            in: innerHTML,
+            range: NSRange(location: 0, length: nsHTML.length)
+        )
+        let openingItemCount = innerHTML.lowercased().matches(of: /<(?:dt|dd)\b/).count
+        guard matches.isEmpty == false, matches.count == openingItemCount else {
+            return renderHTMLDefinitionListFallback(innerHTML, article: article)
+        }
+
+        var entries: [ArticleScreenDefinitionEntry] = []
+        var currentTerm: ArticleScreenTextBlock?
+        var currentDefinitions: [ArticleScreenTextBlock?] = []
+        var hasCurrentEntry = false
+
+        func appendCurrentEntry() {
+            guard hasCurrentEntry else { return }
+            entries.append(
+                ArticleScreenDefinitionEntry(
+                    term: currentTerm,
+                    definitions: currentDefinitions
+                )
+            )
+        }
+
+        for match in matches {
+            let tagName = nsHTML.substring(with: match.range(at: 1)).lowercased()
+            let content = makeTextBlock(
+                fromHTML: nsHTML.substring(with: match.range(at: 2)),
+                article: article
+            )
+
+            if tagName == "dt" {
+                appendCurrentEntry()
+                currentTerm = content
+                currentDefinitions = []
+                hasCurrentEntry = true
+            } else {
+                if hasCurrentEntry == false {
+                    hasCurrentEntry = true
+                }
+                currentDefinitions.append(content)
+            }
+        }
+        appendCurrentEntry()
+
+        guard entries.isEmpty == false else {
+            return renderHTMLDefinitionListFallback(innerHTML, article: article)
+        }
+        return [.definitionList(ArticleScreenDefinitionListBlock(entries: entries))]
+    }
+
+    static func renderHTMLDefinitionListFallback(
+        _ innerHTML: String,
+        article: ReaderArticleDTO
+    ) -> [ArticleScreenBodyBlock] {
+        let fallbackHTML = innerHTML.replacingOccurrences(
+            of: #"(?i)</(dt|dd)\s*>"#,
+            with: "\n\n",
+            options: .regularExpression
+        )
+        return renderHTMLTextSegment(fallbackHTML, article: article)
+    }
+
+    private static func renderHTMLDisclosure(
+        _ innerHTML: String,
+        openingTagHTML: String,
+        article: ReaderArticleDTO,
+        containerDepth: Int
+    ) -> [ArticleScreenBodyBlock] {
+        let summaryPattern = #"(?is)^\s*<summary\b[^>]*>(.*?)</summary\s*>"#
+        guard let summaryRegex = try? NSRegularExpression(pattern: summaryPattern),
+              let summaryMatch = summaryRegex.firstMatch(
+                in: innerHTML,
+                range: NSRange(location: 0, length: (innerHTML as NSString).length)
+              ) else {
+            return renderHTML(innerHTML, article: article, containerDepth: containerDepth)
+        }
+
+        let nsHTML = innerHTML as NSString
+        guard let summary = makeTextBlock(
+            fromHTML: nsHTML.substring(with: summaryMatch.range(at: 1)),
+            article: article
+        ) else {
+            return renderHTML(innerHTML, article: article, containerDepth: containerDepth)
+        }
+
+        let contentHTML = nsHTML.replacingCharacters(in: summaryMatch.range, with: "")
+        let content = renderHTML(contentHTML, article: article, containerDepth: containerDepth)
+        guard content.isEmpty == false else { return [.paragraph(summary)] }
+
+        let isInitiallyExpanded = openingTagHTML.range(
+            of: #"(?i)\sopen(?:\s*=|\s|/?>)"#,
+            options: .regularExpression
+        ) != nil
+        return [
+            .disclosure(
+                ArticleScreenDisclosureBlock(
+                    summary: summary,
+                    content: content,
+                    isInitiallyExpanded: isInitiallyExpanded
+                )
+            )
+        ]
     }
 
     static func renderHTMLTable(

@@ -4,7 +4,11 @@ enum ArticleScreenBodyBlock: Equatable {
     case heading(level: Int, ArticleScreenTextBlock)
     case paragraph(ArticleScreenTextBlock)
     case list(ArticleScreenListBlock)
+    case definitionList(ArticleScreenDefinitionListBlock)
     case table(ArticleScreenTableBlock)
+    indirect case disclosure(ArticleScreenDisclosureBlock)
+    indirect case aside([ArticleScreenBodyBlock])
+    case address(ArticleScreenTextBlock)
     case blockquote([ArticleScreenTextBlock])
     case codeBlock(String)
     case divider
@@ -21,6 +25,28 @@ enum ArticleScreenListKind: Equatable, Sendable {
 struct ArticleScreenListBlock: Equatable, Sendable {
     let kind: ArticleScreenListKind
     let items: [ArticleScreenTextBlock]
+}
+
+struct ArticleScreenDefinitionListBlock: Equatable, Sendable {
+    let entries: [ArticleScreenDefinitionEntry]
+}
+
+struct ArticleScreenDefinitionEntry: Identifiable, Sendable {
+    let id = UUID()
+    let term: ArticleScreenTextBlock?
+    let definitions: [ArticleScreenTextBlock?]
+
+    static func == (lhs: ArticleScreenDefinitionEntry, rhs: ArticleScreenDefinitionEntry) -> Bool {
+        lhs.term == rhs.term && lhs.definitions == rhs.definitions
+    }
+}
+
+extension ArticleScreenDefinitionEntry: Equatable {}
+
+struct ArticleScreenDisclosureBlock: Equatable {
+    let summary: ArticleScreenTextBlock
+    let content: [ArticleScreenBodyBlock]
+    let isInitiallyExpanded: Bool
 }
 
 struct ArticleScreenTableBlock: Equatable, Sendable {

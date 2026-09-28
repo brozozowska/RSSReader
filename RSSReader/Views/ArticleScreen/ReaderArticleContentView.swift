@@ -15,6 +15,7 @@ struct ReaderArticleContentView: View {
                 blocks: content.body.blocks,
                 actionHandlers: actionHandlers
             )
+            .id(content.articleID)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -105,9 +106,29 @@ private struct ReaderArticleBodyBlockView: View {
                 }
             }
             .padding(.vertical, 2)
+        case .definitionList(let definitionList):
+            ReaderArticleDefinitionListView(
+                definitionList: definitionList,
+                actionHandlers: actionHandlers
+            )
         case .table(let tableBlock):
             ReaderArticleTableView(
                 table: tableBlock,
+                actionHandlers: actionHandlers
+            )
+        case .disclosure(let disclosure):
+            ReaderArticleDisclosureView(
+                disclosure: disclosure,
+                actionHandlers: actionHandlers
+            )
+        case .aside(let blocks):
+            ReaderArticleAsideView(
+                blocks: blocks,
+                actionHandlers: actionHandlers
+            )
+        case .address(let text):
+            ReaderArticleAddressView(
+                text: text,
                 actionHandlers: actionHandlers
             )
         case .blockquote(let paragraphs):
@@ -176,6 +197,152 @@ private struct ReaderArticleBodyBlockView: View {
         case .unordered:
             "•"
         }
+    }
+}
+
+private struct ReaderArticleDefinitionListView: View {
+    let definitionList: ArticleScreenDefinitionListBlock
+    let actionHandlers: ArticleScreenActionHandlers
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(definitionList.entries) { entry in
+                ReaderArticleDefinitionEntryView(
+                    term: entry.term,
+                    definitions: entry.definitions,
+                    actionHandlers: actionHandlers
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct ReaderArticleDefinitionEntryView: View {
+    let term: ArticleScreenTextBlock?
+    let definitions: [ArticleScreenTextBlock?]
+    let actionHandlers: ArticleScreenActionHandlers
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let term {
+                ReaderArticleSemanticTextView(
+                    text: term,
+                    actionHandlers: actionHandlers
+                )
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(Array(definitions.enumerated()), id: \.offset) { _, definition in
+                    if let definition {
+                        ReaderArticleSemanticTextView(
+                            text: definition,
+                            actionHandlers: actionHandlers
+                        )
+                        .font(.body)
+                    }
+                }
+            }
+            .padding(.leading, term == nil ? 0 : 12)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct ReaderArticleDisclosureView: View {
+    let disclosure: ArticleScreenDisclosureBlock
+    let actionHandlers: ArticleScreenActionHandlers
+    @State private var isExpanded: Bool
+
+    init(
+        disclosure: ArticleScreenDisclosureBlock,
+        actionHandlers: ArticleScreenActionHandlers
+    ) {
+        self.disclosure = disclosure
+        self.actionHandlers = actionHandlers
+        _isExpanded = State(initialValue: disclosure.isInitiallyExpanded)
+    }
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            ReaderArticleBodyBlocksView(
+                blocks: disclosure.content,
+                actionHandlers: actionHandlers
+            )
+            .padding(.top, 8)
+        } label: {
+            ReaderArticleSemanticTextView(
+                text: disclosure.summary,
+                actionHandlers: actionHandlers
+            )
+            .font(.headline)
+        }
+        .padding(12)
+        .background(.quaternary.opacity(0.22), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+private struct ReaderArticleAsideView: View {
+    let blocks: [ArticleScreenBodyBlock]
+    let actionHandlers: ArticleScreenActionHandlers
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "info.circle")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.tint)
+                .accessibilityHidden(true)
+
+            ReaderArticleBodyBlocksView(
+                blocks: blocks,
+                actionHandlers: actionHandlers
+            )
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(.tint.opacity(0.28), lineWidth: 0.5)
+        }
+    }
+}
+
+private struct ReaderArticleAddressView: View {
+    let text: ArticleScreenTextBlock
+    let actionHandlers: ArticleScreenActionHandlers
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: "person.text.rectangle")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+
+            ReaderArticleSemanticTextView(
+                text: text,
+                actionHandlers: actionHandlers
+            )
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct ReaderArticleSemanticTextView: View {
+    let text: ArticleScreenTextBlock
+    let actionHandlers: ArticleScreenActionHandlers
+
+    var body: some View {
+        Text(text.attributedString)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .environment(\.openURL, OpenURLAction { url in
+                actionHandlers.bodyLinkTapped(url)
+                return .handled
+            })
     }
 }
 

@@ -632,6 +632,142 @@ struct ArticleScreenHTMLBlockRenderingTests {
         #expect(malformed.body.blocks.map(\.textForTest) == ["До", "Сохранено", "После"])
         #expect(unknown.body.blocks.map(\.textForTest) == ["До", "Внутри", "После"])
     }
+
+    @Test
+    func articleScreenContentRendererBuildsDefinitionListWithMultipleAndEmptyDefinitions() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <dl>
+                    <dt><strong>API</strong></dt>
+                    <dd>Первое <a href="/guide"><code>описание</code></a></dd>
+                    <dd></dd>
+                    <dt></dt>
+                    <dd><em>Без названия</em></dd>
+                </dl>
+                """
+            )
+        )
+
+        guard case .definitionList(let definitionList) = content.body.blocks.first else {
+            Issue.record("Expected a semantic definition list")
+            return
+        }
+
+        #expect(definitionList.entries.count == 2)
+        #expect(definitionList.entries[0].term?.plainText == "API")
+        #expect(definitionList.entries[0].term?.spans.first?.isStrong == true)
+        #expect(definitionList.entries[0].definitions.count == 2)
+        #expect(definitionList.entries[0].definitions[1] == nil)
+        #expect(definitionList.entries[0].definitions[0]?.spans.contains {
+            $0.text == "описание"
+                && $0.isCode
+                && $0.linkURL == URL(string: "https://example.com/guide")
+        } == true)
+        #expect(definitionList.entries[1].term == nil)
+        #expect(definitionList.entries[1].definitions[0]?.spans.first?.isEmphasized == true)
+    }
+
+    @Test
+    func articleScreenContentRendererBuildsOpenDisclosureWithNestedSemanticContent() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <details open>
+                    <summary><strong>Подробнее</strong></summary>
+                    <p>Основной текст</p>
+                    <aside><p>Примечание</p></aside>
+                    <details><summary>Ещё</summary><p>Вложенный текст</p></details>
+                </details>
+                """
+            )
+        )
+
+        guard case .disclosure(let disclosure) = content.body.blocks.first else {
+            Issue.record("Expected a semantic disclosure, got \(content.body.blocks)")
+            return
+        }
+
+        #expect(disclosure.summary.plainText == "Подробнее")
+        #expect(disclosure.summary.spans.first?.isStrong == true)
+        #expect(disclosure.isInitiallyExpanded)
+        #expect(disclosure.content.count == 3)
+        #expect(disclosure.content[0].textForTest == "Основной текст")
+        guard case .aside(let asideContent) = disclosure.content[1],
+              case .disclosure(let nestedDisclosure) = disclosure.content[2] else {
+            Issue.record("Expected nested aside and disclosure")
+            return
+        }
+        #expect(asideContent.map(\.textForTest) == ["Примечание"])
+        #expect(nestedDisclosure.summary.plainText == "Ещё")
+        #expect(nestedDisclosure.isInitiallyExpanded == false)
+        #expect(nestedDisclosure.content.map(\.textForTest) == ["Вложенный текст"])
+    }
+
+    @Test
+    func articleScreenContentRendererPreservesAsideAndAddressInSourceOrder() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <p>До</p>
+                <aside><h3>Важно</h3><p>Проверьте данные</p></aside>
+                <address>Автор: <a href="/team"><em>редакция</em></a></address>
+                <p>После</p>
+                """
+            )
+        )
+
+        #expect(content.body.blocks.count == 4)
+        #expect(content.body.blocks[0].textForTest == "До")
+        guard case .aside(let asideContent) = content.body.blocks[1],
+              case .address(let address) = content.body.blocks[2] else {
+            Issue.record("Expected semantic aside and address, got \(content.body.blocks)")
+            return
+        }
+        #expect(asideContent.count == 2)
+        #expect(address.plainText == "Автор: редакция")
+        #expect(address.spans.contains {
+            $0.text == "редакция"
+                && $0.isEmphasized
+                && $0.linkURL == URL(string: "https://example.com/team")
+        })
+        #expect(content.body.blocks[3].textForTest == "После")
+    }
+
+    @Test
+    func articleScreenContentRendererFallsBackForMalformedStructuredBlocks() {
+        let malformedDefinitionList = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: "<dl><dt>Термин</dt><dd>Определение</dl>"
+            )
+        )
+        let disclosureWithoutSummary = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: "<details><p>Доступный текст</p></details>"
+            )
+        )
+        let emptyDisclosure = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: "<details><summary>Только заголовок</summary></details>"
+            )
+        )
+        let outerDisclosureWithoutSummary = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: "<details><p>Внешний текст</p><details><summary>Вложенный</summary><p>Текст</p></details></details>"
+            )
+        )
+
+        #expect(malformedDefinitionList.body.blocks.map(\.textForTest) == ["Термин", "Определение"])
+        #expect(disclosureWithoutSummary.body.blocks.map(\.textForTest) == ["Доступный текст"])
+        #expect(emptyDisclosure.body.blocks.map(\.textForTest) == ["Только заголовок"])
+        #expect(outerDisclosureWithoutSummary.body.blocks.first?.textForTest == "Внешний текст")
+        guard outerDisclosureWithoutSummary.body.blocks.count == 2,
+              case .disclosure(let nestedDisclosure) = outerDisclosureWithoutSummary.body.blocks[1] else {
+            Issue.record("Expected readable outer fallback and nested disclosure")
+            return
+        }
+        #expect(nestedDisclosure.summary.plainText == "Вложенный")
+    }
 }
 
 private extension ArticleScreenBodyBlock {
