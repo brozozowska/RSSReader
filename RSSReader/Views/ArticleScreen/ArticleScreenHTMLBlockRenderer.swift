@@ -24,21 +24,90 @@ private extension Collection {
 }
 
 extension ArticleScreenBodyPayloadRenderer {
+    private static let maximumHTMLContainerDepth = 12
+    private static let structuralHTMLContainerNames = "div|section|article|main|header|footer"
+
     static func renderHTML(
         _ contentHTML: String,
         article: ReaderArticleDTO
     ) -> [ArticleScreenBodyBlock] {
         let readableHTML = removingNonReadableHTMLBlocks(from: contentHTML)
-        let htmlNSString = readableHTML as NSString
+        return renderHTML(readableHTML, article: article, containerDepth: 0)
+    }
+
+    private static func renderHTML(
+        _ contentHTML: String,
+        article: ReaderArticleDTO,
+        containerDepth: Int
+    ) -> [ArticleScreenBodyBlock] {
+        guard containerDepth < maximumHTMLContainerDepth else {
+            return renderHTMLWithoutStructuralContainers(contentHTML, article: article, containerDepth: containerDepth)
+        }
+
+        let htmlNSString = contentHTML as NSString
+        var blocks: [ArticleScreenBodyBlock] = []
+        var currentLocation = 0
+
+        while let container = firstStructuralHTMLContainer(
+            in: contentHTML,
+            startingAt: currentLocation
+        ) {
+            if container.outerRange.location > currentLocation {
+                let prefixRange = NSRange(
+                    location: currentLocation,
+                    length: container.outerRange.location - currentLocation
+                )
+                blocks.append(
+                    contentsOf: renderHTMLWithoutStructuralContainers(
+                        htmlNSString.substring(with: prefixRange),
+                        article: article,
+                        containerDepth: containerDepth
+                    )
+                )
+            }
+
+            blocks.append(
+                contentsOf: renderHTML(
+                    htmlNSString.substring(with: container.innerRange),
+                    article: article,
+                    containerDepth: containerDepth + 1
+                )
+            )
+            currentLocation = NSMaxRange(container.outerRange)
+        }
+
+        if currentLocation < htmlNSString.length {
+            let trailingRange = NSRange(
+                location: currentLocation,
+                length: htmlNSString.length - currentLocation
+            )
+            blocks.append(
+                contentsOf: renderHTMLWithoutStructuralContainers(
+                    htmlNSString.substring(with: trailingRange),
+                    article: article,
+                    containerDepth: containerDepth
+                )
+            )
+        }
+
+        return blocks
+    }
+
+    private static func renderHTMLWithoutStructuralContainers(
+        _ contentHTML: String,
+        article: ReaderArticleDTO,
+        containerDepth: Int
+    ) -> [ArticleScreenBodyBlock] {
+        let htmlNSString = contentHTML as NSString
         let blockPattern = #"(?is)<(h[1-6]|p|blockquote|pre|ul|ol|figure|figcaption|table|picture|iframe|video|audio)\b[^>]*>.*?</\1\s*>|<(img|hr|embed)\b[^>]*>"#
         guard let blockRegex = try? NSRegularExpression(pattern: blockPattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) else {
-            return renderTextBlock(stripHTML(readableHTML))
+            return renderTextBlock(stripHTML(contentHTML))
         }
 
         var blocks: [ArticleScreenBodyBlock] = []
         var currentLocation = 0
         let matches = blockRegex.matches(
-            in: readableHTML,
+            in: contentHTML,
             options: [],
             range: NSRange(location: 0, length: htmlNSString.length)
         )
@@ -51,7 +120,13 @@ extension ArticleScreenBodyPayloadRenderer {
             }
 
             let blockHTML = htmlNSString.substring(with: match.range)
-            blocks.append(contentsOf: renderHTMLBlock(blockHTML, article: article))
+            blocks.append(
+                contentsOf: renderHTMLBlock(
+                    blockHTML,
+                    article: article,
+                    containerDepth: containerDepth
+                )
+            )
 
             currentLocation = match.range.location + match.range.length
         }
@@ -65,9 +140,56 @@ extension ArticleScreenBodyPayloadRenderer {
         return blocks
     }
 
+    private static func firstStructuralHTMLContainer(
+        in html: String,
+        startingAt location: Int
+    ) -> (outerRange: NSRange, innerRange: NSRange)? {
+        let pattern = #"(?is)<\s*(/?)\s*("# + structuralHTMLContainerNames + #")\b[^>]*>"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+
+        let nsHTML = html as NSString
+        let searchRange = NSRange(location: location, length: nsHTML.length - location)
+        let tags = regex.matches(in: html, range: searchRange)
+        var stack: [(name: String, range: NSRange)] = []
+
+        for tag in tags {
+            let tagHTML = nsHTML.substring(with: tag.range)
+            let isClosing = tag.range(at: 1).location != NSNotFound
+            let tagName = nsHTML.substring(with: tag.range(at: 2)).lowercased()
+
+            if isClosing == false {
+                if tagHTML.dropLast().trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("/") == false {
+                    stack.append((tagName, tag.range))
+                }
+                continue
+            }
+
+            guard let openingTag = stack.last, openingTag.name == tagName else {
+                return nil
+            }
+            stack.removeLast()
+
+            if stack.isEmpty {
+                let outerRange = NSRange(
+                    location: openingTag.range.location,
+                    length: NSMaxRange(tag.range) - openingTag.range.location
+                )
+                let innerStart = NSMaxRange(openingTag.range)
+                let innerRange = NSRange(
+                    location: innerStart,
+                    length: tag.range.location - innerStart
+                )
+                return (outerRange, innerRange)
+            }
+        }
+
+        return nil
+    }
+
     static func renderHTMLBlock(
         _ blockHTML: String,
-        article: ReaderArticleDTO
+        article: ReaderArticleDTO,
+        containerDepth: Int
     ) -> [ArticleScreenBodyBlock] {
         let tagName = leadingTagName(in: blockHTML)
 
@@ -104,7 +226,7 @@ extension ArticleScreenBodyPayloadRenderer {
         case "ol":
             return renderHTMLList(innerHTML, kind: .ordered, article: article)
         case "figure":
-            return renderHTMLFigure(innerHTML, article: article)
+            return renderHTMLFigure(innerHTML, article: article, containerDepth: containerDepth)
         case "figcaption":
             return makeTextBlock(fromHTML: innerHTML, article: article).map { [.caption($0)] } ?? []
         case "table":
@@ -286,9 +408,10 @@ extension ArticleScreenBodyPayloadRenderer {
 
     static func renderHTMLFigure(
         _ innerHTML: String,
-        article: ReaderArticleDTO
+        article: ReaderArticleDTO,
+        containerDepth: Int
     ) -> [ArticleScreenBodyBlock] {
-        renderHTML(innerHTML, article: article)
+        renderHTML(innerHTML, article: article, containerDepth: containerDepth)
     }
 
     static func renderHTMLPicture(

@@ -530,11 +530,118 @@ struct ArticleScreenHTMLBlockRenderingTests {
 
         #expect(content.body.blocks == [.paragraph(.plainText("Если 2 < 3 и 5 > 4, сравнение верно."))])
     }
+
+    @Test
+    func articleScreenContentRendererTreatsStructuralWrappersAsTransparentContainers() {
+        for tagName in ["div", "section", "article", "main", "header", "footer"] {
+            let content = ArticleScreenContentState(
+                article: makeReaderArticleDTO(
+                    contentHTML: "<\(tagName)><p>Содержимое \(tagName)</p></\(tagName)>"
+                )
+            )
+
+            #expect(
+                content.body.blocks == [.paragraph(.plainText("Содержимое \(tagName)"))],
+                "Expected transparent rendering for <\(tagName)>"
+            )
+        }
+    }
+
+    @Test
+    func articleScreenContentRendererPreservesMixedContainerContentInSourceOrder() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                До контейнера
+                <section>
+                    <h2>Заголовок</h2>
+                    <p><em>Абзац</em> <a href="/guide"><code>guide</code></a></p>
+                    <ul><li>Первый</li><li>Второй</li></ul>
+                    <blockquote>Цитата</blockquote>
+                    <pre>let value = 42</pre>
+                    <figure><img src="/image.png"><figcaption>Подпись</figcaption></figure>
+                    <table><tr><th>Тип</th><th>Значение</th></tr><tr><td>A</td><td>B</td></tr></table>
+                    <video src="/movie.mp4"></video>
+                </section>
+                После контейнера
+                """
+            )
+        )
+
+        #expect(content.body.blocks.count == 11)
+        #expect(content.body.blocks[0] == .paragraph(.plainText("До контейнера")))
+        #expect(content.body.blocks[1] == .heading(level: 2, .plainText("Заголовок")))
+        #expect(content.body.blocks[2].textForTest == "Абзацguide")
+        #expect(content.body.blocks[3] == .list(ArticleScreenListBlock(
+            kind: .unordered,
+            items: [.plainText("Первый"), .plainText("Второй")]
+        )))
+        #expect(content.body.blocks[4] == .blockquote([.plainText("Цитата")]))
+        #expect(content.body.blocks[5] == .codeBlock("let value = 42"))
+        #expect(content.body.blocks[6] == .image(URL(string: "https://example.com/image.png")!))
+        #expect(content.body.blocks[7] == .caption(.plainText("Подпись")))
+        #expect(content.body.blocks[8].isTableForTest)
+        #expect(content.body.blocks[9].textForTest == ReadingLocalization.openVideoAction)
+        #expect(content.body.blocks[10].textForTest == "После контейнера")
+
+        guard case .paragraph(let linkedParagraph) = content.body.blocks[2] else {
+            Issue.record("Expected linked paragraph")
+            return
+        }
+        #expect(linkedParagraph.spans.contains {
+            $0.text == "guide"
+                && $0.isCode
+                && $0.linkURL == URL(string: "https://example.com/guide")
+        })
+        #expect(linkedParagraph.spans.contains { $0.text == "Абзац" && $0.isEmphasized })
+    }
+
+    @Test
+    func articleScreenContentRendererDoesNotDuplicateTextAcrossNestedContainers() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <article>До<div><section><p>Внутри</p></section></div>После</article>
+                """
+            )
+        )
+
+        #expect(content.body.blocks.map(\.textForTest) == ["До", "Внутри", "После"])
+    }
+
+    @Test
+    func articleScreenContentRendererBoundsDeepAndMalformedContainerTraversal() {
+        let deeplyNestedHTML = String(repeating: "<div>", count: 40)
+            + "<p>Глубокий текст</p>"
+            + String(repeating: "</div>", count: 40)
+        let deeplyNested = ArticleScreenContentState(
+            article: makeReaderArticleDTO(contentHTML: deeplyNestedHTML)
+        )
+        let malformed = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: "<div>До<section><p>Сохранено</p></div>После"
+            )
+        )
+        let unknown = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: "<nav>До<p>Внутри</p>После</nav>"
+            )
+        )
+
+        #expect(deeplyNested.body.blocks.map(\.textForTest) == ["Глубокий текст"])
+        #expect(malformed.body.blocks.map(\.textForTest) == ["До", "Сохранено", "После"])
+        #expect(unknown.body.blocks.map(\.textForTest) == ["До", "Внутри", "После"])
+    }
 }
 
 private extension ArticleScreenBodyBlock {
     var textForTest: String? {
         guard case .paragraph(let text) = self else { return nil }
         return text.plainText
+    }
+
+    var isTableForTest: Bool {
+        guard case .table = self else { return false }
+        return true
     }
 }
