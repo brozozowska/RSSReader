@@ -205,6 +205,73 @@ struct ArticleScreenTextRenderingTests {
     }
 
     @Test
+    func articleScreenContentRendererPreservesExtendedInlineSemantics() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: "<p><mark>marked</mark> H<sub>2</sub>O x<sup>2</sup> <del>old</del> <ins>new</ins> <kbd>⌘K</kbd> <samp>output</samp> <var>value</var> <cite>Book</cite></p>"
+            )
+        )
+
+        guard case .paragraph(let text) = content.body.blocks.first else {
+            Issue.record("Expected an extended-semantics paragraph")
+            return
+        }
+
+        #expect(text.plainText == "marked H2O x2 old new ⌘K output value Book")
+        #expect(text.spans.contains { $0.text == "marked" && $0.isMarked })
+        #expect(text.spans.contains { $0.text == "2" && $0.verticalAlignment == .lowered })
+        #expect(text.spans.contains { $0.text == "2" && $0.verticalAlignment == .superscript })
+        #expect(text.spans.contains { $0.text == "old" && $0.isDeleted })
+        #expect(text.spans.contains { $0.text == "new" && $0.isInserted })
+        #expect(text.spans.contains { $0.text == "⌘K" && $0.codeSemantic == .keyboardInput && $0.isCode })
+        #expect(text.spans.contains { $0.text == "output" && $0.codeSemantic == .sampleOutput && $0.isCode })
+        #expect(text.spans.contains { $0.text == "value" && $0.codeSemantic == .variable })
+        #expect(text.spans.contains { $0.text == "Book" && $0.isCitation })
+    }
+
+    @Test
+    func articleScreenContentRendererCombinesExtendedSemanticsWithLinksAndExistingStyles() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: "<p><a href=\"/changes\"><strong><mark>important</mark></strong> <del>old</del></a> <cite><em>引用</em></cite> &amp; <code><var>値</var></code></p>",
+                articleURL: "https://example.com/articles/1"
+            )
+        )
+
+        guard case .paragraph(let text) = content.body.blocks.first else {
+            Issue.record("Expected a nested-semantics paragraph")
+            return
+        }
+
+        let linkURL = URL(string: "https://example.com/changes")!
+        #expect(text.plainText == "important old 引用 & 値")
+        #expect(text.spans.contains { $0.text == "important" && $0.isStrong && $0.isMarked && $0.linkURL == linkURL })
+        #expect(text.spans.contains { $0.text == "old" && $0.isDeleted && $0.linkURL == linkURL })
+        #expect(text.spans.contains { $0.text == "引用" && $0.isCitation && $0.isEmphasized })
+        #expect(text.spans.contains { $0.text == "値" && $0.codeSemantic == .variable && $0.isCode })
+        #expect(String(text.attributedString.characters) == text.plainText)
+    }
+
+    @Test
+    func articleScreenContentRendererKeepsMalformedAndAngleBracketTextReadable() {
+        let malformed = ArticleScreenContentState(
+            article: makeReaderArticleDTO(contentHTML: "<p>Before <mark>highlight <strong>bold</strong> after</p>")
+        )
+        let comparison = ArticleScreenContentState(
+            article: makeReaderArticleDTO(contentHTML: "<p>Use 2 < 3, 5 > 4, &lt;tag&gt; and <mark>A&amp;B</mark>.</p>")
+        )
+
+        guard case .paragraph(let malformedText) = malformed.body.blocks.first,
+              case .paragraph(let comparisonText) = comparison.body.blocks.first else {
+            Issue.record("Expected readable fallback paragraphs")
+            return
+        }
+
+        #expect(malformedText.plainText == "Before highlight bold after")
+        #expect(comparisonText.plainText == "Use 2 < 3, 5 > 4, <tag> and A&B.")
+    }
+
+    @Test
     func articleScreenContentRendererUsesSummaryWithFallbackNoticeWhenFullBodyIsUnavailable() {
         let content = ArticleScreenContentState(
             article: makeReaderArticleDTO(

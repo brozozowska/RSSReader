@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 @MainActor
 enum ArticleScreenBodyBlock: Equatable {
     case heading(level: Int, ArticleScreenTextBlock)
@@ -90,20 +91,49 @@ struct ArticleScreenTextSpan: Equatable, Sendable {
     let isStrong: Bool
     let isEmphasized: Bool
     let isCode: Bool
+    let isMarked: Bool
+    let verticalAlignment: ArticleScreenInlineVerticalAlignment?
+    let isDeleted: Bool
+    let isInserted: Bool
+    let codeSemantic: ArticleScreenInlineCodeSemantic?
+    let isCitation: Bool
 
     init(
         text: String,
         linkURL: URL? = nil,
         isStrong: Bool = false,
         isEmphasized: Bool = false,
-        isCode: Bool = false
+        isCode: Bool = false,
+        isMarked: Bool = false,
+        verticalAlignment: ArticleScreenInlineVerticalAlignment? = nil,
+        isDeleted: Bool = false,
+        isInserted: Bool = false,
+        codeSemantic: ArticleScreenInlineCodeSemantic? = nil,
+        isCitation: Bool = false
     ) {
         self.text = text
         self.linkURL = linkURL
         self.isStrong = isStrong
         self.isEmphasized = isEmphasized
         self.isCode = isCode
+        self.isMarked = isMarked
+        self.verticalAlignment = verticalAlignment
+        self.isDeleted = isDeleted
+        self.isInserted = isInserted
+        self.codeSemantic = codeSemantic
+        self.isCitation = isCitation
     }
+}
+
+enum ArticleScreenInlineVerticalAlignment: Equatable, Sendable {
+    case superscript
+    case lowered
+}
+
+enum ArticleScreenInlineCodeSemantic: Equatable, Sendable {
+    case keyboardInput
+    case sampleOutput
+    case variable
 }
 
 struct ArticleScreenTextBlock: Equatable, Sendable {
@@ -118,6 +148,16 @@ struct ArticleScreenTextBlock: Equatable, Sendable {
             var attributedSpan = AttributedString(span.text)
             attributedSpan.link = span.linkURL
             attributedSpan.inlinePresentationIntent = span.inlinePresentationIntent
+            if span.isMarked {
+                attributedSpan.backgroundColor = .yellow.opacity(0.3)
+            }
+            if span.isInserted {
+                attributedSpan.underlineStyle = .single
+            }
+            if let verticalAlignment = span.verticalAlignment {
+                attributedSpan.font = .caption
+                attributedSpan.baselineOffset = verticalAlignment == .superscript ? 4 : -2
+            }
             partialResult.append(attributedSpan)
         }
     }
@@ -143,6 +183,12 @@ private extension ArticleScreenTextSpan {
         }
         if isCode {
             intent.insert(.code)
+        }
+        if isDeleted {
+            intent.insert(.strikethrough)
+        }
+        if isCitation || codeSemantic == .variable {
+            intent.insert(.emphasized)
         }
 
         return intent.isEmpty ? nil : intent

@@ -5,6 +5,12 @@ struct ArticleScreenInlineTextStyle {
     var isStrong = false
     var isEmphasized = false
     var isCode = false
+    var isMarked = false
+    var verticalAlignment: ArticleScreenInlineVerticalAlignment?
+    var isDeleted = false
+    var isInserted = false
+    var codeSemantic: ArticleScreenInlineCodeSemantic?
+    var isCitation = false
 }
 
 extension ArticleScreenBodyPayloadRenderer {
@@ -111,7 +117,7 @@ extension ArticleScreenBodyPayloadRenderer {
         style: ArticleScreenInlineTextStyle,
         to spans: inout [ArticleScreenTextSpan]
     ) {
-        let inlinePattern = #"(?is)<br\s*/?>|<(a|strong|b|em|i|code)\b([^>]*)>(.*?)</\1\s*>"#
+        let inlinePattern = #"(?is)<br\s*/?>|<(a|strong|b|em|i|code|mark|sup|sub|del|ins|kbd|samp|var|cite)\b([^>]*)>(.*?)</\1\s*>"#
         guard let inlineRegex = try? NSRegularExpression(
             pattern: inlinePattern,
             options: [.caseInsensitive, .dotMatchesLineSeparators]
@@ -160,6 +166,26 @@ extension ArticleScreenBodyPayloadRenderer {
                     childStyle.isEmphasized = true
                 case "code":
                     childStyle.isCode = true
+                case "mark":
+                    childStyle.isMarked = true
+                case "sup":
+                    childStyle.verticalAlignment = .superscript
+                case "sub":
+                    childStyle.verticalAlignment = .lowered
+                case "del":
+                    childStyle.isDeleted = true
+                case "ins":
+                    childStyle.isInserted = true
+                case "kbd":
+                    childStyle.isCode = true
+                    childStyle.codeSemantic = .keyboardInput
+                case "samp":
+                    childStyle.isCode = true
+                    childStyle.codeSemantic = .sampleOutput
+                case "var":
+                    childStyle.codeSemantic = .variable
+                case "cite":
+                    childStyle.isCitation = true
                 default:
                     break
                 }
@@ -201,6 +227,12 @@ extension ArticleScreenBodyPayloadRenderer {
             isStrong: style.isStrong,
             isEmphasized: style.isEmphasized,
             isCode: style.isCode,
+            isMarked: style.isMarked,
+            verticalAlignment: style.verticalAlignment,
+            isDeleted: style.isDeleted,
+            isInserted: style.isInserted,
+            codeSemantic: style.codeSemantic,
+            isCitation: style.isCitation,
             to: &spans
         )
     }
@@ -290,6 +322,12 @@ extension ArticleScreenBodyPayloadRenderer {
         isStrong: Bool,
         isEmphasized: Bool,
         isCode: Bool,
+        isMarked: Bool = false,
+        verticalAlignment: ArticleScreenInlineVerticalAlignment? = nil,
+        isDeleted: Bool = false,
+        isInserted: Bool = false,
+        codeSemantic: ArticleScreenInlineCodeSemantic? = nil,
+        isCitation: Bool = false,
         to spans: inout [ArticleScreenTextSpan]
     ) {
         guard text.isEmpty == false else { return }
@@ -298,13 +336,25 @@ extension ArticleScreenBodyPayloadRenderer {
            lastSpan.linkURL == linkURL,
            lastSpan.isStrong == isStrong,
            lastSpan.isEmphasized == isEmphasized,
-           lastSpan.isCode == isCode {
+           lastSpan.isCode == isCode,
+           lastSpan.isMarked == isMarked,
+           lastSpan.verticalAlignment == verticalAlignment,
+           lastSpan.isDeleted == isDeleted,
+           lastSpan.isInserted == isInserted,
+           lastSpan.codeSemantic == codeSemantic,
+           lastSpan.isCitation == isCitation {
             spans[spans.count - 1] = ArticleScreenTextSpan(
                 text: lastSpan.text + text,
                 linkURL: linkURL,
                 isStrong: isStrong,
                 isEmphasized: isEmphasized,
-                isCode: isCode
+                isCode: isCode,
+                isMarked: isMarked,
+                verticalAlignment: verticalAlignment,
+                isDeleted: isDeleted,
+                isInserted: isInserted,
+                codeSemantic: codeSemantic,
+                isCitation: isCitation
             )
         } else {
             spans.append(
@@ -313,7 +363,13 @@ extension ArticleScreenBodyPayloadRenderer {
                     linkURL: linkURL,
                     isStrong: isStrong,
                     isEmphasized: isEmphasized,
-                    isCode: isCode
+                    isCode: isCode,
+                    isMarked: isMarked,
+                    verticalAlignment: verticalAlignment,
+                    isDeleted: isDeleted,
+                    isInserted: isInserted,
+                    codeSemantic: codeSemantic,
+                    isCitation: isCitation
                 )
             )
         }
@@ -389,7 +445,13 @@ extension ArticleScreenBodyPayloadRenderer {
                     linkURL: firstSpan.linkURL,
                     isStrong: firstSpan.isStrong,
                     isEmphasized: firstSpan.isEmphasized,
-                    isCode: firstSpan.isCode
+                    isCode: firstSpan.isCode,
+                    isMarked: firstSpan.isMarked,
+                    verticalAlignment: firstSpan.verticalAlignment,
+                    isDeleted: firstSpan.isDeleted,
+                    isInserted: firstSpan.isInserted,
+                    codeSemantic: firstSpan.codeSemantic,
+                    isCitation: firstSpan.isCitation
                 )
                 break
             }
@@ -405,7 +467,13 @@ extension ArticleScreenBodyPayloadRenderer {
                     linkURL: lastSpan.linkURL,
                     isStrong: lastSpan.isStrong,
                     isEmphasized: lastSpan.isEmphasized,
-                    isCode: lastSpan.isCode
+                    isCode: lastSpan.isCode,
+                    isMarked: lastSpan.isMarked,
+                    verticalAlignment: lastSpan.verticalAlignment,
+                    isDeleted: lastSpan.isDeleted,
+                    isInserted: lastSpan.isInserted,
+                    codeSemantic: lastSpan.codeSemantic,
+                    isCitation: lastSpan.isCitation
                 )
                 break
             }
@@ -422,13 +490,25 @@ extension ArticleScreenBodyPayloadRenderer {
                lastSpan.linkURL == span.linkURL,
                lastSpan.isStrong == span.isStrong,
                lastSpan.isEmphasized == span.isEmphasized,
-               lastSpan.isCode == span.isCode {
+               lastSpan.isCode == span.isCode,
+               lastSpan.isMarked == span.isMarked,
+               lastSpan.verticalAlignment == span.verticalAlignment,
+               lastSpan.isDeleted == span.isDeleted,
+               lastSpan.isInserted == span.isInserted,
+               lastSpan.codeSemantic == span.codeSemantic,
+               lastSpan.isCitation == span.isCitation {
                 partialResult[partialResult.count - 1] = ArticleScreenTextSpan(
                     text: lastSpan.text + span.text,
                     linkURL: span.linkURL,
                     isStrong: span.isStrong,
                     isEmphasized: span.isEmphasized,
-                    isCode: span.isCode
+                    isCode: span.isCode,
+                    isMarked: span.isMarked,
+                    verticalAlignment: span.verticalAlignment,
+                    isDeleted: span.isDeleted,
+                    isInserted: span.isInserted,
+                    codeSemantic: span.codeSemantic,
+                    isCitation: span.isCitation
                 )
             } else {
                 partialResult.append(span)

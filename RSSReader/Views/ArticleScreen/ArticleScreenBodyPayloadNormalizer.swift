@@ -98,11 +98,6 @@ enum ArticleScreenBodyPayloadNormalizer {
     private static func normalizeHTML(_ value: String) -> String {
         value
             .replacingOccurrences(of: "\u{00A0}", with: " ")
-            .replacingOccurrences(
-                of: #">\s+<"#,
-                with: "><",
-                options: .regularExpression
-            )
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 

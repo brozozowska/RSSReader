@@ -571,7 +571,7 @@ struct ArticleScreenHTMLBlockRenderingTests {
         #expect(content.body.blocks.count == 11)
         #expect(content.body.blocks[0] == .paragraph(.plainText("До контейнера")))
         #expect(content.body.blocks[1] == .heading(level: 2, .plainText("Заголовок")))
-        #expect(content.body.blocks[2].textForTest == "Абзацguide")
+        #expect(content.body.blocks[2].textForTest == "Абзац guide")
         #expect(content.body.blocks[3] == .list(ArticleScreenListBlock(
             kind: .unordered,
             items: [.plainText("Первый"), .plainText("Второй")]
