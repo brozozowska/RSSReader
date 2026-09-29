@@ -156,17 +156,96 @@ struct ArticleScreenHTMLBlockRenderingTests {
 
         #expect(
             content.body.blocks == [
-                .image(URL(string: "https://example.com/images/book.png")!),
-                .caption(
-                    ArticleScreenTextBlock(
-                        spans: [
-                            ArticleScreenTextSpan(text: "Обложка "),
-                            ArticleScreenTextSpan(text: "книги", isStrong: true)
-                        ]
+                .figure([
+                    .image(URL(string: "https://example.com/images/book.png")!),
+                    .caption(
+                        ArticleScreenTextBlock(
+                            spans: [
+                                ArticleScreenTextSpan(text: "Обложка "),
+                                ArticleScreenTextSpan(text: "книги", isStrong: true)
+                            ]
+                        )
                     )
-                )
+                ])
             ]
         )
+    }
+
+    @Test
+    func articleScreenContentRendererAssociatesOrderedFigureMediaWithCaption() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <figure>
+                    <picture><source srcset="/images/large.jpg 2x"><img src="/images/small.jpg"></picture>
+                    <audio src="/media/episode.mp3"></audio>
+                    <video><source src="/media/trailer.mp4"></video>
+                    <figcaption>Медиа <strong>подборка</strong></figcaption>
+                </figure>
+                """
+            )
+        )
+
+        guard case .figure(let blocks) = content.body.blocks.first else {
+            Issue.record("Expected a semantic media figure")
+            return
+        }
+
+        #expect(blocks == [
+            .image(URL(string: "https://example.com/images/small.jpg")!),
+            .media(ArticleScreenMediaBlock(kind: .audio, url: URL(string: "https://example.com/media/episode.mp3")!)),
+            .media(ArticleScreenMediaBlock(kind: .video, url: URL(string: "https://example.com/media/trailer.mp4")!)),
+            .caption(ArticleScreenTextBlock(spans: [
+                ArticleScreenTextSpan(text: "Медиа "),
+                ArticleScreenTextSpan(text: "подборка", isStrong: true)
+            ]))
+        ])
+    }
+
+    @Test
+    func articleScreenContentRendererClassifiesKnownAndUnknownEmbeddedMediaWithoutFetching() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <figure>
+                    <iframe src="https://www.youtube.com/embed/video-id"></iframe>
+                    <iframe src="https://widgets.example.org/player/42"></iframe>
+                    <embed src="/media/widget">
+                    <figcaption>Три источника</figcaption>
+                </figure>
+                """
+            )
+        )
+
+        guard case .figure(let blocks) = content.body.blocks.first else {
+            Issue.record("Expected an embedded-media figure")
+            return
+        }
+
+        #expect(blocks == [
+            .media(ArticleScreenMediaBlock(kind: .knownEmbedded, url: URL(string: "https://www.youtube.com/embed/video-id")!)),
+            .media(ArticleScreenMediaBlock(kind: .embedded, url: URL(string: "https://widgets.example.org/player/42")!)),
+            .media(ArticleScreenMediaBlock(kind: .generic, url: URL(string: "https://example.com/media/widget")!)),
+            .caption(.plainText("Три источника"))
+        ])
+    }
+
+    @Test
+    func articleScreenContentRendererKeepsCaptionWhenFigureMediaURLIsInvalid() {
+        let invalid = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: "<figure><iframe src=\"javascript:alert(1)\"></iframe><figcaption>Недоступное медиа</figcaption></figure>"
+            )
+        )
+        let malformed = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: "<figure><video><source src=\"/movie.mp4\"><figcaption>Повреждённая фигура</figcaption></figure>"
+            )
+        )
+
+        #expect(invalid.body.blocks == [.caption(.plainText("Недоступное медиа"))])
+        #expect(malformed.body.blocks == [.caption(.plainText("Повреждённая фигура"))])
+        #expect(invalid.body.blocks.contains { if case .media = $0 { true } else { false } } == false)
     }
 
     @Test
@@ -244,16 +323,10 @@ struct ArticleScreenHTMLBlockRenderingTests {
         #expect(
             content.body.blocks == [
                 .paragraph(.plainText("«Вкалывают роботы, а не человек»")),
-                .paragraph(
-                    ArticleScreenTextBlock(
-                        spans: [
-                            ArticleScreenTextSpan(
-                                text: ReadingLocalization.openVideoAction,
-                                linkURL: URL(string: "https://cdn.example.com/video/figure-shift.mp4")!
-                            )
-                        ]
-                    )
-                )
+                .media(ArticleScreenMediaBlock(
+                    kind: .video,
+                    url: URL(string: "https://cdn.example.com/video/figure-shift.mp4")!
+                ))
             ]
         )
     }
@@ -269,16 +342,10 @@ struct ArticleScreenHTMLBlockRenderingTests {
 
         #expect(
             content.body.blocks == [
-                .paragraph(
-                    ArticleScreenTextBlock(
-                        spans: [
-                            ArticleScreenTextSpan(
-                                text: ReadingLocalization.openVideoAction,
-                                linkURL: URL(string: "https://cdn.example.com/video/lead-video.webm")!
-                            )
-                        ]
-                    )
-                ),
+                .media(ArticleScreenMediaBlock(
+                    kind: .video,
+                    url: URL(string: "https://cdn.example.com/video/lead-video.webm")!
+                )),
                 .paragraph(.plainText("Body copy"))
             ]
         )
@@ -338,46 +405,10 @@ struct ArticleScreenHTMLBlockRenderingTests {
 
         #expect(
             content.body.blocks == [
-                .paragraph(
-                    ArticleScreenTextBlock(
-                        spans: [
-                            ArticleScreenTextSpan(
-                                text: ReadingLocalization.openEmbeddedContentAction,
-                                linkURL: URL(string: "https://www.youtube.com/embed/video-id")!
-                            )
-                        ]
-                    )
-                ),
-                .paragraph(
-                    ArticleScreenTextBlock(
-                        spans: [
-                            ArticleScreenTextSpan(
-                                text: ReadingLocalization.openVideoAction,
-                                linkURL: URL(string: "https://example.com/media/movie.mp4")!
-                            )
-                        ]
-                    )
-                ),
-                .paragraph(
-                    ArticleScreenTextBlock(
-                        spans: [
-                            ArticleScreenTextSpan(
-                                text: ReadingLocalization.openAudioAction,
-                                linkURL: URL(string: "https://example.com/media/audio.mp3")!
-                            )
-                        ]
-                    )
-                ),
-                .paragraph(
-                    ArticleScreenTextBlock(
-                        spans: [
-                            ArticleScreenTextSpan(
-                                text: ReadingLocalization.openMediaAction,
-                                linkURL: URL(string: "https://example.com/media/widget")!
-                            )
-                        ]
-                    )
-                )
+                .media(ArticleScreenMediaBlock(kind: .knownEmbedded, url: URL(string: "https://www.youtube.com/embed/video-id")!)),
+                .media(ArticleScreenMediaBlock(kind: .video, url: URL(string: "https://example.com/media/movie.mp4")!)),
+                .media(ArticleScreenMediaBlock(kind: .audio, url: URL(string: "https://example.com/media/audio.mp3")!)),
+                .media(ArticleScreenMediaBlock(kind: .generic, url: URL(string: "https://example.com/media/widget")!))
             ]
         )
     }
@@ -568,7 +599,7 @@ struct ArticleScreenHTMLBlockRenderingTests {
             )
         )
 
-        #expect(content.body.blocks.count == 11)
+        #expect(content.body.blocks.count == 10)
         #expect(content.body.blocks[0] == .paragraph(.plainText("До контейнера")))
         #expect(content.body.blocks[1] == .heading(level: 2, .plainText("Заголовок")))
         #expect(content.body.blocks[2].textForTest == "Абзац guide")
@@ -578,11 +609,16 @@ struct ArticleScreenHTMLBlockRenderingTests {
         )))
         #expect(content.body.blocks[4] == .blockquote([.plainText("Цитата")]))
         #expect(content.body.blocks[5] == .codeBlock("let value = 42"))
-        #expect(content.body.blocks[6] == .image(URL(string: "https://example.com/image.png")!))
-        #expect(content.body.blocks[7] == .caption(.plainText("Подпись")))
-        #expect(content.body.blocks[8].isTableForTest)
-        #expect(content.body.blocks[9].textForTest == ReadingLocalization.openVideoAction)
-        #expect(content.body.blocks[10].textForTest == "После контейнера")
+        #expect(content.body.blocks[6] == .figure([
+            .image(URL(string: "https://example.com/image.png")!),
+            .caption(.plainText("Подпись"))
+        ]))
+        #expect(content.body.blocks[7].isTableForTest)
+        #expect(content.body.blocks[8] == .media(ArticleScreenMediaBlock(
+            kind: .video,
+            url: URL(string: "https://example.com/movie.mp4")!
+        )))
+        #expect(content.body.blocks[9].textForTest == "После контейнера")
 
         guard case .paragraph(let linkedParagraph) = content.body.blocks[2] else {
             Issue.record("Expected linked paragraph")

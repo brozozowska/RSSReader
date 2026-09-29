@@ -9,13 +9,41 @@ enum ArticleScreenBodyBlock: Equatable {
     case table(ArticleScreenTableBlock)
     indirect case disclosure(ArticleScreenDisclosureBlock)
     indirect case aside([ArticleScreenBodyBlock])
+    indirect case figure([ArticleScreenBodyBlock])
     case address(ArticleScreenTextBlock)
     case blockquote([ArticleScreenTextBlock])
     case codeBlock(String)
     case divider
     case caption(ArticleScreenTextBlock)
     case image(URL)
+    case media(ArticleScreenMediaBlock)
     case fallbackNotice(String)
+}
+
+struct ArticleScreenMediaBlock: Equatable, Sendable {
+    let kind: ArticleScreenMediaKind
+    let url: URL
+}
+
+enum ArticleScreenMediaKind: Equatable, Sendable {
+    case audio
+    case video
+    case knownEmbedded
+    case embedded
+    case generic
+
+    var actionTitle: String {
+        switch self {
+        case .audio:
+            ReadingLocalization.openAudioAction
+        case .video:
+            ReadingLocalization.openVideoAction
+        case .knownEmbedded, .embedded:
+            ReadingLocalization.openEmbeddedContentAction
+        case .generic:
+            ReadingLocalization.openMediaAction
+        }
+    }
 }
 
 enum ArticleScreenListKind: Equatable, Sendable {

@@ -126,6 +126,11 @@ private struct ReaderArticleBodyBlockView: View {
                 blocks: blocks,
                 actionHandlers: actionHandlers
             )
+        case .figure(let blocks):
+            ReaderArticleFigureView(
+                blocks: blocks,
+                actionHandlers: actionHandlers
+            )
         case .address(let text):
             ReaderArticleAddressView(
                 text: text,
@@ -162,6 +167,11 @@ private struct ReaderArticleBodyBlockView: View {
         case .image(let url):
             CachedArticleImageView(url: url)
                 .id(url)
+        case .media(let media):
+            ReaderArticleMediaView(
+                media: media,
+                actionHandlers: actionHandlers
+            )
         case .fallbackNotice(let message):
             Text(message)
                 .font(.subheadline)
@@ -196,6 +206,60 @@ private struct ReaderArticleBodyBlockView: View {
             "\(index + 1)."
         case .unordered:
             "•"
+        }
+    }
+}
+
+private struct ReaderArticleFigureView: View {
+    let blocks: [ArticleScreenBodyBlock]
+    let actionHandlers: ArticleScreenActionHandlers
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ReaderArticleBodyBlocksView(
+                blocks: blocks,
+                actionHandlers: actionHandlers
+            )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private struct ReaderArticleMediaView: View {
+    let media: ArticleScreenMediaBlock
+    let actionHandlers: ArticleScreenActionHandlers
+
+    var body: some View {
+        Button {
+            actionHandlers.bodyLinkTapped(media.url)
+        } label: {
+            Label(media.kind.actionTitle, systemImage: systemImageName)
+                .font(.body)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+        }
+        .buttonStyle(.plain)
+        .background(.quaternary.opacity(0.22), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(.separator.opacity(0.45), lineWidth: 0.5)
+        }
+        .accessibilityLabel(media.kind.actionTitle)
+    }
+
+    private var systemImageName: String {
+        switch media.kind {
+        case .audio:
+            "waveform"
+        case .video:
+            "play.rectangle"
+        case .knownEmbedded:
+            "play.rectangle.fill"
+        case .embedded:
+            "rectangle.on.rectangle"
+        case .generic:
+            "link"
         }
     }
 }

@@ -557,7 +557,16 @@ extension ArticleScreenBodyPayloadRenderer {
         article: ReaderArticleDTO,
         containerDepth: Int
     ) -> [ArticleScreenBodyBlock] {
-        renderHTML(innerHTML, article: article, containerDepth: containerDepth)
+        let content = renderHTML(innerHTML, article: article, containerDepth: containerDepth)
+        let containsMedia = content.contains { block in
+            switch block {
+            case .image, .media:
+                true
+            default:
+                false
+            }
+        }
+        return containsMedia ? [.figure(content)] : content
     }
 
     static func renderHTMLPicture(
@@ -595,8 +604,10 @@ extension ArticleScreenBodyPayloadRenderer {
             return renderHTMLTextSegment(innerHTML, article: article)
         }
 
-        let label = unsupportedMediaFallbackTitle(for: tagName)
-        return mediaFallbackBlock(title: label, url: mediaURL)
+        return mediaFallbackBlock(
+            kind: unsupportedMediaKind(for: tagName, url: mediaURL),
+            url: mediaURL
+        )
     }
 
     static func renderImageOrMediaFallback(
@@ -608,24 +619,16 @@ extension ArticleScreenBodyPayloadRenderer {
         }
 
         if let mediaFallback = resolveVideoLikeMediaFallback(fromHTML: imageTag, article: article) {
-            return mediaFallbackBlock(title: mediaFallback.kind.title, url: mediaFallback.url)
+            return mediaFallbackBlock(kind: mediaFallback.kind, url: mediaFallback.url)
         }
 
         return []
     }
 
     static func mediaFallbackBlock(
-        title: String,
+        kind: ArticleScreenMediaKind,
         url: URL
     ) -> [ArticleScreenBodyBlock] {
-        return [
-            .paragraph(
-                ArticleScreenTextBlock(
-                    spans: [
-                        ArticleScreenTextSpan(text: title, linkURL: url)
-                    ]
-                )
-            )
-        ]
+        [.media(ArticleScreenMediaBlock(kind: kind, url: url))]
     }
 }

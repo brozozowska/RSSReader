@@ -123,6 +123,9 @@ extension Array where Element == ArticleScreenBodyBlock {
             if case .image = $0 {
                 return true
             }
+            if case .figure(let blocks) = $0 {
+                return blocks.containsImageBlock
+            }
             return false
         }
     }

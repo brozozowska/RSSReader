@@ -1,22 +1,5 @@
 import Foundation
 
-enum ArticleScreenMediaFallbackKind {
-    case embedded
-    case video
-    case audio
-
-    var title: String {
-        switch self {
-        case .embedded:
-            ReadingLocalization.openEmbeddedContentAction
-        case .video:
-            ReadingLocalization.openVideoAction
-        case .audio:
-            ReadingLocalization.openAudioAction
-        }
-    }
-}
-
 extension ArticleScreenBodyPayloadRenderer {
     static func appendLeadImageIfNeeded(
         _ blocks: [ArticleScreenBodyBlock],
@@ -40,7 +23,7 @@ extension ArticleScreenBodyPayloadRenderer {
             return nil
         }
         if let fallbackKind = videoLikeMediaFallbackKind(for: imageURL) {
-            return mediaFallbackBlock(title: fallbackKind.title, url: imageURL).first
+            return mediaFallbackBlock(kind: fallbackKind, url: imageURL).first
         }
         guard isRenderableImageURL(imageURL) else {
             return nil
@@ -110,7 +93,7 @@ extension ArticleScreenBodyPayloadRenderer {
     static func resolveVideoLikeMediaFallback(
         fromHTML html: String,
         article: ReaderArticleDTO
-    ) -> (url: URL, kind: ArticleScreenMediaFallbackKind)? {
+    ) -> (url: URL, kind: ArticleScreenMediaKind)? {
         let directAttributes = [
             "data-src",
             "data-original",
@@ -192,9 +175,8 @@ extension ArticleScreenBodyPayloadRenderer {
         return videoLikeMediaFallbackKind(for: url) == nil
     }
 
-    static func videoLikeMediaFallbackKind(for url: URL) -> ArticleScreenMediaFallbackKind? {
+    static func videoLikeMediaFallbackKind(for url: URL) -> ArticleScreenMediaKind? {
         let fileExtension = url.pathExtension.lowercased()
-        let host = url.host?.lowercased() ?? ""
         let path = url.path.lowercased()
 
         if ["jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "avif"].contains(fileExtension) {
@@ -209,14 +191,24 @@ extension ArticleScreenBodyPayloadRenderer {
             return .audio
         }
 
-        if host.contains("youtube.com")
-            || host.contains("youtu.be")
-            || host.contains("vimeo.com")
-            || path.contains("/embed/") {
+        if isKnownEmbeddedMediaURL(url) {
+            return .knownEmbedded
+        }
+
+        if path.contains("/embed/") {
             return .embedded
         }
 
         return nil
+    }
+
+    static func isKnownEmbeddedMediaURL(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return false }
+        return host == "youtu.be"
+            || host == "youtube.com"
+            || host.hasSuffix(".youtube.com")
+            || host == "vimeo.com"
+            || host.hasSuffix(".vimeo.com")
     }
 
     static func preferredURLCandidate(fromSrcset srcset: String) -> String? {
@@ -232,16 +224,16 @@ extension ArticleScreenBodyPayloadRenderer {
             .articleScreenNilIfBlank
     }
 
-    static func unsupportedMediaFallbackTitle(for tagName: String) -> String {
+    static func unsupportedMediaKind(for tagName: String, url: URL) -> ArticleScreenMediaKind {
         switch tagName {
         case "iframe":
-            ReadingLocalization.openEmbeddedContentAction
+            isKnownEmbeddedMediaURL(url) ? .knownEmbedded : .embedded
         case "video":
-            ReadingLocalization.openVideoAction
+            .video
         case "audio":
-            ReadingLocalization.openAudioAction
+            .audio
         default:
-            ReadingLocalization.openMediaAction
+            .generic
         }
     }
 }
