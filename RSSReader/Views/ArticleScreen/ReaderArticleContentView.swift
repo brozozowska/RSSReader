@@ -413,8 +413,34 @@ private struct ReaderArticleSemanticTextView: View {
 private struct ReaderArticleTableView: View {
     let table: ArticleScreenTableBlock
     let actionHandlers: ArticleScreenActionHandlers
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
+        if let minimumColumnWidth = layoutPolicy.minimumGridColumnWidth(
+            columnCount: columnCount,
+            textSize: tableTextSize
+        ) {
+            ViewThatFits(in: .horizontal) {
+                ReaderArticleTableGridView(
+                    table: table,
+                    columnCount: columnCount,
+                    columnWidth: minimumColumnWidth,
+                    actionHandlers: actionHandlers
+                )
+                .frame(
+                    minWidth: ReaderArticleTableLayoutPolicy.minimumGridWidth,
+                    maxWidth: .infinity,
+                    alignment: .leading
+                )
+
+                cards
+            }
+        } else {
+            cards
+        }
+    }
+
+    private var cards: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(table.rows) { row in
                 ReaderArticleTableRowView(
@@ -433,6 +459,150 @@ private struct ReaderArticleTableView: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(.separator.opacity(0.45), lineWidth: 0.5)
         }
+    }
+
+    private var layoutPolicy: ReaderArticleTableLayoutPolicy {
+        ReaderArticleTableLayoutPolicy()
+    }
+
+    private var columnCount: Int {
+        max(
+            table.columnHeaders.count,
+            table.rows.map { $0.cells.count + ($0.heading == nil ? 0 : 1) }.max() ?? 0
+        )
+    }
+
+    private var tableTextSize: ReaderArticleTableTextSize {
+        switch dynamicTypeSize {
+        case .xSmall, .small, .medium, .large:
+            .standard
+        case .xLarge:
+            .large
+        case .xxLarge, .xxxLarge:
+            .extraLarge
+        default:
+            .accessibility
+        }
+    }
+}
+
+private struct ReaderArticleTableGridView: View {
+    let table: ArticleScreenTableBlock
+    let columnCount: Int
+    let columnWidth: CGFloat
+    let actionHandlers: ArticleScreenActionHandlers
+
+    var body: some View {
+        Grid(horizontalSpacing: 0, verticalSpacing: 0) {
+            if table.columnHeaders.contains(where: { $0 != nil }) {
+                GridRow {
+                    ForEach(0..<columnCount, id: \.self) { columnIndex in
+                        ReaderArticleTableGridHeaderView(
+                            header: table.columnHeaders[safe: columnIndex] ?? nil,
+                            columnWidth: columnWidth
+                        )
+                    }
+                }
+            }
+
+            ForEach(table.rows) { row in
+                GridRow {
+                    ForEach(0..<columnCount, id: \.self) { columnIndex in
+                        let content = row.gridContents[safe: columnIndex] ?? nil
+                        ReaderArticleTableGridCellView(
+                            header: table.columnHeaders[safe: columnIndex] ?? nil,
+                            content: content,
+                            contentIsHeading: row.heading != nil && columnIndex == 0,
+                            columnWidth: columnWidth,
+                            actionHandlers: actionHandlers
+                        )
+                    }
+                }
+            }
+        }
+        .background(.quaternary.opacity(0.22))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(.separator.opacity(0.6), lineWidth: 0.5)
+        }
+    }
+}
+
+private struct ReaderArticleTableGridHeaderView: View {
+    let header: ArticleScreenTextBlock?
+    let columnWidth: CGFloat
+
+    var body: some View {
+        Group {
+            if let header {
+                Text(header.attributedString)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
+            }
+        }
+        .padding(10)
+        .frame(minWidth: columnWidth, maxWidth: columnWidth, maxHeight: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.3))
+        .overlay(alignment: .trailing) {
+            Divider()
+        }
+    }
+}
+
+private struct ReaderArticleTableGridCellView: View {
+    let header: ArticleScreenTextBlock?
+    let content: ArticleScreenTextBlock?
+    let contentIsHeading: Bool
+    let columnWidth: CGFloat
+    let actionHandlers: ArticleScreenActionHandlers
+
+    var body: some View {
+        Group {
+            if let content {
+                Text(content.attributedString)
+                    .font(contentIsHeading ? .headline : .body)
+                    .environment(\.openURL, OpenURLAction { url in
+                        actionHandlers.bodyLinkTapped(url)
+                        return .handled
+                    })
+                    .accessibilityLabel(accessibilityLabel(for: content))
+                    .accessibilityAddTraits(contentIsHeading ? .isHeader : [])
+            }
+        }
+        .padding(10)
+        .frame(minWidth: columnWidth, maxWidth: columnWidth, maxHeight: .infinity, alignment: .topLeading)
+        .overlay(alignment: .trailing) {
+            Divider()
+        }
+        .overlay(alignment: .bottom) {
+            Divider()
+        }
+    }
+
+    private func accessibilityLabel(for content: ArticleScreenTextBlock) -> Text {
+        if let header, !header.plainText.isEmpty {
+            Text(verbatim: "\(header.plainText), \(content.plainText)")
+        } else {
+            Text(verbatim: content.plainText)
+        }
+    }
+}
+
+private extension ArticleScreenTableRow {
+    var gridContents: [ArticleScreenTextBlock?] {
+        if let heading {
+            [heading] + cells.map(\.content)
+        } else {
+            cells.map(\.content)
+        }
+    }
+}
+
+private extension Collection {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 

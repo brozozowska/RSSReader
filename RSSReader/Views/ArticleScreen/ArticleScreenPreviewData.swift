@@ -36,15 +36,19 @@ import SwiftUI
     .environment(\.locale, Locale(identifier: "ar"))
 }
 
-#Preview("Loaded Summary Body") {
-    ArticleScreenPreviewContainer(
-        screenState: .previewLoaded(article: ArticleScreenPreviewData.summaryBodyArticle)
-    )
+#Preview("Adaptive Table") {
+    ArticleScreenAdaptiveTablePreview()
 }
 
 #Preview("Loaded Content Text Body") {
     ArticleScreenPreviewContainer(
         screenState: .previewLoaded(article: ArticleScreenPreviewData.contentTextBodyArticle)
+    )
+}
+
+#Preview("Loaded Summary Body") {
+    ArticleScreenPreviewContainer(
+        screenState: .previewLoaded(article: ArticleScreenPreviewData.summaryBodyArticle)
     )
 }
 
@@ -61,6 +65,23 @@ private struct ArticleScreenPreviewContainer: View {
             )
             .environment(\.appDependencies, AppDependencies.makeDefault())
             .environment(AppState())
+        }
+    }
+}
+
+private struct ArticleScreenAdaptiveTablePreview: View {
+    var body: some View {
+        ScrollView {
+            ReaderArticleContentView(
+                content: ArticleScreenContentState(article: ArticleScreenPreviewData.adaptiveTableArticle),
+                actionHandlers: ArticleScreenActionHandlers(
+                    toggleReadStatus: {},
+                    toggleStarredStatus: {},
+                    openSourceArticle: {},
+                    bodyLinkTapped: { _ in }
+                )
+            )
+            .padding()
         }
     }
 }
@@ -102,6 +123,39 @@ private enum ArticleScreenPreviewData {
 
             Обычно такое приходит из `content:encoded`, `content` или другого более полного поля внутри XML feed.
             """
+        )
+    }
+
+    static var adaptiveTableArticle: ReaderArticleDTO {
+        ReaderArticleDTO(
+            id: UUID(),
+            feedID: UUID(),
+            feedTitle: "Global Markets",
+            feedSiteURL: "https://example.com",
+            articleExternalID: UUID().uuidString,
+            title: "Quarterly market comparison",
+            summary: nil,
+            contentHTML: """
+            <table>
+              <thead><tr><th>Region</th><th>Revenue</th><th>Growth</th><th>Outlook</th></tr></thead>
+              <tbody>
+                <tr><th>North America</th><td>$12.4 billion</td><td>8.2%</td><td>Stable demand across enterprise and consumer segments</td></tr>
+                <tr><th>日本</th><td>¥840 billion</td><td>11.6%</td><td>クラウドサービスの需要が引き続き拡大</td></tr>
+                <tr><th>الشرق الأوسط</th><td></td><td>6.1%</td><td>نمو مستقر في الأسواق الإقليمية</td></tr>
+              </tbody>
+            </table>
+            """,
+            contentText: nil,
+            author: "Research Desk",
+            publishedAt: Date(timeIntervalSince1970: 1_775_358_720),
+            updatedAtSource: nil,
+            effectiveDate: Date(timeIntervalSince1970: 1_775_358_720),
+            articleURL: "https://example.com/markets",
+            canonicalURL: "https://example.com/markets",
+            imageURL: nil,
+            isRead: false,
+            isStarred: false,
+            isHidden: false
         )
     }
 
