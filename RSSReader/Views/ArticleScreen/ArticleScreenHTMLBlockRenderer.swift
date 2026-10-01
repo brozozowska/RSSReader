@@ -462,7 +462,7 @@ extension ArticleScreenBodyPayloadRenderer {
                     content: parsedCell.content
                 )
             }
-            return ArticleScreenTableRow(heading: heading, cells: cells)
+            return ArticleScreenTableRow(heading: heading, cells: cells, hasHeadingColumn: firstCellIsRowHeading)
         }
 
         guard rows.isEmpty == false else {

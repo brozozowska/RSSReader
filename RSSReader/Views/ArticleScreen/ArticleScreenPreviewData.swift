@@ -40,6 +40,27 @@ import SwiftUI
     ArticleScreenAdaptiveTablePreview()
 }
 
+#Preview("Adaptive Table Compact", traits: .sizeThatFitsLayout) {
+    ArticleScreenAdaptiveTablePreview().frame(width: 390, height: 700)
+}
+
+#Preview("Adaptive Table Regular", traits: .sizeThatFitsLayout) {
+    ArticleScreenAdaptiveTablePreview().frame(width: 900, height: 700)
+}
+
+#Preview("Adaptive Table RTL", traits: .sizeThatFitsLayout) {
+    ArticleScreenAdaptiveTablePreview()
+        .environment(\.layoutDirection, .rightToLeft)
+        .environment(\.locale, Locale(identifier: "ar"))
+        .frame(width: 900, height: 700)
+}
+
+#Preview("Adaptive Table Accessibility", traits: .sizeThatFitsLayout) {
+    ArticleScreenAdaptiveTablePreview()
+        .environment(\.dynamicTypeSize, .accessibility3)
+        .frame(width: 900, height: 700)
+}
+
 #Preview("Loaded Content Text Body") {
     ArticleScreenPreviewContainer(
         screenState: .previewLoaded(article: ArticleScreenPreviewData.contentTextBodyArticle)
@@ -142,6 +163,7 @@ private enum ArticleScreenPreviewData {
                 <tr><th>North America</th><td>$12.4 billion</td><td>8.2%</td><td>Stable demand across enterprise and consumer segments</td></tr>
                 <tr><th>日本</th><td>¥840 billion</td><td>11.6%</td><td>クラウドサービスの需要が引き続き拡大</td></tr>
                 <tr><th>الشرق الأوسط</th><td></td><td>6.1%</td><td>نمو مستقر في الأسواق الإقليمية</td></tr>
+                <tr><th></th><td>$1.2 billion</td><td>2.4%</td><td>Region pending</td></tr>
               </tbody>
             </table>
             """,

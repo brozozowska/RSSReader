@@ -527,6 +527,50 @@ struct ArticleScreenHTMLBlockRenderingTests {
     }
 
     @Test
+    func articleScreenTableGridPreservesEmptyFirstCellUnderItsHeader() throws {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <table><tr><th>Имя</th><th>Сумма</th><th>Статус</th></tr>
+                <tr><td></td><td>100</td><td>Готово</td></tr></table>
+                """
+            )
+        )
+        guard case .table(let table) = content.body.blocks.first else {
+            Issue.record("Expected a semantic table block")
+            return
+        }
+        let row = try #require(table.rows.first)
+        let values = row.gridContents
+        #expect(values.map { $0?.plainText } == [nil, "100", "Готово"])
+        #expect(row.cells.map { $0.columnHeader?.plainText } == ["Сумма", "Статус"])
+    }
+
+    @Test
+    func articleScreenTableGridDoesNotInventHeadingForShortRows() throws {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <table><tr><th>Value</th><th>Value</th><th>Value</th></tr>
+                <tr><td>100</td><td>Ready</td></tr>
+                <tr><td></td><td>200</td><td>Pending</td></tr></table>
+                """
+            )
+        )
+        guard case .table(let table) = content.body.blocks.first else {
+            Issue.record("Expected a semantic table block")
+            return
+        }
+        #expect(table.rows.count == 2)
+        let shortRow = try #require(table.rows.first)
+        let fullRow = try #require(table.rows.last)
+        #expect(shortRow.hasHeadingColumn == false)
+        #expect(shortRow.gridContents.map { $0?.plainText } == ["100", "Ready"])
+        #expect(fullRow.hasHeadingColumn)
+        #expect(fullRow.gridContents.map { $0?.plainText } == [nil, "200", "Pending"])
+    }
+
+    @Test
     func articleScreenContentRendererPreservesEmptyCellsAndHeaderlessColumnOrder() {
         let withEmptyCell = ArticleScreenContentState(
             article: makeReaderArticleDTO(
@@ -551,6 +595,10 @@ struct ArticleScreenHTMLBlockRenderingTests {
         #expect(emptyCellTable.rows[0].cells[1].content?.plainText == "Готово")
         #expect(headerlessTable.columnHeaders.isEmpty)
         #expect(headerlessTable.rows[0].cells.map { $0.content?.plainText } == ["Первый", "Второй"])
+        #expect(headerlessTable.rows[0].gridContents.map { $0?.plainText }
+                == ["Первый", "Второй"])
+        #expect(emptyCellTable.rows[0].gridContents.map { $0?.plainText }
+                == ["Анна", nil, "Готово"])
     }
 
     @Test

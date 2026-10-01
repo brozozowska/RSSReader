@@ -93,9 +93,22 @@ struct ArticleScreenTableRow: Identifiable, Sendable {
     let id = UUID()
     let heading: ArticleScreenTextBlock?
     let cells: [ArticleScreenTableCell]
+    let hasHeadingColumn: Bool
+
+    init(heading: ArticleScreenTextBlock?, cells: [ArticleScreenTableCell], hasHeadingColumn: Bool? = nil) {
+        self.heading = heading
+        self.cells = cells
+        self.hasHeadingColumn = hasHeadingColumn ?? (heading != nil)
+    }
+
+    var gridContents: [ArticleScreenTextBlock?] {
+        // A missing heading value still occupies a column. Its presence cannot
+        // be inferred from cell count because HTML rows may have different lengths.
+        hasHeadingColumn ? [heading] + cells.map(\.content) : cells.map(\.content)
+    }
 
     static func == (lhs: ArticleScreenTableRow, rhs: ArticleScreenTableRow) -> Bool {
-        lhs.heading == rhs.heading && lhs.cells == rhs.cells
+        lhs.heading == rhs.heading && lhs.cells == rhs.cells && lhs.hasHeadingColumn == rhs.hasHeadingColumn
     }
 }
 

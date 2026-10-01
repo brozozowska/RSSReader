@@ -416,23 +416,17 @@ private struct ReaderArticleTableView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        if let minimumColumnWidth = layoutPolicy.minimumGridColumnWidth(
+        if layoutPolicy.minimumGridColumnWidth(
             columnCount: columnCount,
             textSize: tableTextSize
-        ) {
+        ) != nil {
             ViewThatFits(in: .horizontal) {
                 ReaderArticleTableGridView(
                     table: table,
                     columnCount: columnCount,
-                    columnWidth: minimumColumnWidth,
+                    textSize: tableTextSize,
                     actionHandlers: actionHandlers
                 )
-                .frame(
-                    minWidth: ReaderArticleTableLayoutPolicy.minimumGridWidth,
-                    maxWidth: .infinity,
-                    alignment: .leading
-                )
-
                 cards
             }
         } else {
@@ -468,7 +462,7 @@ private struct ReaderArticleTableView: View {
     private var columnCount: Int {
         max(
             table.columnHeaders.count,
-            table.rows.map { $0.cells.count + ($0.heading == nil ? 0 : 1) }.max() ?? 0
+            table.rows.map { $0.cells.count + ($0.hasHeadingColumn ? 1 : 0) }.max() ?? 0
         )
     }
 
@@ -489,34 +483,31 @@ private struct ReaderArticleTableView: View {
 private struct ReaderArticleTableGridView: View {
     let table: ArticleScreenTableBlock
     let columnCount: Int
-    let columnWidth: CGFloat
+    let textSize: ReaderArticleTableTextSize
     let actionHandlers: ArticleScreenActionHandlers
 
     var body: some View {
-        Grid(horizontalSpacing: 0, verticalSpacing: 0) {
+        ReaderArticleTableGridLayout(
+            columnCount: columnCount,
+            textSize: textSize
+        ) {
             if table.columnHeaders.contains(where: { $0 != nil }) {
-                GridRow {
-                    ForEach(0..<columnCount, id: \.self) { columnIndex in
-                        ReaderArticleTableGridHeaderView(
-                            header: table.columnHeaders[safe: columnIndex] ?? nil,
-                            columnWidth: columnWidth
-                        )
-                    }
+                ForEach(0..<columnCount, id: \.self) { columnIndex in
+                    ReaderArticleTableGridHeaderView(
+                        header: table.columnHeaders[safe: columnIndex] ?? nil
+                    )
                 }
             }
 
             ForEach(table.rows) { row in
-                GridRow {
-                    ForEach(0..<columnCount, id: \.self) { columnIndex in
-                        let content = row.gridContents[safe: columnIndex] ?? nil
-                        ReaderArticleTableGridCellView(
-                            header: table.columnHeaders[safe: columnIndex] ?? nil,
-                            content: content,
-                            contentIsHeading: row.heading != nil && columnIndex == 0,
-                            columnWidth: columnWidth,
-                            actionHandlers: actionHandlers
-                        )
-                    }
+                let contents = row.gridContents
+                ForEach(0..<columnCount, id: \.self) { columnIndex in
+                    ReaderArticleTableGridCellView(
+                        header: table.columnHeaders[safe: columnIndex] ?? nil,
+                        content: contents[safe: columnIndex] ?? nil,
+                        contentIsHeading: row.heading != nil && columnIndex == 0,
+                        actionHandlers: actionHandlers
+                    )
                 }
             }
         }
@@ -531,23 +522,19 @@ private struct ReaderArticleTableGridView: View {
 
 private struct ReaderArticleTableGridHeaderView: View {
     let header: ArticleScreenTextBlock?
-    let columnWidth: CGFloat
 
     var body: some View {
-        Group {
-            if let header {
-                Text(header.attributedString)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .accessibilityAddTraits(.isHeader)
+        Text(header?.attributedString ?? AttributedString())
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityHidden(header == nil)
+            .padding(10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .background(.quaternary.opacity(0.3))
+            .overlay(alignment: .trailing) {
+                Rectangle().fill(.separator).frame(width: 0.5)
             }
-        }
-        .padding(10)
-        .frame(minWidth: columnWidth, maxWidth: columnWidth, maxHeight: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.3))
-        .overlay(alignment: .trailing) {
-            Divider()
-        }
     }
 }
 
@@ -555,47 +542,33 @@ private struct ReaderArticleTableGridCellView: View {
     let header: ArticleScreenTextBlock?
     let content: ArticleScreenTextBlock?
     let contentIsHeading: Bool
-    let columnWidth: CGFloat
     let actionHandlers: ArticleScreenActionHandlers
 
     var body: some View {
-        Group {
-            if let content {
-                Text(content.attributedString)
-                    .font(contentIsHeading ? .headline : .body)
-                    .environment(\.openURL, OpenURLAction { url in
-                        actionHandlers.bodyLinkTapped(url)
-                        return .handled
-                    })
-                    .accessibilityLabel(accessibilityLabel(for: content))
-                    .accessibilityAddTraits(contentIsHeading ? .isHeader : [])
+        Text(content?.attributedString ?? AttributedString())
+            .font(contentIsHeading ? .headline : .body)
+            .environment(\.openURL, OpenURLAction { url in
+                actionHandlers.bodyLinkTapped(url)
+                return .handled
+            })
+            .accessibilityLabel(accessibilityLabel(for: content))
+            .accessibilityAddTraits(contentIsHeading ? .isHeader : [])
+            .accessibilityHidden(content == nil)
+            .padding(10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .overlay(alignment: .trailing) {
+                Rectangle().fill(.separator).frame(width: 0.5)
             }
-        }
-        .padding(10)
-        .frame(minWidth: columnWidth, maxWidth: columnWidth, maxHeight: .infinity, alignment: .topLeading)
-        .overlay(alignment: .trailing) {
-            Divider()
-        }
-        .overlay(alignment: .bottom) {
-            Divider()
-        }
+            .overlay(alignment: .bottom) {
+                Divider()
+            }
     }
 
-    private func accessibilityLabel(for content: ArticleScreenTextBlock) -> Text {
+    private func accessibilityLabel(for content: ArticleScreenTextBlock?) -> Text {
         if let header, !header.plainText.isEmpty {
-            Text(verbatim: "\(header.plainText), \(content.plainText)")
+            Text(verbatim: "\(header.plainText), \(content?.plainText ?? "")")
         } else {
-            Text(verbatim: content.plainText)
-        }
-    }
-}
-
-private extension ArticleScreenTableRow {
-    var gridContents: [ArticleScreenTextBlock?] {
-        if let heading {
-            [heading] + cells.map(\.content)
-        } else {
-            cells.map(\.content)
+            Text(verbatim: content?.plainText ?? "")
         }
     }
 }
