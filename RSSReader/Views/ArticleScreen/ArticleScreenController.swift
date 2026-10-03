@@ -2,14 +2,20 @@ import Foundation
 import Observation
 
 typealias ArticleReadOnOpenHandler = @MainActor (UUID, ArticleUserStateSnapshot) -> Void
+typealias ArticleStateMutationHandler = @MainActor (UUID, ArticleUserStateSnapshot) -> Void
 
 @MainActor
 @Observable
 final class ArticleScreenController {
     var screenState: ArticleScreenState
+    private let articleStateService: (any ArticleStateServicing)?
 
-    init(previewScreenState: ArticleScreenState? = nil) {
+    init(
+        previewScreenState: ArticleScreenState? = nil,
+        articleStateService: (any ArticleStateServicing)? = nil
+    ) {
         self.screenState = previewScreenState ?? ArticleScreenState()
+        self.articleStateService = articleStateService
     }
 
     func load(
@@ -69,14 +75,15 @@ final class ArticleScreenController {
 
     func toggleArticleReadStatus(
         dependencies: AppDependencies,
-        isPreviewMode: Bool
+        isPreviewMode: Bool,
+        articleStateMutationHandler: ArticleStateMutationHandler? = nil
     ) {
         guard let article = screenState.article else { return }
         let requestedIsRead = article.isRead == false
         let resolvedIsRead: Bool
 
         if isPreviewMode == false {
-            guard let articleStateService = dependencies.articleStateService else {
+            guard let articleStateService = articleStateService ?? dependencies.articleStateService else {
                 dependencies.logger.error("Article state service is unavailable for read toggle action")
                 return
             }
@@ -96,7 +103,13 @@ final class ArticleScreenController {
                         at: .now
                     )
                 }
-                resolvedIsRead = persistedState.isRead
+                screenState.applyArticleMutation(article.updating(
+                    isRead: persistedState.isRead,
+                    isStarred: persistedState.isStarred,
+                    isHidden: persistedState.isHidden
+                ))
+                articleStateMutationHandler?(article.id, persistedState)
+                return
             } catch {
                 dependencies.logger.error("Failed to toggle article read status: \(error)")
                 return
@@ -110,25 +123,34 @@ final class ArticleScreenController {
 
     func toggleArticleStarredStatus(
         dependencies: AppDependencies,
-        isPreviewMode: Bool
+        isPreviewMode: Bool,
+        articleStateMutationHandler: ArticleStateMutationHandler? = nil
     ) {
         guard let article = screenState.article else { return }
         let requestedIsStarred = article.isStarred == false
         let resolvedIsStarred: Bool
 
         if isPreviewMode == false {
-            guard let articleStateService = dependencies.articleStateService else {
+            guard let articleStateService = articleStateService ?? dependencies.articleStateService else {
                 dependencies.logger.error("Article state service is unavailable for starred toggle action")
                 return
             }
 
             do {
-                let persistedState = try articleStateService.toggleStarred(
+                // Save the action shown by the Reader, even if its DTO predates a sync update.
+                let persistedState = try articleStateService.setStarred(
                     feedID: article.feedID,
                     articleExternalID: article.articleExternalID,
+                    isStarred: requestedIsStarred,
                     at: .now
                 )
-                resolvedIsStarred = persistedState.isStarred
+                screenState.applyArticleMutation(article.updating(
+                    isRead: persistedState.isRead,
+                    isStarred: persistedState.isStarred,
+                    isHidden: persistedState.isHidden
+                ))
+                articleStateMutationHandler?(article.id, persistedState)
+                return
             } catch {
                 dependencies.logger.error("Failed to toggle article starred status: \(error)")
                 return
@@ -201,7 +223,7 @@ final class ArticleScreenController {
             return article
         }
 
-        guard let articleStateService = dependencies.articleStateService else {
+        guard let articleStateService = articleStateService ?? dependencies.articleStateService else {
             dependencies.logger.error("Article state service is unavailable for mark-as-read-on-open policy")
             return article
         }
@@ -213,7 +235,11 @@ final class ArticleScreenController {
                 at: .now
             )
             articleReadOnOpenHandler?(article.id, persistedState)
-            return article.updating(isRead: persistedState.isRead)
+            return article.updating(
+                isRead: persistedState.isRead,
+                isStarred: persistedState.isStarred,
+                isHidden: persistedState.isHidden
+            )
         } catch {
             dependencies.logger.error("Failed to apply mark-as-read-on-open policy: \(error)")
             return article

@@ -78,6 +78,14 @@ struct RootView: View {
                             controller: articlesScreenController,
                             dependencies: dependencies
                         )
+                    },
+                    articleStateMutationHandler: { articleID, persistedState, listSession in
+                        guard articlesScreenController.applyArticleStateMutation(
+                            articleID: articleID,
+                            persistedState: persistedState,
+                            in: listSession
+                        ) else { return }
+                        appState.requestSidebarReload()
                     }
                 )
                 .id(appState.selectedSidebarSelection)

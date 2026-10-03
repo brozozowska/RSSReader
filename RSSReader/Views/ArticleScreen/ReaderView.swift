@@ -14,6 +14,7 @@ struct ReaderView: View {
     let loadArticleContinuation: @MainActor (ReaderAdjacentArticleNavigationDirection) async -> UUID?
     let prefetchArticleContinuation: @MainActor (Int) async -> Void
     let previewScreenState: ArticleScreenState?
+    let articleStateMutationHandler: @MainActor (UUID, ArticleUserStateSnapshot, ArticleListSessionReference) -> Void
     @State private var controller = ArticleScreenController()
     @State private var adjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls
     @State private var adjacentArticleTransitionContext: AdjacentArticleTransitionContext?
@@ -32,7 +33,8 @@ struct ReaderView: View {
         canLoadNextArticleContinuation: Bool = false,
         loadArticleContinuation: @escaping @MainActor (ReaderAdjacentArticleNavigationDirection) async -> UUID? = { _ in nil },
         prefetchArticleContinuation: @escaping @MainActor (Int) async -> Void = { _ in },
-        previewScreenState: ArticleScreenState? = nil
+        previewScreenState: ArticleScreenState? = nil,
+        articleStateMutationHandler: @escaping @MainActor (UUID, ArticleUserStateSnapshot, ArticleListSessionReference) -> Void = { _, _, _ in }
     ) {
         self.articleID = articleID
         self.reloadID = reloadID
@@ -41,6 +43,7 @@ struct ReaderView: View {
         self.loadArticleContinuation = loadArticleContinuation
         self.prefetchArticleContinuation = prefetchArticleContinuation
         self.previewScreenState = previewScreenState
+        self.articleStateMutationHandler = articleStateMutationHandler
         self._controller = State(initialValue: ArticleScreenController(previewScreenState: previewScreenState))
     }
 
@@ -516,26 +519,32 @@ struct ReaderView: View {
         guard let listSession else { return nil }
 
         return { articleID, persistedState in
-            appState.recordArticleReadOnOpen(
-                articleID,
-                isRead: persistedState.isRead,
-                in: listSession
-            )
+            articleStateMutationHandler(articleID, persistedState, listSession)
         }
     }
 
     private var actionHandlers: ArticleScreenActionHandlers {
         ArticleScreenActionHandlers(
             toggleReadStatus: {
-                _controller.wrappedValue.toggleArticleReadStatus(
+                let listSession = appState.currentArticleListSessionReference
+                controller.toggleArticleReadStatus(
                     dependencies: dependencies,
-                    isPreviewMode: previewScreenState != nil
+                    isPreviewMode: previewScreenState != nil,
+                    articleStateMutationHandler: { articleID, persistedState in
+                        guard let listSession else { return }
+                        articleStateMutationHandler(articleID, persistedState, listSession)
+                    }
                 )
             },
             toggleStarredStatus: {
-                _controller.wrappedValue.toggleArticleStarredStatus(
+                let listSession = appState.currentArticleListSessionReference
+                controller.toggleArticleStarredStatus(
                     dependencies: dependencies,
-                    isPreviewMode: previewScreenState != nil
+                    isPreviewMode: previewScreenState != nil,
+                    articleStateMutationHandler: { articleID, persistedState in
+                        guard let listSession else { return }
+                        articleStateMutationHandler(articleID, persistedState, listSession)
+                    }
                 )
             },
             openSourceArticle: {

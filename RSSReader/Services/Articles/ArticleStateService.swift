@@ -9,6 +9,7 @@ protocol ArticleStateServicing {
     func markAsRead(article: Article, at: Date) throws -> ArticleUserStateSnapshot
     func markAsUnread(feedID: UUID, articleExternalID: String, at: Date) throws -> ArticleUserStateSnapshot
     func markAsUnread(article: Article, at: Date) throws -> ArticleUserStateSnapshot
+    func setStarred(feedID: UUID, articleExternalID: String, isStarred: Bool, at: Date) throws -> ArticleUserStateSnapshot
     func toggleStarred(feedID: UUID, articleExternalID: String, at: Date) throws -> ArticleUserStateSnapshot
     func toggleStarred(article: Article, at: Date) throws -> ArticleUserStateSnapshot
     func markAllVisibleAsRead(feedID: UUID, articleExternalIDs: [String], at: Date) throws -> [ArticleUserStateSnapshot]
@@ -111,6 +112,20 @@ final class ArticleStateService: ArticleStateServicing {
             articleExternalID: article.externalID,
             at: at
         )
+    }
+
+    func setStarred(
+        feedID: UUID,
+        articleExternalID: String,
+        isStarred: Bool,
+        at: Date = .now
+    ) throws -> ArticleUserStateSnapshot {
+        let articleState = try articleStateRepository.upsert(
+            feedID: feedID,
+            articleExternalID: articleExternalID,
+            update: makeStarredUpdate(isStarred: isStarred, at: at)
+        )
+        return ArticleUserStateSnapshot(articleState: articleState)
     }
 
     func toggleStarred(

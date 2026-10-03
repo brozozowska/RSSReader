@@ -332,9 +332,6 @@ struct ArticleListView: View {
         }
 
         guard wasCovered, hasDeferredCoveredListLoad else { return }
-        if let event = appState.articleReadOnOpenEvent {
-            applyArticleReadOnOpenEvent(event)
-        }
         deferredCoveredListLoadTask?.cancel()
         deferredCoveredListLoadTask = Task { @MainActor in
             do {

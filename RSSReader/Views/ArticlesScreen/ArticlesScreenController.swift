@@ -40,6 +40,7 @@ final class ArticlesScreenController {
     @ObservationIgnored private var activeNextPageIdentity: ArticleListNextPageIdentity?
     @ObservationIgnored private var loadGeneration = 0
     @ObservationIgnored private var manualRefreshGeneration = 0
+    @ObservationIgnored private var lastAppliedReadOnOpenEventID: UUID?
     @ObservationIgnored private var pendingRetryFeedIDs: [UUID] = []
     private var lastLoadedSessionContext: ArticleListSession.Context
 
@@ -162,13 +163,15 @@ final class ArticlesScreenController {
 
     @discardableResult
     func applyArticleReadOnOpenEvent(_ event: ArticleReadOnOpenEvent) -> Bool {
-        guard event.articleListSessionID == currentArticleListSessionID,
+        guard event.id != lastAppliedReadOnOpenEventID,
+              event.articleListSessionID == currentArticleListSessionID,
               event.sidebarSelection == screenState.articleListSession.context.selection,
               event.sidebarArticleFilter == screenState.articleListSession.context.sidebarArticleFilter,
               let article = screenState.articles.first(where: { $0.id == event.articleID }) else {
             return false
         }
 
+        lastAppliedReadOnOpenEventID = event.id
         applyArticleRowMutation(
             ArticlesScreenMutationReducer.mutationAfterSettingReadStatus(
                 article: article,
@@ -176,6 +179,33 @@ final class ArticlesScreenController {
                 filter: screenState.articleListSession.context.articleListFilter
             ),
             articleID: article.id
+        )
+        return true
+    }
+
+    @discardableResult
+    func applyArticleStateMutation(
+        articleID: UUID,
+        persistedState: ArticleUserStateSnapshot,
+        in listSession: ArticleListSessionReference
+    ) -> Bool {
+        let context = screenState.articleListSession.context
+        guard listSession.id == currentArticleListSessionID,
+              listSession.sidebarSelection == context.selection,
+              listSession.sidebarArticleFilter == context.sidebarArticleFilter,
+              let article = screenState.articles.first(where: { $0.id == articleID }),
+              article.feedID == persistedState.feedID,
+              article.articleExternalID == persistedState.articleExternalID else { return false }
+
+        let updatedArticle = article.updating(
+            isRead: persistedState.isRead,
+            isStarred: persistedState.isStarred
+        )
+        let retainsMembership = (context.articleListFilter == .starred && !persistedState.isStarred)
+            || (context.articleListFilter == .unread && persistedState.isRead)
+        applyArticleRowMutation(
+            .update(updatedArticle, membershipStatus: retainsMembership ? .retainedAfterFilterMutation : nil),
+            articleID: articleID
         )
         return true
     }
