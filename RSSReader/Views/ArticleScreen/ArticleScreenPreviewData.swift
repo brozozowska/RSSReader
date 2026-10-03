@@ -73,6 +73,21 @@ import SwiftUI
     )
 }
 
+#Preview("Duplicate Author Metadata") {
+    ScrollView {
+        ReaderArticleContentView(
+            content: ArticleScreenContentState(article: ArticleScreenPreviewData.duplicateAuthorArticle),
+            actionHandlers: ArticleScreenActionHandlers(
+                toggleReadStatus: {},
+                toggleStarredStatus: {},
+                openSourceArticle: {},
+                bodyLinkTapped: { _ in }
+            )
+        )
+        .padding()
+    }
+}
+
 // MARK: - Preview Container
 
 private struct ArticleScreenPreviewContainer: View {
@@ -110,6 +125,16 @@ private struct ArticleScreenAdaptiveTablePreview: View {
 // MARK: - Preview Data
 
 private enum ArticleScreenPreviewData {
+    static var duplicateAuthorArticle: ReaderArticleDTO {
+        makeArticle(
+            title: "Newsroom update",
+            summary: "The author matches the feed title, so the header shows the feed once.",
+            contentText: nil,
+            feedTitle: "Apple Newsroom",
+            author: "  APPLE\t Newsroom  "
+        )
+    }
+
     static var longTitleArticle: ReaderArticleDTO {
         makeArticle(
             title: "У Сбера, Т-Банка и ВТБ массовый сбой, который затронул платежи, переводы и часть операций в мобильных приложениях банков",
@@ -185,19 +210,21 @@ private enum ArticleScreenPreviewData {
         title: String,
         summary: String?,
         contentText: String?,
+        feedTitle: String = "THECODE.MEDIA",
+        author: String = "Юлия Зубарева",
         isRead: Bool = false
     ) -> ReaderArticleDTO {
         ReaderArticleDTO(
             id: UUID(),
             feedID: UUID(),
-            feedTitle: "THECODE.MEDIA",
+            feedTitle: feedTitle,
             feedSiteURL: "https://thecode.media",
             articleExternalID: UUID().uuidString,
             title: title,
             summary: summary,
             contentHTML: nil,
             contentText: contentText,
-            author: "Юлия Зубарева",
+            author: author,
             publishedAt: Date(timeIntervalSince1970: 1_775_358_720),
             updatedAtSource: nil,
             effectiveDate: Date(timeIntervalSince1970: 1_775_358_720),

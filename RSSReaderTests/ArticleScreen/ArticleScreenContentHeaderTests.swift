@@ -54,6 +54,63 @@ struct ArticleScreenContentHeaderTests {
         #expect(content.header.feedTitle == nil)
     }
 
+    @Test(arguments: [
+        "Apple Newsroom",
+        "apple newsroom",
+        " \n APPLE\t  Newsroom \n ",
+        "Apple\u{00A0}Newsroom",
+        "Apple\u{2003}Newsroom"
+    ])
+    func headerSuppressesDuplicateAuthorWithoutChangingArticle(author: String) {
+        let article = makeReaderArticleDTO(feedTitle: "Apple Newsroom", author: author)
+        let content = ArticleScreenContentState(article: article)
+
+        #expect(content.header.author == nil)
+        #expect(content.header.feedTitle == "Apple Newsroom")
+        #expect(article.author == author)
+        #expect(article.feedTitle == "Apple Newsroom")
+    }
+
+    @Test(arguments: ["Jane Doe", "Apple Newsroom Europe", "AppleNewsroom", "Ápple Newsroom"])
+    func headerKeepsDistinctAuthor(author: String) {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(feedTitle: "Apple Newsroom", author: author)
+        )
+
+        #expect(content.header.author == author)
+        #expect(content.header.feedTitle == "Apple Newsroom")
+    }
+
+    @Test
+    func headerNormalizesFeedTitleOnlyForDuplicateComparison() {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(feedTitle: " \n Apple\t Newsroom  ", author: "apple newsroom")
+        )
+
+        #expect(content.header.author == nil)
+        #expect(content.header.feedTitle == "Apple\t Newsroom")
+    }
+
+    @Test(arguments: [nil, "", " \n\t\u{00A0} " ] as [String?])
+    func headerKeepsFeedTitleWhenAuthorIsMissing(author: String?) {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(feedTitle: "Apple Newsroom", author: author)
+        )
+
+        #expect(content.header.author == nil)
+        #expect(content.header.feedTitle == "Apple Newsroom")
+    }
+
+    @Test(arguments: ["", " \n\t\u{00A0} "])
+    func headerKeepsAuthorWhenFeedTitleIsBlank(feedTitle: String) {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(feedTitle: feedTitle, author: " Jane Doe ")
+        )
+
+        #expect(content.header.author == "Jane Doe")
+        #expect(content.header.feedTitle == nil)
+    }
+
     @Test
     func articleScreenStateUsesExistingRenderingPriorityForBodyContent() {
         var state = ArticleScreenState()
