@@ -620,7 +620,8 @@ final class ArticlesScreenController {
         sidebarArticleFilter: SidebarArticleFilter,
         dependencies: AppDependencies,
         appState: AppState,
-        requestsArticleListReload: Bool = true
+        requestsArticleListReload: Bool = true,
+        reloadsSnapshotOnSuccess: Bool = false
     ) async -> FeedRefreshBatchResult? {
         let refreshContext = ManualFeedRefreshContext(
             selection: selection,
@@ -636,6 +637,7 @@ final class ArticlesScreenController {
         screenState.dismissRefreshFeedback()
         manualRefreshGeneration += 1
         let currentRefreshGeneration = manualRefreshGeneration
+        let currentSessionID = currentArticleListSessionID
         let articleListContext = screenState.articleListSession.context
         let result: FeedRefreshBatchResult?
         if pendingRetryFeedIDs.isEmpty == false {
@@ -654,6 +656,7 @@ final class ArticlesScreenController {
         }
 
         guard currentRefreshGeneration == manualRefreshGeneration,
+              currentSessionID == currentArticleListSessionID,
               articleListContext == screenState.articleListSession.context else {
             return result
         }
@@ -668,6 +671,17 @@ final class ArticlesScreenController {
         if result == nil, selection != nil {
             screenState.presentRefreshFailure(ReadingLocalization.refreshCurrentSelectionFailed)
             return nil
+        }
+
+        if reloadsSnapshotOnSuccess, result != nil, Task.isCancelled == false {
+            await load(
+                selection: selection,
+                sidebarArticleFilter: sidebarArticleFilter,
+                searchText: articleListContext.normalizedSearchText,
+                dependencies: dependencies,
+                refreshesScopeMetric: true,
+                retainsSessionFilterMutations: false
+            )
         }
 
         return result

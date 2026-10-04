@@ -7,6 +7,39 @@ import Testing
 @MainActor
 struct ArticlesScreenPresentationTests {
     @Test
+    func refreshedSectionsKeepSurvivingIdentitiesAndUseTheSharedAnimation() throws {
+        let day = Calendar.current.startOfDay(for: Date(timeIntervalSince1970: 1_700_000_000))
+        let olderDay = try #require(Calendar.current.date(byAdding: .day, value: -1, to: day))
+        let removed = makeArticleListItemDTO(publishedAt: day.addingTimeInterval(100), isRead: true)
+        let survivor = makeArticleListItemDTO(publishedAt: olderDay.addingTimeInterval(100))
+        let inserted = makeArticleListItemDTO(publishedAt: olderDay.addingTimeInterval(200))
+        var state = ArticlesScreenState.previewLoaded(
+            selection: .unread, navigationTitle: "Unread", navigationSubtitle: "1", articles: [removed, survivor]
+        )
+        let original = state.derivedViewState()
+        #expect(original.sections.map(\.id) == [day, olderDay])
+        state.beginLoading(for: .unread, navigationTitle: "Unread", navigationSubtitle: "1", resetsContent: false)
+        #expect(state.derivedViewState().sections == original.sections)
+        state.applyLoadedArticles(
+            [inserted, survivor], selection: .unread, navigationTitle: "Unread", navigationSubtitle: "2"
+        )
+        let refreshed = state.derivedViewState()
+        #expect(refreshed.sections.map(\.id) == [olderDay])
+        #expect(refreshed.sections[0].articles.map(\.id) == [inserted.id, survivor.id])
+        #expect(refreshed.listAnimationState.animation(reduceMotion: false) == .snappy(duration: 0.24))
+        #expect(refreshed.listAnimationState.animation(reduceMotion: true) == nil)
+        #expect(original.listAnimationState.animation(reduceMotion: false) == nil)
+
+        state.applyArticleRowMutation(articleID: survivor.id, mutation: .remove)
+        #expect(state.derivedViewState().listAnimationState.animation(reduceMotion: false)
+            == refreshed.listAnimationState.animation(reduceMotion: false))
+        state.applyMarkAllAsRead([], navigationSubtitle: "0")
+        #expect(state.derivedViewState().sections.isEmpty)
+        #expect(state.derivedViewState().listAnimationState.animation(reduceMotion: false)
+            == refreshed.listAnimationState.animation(reduceMotion: false))
+    }
+
+    @Test
     func articleRowSwipeActionsStateReflectsReadAndStarredStatus() {
         let unreadUnstarred = ArticleRowSwipeActionsState(
             article: makeArticleListItemDTO(isRead: false, isStarred: false)

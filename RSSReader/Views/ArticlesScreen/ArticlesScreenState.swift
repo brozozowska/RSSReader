@@ -11,6 +11,7 @@ struct ArticlesScreenState {
     private(set) var refreshFeedback: ArticlesScreenRefreshFeedback?
     private(set) var emptyContentKind: ArticlesScreenEmptyContentKind = .selection
     private(set) var listAnimationState = ArticleListAnimationState()
+    private var hasPresentedSnapshot = false
     private(set) var isLoadingNextPage = false
     private(set) var toolbarActions = ArticlesScreenToolbarActionsState(
         selection: nil,
@@ -101,6 +102,7 @@ struct ArticlesScreenState {
         }
 
         guard selection != nil else {
+            hasPresentedSnapshot = false
             listAnimationState.prepareForSnapshotReplacement()
             articleListSession.replaceArticles([], context: resolvedSessionContext)
             phase = .noSelection
@@ -115,6 +117,7 @@ struct ArticlesScreenState {
             refreshFeedback = nil
             customRefreshState = .idle
             if resetsContent {
+                hasPresentedSnapshot = false
                 listAnimationState.prepareForSnapshotReplacement()
                 articleListSession.replaceArticles([], context: resolvedSessionContext)
             }
@@ -167,17 +170,20 @@ struct ArticlesScreenState {
         nextPageCursor: ArticleSearchRequest.Cursor? = nil,
         scopeMetric: ArticleScopeMetric? = nil
     ) {
-        listAnimationState.prepareForSnapshotReplacement()
+        let context = resolvedContext(selection: selection, sessionContext: sessionContext)
+        if hasPresentedSnapshot, selection != nil, context == articleListSession.context {
+            listAnimationState.prepareForLocalMutation()
+        } else {
+            listAnimationState.prepareForSnapshotReplacement()
+        }
+        hasPresentedSnapshot = selection != nil
         self.selection = selection
         self.navigationTitle = navigationTitle
         self.navigationSubtitle = navigationSubtitle
         self.emptyContentKind = loadedEntries.isEmpty ? emptyContentKind : .selection
         articleListSession.replaceEntries(
             loadedEntries,
-            context: resolvedContext(
-                selection: selection,
-                sessionContext: sessionContext
-            ),
+            context: context,
             nextPageCursor: nextPageCursor,
             scopeMetric: scopeMetric
         )
@@ -256,11 +262,13 @@ struct ArticlesScreenState {
             phase = .loaded
             refreshFeedback = ArticlesScreenRefreshFeedback(message: message)
         } else if selection == nil {
+            hasPresentedSnapshot = false
             listAnimationState.prepareForSnapshotReplacement()
             articleListSession.replaceArticles([], context: resolvedSessionContext)
             phase = .noSelection
             refreshFeedback = nil
         } else {
+            hasPresentedSnapshot = false
             listAnimationState.prepareForSnapshotReplacement()
             articleListSession.replaceArticles([], context: resolvedSessionContext)
             phase = .failed(message)

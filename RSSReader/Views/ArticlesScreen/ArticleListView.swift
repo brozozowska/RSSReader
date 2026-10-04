@@ -498,16 +498,16 @@ struct ArticleListView: View {
             sidebarArticleFilter: selectedSidebarArticleFilter,
             dependencies: dependencies,
             appState: appState,
-            requestsArticleListReload: false
+            requestsArticleListReload: false,
+            reloadsSnapshotOnSuccess: true
         )
-        let preservesRefreshFeedback = controller.screenState.refreshFeedback != nil
-
-        await loadArticles(
-            retainsSessionFilterMutations: false,
-            retainedSessionMembershipStatus: .retainedAfterRefresh,
-            preservesRefreshFeedback: preservesRefreshFeedback,
-            refreshesScopeMetric: true
-        )
+        guard controller.screenState.articleListSession.context.selection == selectedSidebarSelection,
+              controller.screenState.articleListSession.context.sidebarArticleFilter == selectedSidebarArticleFilter,
+              controller.screenState.articleListSession.context.normalizedSearchText
+                == ArticleSearchScope.normalizedSearchText(searchText) else { return }
+        let visibleArticleIDs = controller.visibleArticleIDs()
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
     }
 
     @MainActor

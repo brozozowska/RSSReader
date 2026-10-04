@@ -210,6 +210,10 @@ struct ArticleListAnimationState: Equatable {
         reduceMotion == false && changeKind == .localMutation
     }
 
+    func animation(reduceMotion: Bool) -> Animation? {
+        allowsAnimation(reduceMotion: reduceMotion) ? .snappy(duration: 0.24) : nil
+    }
+
     mutating func prepareForSnapshotReplacement() {
         revision &+= 1
         changeKind = .snapshotReplacement

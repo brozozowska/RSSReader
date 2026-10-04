@@ -7,6 +7,144 @@ import Testing
 @MainActor
 struct ArticlesScreenControllerRefreshFeedbackTests {
     @Test
+    func failedManualRefreshKeepsReadRowAndSuccessfulRetryAnimatesItsRemoval() async throws {
+        let url = "https://example.com/animated-refresh.xml"
+        let client = ScriptedHTTPClient(responseSequencesByURL: [
+            url: [
+                .response(statusCode: 500, headers: [:], body: ""),
+                .response(statusCode: 304, headers: [:], body: "")
+            ]
+        ])
+        let harness = try TestHarness.make(httpClient: client)
+        let feed = try #require(try harness.insertFeeds(urls: [url]).first)
+        _ = try harness.insertArticle(
+            feed: feed, externalID: "match", url: "https://example.com/match", title: "Match"
+        )
+        var requests: [ArticleSearchRequest] = []
+        let controller = ArticlesScreenController(
+            searchDebounceOperation: {},
+            searchQueryOperation: { request, service in
+                requests.append(request)
+                return try await service.fetchArticleSearchSnapshot(request)
+            }
+        )
+        let appState = AppState()
+        harness.dependencies.appActions.showFeed(id: feed.id, using: appState)
+        await controller.load(
+            selection: .feed(feed.id), sidebarArticleFilter: .unread, searchText: "Match",
+            dependencies: harness.dependencies, refreshesScopeMetric: true
+        )
+        let article = try #require(controller.screenState.articles.first)
+        controller.toggleArticleReadStatus(
+            article, selection: .feed(feed.id), sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies, isPreviewMode: false
+        )
+        let originalSession = controller.screenState.articleListSession
+        let originalAnimation = controller.screenState.listAnimationState
+        let failed = await controller.refreshCurrentSelection(
+            selection: .feed(feed.id), sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies, appState: appState,
+            requestsArticleListReload: false, reloadsSnapshotOnSuccess: true
+        )
+        #expect(failed?.hasUnsuccessfulOutcome == true)
+        #expect(requests.count == 1)
+        #expect(controller.screenState.articleListSession.id == originalSession.id)
+        #expect(controller.screenState.articleListSession.entries == originalSession.entries)
+        #expect(controller.screenState.articleListSession.scopeMetric == originalSession.scopeMetric)
+        #expect(controller.screenState.listAnimationState == originalAnimation)
+        #expect(controller.screenState.refreshFeedback != nil)
+
+        let retried = await controller.refreshCurrentSelection(
+            selection: .feed(feed.id), sidebarArticleFilter: .unread,
+            dependencies: harness.dependencies, appState: appState,
+            requestsArticleListReload: false, reloadsSnapshotOnSuccess: true
+        )
+        #expect(retried?.isCompleteSuccess == true)
+        #expect(requests.count == 2)
+        #expect(requests.last?.normalizedQuery == originalSession.context.normalizedSearchText)
+        #expect(controller.screenState.articleListSession.id != originalSession.id)
+        #expect(controller.screenState.articleListSession.context == originalSession.context)
+        #expect(controller.screenState.phase == .empty)
+        #expect(controller.screenState.articles.isEmpty)
+        #expect(controller.screenState.derivedViewState().sections.isEmpty)
+        #expect(controller.screenState.listAnimationState.revision == originalAnimation.revision + 1)
+        #expect(controller.screenState.listAnimationState.allowsAnimation(reduceMotion: false))
+        #expect(controller.screenState.listAnimationState.allowsAnimation(reduceMotion: true) == false)
+        #expect(controller.screenState.refreshFeedback == nil)
+    }
+
+    @Test
+    func successfulRefreshWithQueryFailureRetainsReadRow() async throws {
+        let url = "https://example.com/refresh-query-failure.xml"
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient(responsesByURL: [
+            url: .response(statusCode: 304, headers: [:], body: "")
+        ]))
+        let feed = try #require(try harness.insertFeeds(urls: [url]).first)
+        _ = try harness.insertArticle(
+            feed: feed, externalID: "retained", url: "https://example.com/retained", title: "Retained"
+        )
+        var queryCount = 0
+        let controller = ArticlesScreenController(searchQueryOperation: { request, service in
+            queryCount += 1
+            if queryCount > 1 { throw ArticlesRefreshWaitError.timedOut("query failure") }
+            return try await service.fetchArticleSearchSnapshot(request)
+        })
+        let appState = AppState()
+        await controller.load(selection: .unread, sidebarArticleFilter: .allItems, dependencies: harness.dependencies)
+        let article = try #require(controller.screenState.articles.first)
+        controller.toggleArticleReadStatus(
+            article, selection: .unread, sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies, isPreviewMode: false
+        )
+        let entries = controller.screenState.articleListSession.entries
+        let animation = controller.screenState.listAnimationState
+        await controller.refreshCurrentSelection(
+            selection: .unread, sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies, appState: appState,
+            requestsArticleListReload: false, reloadsSnapshotOnSuccess: true
+        )
+        #expect(queryCount == 2)
+        #expect(controller.screenState.articleListSession.entries == entries)
+        #expect(controller.screenState.listAnimationState == animation)
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.refreshFeedback != nil)
+    }
+
+    @Test
+    func refreshSuccessFromReplacedSessionDoesNotReloadValueEqualContext() async throws {
+        let url = "https://example.com/stale-session-success.xml"
+        let gate = ScriptedHTTPClientResponseGate()
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient(responsesByURL: [
+            url: .gatedResponse(statusCode: 304, headers: [:], body: "", gate: gate)
+        ]))
+        _ = try harness.insertFeeds(urls: [url])
+        var queryCount = 0
+        let controller = ArticlesScreenController(searchQueryOperation: { request, service in
+            queryCount += 1
+            return try await service.fetchArticleSearchSnapshot(request)
+        })
+        let appState = AppState()
+        await controller.load(selection: .inbox, sidebarArticleFilter: .allItems, dependencies: harness.dependencies)
+        let refreshTask = Task { @MainActor in
+            await controller.refreshCurrentSelection(
+                selection: .inbox, sidebarArticleFilter: .allItems,
+                dependencies: harness.dependencies, appState: appState,
+                requestsArticleListReload: false, reloadsSnapshotOnSuccess: true
+            )
+        }
+        try await waitForArticlesRefreshCondition("success refresh entered gate") { await gate.hasEntered() }
+        await controller.load(selection: .inbox, sidebarArticleFilter: .allItems, dependencies: harness.dependencies)
+        let newSessionID = controller.currentArticleListSessionID
+        let animation = controller.screenState.listAnimationState
+        await gate.release()
+        _ = await refreshTask.value
+        #expect(queryCount == 2)
+        #expect(controller.currentArticleListSessionID == newSessionID)
+        #expect(controller.screenState.listAnimationState == animation)
+        #expect(controller.screenState.refreshFeedback == nil)
+    }
+
+    @Test
     func smartStarredSuccessRefreshesAllFeedsWithoutGenericFailureFromStaleAppState() async throws {
         let urls = [
             "https://example.com/starred-success-a.xml",

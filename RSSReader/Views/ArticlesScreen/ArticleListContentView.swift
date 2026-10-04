@@ -39,7 +39,13 @@ struct ArticleListContentView: View {
         .scrollContentBackground(.hidden)
         .scrollPosition(id: $scrollPositionID)
         .contentMargins(.top, 8, for: .scrollContent)
-        .animation(listAnimation, value: animationState)
+        .animation(animationState.animation(reduceMotion: accessibilityReduceMotion), value: animationState)
+        .transaction { transaction in
+            if accessibilityReduceMotion {
+                transaction.animation = nil
+                transaction.disablesAnimations = true
+            }
+        }
         .onScrollGeometryChange(for: ArticleListScrollObservation.self) { geometry in
             ArticleListScrollObservation(
                 refreshGeometry: ArticleListCustomRefreshGeometry(
@@ -82,14 +88,6 @@ struct ArticleListContentView: View {
         .onDisappear {
             hasUserDrivenScrollDemand = false
         }
-    }
-
-    private var listAnimation: Animation? {
-        guard animationState.allowsAnimation(reduceMotion: accessibilityReduceMotion) else {
-            return nil
-        }
-
-        return .snappy(duration: 0.24)
     }
 
     @ViewBuilder
