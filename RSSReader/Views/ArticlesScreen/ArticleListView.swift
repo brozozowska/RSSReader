@@ -13,8 +13,9 @@ struct ArticleListView: View {
     let previewScreenState: ArticlesScreenState?
 
     @Binding var selection: UUID?
+    @Binding var isSearchPresented: Bool
     @State private var controller: ArticlesScreenController
-    @State private var searchText = ""
+    @FocusState private var isSearchFocused: Bool
     @State private var refreshStartHapticTrigger = 0
     @State private var lastScopeMetricReloadContext: ArticleScopeMetricReloadContext?
     @State private var hasDeferredCoveredListLoad = false
@@ -26,13 +27,15 @@ struct ArticleListView: View {
         reloadID: UUID,
         controller: ArticlesScreenController? = nil,
         previewScreenState: ArticlesScreenState?,
-        selection: Binding<UUID?>
+        selection: Binding<UUID?>,
+        isSearchPresented: Binding<Bool>
     ) {
         self.selectedSidebarSelection = selectedSidebarSelection
         self.selectedSidebarArticleFilter = selectedSidebarArticleFilter
         self.reloadID = reloadID
         self.previewScreenState = previewScreenState
         self._selection = selection
+        self._isSearchPresented = isSearchPresented
         self._controller = State(
             initialValue: controller ?? ArticlesScreenController(previewScreenState: previewScreenState)
         )
@@ -59,13 +62,24 @@ struct ArticleListView: View {
             customRefreshReleaseAction: triggerCustomRefresh,
             loadNextPageAction: loadNextPage,
             toggleReadStatusAction: toggleArticleReadStatus,
-            toggleStarredAction: toggleStarredState
+            toggleStarredAction: toggleStarredState,
+            scrollInteractionBegan: { isSearchFocused = false }
         )
         .toolbarTitleDisplayMode(.inline)
         .applySearchableToolbar(
             isEnabled: searchLifecycleState.keepsSearchUIAttached,
-            text: $searchText
+            text: searchTextBinding,
+            isPresented: $isSearchPresented,
+            focus: $isSearchFocused
         )
+        .background {
+            ArticleSearchBackNavigationBridge(
+                isEnabled: horizontalSizeClass == .compact
+                    && appState.presentedSidebarSelection != nil
+                    && appState.isArticleListCoveredByDetailRoute == false,
+                backGestureBegan: { isSearchFocused = false }
+            )
+        }
         .toolbar {
             ToolbarItem(placement: .principal) {
                 navigationChromeView(derivedViewState.navigationChrome)
@@ -129,16 +143,15 @@ struct ArticleListView: View {
         }
         .onChange(of: appState.presentedSidebarSelection) { _, newValue in
             guard newValue == nil else { return }
+            isSearchFocused = false
             deferredCoveredListLoadTask?.cancel()
             deferredCoveredListLoadTask = nil
             hasDeferredCoveredListLoad = false
-            if searchText.isEmpty == false {
-                searchText = ""
-            }
         }
         .onChange(of: selectedSidebarSelection) { oldValue, newValue in
-            guard oldValue != newValue, searchText.isEmpty == false else { return }
-            searchText = ""
+            guard oldValue != newValue else { return }
+            isSearchFocused = false
+            controller.selectSearchScope(newValue)
         }
         .onChange(of: appState.isArticleListCoveredByDetailRoute) { oldValue, newValue in
             handleArticleListCoverageChange(wasCovered: oldValue, isCovered: newValue)
@@ -450,6 +463,24 @@ struct ArticleListView: View {
 
     // MARK: Search And Overlay
 
+    private var searchText: String {
+        controller.searchText(for: selectedSidebarSelection)
+    }
+
+    private var searchTextBinding: Binding<String> {
+        Binding(
+            get: { searchText },
+            set: {
+                // Ignore late search-field callbacks after compact Back.
+                // Keep the retained query while its list is no longer presented.
+                guard isPreviewMode || appState.presentedSidebarSelection == selectedSidebarSelection,
+                      selectedSidebarSelection != nil else { return }
+                controller.selectSearchScope(selectedSidebarSelection)
+                controller.searchText = $0
+            }
+        )
+    }
+
     private var isPreviewMode: Bool {
         previewScreenState != nil
     }
@@ -543,12 +574,16 @@ private struct ArticleScopeMetricReloadContext: Equatable {
 private struct ArticleListSearchToolbarModifier: ViewModifier {
     let isEnabled: Bool
     @Binding var text: String
+    @Binding var isPresented: Bool
+    let focus: FocusState<Bool>.Binding
 
     func body(content: Content) -> some View {
         if isEnabled {
             content
+                .searchFocused(focus)
                 .searchable(
                     text: $text,
+                    isPresented: $isPresented,
                     placement: .toolbar,
                     prompt: ReadingLocalization.searchPrompt
                 )
@@ -560,8 +595,18 @@ private struct ArticleListSearchToolbarModifier: ViewModifier {
 }
 
 private extension View {
-    func applySearchableToolbar(isEnabled: Bool, text: Binding<String>) -> some View {
-        modifier(ArticleListSearchToolbarModifier(isEnabled: isEnabled, text: text))
+    func applySearchableToolbar(
+        isEnabled: Bool,
+        text: Binding<String>,
+        isPresented: Binding<Bool>,
+        focus: FocusState<Bool>.Binding
+    ) -> some View {
+        modifier(ArticleListSearchToolbarModifier(
+            isEnabled: isEnabled,
+            text: text,
+            isPresented: isPresented,
+            focus: focus
+        ))
     }
 }
 

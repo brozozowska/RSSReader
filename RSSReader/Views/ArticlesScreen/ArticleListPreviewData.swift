@@ -50,6 +50,7 @@ import SwiftUI
 private struct ArticlesScreenPreviewContainer: View {
     let screenState: ArticlesScreenState
     @State private var selection: UUID? = nil
+    @State private var isSearchPresented = false
 
     var body: some View {
         NavigationStack {
@@ -58,7 +59,8 @@ private struct ArticlesScreenPreviewContainer: View {
                 selectedSidebarArticleFilter: .unread,
                 reloadID: UUID(),
                 previewScreenState: screenState,
-                selection: $selection
+                selection: $selection,
+                isSearchPresented: $isSearchPresented
             )
         }
         .environment(\.appDependencies, AppDependencies.makeDefault())

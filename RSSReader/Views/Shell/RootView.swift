@@ -11,6 +11,7 @@ struct RootView: View {
     @State private var interactiveSafariProgress: CGFloat = 0
     @State private var safariDismissalInteraction = ReadingShellSafariDismissalInteractionState()
     @State private var articlesScreenController = ArticlesScreenController()
+    @State private var isArticleSearchPresented = false
 
     var body: some View {
         let themeApplicationPolicy = AppThemeApplicationPolicy(
@@ -40,7 +41,8 @@ struct RootView: View {
                 reloadID: appState.articleListReloadID,
                 controller: articlesScreenController,
                 previewScreenState: nil,
-                selection: articleSelection
+                selection: articleSelection,
+                isSearchPresented: $isArticleSearchPresented
             )
         } detail: {
             switch detailDestination {
@@ -155,6 +157,7 @@ struct RootView: View {
                 articlesScreenController.endPresentation()
             }
             appState.updatePresentedSidebarSelection(nil)
+            isArticleSearchPresented = false
             return
         }
 
@@ -165,6 +168,9 @@ struct RootView: View {
             dependencies: dependencies
         )
         appState.updatePresentedSidebarSelection(selection)
+        // Establish search presentation with the route, before its native
+        // controller is mounted. Reader Back does not pass through this action.
+        isArticleSearchPresented = articlesScreenController.searchText(for: selection).isEmpty == false
         guard let presentationLoadTask else { return }
 
         Task { @MainActor in

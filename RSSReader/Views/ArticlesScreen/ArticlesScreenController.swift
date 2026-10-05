@@ -30,6 +30,18 @@ typealias ArticlesScreenScopeReadMutationOperation = @MainActor (
 @Observable
 final class ArticlesScreenController {
     var screenState: ArticlesScreenState
+    var searchText = ""
+    private var searchSelection: SidebarSelection?
+
+    func selectSearchScope(_ selection: SidebarSelection?) {
+        guard searchSelection != selection else { return }
+        searchSelection = selection
+        searchText = ""
+    }
+
+    func searchText(for selection: SidebarSelection?) -> String {
+        searchSelection == selection ? searchText : ""
+    }
     @ObservationIgnored private let searchDebounceOperation: ArticlesScreenSearchDebounceOperation
     @ObservationIgnored private let searchQueryOperation: ArticlesScreenSearchQueryOperation
     @ObservationIgnored let scopeReadMutationOperation: ArticlesScreenScopeReadMutationOperation
@@ -90,10 +102,11 @@ final class ArticlesScreenController {
         sidebarArticleFilter: SidebarArticleFilter,
         dependencies: AppDependencies
     ) -> Task<Void, Never>? {
+        selectSearchScope(selection)
         let loadPlan = makeLoadPlan(
             selection: selection,
             sidebarArticleFilter: sidebarArticleFilter,
-            searchText: "",
+            searchText: searchText,
             refreshesScopeMetric: true,
             dependencies: dependencies
         )

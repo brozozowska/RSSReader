@@ -7,6 +7,65 @@ import Testing
 @MainActor
 struct ArticlesScreenControllerLoadingTests {
     @Test
+    func compactBackReentryUsesRetainedSearchInFreshSession() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/search-reentry.xml"]).first)
+        let matching = try harness.insertArticle(
+            feed: feed, externalID: "ssh", url: "https://example.com/ssh", title: "SSH"
+        )
+        let other = try harness.insertArticle(
+            feed: feed, externalID: "other", url: "https://example.com/other", title: "Other"
+        )
+        let controller = ArticlesScreenController(searchDebounceOperation: {})
+        controller.selectSearchScope(.unread)
+        controller.searchText = "SSH"
+        await controller.load(
+            selection: .unread, sidebarArticleFilter: .allItems,
+            searchText: controller.searchText, dependencies: harness.dependencies
+        )
+        let originalSessionID = controller.currentArticleListSessionID
+        #expect(controller.visibleArticleIDs() == [matching.id])
+
+        controller.endPresentation()
+        #expect(controller.searchText(for: .unread) == "SSH")
+        #expect(controller.screenState.articles.isEmpty)
+
+        let reentry = try #require(controller.prepareForPresentation(
+            selection: .unread, sidebarArticleFilter: .allItems, dependencies: harness.dependencies
+        ))
+        // The very first presentation context already has the query, before results arrive.
+        #expect(controller.screenState.articleListSession.context.normalizedSearchText == "SSH")
+        await reentry.value
+        #expect(controller.currentArticleListSessionID != originalSessionID)
+        #expect(controller.visibleArticleIDs() == [matching.id])
+        #expect(controller.searchText == "SSH")
+
+        let otherScope = try #require(controller.prepareForPresentation(
+            selection: .feed(feed.id), sidebarArticleFilter: .allItems, dependencies: harness.dependencies
+        ))
+        #expect(controller.searchText.isEmpty)
+        #expect(controller.screenState.articleListSession.context.normalizedSearchText.isEmpty)
+        await otherScope.value
+        #expect(Set(controller.visibleArticleIDs()) == Set([matching.id, other.id]))
+        #expect(controller.screenState.articles.count == 2)
+    }
+
+    @Test(arguments: [SidebarSelection.unread, .starred, .folder("News"), .feed(UUID())])
+    func searchIsRetainedOnlyUntilAnotherSidebarScopeIsSelected(_ scope: SidebarSelection) {
+        let controller = ArticlesScreenController()
+        controller.selectSearchScope(scope)
+        controller.searchText = " SSH "
+        controller.endPresentation()
+        controller.selectSearchScope(scope)
+        #expect(controller.searchText(for: scope) == " SSH ")
+        #expect(controller.searchText(for: .inbox).isEmpty)
+        controller.selectSearchScope(.inbox)
+        #expect(controller.searchText.isEmpty)
+        controller.selectSearchScope(scope)
+        #expect(controller.searchText.isEmpty)
+    }
+
+    @Test
     func articlesScreenControllerLoadsFeedArticlesForCurrentSelection() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-load.xml"]).first)

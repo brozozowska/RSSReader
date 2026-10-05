@@ -15,6 +15,7 @@ struct ArticleListContentView: View {
     let loadNextPageAction: @MainActor () async -> Void
     let toggleReadStatusAction: @MainActor (ArticleListItemDTO) -> Void
     let toggleStarredAction: @MainActor (ArticleListItemDTO) -> Void
+    var scrollInteractionBegan: @MainActor () -> Void = {}
     @State private var latestPaginationGeometry = ArticleListPaginationGeometry()
     @State private var hasUserDrivenScrollDemand = false
 
@@ -38,6 +39,7 @@ struct ArticleListContentView: View {
         .listSectionSpacing(12)
         .scrollContentBackground(.hidden)
         .scrollPosition(id: $scrollPositionID)
+        .scrollDismissesKeyboard(.immediately)
         .contentMargins(.top, 8, for: .scrollContent)
         .animation(animationState.animation(reduceMotion: accessibilityReduceMotion), value: animationState)
         .transaction { transaction in
@@ -66,6 +68,9 @@ struct ArticleListContentView: View {
             requestNextPageIfNeeded()
         }
         .onScrollPhaseChange { oldPhase, newPhase, _ in
+            if newPhase == .interacting {
+                scrollInteractionBegan()
+            }
             if newPhase == .tracking || newPhase == .interacting {
                 hasUserDrivenScrollDemand = true
             }
