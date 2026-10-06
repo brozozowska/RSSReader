@@ -237,6 +237,10 @@ struct SettingsPickerItemPresentation: Equatable, Sendable {
     let subtitle: String?
     let selectedValueTitle: String
     let options: [SettingsPickerOptionPresentation]
+
+    var selectedOptionID: String? {
+        options.first(where: \.isSelected)?.id
+    }
 }
 
 struct SettingsPickerOptionPresentation: Identifiable, Equatable, Sendable {

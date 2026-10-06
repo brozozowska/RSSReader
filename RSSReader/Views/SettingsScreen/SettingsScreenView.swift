@@ -436,27 +436,34 @@ struct SettingsScreenView: View {
                 .imageScale(.small)
         }
         .foregroundStyle(.secondary)
+        .accessibilityHidden(true)
     }
 
     private func pickerMenuHitTarget(for pickerItem: SettingsPickerItemPresentation) -> some View {
         Menu {
-            ForEach(pickerItem.options) { option in
-                Button {
-                    actionHandlers.selectPickerOption(pickerItem.id, option.id)
-                } label: {
-                    if option.isSelected {
-                        Label(option.title, systemImage: "checkmark")
-                    } else {
-                        Text(option.title)
-                    }
+            Picker(pickerItem.title, selection: pickerSelectionBinding(for: pickerItem)) {
+                ForEach(pickerItem.options) { option in
+                    Text(option.title)
+                        .tag(Optional(option.id))
                 }
             }
+            .pickerStyle(.inline)
         } label: {
             Color.clear
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(pickerItem.title))
         .accessibilityValue(Text(pickerItem.selectedValueTitle))
+    }
+
+    private func pickerSelectionBinding(for item: SettingsPickerItemPresentation) -> Binding<String?> {
+        Binding(
+            get: { item.selectedOptionID },
+            set: { optionID in
+                guard let optionID else { return }
+                actionHandlers.selectPickerOption(item.id, optionID)
+            }
+        )
     }
 
     private func itemLabel(title: String, subtitle: String?) -> some View {

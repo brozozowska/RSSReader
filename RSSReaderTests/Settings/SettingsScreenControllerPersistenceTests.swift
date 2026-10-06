@@ -7,6 +7,60 @@ import Testing
 @MainActor
 struct SettingsScreenControllerPersistenceTests {
     @Test
+    func everyPickerOptionUpdatesExclusiveDraftSelectionWithoutPersisting() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let service = try #require(harness.dependencies.appSettingsService)
+        let controller = SettingsScreenController()
+        let appState = AppState()
+        controller.loadSettings(dependencies: harness.dependencies, appState: appState)
+        let originalSnapshot = try service.fetchSettings()
+        let pickers = controller.viewState().sections.flatMap(\.items).compactMap { item in
+            if case .picker(let picker) = item { return picker }
+            return nil
+        }
+        #expect(Set(pickers.map(\.id)) == [
+            .appearance, .articleOpeningMode, .articleSourceLinkOpeningPolicy,
+            .articleBodyLinkOpeningPolicy, .readerAdjacentNavigationControlsMode,
+            .unreadArticleSortOrder, .articleRetentionPolicy, .refreshInterval
+        ])
+
+        for picker in pickers {
+            let originalOptionID = try #require(picker.selectedOptionID)
+            for option in picker.options {
+                controller.handlePickerOptionSelection(
+                    itemID: picker.id,
+                    optionID: option.id,
+                    dependencies: harness.dependencies,
+                    appState: appState
+                )
+                let updatedItem = try #require(
+                    controller.viewState().sections.flatMap(\.items).first { $0.id == picker.id }
+                )
+                guard case .picker(let updatedPicker) = updatedItem else {
+                    Issue.record("Picker changed presentation kind")
+                    return
+                }
+                #expect(updatedPicker.selectedOptionID == option.id)
+                #expect(updatedPicker.options.filter(\.isSelected).map(\.id) == [option.id])
+                #expect(updatedPicker.selectedValueTitle == option.title)
+                #expect(controller.viewState().canApplyChanges == (option.id != originalOptionID))
+                #expect(try service.fetchSettings() == originalSnapshot)
+                #expect(controller.screenState.settingsSnapshot == originalSnapshot)
+                if picker.id == .appearance {
+                    #expect(appState.interfaceThemeMode.rawValue == option.id)
+                }
+            }
+            controller.handlePickerOptionSelection(
+                itemID: picker.id,
+                optionID: originalOptionID,
+                dependencies: harness.dependencies,
+                appState: appState
+            )
+            #expect(controller.viewState().canApplyChanges == false)
+        }
+    }
+
+    @Test
     func settingsScreenControllerPersistsUpdatedArticleOpeningModeThroughSettingsService() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
