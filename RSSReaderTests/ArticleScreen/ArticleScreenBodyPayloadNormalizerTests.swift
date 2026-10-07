@@ -6,6 +6,22 @@ import UIKit
 @Suite("Article Screen / Content Rendering / Body Payload Normalizer")
 @MainActor
 struct ArticleScreenBodyPayloadNormalizerTests {
+    @Test(arguments: [
+        "(c)", "(C)", "C(c) = 6c+1", "(c)(c) (C)",
+        "( c ) (c ) ( c) [(c)], (c). (r) (tm) (a+b)",
+        "© &copy; &#169; &#xA9;"
+    ])
+    func preservesLiteralCopyrightSequencesWhileDecodingEntities(_ raw: String) throws {
+        let expected = raw == "© &copy; &#169; &#xA9;" ? "© © © ©" : raw
+        let payload = try #require(
+            ArticleScreenBodyPayloadNormalizer.normalize(raw, preferredKind: .plainText)
+        )
+        #expect(payload.value == expected)
+        #expect(ArticleScreenBodyPayloadNormalizer.decodeHTMLEntities(in: raw) == expected)
+        #expect(FeedTextHTMLNormalizer.normalizeTextContent(raw) == raw)
+        #expect(FeedTextHTMLNormalizer.normalizeHTMLContent(raw) == raw)
+    }
+
     @Test
     func articleScreenBodyPayloadNormalizerClassifiesEscapedHTMLAsHTML() throws {
         let payload = try #require(

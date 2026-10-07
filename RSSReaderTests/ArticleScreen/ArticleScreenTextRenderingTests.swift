@@ -6,6 +6,126 @@ import UIKit
 @Suite("Article Screen / Content Rendering / Text")
 @MainActor
 struct ArticleScreenTextRenderingTests {
+    @Test(arguments: [
+        "C(c) = 6c+1; (c), (C), (c)(c); © &copy; &#169; &#xA9;",
+        "<p>С(c) = 6с+1; <a href='/formula'>C(c)</a>; © &copy; &#169; &#xA9;</p>",
+        "&lt;p&gt;C(c) = 6c+1; (c), (C); © &amp;copy; &amp;#169; &amp;#xA9;&lt;/p&gt;",
+        "<p>С© = 6с+1; upstream © must stay ©.</p>"
+    ])
+    func preservesCopyrightFromRSSPayloadThroughPersistenceAndReader(_ raw: String) throws {
+        let xml = """
+        <rss version="2.0">
+          <channel>
+            <title>Literal copyright fixture</title>
+            <link>https://example.com</link>
+            <item>
+              <guid>copyright-fixture</guid>
+              <title>Copyright fixture</title>
+              <link>https://example.com/article</link>
+              <description><![CDATA[\(raw)]]></description>
+            </item>
+          </channel>
+        </rss>
+        """
+        let parsed = try FeedParserService.parseFeed(FeedParserService.parse(Data(xml.utf8)))
+        let extracted = try #require(parsed.entries.first)
+        #expect(extracted.contentText == raw)
+        let normalized = FeedParserService.parsePipeline(parsed, feedURL: "https://example.com/feed.xml")
+        let entry = try #require(normalized.entries.first)
+        #expect(entry.contentText == raw)
+        let fetchedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let payloads = try ArticleUpsertPayload.makeAllPrepared(entries: normalized.entries, fetchedAt: fetchedAt)
+        #expect(payloads.first?.contentText == raw)
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try harness.feedRepository.insert(Feed(url: "https://example.com/feed.xml", title: "Fixture"))
+        _ = try harness.articleRepository.reconcileFeedSnapshot(payloads, into: feed, fetchedAt: fetchedAt)
+        try harness.saveModelContext()
+        let stored = try #require(harness.articleRepository.fetchArticles(feedID: feed.id).first)
+        #expect(stored.contentText == raw)
+        let storedSearchText = stored.searchableText
+        let dto = ReaderArticleDTO(article: stored, state: nil)
+        #expect(dto.contentText == raw)
+        let content = ArticleScreenContentState(article: dto)
+        let expected = raw.hasPrefix("C(c)")
+            ? "C(c) = 6c+1; (c), (C), (c)(c); © © © ©"
+            : raw.hasPrefix("&lt;")
+                ? "C(c) = 6c+1; (c), (C); © © © ©"
+                : raw.contains("upstream")
+                    ? "С© = 6с+1; upstream © must stay ©."
+                    : "С(c) = 6с+1; C(c); © © © ©"
+        #expect(content.body.blocks.count == 1)
+        let block = try #require(content.body.blocks.first)
+        guard case .paragraph(let text) = block else {
+            Issue.record("Expected a paragraph from RSS")
+            return
+        }
+        #expect(text.plainText == expected)
+        #expect(String(text.attributedString.characters) == expected)
+        if raw.contains("href=") {
+            #expect(text.spans.contains { $0.text == "C(c)" && $0.linkURL?.absoluteString == "https://example.com/formula" })
+        }
+        #expect(stored.contentText == raw)
+        #expect(stored.searchableText == storedSearchText)
+    }
+
+    @Test(arguments: [false, true])
+    func preservesCopyrightTextAndLinkMetadataAcrossHTMLAndEscapedHTML(_ escaped: Bool) throws {
+        let html = """
+        <p>C(c) = 6c+1; (c), (C), (c)(c); ( c ), [c], (r), (tm), (a+b).</p>
+        <p><a href="/formula?q=c&amp;n=1"><strong>C(c)</strong></a> <em>(c)</em> (<em>c</em>) <code>(C)</code>; © &copy; &#169; &#xA9;.</p>
+        <pre>C(c) = 6c+1; (c), (C), © &copy; &#169; &#xA9;</pre>
+        """
+        let raw = escaped
+            ? html.replacingOccurrences(of: "&", with: "&amp;")
+                .replacingOccurrences(of: "<", with: "&lt;")
+                .replacingOccurrences(of: ">", with: "&gt;")
+            : html
+        let article = makeReaderArticleDTO(
+            summary: nil,
+            contentHTML: escaped ? nil : raw,
+            contentText: escaped ? raw : nil,
+            canonicalURL: "https://example.com/article"
+        )
+        let content = ArticleScreenContentState(article: article)
+        #expect(content.body.blocks.count == 3)
+        guard case .paragraph(let first) = content.body.blocks.first,
+              case .paragraph(let second) = content.body.blocks.dropFirst().first,
+              case .codeBlock(let code) = content.body.blocks.last else {
+            Issue.record("Expected two paragraphs and a code block")
+            return
+        }
+        #expect(first.plainText == "C(c) = 6c+1; (c), (C), (c)(c); ( c ), [c], (r), (tm), (a+b).")
+        #expect(second.plainText == "C(c) (c) (c) (C); © © © ©.")
+        #expect(code == "C(c) = 6c+1; (c), (C), © © © ©")
+        #expect(String(first.attributedString.characters) == first.plainText)
+        #expect(String(second.attributedString.characters) == second.plainText)
+        let linked = try #require(second.attributedString.runs.first { $0.link != nil })
+        #expect(linked.link?.absoluteString == "https://example.com/formula?q=c&n=1")
+        #expect(String(second.attributedString[linked.range].characters) == "C(c)")
+        #expect(second.spans.contains { $0.text == "C(c)" && $0.isStrong && $0.linkURL != nil })
+        #expect(second.spans.contains { $0.text == "(c)" && $0.isEmphasized })
+        #expect(second.spans.contains { $0.text == "(C)" && $0.isCode })
+    }
+
+    @Test
+    func preservesLiteralCopyrightSequencesInPlainTextParagraphs() {
+        let raw = """
+        C(c) = 6c+1; (c), (C), (c)(c).
+
+        ( c ) [c] (r) (tm); © &copy; &#169; &#xA9;.
+        """
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(summary: nil, contentText: raw)
+        )
+        let expected = ["C(c) = 6c+1; (c), (C), (c)(c).", "( c ) [c] (r) (tm); © © © ©."]
+        #expect(content.body.blocks == expected.map { .paragraph(.plainText($0)) })
+        for block in content.body.blocks {
+            if case .paragraph(let text) = block {
+                #expect(String(text.attributedString.characters) == text.plainText)
+            }
+        }
+    }
+
     @Test
     func articleScreenContentRendererRecoversMalformedAbbreviationMarkup() {
         let content = ArticleScreenContentState(
