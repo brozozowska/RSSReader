@@ -55,7 +55,7 @@ struct SidebarSelectionFlowTests {
         )
         let feeds = try harness.insertFeeds(urls: [firstFeedURL, failedFeedURL])
         let failedFeed = feeds[1]
-        let controller = SidebarScreenController()
+        let controller = SidebarScreenController(folderExpansionStore: SidebarFolderExpansionStore(userDefaults: nil))
         let appState = AppState()
         harness.dependencies.appActions.showStarred(using: appState)
         harness.dependencies.appActions.applySidebarArticleFilter(.starred, using: appState)
@@ -134,7 +134,7 @@ struct SidebarSelectionFlowTests {
         let harness = try TestHarness.make(httpClient: client)
         let feeds = try harness.insertFeeds(urls: [selectedURL, outsideURL])
         let selectedFeed = feeds[0]
-        let controller = SidebarScreenController()
+        let controller = SidebarScreenController(folderExpansionStore: SidebarFolderExpansionStore(userDefaults: nil))
         let appState = AppState()
         harness.dependencies.appActions.showFeed(id: selectedFeed.id, using: appState)
         harness.dependencies.appActions.applySidebarArticleFilter(.starred, using: appState)
@@ -189,7 +189,7 @@ struct SidebarSelectionFlowTests {
         feeds[0].folder = folder
         feeds[1].folder = folder
         try harness.saveModelContext()
-        let controller = SidebarScreenController()
+        let controller = SidebarScreenController(folderExpansionStore: SidebarFolderExpansionStore(userDefaults: nil))
         let appState = AppState()
         harness.dependencies.appActions.showFolder(named: folder.name, using: appState)
         harness.dependencies.appActions.applySidebarArticleFilter(.starred, using: appState)
@@ -247,7 +247,7 @@ struct SidebarSelectionFlowTests {
                 updatedAt: .distantPast
             )
         )
-        let controller = SidebarScreenController()
+        let controller = SidebarScreenController(folderExpansionStore: SidebarFolderExpansionStore(userDefaults: nil))
 
         _ = await controller.loadFeeds(
             showsFullScreenLoading: true,
@@ -272,7 +272,7 @@ struct SidebarSelectionFlowTests {
         let folder = Folder(name: "Filtered Folder")
         feed.folder = folder
         try harness.saveModelContext()
-        let controller = SidebarScreenController()
+        let controller = SidebarScreenController(folderExpansionStore: SidebarFolderExpansionStore(userDefaults: nil))
 
         let feedSelection = await controller.loadFeeds(
             showsFullScreenLoading: false,

@@ -11,7 +11,7 @@ struct SidebarScreenStateTests {
 
         let viewState = state.derivedViewState(
             filter: .allItems,
-            expandedFolderNames: [],
+            collapsedFolderIDs: [],
             iCloudSyncStatus: .disabled
         )
 
@@ -77,7 +77,7 @@ struct SidebarScreenStateTests {
 
         let viewState = state.derivedViewState(
             filter: .allItems,
-            expandedFolderNames: ["Tech"],
+            collapsedFolderIDs: [],
             iCloudSyncStatus: .disabled
         )
 
@@ -125,7 +125,7 @@ struct SidebarScreenStateTests {
 
         let viewState = state.derivedViewState(
             filter: .allItems,
-            expandedFolderNames: ["Empty"],
+            collapsedFolderIDs: [],
             iCloudSyncStatus: .disabled
         )
 
@@ -167,7 +167,7 @@ struct SidebarScreenStateTests {
 
         let viewState = state.derivedViewState(
             filter: .unread,
-            expandedFolderNames: ["Empty"],
+            collapsedFolderIDs: [],
             iCloudSyncStatus: .disabled
         )
 
@@ -223,7 +223,7 @@ struct SidebarScreenStateTests {
 
         let viewState = state.derivedViewState(
             filter: .starred,
-            expandedFolderNames: ["Tech"],
+            collapsedFolderIDs: [],
             iCloudSyncStatus: .disabled
         )
 
