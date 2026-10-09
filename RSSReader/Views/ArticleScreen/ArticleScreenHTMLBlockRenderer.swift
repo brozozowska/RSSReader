@@ -31,7 +31,7 @@ extension ArticleScreenBodyPayloadRenderer {
         _ contentHTML: String,
         article: ReaderArticleDTO
     ) -> [ArticleScreenBodyBlock] {
-        let readableHTML = removingNonReadableHTMLBlocks(from: contentHTML)
+        let readableHTML = removingDisclosureDecorations(removingNonReadableHTMLBlocks(from: contentHTML))
         return renderHTML(readableHTML, article: article, containerDepth: 0)
     }
 
@@ -87,13 +87,23 @@ extension ArticleScreenBodyPayloadRenderer {
                     )
                 )
             default:
-                blocks.append(
-                    contentsOf: renderHTML(
-                        innerHTML,
-                        article: article,
-                        containerDepth: containerDepth + 1
-                    )
-                )
+                if let accordion = ArticleScreenAccordionHTMLParser.disclosure(
+                    in: innerHTML, openingTag: container.openingTagHTML
+                ), let summary = makeTextBlock(fromHTML: accordion.summaryHTML, article: article) {
+                    let content = renderHTML(accordion.panelHTML, article: article, containerDepth: containerDepth + 1)
+                    blocks.append(contentsOf: renderHTML(accordion.prefixHTML, article: article, containerDepth: containerDepth + 1))
+                    if content.isEmpty {
+                        blocks.append(.paragraph(summary))
+                    } else {
+                        blocks.append(.disclosure(ArticleScreenDisclosureBlock(
+                            summary: summary, content: content,
+                            isInitiallyExpanded: accordion.isInitiallyExpanded
+                        )))
+                    }
+                    blocks.append(contentsOf: renderHTML(accordion.suffixHTML, article: article, containerDepth: containerDepth + 1))
+                } else {
+                    blocks.append(contentsOf: renderHTML(innerHTML, article: article, containerDepth: containerDepth + 1))
+                }
             }
             currentLocation = NSMaxRange(container.outerRange)
         }
@@ -166,7 +176,7 @@ extension ArticleScreenBodyPayloadRenderer {
         in html: String,
         startingAt location: Int
     ) -> (tagName: String, openingTagHTML: String, outerRange: NSRange, innerRange: NSRange)? {
-        let pattern = #"(?is)<\s*(/?)\s*("# + semanticHTMLContainerNames + #")\b[^>]*>"#
+        let pattern = #"(?is)<!--.*?-->|<(pre|code)\b[^>]*>.*?</\1\s*>|<\s*(/?)\s*("# + semanticHTMLContainerNames + #")\b(?:[^>"']|"[^"]*"|'[^']*')*>"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
 
         let nsHTML = html as NSString
@@ -176,8 +186,9 @@ extension ArticleScreenBodyPayloadRenderer {
 
         for tag in tags {
             let tagHTML = nsHTML.substring(with: tag.range)
-            let isClosing = tag.range(at: 1).length > 0
-            let tagName = nsHTML.substring(with: tag.range(at: 2)).lowercased()
+            if tagHTML.hasPrefix("<!--") || tag.range(at: 1).location != NSNotFound { continue }
+            let isClosing = tag.range(at: 2).length > 0
+            let tagName = nsHTML.substring(with: tag.range(at: 3)).lowercased()
 
             if isClosing == false {
                 if tagHTML.dropLast().trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("/") == false {
@@ -246,7 +257,10 @@ extension ArticleScreenBodyPayloadRenderer {
             }
             return quotedBlocks.isEmpty ? [] : [.blockquote(quotedBlocks)]
         case "pre":
-            let codeText = stripHTML(innerHTML).trimmingCharacters(in: .whitespacesAndNewlines)
+            let codeHTML = leadingTagName(in: innerHTML.trimmingCharacters(in: .whitespacesAndNewlines)) == "code"
+                ? unwrapHTMLBlock(innerHTML.trimmingCharacters(in: .whitespacesAndNewlines)) : innerHTML
+            let codeText = ArticleScreenBodyPayloadNormalizer.decodeHTMLEntities(in: codeHTML)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             return codeText.isEmpty ? [] : [.codeBlock(codeText)]
         case "ul":
             return renderHTMLList(innerHTML, kind: .unordered, article: article)

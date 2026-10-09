@@ -66,19 +66,21 @@ extension ArticleScreenBodyPayloadRenderer {
     }
 
     static func htmlAttribute(named attributeName: String, in html: String) -> String? {
-        let attributePattern = #"\b\#(attributeName)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))"#
+        let attributePattern = #"(?:^|\s)([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))"#
         guard
             let attributeRegex = try? NSRegularExpression(pattern: attributePattern, options: [.caseInsensitive]),
-            let match = attributeRegex.firstMatch(
+            let match = attributeRegex.matches(
                 in: html,
                 options: [],
                 range: NSRange(location: 0, length: (html as NSString).length)
-            )
+            ).first(where: {
+                (html as NSString).substring(with: $0.range(at: 1)).lowercased() == attributeName.lowercased()
+            })
         else {
             return nil
         }
 
-        for rangeIndex in 1..<match.numberOfRanges {
+        for rangeIndex in 2..<match.numberOfRanges {
             let range = match.range(at: rangeIndex)
             if range.location != NSNotFound {
                 return (html as NSString).substring(with: range).articleScreenDecodingHTMLEntities()
@@ -86,6 +88,16 @@ extension ArticleScreenBodyPayloadRenderer {
         }
 
         return nil
+    }
+
+    static func removingDisclosureDecorations(_ value: String) -> String {
+        ArticleScreenBodyPayloadNormalizer.transformOutsideCode(value) { fragment in
+            fragment.replacingOccurrences(
+                of: #"(?is)<span\b[^>]*class\s*=\s*["'][^"']*\bwp-block-accordion-heading__toggle-icon\b[^"']*["'][^>]*>.*?</span\s*>"#,
+                with: "",
+                options: .regularExpression
+            )
+        }
     }
 
     static func stripHTML(_ value: String) -> String {
@@ -109,11 +121,13 @@ extension ArticleScreenBodyPayloadRenderer {
     }
 
     static func removingNonReadableHTMLBlocks(from value: String) -> String {
-        value.replacingOccurrences(
-            of: #"(?is)<(style|script|noscript|svg)\b[^>]*>.*?</\1\s*>"#,
-            with: "",
-            options: .regularExpression
-        )
+        ArticleScreenBodyPayloadNormalizer.transformOutsideCode(value) { fragment in
+            fragment.replacingOccurrences(
+                of: #"(?is)<(style|script|noscript|svg)\b[^>]*>.*?</\1\s*>"#,
+                with: "",
+                options: .regularExpression
+            )
+        }
     }
 }
 

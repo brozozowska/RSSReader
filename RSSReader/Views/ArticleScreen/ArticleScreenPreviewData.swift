@@ -88,7 +88,33 @@ import SwiftUI
     }
 }
 
+#Preview("Accordion") {
+    ArticleScreenAccordionPreview()
+}
+
+#Preview("Accordion RTL Accessibility") {
+    ArticleScreenAccordionPreview()
+        .environment(\.layoutDirection, .rightToLeft)
+        .environment(\.locale, Locale(identifier: "ar"))
+        .environment(\.dynamicTypeSize, .accessibility3)
+}
+
 // MARK: - Preview Container
+
+private struct ArticleScreenAccordionPreview: View {
+    var body: some View {
+        ScrollView {
+            ReaderArticleContentView(
+                content: ArticleScreenContentState(article: ArticleScreenPreviewData.accordionArticle),
+                actionHandlers: ArticleScreenActionHandlers(
+                    toggleReadStatus: {}, toggleStarredStatus: {},
+                    openSourceArticle: {}, bodyLinkTapped: { _ in }
+                )
+            )
+            .padding()
+        }
+    }
+}
 
 private struct ArticleScreenPreviewContainer: View {
     let screenState: ArticleScreenState
@@ -203,6 +229,23 @@ private enum ArticleScreenPreviewData {
             isRead: false,
             isStarred: false,
             isHidden: false
+        )
+    }
+
+    static var accordionArticle: ReaderArticleDTO {
+        makeArticle(
+            title: "Accordion",
+            summary: nil,
+            contentText: """
+            <div class="wp-block-accordion-item">
+            <h3><button aria-controls="preview-panel" aria-expanded="true">Keep a work journal · Ведите рабочий конспект</button></h3>
+            <div id="preview-panel"><p>Write down terms and links. Записывайте термины и ссылки.</p>
+            <ul><li>Documents · Документы</li><li>Questions · Вопросы</li></ul>
+            <details open><summary>参考資料を記録する · التفاصيل والملاحظات</summary><p>日本語の段落と العربية لاختبار اتجاه النص.</p></details>
+            </div></div>
+            <details><summary>A closed section · Закрытый блок</summary><p>Panel content.</p></details>
+            """,
+            feedTitle: "Preview", author: ""
         )
     }
 

@@ -190,7 +190,14 @@ extension ArticleScreenBodyPayloadRenderer {
                     break
                 }
 
-                appendInlineHTML(innerHTML, article: article, style: childStyle, to: &spans)
+                if tagName == "code" && innerHTML.range(
+                    of: #"(?i)&lt;\s*/?\s*[a-z]|<\s*/?\s*(button|details|summary|div|section|pre)\b"#,
+                    options: .regularExpression
+                ) != nil {
+                    appendStyledText(ArticleScreenBodyPayloadNormalizer.decodeHTMLEntities(in: innerHTML), style: childStyle, to: &spans)
+                } else {
+                    appendInlineHTML(innerHTML, article: article, style: childStyle, to: &spans)
+                }
             }
 
             currentLocation = match.range.location + match.range.length

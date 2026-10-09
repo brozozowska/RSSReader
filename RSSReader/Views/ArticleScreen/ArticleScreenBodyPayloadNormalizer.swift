@@ -11,7 +11,7 @@ struct ArticleScreenBodyPayload: Equatable {
 }
 
 enum ArticleScreenBodyPayloadNormalizer {
-    static let recognizedHTMLTagNamePattern = #"a|abbr|address|article|aside|audio|b|bdi|bdo|blockquote|br|caption|cite|code|col|colgroup|data|dd|del|details|dfn|div|dl|dt|em|embed|figcaption|figure|footer|h[1-6]|header|hgroup|hr|i|iframe|img|ins|kbd|label|li|main|mark|nav|ol|p|picture|pre|q|rp|rt|ruby|s|samp|section|small|source|span|strong|sub|summary|sup|table|tbody|td|tfoot|th|thead|time|tr|u|ul|var|video|wbr"#
+    static let recognizedHTMLTagNamePattern = #"a|abbr|address|article|aside|audio|b|button|bdi|bdo|blockquote|br|caption|cite|code|col|colgroup|data|dd|del|details|dfn|div|dl|dt|em|embed|figcaption|figure|footer|h[1-6]|header|hgroup|hr|i|iframe|img|ins|kbd|label|li|main|mark|nav|ol|p|picture|pre|q|rp|rt|ruby|s|samp|section|small|source|span|strong|sub|summary|sup|table|tbody|td|tfoot|th|thead|time|tr|u|ul|var|video|wbr"#
 
     static func normalize(
         _ rawValue: String?,
@@ -22,7 +22,12 @@ enum ArticleScreenBodyPayloadNormalizer {
         let scalarValue = normalizeScalar(rawValue)
         guard scalarValue.isEmpty == false else { return nil }
 
-        let decodedValue = decodeHTMLEntities(in: scalarValue)
+        var decodedValue = scalarValue
+        for _ in 0..<3 {
+            let nextValue = transformOutsideCode(decodedValue) { decodeHTMLEntitiesOnce(in: $0) }
+            if nextValue == decodedValue { break }
+            decodedValue = nextValue
+        }
         let resolvedKind = resolvedKind(
             rawValue: scalarValue,
             decodedValue: decodedValue,
@@ -51,6 +56,22 @@ enum ArticleScreenBodyPayloadNormalizer {
         }
 
         return decodedValue
+    }
+
+    /// Literal code/pre content must not become executable article structure after entity decoding.
+    static func transformOutsideCode(_ html: String, transform: (String) -> String) -> String {
+        let pattern = #"(?is)<(pre|code)\b[^>]*>.*?</\1\s*>"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return transform(html) }
+        let nsHTML = html as NSString
+        var result = ""
+        var location = 0
+        for match in regex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length)) {
+            result += transform(nsHTML.substring(with: NSRange(location: location, length: match.range.location - location)))
+            result += nsHTML.substring(with: match.range)
+            location = NSMaxRange(match.range)
+        }
+        result += transform(nsHTML.substring(from: location))
+        return result
     }
 
     private static func resolvedKind(

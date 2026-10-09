@@ -318,15 +318,22 @@ private struct ReaderArticleDefinitionEntryView: View {
 private struct ReaderArticleDisclosureView: View {
     let disclosure: ArticleScreenDisclosureBlock
     let actionHandlers: ArticleScreenActionHandlers
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded: Bool
 
-    init(
-        disclosure: ArticleScreenDisclosureBlock,
-        actionHandlers: ArticleScreenActionHandlers
-    ) {
+    init(disclosure: ArticleScreenDisclosureBlock, actionHandlers: ArticleScreenActionHandlers) {
         self.disclosure = disclosure
         self.actionHandlers = actionHandlers
         _isExpanded = State(initialValue: disclosure.isInitiallyExpanded)
+    }
+
+    private var summaryText: AttributedString {
+        var text = disclosure.summary.attributedString
+        // The header is one disclosure control, including when a source summary contains a link.
+        for run in text.runs where run.link != nil {
+            text[run.range].link = nil
+        }
+        return text
     }
 
     var body: some View {
@@ -337,14 +344,17 @@ private struct ReaderArticleDisclosureView: View {
             )
             .padding(.top, 8)
         } label: {
-            ReaderArticleSemanticTextView(
-                text: disclosure.summary,
-                actionHandlers: actionHandlers
-            )
-            .font(.headline)
+            Text(summaryText)
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
         }
         .padding(12)
         .background(.quaternary.opacity(0.22), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .onChange(of: disclosure) { _, newValue in
+            isExpanded = newValue.isInitiallyExpanded
+        }
+        .transaction { if reduceMotion { $0.animation = nil } }
     }
 }
 
