@@ -189,9 +189,7 @@ struct ArticleScreenTextBlock: Equatable, Sendable {
             var attributedSpan = AttributedString(span.text)
             attributedSpan.link = span.linkURL
             attributedSpan.inlinePresentationIntent = span.inlinePresentationIntent
-            if span.isMarked {
-                attributedSpan.backgroundColor = .yellow.opacity(0.3)
-            }
+            // Source <mark> semantics do not override the Reader theme's text styling.
             if span.isInserted {
                 attributedSpan.underlineStyle = .single
             }

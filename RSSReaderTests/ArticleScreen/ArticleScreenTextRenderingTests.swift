@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import SwiftUI
 import UIKit
 @testable import RSSReader
 
@@ -322,6 +323,70 @@ struct ArticleScreenTextRenderingTests {
         #expect(linkRuns.count == 1)
         #expect(linkRuns.first?.link == URL(string: "https://example.com/guides/swift")!)
         #expect(String(attributedString[linkRuns[0].range].characters) == "Swift Guide")
+    }
+
+    @Test(arguments: ["Before <mark>A&amp;B</mark> after", "Before <mark>A&amp;B after"])
+    func markUsesThemeTextWithoutBackground(_ html: String) throws {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(contentHTML: "<p>\(html)</p><p>Next paragraph.</p>")
+        )
+        #expect(content.body.blocks.count == 2)
+        guard case .paragraph(let text) = content.body.blocks.first,
+              case .paragraph(let next) = content.body.blocks.last else {
+            Issue.record("Expected two readable paragraphs")
+            return
+        }
+        #expect(text.plainText == "Before A&B after")
+        #expect(String(text.attributedString.characters) == text.plainText)
+        #expect(next.plainText == "Next paragraph.")
+        #expect(text.attributedString.runs.allSatisfy {
+            $0.swiftUI.backgroundColor == nil && $0.swiftUI.foregroundColor == nil
+        })
+    }
+
+    @Test
+    func markPreservesNestedStylesAndLinksWithoutBackground() throws {
+        let content = ArticleScreenContentState(
+            article: makeReaderArticleDTO(
+                contentHTML: """
+                <p><a href="/before">before</a> <mark><strong><em>bold italic</em></strong> <code>code</code> <a href="/inside"><strong>link</strong></a> <ins>new</ins> <del>old</del> x<sup>2</sup> H<sub>2</sub>O <kbd>key</kbd> <samp>output</samp> <var>value</var> <cite>Book</cite></mark> <a href="/around"><mark>around</mark></a> <a href="/after">after</a></p>
+                """,
+                canonicalURL: "https://example.com/article"
+            )
+        )
+        guard case .paragraph(let text) = content.body.blocks.first else {
+            Issue.record("Expected a nested-semantics paragraph")
+            return
+        }
+        let attributed = text.attributedString
+        #expect(String(attributed.characters) == "before bold italic code link new old x2 H2O key output value Book around after")
+        #expect(attributed.runs.allSatisfy { $0.swiftUI.backgroundColor == nil && $0.swiftUI.foregroundColor == nil })
+        let combined = try #require(attributed.runs.first {
+            String(attributed[$0.range].characters) == "bold italic"
+        })
+        #expect(combined.inlinePresentationIntent?.contains(.stronglyEmphasized) == true)
+        #expect(combined.inlinePresentationIntent?.contains(.emphasized) == true)
+        let code = try #require(attributed.runs.first { String(attributed[$0.range].characters) == "code" })
+        #expect(code.inlinePresentationIntent?.contains(.code) == true)
+        #expect(attributed.runs.contains { $0.swiftUI.underlineStyle == .single })
+        #expect(attributed.runs.contains { $0.inlinePresentationIntent?.contains(.strikethrough) == true })
+        #expect(attributed.runs.contains { $0.swiftUI.baselineOffset == 4 })
+        #expect(attributed.runs.contains { $0.swiftUI.baselineOffset == -2 })
+        for name in ["before", "inside", "around", "after"] {
+            #expect(attributed.runs.contains { $0.link == URL(string: "https://example.com/\(name)") })
+        }
+
+        // Mark contributes no attributes; every other supported intent stays identical.
+        for span in text.spans where span.isMarked {
+            let unmarked = ArticleScreenTextSpan(
+                text: span.text, linkURL: span.linkURL,
+                isStrong: span.isStrong, isEmphasized: span.isEmphasized, isCode: span.isCode,
+                verticalAlignment: span.verticalAlignment, isDeleted: span.isDeleted,
+                isInserted: span.isInserted, codeSemantic: span.codeSemantic, isCitation: span.isCitation
+            )
+            #expect(ArticleScreenTextBlock(spans: [span]).attributedString ==
+                    ArticleScreenTextBlock(spans: [unmarked]).attributedString)
+        }
     }
 
     @Test

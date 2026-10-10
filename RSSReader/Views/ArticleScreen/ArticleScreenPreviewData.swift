@@ -99,7 +99,33 @@ import SwiftUI
         .environment(\.dynamicTypeSize, .accessibility3)
 }
 
+#Preview("Mark Theme Text") {
+    ArticleScreenMarkPreview()
+}
+
+#Preview("Mark RTL Accessibility") {
+    ArticleScreenMarkPreview()
+        .environment(\.layoutDirection, .rightToLeft)
+        .environment(\.locale, Locale(identifier: "ar"))
+        .environment(\.dynamicTypeSize, .accessibility3)
+}
+
 // MARK: - Preview Container
+
+private struct ArticleScreenMarkPreview: View {
+    var body: some View {
+        ScrollView {
+            ReaderArticleContentView(
+                content: ArticleScreenContentState(article: ArticleScreenPreviewData.markArticle),
+                actionHandlers: ArticleScreenActionHandlers(
+                    toggleReadStatus: {}, toggleStarredStatus: {},
+                    openSourceArticle: {}, bodyLinkTapped: { _ in }
+                )
+            )
+            .padding()
+        }
+    }
+}
 
 private struct ArticleScreenAccordionPreview: View {
     var body: some View {
@@ -229,6 +255,23 @@ private enum ArticleScreenPreviewData {
             isRead: false,
             isStarred: false,
             isHidden: false
+        )
+    }
+
+    static var markArticle: ReaderArticleDTO {
+        makeArticle(
+            title: "Reader text",
+            summary: nil,
+            contentText: """
+            <p>Before <mark>ordinary text &amp; entities</mark> after.</p>
+            <p><mark><strong>Bold</strong>, <em>italic</em>, <code>inline code</code> and <a href="https://example.com">a link</a>.</mark></p>
+            <p><mark>После разговора ответьте на три вопроса.</mark></p>
+            <ul><li><mark>Что получилось на деле?</mark></li><li><mark>Что изменю в следующий раз?</mark></li></ul>
+            <p><mark>日本語の文章。 العربية نص للقراءة.</mark></p>
+            <p>Before <mark>unclosed markup after.</p>
+            <pre>Standalone code block</pre>
+            """,
+            feedTitle: "Preview", author: ""
         )
     }
 
