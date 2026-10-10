@@ -167,6 +167,7 @@ final class ArticlesScreenController {
         activeLoadTask = nil
         activeLoadSessionContext = nil
         cancelActiveNextPageLoad()
+        screenState.cancelSearchTransition()
         return hadActivePrimaryLoad
     }
 
@@ -299,7 +300,7 @@ final class ArticlesScreenController {
         generation currentLoadGeneration: Int
     ) async {
         do {
-            if plan.selection != nil, plan.normalizedSearchText.isEmpty == false {
+            if plan.selection != nil, plan.isSearchTransition || plan.normalizedSearchText.isEmpty == false {
                 try await searchDebounceOperation()
             }
             try Task.checkCancellation()
@@ -315,10 +316,10 @@ final class ArticlesScreenController {
                     selection: plan.selection,
                     navigationTitle: plan.navigationTitle,
                     navigationSubtitle: plan.loadingSubtitle,
-                    retainsContent: false,
+                    retainsContent: plan.isSearchTransition,
                     sessionContext: plan.sessionContext
                 )
-                lastLoadedSessionContext = plan.sessionContext
+                lastLoadedSessionContext = screenState.articleListSession.context
                 return
             }
 
@@ -332,12 +333,13 @@ final class ArticlesScreenController {
             )
             try Task.checkCancellation()
             let preservesCurrentMaterializedSnapshot = plan.sessionContextChanged == false
-                && preservesMaterializedSessionSnapshot
+                && plan.isSearchTransition == false && preservesMaterializedSessionSnapshot
             let resolvedEntries = entriesByRetainingSessionItems(
                 loadResult.articles,
                 selection: plan.selection,
                 sidebarArticleFilter: plan.sidebarArticleFilter,
-                retainsCurrentContent: plan.sessionContextChanged == false && retainsSessionFilterMutations,
+                retainsCurrentContent: plan.sessionContextChanged == false
+                    && plan.isSearchTransition == false && retainsSessionFilterMutations,
                 preservesMaterializedSessionSnapshot: preservesCurrentMaterializedSnapshot,
                 retainedMembershipStatus: retainedSessionMembershipStatus,
                 sortMode: plan.sortMode
@@ -370,6 +372,13 @@ final class ArticlesScreenController {
                 scopeMetric: resolvedScopeMetric
             )
         } catch is CancellationError {
+            if isCurrentLoad(
+                generation: currentLoadGeneration,
+                sessionID: currentSessionID,
+                context: plan.sessionContext
+            ) {
+                screenState.cancelSearchTransition()
+            }
             return
         } catch {
             guard isCurrentLoad(
@@ -377,7 +386,6 @@ final class ArticlesScreenController {
                 sessionID: currentSessionID,
                 context: plan.sessionContext
             ) else { return }
-            lastLoadedSessionContext = plan.sessionContext
             dependencies.logger.error(
                 "Failed to load article list for selection \(String(describing: plan.selection)): \(error)"
             )
@@ -386,9 +394,10 @@ final class ArticlesScreenController {
                 selection: plan.selection,
                 navigationTitle: plan.navigationTitle,
                 navigationSubtitle: plan.loadingSubtitle,
-                retainsContent: plan.sessionContextChanged == false,
+                retainsContent: plan.isSearchTransition || plan.sessionContextChanged == false,
                 sessionContext: plan.sessionContext
             )
+            lastLoadedSessionContext = screenState.articleListSession.context
         }
     }
 
@@ -412,6 +421,8 @@ final class ArticlesScreenController {
             sortMode: sortMode
         )
         let sessionContextChanged = shouldResetArticleSession(for: sessionContext)
+        let isSearchTransition = screenState.canPresentSearchTransition(to: sessionContext)
+            && (sessionContextChanged || screenState.pendingSearchContext != nil)
 
         return ArticlesScreenLoadPlan(
             selection: selection,
@@ -421,11 +432,12 @@ final class ArticlesScreenController {
             sortMode: sortMode,
             sessionContext: sessionContext,
             sessionContextChanged: sessionContextChanged,
+            isSearchTransition: isSearchTransition,
             navigationTitle: resolveNavigationTitle(
                 selection: selection,
                 dependencies: dependencies
             ),
-            loadingSubtitle: sessionContextChanged
+            loadingSubtitle: sessionContextChanged && isSearchTransition == false
                 ? ReadingLocalization.loadingArticlesTitle
                 : ArticlesScreenSubtitleResolver.resolve(
                     articles: screenState.articles,
@@ -439,6 +451,10 @@ final class ArticlesScreenController {
         _ plan: ArticlesScreenLoadPlan,
         startsNewSession: Bool
     ) {
+        if plan.isSearchTransition {
+            screenState.beginSearchTransition(to: plan.sessionContext)
+            return
+        }
         screenState.beginLoading(
             for: plan.selection,
             navigationTitle: plan.navigationTitle,
@@ -456,7 +472,7 @@ final class ArticlesScreenController {
     ) -> Bool {
         generation == loadGeneration
             && sessionID == screenState.articleListSession.id
-            && context == screenState.articleListSession.context
+            && context == (screenState.pendingSearchContext ?? screenState.articleListSession.context)
     }
 
     private func cancelActiveNextPageLoad() {
@@ -575,7 +591,8 @@ final class ArticlesScreenController {
         dependencies: AppDependencies
     ) async -> ArticleListContinuationSnapshot? {
         let sessionContext = screenState.articleListSession.context
-        guard sessionContext == lastLoadedSessionContext,
+        guard screenState.pendingSearchContext == nil,
+              sessionContext == lastLoadedSessionContext,
               sessionContext == articleListSessionContext(
                 selection: sessionContext.selection,
                 sidebarArticleFilter: sessionContext.sidebarArticleFilter,
@@ -623,7 +640,8 @@ final class ArticlesScreenController {
     }
 
     func hasNextPageContinuation(for sessionID: UUID) -> Bool {
-        sessionID == screenState.articleListSession.id
+        screenState.pendingSearchContext == nil
+            && sessionID == screenState.articleListSession.id
             && screenState.articleListSession.nextPageCursor != nil
     }
 
@@ -641,7 +659,8 @@ final class ArticlesScreenController {
             sidebarArticleFilter: sidebarArticleFilter
         )
         let currentSessionContext = screenState.articleListSession.context
-        guard currentSessionContext.selection == refreshContext.selection,
+        guard screenState.pendingSearchContext == nil,
+              currentSessionContext.selection == refreshContext.selection,
               currentSessionContext.sidebarArticleFilter == refreshContext.sidebarArticleFilter else {
             dependencies.logger.info("Skipped manual refresh for stale article-list context")
             return nil
@@ -912,6 +931,7 @@ private struct ArticlesScreenLoadPlan {
     let sortMode: ArticleSortMode
     let sessionContext: ArticleListSession.Context
     let sessionContextChanged: Bool
+    let isSearchTransition: Bool
     let navigationTitle: String
     let loadingSubtitle: String
 }

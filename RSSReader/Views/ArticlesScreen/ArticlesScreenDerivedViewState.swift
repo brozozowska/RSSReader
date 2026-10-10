@@ -25,11 +25,7 @@ extension ArticlesScreenState {
                 title: navigationTitle,
                 subtitle: navigationSubtitle
             ),
-            toolbarActions: ArticlesScreenToolbarActionsState(
-                selection: selection,
-                visibleArticles: visibleArticles,
-                phase: phase
-            ),
+            toolbarActions: toolbarActions,
             searchPlaceholder: searchPlaceholder(
                 normalizedSearchText: articleListSession.context.normalizedSearchText,
                 visibleArticles: visibleArticles

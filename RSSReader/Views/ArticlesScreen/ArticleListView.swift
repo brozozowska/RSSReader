@@ -56,6 +56,7 @@ struct ArticleListView: View {
             customRefreshState: derivedViewState.customRefreshState,
             canLoadNextPage: controller.screenState.canLoadNextPage,
             isLoadingNextPage: controller.screenState.isLoadingNextPage,
+            allowsArticleActions: allowsArticleActions,
             selection: $selection,
             scrollPositionID: articleListScrollPositionBinding,
             customRefreshPullProgressChanged: updateCustomRefreshPullProgress,
@@ -90,7 +91,7 @@ struct ArticleListView: View {
                     Button(action: handleMarkAllAsReadAction) {
                         Image(systemName: "checkmark.circle.fill")
                     }
-                    .disabled(derivedViewState.toolbarActions.isMarkAllAsReadEnabled == false)
+                    .disabled(allowsArticleActions == false || derivedViewState.toolbarActions.isMarkAllAsReadEnabled == false)
                     .accessibilityLabel(ReadingLocalization.markAllAsReadAccessibilityLabel)
                 }
             }
@@ -208,7 +209,10 @@ struct ArticleListView: View {
             preservesMaterializedSessionSnapshot: preservesMaterializedSessionSnapshot
         )
 
-        guard loadingSidebarSelection == appState.selectedSidebarSelection,
+        guard Task.isCancelled == false,
+              controller.screenState.pendingSearchContext == nil,
+              controller.screenState.articleListSession.context.normalizedSearchText == loadingNormalizedSearchText,
+              loadingSidebarSelection == appState.selectedSidebarSelection,
               loadingSidebarArticleFilter == appState.selectedSidebarArticleFilter,
               loadingNormalizedSearchText == ArticleSearchScope.normalizedSearchText(searchText),
               loadingReloadID == appState.articleListReloadID else {
@@ -463,6 +467,12 @@ struct ArticleListView: View {
 
     // MARK: Search And Overlay
 
+    private var allowsArticleActions: Bool {
+        controller.screenState.pendingSearchContext == nil
+            && ArticleSearchScope.normalizedSearchText(searchText)
+                == controller.screenState.articleListSession.context.normalizedSearchText
+    }
+
     private var searchText: String {
         controller.searchText(for: selectedSidebarSelection)
     }
@@ -548,7 +558,7 @@ struct ArticleListView: View {
 
     @MainActor
     private func triggerCustomRefresh() async {
-        guard isPreviewMode == false else { return }
+        guard isPreviewMode == false, allowsArticleActions else { return }
         guard controller.screenState.customRefreshState.phase == .ready else { return }
 
         controller.screenState.beginCustomRefresh()

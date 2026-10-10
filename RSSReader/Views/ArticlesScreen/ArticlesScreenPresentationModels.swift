@@ -201,13 +201,14 @@ struct ArticleListAnimationState: Equatable {
     enum ChangeKind: Equatable {
         case snapshotReplacement
         case localMutation
+        case searchTransition
     }
 
     private(set) var revision: UInt = 0
     private(set) var changeKind: ChangeKind = .snapshotReplacement
 
     func allowsAnimation(reduceMotion: Bool) -> Bool {
-        reduceMotion == false && changeKind == .localMutation
+        reduceMotion == false && changeKind != .snapshotReplacement
     }
 
     func animation(reduceMotion: Bool) -> Animation? {
@@ -217,6 +218,11 @@ struct ArticleListAnimationState: Equatable {
     mutating func prepareForSnapshotReplacement() {
         revision &+= 1
         changeKind = .snapshotReplacement
+    }
+
+    mutating func prepareForSearchTransition() {
+        revision &+= 1
+        changeKind = .searchTransition
     }
 
     mutating func prepareForLocalMutation() {
@@ -264,11 +270,12 @@ struct ArticlesScreenToolbarActionsState: Equatable {
     init(
         selection: SidebarSelection?,
         visibleArticles: [ArticleListItemDTO],
-        phase: ArticlesScreenPhase
+        phase: ArticlesScreenPhase,
+        allowsMutations: Bool = true
     ) {
         let hasSelection = selection != nil
         self.showsMarkAllAsReadAction = hasSelection && phase != .loading && phase.isFailed == false
-        self.isMarkAllAsReadEnabled = visibleArticles.contains(where: { $0.isRead == false })
+        self.isMarkAllAsReadEnabled = allowsMutations && visibleArticles.contains(where: { $0.isRead == false })
     }
 }
 

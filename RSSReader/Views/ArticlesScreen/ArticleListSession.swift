@@ -26,6 +26,13 @@ struct ArticleListSession: Equatable {
             )
         }
 
+        func hasSamePresentationScope(as other: Context) -> Bool {
+            selection != nil
+                && selection == other.selection
+                && sidebarArticleFilter == other.sidebarArticleFilter
+                && sortMode == other.sortMode
+        }
+
         static let noSelection = Context(selection: nil, sidebarArticleFilter: .allItems)
     }
 

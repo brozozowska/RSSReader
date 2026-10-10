@@ -8,6 +8,7 @@ struct ArticleListContentView: View {
     let customRefreshState: ArticlesScreenCustomRefreshState
     let canLoadNextPage: Bool
     let isLoadingNextPage: Bool
+    var allowsArticleActions = true
     @Binding var selection: UUID?
     @Binding var scrollPositionID: UUID?
     let customRefreshPullProgressChanged: @MainActor (Double) -> Void
@@ -35,6 +36,7 @@ struct ArticleListContentView: View {
             articleSections
             paginationFooter
         }
+        .disabled(allowsArticleActions == false)
         .listStyle(.plain)
         .listSectionSpacing(12)
         .scrollContentBackground(.hidden)

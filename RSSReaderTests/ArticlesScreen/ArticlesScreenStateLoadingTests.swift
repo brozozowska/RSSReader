@@ -5,6 +5,81 @@ import Testing
 @Suite("Articles Screen / State / Loading")
 @MainActor
 struct ArticlesScreenStateLoadingTests {
+
+    @Test(arguments: [false, true])
+    func searchTransitionsPreserveEmptyAndLoadedPresentationUntilAtomicReplacement(_ startsEmpty: Bool) {
+        let article = makeArticleListItemDTO()
+        var state = ArticlesScreenState()
+        var context = ArticleListSession.Context(selection: .inbox, sidebarArticleFilter: .allItems)
+        state.applyLoadedArticles(
+            startsEmpty ? [] : [article], selection: .inbox, navigationTitle: "Inbox",
+            navigationSubtitle: "1", sessionContext: context
+        )
+        for query in ["match", "missing", ""] {
+            let target = ArticleListSession.Context(
+                selection: .inbox, sidebarArticleFilter: .allItems, normalizedSearchText: query
+            )
+            let previousRows = state.articles
+            let previousPlaceholder = state.placeholder
+            let previousSearchPlaceholder = state.derivedViewState().searchPlaceholder
+            let revision = state.listAnimationState.revision
+            state.beginSearchTransition(to: target)
+            #expect(state.articleListSession.context == context)
+            #expect(state.articles == previousRows)
+            #expect(state.placeholder == previousPlaceholder)
+            #expect(state.derivedViewState().searchPlaceholder == previousSearchPlaceholder)
+            #expect(state.showsPrimaryLoadingIndicator == false)
+            #expect(state.listAnimationState.revision == revision)
+            let rows = query == "missing" ? [] : [article]
+            state.applyLoadedArticles(
+                rows, selection: .inbox, navigationTitle: "Inbox", navigationSubtitle: "1",
+                sessionContext: target, emptyContentKind: .searchResults
+            )
+            #expect(state.articles == rows)
+            #expect(state.articleListSession.context == target)
+            #expect(state.listAnimationState.changeKind == .searchTransition)
+            #expect(state.listAnimationState.revision == revision + 1)
+            let sections = state.derivedViewState().sections
+            #expect(Set(sections.map(\.id)).count == sections.count)
+            #expect(Set(state.articles.map(\.id)).count == state.articles.count)
+            context = target
+        }
+        state.endPresentation()
+        #expect(state.canPresentSearchTransition(to: context) == false)
+        #expect(state.pendingSearchContext == nil)
+    }
+
+    @Test
+    func searchAnimationIsIsolatedFromFeedFilterAndSortChanges() {
+        var state = ArticlesScreenState.previewLoaded(
+            selection: .inbox, navigationTitle: "Inbox", navigationSubtitle: "1",
+            articles: [makeArticleListItemDTO()]
+        )
+        let search = ArticleListSession.Context(
+            selection: .inbox, sidebarArticleFilter: .allItems, normalizedSearchText: "match"
+        )
+        state.beginSearchTransition(to: search)
+        let replacements = [
+            ArticleListSession.Context(selection: .folder("News"), sidebarArticleFilter: .allItems),
+            ArticleListSession.Context(selection: .inbox, sidebarArticleFilter: .unread),
+            ArticleListSession.Context(selection: .inbox, sidebarArticleFilter: .allItems, sortMode: .publishedAtAscending)
+        ]
+        for target in replacements { #expect(state.canPresentSearchTransition(to: target) == false) }
+        let target = replacements[0]
+        state.beginLoading(
+            for: target.selection, navigationTitle: "News", navigationSubtitle: "Loading",
+            resetsContent: true, startsNewSession: true, sessionContext: target
+        )
+        #expect(state.pendingSearchContext == nil)
+        #expect(state.articles.isEmpty)
+        #expect(state.showsPrimaryLoadingIndicator)
+        state.applyLoadedArticles(
+            [makeArticleListItemDTO()], selection: target.selection, navigationTitle: "News",
+            navigationSubtitle: "1", sessionContext: target
+        )
+        #expect(state.listAnimationState.changeKind == .snapshotReplacement)
+    }
+
     @Test
     func sameContextSnapshotUpdatesUseLocalAnimationAcrossAllArticleScopes() {
         let article = makeArticleListItemDTO(isStarred: true)
