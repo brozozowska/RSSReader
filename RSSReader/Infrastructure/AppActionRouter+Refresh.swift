@@ -2,13 +2,13 @@ import Foundation
 
 extension AppActionRouter {
     @MainActor
-    func refreshFeed(id feedID: UUID) async -> FeedRefreshResult? {
+    func refreshFeed(id feedID: UUID, initialFetchSnapshot: FeedInitialFetchSnapshot? = nil) async -> FeedRefreshResult? {
         guard let feedRefreshService else {
             logger.error("Feed refresh service is unavailable")
             return nil
         }
 
-        let result = await feedRefreshService.refresh(feedID: feedID)
+        let result = await feedRefreshService.refresh(feedID: feedID, initialFetchSnapshot: initialFetchSnapshot)
         let cleanupResult = cleanupArticlesUsingCurrentSettings(scope: .feedIDs([result.feedID]))
         recordRefreshLifecycleDiagnostics(refreshResult: result, cleanupResult: cleanupResult)
         await refreshUnreadAppIconBadgeCount()

@@ -71,6 +71,36 @@ struct StringCatalogPluralizationTests {
     }
 
     @Test
+    func feedHTTPErrorCopyCoversSupportedLocalesAndPreservesRetryDatePlaceholder() throws {
+        let strings = try Self.catalogStrings()
+        let keys = [
+            "feedManagement.addFeed.preview.accessDenied.title",
+            "feedManagement.addFeed.preview.accessDenied.detail",
+            "feedManagement.addFeed.preview.rateLimited.title",
+            "feedManagement.addFeed.preview.rateLimited.detail",
+            "feedManagement.addFeed.preview.rateLimited.retryAt.format"
+        ]
+        for key in keys {
+            let entry = try #require(strings[key] as? [String: Any])
+            let localizations = try #require(entry["localizations"] as? [String: Any])
+            #expect(Set(localizations.keys) == Set(Self.supportedLanguages))
+            for language in Self.supportedLanguages {
+                let value = try #require(Self.localizedValue(in: strings, key: key, language: language))
+                #expect(!value.isEmpty)
+                // The extracted English source is not a target translation.
+                if language != "en" {
+                    #expect(Self.hasTranslatedLocalization(in: entry, language: language))
+                }
+                if key.hasSuffix("retryAt.format") {
+                    #expect(value.components(separatedBy: "%@").count == 2)
+                    #expect(value.contains("429"))
+                }
+                if key.hasSuffix("accessDenied.detail") { #expect(value.contains("403")) }
+            }
+        }
+    }
+
+    @Test
     func articleRetentionCopyMatchesApprovedRussianContract() throws {
         let strings = try Self.catalogStrings()
 
@@ -266,7 +296,7 @@ struct StringCatalogPluralizationTests {
 
         if let stringUnit = localization["stringUnit"] as? [String: Any],
            let value = stringUnit["value"] as? String {
-            return stringUnit["state"] as? String == "translated" && !value.isEmpty
+            return Self.isUsableTranslationState(stringUnit["state"] as? String) && !value.isEmpty
         }
 
         if let variations = localization["variations"] as? [String: Any],
@@ -274,10 +304,15 @@ struct StringCatalogPluralizationTests {
            let other = plural["other"] as? [String: Any],
            let stringUnit = other["stringUnit"] as? [String: Any],
            let value = stringUnit["value"] as? String {
-            return stringUnit["state"] as? String == "translated" && !value.isEmpty
+            return Self.isUsableTranslationState(stringUnit["state"] as? String) && !value.isEmpty
         }
 
         return false
+    }
+
+    private static func isUsableTranslationState(_ state: String?) -> Bool {
+        // StringCatalogEdit records tool-authored translations as machine_translated.
+        state == "translated" || state == "machine_translated"
     }
 
     private static func pluralValue(

@@ -66,6 +66,36 @@ import SwiftUI
     )
 }
 
+#Preview("Feed Management · Reddit Access Denied") {
+    FeedManagementAddFeedFailurePreviewContainer(error: .invalidStatusCode(403))
+}
+
+#Preview("Feed Management · Reddit Rate Limit") {
+    FeedManagementAddFeedFailurePreviewContainer(
+        error: .rateLimited(retryAt: Date(timeIntervalSince1970: 1_791_712_800))
+    )
+}
+
+private struct FeedManagementAddFeedFailurePreviewContainer: View {
+    let error: FeedFetchError
+
+    var body: some View {
+        let state = FeedManagementScreenPreviewFactory.makeAddFeedFailureState(error)
+        NavigationStack {
+            if case .addFeed(let presentation) = state.derivedViewState().presentedDestination {
+                FeedManagementAddFeedView(
+                    presentation: presentation,
+                    urlBinding: .constant(presentation.urlInput),
+                    displayNameBinding: .constant(presentation.displayNameInput),
+                    showsCloseControl: true,
+                    selectPlacement: { _ in }, startCreateFolder: {},
+                    handlePrimaryAction: {}, handlePreviewAction: {}, dismiss: {}
+                )
+            }
+        }
+    }
+}
+
 private struct FeedManagementScreenPreviewContainer: View {
     let dependencies: AppDependencies
     let screenState: FeedManagementScreenState
@@ -141,6 +171,15 @@ private enum FeedManagementScreenPreviewFactory {
             urlInput: " https://feedbin.com/blog.xml ",
             folders: folders
         )
+    }
+
+    static func makeAddFeedFailureState(_ error: FeedFetchError) -> FeedManagementScreenState {
+        var state = makeAddFeedState(urlInput: "reddit.com/r/apple")
+        let command = state.beginAddFeedPreviewLoading()
+        state.applyAddFeedPreviewFailure(
+            FeedManagementScreenStatusMapper.addFeedPreviewFailureStatus(for: error), command: command
+        )
+        return state
     }
 
     static func makeAddFeedPreviewState() -> FeedManagementScreenState {

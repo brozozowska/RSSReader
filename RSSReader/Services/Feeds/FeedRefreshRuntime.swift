@@ -2,14 +2,19 @@ import Foundation
 
 extension FeedRefreshService {
     func refresh(feedID: UUID) async -> FeedRefreshResult {
+        await refresh(feedID: feedID, initialFetchSnapshot: nil)
+    }
+
+    func refresh(feedID: UUID, initialFetchSnapshot: FeedInitialFetchSnapshot?) async -> FeedRefreshResult {
         switch inFlightPolicy {
         case .shareExistingTaskResult:
-            return await awaitSharedInFlightRefresh(feedID: feedID)
+            return await awaitSharedInFlightRefresh(feedID: feedID, initialFetchSnapshot: initialFetchSnapshot)
         }
     }
 
     private func awaitSharedInFlightRefresh(
-        feedID: UUID
+        feedID: UUID,
+        initialFetchSnapshot: FeedInitialFetchSnapshot?
     ) async -> FeedRefreshResult {
         let waiterID = UUID()
         let waiterStartedAt = Date()
@@ -20,7 +25,8 @@ extension FeedRefreshService {
                     id: waiterID,
                     startedAt: waiterStartedAt,
                     continuation: continuation,
-                    feedID: feedID
+                    feedID: feedID,
+                    initialFetchSnapshot: initialFetchSnapshot
                 )
 
                 if Task.isCancelled {
@@ -38,11 +44,13 @@ extension FeedRefreshService {
         id waiterID: UUID,
         startedAt: Date,
         continuation: CheckedContinuation<FeedRefreshResult, Never>,
-        feedID: UUID
+        feedID: UUID,
+        initialFetchSnapshot: FeedInitialFetchSnapshot?
     ) {
         let waiter = FeedRefreshInFlightWaiter(
             startedAt: startedAt,
-            continuation: continuation
+            continuation: continuation,
+            initialFetchSnapshot: initialFetchSnapshot
         )
 
         if var inFlightTask = inFlightRefreshTasks[feedID] {
@@ -66,8 +74,9 @@ extension FeedRefreshService {
         waiters: [UUID: FeedRefreshInFlightWaiter]
     ) {
         let inFlightTaskID = UUID()
+        let initialFetchSnapshot = waiters.values.compactMap(\.initialFetchSnapshot).first
         let task = Task<FeedRefreshResult, Never> { @MainActor [self, feedID] in
-            let result = await performRefresh(feedID: feedID)
+            let result = await performRefresh(feedID: feedID, initialFetchSnapshot: initialFetchSnapshot)
             completeInFlightRefresh(
                 id: inFlightTaskID,
                 feedID: feedID,
@@ -143,13 +152,20 @@ extension FeedRefreshService {
         }
     }
 
-    func performRefresh(feedID: UUID) async -> FeedRefreshResult {
+    func performRefresh(feedID: UUID, initialFetchSnapshot: FeedInitialFetchSnapshot? = nil) async -> FeedRefreshResult {
         let startedAt = Date()
 
         do {
             let context = try makeRefreshContext(for: feedID)
             try markRefreshAttemptStarted(for: context.metadata.id, startedAt: startedAt)
-            let fetchResult = try await feedFetcher.fetch(context.request)
+            let fetchResult: FeedFetchResult
+            if context.metadata.lastSuccessfulFetchAt == nil,
+               let response = initialFetchSnapshot?.response(for: context.request, now: startedAt) {
+                logger.debug("Using validated preview response for initial refresh of feed \(feedID.uuidString)")
+                fetchResult = .fetched(response)
+            } else {
+                fetchResult = try await feedFetcher.fetch(context.request)
+            }
             try Task.checkCancellation()
 
             switch fetchResult {

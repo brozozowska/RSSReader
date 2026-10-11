@@ -247,6 +247,7 @@ struct FeedManagementAddFeedState {
     }
 
     mutating func applyCreatedFeed(_ feed: FeedManagementFeedSummary) {
+        preview?.initialFetchSnapshot = nil
         let wasEditing = isEditing
         createdFeed = feed
         isCreatingFeed = false

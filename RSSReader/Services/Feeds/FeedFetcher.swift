@@ -61,7 +61,7 @@ public struct FeedFetcher: FeedFetching {
                 let httpResponse = try await httpClient.execute(request.httpRequest)
                 let response = FeedResponse(request: request, httpResponse: httpResponse)
 
-                try validateStatusCode(response.statusCode)
+                try validateStatusCode(httpResponse)
                 try validatePayload(response)
 
                 if response.isNotModified {
@@ -102,12 +102,21 @@ public struct FeedFetcher: FeedFetching {
         throw lastError ?? FeedFetchError.transport(.unknown)
     }
 
-    private func validateStatusCode(_ statusCode: Int) throws {
+    private func validateStatusCode(_ response: HTTPResponse) throws {
+        let statusCode = response.statusCode
+        if statusCode == 429 {
+            throw FeedFetchError.rateLimited(
+                retryAt: FeedHTTPResponseDiagnostics.retryAt(for: response),
+                responseURL: FeedHTTPResponseDiagnostics.safeURL(response.url)
+            )
+        }
         let isSuccessfulResponse = (200...299).contains(statusCode)
         let isNotModifiedResponse = statusCode == 304
 
         guard isSuccessfulResponse || isNotModifiedResponse else {
-            throw FeedFetchError.invalidStatusCode(statusCode)
+            throw FeedFetchError.invalidStatusCode(
+                statusCode, responseURL: FeedHTTPResponseDiagnostics.safeURL(response.url)
+            )
         }
     }
 
@@ -231,11 +240,7 @@ public struct FeedFetcher: FeedFetching {
     }
 
     private func makeFailureLog(for request: FeedRequest, error: Error) -> FeedFetchLogEntry {
-        let httpCode: Int? = if case .invalidStatusCode(let statusCode) = error as? FeedFetchError {
-            statusCode
-        } else {
-            nil
-        }
+        let httpCode = (error as? FeedFetchError)?.httpStatusCode
 
         return FeedFetchLogEntry(
             feedID: request.feedID,

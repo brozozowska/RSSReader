@@ -168,7 +168,17 @@ enum FeedManagementScreenStatusMapper {
                 kind: .failure,
                 detail: networkFailureDetail(for: transportError)
             )
-        case .invalidStatusCode(let statusCode):
+        case .rateLimited(let retryAt, _):
+            return rateLimitedStatus(retryAt: retryAt)
+        case .invalidStatusCode(let statusCode, _):
+            if statusCode == 429 { return rateLimitedStatus(retryAt: nil) }
+            if statusCode == 403 {
+                return FeedManagementAddFeedStatusPresentation(
+                    title: String(localized: "feedManagement.addFeed.preview.accessDenied.title", defaultValue: "The server denied access", comment: "Feed preview title for HTTP 403. The remote server refused the request."),
+                    kind: .failure,
+                    detail: String(localized: "feedManagement.addFeed.preview.accessDenied.detail", defaultValue: "The server blocked this request (HTTP 403). A direct RSS or Atom link may still work.", comment: "Feed preview detail for HTTP 403. A direct feed link is a possible alternative, not a guarantee.")
+                )
+            }
             return FeedManagementAddFeedStatusPresentation(
                 title: String(localized: "feedManagement.addFeed.preview.genericFailure.title", defaultValue: "Preview could not be loaded", comment: "Generic failure title when feed preview fails."),
                 kind: .failure,
@@ -193,6 +203,24 @@ enum FeedManagementScreenStatusMapper {
                 detail: detail
             )
         }
+    }
+
+    private static func rateLimitedStatus(retryAt: Date?) -> FeedManagementAddFeedStatusPresentation {
+        let detail: String
+        if let retryAt {
+            detail = CommonLocalization.localizedTemplate(
+                String(localized: "feedManagement.addFeed.preview.rateLimited.retryAt.format", defaultValue: "The server is limiting requests (HTTP 429). Try again after %@.", comment: "Feed preview rate limit detail. Placeholder is a locale-formatted date and time supplied by the server. No automatic retry is scheduled."),
+                retryAt.formatted(date: .abbreviated, time: .standard)
+            )
+        } else {
+            detail = String(localized: "feedManagement.addFeed.preview.rateLimited.detail", defaultValue: "The server is limiting requests (HTTP 429). Wait before trying again.", comment: "Feed preview rate limit detail when the server gives no usable retry time.")
+        }
+        return FeedManagementAddFeedStatusPresentation(
+            title: String(localized: "feedManagement.addFeed.preview.rateLimited.title", defaultValue: "Too many requests", comment: "Feed preview title for HTTP 429 rate limiting."),
+            kind: .failure,
+            detail: detail,
+            showsAlternativeAddressFooter: false
+        )
     }
 
     static func addFeedPreviewFailureStatus(

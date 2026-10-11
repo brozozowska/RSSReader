@@ -6,8 +6,17 @@ public enum FeedRequestError: Error {
 
 public nonisolated enum FeedFetchError: Error, Equatable, Sendable {
     case transport(FeedTransportError)
-    case invalidStatusCode(Int)
+    case invalidStatusCode(Int, responseURL: String? = nil)
+    case rateLimited(retryAt: Date?, responseURL: String? = nil)
     case unsupportedContentType(String?)
+
+    public var httpStatusCode: Int? {
+        switch self {
+        case .invalidStatusCode(let code, _): code
+        case .rateLimited: 429
+        default: nil
+        }
+    }
 }
 
 public nonisolated enum FeedTransportError: Error, Equatable, Sendable {
@@ -203,5 +212,34 @@ public struct FeedResponse: Sendable {
 
     public var isNotModified: Bool {
         statusCode == 304
+    }
+}
+
+/// A short-lived, already validated preview payload for the first refresh only.
+nonisolated struct FeedInitialFetchSnapshot: Equatable, Sendable {
+    let sourceURL: URL
+    let statusCode: Int
+    let headers: [String: String]
+    let body: Data
+    let receivedAt: Date
+
+    init(response: FeedResponse, receivedAt: Date = .now) {
+        sourceURL = response.sourceURL
+        statusCode = response.statusCode
+        headers = response.headers.filter { ["content-type", "etag", "last-modified"].contains($0.key) }
+        body = response.body
+        self.receivedAt = receivedAt
+    }
+
+    func response(for request: FeedRequest, now: Date = .now) -> FeedResponse? {
+        let age = now.timeIntervalSince(receivedAt)
+        let budget = AppResourceBudgetContract.current.feedXML.body
+        guard sourceURL == request.url, age >= 0, age <= 120,
+              (200...299).contains(statusCode),
+              Int64(body.count) <= budget.maximumCompressedBodyBytes,
+              (try? budget.validateMIMEType(headers["content-type"])) != nil else {
+            return nil
+        }
+        return FeedResponse(request: request, sourceURL: sourceURL, statusCode: statusCode, headers: headers, body: body)
     }
 }

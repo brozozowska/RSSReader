@@ -12,6 +12,7 @@ struct FeedRefreshContext: Sendable {
 struct FeedRefreshInFlightWaiter {
     let startedAt: Date
     let continuation: CheckedContinuation<FeedRefreshResult, Never>
+    var initialFetchSnapshot: FeedInitialFetchSnapshot? = nil
 }
 
 enum FeedRefreshInFlightPhase: Equatable {

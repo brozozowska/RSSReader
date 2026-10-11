@@ -102,7 +102,9 @@ struct FeedManagementAddFeedView: View {
                 } header: {
                     Text(FeedManagementLocalization.feedPreviewTitle)
                 } footer: {
-                    Text(FeedManagementLocalization.previewFailureFooter)
+                    if status.showsAlternativeAddressFooter {
+                        Text(FeedManagementLocalization.previewFailureFooter)
+                    }
                 }
             }
 
