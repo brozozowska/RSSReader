@@ -24,9 +24,24 @@ enum ArticleScreenBodyPayloadNormalizer {
 
         var decodedValue = scalarValue
         for _ in 0..<3 {
+            // Decode only the outer feed envelope. Once markup exists, entities are
+            // text/attribute content and must not become comment or structure tokens.
+            let visibleMarkup = ArticleScreenHTMLCommentFilter.removingComments(in: decodedValue)
+            if containsHTMLTag(visibleMarkup)
+                || (preferredKind == .html && decodedValue.contains("<!--") && containsEscapedHTMLTag(visibleMarkup) == false) {
+                break
+            }
             let nextValue = transformOutsideCode(decodedValue) { decodeHTMLEntitiesOnce(in: $0) }
             if nextValue == decodedValue { break }
             decodedValue = nextValue
+        }
+        // With no document structure, an escaped comment embedded in prose is
+        // literal text, not an outer HTML envelope. Decode it only at text rendering.
+        if preferredKind == .html,
+           containsHTMLTag(ArticleScreenHTMLCommentFilter.removingComments(in: decodedValue)) == false,
+           scalarValue.contains("<!--") == false,
+           decodedValue.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("<!--") == false {
+            decodedValue = scalarValue
         }
         let resolvedKind = resolvedKind(
             rawValue: scalarValue,
@@ -79,7 +94,8 @@ enum ArticleScreenBodyPayloadNormalizer {
         decodedValue: String,
         preferredKind: ArticleScreenBodyPayloadKind
     ) -> ArticleScreenBodyPayloadKind {
-        if containsHTMLTag(decodedValue) || containsEscapedHTMLTag(rawValue) {
+        if containsHTMLTag(ArticleScreenHTMLCommentFilter.removingComments(in: decodedValue))
+            || containsEscapedHTMLTag(ArticleScreenHTMLCommentFilter.removingComments(in: rawValue)) {
             return .html
         }
 

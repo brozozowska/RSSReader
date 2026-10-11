@@ -191,7 +191,7 @@ extension ArticleScreenBodyPayloadRenderer {
                 }
 
                 if tagName == "code" && innerHTML.range(
-                    of: #"(?i)&lt;\s*/?\s*[a-z]|<\s*/?\s*(button|details|summary|div|section|pre)\b"#,
+                    of: #"(?i)(?:&lt;|<)!--|&lt;\s*/?\s*[a-z]|<\s*/?\s*(button|details|summary|div|section|pre)\b"#,
                     options: .regularExpression
                 ) != nil {
                     appendStyledText(ArticleScreenBodyPayloadNormalizer.decodeHTMLEntities(in: innerHTML), style: childStyle, to: &spans)

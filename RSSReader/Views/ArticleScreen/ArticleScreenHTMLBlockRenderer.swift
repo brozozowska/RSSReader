@@ -31,7 +31,8 @@ extension ArticleScreenBodyPayloadRenderer {
         _ contentHTML: String,
         article: ReaderArticleDTO
     ) -> [ArticleScreenBodyBlock] {
-        let readableHTML = removingDisclosureDecorations(removingNonReadableHTMLBlocks(from: contentHTML))
+        let uncommentedHTML = ArticleScreenHTMLCommentFilter.removingComments(in: contentHTML)
+        let readableHTML = removingDisclosureDecorations(removingNonReadableHTMLBlocks(from: uncommentedHTML))
         return renderHTML(readableHTML, article: article, containerDepth: 0)
     }
 

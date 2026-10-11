@@ -112,6 +112,19 @@ import SwiftUI
 
 // MARK: - Preview Container
 
+#Preview("HTML Comments") {
+    ScrollView {
+        ReaderArticleContentView(
+            content: ArticleScreenContentState(article: ArticleScreenPreviewData.commentArticle),
+            actionHandlers: ArticleScreenActionHandlers(
+                toggleReadStatus: {}, toggleStarredStatus: {},
+                openSourceArticle: {}, bodyLinkTapped: { _ in }
+            )
+        )
+        .padding()
+    }
+}
+
 private struct ArticleScreenMarkPreview: View {
     var body: some View {
         ScrollView {
@@ -255,6 +268,22 @@ private enum ArticleScreenPreviewData {
             isRead: false,
             isStarred: false,
             isHidden: false
+        )
+    }
+
+    static var commentArticle: ReaderArticleDTO {
+        makeArticle(
+            title: "HTML comment examples", summary: nil,
+            contentText: """
+            <!-- wp:paragraph -->
+            <p>Visible body. <strong>Formatting</strong> and <a href="https://example.com/visible">a link</a>.</p>
+            <!-- /wp:paragraph -->
+            <!-- <pre>Hidden code</pre><p>Hidden text</p><img src="https://example.com/hidden.png"> -->
+            <p>A<!-- metadata -->B. Example: &lt;!-- literal prose --&gt;.</p>
+            <p><code>&lt;!-- literal inline --&gt;</code></p>
+            <pre><code>&lt;!-- literal block --&gt;</code></pre>
+            """,
+            feedTitle: "Comment fixture", author: ""
         )
     }
 

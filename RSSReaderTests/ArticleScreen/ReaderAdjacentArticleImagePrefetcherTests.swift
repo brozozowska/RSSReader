@@ -156,6 +156,22 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
     }
 
     @Test
+    func commentedImagesNeverEnterPrefetchOrReservationPlan() throws {
+        let nextID = UUID()
+        let service = PrefetchArticleQueryService(articlesByID: [
+            nextID: makeReaderArticleDTO(
+                id: nextID,
+                contentHTML: "<!-- <pre>hidden</pre><img src=\"https://example.com/hidden.png\"> --><p>Visible</p>"
+            )
+        ])
+        let plan = try ReaderAdjacentArticleImagePrefetcher.plan(
+            context: makeContext(nextArticleID: nextID), articleQueryService: service
+        )
+        #expect(plan.adjacentImageURLs.isEmpty)
+        #expect(plan.reservationURLs.isEmpty)
+    }
+
+    @Test
     func adjacentArticlesWithoutRenderedImagesClearPreviousReservationWindow() async throws {
         let nextID = UUID()
         let articleQueryService = PrefetchArticleQueryService(

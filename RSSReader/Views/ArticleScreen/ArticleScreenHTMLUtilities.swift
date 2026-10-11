@@ -113,6 +113,13 @@ extension ArticleScreenBodyPayloadRenderer {
                 options: .regularExpression
             )
             .replacingOccurrences(
+                of: #"(?i)<\s*/?\s*(?:\#(ArticleScreenBodyPayloadNormalizer.recognizedHTMLTagNamePattern))\b(?:[^>"']|"[^"]*"|'[^']*')*>"#,
+                with: "",
+                options: .regularExpression
+            )
+            // Retain the established readable recovery for malformed/unbalanced
+            // attribute quotes after well-formed quoted tags have been consumed.
+            .replacingOccurrences(
                 of: #"(?i)<\s*/?\s*(?:\#(ArticleScreenBodyPayloadNormalizer.recognizedHTMLTagNamePattern))\b[^>]*>"#,
                 with: "",
                 options: .regularExpression

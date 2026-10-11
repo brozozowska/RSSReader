@@ -3,10 +3,11 @@ import Foundation
 @MainActor
 enum ArticleScreenContentRenderer {
     static func renderBody(for article: ReaderArticleDTO) -> ArticleScreenBodyContentState {
-        if let contentHTML = ArticleScreenBodyPayloadNormalizer.normalize(
+        let contentHTMLPayload = ArticleScreenBodyPayloadNormalizer.normalize(
             article.contentHTML,
             preferredKind: .html
-        ) {
+        )
+        if let contentHTML = contentHTMLPayload {
             let bodyBlocks = ArticleScreenBodyPayloadRenderer.renderBodyPayload(contentHTML, article: article)
             if bodyBlocks.isEmpty == false {
                 return ArticleScreenBodyContentState(
@@ -18,7 +19,7 @@ enum ArticleScreenContentRenderer {
 
         if let contentText = ArticleScreenBodyPayloadNormalizer.normalize(
             article.contentText,
-            preferredKind: .plainText
+            preferredKind: fallbackKind(for: article.contentText, htmlPayload: contentHTMLPayload)
         ) {
             let bodyBlocks = ArticleScreenBodyPayloadRenderer.renderBodyPayload(contentText, article: article)
             if bodyBlocks.isEmpty == false {
@@ -31,18 +32,16 @@ enum ArticleScreenContentRenderer {
 
         if let summary = ArticleScreenBodyPayloadNormalizer.normalize(
             article.summary,
-            preferredKind: .plainText
+            preferredKind: fallbackKind(for: article.summary, htmlPayload: contentHTMLPayload)
         ) {
             var summaryBlocks = ArticleScreenBodyPayloadRenderer.renderBodyPayload(summary, article: article)
-            summaryBlocks = ArticleScreenBodyPayloadRenderer.appendLeadImageIfNeeded(summaryBlocks, article: article)
-            summaryBlocks.append(
-                ArticleScreenBodyBlock.fallbackNotice(ReadingLocalization.summaryOnlyFallbackNotice)
-            )
-
-            return ArticleScreenBodyContentState(
-                blocks: summaryBlocks,
-                source: .summary
-            )
+            if summaryBlocks.isEmpty == false {
+                summaryBlocks = ArticleScreenBodyPayloadRenderer.appendLeadImageIfNeeded(summaryBlocks, article: article)
+                summaryBlocks.append(
+                    ArticleScreenBodyBlock.fallbackNotice(ReadingLocalization.summaryOnlyFallbackNotice)
+                )
+                return ArticleScreenBodyContentState(blocks: summaryBlocks, source: .summary)
+            }
         }
 
         var fallbackBlocks: [ArticleScreenBodyBlock] = []
@@ -57,5 +56,17 @@ enum ArticleScreenContentRenderer {
             blocks: fallbackBlocks,
             source: .empty
         )
+    }
+
+    private static func fallbackKind(
+        for value: String?,
+        htmlPayload: ArticleScreenBodyPayload?
+    ) -> ArticleScreenBodyPayloadKind {
+        // Atom can copy the same HTML into all three body fields. Retain its kind
+        // after an empty render, without treating independent plain text as markup.
+        guard let htmlPayload,
+              ArticleScreenBodyPayloadNormalizer.normalize(value, preferredKind: .html) == htmlPayload
+        else { return .plainText }
+        return .html
     }
 }
