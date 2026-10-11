@@ -151,7 +151,9 @@ private struct ReaderArticleBodyBlockView: View {
             }
             .padding(.vertical, 4)
         case .codeBlock(let code):
-            Text(code)
+            ReaderArticleCodeBlockView(code: code)
+        case .preformattedText(let text):
+            Text(verbatim: text)
                 .font(.system(.body, design: .monospaced))
                 .textSelection(.enabled)
                 .padding(10)

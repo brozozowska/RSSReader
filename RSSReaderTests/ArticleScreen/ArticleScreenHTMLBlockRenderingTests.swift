@@ -656,7 +656,7 @@ struct ArticleScreenHTMLBlockRenderingTests {
             items: [.plainText("Первый"), .plainText("Второй")]
         )))
         #expect(content.body.blocks[4] == .blockquote([.plainText("Цитата")]))
-        #expect(content.body.blocks[5] == .codeBlock("let value = 42"))
+        #expect(content.body.blocks[5] == .preformattedText("let value = 42"))
         #expect(content.body.blocks[6] == .figure([
             .image(URL(string: "https://example.com/image.png")!),
             .caption(.plainText("Подпись"))

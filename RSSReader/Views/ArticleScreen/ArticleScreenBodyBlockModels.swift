@@ -13,6 +13,7 @@ enum ArticleScreenBodyBlock: Equatable {
     case address(ArticleScreenTextBlock)
     case blockquote([ArticleScreenTextBlock])
     case codeBlock(String)
+    case preformattedText(String)
     case divider
     case caption(ArticleScreenTextBlock)
     case image(URL)

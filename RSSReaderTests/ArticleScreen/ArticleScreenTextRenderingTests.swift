@@ -91,8 +91,8 @@ struct ArticleScreenTextRenderingTests {
         #expect(content.body.blocks.count == 3)
         guard case .paragraph(let first) = content.body.blocks.first,
               case .paragraph(let second) = content.body.blocks.dropFirst().first,
-              case .codeBlock(let code) = content.body.blocks.last else {
-            Issue.record("Expected two paragraphs and a code block")
+              case .preformattedText(let code) = content.body.blocks.last else {
+            Issue.record("Expected two paragraphs and a preformatted text block")
             return
         }
         #expect(first.plainText == "C(c) = 6c+1; (c), (C), (c)(c); ( c ), [c], (r), (tm), (a+b).")

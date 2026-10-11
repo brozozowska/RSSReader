@@ -56,7 +56,7 @@ struct ArticleScreenHTMLCommentRenderingTests {
             contentHTML: "<pre><!-- literal block --></pre><p><code><!-- literal inline --></code></p>"
         ))
         #expect(content.body.blocks == [
-            .codeBlock("<!-- literal block -->"),
+            .preformattedText("<!-- literal block -->"),
             .paragraph(ArticleScreenTextBlock(spans: [ArticleScreenTextSpan(text: "<!-- literal inline -->", isCode: true)]))
         ])
     }

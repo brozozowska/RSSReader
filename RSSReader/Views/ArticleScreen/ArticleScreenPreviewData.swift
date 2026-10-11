@@ -125,6 +125,39 @@ import SwiftUI
     }
 }
 
+#Preview("Code Blocks Compact", traits: .sizeThatFitsLayout) {
+    ArticleScreenCodeBlocksPreview().frame(width: 390, height: 800)
+}
+
+#Preview("Code Blocks RTL Accessibility", traits: .sizeThatFitsLayout) {
+    ArticleScreenCodeBlocksPreview()
+        .environment(\.layoutDirection, .rightToLeft)
+        .environment(\.locale, Locale(identifier: "ar"))
+        .environment(\.dynamicTypeSize, .accessibility3)
+        .frame(width: 390, height: 1000)
+}
+
+#Preview("Code Blocks CJK", traits: .sizeThatFitsLayout) {
+    ArticleScreenCodeBlocksPreview()
+        .environment(\.locale, Locale(identifier: "ja"))
+        .frame(width: 320, height: 800)
+}
+
+private struct ArticleScreenCodeBlocksPreview: View {
+    var body: some View {
+        ScrollView {
+            ReaderArticleContentView(
+                content: ArticleScreenContentState(article: ArticleScreenPreviewData.codeBlocksArticle),
+                actionHandlers: ArticleScreenActionHandlers(
+                    toggleReadStatus: {}, toggleStarredStatus: {},
+                    openSourceArticle: {}, bodyLinkTapped: { _ in }
+                )
+            )
+            .padding()
+        }
+    }
+}
+
 private struct ArticleScreenMarkPreview: View {
     var body: some View {
         ScrollView {
@@ -190,6 +223,30 @@ private struct ArticleScreenAdaptiveTablePreview: View {
 // MARK: - Preview Data
 
 private enum ArticleScreenPreviewData {
+    static var codeBlocksArticle: ReaderArticleDTO {
+        makeArticle(
+            title: "Code block layout", summary: nil,
+            contentText: """
+            <h3>Multiline code</h3>
+            <pre><code>    struct AccountView: ScreenView {
+                let viewModel: AccountViewModel
+                let message = "A long source line stays intact and can be read by scrolling horizontally."
+
+                func startup() async {
+                    await viewModel.onStartup()
+                }
+            }</code></pre>
+            <h3>Collapsed source</h3>
+            <pre><code>import SwiftUI import ScreenView struct AccountView: ScreenView { let viewModel: AccountViewModel var body: some View { TextField("Name", text: $viewModel.name) } }</code></pre>
+            <h3>Monospaced prose</h3>
+            <pre>Ordinary monospaced prose should still wrap naturally within the article width.
+            日本語の文章は画面の幅に合わせて折り返します。
+            نص عربي ضمن فقرة بخط ثابت العرض</pre>
+            <p>Inline <code>AccountViewModel</code> follows the paragraph.</p>
+            """
+        )
+    }
+
     static var duplicateAuthorArticle: ReaderArticleDTO {
         makeArticle(
             title: "Newsroom update",

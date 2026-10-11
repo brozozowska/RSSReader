@@ -25,6 +25,7 @@ struct ReaderView: View {
     @State private var hasTriggeredAdjacentArticleOverscrollReadyHaptic = false
     @State private var isLoadingAdjacentArticleContinuation = false
     @State private var interactionContainerWidth: CGFloat = 0
+    @State private var codeBlockInteractionFrames: [CGRect] = []
 
     init(
         articleID: UUID?,
@@ -155,6 +156,9 @@ struct ReaderView: View {
         } action: { newWidth in
             interactionContainerWidth = newWidth
         }
+        .onPreferenceChange(ReaderArticleCodeBlockFramesPreferenceKey.self) { frames in
+            codeBlockInteractionFrames = frames
+        }
         .simultaneousGesture(openSourceArticleGesture)
     }
 
@@ -270,7 +274,7 @@ struct ReaderView: View {
     }
 
     private var openSourceArticleGesture: some Gesture {
-        DragGesture(minimumDistance: 20)
+        DragGesture(minimumDistance: 20, coordinateSpace: .global)
             .onChanged { value in
                 handleOpenSourceArticleDragChange(value)
             }
@@ -283,7 +287,9 @@ struct ReaderView: View {
         let progress = ArticleScreenNavigationState.openSourceArticleSwipeProgress(
             layoutDirection: layoutDirection,
             containerWidth: interactionContainerWidth,
-            translation: value.translation
+            translation: value.translation,
+            startLocation: value.startLocation,
+            excludedSourceSwipeRegions: codeBlockInteractionFrames
         )
         guard progress > 0 else {
             sourceArticleSafariInteraction.cancel()
@@ -303,7 +309,9 @@ struct ReaderView: View {
         guard ArticleScreenNavigationState.shouldOpenSourceArticleOnDrag(
             layoutDirection: layoutDirection,
             containerWidth: interactionContainerWidth,
-            translation: value.translation
+            translation: value.translation,
+            startLocation: value.startLocation,
+            excludedSourceSwipeRegions: codeBlockInteractionFrames
         ) else {
             sourceArticleSafariInteraction.cancel()
             return

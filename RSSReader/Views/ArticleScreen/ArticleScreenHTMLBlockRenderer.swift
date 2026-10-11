@@ -258,11 +258,13 @@ extension ArticleScreenBodyPayloadRenderer {
             }
             return quotedBlocks.isEmpty ? [] : [.blockquote(quotedBlocks)]
         case "pre":
-            let codeHTML = leadingTagName(in: innerHTML.trimmingCharacters(in: .whitespacesAndNewlines)) == "code"
-                ? unwrapHTMLBlock(innerHTML.trimmingCharacters(in: .whitespacesAndNewlines)) : innerHTML
-            let codeText = ArticleScreenBodyPayloadNormalizer.decodeHTMLEntities(in: codeHTML)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            return codeText.isEmpty ? [] : [.codeBlock(codeText)]
+            let trimmedInnerHTML = innerHTML.trimmingCharacters(in: .whitespacesAndNewlines)
+            let isCode = trimmedInnerHTML.range(of: #"(?i)^<\s*code\b"#, options: .regularExpression) != nil
+            let literalHTML = isCode ? unwrapHTMLBlock(trimmedInnerHTML) : innerHTML
+            let literalText = ArticleScreenBodyPayloadNormalizer.decodeHTMLEntities(in: literalHTML)
+            guard literalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return [] }
+            // Preserve source whitespace, including the indentation of the first line.
+            return [isCode ? .codeBlock(literalText) : .preformattedText(literalText)]
         case "ul":
             return renderHTMLList(innerHTML, kind: .unordered, article: article)
         case "ol":
