@@ -89,7 +89,7 @@ struct ArticleListView: View {
             if derivedViewState.toolbarActions.showsMarkAllAsReadAction {
                 ToolbarItem(placement: .bottomBar) {
                     Button(action: handleMarkAllAsReadAction) {
-                        Image(systemName: "checkmark.circle.fill")
+                        ArticleStateSymbol(systemName: ArticleStateSymbols.markAllAsRead)
                     }
                     .disabled(allowsArticleActions == false || derivedViewState.toolbarActions.isMarkAllAsReadEnabled == false)
                     .accessibilityLabel(ReadingLocalization.markAllAsReadAccessibilityLabel)

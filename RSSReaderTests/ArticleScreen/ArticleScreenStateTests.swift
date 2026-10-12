@@ -5,6 +5,27 @@ import Testing
 @Suite("Article Screen / State")
 @MainActor
 struct ArticleScreenStateTests {
+    @Test(arguments: [false, true], [false, true])
+    func toolbarSymbolsAndAccessibilityDescribePersistedState(isRead: Bool, isStarred: Bool) {
+        let actions = ArticleScreenBottomActionsState(
+            article: makeReaderArticleDTO(isRead: isRead, isStarred: isStarred)
+        )
+
+        #expect(actions.readToggleSystemImage == (isRead ? "circle" : "circle.fill"))
+        #expect(actions.starSystemImage == (isStarred ? "star.fill" : "star"))
+        #expect(actions.readToggleTitle == (isRead ? ReadingLocalization.markUnreadAction : ReadingLocalization.markReadAction))
+        #expect(actions.starTitle == (isStarred ? ReadingLocalization.unstarAction : ReadingLocalization.starAction))
+        #expect(actions.readAccessibilityValue == (isRead ? ReadingLocalization.readState : ReadingLocalization.unreadState))
+        #expect(actions.starAccessibilityValue == (isStarred ? ReadingLocalization.starredState : ReadingLocalization.unstarredState))
+    }
+
+    @Test
+    func scopeSymbolsFollowArticleStateMeaning() {
+        #expect(ArticleStateSymbols.markAllAsRead == "circle")
+        #expect(SmartSidebarItem.unread.iconSystemName == "circle.fill")
+        #expect(SmartSidebarItem.starred.iconSystemName == "star.fill")
+    }
+
     @Test
     func articleScreenStateStartsWithNoSelectionPlaceholder() {
         let state = ArticleScreenState()
@@ -56,9 +77,9 @@ struct ArticleScreenStateTests {
         #expect(viewState.toolbarActions.isShareEnabled)
         #expect(viewState.toolbarActions.showsBottomActions)
         #expect(viewState.toolbarActions.bottomActions?.readToggleTitle == ReadingLocalization.markUnreadAction)
-        #expect(viewState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
+        #expect(viewState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
         #expect(viewState.toolbarActions.bottomActions?.starTitle == ReadingLocalization.unstarAction)
-        #expect(viewState.toolbarActions.bottomActions?.starSystemImage == "star.slash")
+        #expect(viewState.toolbarActions.bottomActions?.starSystemImage == "star.fill")
     }
 
     @Test

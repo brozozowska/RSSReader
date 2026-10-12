@@ -17,7 +17,7 @@ struct ArticleListRowView: View {
 
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     if article.isStarred {
-                        Image(systemName: "star.fill")
+                        Image(systemName: ArticleStateSymbols.starred(isStarred: article.isStarred))
                             .font(.caption2)
                             .foregroundStyle(metadataForegroundStyle)
                     }

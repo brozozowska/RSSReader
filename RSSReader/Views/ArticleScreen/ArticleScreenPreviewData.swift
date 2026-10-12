@@ -1,5 +1,42 @@
 import SwiftUI
 
+#Preview("State Toolbar: Unread / Not Starred") {
+    ArticleStateToolbarPreview(isRead: false, isStarred: false)
+}
+
+#Preview("State Toolbar: Read / Starred") {
+    ArticleStateToolbarPreview(isRead: true, isStarred: true)
+}
+
+private struct ArticleStateToolbarPreview: View {
+    @State var isRead: Bool
+    @State var isStarred: Bool
+
+    var body: some View {
+        let article = ArticleScreenPreviewData.longTitleArticle.updating(isRead: isRead, isStarred: isStarred)
+        NavigationStack {
+            VStack(spacing: 16) {
+                Text(isRead ? ReadingLocalization.readState : ReadingLocalization.unreadState)
+                Text(isStarred ? ReadingLocalization.starredState : ReadingLocalization.unstarredState)
+            }
+            .toolbar {
+                ReaderArticleToolbarContent(
+                    toolbarActions: ArticleScreenToolbarActionsState(article: article),
+                    adjacentNavigationControlsMode: .swipesOnly,
+                    previousArticleID: nil,
+                    canNavigateToNextArticle: false,
+                    actionHandlers: ArticleScreenActionHandlers(
+                        toggleReadStatus: { isRead.toggle() },
+                        toggleStarredStatus: { isStarred.toggle() },
+                        openSourceArticle: {}, bodyLinkTapped: { _ in }
+                    ),
+                    onPreviousArticleTap: {}, onNextArticleTap: {}
+                )
+            }
+        }
+    }
+}
+
 // MARK: - State Previews
 
 #Preview("No Selection") {

@@ -231,6 +231,26 @@ enum ReadingLocalization {
         defaultValue: "Untitled Article",
         comment: "Fallback article title when the feed item has no title."
     )
+    static let readState = String(
+        localized: "reading.article.state.read",
+        defaultValue: "Read",
+        comment: "VoiceOver value describing the current article as already read, not an action."
+    )
+    static let unreadState = String(
+        localized: "reading.article.state.unread",
+        defaultValue: "Unread",
+        comment: "VoiceOver value describing the current article as not yet read, not an action."
+    )
+    static let starredState = String(
+        localized: "reading.article.state.starred",
+        defaultValue: "Starred",
+        comment: "VoiceOver value describing the current article as in Starred, not an action."
+    )
+    static let unstarredState = String(
+        localized: "reading.article.state.unstarred",
+        defaultValue: "Not Starred",
+        comment: "VoiceOver value describing the current article as not in Starred, not an action."
+    )
     static let markReadAction = String(
         localized: "reading.article.action.markRead",
         defaultValue: "Mark Read",

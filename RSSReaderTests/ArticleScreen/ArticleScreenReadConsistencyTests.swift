@@ -29,7 +29,7 @@ struct ArticleScreenReadConsistencyTests {
         #expect(reader.screenState.article?.isRead == expectedIsRead)
         #expect(list.screenState.articles.first?.isRead == expectedIsRead)
         #expect(list.screenState.articleListSession.scopeMetric == ArticleScopeMetric(kind: .unread, count: expectedIsRead ? 0 : 1))
-        #expect(reader.screenState.toolbarActions.bottomActions?.readToggleSystemImage == (expectedIsRead ? "circle.slash" : "circle"))
+        #expect(reader.screenState.toolbarActions.bottomActions?.readToggleSystemImage == (expectedIsRead ? "circle" : "circle.fill"))
         #expect(list.visibleArticleIDs() == [article.id])
 
         await list.load(selection: .unread, sidebarArticleFilter: .allItems,

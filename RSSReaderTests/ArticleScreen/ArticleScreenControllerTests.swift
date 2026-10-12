@@ -75,7 +75,7 @@ struct ArticleScreenControllerTests {
         #expect(loadedArticle.isRead == true)
         #expect(recordedReadArticleIDs == [article.id])
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == ReadingLocalization.markUnreadAction)
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
 
         let persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -114,7 +114,7 @@ struct ArticleScreenControllerTests {
         #expect(loadedArticle.isRead == false)
         #expect(recordedReadArticleIDs.isEmpty)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == ReadingLocalization.markReadAction)
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.fill")
 
         let persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -214,7 +214,7 @@ struct ArticleScreenControllerTests {
         #expect(updatedArticle.isRead == false)
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == ReadingLocalization.markReadAction)
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.fill")
 
         var persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -230,7 +230,7 @@ struct ArticleScreenControllerTests {
         updatedArticle = try #require(controller.screenState.article)
         #expect(updatedArticle.isRead == true)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == ReadingLocalization.markUnreadAction)
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
 
         persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -261,7 +261,7 @@ struct ArticleScreenControllerTests {
         #expect(updatedArticle.isStarred == true)
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.toolbarActions.bottomActions?.starTitle == ReadingLocalization.unstarAction)
-        #expect(controller.screenState.toolbarActions.bottomActions?.starSystemImage == "star.slash")
+        #expect(controller.screenState.toolbarActions.bottomActions?.starSystemImage == "star.fill")
 
         var persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,

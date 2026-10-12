@@ -208,9 +208,9 @@ enum SmartSidebarItem: CaseIterable, Identifiable, Hashable {
         case .allItems:
             "tray.full"
         case .unread:
-            "circle"
+            ArticleStateSymbols.read(isRead: false)
         case .starred:
-            "star"
+            ArticleStateSymbols.starred(isStarred: true)
         }
     }
 

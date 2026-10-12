@@ -38,7 +38,7 @@ struct ArticleScreenStarredConsistencyTests {
         #expect(reader.screenState.article?.isStarred == !isStarred)
         #expect(reader.screenState.article?.contentHTML == originalBody)
         #expect(reader.screenState.phase == .loaded)
-        #expect(reader.screenState.toolbarActions.bottomActions?.starSystemImage == (!isStarred ? "star.slash" : "star"))
+        #expect(reader.screenState.toolbarActions.bottomActions?.starSystemImage == (!isStarred ? "star.fill" : "star"))
         #expect(list.screenState.articles.first?.isStarred == !isStarred)
         let persisted = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: article.feedID, articleExternalID: article.externalID
