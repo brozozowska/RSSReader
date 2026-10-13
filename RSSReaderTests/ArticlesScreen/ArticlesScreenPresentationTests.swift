@@ -49,14 +49,14 @@ struct ArticlesScreenPresentationTests {
         )
 
         #expect(unreadUnstarred.readActionTitle == ReadingLocalization.readAction)
-        #expect(unreadUnstarred.readActionSystemImage == "circle")
+        #expect(unreadUnstarred.readActionSystemImage == "circle.fill")
         #expect(unreadUnstarred.starActionTitle == ReadingLocalization.starAction)
         #expect(unreadUnstarred.starActionSystemImage == "star")
 
         #expect(readStarred.readActionTitle == ReadingLocalization.unreadAction)
-        #expect(readStarred.readActionSystemImage == "circle.slash")
+        #expect(readStarred.readActionSystemImage == "circle")
         #expect(readStarred.starActionTitle == ReadingLocalization.unstarAction)
-        #expect(readStarred.starActionSystemImage == "star.slash")
+        #expect(readStarred.starActionSystemImage == "star.fill")
     }
 
     @Test

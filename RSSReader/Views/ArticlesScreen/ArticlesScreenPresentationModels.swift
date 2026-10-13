@@ -330,9 +330,9 @@ struct ArticleRowSwipeActionsState: Equatable {
 
     init(article: ArticleListItemDTO) {
         self.readActionTitle = article.isRead ? ReadingLocalization.unreadAction : ReadingLocalization.readAction
-        self.readActionSystemImage = article.isRead ? "circle.slash" : "circle"
+        self.readActionSystemImage = ArticleStateSymbols.read(isRead: article.isRead)
         self.starActionTitle = article.isStarred ? ReadingLocalization.unstarAction : ReadingLocalization.starAction
-        self.starActionSystemImage = article.isStarred ? "star.slash" : "star"
+        self.starActionSystemImage = ArticleStateSymbols.starred(isStarred: article.isStarred)
     }
 }
 

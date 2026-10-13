@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ArticleListContentView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
@@ -181,12 +182,15 @@ struct ArticleListContentView: View {
                 toggleReadStatusAction(article)
             }
         } label: {
-            Label(
-                swipeActionsState.readActionTitle,
-                systemImage: swipeActionsState.readActionSystemImage
-            )
+            Label {
+                Text(swipeActionsState.readActionTitle)
+            } icon: {
+                swipeActionImage(systemName: swipeActionsState.readActionSystemImage)
+            }
         }
-        .tint(.gray)
+        .labelStyle(.iconOnly)
+        .tint(.clear)
+        .accessibilityLabel(swipeActionsState.readActionTitle)
     }
 
     @ViewBuilder
@@ -198,9 +202,25 @@ struct ArticleListContentView: View {
                 toggleStarredAction(article)
             }
         } label: {
-            Label(swipeActionsState.starActionTitle, systemImage: swipeActionsState.starActionSystemImage)
+            Label {
+                Text(swipeActionsState.starActionTitle)
+            } icon: {
+                swipeActionImage(systemName: swipeActionsState.starActionSystemImage)
+            }
         }
-        .tint(.gray)
+        .labelStyle(.iconOnly)
+        .tint(.clear)
+        .accessibilityLabel(swipeActionsState.starActionTitle)
+    }
+
+    @ViewBuilder
+    private func swipeActionImage(systemName: String) -> some View {
+        let color: UIColor = appThemeVariant == .light ? .black : .white
+        if let image = UIImage(systemName: systemName) {
+            Image(uiImage: image.withTintColor(color, renderingMode: .alwaysOriginal))
+                .renderingMode(.original)
+                .environment(\.symbolVariants, .none)
+        }
     }
 }
 
