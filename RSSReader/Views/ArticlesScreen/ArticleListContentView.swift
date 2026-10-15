@@ -29,8 +29,6 @@ struct ArticleListContentView: View {
                 .ignoresSafeArea()
 
             articleList
-
-            AppRefreshOverlay(state: customRefreshState.indicatorState)
         }
     }
 

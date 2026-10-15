@@ -6,6 +6,59 @@ import Testing
 @MainActor
 struct ArticlesScreenStateRefreshTests {
     @Test
+    func synchronizationSubtitleSpansFeedRefreshAndCountReload() {
+        var state = ArticlesScreenState()
+        let context = ArticleListSession.Context(selection: .unread, sidebarArticleFilter: .allItems)
+        let oldSubtitle = ReadingLocalization.unreadItemsSubtitle(count: 5)
+        let newSubtitle = ReadingLocalization.unreadItemsSubtitle(count: 7)
+        state.applyLoadedArticles([], selection: .unread, navigationTitle: "Unread",
+                                  navigationSubtitle: oldSubtitle, sessionContext: context)
+        state.updateCustomRefreshPullProgress(0.5)
+        #expect(state.derivedViewState().navigationChrome.subtitle == oldSubtitle)
+        state.updateCustomRefreshPullProgress(1)
+        #expect(state.derivedViewState().navigationChrome.subtitle == oldSubtitle)
+
+        let id = state.beginFeedRefresh()
+        #expect(state.derivedViewState().navigationChrome.subtitle == RuntimeFeedbackLocalization.syncingStatusTitle)
+        state.beginLoading(for: .unread, navigationTitle: "Unread", navigationSubtitle: oldSubtitle,
+                           resetsContent: false, sessionContext: context)
+        #expect(state.derivedViewState().navigationChrome.subtitle == RuntimeFeedbackLocalization.syncingStatusTitle)
+        state.applyLoadedArticles([], selection: .unread, navigationTitle: "Unread",
+                                  navigationSubtitle: newSubtitle, sessionContext: context)
+        #expect(state.navigationSubtitle == newSubtitle)
+        #expect(state.derivedViewState().navigationChrome.subtitle == RuntimeFeedbackLocalization.syncingStatusTitle)
+        state.endFeedRefresh(ifMatching: id)
+        #expect(state.derivedViewState().navigationChrome.subtitle == newSubtitle)
+    }
+
+    @Test
+    func staleFeedRefreshCompletionCannotReplaceNewSynchronizationSubtitle() {
+        var state = ArticlesScreenState()
+        state.applyLoadedArticles([], selection: .unread, navigationTitle: "Unread", navigationSubtitle: "5")
+        let oldID = state.beginFeedRefresh()
+        state.endPresentation()
+        #expect(state.isRefreshingFeeds == false)
+        state.applyLoadedArticles([], selection: .unread, navigationTitle: "Unread", navigationSubtitle: "7")
+        let currentID = state.beginFeedRefresh()
+        state.endFeedRefresh(ifMatching: oldID)
+        #expect(state.derivedViewState().navigationChrome.subtitle == RuntimeFeedbackLocalization.syncingStatusTitle)
+        state.endFeedRefresh(ifMatching: currentID)
+        #expect(state.derivedViewState().navigationChrome.subtitle == "7")
+    }
+
+    @Test
+    func failedFeedRefreshRestoresCountAndKeepsFailureBanner() {
+        var state = ArticlesScreenState()
+        let subtitle = ReadingLocalization.unreadItemsSubtitle(count: 5)
+        state.applyLoadedArticles([], selection: .unread, navigationTitle: "Unread", navigationSubtitle: subtitle)
+        let id = state.beginFeedRefresh()
+        state.presentRefreshFailure("Refresh failed")
+        state.endFeedRefresh(ifMatching: id)
+        #expect(state.derivedViewState().navigationChrome.subtitle == subtitle)
+        #expect(state.derivedViewState().refreshBanner?.message == "Refresh failed")
+    }
+
+    @Test
     func articlesScreenStateKeepsVisibleArticlesWhenRefreshFails() {
         var state = ArticlesScreenState()
         let unreadItem = makeArticleListItemDTO(isRead: false, isStarred: false)

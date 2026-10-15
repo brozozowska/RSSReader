@@ -67,7 +67,7 @@ struct FeedManagementAddFeedView: View {
                         text: displayNameBinding,
                         prompt: Text(FeedManagementLocalization.displayNamePlaceholder)
                     )
-                    .textInputAutocapitalization(.sentences)
+                    .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .focused($focusedField, equals: .displayName)
                     .submitLabel(.done)

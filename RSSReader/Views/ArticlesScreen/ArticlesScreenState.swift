@@ -8,6 +8,10 @@ struct ArticlesScreenState {
     private(set) var phase: ArticlesScreenPhase = .noSelection
     private(set) var refreshState: ArticlesScreenRefreshState = .idle
     private var customRefreshID: UUID?
+    private var feedRefreshID: UUID?
+
+    var isRefreshingFeeds: Bool { feedRefreshID != nil }
+
     private(set) var customRefreshState: ArticlesScreenCustomRefreshState = .idle {
         didSet {
             if customRefreshState.phase != .refreshing { customRefreshID = nil }
@@ -28,6 +32,7 @@ struct ArticlesScreenState {
         pendingConfirmation = nil
         isLoadingNextPage = false
         pendingSearchContext = context
+        feedRefreshID = nil
         // Keep the committed context with its rows, placeholder, cursor and chrome.
         // A fresh identity invalidates events captured before the query edit.
         articleListSession.startNewSession(
@@ -124,6 +129,10 @@ struct ArticlesScreenState {
             sessionContext: sessionContext
         )
 
+        if selection == nil || resolvedSessionContext != articleListSession.context {
+            feedRefreshID = nil
+        }
+
         if startsNewSession {
             articleListSession.startNewSession(
                 context: resolvedSessionContext,
@@ -201,6 +210,7 @@ struct ArticlesScreenState {
         scopeMetric: ArticleScopeMetric? = nil
     ) {
         let context = resolvedContext(selection: selection, sessionContext: sessionContext)
+        if context != articleListSession.context { feedRefreshID = nil }
         if pendingSearchContext == context, canPresentSearchTransition(to: context) {
             listAnimationState.prepareForSearchTransition()
         } else if hasPresentedSnapshot, selection != nil, context == articleListSession.context {
@@ -406,6 +416,18 @@ struct ArticlesScreenState {
         }
 
         updateToolbarActions(for: selection)
+    }
+
+    @discardableResult
+    mutating func beginFeedRefresh() -> UUID {
+        let id = UUID()
+        feedRefreshID = id
+        return id
+    }
+
+    mutating func endFeedRefresh(ifMatching id: UUID) {
+        guard feedRefreshID == id else { return }
+        feedRefreshID = nil
     }
 
     mutating func updateCustomRefreshPullProgress(_ progress: Double) {

@@ -23,7 +23,9 @@ extension ArticlesScreenState {
             navigationChrome: ArticlesScreenNavigationChromeState(
                 sessionContext: articleListSession.context,
                 title: navigationTitle,
-                subtitle: navigationSubtitle
+                subtitle: isRefreshingFeeds
+                    ? RuntimeFeedbackLocalization.syncingStatusTitle
+                    : navigationSubtitle
             ),
             toolbarActions: toolbarActions,
             searchPlaceholder: searchPlaceholder(

@@ -29,25 +29,6 @@ enum AppRefreshIndicatorState: Equatable {
     }
 }
 
-/// Shared list overlay; its visibility never inserts rows or changes scroll insets.
-struct AppRefreshOverlay: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    let state: AppRefreshIndicatorState
-
-    var body: some View {
-        if state.isVisible {
-            VStack {
-                AppRefreshIndicator(state: state, size: 24, lineWidth: 2.5)
-                    .padding(.top, 14)
-                Spacer()
-            }
-            .allowsHitTesting(false)
-            .transition(reduceMotion ? .identity : .opacity)
-        }
-    }
-}
-
 struct AppRefreshIndicator: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 

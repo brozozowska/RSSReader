@@ -24,23 +24,20 @@ struct SidebarView: View {
             iCloudSyncStatus: appState.iCloudSyncStatus
         )
 
-        ZStack {
-            SidebarContentList(
-                selection: $selection,
-                viewState: viewState,
-                customRefreshState: controller.screenState.customRefreshState,
-                appThemeVariant: appThemeVariant,
-                actionHandlers: actionHandlers,
-                onFolderExpansionToggle: toggleFolderExpansion,
-                onCustomRefreshPullProgressChange: updateCustomRefreshPullProgress,
-                onCustomRefreshRelease: triggerCustomRefreshFromScrollRelease
-            )
-
-            AppRefreshOverlay(state: controller.screenState.customRefreshState.indicatorState)
-        }
+        SidebarContentList(
+            selection: $selection,
+            viewState: viewState,
+            customRefreshState: controller.screenState.customRefreshState,
+            appThemeVariant: appThemeVariant,
+            actionHandlers: actionHandlers,
+            onFolderExpansionToggle: toggleFolderExpansion,
+            onCustomRefreshPullProgressChange: updateCustomRefreshPullProgress,
+            onCustomRefreshRelease: triggerCustomRefreshFromScrollRelease
+        )
         .appListNavigationBar(
             title: SidebarLocalization.title,
-            subtitle: viewState.toolbarState.subtitle
+            subtitle: viewState.toolbarState.subtitle,
+            refreshState: controller.screenState.customRefreshState.indicatorState
         )
         .toolbar {
             SidebarToolbarContent(

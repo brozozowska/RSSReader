@@ -6,6 +6,89 @@ import Testing
 @Suite("Articles Screen / Controller / Refresh Feedback")
 @MainActor
 struct ArticlesScreenControllerRefreshFeedbackTests {
+    @Test(arguments: [304, 500])
+    func synchronizationSubtitleCoversNetworkAndPostRefreshQuery(statusCode: Int) async throws {
+        let url = "https://example.com/subtitle-refresh.xml"
+        let networkGate = ScriptedHTTPClientResponseGate()
+        let queryGate = ScriptedHTTPClientResponseGate()
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient(responsesByURL: [
+            url: .gatedResponse(statusCode: statusCode, headers: [:], body: "", gate: networkGate)
+        ]))
+        let feed = try #require(try harness.insertFeeds(urls: [url]).first)
+        _ = try harness.insertArticle(feed: feed, externalID: "a", url: "https://example.com/a", title: "Article")
+        var queries = 0
+        let controller = ArticlesScreenController(searchQueryOperation: { request, service in
+            queries += 1
+            if queries > 1 { try await queryGate.enterAndWaitForRelease() }
+            return try await service.fetchArticleSearchSnapshot(request)
+        })
+        let appState = AppState()
+        await controller.load(selection: .unread, sidebarArticleFilter: .allItems, dependencies: harness.dependencies)
+        let initialSubtitle = controller.screenState.navigationSubtitle
+        let task = Task { @MainActor in
+            await controller.refreshCurrentSelection(
+                selection: .unread, sidebarArticleFilter: .allItems,
+                dependencies: harness.dependencies, appState: appState,
+                requestsArticleListReload: false, reloadsSnapshotOnSuccess: true
+            )
+        }
+        do {
+            try await waitForArticlesRefreshCondition("subtitle network refresh") { await networkGate.hasEntered() }
+            #expect(controller.screenState.derivedViewState().navigationChrome.subtitle == RuntimeFeedbackLocalization.syncingStatusTitle)
+            await networkGate.release()
+            if statusCode == 304 {
+                try await waitForArticlesRefreshCondition("subtitle count reload") { await queryGate.hasEntered() }
+                #expect(controller.screenState.derivedViewState().navigationChrome.subtitle == RuntimeFeedbackLocalization.syncingStatusTitle)
+            }
+        } catch {
+            task.cancel()
+            await networkGate.release()
+            await queryGate.release()
+            _ = await task.value
+            throw error
+        }
+        await queryGate.release()
+        _ = await task.value
+        #expect(controller.screenState.isRefreshingFeeds == false)
+        #expect(controller.screenState.derivedViewState().navigationChrome.subtitle == initialSubtitle)
+        #expect((controller.screenState.refreshFeedback != nil) == (statusCode == 500))
+    }
+
+    @Test
+    func cancelledFeedRefreshRestoresCountSubtitle() async throws {
+        let url = "https://example.com/cancelled-subtitle-refresh.xml"
+        let gate = ScriptedHTTPClientResponseGate()
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient(responsesByURL: [
+            url: .gatedResponse(statusCode: 304, headers: [:], body: "", gate: gate)
+        ]))
+        _ = try harness.insertFeeds(urls: [url])
+        let controller = ArticlesScreenController()
+        let appState = AppState()
+        await controller.load(selection: .inbox, sidebarArticleFilter: .allItems, dependencies: harness.dependencies)
+        let initialSubtitle = controller.screenState.navigationSubtitle
+        let task = Task { @MainActor in
+            await controller.refreshCurrentSelection(
+                selection: .inbox, sidebarArticleFilter: .allItems,
+                dependencies: harness.dependencies, appState: appState,
+                requestsArticleListReload: false, reloadsSnapshotOnSuccess: true
+            )
+        }
+        do {
+            try await waitForArticlesRefreshCondition("cancelled subtitle request") { await gate.hasEntered() }
+            #expect(controller.screenState.derivedViewState().navigationChrome.subtitle == RuntimeFeedbackLocalization.syncingStatusTitle)
+        } catch {
+            task.cancel()
+            await gate.release()
+            _ = await task.value
+            throw error
+        }
+        task.cancel()
+        await gate.release()
+        _ = await task.value
+        #expect(controller.screenState.isRefreshingFeeds == false)
+        #expect(controller.screenState.derivedViewState().navigationChrome.subtitle == initialSubtitle)
+    }
+
     @Test
     func failedManualRefreshKeepsReadRowAndSuccessfulRetryAnimatesItsRemoval() async throws {
         let url = "https://example.com/animated-refresh.xml"

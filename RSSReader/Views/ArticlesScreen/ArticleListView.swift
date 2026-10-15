@@ -68,7 +68,8 @@ struct ArticleListView: View {
         )
         .appListNavigationBar(
             title: derivedViewState.navigationChrome.title,
-            subtitle: derivedViewState.navigationChrome.subtitle
+            subtitle: derivedViewState.navigationChrome.subtitle,
+            refreshState: derivedViewState.customRefreshState.indicatorState
         )
         .applySearchableToolbar(
             isEnabled: searchLifecycleState.keepsSearchUIAttached,

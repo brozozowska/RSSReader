@@ -667,6 +667,8 @@ final class ArticlesScreenController {
         }
 
         screenState.dismissRefreshFeedback()
+        let feedRefreshID = screenState.beginFeedRefresh()
+        defer { screenState.endFeedRefresh(ifMatching: feedRefreshID) }
         manualRefreshGeneration += 1
         let currentRefreshGeneration = manualRefreshGeneration
         let currentSessionID = currentArticleListSessionID
