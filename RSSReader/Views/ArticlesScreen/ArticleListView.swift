@@ -66,7 +66,10 @@ struct ArticleListView: View {
             toggleStarredAction: toggleStarredState,
             scrollInteractionBegan: { isSearchFocused = false }
         )
-        .toolbarTitleDisplayMode(.inline)
+        .appListNavigationBar(
+            title: derivedViewState.navigationChrome.title,
+            subtitle: derivedViewState.navigationChrome.subtitle
+        )
         .applySearchableToolbar(
             isEnabled: searchLifecycleState.keepsSearchUIAttached,
             text: searchTextBinding,
@@ -82,10 +85,6 @@ struct ArticleListView: View {
             )
         }
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                navigationChromeView(derivedViewState.navigationChrome)
-            }
-
             if derivedViewState.toolbarActions.showsMarkAllAsReadAction {
                 ToolbarItem(placement: .bottomBar) {
                     Button(action: handleMarkAllAsReadAction) {
@@ -269,33 +268,6 @@ struct ArticleListView: View {
             sidebarArticleFilter: selectedSidebarArticleFilter,
             articleListSessionID: controller.currentArticleListSessionID
         )
-    }
-
-    private func navigationChromeView(
-        _ navigationChrome: ArticlesScreenNavigationChromeState
-    ) -> some View {
-        VStack(spacing: 0) {
-            Text(navigationChrome.title)
-                .font(.headline)
-                .foregroundStyle(.primary)
-                .frame(maxWidth: .infinity, alignment: .center)
-
-            Text(navigationChrome.subtitle.isEmpty ? " " : navigationChrome.subtitle)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .opacity(navigationChrome.subtitle.isEmpty ? 0 : 1)
-                .frame(maxWidth: .infinity, alignment: .center)
-        }
-        .lineLimit(1)
-        .minimumScaleFactor(0.8)
-        .multilineTextAlignment(.center)
-        .frame(width: 240, height: 44, alignment: .center)
-        .fixedSize(horizontal: true, vertical: false)
-        .contentTransition(.identity)
-        .accessibilityElement(children: .combine)
-        .transaction { transaction in
-            transaction.animation = nil
-        }
     }
 
     private var articleListScrollPositionBinding: Binding<UUID?> {
@@ -558,12 +530,15 @@ struct ArticleListView: View {
 
     @MainActor
     private func triggerCustomRefresh() async {
-        guard isPreviewMode == false, allowsArticleActions else { return }
         guard controller.screenState.customRefreshState.phase == .ready else { return }
-
-        controller.screenState.beginCustomRefresh()
-        defer {
+        guard isPreviewMode == false, allowsArticleActions else {
             controller.screenState.endCustomRefresh()
+            return
+        }
+
+        let refreshID = controller.screenState.beginCustomRefresh()
+        defer {
+            controller.screenState.endCustomRefresh(ifMatching: refreshID)
         }
 
         await refreshCurrentSelection()

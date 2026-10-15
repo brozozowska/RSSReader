@@ -55,6 +55,21 @@ struct SidebarScreenStateTests {
     }
 
     @Test
+    func staleRefreshCompletionCannotHideNewOperationOrNewPull() {
+        var state = SidebarScreenState()
+        let oldID = state.beginCustomRefresh()
+        state.endCustomRefresh()
+        state.updateCustomRefreshPullProgress(0.5)
+        state.endCustomRefresh(ifMatching: oldID)
+        #expect(state.customRefreshState == .pulling(progress: 0.5))
+        let currentID = state.beginCustomRefresh()
+        state.endCustomRefresh(ifMatching: oldID)
+        #expect(state.customRefreshState == .refreshing)
+        state.endCustomRefresh(ifMatching: currentID)
+        #expect(state.customRefreshState == .idle)
+    }
+
+    @Test
     func sidebarScreenStateBuildsLoadedDerivedViewStateFromSnapshot() {
         let feed = Feed(
             id: UUID(),

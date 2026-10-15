@@ -7,7 +7,12 @@ struct ArticlesScreenState {
     private(set) var navigationSubtitle = ReadingLocalization.noUnreadItemsSubtitle
     private(set) var phase: ArticlesScreenPhase = .noSelection
     private(set) var refreshState: ArticlesScreenRefreshState = .idle
-    private(set) var customRefreshState: ArticlesScreenCustomRefreshState = .idle
+    private var customRefreshID: UUID?
+    private(set) var customRefreshState: ArticlesScreenCustomRefreshState = .idle {
+        didSet {
+            if customRefreshState.phase != .refreshing { customRefreshID = nil }
+        }
+    }
     private(set) var refreshFeedback: ArticlesScreenRefreshFeedback?
     private(set) var emptyContentKind: ArticlesScreenEmptyContentKind = .selection
     private(set) var listAnimationState = ArticleListAnimationState()
@@ -408,11 +413,16 @@ struct ArticlesScreenState {
         customRefreshState = .pulling(progress: progress)
     }
 
-    mutating func beginCustomRefresh() {
+    @discardableResult
+    mutating func beginCustomRefresh() -> UUID {
+        let refreshID = UUID()
         customRefreshState = .refreshing
+        customRefreshID = refreshID
+        return refreshID
     }
 
-    mutating func endCustomRefresh() {
+    mutating func endCustomRefresh(ifMatching refreshID: UUID? = nil) {
+        if let refreshID, refreshID != customRefreshID { return }
         customRefreshState = .idle
     }
 

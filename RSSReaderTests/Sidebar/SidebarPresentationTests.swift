@@ -236,45 +236,6 @@ struct SidebarPresentationTests {
     }
 
     @Test
-    func sidebarCustomRefreshPoliciesMapOverscrollAndReleaseToRefresh() {
-        let partialPullGeometry = SidebarCustomRefreshGeometry(
-            contentOffsetY: -48,
-            contentInsetTop: 12
-        )
-        let readyPullGeometry = SidebarCustomRefreshGeometry(
-            contentOffsetY: -120,
-            contentInsetTop: 12
-        )
-
-        #expect(
-            SidebarCustomRefreshPullPolicy.progress(
-                for: partialPullGeometry,
-                threshold: 72
-            ) == 0.5
-        )
-        #expect(
-            SidebarCustomRefreshPullPolicy.progress(
-                for: readyPullGeometry,
-                threshold: 72
-            ) == 1
-        )
-        #expect(
-            SidebarCustomRefreshReleasePolicy.shouldTriggerRefresh(
-                wasInteracting: true,
-                isInteracting: false,
-                customRefreshState: .pulling(progress: 1)
-            )
-        )
-        #expect(
-            SidebarCustomRefreshReleasePolicy.shouldTriggerRefresh(
-                wasInteracting: true,
-                isInteracting: false,
-                customRefreshState: .pulling(progress: 0.5)
-            ) == false
-        )
-    }
-
-    @Test
     func sidebarToolbarStateUsesRuntimeFailureStatusForShellToolbar() {
         let refreshDate = Calendar.current.date(byAdding: .hour, value: -2, to: Date()) ?? Date()
         let state = SidebarToolbarState(

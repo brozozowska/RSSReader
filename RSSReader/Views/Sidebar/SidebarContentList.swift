@@ -29,25 +29,13 @@ struct SidebarContentList: View {
             accessibilityReduceMotion ? nil : .snappy(duration: 0.24),
             value: SidebarVisibleContentIdentity(viewState: viewState)
         )
-        .onScrollGeometryChange(for: SidebarCustomRefreshGeometry.self) { geometry in
-            SidebarCustomRefreshGeometry(
-                contentOffsetY: geometry.contentOffset.y,
-                contentInsetTop: geometry.contentInsets.top
+        .background {
+            AppRefreshScrollGestureBridge(
+                isEnabled: viewState.shouldDisableScrolling == false,
+                isRefreshing: customRefreshState.phase == .refreshing,
+                pullProgressChanged: onCustomRefreshPullProgressChange,
+                releaseAction: onCustomRefreshRelease
             )
-        } action: { _, newGeometry in
-            let progress = SidebarCustomRefreshPullPolicy.progress(for: newGeometry)
-            onCustomRefreshPullProgressChange(progress)
-        }
-        .onScrollPhaseChange { oldPhase, newPhase, _ in
-            guard SidebarCustomRefreshReleasePolicy.shouldTriggerRefresh(
-                wasInteracting: oldPhase == .interacting,
-                isInteracting: newPhase == .interacting,
-                customRefreshState: customRefreshState
-            ) else {
-                return
-            }
-
-            onCustomRefreshRelease()
         }
     }
 }

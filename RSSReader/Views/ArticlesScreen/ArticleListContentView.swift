@@ -20,6 +20,8 @@ struct ArticleListContentView: View {
     var scrollInteractionBegan: @MainActor () -> Void = {}
     @State private var latestPaginationGeometry = ArticleListPaginationGeometry()
     @State private var hasUserDrivenScrollDemand = false
+    @State private var isOverscrollingTop = false
+    @State private var isScrollInteracting = false
 
     var body: some View {
         ZStack {
@@ -28,7 +30,7 @@ struct ArticleListContentView: View {
 
             articleList
 
-            customRefreshIndicator
+            AppRefreshOverlay(state: customRefreshState.indicatorState)
         }
     }
 
@@ -53,10 +55,7 @@ struct ArticleListContentView: View {
         }
         .onScrollGeometryChange(for: ArticleListScrollObservation.self) { geometry in
             ArticleListScrollObservation(
-                refreshGeometry: ArticleListCustomRefreshGeometry(
-                    contentOffsetY: geometry.contentOffset.y,
-                    contentInsetTop: geometry.contentInsets.top
-                ),
+                offsetFromTop: geometry.contentOffset.y + geometry.contentInsets.top,
                 paginationGeometry: ArticleListPaginationGeometry(
                     contentHeight: geometry.contentSize.height,
                     visibleMaxY: geometry.visibleRect.maxY
@@ -64,27 +63,20 @@ struct ArticleListContentView: View {
             )
         } action: { _, newObservation in
             latestPaginationGeometry = newObservation.paginationGeometry
-            let progress = ArticleListCustomRefreshPullPolicy.progress(
-                for: newObservation.refreshGeometry
-            )
-            customRefreshPullProgressChanged(progress)
-            requestNextPageIfNeeded()
-        }
-        .onScrollPhaseChange { oldPhase, newPhase, _ in
-            if newPhase == .interacting {
-                scrollInteractionBegan()
-            }
-            if newPhase == .tracking || newPhase == .interacting {
+            isOverscrollingTop = newObservation.offsetFromTop < 0
+            if isOverscrollingTop {
+                hasUserDrivenScrollDemand = false
+            } else if isScrollInteracting && newObservation.offsetFromTop > 0 {
                 hasUserDrivenScrollDemand = true
             }
-
-            if ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
-                wasInteracting: oldPhase == .interacting,
-                isInteracting: newPhase == .interacting,
-                customRefreshState: customRefreshState
-            ) {
-                Task {
-                    await customRefreshReleaseAction()
+            requestNextPageIfNeeded()
+        }
+        .onScrollPhaseChange { _, newPhase, context in
+            isScrollInteracting = newPhase == .interacting
+            if isScrollInteracting {
+                scrollInteractionBegan()
+                if context.geometry.contentOffset.y + context.geometry.contentInsets.top > 0 {
+                    hasUserDrivenScrollDemand = true
                 }
             }
 
@@ -93,7 +85,20 @@ struct ArticleListContentView: View {
                 hasUserDrivenScrollDemand = false
             }
         }
+        .background {
+            AppRefreshScrollGestureBridge(
+                isEnabled: allowsArticleActions,
+                isRefreshing: customRefreshState.phase == .refreshing,
+                pullProgressChanged: customRefreshPullProgressChanged,
+                releaseAction: {
+                    Task {
+                        await customRefreshReleaseAction()
+                    }
+                }
+            )
+        }
         .onDisappear {
+            isScrollInteracting = false
             hasUserDrivenScrollDemand = false
         }
     }
@@ -131,7 +136,8 @@ struct ArticleListContentView: View {
         guard ArticleListPaginationPrefetchPolicy.shouldRequestNextPage(
             geometry: latestPaginationGeometry,
             hasUserDrivenScrollDemand: hasUserDrivenScrollDemand,
-            canLoadNextPage: canLoadNextPage
+            canLoadNextPage: canLoadNextPage,
+            isRefreshInteractionActive: isOverscrollingTop || customRefreshState.showsIndicator
         ) else {
             return
         }
@@ -152,24 +158,6 @@ struct ArticleListContentView: View {
             }
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
-        }
-    }
-
-    @ViewBuilder
-    private var customRefreshIndicator: some View {
-        if customRefreshState.showsIndicator {
-            VStack {
-                AppRefreshIndicator(
-                    state: customRefreshState.indicatorState,
-                    size: 24,
-                    lineWidth: 2.5
-                )
-                .padding(.top, 14)
-
-                Spacer()
-            }
-            .allowsHitTesting(false)
-            .transition(.opacity)
         }
     }
 
@@ -225,6 +213,6 @@ struct ArticleListContentView: View {
 }
 
 private struct ArticleListScrollObservation: Equatable {
-    let refreshGeometry: ArticleListCustomRefreshGeometry
+    let offsetFromTop: CGFloat
     let paginationGeometry: ArticleListPaginationGeometry
 }

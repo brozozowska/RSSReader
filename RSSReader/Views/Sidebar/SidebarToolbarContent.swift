@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct SidebarToolbarContent: ToolbarContent {
-    let toolbarState: SidebarToolbarState
     let selectedSidebarArticleFilter: SidebarArticleFilter
     let actionHandlers: SidebarActionHandlers
 
@@ -11,19 +10,6 @@ struct SidebarToolbarContent: ToolbarContent {
                 Image(systemName: "gearshape")
             }
             .accessibilityLabel(SidebarLocalization.settingsAccessibilityLabel)
-        }
-
-        ToolbarItem(placement: SidebarToolbarPlacement.title) {
-            Text(SidebarLocalization.title)
-                .font(.title3.weight(.semibold))
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-
-        ToolbarItem(placement: SidebarToolbarPlacement.subtitle) {
-            Text(toolbarState.subtitle)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
 
         ToolbarItem(placement: SidebarToolbarPlacement.addFeed) {

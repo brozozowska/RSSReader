@@ -76,43 +76,6 @@ struct SidebarCustomRefreshState: Equatable {
     }
 }
 
-struct SidebarCustomRefreshGeometry: Equatable {
-    var contentOffsetY: CGFloat
-    var contentInsetTop: CGFloat
-
-    init(contentOffsetY: CGFloat = 0, contentInsetTop: CGFloat = 0) {
-        self.contentOffsetY = contentOffsetY
-        self.contentInsetTop = contentInsetTop
-    }
-
-    var topOverscrollDistance: CGFloat {
-        max(0, -(contentOffsetY + contentInsetTop))
-    }
-}
-
-enum SidebarCustomRefreshPullPolicy {
-    static let pullThreshold: CGFloat = 72
-
-    static func progress(
-        for geometry: SidebarCustomRefreshGeometry,
-        threshold: CGFloat = pullThreshold
-    ) -> Double {
-        guard threshold > 0 else { return 0 }
-
-        return min(Double(geometry.topOverscrollDistance / threshold), 1)
-    }
-}
-
-enum SidebarCustomRefreshReleasePolicy {
-    static func shouldTriggerRefresh(
-        wasInteracting: Bool,
-        isInteracting: Bool,
-        customRefreshState: SidebarCustomRefreshState
-    ) -> Bool {
-        wasInteracting && isInteracting == false && customRefreshState.phase == .ready
-    }
-}
-
 struct SidebarScreenPrimaryLoadingState: Equatable {
     let title: String
 }

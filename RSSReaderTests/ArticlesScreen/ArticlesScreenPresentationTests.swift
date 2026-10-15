@@ -231,73 +231,6 @@ struct ArticlesScreenPresentationTests {
     }
 
     @Test
-    func articleListCustomRefreshPullPolicyMapsTopOverscrollToProgress() {
-        let restingGeometry = ArticleListCustomRefreshGeometry(
-            contentOffsetY: -12,
-            contentInsetTop: 12
-        )
-        let partialPullGeometry = ArticleListCustomRefreshGeometry(
-            contentOffsetY: -48,
-            contentInsetTop: 12
-        )
-        let readyPullGeometry = ArticleListCustomRefreshGeometry(
-            contentOffsetY: -120,
-            contentInsetTop: 12
-        )
-
-        #expect(
-            ArticleListCustomRefreshPullPolicy.progress(
-                for: restingGeometry,
-                threshold: 72
-            ) == 0
-        )
-        #expect(
-            ArticleListCustomRefreshPullPolicy.progress(
-                for: partialPullGeometry,
-                threshold: 72
-            ) == 0.5
-        )
-        #expect(
-            ArticleListCustomRefreshPullPolicy.progress(
-                for: readyPullGeometry,
-                threshold: 72
-            ) == 1
-        )
-    }
-
-    @Test
-    func articleListCustomRefreshReleasePolicyTriggersOnlyWhenReadyPullIsReleased() {
-        #expect(
-            ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
-                wasInteracting: true,
-                isInteracting: false,
-                customRefreshState: .pulling(progress: 1)
-            )
-        )
-        #expect(
-            ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
-                wasInteracting: true,
-                isInteracting: false,
-                customRefreshState: .pulling(progress: 0.5)
-            ) == false
-        )
-        #expect(
-            ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
-                wasInteracting: false,
-                isInteracting: false,
-                customRefreshState: .pulling(progress: 1)
-            ) == false
-        )
-        #expect(
-            ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
-                wasInteracting: true,
-                isInteracting: true,
-                customRefreshState: .pulling(progress: 1)
-            ) == false
-        )
-    }
-
-    @Test
     func articleListPaginationPrefetchRequiresUserDemandNearListEnd() {
         let nearEndGeometry = ArticleListPaginationGeometry(
             contentHeight: 5_000,
@@ -306,6 +239,15 @@ struct ArticlesScreenPresentationTests {
         let farFromEndGeometry = ArticleListPaginationGeometry(
             contentHeight: 5_000,
             visibleMaxY: 3_000
+        )
+
+        #expect(
+            ArticleListPaginationPrefetchPolicy.shouldRequestNextPage(
+                geometry: nearEndGeometry,
+                hasUserDrivenScrollDemand: true,
+                canLoadNextPage: true,
+                isRefreshInteractionActive: true
+            ) == false
         )
 
         #expect(

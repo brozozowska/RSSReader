@@ -79,23 +79,6 @@ struct ArticlesScreenCustomRefreshState: Equatable {
     }
 }
 
-struct ArticleListCustomRefreshGeometry: Equatable {
-    var contentOffsetY: CGFloat
-    var contentInsetTop: CGFloat
-
-    init(
-        contentOffsetY: CGFloat = 0,
-        contentInsetTop: CGFloat = 0
-    ) {
-        self.contentOffsetY = contentOffsetY
-        self.contentInsetTop = contentInsetTop
-    }
-
-    var topOverscrollDistance: CGFloat {
-        max(0, -(contentOffsetY + contentInsetTop))
-    }
-}
-
 struct ArticleListPaginationGeometry: Equatable {
     var contentHeight: CGFloat
     var visibleMaxY: CGFloat
@@ -120,38 +103,15 @@ enum ArticleListPaginationPrefetchPolicy {
         geometry: ArticleListPaginationGeometry,
         hasUserDrivenScrollDemand: Bool,
         canLoadNextPage: Bool,
+        isRefreshInteractionActive: Bool = false,
         threshold: CGFloat = distanceThreshold
     ) -> Bool {
         hasUserDrivenScrollDemand
+            && isRefreshInteractionActive == false
             && canLoadNextPage
             && threshold >= 0
             && geometry.contentHeight > 0
             && geometry.distanceToEnd <= threshold
-    }
-}
-
-enum ArticleListCustomRefreshPullPolicy {
-    static let pullThreshold: CGFloat = 72
-
-    static func progress(
-        for geometry: ArticleListCustomRefreshGeometry,
-        threshold: CGFloat = pullThreshold
-    ) -> Double {
-        guard threshold > 0 else {
-            return 0
-        }
-
-        return min(Double(geometry.topOverscrollDistance / threshold), 1)
-    }
-}
-
-enum ArticleListCustomRefreshReleasePolicy {
-    static func shouldTriggerRefresh(
-        wasInteracting: Bool,
-        isInteracting: Bool,
-        customRefreshState: ArticlesScreenCustomRefreshState
-    ) -> Bool {
-        wasInteracting && isInteracting == false && customRefreshState.phase == .ready
     }
 }
 
