@@ -13,6 +13,7 @@ struct ReaderView: View {
     let canLoadNextArticleContinuation: Bool
     let loadArticleContinuation: @MainActor (ReaderAdjacentArticleNavigationDirection) async -> UUID?
     let prefetchArticleContinuation: @MainActor (Int) async -> Void
+    let articleNavigationHandler: @MainActor (UUID, ReaderAdjacentArticleNavigationDirection, ArticleListSessionReference?) -> Void
     let previewScreenState: ArticleScreenState?
     let articleStateMutationHandler: @MainActor (UUID, ArticleUserStateSnapshot, ArticleListSessionReference) -> Void
     @State private var controller = ArticleScreenController()
@@ -34,6 +35,7 @@ struct ReaderView: View {
         canLoadNextArticleContinuation: Bool = false,
         loadArticleContinuation: @escaping @MainActor (ReaderAdjacentArticleNavigationDirection) async -> UUID? = { _ in nil },
         prefetchArticleContinuation: @escaping @MainActor (Int) async -> Void = { _ in },
+        articleNavigationHandler: @escaping @MainActor (UUID, ReaderAdjacentArticleNavigationDirection, ArticleListSessionReference?) -> Void = { _, _, _ in },
         previewScreenState: ArticleScreenState? = nil,
         articleStateMutationHandler: @escaping @MainActor (UUID, ArticleUserStateSnapshot, ArticleListSessionReference) -> Void = { _, _, _ in }
     ) {
@@ -43,6 +45,7 @@ struct ReaderView: View {
         self.canLoadNextArticleContinuation = canLoadNextArticleContinuation
         self.loadArticleContinuation = loadArticleContinuation
         self.prefetchArticleContinuation = prefetchArticleContinuation
+        self.articleNavigationHandler = articleNavigationHandler
         self.previewScreenState = previewScreenState
         self.articleStateMutationHandler = articleStateMutationHandler
         self._controller = State(initialValue: ArticleScreenController(previewScreenState: previewScreenState))
@@ -444,6 +447,7 @@ struct ReaderView: View {
             return
         }
 
+        articleNavigationHandler(targetArticleID, direction, appState.currentArticleListSessionReference)
         updateAdjacentImagePrefetchWindow()
 
         Task {

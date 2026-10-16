@@ -507,6 +507,15 @@ public final class AppState {
         }
 
         selectArticle(targetArticleID)
+        // Only an explicit Reader navigation command may replace the saved
+        // position while passive geometry callbacks are frozen under detail routes.
+        // The screen-owned scroll coordinator reveals the row before Back.
+        articleListScrollPositionIDs[
+            ArticleListScrollPositionKey(
+                sidebarSelection: selectedSidebarSelection,
+                sidebarArticleFilter: selectedSidebarArticleFilter
+            )
+        ] = targetArticleID
         return true
     }
 

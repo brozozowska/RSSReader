@@ -48,6 +48,7 @@ final class ArticlesScreenController {
     @ObservationIgnored let pageSize: Int
     @ObservationIgnored private var activeLoadTask: Task<Void, Never>?
     @ObservationIgnored private var activeLoadSessionContext: ArticleListSession.Context?
+    @ObservationIgnored let readerScrollCoordinator = ArticleListReaderScrollCoordinator()
     @ObservationIgnored private var activeNextPageTask: Task<ArticleListContinuationSnapshot?, Never>?
     @ObservationIgnored private var activeNextPageIdentity: ArticleListNextPageIdentity?
     @ObservationIgnored private var loadGeneration = 0
@@ -156,6 +157,7 @@ final class ArticlesScreenController {
         activeLoadSessionContext = nil
         cancelActiveNextPageLoad()
         lastLoadedSessionContext = .noSelection
+        readerScrollCoordinator.reset()
         screenState.endPresentation()
     }
 
@@ -637,6 +639,24 @@ final class ArticlesScreenController {
             activeNextPageTask = nil
         }
         return snapshot
+    }
+
+    func followReaderArticle(
+        _ articleID: UUID,
+        direction: ReaderAdjacentArticleNavigationDirection,
+        in sessionReference: ArticleListSessionReference?
+    ) {
+        let session = screenState.articleListSession
+        guard let sessionReference,
+              sessionReference.id == session.id,
+              sessionReference.sidebarSelection == session.context.selection,
+              sessionReference.sidebarArticleFilter == session.context.sidebarArticleFilter else { return }
+        readerScrollCoordinator.reveal(
+            articleID,
+            direction: direction,
+            sessionID: session.id,
+            sections: ArticlesDaySectionsBuilder.build(from: session.articles)
+        )
     }
 
     func hasNextPageContinuation(for sessionID: UUID) -> Bool {

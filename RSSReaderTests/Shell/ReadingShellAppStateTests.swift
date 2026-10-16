@@ -366,7 +366,58 @@ struct ReadingShellAppStateTests {
     }
 
     @Test
-    func readingShellFreezesViewportAnchorWhileReaderOrDirectSafariCoversArticleList() {
+    func readerNavigationUpdatesOnlyCurrentScopePositionAndBackKeepsThatPosition() {
+        let appState = AppState()
+        let ids = (0..<4).map { _ in UUID() }
+        let otherScopePosition = UUID()
+        appState.selectSidebarSelection(.inbox)
+        appState.updateArticleNavigationContext(
+            ids, sidebarSelection: .inbox, sidebarArticleFilter: .allItems, articleListSessionID: UUID()
+        )
+        appState.updateArticleListScrollPosition(
+            ids[0], sidebarSelection: .inbox, sidebarArticleFilter: .allItems
+        )
+        appState.updateArticleListScrollPosition(
+            otherScopePosition, sidebarSelection: .inbox, sidebarArticleFilter: .starred
+        )
+        appState.selectArticle(ids[0])
+        #expect(appState.selectAdjacentArticle(.next))
+        #expect(appState.selectAdjacentArticle(.next))
+        #expect(appState.articleListScrollPositionID(sidebarSelection: .inbox, sidebarArticleFilter: .allItems) == ids[2])
+        appState.updateArticleListScrollPosition(
+            ids[0], sidebarSelection: .inbox, sidebarArticleFilter: .allItems
+        )
+        #expect(appState.articleListScrollPositionID(sidebarSelection: .inbox, sidebarArticleFilter: .allItems) == ids[2])
+        #expect(appState.selectAdjacentArticle(.previous))
+        #expect(appState.articleListScrollPositionID(sidebarSelection: .inbox, sidebarArticleFilter: .allItems) == ids[1])
+        appState.selectArticle(nil)
+        #expect(appState.articleListScrollPositionID(sidebarSelection: .inbox, sidebarArticleFilter: .allItems) == ids[1])
+        #expect(appState.articleListScrollPositionID(sidebarSelection: .inbox, sidebarArticleFilter: .starred) == otherScopePosition)
+    }
+
+    @Test
+    func rejectedReaderNavigationDoesNotReplaceViewportPosition() {
+        let appState = AppState()
+        let articleID = UUID()
+        let anchorID = UUID()
+        appState.selectSidebarSelection(.inbox)
+        appState.updateArticleNavigationContext(
+            [articleID], sidebarSelection: .inbox, sidebarArticleFilter: .allItems, articleListSessionID: UUID()
+        )
+        appState.updateArticleListScrollPosition(anchorID, sidebarSelection: .inbox, sidebarArticleFilter: .allItems)
+        appState.selectArticle(articleID)
+        #expect(appState.selectAdjacentArticle(.next) == false)
+        #expect(appState.selectAdjacentArticle(.previous) == false)
+        #expect(appState.articleListScrollPositionID(sidebarSelection: .inbox, sidebarArticleFilter: .allItems) == anchorID)
+        appState.updateArticleNavigationContext(
+            [articleID, UUID()], sidebarSelection: .starred, sidebarArticleFilter: .allItems, articleListSessionID: UUID()
+        )
+        #expect(appState.selectAdjacentArticle(.next) == false)
+        #expect(appState.articleListScrollPositionID(sidebarSelection: .inbox, sidebarArticleFilter: .allItems) == anchorID)
+    }
+
+    @Test
+    func readingShellRejectsPassiveViewportUpdatesWhileReaderOrDirectSafariCoversArticleList() {
         let appState = AppState()
         let feedID = UUID()
         let viewportAnchorID = UUID()

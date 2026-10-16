@@ -81,6 +81,9 @@ struct RootView: View {
                             dependencies: dependencies
                         )
                     },
+                    articleNavigationHandler: { articleID, direction, listSession in
+                        articlesScreenController.followReaderArticle(articleID, direction: direction, in: listSession)
+                    },
                     articleStateMutationHandler: { articleID, persistedState, listSession in
                         guard articlesScreenController.applyArticleStateMutation(
                             articleID: articleID,

@@ -57,6 +57,8 @@ struct ArticleListView: View {
             canLoadNextPage: controller.screenState.canLoadNextPage,
             isLoadingNextPage: controller.screenState.isLoadingNextPage,
             allowsArticleActions: allowsArticleActions,
+            readerScrollCoordinator: controller.readerScrollCoordinator,
+            listSessionID: controller.currentArticleListSessionID,
             selection: $selection,
             scrollPositionID: articleListScrollPositionBinding,
             customRefreshPullProgressChanged: updateCustomRefreshPullProgress,

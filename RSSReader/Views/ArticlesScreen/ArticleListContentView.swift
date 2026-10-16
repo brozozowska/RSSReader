@@ -10,6 +10,8 @@ struct ArticleListContentView: View {
     let canLoadNextPage: Bool
     let isLoadingNextPage: Bool
     var allowsArticleActions = true
+    var readerScrollCoordinator: ArticleListReaderScrollCoordinator?
+    var listSessionID: UUID?
     @Binding var selection: UUID?
     @Binding var scrollPositionID: UUID?
     let customRefreshPullProgressChanged: @MainActor (Double) -> Void
@@ -81,6 +83,15 @@ struct ArticleListContentView: View {
             requestNextPageIfNeeded()
             if newPhase == .idle {
                 hasUserDrivenScrollDemand = false
+            }
+        }
+        .background {
+            if let readerScrollCoordinator, let listSessionID {
+                ArticleListReaderScrollBridge(
+                    coordinator: readerScrollCoordinator,
+                    sessionID: listSessionID,
+                    sections: sections
+                )
             }
         }
         .background {
