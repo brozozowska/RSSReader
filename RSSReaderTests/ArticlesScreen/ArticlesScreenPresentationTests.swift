@@ -7,6 +7,39 @@ import Testing
 @MainActor
 struct ArticlesScreenPresentationTests {
     @Test
+    func refreshedSectionsKeepSurvivingIdentitiesAndUseTheSharedAnimation() throws {
+        let day = Calendar.current.startOfDay(for: Date(timeIntervalSince1970: 1_700_000_000))
+        let olderDay = try #require(Calendar.current.date(byAdding: .day, value: -1, to: day))
+        let removed = makeArticleListItemDTO(publishedAt: day.addingTimeInterval(100), isRead: true)
+        let survivor = makeArticleListItemDTO(publishedAt: olderDay.addingTimeInterval(100))
+        let inserted = makeArticleListItemDTO(publishedAt: olderDay.addingTimeInterval(200))
+        var state = ArticlesScreenState.previewLoaded(
+            selection: .unread, navigationTitle: "Unread", navigationSubtitle: "1", articles: [removed, survivor]
+        )
+        let original = state.derivedViewState()
+        #expect(original.sections.map(\.id) == [day, olderDay])
+        state.beginLoading(for: .unread, navigationTitle: "Unread", navigationSubtitle: "1", resetsContent: false)
+        #expect(state.derivedViewState().sections == original.sections)
+        state.applyLoadedArticles(
+            [inserted, survivor], selection: .unread, navigationTitle: "Unread", navigationSubtitle: "2"
+        )
+        let refreshed = state.derivedViewState()
+        #expect(refreshed.sections.map(\.id) == [olderDay])
+        #expect(refreshed.sections[0].articles.map(\.id) == [inserted.id, survivor.id])
+        #expect(refreshed.listAnimationState.animation(reduceMotion: false) == .snappy(duration: 0.24))
+        #expect(refreshed.listAnimationState.animation(reduceMotion: true) == nil)
+        #expect(original.listAnimationState.animation(reduceMotion: false) == nil)
+
+        state.applyArticleRowMutation(articleID: survivor.id, mutation: .remove)
+        #expect(state.derivedViewState().listAnimationState.animation(reduceMotion: false)
+            == refreshed.listAnimationState.animation(reduceMotion: false))
+        state.applyMarkAllAsRead([], navigationSubtitle: "0")
+        #expect(state.derivedViewState().sections.isEmpty)
+        #expect(state.derivedViewState().listAnimationState.animation(reduceMotion: false)
+            == refreshed.listAnimationState.animation(reduceMotion: false))
+    }
+
+    @Test
     func articleRowSwipeActionsStateReflectsReadAndStarredStatus() {
         let unreadUnstarred = ArticleRowSwipeActionsState(
             article: makeArticleListItemDTO(isRead: false, isStarred: false)
@@ -15,15 +48,15 @@ struct ArticlesScreenPresentationTests {
             article: makeArticleListItemDTO(isRead: true, isStarred: true)
         )
 
-        #expect(unreadUnstarred.readActionTitle == ReadingLocalization.readAction)
-        #expect(unreadUnstarred.readActionSystemImage == "circle")
+        #expect(unreadUnstarred.readActionTitle == ReadingLocalization.markReadAction)
+        #expect(unreadUnstarred.readActionSystemImage == "circle.fill")
         #expect(unreadUnstarred.starActionTitle == ReadingLocalization.starAction)
         #expect(unreadUnstarred.starActionSystemImage == "star")
 
-        #expect(readStarred.readActionTitle == ReadingLocalization.unreadAction)
-        #expect(readStarred.readActionSystemImage == "circle.slash")
+        #expect(readStarred.readActionTitle == ReadingLocalization.markUnreadAction)
+        #expect(readStarred.readActionSystemImage == "circle")
         #expect(readStarred.starActionTitle == ReadingLocalization.unstarAction)
-        #expect(readStarred.starActionSystemImage == "star.slash")
+        #expect(readStarred.starActionSystemImage == "star.fill")
     }
 
     @Test
@@ -198,73 +231,6 @@ struct ArticlesScreenPresentationTests {
     }
 
     @Test
-    func articleListCustomRefreshPullPolicyMapsTopOverscrollToProgress() {
-        let restingGeometry = ArticleListCustomRefreshGeometry(
-            contentOffsetY: -12,
-            contentInsetTop: 12
-        )
-        let partialPullGeometry = ArticleListCustomRefreshGeometry(
-            contentOffsetY: -48,
-            contentInsetTop: 12
-        )
-        let readyPullGeometry = ArticleListCustomRefreshGeometry(
-            contentOffsetY: -120,
-            contentInsetTop: 12
-        )
-
-        #expect(
-            ArticleListCustomRefreshPullPolicy.progress(
-                for: restingGeometry,
-                threshold: 72
-            ) == 0
-        )
-        #expect(
-            ArticleListCustomRefreshPullPolicy.progress(
-                for: partialPullGeometry,
-                threshold: 72
-            ) == 0.5
-        )
-        #expect(
-            ArticleListCustomRefreshPullPolicy.progress(
-                for: readyPullGeometry,
-                threshold: 72
-            ) == 1
-        )
-    }
-
-    @Test
-    func articleListCustomRefreshReleasePolicyTriggersOnlyWhenReadyPullIsReleased() {
-        #expect(
-            ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
-                wasInteracting: true,
-                isInteracting: false,
-                customRefreshState: .pulling(progress: 1)
-            )
-        )
-        #expect(
-            ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
-                wasInteracting: true,
-                isInteracting: false,
-                customRefreshState: .pulling(progress: 0.5)
-            ) == false
-        )
-        #expect(
-            ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
-                wasInteracting: false,
-                isInteracting: false,
-                customRefreshState: .pulling(progress: 1)
-            ) == false
-        )
-        #expect(
-            ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
-                wasInteracting: true,
-                isInteracting: true,
-                customRefreshState: .pulling(progress: 1)
-            ) == false
-        )
-    }
-
-    @Test
     func articleListPaginationPrefetchRequiresUserDemandNearListEnd() {
         let nearEndGeometry = ArticleListPaginationGeometry(
             contentHeight: 5_000,
@@ -273,6 +239,15 @@ struct ArticlesScreenPresentationTests {
         let farFromEndGeometry = ArticleListPaginationGeometry(
             contentHeight: 5_000,
             visibleMaxY: 3_000
+        )
+
+        #expect(
+            ArticleListPaginationPrefetchPolicy.shouldRequestNextPage(
+                geometry: nearEndGeometry,
+                hasUserDrivenScrollDemand: true,
+                canLoadNextPage: true,
+                isRefreshInteractionActive: true
+            ) == false
         )
 
         #expect(
@@ -326,6 +301,32 @@ struct ArticlesScreenPresentationTests {
         #expect(sections.count == 2)
         #expect(sections[0].articles.map(\.title) == ["Today One", "Today Two"])
         #expect(sections[1].articles.map(\.title) == ["Yesterday"])
+    }
+
+    @Test
+    func articleListSectionsAndRowTimeUseUpdatedDateBeforeFetchFallback() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        let updatedAtSource = Date(timeIntervalSince1970: 1_704_110_400)
+        let laterFetchedAt = updatedAtSource.addingTimeInterval(3 * 24 * 60 * 60)
+        let article = makeArticleListItemDTO(
+            title: "Updated-only Atom",
+            publishedAt: nil,
+            updatedAtSource: updatedAtSource,
+            fetchedAt: laterFetchedAt
+        )
+
+        let sections = ArticlesDaySectionsBuilder.build(from: [article], calendar: calendar)
+
+        #expect(sections.map(\.date) == [calendar.startOfDay(for: updatedAtSource)])
+        #expect(
+            ArticleListRowTimeFormatter.string(for: article)
+            == updatedAtSource.formatted(
+                .dateTime
+                    .hour(.twoDigits(amPM: .omitted))
+                    .minute(.twoDigits)
+            )
+        )
     }
 
     @Test

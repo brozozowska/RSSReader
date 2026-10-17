@@ -28,7 +28,7 @@ struct FeedManagementCreateFolderView: View {
                     text: nameBinding,
                     prompt: Text(FeedManagementLocalization.folderNamePlaceholder)
                 )
-                .textInputAutocapitalization(.words)
+                .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.done)
                 .onSubmit(submit)

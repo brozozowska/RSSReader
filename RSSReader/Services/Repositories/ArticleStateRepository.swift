@@ -450,6 +450,7 @@ protocol ArticleStateRepository {
 final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRepositoryContext {
     let modelContext: ModelContext
     let persistenceOperationRecorder: SwiftDataRepositoryOperationRecorder
+    let persistenceSaveOperation: SwiftDataRepositorySaveOperation
     private let conflictResolutionPolicy: ArticleStateConflictResolutionPolicy
     private let queryBatchSize: Int
     private let queryBatchProbe: ArticleStateQueryBatchProbe?
@@ -459,6 +460,7 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
         modelContext: ModelContext,
         conflictResolutionPolicy: ArticleStateConflictResolutionPolicy = .lastWriteWinsByUpdatedAt,
         persistenceOperationRecorder: @escaping SwiftDataRepositoryOperationRecorder = { _ in },
+        persistenceSaveOperation: @escaping SwiftDataRepositorySaveOperation = { try $0.save() },
         queryBatchSize: Int = ArticleStateQueryPolicy.batchSize,
         queryBatchProbe: ArticleStateQueryBatchProbe? = nil,
         aggregateCancellationCheckpoint: @escaping ArticleStateAggregateCancellationCheckpoint = {
@@ -469,6 +471,7 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
         self.modelContext = modelContext
         self.conflictResolutionPolicy = conflictResolutionPolicy
         self.persistenceOperationRecorder = persistenceOperationRecorder
+        self.persistenceSaveOperation = persistenceSaveOperation
         self.queryBatchSize = queryBatchSize
         self.queryBatchProbe = queryBatchProbe
         self.aggregateCancellationCheckpoint = aggregateCancellationCheckpoint
@@ -792,13 +795,39 @@ final class SwiftDataArticleStateRepository: ArticleStateRepository, SwiftDataRe
 
     @discardableResult
     func upsert(feedID: UUID, articleExternalID: String, update: ArticleStateUpsert) throws -> ArticleState {
-        let articleState = try fetchOrCreate(
+        let existingState = try fetchCanonicalState(
             feedID: feedID,
             articleExternalID: articleExternalID,
-            saveAfterCreation: false
+            removeDuplicates: true
         )
+        let articleState = existingState ?? ArticleState(
+            articleExternalID: articleExternalID,
+            feedID: feedID,
+            updatedAt: .distantPast
+        )
+        if existingState == nil {
+            modelContext.insert(articleState)
+        }
+        let previousState = ArticleUserStateSnapshot(articleState: articleState)
         apply(update, to: articleState)
-        try saveIfNeeded()
+        do {
+            try saveIfNeeded()
+        } catch {
+            // Undo only this mutation; unrelated pending context changes belong to their callers.
+            if existingState == nil {
+                modelContext.delete(articleState)
+            } else {
+                articleState.isRead = previousState.isRead
+                articleState.readAt = previousState.readAt
+                articleState.isStarred = previousState.isStarred
+                articleState.starredAt = previousState.starredAt
+                articleState.isHidden = previousState.isHidden
+                articleState.hiddenAt = previousState.hiddenAt
+                articleState.lastInteractionAt = previousState.lastInteractionAt
+                articleState.updatedAt = previousState.updatedAt
+            }
+            throw error
+        }
         return articleState
     }
 

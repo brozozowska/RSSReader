@@ -70,10 +70,7 @@ extension FeedRefreshService {
     }
 
     func httpCode(from error: Error) -> Int? {
-        guard case .invalidStatusCode(let statusCode) = error as? FeedFetchError else {
-            return nil
-        }
-        return statusCode
+        (error as? FeedFetchError)?.httpStatusCode
     }
 
     func diagnosticsSummary(for diagnostics: FeedParsePipelineDiagnostics) -> FeedRefreshDiagnosticsSummary {

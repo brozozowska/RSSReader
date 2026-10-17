@@ -7,6 +7,265 @@ import Testing
 @MainActor
 struct ArticlesScreenControllerLoadingTests {
     @Test
+    func technicalQueryFailureUsesLocalizedCopyAndRetainsDiagnostics() async throws {
+        let logger = RecordingLogger()
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient(), logger: logger)
+        let controller = ArticlesScreenController(searchQueryOperation: { _, _ in
+            throw NSError(domain: "PrivateQueryStorage", code: 77, userInfo: [
+                NSLocalizedDescriptionKey: "Internal storage details must not become UI copy"
+            ])
+        })
+        await controller.load(selection: .inbox, sidebarArticleFilter: .allItems, dependencies: harness.dependencies)
+        #expect(controller.screenState.placeholder?.description == ReadingLocalization.articlesLoadFailedMessage)
+        #expect(controller.screenState.phase == .failed(ReadingLocalization.articlesLoadFailedMessage))
+        #expect(logger.contains("PrivateQueryStorage", level: .error))
+    }
+
+    @Test(arguments: ["match", ""])
+    func searchTransitionKeepsCommittedSnapshotAndBlocksActionsUntilQueryCompletes(_ query: String) async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let article = makeArticleListItemDTO(title: "Previous")
+        let result = makeArticleListItemDTO(feedID: article.feedID, title: "Match")
+        let gate = ArticlesScreenSearchQueryGate(
+            suspendedQuery: query,
+            suspendedSnapshot: ArticleSearchResultSnapshot(articles: [result], hasScopeContent: true),
+            immediateSnapshot: ArticleSearchResultSnapshot(
+                articles: [article], hasScopeContent: true,
+                nextCursor: makeArticleSearchCursor(seed: 1),
+                scopeMetric: ArticleScopeMetric(kind: .unread, count: 12)
+            )
+        )
+        let controller = ArticlesScreenController(
+            searchDebounceOperation: {}, searchQueryOperation: { request, _ in try await gate.execute(request) }
+        )
+        await controller.load(
+            selection: .inbox, sidebarArticleFilter: .allItems, searchText: "seed",
+            dependencies: harness.dependencies
+        )
+        let chrome = controller.screenState.derivedViewState().navigationChrome
+        let animation = controller.screenState.listAnimationState
+        let originalID = controller.currentArticleListSessionID
+        let pending = Task { @MainActor in
+            await controller.load(
+                selection: .inbox, sidebarArticleFilter: .allItems, searchText: query,
+                dependencies: harness.dependencies, retainsSessionFilterMutations: true
+            )
+        }
+        defer { pending.cancel(); gate.releaseSuspendedRequest() }
+        try await waitUntil("search query suspended") { gate.hasSuspendedRequest }
+        #expect(controller.currentArticleListSessionID != originalID)
+        #expect(controller.screenState.articles == [article])
+        #expect(controller.screenState.phase == .loaded)
+        #expect(controller.screenState.derivedViewState().navigationChrome == chrome)
+        #expect(controller.screenState.listAnimationState == animation)
+        #expect(controller.screenState.showsPrimaryLoadingIndicator == false)
+        #expect(controller.screenState.refreshState == .idle)
+        #expect(controller.screenState.customRefreshState == .idle)
+        #expect(controller.screenState.canLoadNextPage == false)
+        #expect(controller.screenState.toolbarActions.isMarkAllAsReadEnabled == false)
+        #expect(controller.screenState.derivedViewState().toolbarActions.isMarkAllAsReadEnabled == false)
+        #expect(await controller.loadNextPage(dependencies: harness.dependencies) == nil)
+        controller.toggleArticleReadStatus(
+            article, selection: .inbox, sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies, isPreviewMode: true
+        )
+        controller.toggleStarredState(
+            for: article, selection: .inbox, sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies, isPreviewMode: true
+        )
+        await controller.confirmMarkAllAsRead(
+            searchText: query, selection: .inbox, sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies, isPreviewMode: true
+        )
+        #expect(controller.screenState.articles == [article])
+        #expect(gate.requests.count == 2)
+
+        gate.releaseSuspendedRequest()
+        await pending.value
+        #expect(controller.screenState.pendingSearchContext == nil)
+        #expect(controller.screenState.articleListSession.context.normalizedSearchText == query)
+        #expect(controller.screenState.articles == [result])
+        #expect(controller.screenState.articleListSession.scopeMetric?.count == 12)
+        #expect(controller.screenState.listAnimationState.changeKind == .searchTransition)
+        #expect(controller.screenState.listAnimationState.revision == animation.revision + 1)
+        #expect(controller.screenState.listAnimationState.allowsAnimation(reduceMotion: false))
+        #expect(controller.screenState.listAnimationState.animation(reduceMotion: true) == nil)
+    }
+
+    @Test(arguments: ["new", ""])
+    func rapidSearchEditsRejectSupersededResultsWhileKeepingPresentation(_ newestQuery: String) async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let previous = makeArticleListItemDTO(title: "Committed")
+        let stale = makeArticleListItemDTO(title: "Stale")
+        let gate = ArticlesScreenSearchQueryGate(
+            suspendedQuery: "old",
+            suspendedSnapshot: ArticleSearchResultSnapshot(
+                articles: [stale], hasScopeContent: true,
+                scopeMetric: ArticleScopeMetric(kind: .unread, count: 99)
+            ),
+            immediateSnapshot: ArticleSearchResultSnapshot(
+                articles: [previous], hasScopeContent: true,
+                scopeMetric: ArticleScopeMetric(kind: .unread, count: 3)
+            )
+        )
+        let controller = ArticlesScreenController(
+            searchDebounceOperation: {}, searchQueryOperation: { request, _ in try await gate.execute(request) }
+        )
+        await controller.load(selection: .inbox, sidebarArticleFilter: .allItems, dependencies: harness.dependencies)
+        let staleLoad = Task { @MainActor in
+            await controller.load(
+                selection: .inbox, sidebarArticleFilter: .allItems, searchText: "old",
+                dependencies: harness.dependencies
+            )
+        }
+        defer { staleLoad.cancel(); gate.releaseSuspendedRequest() }
+        try await waitUntil("superseded search suspended") { gate.hasSuspendedRequest }
+        #expect(controller.screenState.articles == [previous])
+        await controller.load(
+            selection: .inbox, sidebarArticleFilter: .allItems, searchText: newestQuery,
+            dependencies: harness.dependencies
+        )
+        let committed = controller.screenState.articleListSession
+        let animation = controller.screenState.listAnimationState
+        gate.releaseSuspendedRequest()
+        await staleLoad.value
+        #expect(controller.screenState.articleListSession == committed)
+        #expect(committed.context.normalizedSearchText == newestQuery)
+        #expect(committed.scopeMetric?.count == 3)
+        #expect(controller.screenState.articles == [previous])
+        #expect(controller.screenState.listAnimationState == animation)
+        #expect(animation.changeKind == .searchTransition)
+    }
+
+    @Test(arguments: [false, true])
+    func failedSearchPreservesLoadedOrEmptyCommittedSnapshot(_ startsEmpty: Bool) async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let previous = startsEmpty ? [] : [makeArticleListItemDTO()]
+        let controller = ArticlesScreenController(
+            searchDebounceOperation: {},
+            searchQueryOperation: { request, _ in
+                if request.normalizedQuery == "failure" { throw URLError(.timedOut) }
+                return ArticleSearchResultSnapshot(articles: previous, hasScopeContent: true)
+            }
+        )
+        await controller.load(
+            selection: .inbox, sidebarArticleFilter: .allItems, searchText: "committed",
+            dependencies: harness.dependencies
+        )
+        let context = controller.screenState.articleListSession.context
+        let placeholder = controller.screenState.derivedViewState().searchPlaceholder
+        let chrome = controller.screenState.derivedViewState().navigationChrome
+        let animation = controller.screenState.listAnimationState
+        await controller.load(
+            selection: .inbox, sidebarArticleFilter: .allItems, searchText: "failure",
+            dependencies: harness.dependencies
+        )
+        #expect(controller.screenState.articleListSession.context == context)
+        #expect(controller.screenState.articles == previous)
+        #expect(controller.screenState.phase == (startsEmpty ? .empty : .loaded))
+        #expect(controller.screenState.derivedViewState().searchPlaceholder == placeholder)
+        #expect(controller.screenState.derivedViewState().navigationChrome == chrome)
+        #expect(controller.screenState.listAnimationState == animation)
+        #expect(controller.screenState.refreshFeedback != nil)
+        #expect(controller.screenState.pendingSearchContext == nil)
+    }
+
+    @Test
+    func searchDebouncePreservesRowsAndCancellationRestoresCommittedContext() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let article = makeArticleListItemDTO()
+        let gate = ArticlesScreenSearchDebounceGate()
+        var requests: [ArticleSearchRequest] = []
+        let controller = ArticlesScreenController(
+            searchDebounceOperation: gate.wait,
+            searchQueryOperation: { request, _ in
+                requests.append(request)
+                return ArticleSearchResultSnapshot(articles: [article], hasScopeContent: true)
+            }
+        )
+        await controller.load(selection: .inbox, sidebarArticleFilter: .allItems, dependencies: harness.dependencies)
+        let animation = controller.screenState.listAnimationState
+        let pending = Task { @MainActor in
+            await controller.load(
+                selection: .inbox, sidebarArticleFilter: .allItems, searchText: "cancelled",
+                dependencies: harness.dependencies
+            )
+        }
+        defer { pending.cancel(); gate.releaseSuspendedRequest() }
+        try await waitUntil("search debounce suspended") { gate.hasSuspendedRequest }
+        #expect(requests.count == 1)
+        #expect(controller.screenState.articles == [article])
+        #expect(controller.screenState.showsPrimaryLoadingIndicator == false)
+        pending.cancel()
+        gate.releaseSuspendedRequest()
+        await pending.value
+        #expect(requests.count == 1)
+        #expect(controller.screenState.pendingSearchContext == nil)
+        #expect(controller.screenState.articleListSession.context.normalizedSearchText.isEmpty)
+        #expect(controller.screenState.articles == [article])
+        #expect(controller.screenState.listAnimationState == animation)
+    }
+
+    @Test
+    func compactBackReentryUsesRetainedSearchInFreshSession() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/search-reentry.xml"]).first)
+        let matching = try harness.insertArticle(
+            feed: feed, externalID: "ssh", url: "https://example.com/ssh", title: "SSH"
+        )
+        let other = try harness.insertArticle(
+            feed: feed, externalID: "other", url: "https://example.com/other", title: "Other"
+        )
+        let controller = ArticlesScreenController(searchDebounceOperation: {})
+        controller.selectSearchScope(.unread)
+        controller.searchText = "SSH"
+        await controller.load(
+            selection: .unread, sidebarArticleFilter: .allItems,
+            searchText: controller.searchText, dependencies: harness.dependencies
+        )
+        let originalSessionID = controller.currentArticleListSessionID
+        #expect(controller.visibleArticleIDs() == [matching.id])
+
+        controller.endPresentation()
+        #expect(controller.searchText(for: .unread) == "SSH")
+        #expect(controller.screenState.articles.isEmpty)
+
+        let reentry = try #require(controller.prepareForPresentation(
+            selection: .unread, sidebarArticleFilter: .allItems, dependencies: harness.dependencies
+        ))
+        // The very first presentation context already has the query, before results arrive.
+        #expect(controller.screenState.articleListSession.context.normalizedSearchText == "SSH")
+        await reentry.value
+        #expect(controller.currentArticleListSessionID != originalSessionID)
+        #expect(controller.visibleArticleIDs() == [matching.id])
+        #expect(controller.searchText == "SSH")
+
+        let otherScope = try #require(controller.prepareForPresentation(
+            selection: .feed(feed.id), sidebarArticleFilter: .allItems, dependencies: harness.dependencies
+        ))
+        #expect(controller.searchText.isEmpty)
+        #expect(controller.screenState.articleListSession.context.normalizedSearchText.isEmpty)
+        await otherScope.value
+        #expect(Set(controller.visibleArticleIDs()) == Set([matching.id, other.id]))
+        #expect(controller.screenState.articles.count == 2)
+    }
+
+    @Test(arguments: [SidebarSelection.unread, .starred, .folder("News"), .feed(UUID())])
+    func searchIsRetainedOnlyUntilAnotherSidebarScopeIsSelected(_ scope: SidebarSelection) {
+        let controller = ArticlesScreenController()
+        controller.selectSearchScope(scope)
+        controller.searchText = " SSH "
+        controller.endPresentation()
+        controller.selectSearchScope(scope)
+        #expect(controller.searchText(for: scope) == " SSH ")
+        #expect(controller.searchText(for: .inbox).isEmpty)
+        controller.selectSearchScope(.inbox)
+        #expect(controller.searchText.isEmpty)
+        controller.selectSearchScope(scope)
+        #expect(controller.searchText.isEmpty)
+    }
+
+    @Test
     func articlesScreenControllerLoadsFeedArticlesForCurrentSelection() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/controller-load.xml"]).first)
@@ -504,6 +763,74 @@ struct ArticlesScreenControllerLoadingTests {
                 controller: controller
             ) == false
         )
+    }
+
+    @Test
+    func articleListContinuationCoordinatorPrefetchesBeforeReaderReachesPageBoundary() async throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(
+            try harness.insertFeeds(urls: ["https://example.com/controller-reader-lookahead.xml"]).first
+        )
+        let first = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "reader-lookahead-first",
+            title: "First",
+            publishedAt: Date(timeIntervalSince1970: 300)
+        )
+        let second = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "reader-lookahead-second",
+            title: "Second",
+            publishedAt: Date(timeIntervalSince1970: 200)
+        )
+        let third = makeArticleListItemDTO(
+            feedID: feed.id,
+            articleExternalID: "reader-lookahead-third",
+            title: "Third",
+            publishedAt: Date(timeIntervalSince1970: 100)
+        )
+        let controller = ArticlesScreenController(
+            searchQueryOperation: { request, _ in
+                if request.cursor == nil {
+                    return ArticleSearchResultSnapshot(
+                        articles: [first, second],
+                        hasScopeContent: true,
+                        nextCursor: makeArticleSearchCursor(seed: 2)
+                    )
+                }
+                return ArticleSearchResultSnapshot(
+                    articles: [third],
+                    hasScopeContent: true
+                )
+            },
+            pageSize: 2
+        )
+        let appState = AppState()
+        appState.selectSidebarSelection(.feed(feed.id))
+
+        await controller.load(
+            selection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            dependencies: harness.dependencies
+        )
+        appState.updateArticleNavigationContext(
+            [first.id, second.id],
+            sidebarSelection: .feed(feed.id),
+            sidebarArticleFilter: .allItems,
+            articleListSessionID: controller.currentArticleListSessionID
+        )
+        appState.selectArticle(first.id)
+
+        await ArticleListContinuationCoordinator.prefetchNextPageIfNeeded(
+            minimumNextArticleCount: 2,
+            appState: appState,
+            controller: controller,
+            dependencies: harness.dependencies
+        )
+
+        #expect(appState.articleNavigationContextIDs == [first.id, second.id, third.id])
+        #expect(appState.selectedArticleID == first.id)
+        #expect(appState.adjacentArticleIDs(.next, limit: 2) == [second.id, third.id])
     }
 
     @Test

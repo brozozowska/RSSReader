@@ -13,10 +13,13 @@ struct ArticleListView: View {
     let previewScreenState: ArticlesScreenState?
 
     @Binding var selection: UUID?
+    @Binding var isSearchPresented: Bool
     @State private var controller: ArticlesScreenController
-    @State private var searchText = ""
+    @FocusState private var isSearchFocused: Bool
     @State private var refreshStartHapticTrigger = 0
     @State private var lastScopeMetricReloadContext: ArticleScopeMetricReloadContext?
+    @State private var hasDeferredCoveredListLoad = false
+    @State private var deferredCoveredListLoadTask: Task<Void, Never>?
 
     init(
         selectedSidebarSelection: SidebarSelection?,
@@ -24,13 +27,15 @@ struct ArticleListView: View {
         reloadID: UUID,
         controller: ArticlesScreenController? = nil,
         previewScreenState: ArticlesScreenState?,
-        selection: Binding<UUID?>
+        selection: Binding<UUID?>,
+        isSearchPresented: Binding<Bool>
     ) {
         self.selectedSidebarSelection = selectedSidebarSelection
         self.selectedSidebarArticleFilter = selectedSidebarArticleFilter
         self.reloadID = reloadID
         self.previewScreenState = previewScreenState
         self._selection = selection
+        self._isSearchPresented = isSearchPresented
         self._controller = State(
             initialValue: controller ?? ArticlesScreenController(previewScreenState: previewScreenState)
         )
@@ -40,6 +45,10 @@ struct ArticleListView: View {
 
     var body: some View {
         let derivedViewState = controller.screenState.derivedViewState()
+        let searchLifecycleState = ArticleListSearchLifecycleState(
+            retainedSelection: selectedSidebarSelection,
+            presentedSelection: appState.presentedSidebarSelection
+        )
 
         ArticleListContentView(
             sections: derivedViewState.sections,
@@ -47,40 +56,54 @@ struct ArticleListView: View {
             customRefreshState: derivedViewState.customRefreshState,
             canLoadNextPage: controller.screenState.canLoadNextPage,
             isLoadingNextPage: controller.screenState.isLoadingNextPage,
+            allowsArticleActions: allowsArticleActions,
+            readerScrollCoordinator: controller.readerScrollCoordinator,
+            listSessionID: controller.currentArticleListSessionID,
             selection: $selection,
             scrollPositionID: articleListScrollPositionBinding,
             customRefreshPullProgressChanged: updateCustomRefreshPullProgress,
             customRefreshReleaseAction: triggerCustomRefresh,
             loadNextPageAction: loadNextPage,
             toggleReadStatusAction: toggleArticleReadStatus,
-            toggleStarredAction: toggleStarredState
+            toggleStarredAction: toggleStarredState,
+            scrollInteractionBegan: { isSearchFocused = false }
         )
-        .toolbarTitleDisplayMode(.inline)
+        .appListNavigationBar(
+            title: derivedViewState.navigationChrome.title,
+            subtitle: derivedViewState.navigationChrome.subtitle,
+            refreshState: derivedViewState.customRefreshState.indicatorState
+        )
         .applySearchableToolbar(
-            isEnabled: derivedViewState.toolbarActions.showsSearchAction,
-            text: $searchText
+            isEnabled: searchLifecycleState.keepsSearchUIAttached,
+            text: searchTextBinding,
+            isPresented: $isSearchPresented,
+            focus: $isSearchFocused
         )
+        .background {
+            ArticleSearchBackNavigationBridge(
+                isEnabled: horizontalSizeClass == .compact
+                    && appState.presentedSidebarSelection != nil
+                    && appState.isArticleListCoveredByDetailRoute == false,
+                backGestureBegan: { isSearchFocused = false }
+            )
+        }
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                navigationChromeView(derivedViewState.navigationChrome)
-            }
-
             if derivedViewState.toolbarActions.showsMarkAllAsReadAction {
                 ToolbarItem(placement: .bottomBar) {
                     Button(action: handleMarkAllAsReadAction) {
-                        Image(systemName: "checkmark.circle.fill")
+                        ArticleStateSymbol(systemName: ArticleStateSymbols.markAllAsRead)
                     }
-                    .disabled(derivedViewState.toolbarActions.isMarkAllAsReadEnabled == false)
+                    .disabled(allowsArticleActions == false || derivedViewState.toolbarActions.isMarkAllAsReadEnabled == false)
                     .accessibilityLabel(ReadingLocalization.markAllAsReadAccessibilityLabel)
                 }
             }
 
             if derivedViewState.toolbarActions.showsMarkAllAsReadAction
-                && derivedViewState.toolbarActions.showsSearchAction {
+                && searchLifecycleState.keepsSearchUIAttached {
                 ToolbarSpacer(placement: .bottomBar)
             }
 
-            if derivedViewState.toolbarActions.showsSearchAction {
+            if searchLifecycleState.keepsSearchUIAttached {
                 DefaultToolbarItem(kind: .search, placement: .bottomBar)
             }
         }
@@ -109,20 +132,32 @@ struct ArticleListView: View {
             normalizedSearchText: ArticleSearchScope.normalizedSearchText(searchText),
             reloadID: reloadID
         )) {
-            guard isPreviewMode == false else { return }
+            guard isPreviewMode == false,
+                  searchLifecycleState.allowsQueryLoad else {
+                return
+            }
+            guard appState.isArticleListCoveredByDetailRoute == false else {
+                hasDeferredCoveredListLoad = true
+                controller.suspendLoadsForCoveredArticleList()
+                return
+            }
+            guard hasDeferredCoveredListLoad == false else { return }
             await loadArticles(retainsSessionFilterMutations: true)
         }
-        .onChange(of: selectedSidebarSelection) { oldValue, newValue in
-            guard oldValue != newValue, searchText.isEmpty == false else { return }
-            searchText = ""
+        .onChange(of: appState.presentedSidebarSelection) { _, newValue in
+            guard newValue == nil else { return }
+            isSearchFocused = false
+            deferredCoveredListLoadTask?.cancel()
+            deferredCoveredListLoadTask = nil
+            hasDeferredCoveredListLoad = false
         }
-        .onChange(of: selection) { _, newValue in
-            guard let newValue else { return }
-            appState.updateArticleListScrollPosition(
-                newValue,
-                sidebarSelection: selectedSidebarSelection,
-                sidebarArticleFilter: selectedSidebarArticleFilter
-            )
+        .onChange(of: selectedSidebarSelection) { oldValue, newValue in
+            guard oldValue != newValue else { return }
+            isSearchFocused = false
+            controller.selectSearchScope(newValue)
+        }
+        .onChange(of: appState.isArticleListCoveredByDetailRoute) { oldValue, newValue in
+            handleArticleListCoverageChange(wasCovered: oldValue, isCovered: newValue)
         }
         .onChange(of: appState.articleReadOnOpenEvent) { _, event in
             applyArticleReadOnOpenEvent(event)
@@ -140,7 +175,8 @@ struct ArticleListView: View {
         retainsSessionFilterMutations: Bool = true,
         retainedSessionMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterFilterMutation,
         preservesRefreshFeedback: Bool = false,
-        refreshesScopeMetric: Bool? = nil
+        refreshesScopeMetric: Bool? = nil,
+        preservesMaterializedSessionSnapshot: Bool = false
     ) async {
         let loadingSidebarSelection = selectedSidebarSelection
         let loadingSidebarArticleFilter = selectedSidebarArticleFilter
@@ -171,10 +207,14 @@ struct ArticleListView: View {
             refreshesScopeMetric: shouldRefreshScopeMetric,
             retainsSessionFilterMutations: retainsSessionFilterMutations,
             retainedSessionMembershipStatus: retainedSessionMembershipStatus,
-            preservesRefreshFeedback: preservesRefreshFeedback
+            preservesRefreshFeedback: preservesRefreshFeedback,
+            preservesMaterializedSessionSnapshot: preservesMaterializedSessionSnapshot
         )
 
-        guard loadingSidebarSelection == appState.selectedSidebarSelection,
+        guard Task.isCancelled == false,
+              controller.screenState.pendingSearchContext == nil,
+              controller.screenState.articleListSession.context.normalizedSearchText == loadingNormalizedSearchText,
+              loadingSidebarSelection == appState.selectedSidebarSelection,
               loadingSidebarArticleFilter == appState.selectedSidebarArticleFilter,
               loadingNormalizedSearchText == ArticleSearchScope.normalizedSearchText(searchText),
               loadingReloadID == appState.articleListReloadID else {
@@ -213,6 +253,9 @@ struct ArticleListView: View {
         if let selection, availableArticleIDs.contains(selection) {
             return selection
         }
+        if let selection, appState.isArticleListCoveredByDetailRoute {
+            return selection
+        }
         guard horizontalSizeClass != .compact else {
             return nil
         }
@@ -228,33 +271,6 @@ struct ArticleListView: View {
             sidebarArticleFilter: selectedSidebarArticleFilter,
             articleListSessionID: controller.currentArticleListSessionID
         )
-    }
-
-    private func navigationChromeView(
-        _ navigationChrome: ArticlesScreenNavigationChromeState
-    ) -> some View {
-        VStack(spacing: 0) {
-            Text(navigationChrome.title)
-                .font(.headline)
-                .foregroundStyle(.primary)
-                .frame(maxWidth: .infinity, alignment: .center)
-
-            Text(navigationChrome.subtitle.isEmpty ? " " : navigationChrome.subtitle)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .opacity(navigationChrome.subtitle.isEmpty ? 0 : 1)
-                .frame(maxWidth: .infinity, alignment: .center)
-        }
-        .lineLimit(1)
-        .minimumScaleFactor(0.8)
-        .multilineTextAlignment(.center)
-        .frame(width: 240, height: 44, alignment: .center)
-        .fixedSize(horizontal: true, vertical: false)
-        .contentTransition(.identity)
-        .accessibilityElement(children: .combine)
-        .transaction { transaction in
-            transaction.animation = nil
-        }
     }
 
     private var articleListScrollPositionBinding: Binding<UUID?> {
@@ -290,6 +306,44 @@ struct ArticleListView: View {
             sidebarSelection: selectedSidebarSelection,
             sidebarArticleFilter: selectedSidebarArticleFilter
         )
+    }
+
+    @MainActor
+    private func handleArticleListCoverageChange(
+        wasCovered: Bool,
+        isCovered: Bool
+    ) {
+        guard isPreviewMode == false else { return }
+
+        if isCovered {
+            deferredCoveredListLoadTask?.cancel()
+            deferredCoveredListLoadTask = nil
+            hasDeferredCoveredListLoad = true
+            controller.suspendLoadsForCoveredArticleList()
+            return
+        }
+
+        guard wasCovered, hasDeferredCoveredListLoad else { return }
+        deferredCoveredListLoadTask?.cancel()
+        deferredCoveredListLoadTask = Task { @MainActor in
+            do {
+                try await Task.sleep(for: .milliseconds(400))
+            } catch {
+                return
+            }
+            guard Task.isCancelled == false,
+                  appState.isArticleListCoveredByDetailRoute == false,
+                  appState.presentedSidebarSelection != nil else {
+                return
+            }
+
+            hasDeferredCoveredListLoad = false
+            await loadArticles(
+                retainsSessionFilterMutations: true,
+                preservesMaterializedSessionSnapshot: true
+            )
+            deferredCoveredListLoadTask = nil
+        }
     }
 
     // MARK: Confirmation
@@ -388,6 +442,30 @@ struct ArticleListView: View {
 
     // MARK: Search And Overlay
 
+    private var allowsArticleActions: Bool {
+        controller.screenState.pendingSearchContext == nil
+            && ArticleSearchScope.normalizedSearchText(searchText)
+                == controller.screenState.articleListSession.context.normalizedSearchText
+    }
+
+    private var searchText: String {
+        controller.searchText(for: selectedSidebarSelection)
+    }
+
+    private var searchTextBinding: Binding<String> {
+        Binding(
+            get: { searchText },
+            set: {
+                // Ignore late search-field callbacks after compact Back.
+                // Keep the retained query while its list is no longer presented.
+                guard isPreviewMode || appState.presentedSidebarSelection == selectedSidebarSelection,
+                      selectedSidebarSelection != nil else { return }
+                controller.selectSearchScope(selectedSidebarSelection)
+                controller.searchText = $0
+            }
+        )
+    }
+
     private var isPreviewMode: Bool {
         previewScreenState != nil
     }
@@ -433,18 +511,19 @@ struct ArticleListView: View {
 
         await controller.refreshCurrentSelection(
             selection: selectedSidebarSelection,
+            sidebarArticleFilter: selectedSidebarArticleFilter,
             dependencies: dependencies,
             appState: appState,
-            requestsArticleListReload: false
+            requestsArticleListReload: false,
+            reloadsSnapshotOnSuccess: true
         )
-        let preservesRefreshFeedback = controller.screenState.refreshFeedback != nil
-
-        await loadArticles(
-            retainsSessionFilterMutations: false,
-            retainedSessionMembershipStatus: .retainedAfterRefresh,
-            preservesRefreshFeedback: preservesRefreshFeedback,
-            refreshesScopeMetric: true
-        )
+        guard controller.screenState.articleListSession.context.selection == selectedSidebarSelection,
+              controller.screenState.articleListSession.context.sidebarArticleFilter == selectedSidebarArticleFilter,
+              controller.screenState.articleListSession.context.normalizedSearchText
+                == ArticleSearchScope.normalizedSearchText(searchText) else { return }
+        let visibleArticleIDs = controller.visibleArticleIDs()
+        selection = stabilizedSelection(availableArticleIDs: visibleArticleIDs)
+        syncArticleNavigationContext(visibleArticleIDs)
     }
 
     @MainActor
@@ -454,12 +533,15 @@ struct ArticleListView: View {
 
     @MainActor
     private func triggerCustomRefresh() async {
-        guard isPreviewMode == false else { return }
         guard controller.screenState.customRefreshState.phase == .ready else { return }
-
-        controller.screenState.beginCustomRefresh()
-        defer {
+        guard isPreviewMode == false, allowsArticleActions else {
             controller.screenState.endCustomRefresh()
+            return
+        }
+
+        let refreshID = controller.screenState.beginCustomRefresh()
+        defer {
+            controller.screenState.endCustomRefresh(ifMatching: refreshID)
         }
 
         await refreshCurrentSelection()
@@ -480,12 +562,16 @@ private struct ArticleScopeMetricReloadContext: Equatable {
 private struct ArticleListSearchToolbarModifier: ViewModifier {
     let isEnabled: Bool
     @Binding var text: String
+    @Binding var isPresented: Bool
+    let focus: FocusState<Bool>.Binding
 
     func body(content: Content) -> some View {
         if isEnabled {
             content
+                .searchFocused(focus)
                 .searchable(
                     text: $text,
+                    isPresented: $isPresented,
                     placement: .toolbar,
                     prompt: ReadingLocalization.searchPrompt
                 )
@@ -497,8 +583,18 @@ private struct ArticleListSearchToolbarModifier: ViewModifier {
 }
 
 private extension View {
-    func applySearchableToolbar(isEnabled: Bool, text: Binding<String>) -> some View {
-        modifier(ArticleListSearchToolbarModifier(isEnabled: isEnabled, text: text))
+    func applySearchableToolbar(
+        isEnabled: Bool,
+        text: Binding<String>,
+        isPresented: Binding<Bool>,
+        focus: FocusState<Bool>.Binding
+    ) -> some View {
+        modifier(ArticleListSearchToolbarModifier(
+            isEnabled: isEnabled,
+            text: text,
+            isPresented: isPresented,
+            focus: focus
+        ))
     }
 }
 

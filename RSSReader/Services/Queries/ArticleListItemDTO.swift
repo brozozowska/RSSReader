@@ -8,8 +8,7 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
     let title: String
     let summary: String?
     let author: String?
-    let publishedAt: Date?
-    let fetchedAt: Date
+    let effectiveDate: Date
     let archivedAt: Date?
     let isRead: Bool
     let isStarred: Bool
@@ -23,8 +22,7 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
         title: String,
         summary: String?,
         author: String?,
-        publishedAt: Date?,
-        fetchedAt: Date,
+        effectiveDate: Date,
         archivedAt: Date? = nil,
         isRead: Bool,
         isStarred: Bool,
@@ -37,8 +35,7 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
         self.title = title
         self.summary = summary
         self.author = author
-        self.publishedAt = publishedAt
-        self.fetchedAt = fetchedAt
+        self.effectiveDate = effectiveDate
         self.archivedAt = archivedAt
         self.isRead = isRead
         self.isStarred = isStarred
@@ -53,8 +50,7 @@ struct ArticleListItemDTO: Sendable, Identifiable, Equatable {
         self.title = article.title
         self.summary = article.summary
         self.author = article.author
-        self.publishedAt = article.publishedAt
-        self.fetchedAt = article.fetchedAt
+        self.effectiveDate = article.querySortDate
         self.archivedAt = article.archivedAt
         self.isRead = state?.isRead ?? false
         self.isStarred = state?.isStarred ?? false

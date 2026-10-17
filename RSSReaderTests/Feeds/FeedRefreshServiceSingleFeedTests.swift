@@ -364,6 +364,71 @@ struct FeedRefreshServiceSingleFeedTests {
     }
 
     @Test
+    func repeatedFetchedAndNotModifiedRefreshKeepUpdatedOnlyAtomEffectiveDateStable() async throws {
+        let sourceUpdatedAt = try #require(
+            FeedDateParsingService.parse("2024-01-02T10:15:30.486Z")
+        )
+        let atomXML = """
+        <feed xmlns="http://www.w3.org/2005/Atom">
+          <title>Apple-like Updated-only Feed</title>
+          <link href="https://example.com/" />
+          <updated>2024-01-10T12:00:00Z</updated>
+          <entry>
+            <id>updated-only-entry</id>
+            <title>Stable Source Date</title>
+            <link href="https://example.com/articles/updated-only" />
+            <summary>Updated-only Atom entry.</summary>
+            <updated>2024-01-02T10:15:30.486Z</updated>
+          </entry>
+        </feed>
+        """
+        let harness = try TestHarness.make(
+            httpClient: ScriptedHTTPClient(
+                steps: [
+                    .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/atom+xml; charset=utf-8"],
+                        body: atomXML
+                    ),
+                    .delayedResponse(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/atom+xml; charset=utf-8"],
+                        body: atomXML,
+                        delayNanoseconds: 1_000_000
+                    ),
+                    .response(statusCode: 304, headers: [:], body: "")
+                ]
+            )
+        )
+        let feed = Feed(url: "https://example.com/updated-only.atom", title: "Updated-only")
+        try harness.feedRepository.insert(feed)
+
+        let firstResult = await harness.service.refresh(feedID: feed.id)
+        let firstArticle = try #require(try harness.articleRepository.fetchArticles(feedID: feed.id).first)
+        let firstFetchedAt = firstArticle.fetchedAt
+
+        let secondResult = await harness.service.refresh(feedID: feed.id)
+        let secondArticle = try #require(try harness.articleRepository.fetchArticles(feedID: feed.id).first)
+        let secondFetchedAt = secondArticle.fetchedAt
+
+        let notModifiedResult = await harness.service.refresh(feedID: feed.id)
+        let notModifiedArticle = try #require(
+            try harness.articleRepository.fetchArticles(feedID: feed.id).first
+        )
+
+        #expect(firstResult.status == .fetched)
+        #expect(secondResult.status == .fetched)
+        #expect(notModifiedResult.status == .notModified)
+        #expect(firstArticle.publishedAt == nil)
+        #expect(firstArticle.updatedAtSource == sourceUpdatedAt)
+        #expect(firstArticle.querySortDate == sourceUpdatedAt)
+        #expect(secondFetchedAt > firstFetchedAt)
+        #expect(secondArticle.querySortDate == sourceUpdatedAt)
+        #expect(notModifiedArticle.fetchedAt == secondFetchedAt)
+        #expect(notModifiedArticle.querySortDate == sourceUpdatedAt)
+    }
+
+    @Test
     func singleFeedRefreshFailedPersistsErrorWithoutWritingArticles() async throws {
         let harness = try TestHarness.make(
             httpClient: ScriptedHTTPClient(

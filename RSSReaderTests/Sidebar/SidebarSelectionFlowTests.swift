@@ -6,6 +6,231 @@ import Testing
 @MainActor
 struct SidebarSelectionFlowTests {
     @Test
+    func sidebarSmartStarredRefreshShowsPartialFailureAndRetriesOnlyFailedFeed() async throws {
+        let firstFeedURL = "https://example.com/sidebar-retry-first.xml"
+        let failedFeedURL = "https://example.com/sidebar-retry-failed.xml"
+        let logger = RecordingLogger()
+        let badgeService = SidebarRecordingBadgeService()
+        let client = ScriptedHTTPClient(
+            responseSequencesByURL: [
+                firstFeedURL: [
+                    .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: makeValidRSSFeedXML(
+                            channelTitle: "First Feed",
+                            channelLink: "https://example.com/first/",
+                            language: "en",
+                            itemTitle: "First Article",
+                            itemLink: "https://example.com/first/article",
+                            itemGUID: "first-article",
+                            itemDescription: "First feed succeeds once",
+                            pubDate: "Tue, 02 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ],
+                failedFeedURL: [
+                    .response(statusCode: 500, headers: [:], body: ""),
+                    .response(
+                        statusCode: 200,
+                        headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                        body: makeValidRSSFeedXML(
+                            channelTitle: "Retried Feed",
+                            channelLink: "https://example.com/retried/",
+                            language: "en",
+                            itemTitle: "Retried Article",
+                            itemLink: "https://example.com/retried/article",
+                            itemGUID: "retried-article",
+                            itemDescription: "Failed feed succeeds on retry",
+                            pubDate: "Wed, 03 Jan 2024 10:00:00 GMT"
+                        )
+                    )
+                ]
+            ]
+        )
+        let harness = try TestHarness.make(
+            httpClient: client,
+            unreadAppIconBadgeService: badgeService,
+            logger: logger
+        )
+        let feeds = try harness.insertFeeds(urls: [firstFeedURL, failedFeedURL])
+        let failedFeed = feeds[1]
+        let controller = SidebarScreenController(folderExpansionStore: SidebarFolderExpansionStore(userDefaults: nil))
+        let appState = AppState()
+        harness.dependencies.appActions.showStarred(using: appState)
+        harness.dependencies.appActions.applySidebarArticleFilter(.starred, using: appState)
+        let firstSidebarReloadID = appState.sidebarReloadID
+        let firstArticleReloadID = appState.articleListReloadID
+
+        _ = await controller.refreshSidebar(
+            dependencies: harness.dependencies,
+            appState: appState,
+            currentSelection: .starred,
+            filter: .starred
+        )
+
+        #expect(controller.screenState.refreshStatus == .failed(lastUpdatedAt: nil))
+        #expect(appState.sidebarReloadID != firstSidebarReloadID)
+        #expect(appState.articleListReloadID != firstArticleReloadID)
+        #expect(badgeService.refreshBadgeCountCallCount == 1)
+
+        _ = try harness.insertArticle(
+            feed: failedFeed,
+            externalID: "expired-before-retry",
+            url: "https://example.com/expired-before-retry",
+            title: "Expired Before Retry",
+            publishedAt: .distantPast,
+            archivedAt: .distantPast,
+            fetchedAt: .distantPast,
+            createdAt: .distantPast
+        )
+        _ = try harness.dependencies.appSettingsRepository?.update(
+            AppSettingsUpdate(articleRetentionPolicy: .oneWeek, updatedAt: .distantPast)
+        )
+        let retrySidebarReloadID = appState.sidebarReloadID
+        let retryArticleReloadID = appState.articleListReloadID
+
+        _ = await controller.refreshSidebar(
+            dependencies: harness.dependencies,
+            appState: appState,
+            currentSelection: .starred,
+            filter: .starred
+        )
+
+        let requests = await client.recordedRequests()
+        let requestCounts = Dictionary(grouping: requests.map { $0.url.absoluteString }, by: { $0 })
+            .mapValues(\.count)
+        let retriedArticles = try harness.articleRepository.fetchArticles(feedID: failedFeed.id)
+
+        #expect(requestCounts[firstFeedURL] == 1)
+        #expect(requestCounts[failedFeedURL] == 2)
+        #expect(retriedArticles.count == 1)
+        #expect(retriedArticles.first?.guid == "retried-article")
+        #expect(retriedArticles.contains { $0.externalID == "expired-before-retry" } == false)
+        #expect(controller.screenState.refreshStatus.lastUpdatedAt != nil)
+        #expect(controller.screenState.refreshStatus.isSyncing == false)
+        #expect(appState.sidebarReloadID != retrySidebarReloadID)
+        #expect(appState.articleListReloadID != retryArticleReloadID)
+        #expect(badgeService.refreshBadgeCountCallCount == 2)
+        #expect(logger.contains("Manual feed refresh batch phase=initial", level: .info))
+        #expect(logger.contains("retryTargets=[\(failedFeed.id.uuidString)]", level: .info))
+        #expect(logger.contains("Manual feed refresh batch phase=retry", level: .info))
+        #expect(logger.contains("targets=[\(failedFeed.id.uuidString)]", level: .info))
+    }
+
+    @Test
+    func sidebarFeedStarredRefreshUsesSelectedFeedScopeAndClearsFailureAfterRetry() async throws {
+        let selectedURL = "https://example.com/sidebar-starred-selected.xml"
+        let outsideURL = "https://example.com/sidebar-starred-outside.xml"
+        let client = ScriptedHTTPClient(
+            responseSequencesByURL: [
+                selectedURL: [
+                    .response(statusCode: 500, headers: [:], body: ""),
+                    .response(statusCode: 304, headers: [:], body: "")
+                ],
+                outsideURL: [.response(statusCode: 500, headers: [:], body: "")]
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let feeds = try harness.insertFeeds(urls: [selectedURL, outsideURL])
+        let selectedFeed = feeds[0]
+        let controller = SidebarScreenController(folderExpansionStore: SidebarFolderExpansionStore(userDefaults: nil))
+        let appState = AppState()
+        harness.dependencies.appActions.showFeed(id: selectedFeed.id, using: appState)
+        harness.dependencies.appActions.applySidebarArticleFilter(.starred, using: appState)
+
+        _ = await controller.refreshSidebar(
+            dependencies: harness.dependencies,
+            appState: appState,
+            currentSelection: .feed(selectedFeed.id),
+            filter: .starred
+        )
+
+        #expect(controller.screenState.refreshStatus == .failed(lastUpdatedAt: nil))
+
+        _ = await controller.refreshSidebar(
+            dependencies: harness.dependencies,
+            appState: appState,
+            currentSelection: .feed(selectedFeed.id),
+            filter: .starred
+        )
+        let requestCounts = Dictionary(
+            grouping: await client.recordedRequests().map { $0.url.absoluteString },
+            by: { $0 }
+        ).mapValues(\.count)
+
+        #expect(requestCounts[selectedURL] == 2)
+        #expect(requestCounts[outsideURL] == nil)
+        #expect(controller.screenState.refreshStatus == .idle(lastUpdatedAt: nil))
+        #expect(controller.screenState.refreshStatus.isSyncing == false)
+    }
+
+    @Test
+    func sidebarStaleFolderCompletionDoesNotPublishFailureOrRetryIntoNewFeedContext() async throws {
+        let urls = [
+            "https://example.com/sidebar-stale-folder-success.xml",
+            "https://example.com/sidebar-stale-folder-failure.xml",
+            "https://example.com/sidebar-stale-selected-feed.xml"
+        ]
+        let responseGate = ScriptedHTTPClientResponseGate()
+        let client = ScriptedHTTPClient(
+            responseSequencesByURL: [
+                urls[0]: [.response(statusCode: 304, headers: [:], body: "")],
+                urls[1]: [
+                    .gatedResponse(statusCode: 500, headers: [:], body: "", gate: responseGate),
+                    .response(statusCode: 304, headers: [:], body: "")
+                ],
+                urls[2]: [.response(statusCode: 304, headers: [:], body: "")]
+            ]
+        )
+        let harness = try TestHarness.make(httpClient: client)
+        let feeds = try harness.insertFeeds(urls: urls)
+        let folder = Folder(name: "Stale Folder")
+        feeds[0].folder = folder
+        feeds[1].folder = folder
+        try harness.saveModelContext()
+        let controller = SidebarScreenController(folderExpansionStore: SidebarFolderExpansionStore(userDefaults: nil))
+        let appState = AppState()
+        harness.dependencies.appActions.showFolder(named: folder.name, using: appState)
+        harness.dependencies.appActions.applySidebarArticleFilter(.starred, using: appState)
+
+        let staleRefreshTask = Task { @MainActor in
+            await controller.refreshSidebar(
+                dependencies: harness.dependencies,
+                appState: appState,
+                currentSelection: .folder(folder.name),
+                filter: .starred
+            )
+        }
+        try await waitForSidebarRefreshCondition("stale folder refresh entered gate") {
+            await responseGate.hasEntered()
+        }
+
+        harness.dependencies.appActions.showFeed(id: feeds[2].id, using: appState)
+        await responseGate.release()
+        let resolvedSelection = await staleRefreshTask.value
+
+        #expect(resolvedSelection == .feed(feeds[2].id))
+        #expect(controller.screenState.refreshStatus == .idle(lastUpdatedAt: nil))
+
+        _ = await controller.refreshSidebar(
+            dependencies: harness.dependencies,
+            appState: appState,
+            currentSelection: .feed(feeds[2].id),
+            filter: .starred
+        )
+        let requestCounts = Dictionary(
+            grouping: await client.recordedRequests().map { $0.url.absoluteString },
+            by: { $0 }
+        ).mapValues(\.count)
+
+        #expect(requestCounts[urls[0]] == 1)
+        #expect(requestCounts[urls[1]] == 1)
+        #expect(requestCounts[urls[2]] == 1)
+        #expect(controller.screenState.refreshStatus == .idle(lastUpdatedAt: nil))
+    }
+
+    @Test
     func sidebarControllerLoadsPersistedLastFeedsRefreshTimestampWithoutRewritingIt() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let repository = try #require(harness.dependencies.appSettingsRepository)
@@ -22,7 +247,7 @@ struct SidebarSelectionFlowTests {
                 updatedAt: .distantPast
             )
         )
-        let controller = SidebarScreenController()
+        let controller = SidebarScreenController(folderExpansionStore: SidebarFolderExpansionStore(userDefaults: nil))
 
         _ = await controller.loadFeeds(
             showsFullScreenLoading: true,
@@ -47,7 +272,7 @@ struct SidebarSelectionFlowTests {
         let folder = Folder(name: "Filtered Folder")
         feed.folder = folder
         try harness.saveModelContext()
-        let controller = SidebarScreenController()
+        let controller = SidebarScreenController(folderExpansionStore: SidebarFolderExpansionStore(userDefaults: nil))
 
         let feedSelection = await controller.loadFeeds(
             showsFullScreenLoading: false,
@@ -406,4 +631,33 @@ struct SidebarSelectionFlowTests {
             update: update
         )
     }
+}
+
+private func waitForSidebarRefreshCondition(
+    _ expectation: String,
+    condition: () async -> Bool
+) async throws {
+    let deadline = ContinuousClock.now + .seconds(2)
+    while ContinuousClock.now < deadline {
+        if await condition() {
+            return
+        }
+        await Task.yield()
+    }
+    throw SidebarRefreshWaitError.timedOut(expectation)
+}
+
+private enum SidebarRefreshWaitError: Error {
+    case timedOut(String)
+}
+
+@MainActor
+private final class SidebarRecordingBadgeService: UnreadAppIconBadgeServicing {
+    private(set) var refreshBadgeCountCallCount = 0
+
+    func refreshBadgeCount() async {
+        refreshBadgeCountCallCount += 1
+    }
+
+    func applyBadgePreference(isEnabled: Bool) async {}
 }

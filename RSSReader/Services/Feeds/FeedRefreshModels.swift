@@ -160,6 +160,7 @@ struct FeedRefreshResult: Sendable, Identifiable {
     let finishedAt: Date
     let processedEntryCount: Int
     let upsertedEntryCount: Int
+    let reconciledEntryCount: Int
     let rejectedEntryCount: Int
     let diagnosticsSummary: FeedRefreshDiagnosticsSummary
     let errorDescription: String?
@@ -188,6 +189,7 @@ struct FeedRefreshResult: Sendable, Identifiable {
         finishedAt: Date,
         processedEntryCount: Int = 0,
         upsertedEntryCount: Int = 0,
+        reconciledEntryCount: Int = 0,
         rejectedEntryCount: Int = 0,
         diagnosticsSummary: FeedRefreshDiagnosticsSummary = FeedRefreshDiagnosticsSummary(),
         errorDescription: String? = nil
@@ -198,6 +200,7 @@ struct FeedRefreshResult: Sendable, Identifiable {
         self.finishedAt = finishedAt
         self.processedEntryCount = max(0, processedEntryCount)
         self.upsertedEntryCount = max(0, upsertedEntryCount)
+        self.reconciledEntryCount = max(0, reconciledEntryCount)
         self.rejectedEntryCount = max(0, rejectedEntryCount)
         self.diagnosticsSummary = diagnosticsSummary
         self.errorDescription = errorDescription
@@ -209,6 +212,7 @@ struct FeedRefreshResult: Sendable, Identifiable {
         finishedAt: Date = Date(),
         processedEntryCount: Int,
         upsertedEntryCount: Int,
+        reconciledEntryCount: Int = 0,
         rejectedEntryCount: Int,
         diagnosticsSummary: FeedRefreshDiagnosticsSummary = FeedRefreshDiagnosticsSummary()
     ) -> FeedRefreshResult {
@@ -219,6 +223,7 @@ struct FeedRefreshResult: Sendable, Identifiable {
             finishedAt: finishedAt,
             processedEntryCount: processedEntryCount,
             upsertedEntryCount: upsertedEntryCount,
+            reconciledEntryCount: reconciledEntryCount,
             rejectedEntryCount: rejectedEntryCount,
             diagnosticsSummary: diagnosticsSummary
         )
@@ -294,6 +299,7 @@ struct FeedRefreshBatchSummary: Sendable, Equatable {
     let cancelledCount: Int
     let totalProcessedEntryCount: Int
     let totalUpsertedEntryCount: Int
+    let totalReconciledEntryCount: Int
     let totalRejectedEntryCount: Int
 }
 
@@ -309,18 +315,27 @@ struct FeedRefreshBatchError: Sendable, Equatable, Identifiable {
 struct FeedRefreshBatchResult: Sendable {
     let startedAt: Date
     let finishedAt: Date
+    let targetFeedIDs: [UUID]
     let results: [FeedRefreshResult]
+    let batchErrorDescription: String?
     let summary: FeedRefreshBatchSummary
 
     init(
         startedAt: Date,
         finishedAt: Date,
-        results: [FeedRefreshResult]
+        results: [FeedRefreshResult],
+        targetFeedIDs: [UUID]? = nil,
+        batchErrorDescription: String? = nil
     ) {
         self.startedAt = startedAt
         self.finishedAt = finishedAt
+        self.targetFeedIDs = targetFeedIDs ?? results.map(\.feedID)
         self.results = results
-        self.summary = Self.makeSummary(from: results)
+        self.batchErrorDescription = batchErrorDescription
+        self.summary = Self.makeSummary(
+            from: results,
+            targetFeedCount: self.targetFeedIDs.count
+        )
     }
 
     var duration: TimeInterval {
@@ -339,6 +354,28 @@ struct FeedRefreshBatchResult: Sendable {
         failedResults.map(\.feedID)
     }
 
+    var retryFeedIDs: [UUID] {
+        let resultsByFeedID = Dictionary(grouping: results, by: \.feedID)
+        return targetFeedIDs.filter { feedID in
+            guard let matchingResults = resultsByFeedID[feedID],
+                  matchingResults.count == 1,
+                  let result = matchingResults.first else {
+                return true
+            }
+            return result.status == .failed || result.status == .cancelled
+        }
+    }
+
+    var hasUnsuccessfulOutcome: Bool {
+        batchErrorDescription != nil
+            || hasExactlyOneOutcomePerTarget == false
+            || retryFeedIDs.isEmpty == false
+    }
+
+    var isCompleteSuccess: Bool {
+        hasUnsuccessfulOutcome == false
+    }
+
     var errors: [FeedRefreshBatchError] {
         failedResults.compactMap { result in
             guard let message = result.errorDescription, message.isEmpty == false else {
@@ -353,18 +390,28 @@ struct FeedRefreshBatchResult: Sendable {
     }
 
     var failureDescriptions: [String] {
-        errors.map(\.message)
+        [batchErrorDescription].compactMap { $0 } + errors.map(\.message)
     }
 
-    private static func makeSummary(from results: [FeedRefreshResult]) -> FeedRefreshBatchSummary {
+    private var hasExactlyOneOutcomePerTarget: Bool {
+        guard results.count == targetFeedIDs.count else { return false }
+        return Dictionary(grouping: results, by: \.feedID).mapValues(\.count)
+            == Dictionary(grouping: targetFeedIDs, by: { $0 }).mapValues(\.count)
+    }
+
+    private static func makeSummary(
+        from results: [FeedRefreshResult],
+        targetFeedCount: Int
+    ) -> FeedRefreshBatchSummary {
         FeedRefreshBatchSummary(
-            totalFeedCount: results.count,
+            totalFeedCount: targetFeedCount,
             fetchedCount: results.filter { $0.status == .fetched }.count,
             notModifiedCount: results.filter { $0.status == .notModified }.count,
             failedCount: results.filter { $0.status == .failed }.count,
             cancelledCount: results.filter { $0.status == .cancelled }.count,
             totalProcessedEntryCount: results.reduce(0) { $0 + $1.processedEntryCount },
             totalUpsertedEntryCount: results.reduce(0) { $0 + $1.upsertedEntryCount },
+            totalReconciledEntryCount: results.reduce(0) { $0 + $1.reconciledEntryCount },
             totalRejectedEntryCount: results.reduce(0) { $0 + $1.rejectedEntryCount }
         )
     }

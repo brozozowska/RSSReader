@@ -258,15 +258,15 @@ struct SettingsScreenControllerSideEffectsTests {
         let settingsService = try #require(dependencies.appSettingsService)
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/settings-retention.xml"]).first)
         let now = Date.now
-        let sourceDate = now.addingTimeInterval(-(14 * 24 * 60 * 60))
+        let archivedAt = now.addingTimeInterval(-(14 * 24 * 60 * 60))
         let article = try harness.insertArticle(
             feed: feed,
-            externalID: "expired-current",
-            url: "https://example.com/expired-current",
-            title: "Expired Current",
-            publishedAt: sourceDate,
-            fetchedAt: sourceDate,
-            createdAt: sourceDate
+            externalID: "expired-archived",
+            url: "https://example.com/expired-archived",
+            title: "Expired Archived",
+            archivedAt: archivedAt,
+            fetchedAt: archivedAt,
+            createdAt: archivedAt
         )
         _ = try settingsService.updateSettings(
             AppSettingsPatch(articleRetentionPolicy: .oneMonth, updatedAt: .distantPast)

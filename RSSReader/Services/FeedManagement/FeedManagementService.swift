@@ -64,6 +64,7 @@ struct FeedManagementFeedPreview: Equatable, Sendable {
     let parserAnomalyCount: Int
     let rejectedEntryCount: Int
     let existingFeedID: UUID?
+    var initialFetchSnapshot: FeedInitialFetchSnapshot? = nil
 }
 
 struct FeedManagementFeedDiscoveryPlan: Equatable, Sendable {
@@ -71,6 +72,7 @@ struct FeedManagementFeedDiscoveryPlan: Equatable, Sendable {
     let feedURLs: [URL]
     let siteURLs: [URL]
     let fallbackFeedURLs: [URL]
+    var preferredFeedURL: URL? = nil
 }
 
 struct FeedManagementCreateFolderCommand: Equatable, Sendable {

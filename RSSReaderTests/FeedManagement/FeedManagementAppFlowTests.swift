@@ -98,6 +98,139 @@ struct FeedManagementAppFlowTests {
     }
 
     @Test
+    func initialAndSubsequentRefreshesPublishOnePostRetentionSnapshotForMixedAgeEntries() async throws {
+        let feedURL = "https://example.com/initial-refresh-lifecycle.xml"
+        let allEntryIDs = Array(1...30)
+        let currentEntryIDs = Array(22...30)
+        let logger = RecordingLogger()
+        let badgeService = RecordingUnreadAppIconBadgeService()
+        let client = ScriptedHTTPClient(
+            steps: [
+                .response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                    body: makeMixedAgeRSSFeedXML(entryIDs: allEntryIDs)
+                ),
+                .response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                    body: makeMixedAgeRSSFeedXML(entryIDs: allEntryIDs)
+                ),
+                .response(statusCode: 304, headers: [:], body: ""),
+                .response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/rss+xml; charset=utf-8"],
+                    body: makeMixedAgeRSSFeedXML(entryIDs: currentEntryIDs)
+                )
+            ]
+        )
+        let harness = try TestHarness.make(
+            httpClient: client,
+            unreadAppIconBadgeService: badgeService,
+            logger: logger
+        )
+        let appState = AppState()
+        let articleQueryService = try #require(harness.dependencies.articleQueryService)
+        let sidebarQueryService = try #require(harness.dependencies.sidebarQueryService)
+        let feed = try harness.feedRepository.insert(
+            Feed(url: feedURL, title: "Mixed Age Feed", kind: .rss)
+        )
+        _ = try harness.dependencies.appSettingsRepository?.update(
+            AppSettingsUpdate(articleRetentionPolicy: .oneWeek, updatedAt: .distantPast)
+        )
+        badgeService.onRefreshBadgeCount = {
+            let articles = (try? harness.articleRepository.fetchArticles(feedID: feed.id)) ?? []
+            let unreadCounts = try? harness.articleStateRepository.fetchUnreadCounts(feedIDs: [feed.id])
+            return RefreshSnapshotObservation(
+                articleCount: articles.count,
+                currentArticleCount: articles.filter { $0.archivedAt == nil }.count,
+                unreadCount: unreadCounts?[feed.id],
+                sidebarReloadID: appState.sidebarReloadID,
+                articleListReloadID: appState.articleListReloadID
+            )
+        }
+
+        _ = await harness.dependencies.appActions.completeFeedManagementFeedSave(
+            id: feed.id,
+            using: appState,
+            selectsSavedFeed: false
+        )
+        let sidebarReloadIDBeforeInitialLifecycleCompletion = appState.sidebarReloadID
+        let articleReloadIDBeforeInitialLifecycleCompletion = appState.articleListReloadID
+
+        await harness.dependencies.appActions.waitForScheduledFeedSaveRefreshes()
+
+        let initialArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        let initialVisibleArticles = try await articleQueryService.fetchArticleSearchSnapshot(
+            ArticleSearchRequest(
+                selection: .feed(feed.id),
+                sidebarArticleFilter: .allItems,
+                query: "",
+                sortMode: .publishedAtDescending
+            )
+        ).articles
+        let initialSidebarSnapshot = try sidebarQueryService.fetchSnapshot()
+        let initialBadgeObservation = try #require(badgeService.refreshObservations.first)
+        #expect(initialArticles.count == 30)
+        #expect(initialArticles.allSatisfy { $0.archivedAt == nil })
+        #expect(initialVisibleArticles.count == 30)
+        #expect(initialSidebarSnapshot.feeds.first { $0.id == feed.id }?.unreadCount == 30)
+        #expect(initialBadgeObservation.articleCount == 30)
+        #expect(initialBadgeObservation.currentArticleCount == 30)
+        #expect(initialBadgeObservation.unreadCount == 30)
+        #expect(initialBadgeObservation.sidebarReloadID == sidebarReloadIDBeforeInitialLifecycleCompletion)
+        #expect(initialBadgeObservation.articleListReloadID == articleReloadIDBeforeInitialLifecycleCompletion)
+        #expect(appState.sidebarReloadID != sidebarReloadIDBeforeInitialLifecycleCompletion)
+        #expect(appState.articleListReloadID != articleReloadIDBeforeInitialLifecycleCompletion)
+
+        let repeatedFetchedResult = await harness.dependencies.appActions.refreshFeed(id: feed.id)
+        let repeatedFetchedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        #expect(repeatedFetchedResult?.status == .fetched)
+        #expect(repeatedFetchedArticles.count == 30)
+        #expect(repeatedFetchedArticles.allSatisfy { $0.archivedAt == nil })
+
+        let notModifiedResult = await harness.dependencies.appActions.refreshFeed(id: feed.id)
+        let notModifiedArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        #expect(notModifiedResult?.status == .notModified)
+        #expect(notModifiedArticles.count == 30)
+        #expect(notModifiedArticles.allSatisfy { $0.archivedAt == nil })
+
+        let reducedSnapshotResult = await harness.dependencies.appActions.refreshFeed(id: feed.id)
+        let reducedSnapshotArticles = try harness.articleRepository.fetchArticles(feedID: feed.id)
+        let reducedVisibleArticles = try await articleQueryService.fetchArticleSearchSnapshot(
+            ArticleSearchRequest(
+                selection: .feed(feed.id),
+                sidebarArticleFilter: .allItems,
+                query: "",
+                sortMode: .publishedAtDescending
+            )
+        ).articles
+        let reducedSidebarSnapshot = try sidebarQueryService.fetchSnapshot()
+        #expect(reducedSnapshotResult?.status == .fetched)
+        #expect(reducedSnapshotResult?.reconciledEntryCount == 21)
+        #expect(reducedSnapshotArticles.count == 30)
+        #expect(reducedSnapshotArticles.filter { $0.archivedAt == nil }.count == 9)
+        #expect(reducedSnapshotArticles.filter { $0.archivedAt != nil }.count == 21)
+        #expect(reducedVisibleArticles.count == 30)
+        #expect(reducedSidebarSnapshot.feeds.first { $0.id == feed.id }?.unreadCount == 30)
+        #expect(badgeService.refreshObservations.map(\.currentArticleCount) == [30, 30, 30, 9])
+        #expect(badgeService.refreshObservations.map(\.unreadCount) == [30, 30, 30, 30])
+
+        let lifecycleEntries = logger.entries.filter {
+            $0.message.contains("Feed refresh lifecycle completed feed=\(feed.id.uuidString)")
+        }
+        #expect(lifecycleEntries.count == 4)
+        #expect(lifecycleEntries[0].message.contains("status=fetched fetchedEntries=30"))
+        #expect(lifecycleEntries[0].message.contains("reconciledEntries=0 deletedByRetention=0"))
+        #expect(lifecycleEntries[1].message.contains("status=fetched fetchedEntries=30"))
+        #expect(lifecycleEntries[1].message.contains("reconciledEntries=0 deletedByRetention=0"))
+        #expect(lifecycleEntries[2].message.contains("status=notModified fetchedEntries=0"))
+        #expect(lifecycleEntries[2].message.contains("reconciledEntries=0 deletedByRetention=0"))
+        #expect(lifecycleEntries[3].message.contains("status=fetched fetchedEntries=9"))
+        #expect(lifecycleEntries[3].message.contains("reconciledEntries=21 deletedByRetention=0"))
+    }
+
+    @Test
     func addFeedServicePipelineRejectsDuplicateFeedURLAfterPreviewResolvesExistingFeed() async throws {
         let feedURL = "https://example.com/duplicate-feed.xml"
         let firstPreviewStep = ScriptedHTTPClient.Step.response(
@@ -413,12 +546,52 @@ struct FeedManagementAppFlowTests {
 private final class RecordingUnreadAppIconBadgeService: UnreadAppIconBadgeServicing {
     private(set) var refreshBadgeCountCallCount = 0
     private(set) var appliedPreferences: [Bool] = []
+    private(set) var refreshObservations: [RefreshSnapshotObservation] = []
+    var onRefreshBadgeCount: (() -> RefreshSnapshotObservation)?
 
     func refreshBadgeCount() async {
         refreshBadgeCountCallCount += 1
+        if let observation = onRefreshBadgeCount?() {
+            refreshObservations.append(observation)
+        }
     }
 
     func applyBadgePreference(isEnabled: Bool) async {
         appliedPreferences.append(isEnabled)
     }
+}
+
+private struct RefreshSnapshotObservation {
+    let articleCount: Int
+    let currentArticleCount: Int
+    let unreadCount: Int?
+    let sidebarReloadID: UUID
+    let articleListReloadID: UUID
+}
+
+private func makeMixedAgeRSSFeedXML(entryIDs: [Int]) -> String {
+    let items = entryIDs.map { entryID in
+        """
+        <item>
+          <title>Mixed Age Article \(entryID)</title>
+          <link>https://example.com/mixed-age/\(entryID)</link>
+          <guid isPermaLink="false">mixed-age-\(entryID)</guid>
+          <description>Mixed age fixture article \(entryID)</description>
+          <pubDate>Mon, \(String(format: "%02d", entryID)) Jan 2024 10:00:00 GMT</pubDate>
+        </item>
+        """
+    }.joined(separator: "\n")
+
+    return """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <rss version="2.0">
+      <channel>
+        <title>Mixed Age Feed</title>
+        <link>https://example.com/mixed-age/</link>
+        <description>Mixed age lifecycle fixture</description>
+        <language>en</language>
+        \(items)
+      </channel>
+    </rss>
+    """
 }

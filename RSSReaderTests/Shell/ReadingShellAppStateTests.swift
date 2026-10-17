@@ -366,6 +366,113 @@ struct ReadingShellAppStateTests {
     }
 
     @Test
+    func readerNavigationUpdatesOnlyCurrentScopePositionAndBackKeepsThatPosition() {
+        let appState = AppState()
+        let ids = (0..<4).map { _ in UUID() }
+        let otherScopePosition = UUID()
+        appState.selectSidebarSelection(.inbox)
+        appState.updateArticleNavigationContext(
+            ids, sidebarSelection: .inbox, sidebarArticleFilter: .allItems, articleListSessionID: UUID()
+        )
+        appState.updateArticleListScrollPosition(
+            ids[0], sidebarSelection: .inbox, sidebarArticleFilter: .allItems
+        )
+        appState.updateArticleListScrollPosition(
+            otherScopePosition, sidebarSelection: .inbox, sidebarArticleFilter: .starred
+        )
+        appState.selectArticle(ids[0])
+        #expect(appState.selectAdjacentArticle(.next))
+        #expect(appState.selectAdjacentArticle(.next))
+        #expect(appState.articleListScrollPositionID(sidebarSelection: .inbox, sidebarArticleFilter: .allItems) == ids[2])
+        appState.updateArticleListScrollPosition(
+            ids[0], sidebarSelection: .inbox, sidebarArticleFilter: .allItems
+        )
+        #expect(appState.articleListScrollPositionID(sidebarSelection: .inbox, sidebarArticleFilter: .allItems) == ids[2])
+        #expect(appState.selectAdjacentArticle(.previous))
+        #expect(appState.articleListScrollPositionID(sidebarSelection: .inbox, sidebarArticleFilter: .allItems) == ids[1])
+        appState.selectArticle(nil)
+        #expect(appState.articleListScrollPositionID(sidebarSelection: .inbox, sidebarArticleFilter: .allItems) == ids[1])
+        #expect(appState.articleListScrollPositionID(sidebarSelection: .inbox, sidebarArticleFilter: .starred) == otherScopePosition)
+    }
+
+    @Test
+    func rejectedReaderNavigationDoesNotReplaceViewportPosition() {
+        let appState = AppState()
+        let articleID = UUID()
+        let anchorID = UUID()
+        appState.selectSidebarSelection(.inbox)
+        appState.updateArticleNavigationContext(
+            [articleID], sidebarSelection: .inbox, sidebarArticleFilter: .allItems, articleListSessionID: UUID()
+        )
+        appState.updateArticleListScrollPosition(anchorID, sidebarSelection: .inbox, sidebarArticleFilter: .allItems)
+        appState.selectArticle(articleID)
+        #expect(appState.selectAdjacentArticle(.next) == false)
+        #expect(appState.selectAdjacentArticle(.previous) == false)
+        #expect(appState.articleListScrollPositionID(sidebarSelection: .inbox, sidebarArticleFilter: .allItems) == anchorID)
+        appState.updateArticleNavigationContext(
+            [articleID, UUID()], sidebarSelection: .starred, sidebarArticleFilter: .allItems, articleListSessionID: UUID()
+        )
+        #expect(appState.selectAdjacentArticle(.next) == false)
+        #expect(appState.articleListScrollPositionID(sidebarSelection: .inbox, sidebarArticleFilter: .allItems) == anchorID)
+    }
+
+    @Test
+    func readingShellRejectsPassiveViewportUpdatesWhileReaderOrDirectSafariCoversArticleList() {
+        let appState = AppState()
+        let feedID = UUID()
+        let viewportAnchorID = UUID()
+        let selectedArticleID = UUID()
+        let competingAnchorID = UUID()
+        let safariURL = URL(string: "https://example.com/article")!
+
+        appState.selectSidebarSelection(.feed(feedID))
+        appState.updateArticleListScrollPosition(
+            viewportAnchorID,
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .allItems
+        )
+        appState.selectArticle(selectedArticleID)
+        appState.updateArticleListScrollPosition(
+            competingAnchorID,
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .allItems
+        )
+
+        #expect(
+            appState.articleListScrollPositionID(
+                sidebarSelection: .feed(feedID),
+                sidebarArticleFilter: .allItems
+            ) == viewportAnchorID
+        )
+
+        appState.selectArticle(nil)
+        appState.updateArticleListScrollPosition(
+            competingAnchorID,
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .allItems
+        )
+        #expect(
+            appState.articleListScrollPositionID(
+                sidebarSelection: .feed(feedID),
+                sidebarArticleFilter: .allItems
+            ) == competingAnchorID
+        )
+
+        #expect(appState.presentSafariFromArticleList(articleID: selectedArticleID, url: safariURL))
+        appState.updateArticleListScrollPosition(
+            viewportAnchorID,
+            sidebarSelection: .feed(feedID),
+            sidebarArticleFilter: .allItems
+        )
+        #expect(
+            appState.articleListScrollPositionID(
+                sidebarSelection: .feed(feedID),
+                sidebarArticleFilter: .allItems
+            ) == competingAnchorID
+        )
+    }
+
+    @Test
     func readingShellPublishesReadOnOpenEventWithinCurrentListContext() {
         let appState = AppState()
         let feedID = UUID()
@@ -521,6 +628,21 @@ struct ReadingShellAppStateTests {
         #expect(appState.selectAdjacentArticle(.previous))
         #expect(appState.selectedArticleID == secondArticleID)
         #expect(appState.selectedDetailRoute == .article(secondArticleID))
+    }
+
+    @Test
+    func readingShellReturnsBoundedAdjacentWindowsInNavigationOrder() {
+        let appState = AppState()
+        let articleIDs = (0..<7).map { _ in UUID() }
+
+        appState.updateArticleNavigationContext(articleIDs)
+        appState.selectedArticleID = articleIDs[3]
+
+        #expect(appState.adjacentArticleIDs(.previous, limit: 2) == [articleIDs[2], articleIDs[1]])
+        #expect(appState.adjacentArticleIDs(.next, limit: 2) == [articleIDs[4], articleIDs[5]])
+        #expect(appState.adjacentArticleIDs(.previous, limit: 0).isEmpty)
+        #expect(appState.adjacentArticleID(.previous) == articleIDs[2])
+        #expect(appState.adjacentArticleID(.next) == articleIDs[4])
     }
 
     @Test

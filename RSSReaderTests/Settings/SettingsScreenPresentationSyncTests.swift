@@ -5,6 +5,51 @@ import Testing
 @Suite("Settings Screen / Presentation / Sync")
 @MainActor
 struct SettingsScreenPresentationSyncTests {
+    @Test(arguments: [nil, CloudKitRuntimeActivity.setup, .import, .export], [nil, "", "CKError domain=CloudKit code=99"])
+    func syncFailureCopyUsesActivityAndKeepsDiagnostics(
+        activity: CloudKitRuntimeActivity?, diagnostic: String?
+    ) throws {
+        let failure = SyncRuntimeFailure(activity: activity, message: diagnostic)
+        let runtime = SyncRuntimeState(
+            phase: .failed(failure), isSyncEnabled: true, accountAvailability: .available,
+            activeActivity: nil, lastEventContext: nil
+        )
+        let presentation = SettingsSyncStatusPresentation(runtimeState: runtime)
+        #expect(presentation == .failed(failure))
+        #expect(presentation.iCloudSyncStatus == runtime.iCloudSyncStatus)
+        let input = SettingsScreenInput(useiCloudSync: true, syncStatusPresentation: presentation)
+        let section = try #require(SettingsScreenPresentationBuilder.buildSections(from: input).first { $0.id == .updatesAndSync })
+        let expected: String
+        switch activity {
+        case .setup: expected = SettingsLocalization.syncSetupFailedMessage
+        case .import: expected = SettingsLocalization.syncImportFailedMessage
+        case .export: expected = SettingsLocalization.syncExportFailedMessage
+        case nil: expected = SettingsLocalization.syncFailedMessage
+        }
+        #expect(section.items.last == .statusRow(SettingsStatusRowItemPresentation(
+            id: .iCloudSyncStatus, title: SettingsLocalization.currentStatusTitle,
+            subtitle: expected, valueTitle: SettingsLocalization.syncStatusErrorTitle
+        )))
+        #expect(expected.contains("CKError") == false)
+        if let diagnostic, diagnostic.isEmpty == false {
+            #expect(presentation.iCloudSyncStatus == .failed(diagnostic))
+        }
+    }
+
+    @Test
+    func legacySyncStatusUsesGenericUserCopyWithoutLosingDiagnostic() throws {
+        let status = ICloudSyncStatus.failed("arbitrary technical failure")
+        let presentation = SettingsSyncStatusPresentation(iCloudSyncStatus: status)
+        #expect(presentation.iCloudSyncStatus == status)
+        let section = try #require(SettingsScreenPresentationBuilder.buildSections(from:
+            SettingsScreenInput(useiCloudSync: true, syncStatusPresentation: presentation)
+        ).first { $0.id == .updatesAndSync })
+        #expect(section.items.last == .statusRow(SettingsStatusRowItemPresentation(
+            id: .iCloudSyncStatus, title: SettingsLocalization.currentStatusTitle,
+            subtitle: SettingsLocalization.syncFailedMessage, valueTitle: SettingsLocalization.syncStatusErrorTitle
+        )))
+    }
+
     @Test
     func settingsScreenPresentationBuilderShowsAppleIDSignInGuidanceWhenNoICloudAccountIsAvailable() throws {
         let input = SettingsScreenInput(

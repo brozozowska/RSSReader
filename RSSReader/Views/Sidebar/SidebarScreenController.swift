@@ -5,12 +5,22 @@ import Observation
 @Observable
 final class SidebarScreenController {
     var screenState: SidebarScreenState
-    private(set) var expandedFolderNames: Set<String>
-    let isPreviewMode: Bool
+    private let folderExpansionStore: SidebarFolderExpansionStore
 
-    init(previewScreenState: SidebarScreenState? = nil) {
+    var collapsedFolderIDs: Set<UUID> {
+        folderExpansionStore.collapsedFolderIDs
+    }
+    let isPreviewMode: Bool
+    private var pendingRetry: PendingManualFeedRefreshRetry?
+
+    init(
+        previewScreenState: SidebarScreenState? = nil,
+        folderExpansionStore: SidebarFolderExpansionStore? = nil
+    ) {
         self.screenState = previewScreenState ?? SidebarScreenState()
-        self.expandedFolderNames = []
+        self.folderExpansionStore = folderExpansionStore ?? SidebarFolderExpansionStore(
+            userDefaults: previewScreenState == nil ? .standard : nil
+        )
         self.isPreviewMode = previewScreenState != nil
     }
 
@@ -20,7 +30,7 @@ final class SidebarScreenController {
     ) -> SidebarScreenDerivedViewState {
         screenState.derivedViewState(
             filter: filter,
-            expandedFolderNames: expandedFolderNames,
+            collapsedFolderIDs: collapsedFolderIDs,
             iCloudSyncStatus: iCloudSyncStatus
         )
     }
@@ -43,7 +53,7 @@ final class SidebarScreenController {
             let snapshot = try sidebarQueryService.fetchSnapshot()
             let effectiveRefreshedAt = refreshedAt ?? lastFeedsRefreshAt(dependencies: dependencies)
             screenState.applyLoadedSnapshot(snapshot, refreshedAt: effectiveRefreshedAt)
-            syncExpandedFolderNames(filter: filter)
+            folderExpansionStore.reconcile(existingFolderIDs: Set(snapshot.folders.map(\.id)))
             return resolvedSelection(currentSelection: currentSelection, filter: filter)
         } catch {
             dependencies.logger.error("Failed to load sidebar feeds: \(error)")
@@ -61,11 +71,50 @@ final class SidebarScreenController {
         guard screenState.isSyncing == false else {
             return currentSelection
         }
+        guard appState.selectedSidebarSelection == currentSelection,
+              appState.selectedSidebarArticleFilter == filter else {
+            return appState.selectedSidebarSelection
+        }
 
+        let refreshContext = ManualFeedRefreshContext(
+            selection: currentSelection,
+            sidebarArticleFilter: filter
+        )
         let previousStatus = screenState.refreshStatus
         screenState.beginRefreshing()
-        let result = await dependencies.appActions.refreshVisibleFeeds(using: appState)
-        let refreshedAt = result.flatMap(Self.sidebarRefreshDisplayDate)
+        let result: FeedRefreshBatchResult?
+        if let pendingRetry, pendingRetry.context == refreshContext {
+            result = await dependencies.appActions.retryFeeds(
+                pendingRetry.feedIDs,
+                context: refreshContext,
+                using: appState
+            )
+        } else {
+            pendingRetry = nil
+            result = await dependencies.appActions.refreshSelection(
+                refreshContext,
+                using: appState
+            )
+        }
+
+        guard appState.selectedSidebarSelection == refreshContext.selection,
+              appState.selectedSidebarArticleFilter == refreshContext.sidebarArticleFilter else {
+            pendingRetry = nil
+            screenState.restoreRefreshStatus(previousStatus)
+            return appState.selectedSidebarSelection
+        }
+
+        if let retryFeedIDs = result?.retryFeedIDs, retryFeedIDs.isEmpty == false {
+            pendingRetry = PendingManualFeedRefreshRetry(
+                context: refreshContext,
+                feedIDs: retryFeedIDs
+            )
+        } else if result != nil {
+            pendingRetry = nil
+        }
+        let refreshedAt = result.flatMap {
+            Self.sidebarRefreshDisplayDate(from: $0, context: refreshContext)
+        }
         let adjustedSelection = await loadFeeds(
             showsFullScreenLoading: false,
             dependencies: dependencies,
@@ -74,7 +123,11 @@ final class SidebarScreenController {
             refreshedAt: refreshedAt
         )
 
-        if refreshedAt == nil {
+        if result?.hasUnsuccessfulOutcome == true {
+            screenState.applyRefreshFailure(lastUpdatedAt: previousStatus.lastUpdatedAt)
+        } else if result != nil, refreshedAt == nil {
+            screenState.restoreRefreshStatus(.idle(lastUpdatedAt: previousStatus.lastUpdatedAt))
+        } else if refreshedAt == nil {
             screenState.restoreRefreshStatus(previousStatus)
         }
 
@@ -90,8 +143,13 @@ final class SidebarScreenController {
         }
     }
 
-    private static func sidebarRefreshDisplayDate(from result: FeedRefreshBatchResult) -> Date? {
-        guard result.summary.fetchedCount + result.summary.notModifiedCount > 0 else {
+    private static func sidebarRefreshDisplayDate(
+        from result: FeedRefreshBatchResult,
+        context: ManualFeedRefreshContext
+    ) -> Date? {
+        guard context.scope == .allFeeds,
+              result.isCompleteSuccess,
+              result.summary.fetchedCount + result.summary.notModifiedCount > 0 else {
             return nil
         }
 
@@ -110,31 +168,15 @@ final class SidebarScreenController {
         )
     }
 
-    func visibleFolderNames(filter: SidebarArticleFilter) -> Set<String> {
-        let visibleFeeds = SidebarFeedVisibility.filteredFeeds(
-            feeds: screenState.feeds,
-            filter: filter,
-            starredFeedIDs: screenState.starredFeedIDs
-        )
-
-        return Set(
-            FolderSidebarGroup.groups(
-                from: screenState.folders,
-                feeds: visibleFeeds,
-                filter: filter
-            ).map(\.name)
-        )
-    }
-
     func toggleFolderExpansion(named folderName: String) {
-        if expandedFolderNames.contains(folderName) {
-            expandedFolderNames.remove(folderName)
-        } else {
-            expandedFolderNames.insert(folderName)
+        guard let folderID = screenState.folders.first(where: { $0.name == folderName })?.id else {
+            return
         }
+        folderExpansionStore.toggleExpansion(folderID: folderID)
     }
+}
 
-    func syncExpandedFolderNames(filter: SidebarArticleFilter) {
-        expandedFolderNames = visibleFolderNames(filter: filter)
-    }
+private struct PendingManualFeedRefreshRetry {
+    let context: ManualFeedRefreshContext
+    let feedIDs: [UUID]
 }

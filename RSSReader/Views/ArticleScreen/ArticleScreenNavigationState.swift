@@ -10,12 +10,16 @@ enum ArticleScreenNavigationState {
     static func shouldOpenSourceArticleOnDrag(
         layoutDirection: LayoutDirection,
         containerWidth: CGFloat,
-        translation: CGSize
+        translation: CGSize,
+        startLocation: CGPoint? = nil,
+        excludedSourceSwipeRegions: [CGRect] = []
     ) -> Bool {
         let progress = openSourceArticleSwipeProgress(
             layoutDirection: layoutDirection,
             containerWidth: containerWidth,
-            translation: translation
+            translation: translation,
+            startLocation: startLocation,
+            excludedSourceSwipeRegions: excludedSourceSwipeRegions
         )
         return openSourceArticleDirectionalTranslation(
             layoutDirection: layoutDirection,
@@ -27,8 +31,13 @@ enum ArticleScreenNavigationState {
     static func openSourceArticleSwipeProgress(
         layoutDirection: LayoutDirection,
         containerWidth: CGFloat,
-        translation: CGSize
+        translation: CGSize,
+        startLocation: CGPoint? = nil,
+        excludedSourceSwipeRegions: [CGRect] = []
     ) -> CGFloat {
+        if let startLocation, excludedSourceSwipeRegions.contains(where: { $0.contains(startLocation) }) {
+            return 0
+        }
         guard containerWidth > 0 else { return 0 }
         guard abs(translation.height) <= openSourceArticleVerticalTranslationTolerance else {
             return 0

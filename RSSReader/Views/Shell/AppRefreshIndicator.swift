@@ -30,6 +30,8 @@ enum AppRefreshIndicatorState: Equatable {
 }
 
 struct AppRefreshIndicator: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     let state: AppRefreshIndicatorState
     var size: CGFloat = 18
     var lineWidth: CGFloat = 2
@@ -37,7 +39,7 @@ struct AppRefreshIndicator: View {
     var accessibilityLabel: String?
 
     var body: some View {
-        TimelineView(.animation) { timeline in
+        TimelineView(.animation(paused: reduceMotion || state != .refreshing)) { timeline in
             RefreshRing(progress: ringProgress)
                 .stroke(
                     tint,
@@ -46,7 +48,7 @@ struct AppRefreshIndicator: View {
                 .frame(width: size, height: size)
                 .rotationEffect(rotation(at: timeline.date))
                 .opacity(state.isVisible ? ringOpacity : 0)
-                .animation(.snappy(duration: 0.2), value: state)
+                .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: state)
                 .accessibilityLabel(accessibilityLabel ?? state.accessibilityLabel)
                 .accessibilityHidden(state == .idle)
         }
@@ -77,7 +79,8 @@ struct AppRefreshIndicator: View {
     }
 
     private func rotation(at date: Date) -> Angle {
-        switch state {
+        guard reduceMotion == false else { return .zero }
+        return switch state {
         case .ready:
             .degrees(45)
         case .refreshing:

@@ -1,7 +1,14 @@
 import CryptoKit
 import Foundation
 
-actor ArticleImageDiskCache {
+nonisolated protocol ArticleImageDiskCaching: Sendable {
+    func data(for url: URL) async throws -> Data?
+    func data(for url: URL, maximumBytes: Int64) async throws -> Data?
+    func insert(_ data: Data, for url: URL) async throws
+    func removeData(for url: URL) async throws
+}
+
+actor ArticleImageDiskCache: ArticleImageDiskCaching {
     static let shared = ArticleImageDiskCache()
 
     private let directoryURL: URL

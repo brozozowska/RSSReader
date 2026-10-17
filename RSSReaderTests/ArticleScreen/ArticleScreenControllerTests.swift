@@ -6,6 +6,17 @@ import Testing
 @MainActor
 struct ArticleScreenControllerTests {
     @Test
+    func technicalReaderFailureUsesLocalizedCopyAndRetainsDiagnostics() async throws {
+        let logger = RecordingLogger()
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient(), logger: logger)
+        let controller = ArticleScreenController(articleQueryService: FailingReaderQueryService())
+        await controller.load(articleID: UUID(), dependencies: harness.dependencies)
+        #expect(controller.screenState.placeholder?.description == ReadingLocalization.articleLoadFailedMessage)
+        #expect(controller.screenState.phase == .failed(ReadingLocalization.articleLoadFailedMessage))
+        #expect(logger.contains("PrivateReaderStorage", level: .error))
+    }
+
+    @Test
     func articleScreenControllerLoadsReaderArticleForCurrentSelection() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-load.xml"]).first)
@@ -75,7 +86,7 @@ struct ArticleScreenControllerTests {
         #expect(loadedArticle.isRead == true)
         #expect(recordedReadArticleIDs == [article.id])
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == ReadingLocalization.markUnreadAction)
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
 
         let persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -114,7 +125,7 @@ struct ArticleScreenControllerTests {
         #expect(loadedArticle.isRead == false)
         #expect(recordedReadArticleIDs.isEmpty)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == ReadingLocalization.markReadAction)
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.fill")
 
         let persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -214,7 +225,7 @@ struct ArticleScreenControllerTests {
         #expect(updatedArticle.isRead == false)
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == ReadingLocalization.markReadAction)
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.fill")
 
         var persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -230,7 +241,7 @@ struct ArticleScreenControllerTests {
         updatedArticle = try #require(controller.screenState.article)
         #expect(updatedArticle.isRead == true)
         #expect(controller.screenState.toolbarActions.bottomActions?.readToggleTitle == ReadingLocalization.markUnreadAction)
-        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle.slash")
+        #expect(controller.screenState.toolbarActions.bottomActions?.readToggleSystemImage == "circle")
 
         persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -261,7 +272,7 @@ struct ArticleScreenControllerTests {
         #expect(updatedArticle.isStarred == true)
         #expect(controller.screenState.phase == .loaded)
         #expect(controller.screenState.toolbarActions.bottomActions?.starTitle == ReadingLocalization.unstarAction)
-        #expect(controller.screenState.toolbarActions.bottomActions?.starSystemImage == "star.slash")
+        #expect(controller.screenState.toolbarActions.bottomActions?.starSystemImage == "star.fill")
 
         var persistedState = try harness.articleStateRepository.fetchStateSnapshot(
             feedID: feed.id,
@@ -460,5 +471,22 @@ struct ArticleScreenControllerTests {
         #expect(externallyOpenedURL == tappedURL)
         #expect(appState.selectedDetailRoute == .none)
         #expect(appState.presentedSafariRoute == nil)
+    }
+}
+
+@MainActor
+private struct FailingReaderQueryService: ArticleQueryService {
+    func fetchReaderArticle(id: UUID) throws -> ReaderArticleDTO? {
+        throw NSError(domain: "PrivateReaderStorage", code: 77, userInfo: [
+            NSLocalizedDescriptionKey: "Internal reader details must not become UI copy"
+        ])
+    }
+
+    func fetchArticleSearchSnapshot(_ request: ArticleSearchRequest) async throws -> ArticleSearchResultSnapshot {
+        throw NSError(domain: "UnexpectedSearch", code: 1)
+    }
+
+    func fetchReaderArticles(ids: [UUID]) throws -> [ReaderArticleDTO] {
+        throw NSError(domain: "UnexpectedAdjacentLookup", code: 1)
     }
 }

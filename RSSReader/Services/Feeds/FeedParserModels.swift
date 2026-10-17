@@ -97,6 +97,10 @@ nonisolated struct ParsedFeedEntryDTO: Sendable {
     let updatedAt: Date?
     let imageURL: String?
 
+    var effectiveSourceDate: Date? {
+        publishedAt ?? updatedAt
+    }
+
     init(
         externalID: String? = nil,
         guid: String? = nil,

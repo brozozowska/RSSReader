@@ -125,8 +125,8 @@ enum SidebarLocalization {
     )
     static let emptyDescription = String(
         localized: "sidebar.empty.description",
-        defaultValue: "Add a feed to populate the Feeds sidebar.",
-        comment: "Empty state description for the feeds sidebar."
+        defaultValue: "Add your first feed to start reading articles.",
+        comment: "Device-neutral empty state description inviting the user to add their first feed and start reading articles."
     )
     static let loadFailureTitle = String(
         localized: "sidebar.loadFailure.title",

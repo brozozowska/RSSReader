@@ -11,12 +11,22 @@ enum SidebarContentPhase: Equatable {
 enum SidebarRefreshStatus: Equatable {
     case idle(lastUpdatedAt: Date?)
     case syncing
+    case failed(lastUpdatedAt: Date?)
 
     var isSyncing: Bool {
         if case .syncing = self {
             return true
         }
         return false
+    }
+
+    var lastUpdatedAt: Date? {
+        switch self {
+        case .idle(let lastUpdatedAt), .failed(let lastUpdatedAt):
+            lastUpdatedAt
+        case .syncing:
+            nil
+        }
     }
 }
 
@@ -63,43 +73,6 @@ struct SidebarCustomRefreshState: Equatable {
         }
 
         return SidebarCustomRefreshState(phase: .pulling, pullProgress: normalizedProgress)
-    }
-}
-
-struct SidebarCustomRefreshGeometry: Equatable {
-    var contentOffsetY: CGFloat
-    var contentInsetTop: CGFloat
-
-    init(contentOffsetY: CGFloat = 0, contentInsetTop: CGFloat = 0) {
-        self.contentOffsetY = contentOffsetY
-        self.contentInsetTop = contentInsetTop
-    }
-
-    var topOverscrollDistance: CGFloat {
-        max(0, -(contentOffsetY + contentInsetTop))
-    }
-}
-
-enum SidebarCustomRefreshPullPolicy {
-    static let pullThreshold: CGFloat = 72
-
-    static func progress(
-        for geometry: SidebarCustomRefreshGeometry,
-        threshold: CGFloat = pullThreshold
-    ) -> Double {
-        guard threshold > 0 else { return 0 }
-
-        return min(Double(geometry.topOverscrollDistance / threshold), 1)
-    }
-}
-
-enum SidebarCustomRefreshReleasePolicy {
-    static func shouldTriggerRefresh(
-        wasInteracting: Bool,
-        isInteracting: Bool,
-        customRefreshState: SidebarCustomRefreshState
-    ) -> Bool {
-        wasInteracting && isInteracting == false && customRefreshState.phase == .ready
     }
 }
 
@@ -198,9 +171,9 @@ enum SmartSidebarItem: CaseIterable, Identifiable, Hashable {
         case .allItems:
             "tray.full"
         case .unread:
-            "circle"
+            ArticleStateSymbols.read(isRead: false)
         case .starred:
-            "star"
+            ArticleStateSymbols.starred(isStarred: true)
         }
     }
 

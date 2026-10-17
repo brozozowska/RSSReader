@@ -24,26 +24,23 @@ struct SidebarView: View {
             iCloudSyncStatus: appState.iCloudSyncStatus
         )
 
-        ZStack {
-            SidebarContentList(
-                selection: $selection,
-                viewState: viewState,
-                customRefreshState: controller.screenState.customRefreshState,
-                appThemeVariant: appThemeVariant,
-                actionHandlers: actionHandlers,
-                onFolderExpansionToggle: toggleFolderExpansion,
-                onCustomRefreshPullProgressChange: updateCustomRefreshPullProgress,
-                onCustomRefreshRelease: triggerCustomRefreshFromScrollRelease
-            )
-
-            SidebarCustomRefreshIndicator(
-                customRefreshState: controller.screenState.customRefreshState
-            )
-        }
-        .toolbarTitleDisplayMode(.inline)
+        SidebarContentList(
+            selection: $selection,
+            viewState: viewState,
+            customRefreshState: controller.screenState.customRefreshState,
+            appThemeVariant: appThemeVariant,
+            actionHandlers: actionHandlers,
+            onFolderExpansionToggle: toggleFolderExpansion,
+            onCustomRefreshPullProgressChange: updateCustomRefreshPullProgress,
+            onCustomRefreshRelease: triggerCustomRefreshFromScrollRelease
+        )
+        .appListNavigationBar(
+            title: SidebarLocalization.title,
+            subtitle: viewState.toolbarState.subtitle,
+            refreshState: controller.screenState.customRefreshState.indicatorState
+        )
         .toolbar {
             SidebarToolbarContent(
-                toolbarState: viewState.toolbarState,
                 selectedSidebarArticleFilter: appState.selectedSidebarArticleFilter,
                 actionHandlers: actionHandlers
             )
@@ -168,9 +165,9 @@ struct SidebarView: View {
         guard controller.isPreviewMode == false else { return }
         guard controller.screenState.customRefreshState.phase == .ready else { return }
 
-        controller.screenState.beginCustomRefresh()
+        let refreshID = controller.screenState.beginCustomRefresh()
         defer {
-            controller.screenState.endCustomRefresh()
+            controller.screenState.endCustomRefresh(ifMatching: refreshID)
         }
 
         await refreshSidebar()

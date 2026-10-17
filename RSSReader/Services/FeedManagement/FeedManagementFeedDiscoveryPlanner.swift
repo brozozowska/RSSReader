@@ -8,6 +8,13 @@ enum FeedManagementFeedDiscoveryPlanner {
         }
 
         let inputURLs = try normalizedInputURLs(from: normalizedInput, originalInput: input)
+        if isRedditFeedURL(inputURLs[0]) {
+            return FeedManagementFeedDiscoveryPlan(
+                displayURL: inputURLs[0].absoluteString,
+                feedURLs: [inputURLs[0]], siteURLs: [], fallbackFeedURLs: []
+            )
+        }
+        let preferredFeedURL = redditSubredditFeedURL(for: inputURLs[0])
         var feedURLs: [URL] = []
         var siteURLs: [URL] = []
         var fallbackFeedURLs: [URL] = []
@@ -30,13 +37,14 @@ enum FeedManagementFeedDiscoveryPlanner {
             }
         }
 
-        let deduplicatedFeedURLs = deduplicate(feedURLs)
+        let deduplicatedFeedURLs = deduplicate([preferredFeedURL].compactMap { $0 } + feedURLs)
         let deduplicatedFallbackFeedURLs = deduplicate(fallbackFeedURLs)
         return FeedManagementFeedDiscoveryPlan(
             displayURL: inputURLs[0].absoluteString,
             feedURLs: deduplicatedFeedURLs,
             siteURLs: deduplicate(siteURLs),
-            fallbackFeedURLs: deduplicatedFallbackFeedURLs
+            fallbackFeedURLs: deduplicatedFallbackFeedURLs,
+            preferredFeedURL: preferredFeedURL
         )
     }
 
@@ -70,6 +78,32 @@ enum FeedManagementFeedDiscoveryPlanner {
         "/feed.xml",
         "/atom.xml"
     ]
+
+    static func isRedditURL(_ url: URL) -> Bool {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let host = components.host?.lowercased(),
+              ["reddit.com", "www.reddit.com", "old.reddit.com"].contains(host),
+              components.user == nil, components.password == nil,
+              components.port == nil || components.port == (components.scheme == "http" ? 80 : 443) else {
+            return false
+        }
+        return true
+    }
+
+    private static func isRedditFeedURL(_ url: URL) -> Bool {
+        isRedditURL(url) && url.path.hasSuffix(".rss")
+    }
+
+    private static func redditSubredditFeedURL(for url: URL) -> URL? {
+        guard isRedditURL(url),
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.query == nil,
+              components.path.range(of: #"^/r/[A-Za-z0-9_]+/?$"#, options: .regularExpression) != nil else {
+            return nil
+        }
+        let subreddit = components.path.split(separator: "/")[1]
+        return URL(string: "https://www.reddit.com/r/\(subreddit)/.rss")
+    }
 
     private static func normalizedInputURLs(
         from normalizedInput: String,

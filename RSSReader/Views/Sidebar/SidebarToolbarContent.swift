@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct SidebarToolbarContent: ToolbarContent {
-    let toolbarState: SidebarToolbarState
     let selectedSidebarArticleFilter: SidebarArticleFilter
     let actionHandlers: SidebarActionHandlers
 
@@ -11,19 +10,6 @@ struct SidebarToolbarContent: ToolbarContent {
                 Image(systemName: "gearshape")
             }
             .accessibilityLabel(SidebarLocalization.settingsAccessibilityLabel)
-        }
-
-        ToolbarItem(placement: SidebarToolbarPlacement.title) {
-            Text(SidebarLocalization.title)
-                .font(.title3.weight(.semibold))
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-
-        ToolbarItem(placement: SidebarToolbarPlacement.subtitle) {
-            Text(toolbarState.subtitle)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
 
         ToolbarItem(placement: SidebarToolbarPlacement.addFeed) {
@@ -51,8 +37,8 @@ private struct SidebarArticleFilterMenu: View {
     var body: some View {
         Menu {
             sidebarArticleFilterButton(SidebarLocalization.allItemsFilterTitle, systemImage: "tray.full", filter: .allItems)
-            sidebarArticleFilterButton(SidebarLocalization.unreadFilterTitle, systemImage: "circle", filter: .unread)
-            sidebarArticleFilterButton(SidebarLocalization.starredFilterTitle, systemImage: "star", filter: .starred)
+            sidebarArticleFilterButton(SidebarLocalization.unreadFilterTitle, systemImage: ArticleStateSymbols.read(isRead: false), filter: .unread)
+            sidebarArticleFilterButton(SidebarLocalization.starredFilterTitle, systemImage: ArticleStateSymbols.starred(isStarred: true), filter: .starred)
         } label: {
             Image(systemName: "line.3.horizontal.decrease")
         }

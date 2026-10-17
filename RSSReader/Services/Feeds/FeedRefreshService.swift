@@ -12,6 +12,7 @@ struct FeedRefreshContext: Sendable {
 struct FeedRefreshInFlightWaiter {
     let startedAt: Date
     let continuation: CheckedContinuation<FeedRefreshResult, Never>
+    var initialFetchSnapshot: FeedInitialFetchSnapshot? = nil
 }
 
 enum FeedRefreshInFlightPhase: Equatable {
@@ -48,7 +49,6 @@ protocol FeedRefreshCoordinating {
     func refreshFeeds(_ feedIDs: [UUID]) async -> FeedRefreshBatchResult
     func refreshAllActiveFeeds() async -> FeedRefreshBatchResult
     func refreshAllActiveFeedsForBackground() async -> BackgroundFeedRefreshResult
-    func refreshAfterAddingFeed(feedID: UUID) async -> FeedRefreshResult
     func makeRefreshContext(for feedID: UUID) throws -> FeedRefreshContext
 }
 

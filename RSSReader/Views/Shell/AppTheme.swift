@@ -38,6 +38,15 @@ enum AppThemeVariant: String, Equatable, Sendable {
         }
     }
 
+    var contextMenuPreviewBackground: Color {
+        switch self {
+        case .light:
+            primaryBackground
+        case .dark, .black:
+            tertiaryBackground
+        }
+    }
+
     var previewGradientColors: [Color] {
         switch self {
         case .light:

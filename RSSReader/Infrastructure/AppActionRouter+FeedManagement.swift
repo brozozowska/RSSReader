@@ -230,7 +230,8 @@ extension AppActionRouter {
     func finishSavingFeed(
         id feedID: UUID,
         using appState: AppState,
-        selectsSavedFeed: Bool = true
+        selectsSavedFeed: Bool = true,
+        initialFetchSnapshot: FeedInitialFetchSnapshot? = nil
     ) async -> FeedRefreshResult? {
         appState.requestSidebarReload()
         if selectsSavedFeed {
@@ -239,7 +240,7 @@ extension AppActionRouter {
             appState.selectSidebarSelection(nil)
         }
         dismissFeedManagement(using: appState)
-        scheduleInitialRefreshAfterSavingFeed(id: feedID, using: appState)
+        scheduleInitialRefreshAfterSavingFeed(id: feedID, using: appState, initialFetchSnapshot: initialFetchSnapshot)
         return nil
     }
 
@@ -290,13 +291,15 @@ extension AppActionRouter {
     func completeFeedManagementFeedSave(
         id feedID: UUID,
         using appState: AppState?,
-        selectsSavedFeed: Bool
+        selectsSavedFeed: Bool,
+        initialFetchSnapshot: FeedInitialFetchSnapshot? = nil
     ) async -> FeedRefreshResult? {
         guard let appState else { return nil }
         return await finishSavingFeed(
             id: feedID,
             using: appState,
-            selectsSavedFeed: selectsSavedFeed
+            selectsSavedFeed: selectsSavedFeed,
+            initialFetchSnapshot: initialFetchSnapshot
         )
     }
 
@@ -425,16 +428,11 @@ extension AppActionRouter {
     @MainActor
     private func scheduleInitialRefreshAfterSavingFeed(
         id feedID: UUID,
-        using appState: AppState
+        using appState: AppState,
+        initialFetchSnapshot: FeedInitialFetchSnapshot?
     ) {
-        guard let feedRefreshService else {
-            logger.error("Feed refresh service is unavailable for feed save completion")
-            return
-        }
-
         let task = Task { @MainActor in
-            _ = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
-            await refreshUnreadAppIconBadgeCount()
+            _ = await refreshFeed(id: feedID, initialFetchSnapshot: initialFetchSnapshot)
             appState.requestSidebarReload()
             appState.requestArticleListReload()
         }

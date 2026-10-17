@@ -9,6 +9,7 @@ extension ArticlesScreenController {
         dependencies: AppDependencies,
         isPreviewMode: Bool
     ) async {
+        guard screenState.pendingSearchContext == nil else { return }
         guard shouldAskBeforeMarkingAllAsRead(dependencies: dependencies) else {
             await confirmMarkAllAsRead(
                 searchText: searchText,
@@ -37,6 +38,7 @@ extension ArticlesScreenController {
         dependencies: AppDependencies,
         isPreviewMode: Bool
     ) async {
+        guard screenState.pendingSearchContext == nil else { return }
         let visibleArticles = screenState
             .derivedViewState()
             .visibleArticles
@@ -129,7 +131,8 @@ extension ArticlesScreenController {
         let requestedIsRead = article.isRead == false
         let currentSessionID = screenState.articleListSession.id
         let currentSessionContext = screenState.articleListSession.context
-        guard currentSessionContext.selection == selection,
+        guard screenState.pendingSearchContext == nil,
+              currentSessionContext.selection == selection,
               currentSessionContext.sidebarArticleFilter == sidebarArticleFilter,
               screenState.articles.contains(where: { $0.id == article.id }) else {
             return
@@ -190,6 +193,11 @@ extension ArticlesScreenController {
         dependencies: AppDependencies,
         isPreviewMode: Bool
     ) {
+        let context = screenState.articleListSession.context
+        guard screenState.pendingSearchContext == nil,
+              context.selection == selection,
+              context.sidebarArticleFilter == sidebarArticleFilter,
+              screenState.articles.contains(where: { $0.id == article.id }) else { return }
         let requestedIsStarred = article.isStarred == false
         let resolvedIsStarred: Bool
 

@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-public protocol FeedIconCaching: Sendable {
+public nonisolated protocol FeedIconCaching: Sendable {
     func cachedImageData(for url: URL) async throws -> Data?
     func storeImageData(_ data: Data, for url: URL) async throws
     func hasCachedData() async throws -> Bool

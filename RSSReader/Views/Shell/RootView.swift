@@ -11,6 +11,7 @@ struct RootView: View {
     @State private var interactiveSafariProgress: CGFloat = 0
     @State private var safariDismissalInteraction = ReadingShellSafariDismissalInteractionState()
     @State private var articlesScreenController = ArticlesScreenController()
+    @State private var isArticleSearchPresented = false
 
     var body: some View {
         let themeApplicationPolicy = AppThemeApplicationPolicy(
@@ -40,7 +41,8 @@ struct RootView: View {
                 reloadID: appState.articleListReloadID,
                 controller: articlesScreenController,
                 previewScreenState: nil,
-                selection: articleSelection
+                selection: articleSelection,
+                isSearchPresented: $isArticleSearchPresented
             )
         } detail: {
             switch detailDestination {
@@ -70,6 +72,25 @@ struct RootView: View {
                             controller: articlesScreenController,
                             dependencies: dependencies
                         )
+                    },
+                    prefetchArticleContinuation: { minimumNextArticleCount in
+                        await ArticleListContinuationCoordinator.prefetchNextPageIfNeeded(
+                            minimumNextArticleCount: minimumNextArticleCount,
+                            appState: appState,
+                            controller: articlesScreenController,
+                            dependencies: dependencies
+                        )
+                    },
+                    articleNavigationHandler: { articleID, direction, listSession in
+                        articlesScreenController.followReaderArticle(articleID, direction: direction, in: listSession)
+                    },
+                    articleStateMutationHandler: { articleID, persistedState, listSession in
+                        guard articlesScreenController.applyArticleStateMutation(
+                            articleID: articleID,
+                            persistedState: persistedState,
+                            in: listSession
+                        ) else { return }
+                        appState.requestSidebarReload()
                     }
                 )
                 .id(appState.selectedSidebarSelection)
@@ -116,6 +137,10 @@ struct RootView: View {
         .preferredColorScheme(themeApplicationPolicy.preferredColorScheme)
         .environment(\.appThemeVariant, themeApplicationPolicy.resolvedTheme)
         .background(themeApplicationPolicy.resolvedTheme.primaryBackground.ignoresSafeArea())
+        .onChange(of: appState.selectedArticleID) { _, selectedArticleID in
+            guard selectedArticleID == nil else { return }
+            ReaderAdjacentArticleImagePrefetchCoordinator.shared.clear()
+        }
         .onChange(of: appState.isPresentingFeedManagementScreen) { _, isPresenting in
             if isPresenting {
                 presentedFeedManagementLaunchContext = appState.feedManagementLaunchContext
@@ -135,6 +160,7 @@ struct RootView: View {
                 articlesScreenController.endPresentation()
             }
             appState.updatePresentedSidebarSelection(nil)
+            isArticleSearchPresented = false
             return
         }
 
@@ -145,6 +171,9 @@ struct RootView: View {
             dependencies: dependencies
         )
         appState.updatePresentedSidebarSelection(selection)
+        // Establish search presentation with the route, before its native
+        // controller is mounted. Reader Back does not pass through this action.
+        isArticleSearchPresented = articlesScreenController.searchText(for: selection).isEmpty == false
         guard let presentationLoadTask else { return }
 
         Task { @MainActor in

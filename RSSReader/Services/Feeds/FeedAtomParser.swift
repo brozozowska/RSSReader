@@ -61,8 +61,8 @@ extension FeedParserService {
                 contentText: entryElement.firstChildText(named: "content")
                     ?? entryElement.firstChildText(named: "summary"),
                 author: atomAuthor(in: entryElement) ?? feedAuthor,
-                publishedAtRaw: entryElement.firstChildText(named: "published"),
-                updatedAtRaw: entryElement.firstChildText(named: "updated"),
+                publishedAtRaw: atomDateText(named: "published", in: entryElement),
+                updatedAtRaw: atomDateText(named: "updated", in: entryElement),
                 imageURL: atomLink(in: entryElement, rel: "enclosure")
             )
         }
@@ -91,5 +91,14 @@ extension FeedParserService {
     nonisolated private static func atomContent(in element: FeedXMLElement) -> String? {
         element.firstChildText(named: "content")
             ?? element.firstChildText(named: "summary")
+    }
+
+    nonisolated private static func atomDateText(
+        named name: String,
+        in entryElement: FeedXMLElement
+    ) -> String? {
+        entryElement.children.first {
+            $0.name == name && $0.namespaceURI?.lowercased() == "http://www.w3.org/2005/atom"
+        }?.normalizedText
     }
 }

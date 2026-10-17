@@ -2,28 +2,22 @@ import Foundation
 
 extension AppActionRouter {
     @MainActor
-    func refreshFeed(id feedID: UUID) async -> FeedRefreshResult? {
+    func refreshFeed(id feedID: UUID, initialFetchSnapshot: FeedInitialFetchSnapshot? = nil) async -> FeedRefreshResult? {
         guard let feedRefreshService else {
             logger.error("Feed refresh service is unavailable")
             return nil
         }
 
-        let result = await feedRefreshService.refresh(feedID: feedID)
-        cleanupArticlesUsingCurrentSettings(scope: .feedIDs([result.feedID]))
+        let result = await feedRefreshService.refresh(feedID: feedID, initialFetchSnapshot: initialFetchSnapshot)
+        let cleanupResult = cleanupArticlesUsingCurrentSettings(scope: .feedIDs([result.feedID]))
+        recordRefreshLifecycleDiagnostics(refreshResult: result, cleanupResult: cleanupResult)
         await refreshUnreadAppIconBadgeCount()
         return result
     }
 
     @MainActor
     func refreshAfterAddingFeed(id feedID: UUID, using appState: AppState) async -> FeedRefreshResult? {
-        guard let feedRefreshService else {
-            logger.error("Feed refresh service is unavailable for feed save completion")
-            return nil
-        }
-
-        let result = await feedRefreshService.refreshAfterAddingFeed(feedID: feedID)
-        cleanupArticlesUsingCurrentSettings(scope: .feedIDs([result.feedID]))
-        await refreshUnreadAppIconBadgeCount()
+        guard let result = await refreshFeed(id: feedID) else { return nil }
         appState.requestSidebarReload()
         showFeed(id: feedID, using: appState)
         dismissFeedManagement(using: appState)
@@ -48,10 +42,70 @@ extension AppActionRouter {
         }
 
         let result = await feedRefreshService.refreshAllActiveFeeds()
+        recordManualRefreshBatchDiagnostics(
+            result,
+            phase: "initial",
+            requestedTargetFeedIDs: result.targetFeedIDs
+        )
         recordFeedsRefreshIfNeeded(from: result)
         cleanupArticlesUsingCurrentSettings(scope: .allFeeds)
         await refreshUnreadAppIconBadgeCount()
         return result
+    }
+
+    @MainActor
+    func retryFeeds(
+        _ feedIDs: [UUID],
+        context: ManualFeedRefreshContext,
+        using appState: AppState,
+        requestsArticleListReload: Bool = true
+    ) async -> FeedRefreshBatchResult? {
+        guard let feedRefreshService else {
+            logger.error("Feed refresh service is unavailable for failed-feed retry")
+            return nil
+        }
+        guard let feedRepository else {
+            logger.error("Feed repository is unavailable for failed-feed retry")
+            return nil
+        }
+
+        let requestedFeedIDs = uniquePreservingOrder(feedIDs)
+        do {
+            let activeFeedIDs = Set(try feedRepository.fetchActiveFeeds().map(\.id))
+            let retryFeedIDs = requestedFeedIDs.filter(activeFeedIDs.contains)
+            let result = await feedRefreshService.refreshFeeds(retryFeedIDs)
+            recordManualRefreshBatchDiagnostics(
+                result,
+                phase: "retry",
+                requestedTargetFeedIDs: requestedFeedIDs
+            )
+            if context.scope == .allFeeds {
+                recordFeedsRefreshIfNeeded(from: result)
+            }
+            cleanupArticlesUsingCurrentSettings(scope: .feedIDs(result.targetFeedIDs))
+            await refreshUnreadAppIconBadgeCount()
+            appState.requestSidebarReload()
+            if requestsArticleListReload {
+                appState.requestArticleListReload()
+            }
+            return result
+        } catch {
+            logger.error("Failed to resolve active feeds for failed-feed retry: \(error)")
+            let now = Date()
+            let result = FeedRefreshBatchResult(
+                startedAt: now,
+                finishedAt: now,
+                results: [],
+                targetFeedIDs: requestedFeedIDs,
+                batchErrorDescription: String(describing: error)
+            )
+            recordManualRefreshBatchDiagnostics(
+                result,
+                phase: "retry",
+                requestedTargetFeedIDs: requestedFeedIDs
+            )
+            return result
+        }
     }
 
     @MainActor
@@ -70,17 +124,13 @@ extension AppActionRouter {
     }
 
     @MainActor
-    func refreshCurrentSelection(
+    func refreshSelection(
+        _ context: ManualFeedRefreshContext,
         using appState: AppState,
         requestsArticleListReload: Bool = true
     ) async -> FeedRefreshBatchResult? {
-        guard let selection = appState.selectedSidebarSelection else {
-            logger.info("Skipped selection refresh because no sidebar selection is active")
-            return nil
-        }
-
         let result: FeedRefreshBatchResult?
-        switch selection {
+        switch context.scope {
         case .feed(let feedID):
             if let refreshResult = await refreshFeed(id: feedID) {
                 result = FeedRefreshBatchResult(
@@ -93,7 +143,7 @@ extension AppActionRouter {
             }
         case .folder(let folderName):
             result = await refreshFeeds(in: folderName)
-        case .inbox, .unread, .starred:
+        case .allFeeds:
             result = await refreshAllFeeds()
         }
 
@@ -104,16 +154,6 @@ extension AppActionRouter {
             }
         }
 
-        return result
-    }
-
-    @MainActor
-    func refreshVisibleFeeds(using appState: AppState) async -> FeedRefreshBatchResult? {
-        let result = await refreshAllFeeds()
-        if result != nil {
-            appState.requestSidebarReload()
-            appState.requestArticleListReload()
-        }
         return result
     }
 
@@ -137,7 +177,8 @@ extension AppActionRouter {
 
     @MainActor
     private func recordFeedsRefreshIfNeeded(from result: FeedRefreshBatchResult) {
-        guard result.summary.fetchedCount + result.summary.notModifiedCount > 0 else {
+        guard result.isCompleteSuccess,
+              result.summary.fetchedCount + result.summary.notModifiedCount > 0 else {
             return
         }
 
@@ -178,5 +219,50 @@ extension AppActionRouter {
             logger.error("Failed to load folder feeds for refresh: \(error)")
             return nil
         }
+    }
+
+    @MainActor
+    private func recordRefreshLifecycleDiagnostics(
+        refreshResult: FeedRefreshResult,
+        cleanupResult: ArticleRetentionCleanupResult?
+    ) {
+        let fetchedEntryCount = refreshResult.status == .fetched
+            ? max(0, refreshResult.processedEntryCount - refreshResult.rejectedEntryCount)
+            : 0
+        logger.info(
+            "Feed refresh lifecycle completed feed=\(refreshResult.feedID.uuidString) "
+                + "status=\(refreshResult.status.rawValue) "
+                + "fetchedEntries=\(fetchedEntryCount) "
+                + "upsertedEntries=\(refreshResult.upsertedEntryCount) "
+                + "reconciledEntries=\(refreshResult.reconciledEntryCount) "
+                + "deletedByRetention=\(cleanupResult?.deletedCount ?? 0) "
+                + "retentionCleanupCompleted=\(cleanupResult != nil)"
+        )
+    }
+
+    @MainActor
+    private func recordManualRefreshBatchDiagnostics(
+        _ result: FeedRefreshBatchResult,
+        phase: String,
+        requestedTargetFeedIDs: [UUID]
+    ) {
+        let requestedTargets = requestedTargetFeedIDs.map(\.uuidString).joined(separator: ",")
+        let targets = result.targetFeedIDs.map(\.uuidString).joined(separator: ",")
+        let outcomes = result.results.map {
+            "\($0.feedID.uuidString):\($0.status.rawValue)"
+        }.joined(separator: ",")
+        let retryTargets = result.retryFeedIDs.map(\.uuidString).joined(separator: ",")
+        logger.info(
+            "Manual feed refresh batch phase=\(phase) "
+                + "requestedTargets=[\(requestedTargets)] "
+                + "targets=[\(targets)] outcomes=[\(outcomes)] "
+                + "retryTargets=[\(retryTargets)] "
+                + "batchError=\(result.batchErrorDescription ?? "none")"
+        )
+    }
+
+    private func uniquePreservingOrder(_ feedIDs: [UUID]) -> [UUID] {
+        var seen = Set<UUID>()
+        return feedIDs.filter { seen.insert($0).inserted }
     }
 }

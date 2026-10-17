@@ -6,6 +6,32 @@ import Testing
 @MainActor
 struct SettingsScreenPresentationContractTests {
     @Test
+    func pickerSelectionsHaveUniqueTagsAndMatchingCurrentValue() {
+        let inputs = [
+            SettingsScreenInput(),
+            SettingsScreenInput(
+                articleOpeningMode: .safariView,
+                articleBodyLinkOpeningPolicy: .externalBrowser,
+                articleSourceLinkOpeningPolicy: .externalBrowser,
+                readerAdjacentNavigationControlsMode: .swipesOnly,
+                unreadArticleSortOrder: .oldestFirst,
+                articleRetentionPolicy: .oneMonth,
+                refreshIntervalPreference: .daily,
+                interfaceThemeMode: .black
+            )
+        ]
+        for input in inputs {
+            for item in SettingsScreenPresentationBuilder.buildSections(from: input).flatMap(\.items) {
+                guard case .picker(let picker) = item else { continue }
+                #expect(Set(picker.options.map(\.id)).count == picker.options.count)
+                #expect(picker.options.filter(\.isSelected).count == 1)
+                #expect(picker.selectedOptionID != nil)
+                #expect(picker.options.first { $0.id == picker.selectedOptionID }?.title == picker.selectedValueTitle)
+            }
+        }
+    }
+
+    @Test
     func settingsScreenPresentationBuilderBuildsSectionedContractFromSettingsSnapshot() {
         let snapshot = AppSettingsSnapshot(
             articleOpeningMode: .safariView,

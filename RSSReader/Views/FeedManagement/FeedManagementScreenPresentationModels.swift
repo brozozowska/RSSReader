@@ -60,6 +60,7 @@ struct FeedManagementAddFeedStatusPresentation: Hashable, Sendable {
     let title: String
     let kind: FeedManagementAddFeedStatusKind
     let detail: String?
+    var showsAlternativeAddressFooter = true
 }
 
 struct FeedManagementAddFeedPreviewPresentation: Hashable, Sendable {

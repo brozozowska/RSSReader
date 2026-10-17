@@ -100,7 +100,7 @@ enum SettingsSyncStatusPresentation: Equatable, Sendable {
     case restricted
     case temporarilyUnavailable
     case couldNotDetermine
-    case failed(String)
+    case failed(SyncRuntimeFailure)
 
     init(iCloudSyncStatus: ICloudSyncStatus) {
         switch iCloudSyncStatus {
@@ -113,7 +113,7 @@ enum SettingsSyncStatusPresentation: Equatable, Sendable {
         case .syncing:
             self = .syncing
         case .failed(let message):
-            self = .failed(message)
+            self = .failed(SyncRuntimeFailure(activity: nil, message: message))
         }
     }
 
@@ -137,7 +137,7 @@ enum SettingsSyncStatusPresentation: Equatable, Sendable {
                 self = .uploading
             }
         case .failed(let failure):
-            self = .failed(failure.resolvedMessage)
+            self = .failed(failure)
         }
     }
 
@@ -171,8 +171,8 @@ enum SettingsSyncStatusPresentation: Equatable, Sendable {
             return .idle
         case .syncing, .preparing, .importing, .uploading:
             return .syncing
-        case .failed(let message):
-            return .failed(message)
+        case .failed(let failure):
+            return .failed(failure.resolvedMessage)
         }
     }
 }
@@ -237,6 +237,10 @@ struct SettingsPickerItemPresentation: Equatable, Sendable {
     let subtitle: String?
     let selectedValueTitle: String
     let options: [SettingsPickerOptionPresentation]
+
+    var selectedOptionID: String? {
+        options.first(where: \.isSelected)?.id
+    }
 }
 
 struct SettingsPickerOptionPresentation: Identifiable, Equatable, Sendable {

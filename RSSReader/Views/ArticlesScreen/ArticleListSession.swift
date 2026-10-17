@@ -26,6 +26,13 @@ struct ArticleListSession: Equatable {
             )
         }
 
+        func hasSamePresentationScope(as other: Context) -> Bool {
+            selection != nil
+                && selection == other.selection
+                && sidebarArticleFilter == other.sidebarArticleFilter
+                && sortMode == other.sortMode
+        }
+
         static let noSelection = Context(selection: nil, sidebarArticleFilter: .allItems)
     }
 
@@ -228,6 +235,29 @@ enum ArticleListSessionMergePolicy {
             sortMode: sortMode
         )
     }
+
+    static func mergePreservingMaterializedSnapshot(
+        currentEntries: [ArticleListEntry],
+        loadedArticles: [ArticleListItemDTO],
+        sortMode: ArticleSortMode
+    ) -> [ArticleListEntry] {
+        var mergedEntriesByID: [UUID: ArticleListEntry] = [:]
+        for currentEntry in currentEntries where mergedEntriesByID[currentEntry.id] == nil {
+            mergedEntriesByID[currentEntry.id] = currentEntry
+        }
+
+        for loadedArticle in loadedArticles {
+            mergedEntriesByID[loadedArticle.id] = ArticleListEntry(
+                article: loadedArticle,
+                membershipStatus: .matchesCurrentQuery
+            )
+        }
+
+        return ArticleListSessionOrderingPolicy.ordered(
+            Array(mergedEntriesByID.values),
+            sortMode: sortMode
+        )
+    }
 }
 
 enum ArticleListSessionOrderingPolicy {
@@ -236,8 +266,8 @@ enum ArticleListSessionOrderingPolicy {
         sortMode: ArticleSortMode
     ) -> [ArticleListEntry] {
         entries.sorted { lhs, rhs in
-            let lhsSortDate = lhs.article.publishedAt ?? lhs.article.fetchedAt
-            let rhsSortDate = rhs.article.publishedAt ?? rhs.article.fetchedAt
+            let lhsSortDate = lhs.article.effectiveDate
+            let rhsSortDate = rhs.article.effectiveDate
 
             if lhsSortDate != rhsSortDate {
                 switch sortMode {

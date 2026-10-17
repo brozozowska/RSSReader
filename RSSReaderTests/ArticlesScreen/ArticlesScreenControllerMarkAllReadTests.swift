@@ -180,6 +180,9 @@ struct ArticlesScreenControllerMarkAllReadTests {
         #expect(controller.screenState.phase == .empty)
         #expect(controller.screenState.articles.isEmpty)
         #expect(controller.screenState.articleListSession.context == originalContext)
+        #expect(controller.screenState.listAnimationState.changeKind == .localMutation)
+        #expect(controller.screenState.listAnimationState.allowsAnimation(reduceMotion: false))
+        #expect(controller.screenState.listAnimationState.allowsAnimation(reduceMotion: true) == false)
         #expect(controller.screenState.articleListSession.nextPageCursor == nil)
         #expect(controller.screenState.navigationSubtitle == ReadingLocalization.noUnreadItemsSubtitle)
         for article in persistedArticles {

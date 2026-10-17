@@ -11,6 +11,8 @@ struct ArticleScreenBodyPayload: Equatable {
 }
 
 enum ArticleScreenBodyPayloadNormalizer {
+    static let recognizedHTMLTagNamePattern = #"a|abbr|address|article|aside|audio|b|button|bdi|bdo|blockquote|br|caption|cite|code|col|colgroup|data|dd|del|details|dfn|div|dl|dt|em|embed|figcaption|figure|footer|h[1-6]|header|hgroup|hr|i|iframe|img|ins|kbd|label|li|main|mark|nav|ol|p|picture|pre|q|rp|rt|ruby|s|samp|section|small|source|span|strong|sub|summary|sup|table|tbody|td|tfoot|th|thead|time|tr|u|ul|var|video|wbr"#
+
     static func normalize(
         _ rawValue: String?,
         preferredKind: ArticleScreenBodyPayloadKind
@@ -20,7 +22,27 @@ enum ArticleScreenBodyPayloadNormalizer {
         let scalarValue = normalizeScalar(rawValue)
         guard scalarValue.isEmpty == false else { return nil }
 
-        let decodedValue = decodeHTMLEntities(in: scalarValue)
+        var decodedValue = scalarValue
+        for _ in 0..<3 {
+            // Decode only the outer feed envelope. Once markup exists, entities are
+            // text/attribute content and must not become comment or structure tokens.
+            let visibleMarkup = ArticleScreenHTMLCommentFilter.removingComments(in: decodedValue)
+            if containsHTMLTag(visibleMarkup)
+                || (preferredKind == .html && decodedValue.contains("<!--") && containsEscapedHTMLTag(visibleMarkup) == false) {
+                break
+            }
+            let nextValue = transformOutsideCode(decodedValue) { decodeHTMLEntitiesOnce(in: $0) }
+            if nextValue == decodedValue { break }
+            decodedValue = nextValue
+        }
+        // With no document structure, an escaped comment embedded in prose is
+        // literal text, not an outer HTML envelope. Decode it only at text rendering.
+        if preferredKind == .html,
+           containsHTMLTag(ArticleScreenHTMLCommentFilter.removingComments(in: decodedValue)) == false,
+           scalarValue.contains("<!--") == false,
+           decodedValue.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("<!--") == false {
+            decodedValue = scalarValue
+        }
         let resolvedKind = resolvedKind(
             rawValue: scalarValue,
             decodedValue: decodedValue,
@@ -51,12 +73,29 @@ enum ArticleScreenBodyPayloadNormalizer {
         return decodedValue
     }
 
+    /// Literal code/pre content must not become executable article structure after entity decoding.
+    static func transformOutsideCode(_ html: String, transform: (String) -> String) -> String {
+        let pattern = #"(?is)<(pre|code)\b[^>]*>.*?</\1\s*>"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return transform(html) }
+        let nsHTML = html as NSString
+        var result = ""
+        var location = 0
+        for match in regex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length)) {
+            result += transform(nsHTML.substring(with: NSRange(location: location, length: match.range.location - location)))
+            result += nsHTML.substring(with: match.range)
+            location = NSMaxRange(match.range)
+        }
+        result += transform(nsHTML.substring(from: location))
+        return result
+    }
+
     private static func resolvedKind(
         rawValue: String,
         decodedValue: String,
         preferredKind: ArticleScreenBodyPayloadKind
     ) -> ArticleScreenBodyPayloadKind {
-        if containsHTMLTag(decodedValue) || containsEscapedHTMLTag(rawValue) {
+        if containsHTMLTag(ArticleScreenHTMLCommentFilter.removingComments(in: decodedValue))
+            || containsEscapedHTMLTag(ArticleScreenHTMLCommentFilter.removingComments(in: rawValue)) {
             return .html
         }
 
@@ -96,24 +135,19 @@ enum ArticleScreenBodyPayloadNormalizer {
     private static func normalizeHTML(_ value: String) -> String {
         value
             .replacingOccurrences(of: "\u{00A0}", with: " ")
-            .replacingOccurrences(
-                of: #">\s+<"#,
-                with: "><",
-                options: .regularExpression
-            )
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func containsHTMLTag(_ value: String) -> Bool {
         value.range(
-            of: #"<\s*/?\s*(a|article|blockquote|br|code|div|em|figcaption|figure|h[1-6]|hr|iframe|img|li|ol|p|picture|pre|section|source|span|strong|table|tbody|td|th|thead|tr|ul|video|audio)\b"#,
+            of: #"<\s*/?\s*(\#(recognizedHTMLTagNamePattern))\b"#,
             options: [.regularExpression, .caseInsensitive]
         ) != nil
     }
 
     private static func containsEscapedHTMLTag(_ value: String) -> Bool {
         value.range(
-            of: #"&lt;\s*/?\s*(a|article|blockquote|br|code|div|em|figcaption|figure|h[1-6]|hr|iframe|img|li|ol|p|picture|pre|section|source|span|strong|table|tbody|td|th|thead|tr|ul|video|audio)\b"#,
+            of: #"&lt;\s*/?\s*(\#(recognizedHTMLTagNamePattern))\b"#,
             options: [.regularExpression, .caseInsensitive]
         ) != nil
     }

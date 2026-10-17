@@ -79,23 +79,6 @@ struct ArticlesScreenCustomRefreshState: Equatable {
     }
 }
 
-struct ArticleListCustomRefreshGeometry: Equatable {
-    var contentOffsetY: CGFloat
-    var contentInsetTop: CGFloat
-
-    init(
-        contentOffsetY: CGFloat = 0,
-        contentInsetTop: CGFloat = 0
-    ) {
-        self.contentOffsetY = contentOffsetY
-        self.contentInsetTop = contentInsetTop
-    }
-
-    var topOverscrollDistance: CGFloat {
-        max(0, -(contentOffsetY + contentInsetTop))
-    }
-}
-
 struct ArticleListPaginationGeometry: Equatable {
     var contentHeight: CGFloat
     var visibleMaxY: CGFloat
@@ -120,38 +103,15 @@ enum ArticleListPaginationPrefetchPolicy {
         geometry: ArticleListPaginationGeometry,
         hasUserDrivenScrollDemand: Bool,
         canLoadNextPage: Bool,
+        isRefreshInteractionActive: Bool = false,
         threshold: CGFloat = distanceThreshold
     ) -> Bool {
         hasUserDrivenScrollDemand
+            && isRefreshInteractionActive == false
             && canLoadNextPage
             && threshold >= 0
             && geometry.contentHeight > 0
             && geometry.distanceToEnd <= threshold
-    }
-}
-
-enum ArticleListCustomRefreshPullPolicy {
-    static let pullThreshold: CGFloat = 72
-
-    static func progress(
-        for geometry: ArticleListCustomRefreshGeometry,
-        threshold: CGFloat = pullThreshold
-    ) -> Double {
-        guard threshold > 0 else {
-            return 0
-        }
-
-        return min(Double(geometry.topOverscrollDistance / threshold), 1)
-    }
-}
-
-enum ArticleListCustomRefreshReleasePolicy {
-    static func shouldTriggerRefresh(
-        wasInteracting: Bool,
-        isInteracting: Bool,
-        customRefreshState: ArticlesScreenCustomRefreshState
-    ) -> Bool {
-        wasInteracting && isInteracting == false && customRefreshState.phase == .ready
     }
 }
 
@@ -201,18 +161,28 @@ struct ArticleListAnimationState: Equatable {
     enum ChangeKind: Equatable {
         case snapshotReplacement
         case localMutation
+        case searchTransition
     }
 
     private(set) var revision: UInt = 0
     private(set) var changeKind: ChangeKind = .snapshotReplacement
 
     func allowsAnimation(reduceMotion: Bool) -> Bool {
-        reduceMotion == false && changeKind == .localMutation
+        reduceMotion == false && changeKind != .snapshotReplacement
+    }
+
+    func animation(reduceMotion: Bool) -> Animation? {
+        allowsAnimation(reduceMotion: reduceMotion) ? .snappy(duration: 0.24) : nil
     }
 
     mutating func prepareForSnapshotReplacement() {
         revision &+= 1
         changeKind = .snapshotReplacement
+    }
+
+    mutating func prepareForSearchTransition() {
+        revision &+= 1
+        changeKind = .searchTransition
     }
 
     mutating func prepareForLocalMutation() {
@@ -254,20 +224,31 @@ struct ArticlesScreenSubtitleResolver {
 }
 
 struct ArticlesScreenToolbarActionsState: Equatable {
-    let showsSearchAction: Bool
     let showsMarkAllAsReadAction: Bool
     let isMarkAllAsReadEnabled: Bool
 
     init(
         selection: SidebarSelection?,
         visibleArticles: [ArticleListItemDTO],
-        phase: ArticlesScreenPhase
+        phase: ArticlesScreenPhase,
+        allowsMutations: Bool = true
     ) {
         let hasSelection = selection != nil
-        let showsInteractiveActions = hasSelection && phase != .loading && phase.isFailed == false
-        self.showsSearchAction = showsInteractiveActions
-        self.showsMarkAllAsReadAction = showsInteractiveActions
-        self.isMarkAllAsReadEnabled = visibleArticles.contains(where: { $0.isRead == false })
+        self.showsMarkAllAsReadAction = hasSelection && phase != .loading && phase.isFailed == false
+        self.isMarkAllAsReadEnabled = allowsMutations && visibleArticles.contains(where: { $0.isRead == false })
+    }
+}
+
+struct ArticleListSearchLifecycleState: Equatable {
+    let keepsSearchUIAttached: Bool
+    let allowsQueryLoad: Bool
+
+    init(
+        retainedSelection: SidebarSelection?,
+        presentedSelection: SidebarSelection?
+    ) {
+        self.keepsSearchUIAttached = retainedSelection != nil
+        self.allowsQueryLoad = presentedSelection != nil
     }
 }
 
@@ -308,10 +289,10 @@ struct ArticleRowSwipeActionsState: Equatable {
     let starActionSystemImage: String
 
     init(article: ArticleListItemDTO) {
-        self.readActionTitle = article.isRead ? ReadingLocalization.unreadAction : ReadingLocalization.readAction
-        self.readActionSystemImage = article.isRead ? "circle.slash" : "circle"
+        self.readActionTitle = article.isRead ? ReadingLocalization.markUnreadAction : ReadingLocalization.markReadAction
+        self.readActionSystemImage = ArticleStateSymbols.read(isRead: article.isRead)
         self.starActionTitle = article.isStarred ? ReadingLocalization.unstarAction : ReadingLocalization.starAction
-        self.starActionSystemImage = article.isStarred ? "star.slash" : "star"
+        self.starActionSystemImage = ArticleStateSymbols.starred(isStarred: article.isStarred)
     }
 }
 

@@ -17,7 +17,7 @@ struct ArticleListRowView: View {
 
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     if article.isStarred {
-                        Image(systemName: "star.fill")
+                        Image(systemName: ArticleStateSymbols.starred(isStarred: article.isStarred))
                             .font(.caption2)
                             .foregroundStyle(metadataForegroundStyle)
                     }
@@ -63,10 +63,9 @@ struct ArticleListRowView: View {
     }
 }
 
-private enum ArticleListRowTimeFormatter {
+enum ArticleListRowTimeFormatter {
     static func string(for article: ArticleListItemDTO) -> String {
-        let referenceDate = article.publishedAt ?? article.fetchedAt
-        return referenceDate.formatted(
+        article.effectiveDate.formatted(
             .dateTime
                 .hour(.twoDigits(amPM: .omitted))
                 .minute(.twoDigits)

@@ -6,6 +6,16 @@ import Testing
 @MainActor
 struct AppThemeTests {
     @Test
+    func contextMenuPreviewUsesRaisedSurfaceOnlyInDarkThemes() {
+        #expect(AppThemeVariant.light.contextMenuPreviewBackground == AppThemeVariant.light.primaryBackground)
+        for theme in [AppThemeVariant.dark, .black] {
+            #expect(theme.contextMenuPreviewBackground == theme.tertiaryBackground)
+            #expect(theme.contextMenuPreviewBackground != theme.primaryBackground)
+        }
+        #expect(AppThemeVariant.dark.contextMenuPreviewBackground != AppThemeVariant.black.contextMenuPreviewBackground)
+    }
+
+    @Test
     func appThemeApplicationPolicyResolvesAutomaticModesAgainstSystemColorScheme() {
         let automaticDarkPolicy = AppThemeApplicationPolicy(
             interfaceThemeMode: .automaticLightDark,

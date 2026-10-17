@@ -20,6 +20,7 @@ import SwiftUI
 }
 
 private struct SettingsScreenPreviewContainer: View {
+    @Environment(\.colorScheme) private var systemColorScheme
     let dependencies: AppDependencies
     let screenState: SettingsScreenState
 
@@ -29,11 +30,19 @@ private struct SettingsScreenPreviewContainer: View {
     }
 
     var body: some View {
+        let themePolicy = AppThemeApplicationPolicy(
+            interfaceThemeMode: screenState.settingsInput.interfaceThemeMode,
+            systemColorScheme: systemColorScheme
+        )
+
         SettingsScreenView(
             dismiss: {},
             previewScreenState: screenState
         )
         .environment(\.appDependencies, dependencies)
+        .environment(AppState())
+        .preferredColorScheme(themePolicy.preferredColorScheme)
+        .environment(\.appThemeVariant, themePolicy.resolvedTheme)
     }
 }
 

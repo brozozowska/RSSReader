@@ -67,7 +67,7 @@ public nonisolated enum HTTPClientError: Error, Equatable, Sendable {
     case responseBodyTooLarge(maximumBytes: Int64, actualBytes: Int64)
 }
 
-public protocol HTTPClient: Sendable {
+public nonisolated protocol HTTPClient: Sendable {
     func execute(_ request: HTTPRequest) async throws -> HTTPResponse
 }
 

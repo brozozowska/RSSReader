@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ArticleListContentView: View {
     @Environment(\.appThemeVariant) private var appThemeVariant
@@ -8,6 +9,9 @@ struct ArticleListContentView: View {
     let customRefreshState: ArticlesScreenCustomRefreshState
     let canLoadNextPage: Bool
     let isLoadingNextPage: Bool
+    var allowsArticleActions = true
+    var readerScrollCoordinator: ArticleListReaderScrollCoordinator?
+    var listSessionID: UUID?
     @Binding var selection: UUID?
     @Binding var scrollPositionID: UUID?
     let customRefreshPullProgressChanged: @MainActor (Double) -> Void
@@ -15,8 +19,11 @@ struct ArticleListContentView: View {
     let loadNextPageAction: @MainActor () async -> Void
     let toggleReadStatusAction: @MainActor (ArticleListItemDTO) -> Void
     let toggleStarredAction: @MainActor (ArticleListItemDTO) -> Void
+    var scrollInteractionBegan: @MainActor () -> Void = {}
     @State private var latestPaginationGeometry = ArticleListPaginationGeometry()
     @State private var hasUserDrivenScrollDemand = false
+    @State private var isOverscrollingTop = false
+    @State private var isScrollInteracting = false
 
     var body: some View {
         ZStack {
@@ -24,8 +31,6 @@ struct ArticleListContentView: View {
                 .ignoresSafeArea()
 
             articleList
-
-            customRefreshIndicator
         }
     }
 
@@ -34,18 +39,23 @@ struct ArticleListContentView: View {
             articleSections
             paginationFooter
         }
+        .disabled(allowsArticleActions == false)
         .listStyle(.plain)
         .listSectionSpacing(12)
         .scrollContentBackground(.hidden)
         .scrollPosition(id: $scrollPositionID)
+        .scrollDismissesKeyboard(.immediately)
         .contentMargins(.top, 8, for: .scrollContent)
-        .animation(listAnimation, value: animationState)
+        .animation(animationState.animation(reduceMotion: accessibilityReduceMotion), value: animationState)
+        .transaction { transaction in
+            if accessibilityReduceMotion {
+                transaction.animation = nil
+                transaction.disablesAnimations = true
+            }
+        }
         .onScrollGeometryChange(for: ArticleListScrollObservation.self) { geometry in
             ArticleListScrollObservation(
-                refreshGeometry: ArticleListCustomRefreshGeometry(
-                    contentOffsetY: geometry.contentOffset.y,
-                    contentInsetTop: geometry.contentInsets.top
-                ),
+                offsetFromTop: geometry.contentOffset.y + geometry.contentInsets.top,
                 paginationGeometry: ArticleListPaginationGeometry(
                     contentHeight: geometry.contentSize.height,
                     visibleMaxY: geometry.visibleRect.maxY
@@ -53,24 +63,20 @@ struct ArticleListContentView: View {
             )
         } action: { _, newObservation in
             latestPaginationGeometry = newObservation.paginationGeometry
-            let progress = ArticleListCustomRefreshPullPolicy.progress(
-                for: newObservation.refreshGeometry
-            )
-            customRefreshPullProgressChanged(progress)
-            requestNextPageIfNeeded()
-        }
-        .onScrollPhaseChange { oldPhase, newPhase, _ in
-            if newPhase == .tracking || newPhase == .interacting {
+            isOverscrollingTop = newObservation.offsetFromTop < 0
+            if isOverscrollingTop {
+                hasUserDrivenScrollDemand = false
+            } else if isScrollInteracting && newObservation.offsetFromTop > 0 {
                 hasUserDrivenScrollDemand = true
             }
-
-            if ArticleListCustomRefreshReleasePolicy.shouldTriggerRefresh(
-                wasInteracting: oldPhase == .interacting,
-                isInteracting: newPhase == .interacting,
-                customRefreshState: customRefreshState
-            ) {
-                Task {
-                    await customRefreshReleaseAction()
+            requestNextPageIfNeeded()
+        }
+        .onScrollPhaseChange { _, newPhase, context in
+            isScrollInteracting = newPhase == .interacting
+            if isScrollInteracting {
+                scrollInteractionBegan()
+                if context.geometry.contentOffset.y + context.geometry.contentInsets.top > 0 {
+                    hasUserDrivenScrollDemand = true
                 }
             }
 
@@ -79,17 +85,31 @@ struct ArticleListContentView: View {
                 hasUserDrivenScrollDemand = false
             }
         }
+        .background {
+            if let readerScrollCoordinator, let listSessionID {
+                ArticleListReaderScrollBridge(
+                    coordinator: readerScrollCoordinator,
+                    sessionID: listSessionID,
+                    sections: sections
+                )
+            }
+        }
+        .background {
+            AppRefreshScrollGestureBridge(
+                isEnabled: allowsArticleActions,
+                isRefreshing: customRefreshState.phase == .refreshing,
+                pullProgressChanged: customRefreshPullProgressChanged,
+                releaseAction: {
+                    Task {
+                        await customRefreshReleaseAction()
+                    }
+                }
+            )
+        }
         .onDisappear {
+            isScrollInteracting = false
             hasUserDrivenScrollDemand = false
         }
-    }
-
-    private var listAnimation: Animation? {
-        guard animationState.allowsAnimation(reduceMotion: accessibilityReduceMotion) else {
-            return nil
-        }
-
-        return .snappy(duration: 0.24)
     }
 
     @ViewBuilder
@@ -125,7 +145,8 @@ struct ArticleListContentView: View {
         guard ArticleListPaginationPrefetchPolicy.shouldRequestNextPage(
             geometry: latestPaginationGeometry,
             hasUserDrivenScrollDemand: hasUserDrivenScrollDemand,
-            canLoadNextPage: canLoadNextPage
+            canLoadNextPage: canLoadNextPage,
+            isRefreshInteractionActive: isOverscrollingTop || customRefreshState.showsIndicator
         ) else {
             return
         }
@@ -150,24 +171,6 @@ struct ArticleListContentView: View {
     }
 
     @ViewBuilder
-    private var customRefreshIndicator: some View {
-        if customRefreshState.showsIndicator {
-            VStack {
-                AppRefreshIndicator(
-                    state: customRefreshState.indicatorState,
-                    size: 24,
-                    lineWidth: 2.5
-                )
-                .padding(.top, 14)
-
-                Spacer()
-            }
-            .allowsHitTesting(false)
-            .transition(.opacity)
-        }
-    }
-
-    @ViewBuilder
     private func leadingSwipeActions(for article: ArticleListItemDTO) -> some View {
         let swipeActionsState = ArticleRowSwipeActionsState(article: article)
 
@@ -176,12 +179,15 @@ struct ArticleListContentView: View {
                 toggleReadStatusAction(article)
             }
         } label: {
-            Label(
-                swipeActionsState.readActionTitle,
-                systemImage: swipeActionsState.readActionSystemImage
-            )
+            Label {
+                Text(swipeActionsState.readActionTitle)
+            } icon: {
+                swipeActionImage(systemName: swipeActionsState.readActionSystemImage)
+            }
         }
-        .tint(.gray)
+        .labelStyle(.iconOnly)
+        .tint(.clear)
+        .accessibilityLabel(swipeActionsState.readActionTitle)
     }
 
     @ViewBuilder
@@ -193,13 +199,29 @@ struct ArticleListContentView: View {
                 toggleStarredAction(article)
             }
         } label: {
-            Label(swipeActionsState.starActionTitle, systemImage: swipeActionsState.starActionSystemImage)
+            Label {
+                Text(swipeActionsState.starActionTitle)
+            } icon: {
+                swipeActionImage(systemName: swipeActionsState.starActionSystemImage)
+            }
         }
-        .tint(.gray)
+        .labelStyle(.iconOnly)
+        .tint(.clear)
+        .accessibilityLabel(swipeActionsState.starActionTitle)
+    }
+
+    @ViewBuilder
+    private func swipeActionImage(systemName: String) -> some View {
+        let color: UIColor = appThemeVariant == .light ? .black : .white
+        if let image = UIImage(systemName: systemName) {
+            Image(uiImage: image.withTintColor(color, renderingMode: .alwaysOriginal))
+                .renderingMode(.original)
+                .environment(\.symbolVariants, .none)
+        }
     }
 }
 
 private struct ArticleListScrollObservation: Equatable {
-    let refreshGeometry: ArticleListCustomRefreshGeometry
+    let offsetFromTop: CGFloat
     let paginationGeometry: ArticleListPaginationGeometry
 }

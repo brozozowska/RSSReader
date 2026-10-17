@@ -2404,6 +2404,186 @@
         }
       }
     },
+    "feedManagement.addFeed.preview.accessDenied.detail" : {
+      "comment" : "Feed preview detail for HTTP 403. A direct feed link is a possible alternative, not a guarantee.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "حظر الخادم هذا الطلب (HTTP 403). قد يعمل رابط مباشر لخلاصة RSS أو Atom."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Der Server hat diese Anfrage blockiert (HTTP 403). Ein direkter RSS- oder Atom-Feed-Link funktioniert möglicherweise trotzdem."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The server blocked this request (HTTP 403). A direct RSS or Atom link may still work."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "El servidor ha bloqueado esta solicitud (HTTP 403). Un enlace directo a una fuente RSS o Atom podría funcionar."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "سرور این درخواست را مسدود کرد (HTTP 403). ممکن است پیوند مستقیم فید RSS یا Atom همچنان کار کند."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Le serveur a bloqué cette requête (HTTP 403). Un lien direct vers un flux RSS ou Atom peut encore fonctionner."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "השרת חסם את הבקשה הזו (HTTP 403). קישור ישיר לפיד RSS או Atom עדיין עשוי לעבוד."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Il server ha bloccato questa richiesta (HTTP 403). Un link diretto a un feed RSS o Atom potrebbe comunque funzionare."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "このリクエストはサーバーでブロックされました（HTTP 403）。直接の RSS または Atom フィードリンクなら読み込める場合があります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "서버가 이 요청을 차단했습니다(HTTP 403). 직접 RSS 또는 Atom 피드 링크는 작동할 수도 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "O servidor bloqueou esta solicitação (HTTP 403). Um link direto para um feed RSS ou Atom ainda pode funcionar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Сервер заблокировал этот запрос (HTTP 403). Прямая ссылка на RSS или Atom-ленту может сработать."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "سرور نے یہ درخواست روک دی (HTTP 403)۔ براہ راست RSS یا Atom فیڈ لنک اب بھی کام کر سکتا ہے۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "服务器阻止了此请求（HTTP 403）。直接的 RSS 或 Atom 订阅源链接仍可能有效。"
+          }
+        }
+      }
+    },
+    "feedManagement.addFeed.preview.accessDenied.title" : {
+      "comment" : "Feed preview title for HTTP 403. The remote server refused the request.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "رفض الخادم الوصول"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Der Server hat den Zugriff verweigert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The server denied access"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "El servidor ha denegado el acceso"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "سرور دسترسی را رد کرد"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Accès refusé par le serveur"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "השרת דחה את הגישה"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Accesso negato dal server"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "サーバーでアクセスが拒否されました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "서버가 접근을 거부했습니다"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "O servidor negou o acesso"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Сервер отказал в доступе"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "سرور نے رسائی سے انکار کر دیا"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "服务器拒绝访问"
+          }
+        }
+      }
+    },
     "feedManagement.addFeed.preview.action" : {
       "comment" : "Primary action title for loading a feed preview.",
       "localizations" : {
@@ -4714,6 +4894,276 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法检查订阅源"
+          }
+        }
+      }
+    },
+    "feedManagement.addFeed.preview.rateLimited.detail" : {
+      "comment" : "Feed preview rate limit detail when the server gives no usable retry time.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يحد الخادم من الطلبات (HTTP 429). يرجى الانتظار قبل المحاولة مرة أخرى"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Der Server begrenzt die Anfragen (HTTP 429). Warte, bevor du es erneut versuchst."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The server is limiting requests (HTTP 429). Wait before trying again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "El servidor está limitando las solicitudes (HTTP 429). Espera antes de volver a intentarlo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "سرور تعداد درخواست‌ها را محدود می‌کند (HTTP 429). پیش از تلاش دوباره کمی صبر کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Le serveur limite les requêtes (HTTP 429). Patientez avant de réessayer."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "השרת מגביל בקשות (HTTP 429). יש להמתין לפני ניסיון נוסף."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Il server sta limitando le richieste (HTTP 429). Attendi prima di riprovare."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "サーバーでリクエストが制限されています（HTTP 429）。しばらく待ってからもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "서버가 요청을 제한하고 있습니다(HTTP 429). 잠시 기다린 후 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "O servidor está limitando as solicitações (HTTP 429). Aguarde antes de tentar novamente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Сервер ограничивает число запросов (HTTP 429). Подождите перед повторной попыткой."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "سرور درخواستوں کی تعداد محدود کر رہا ہے (HTTP 429)۔ دوبارہ کوشش کرنے سے پہلے انتظار کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "服务器正在限制请求（HTTP 429）。请稍后再试。"
+          }
+        }
+      }
+    },
+    "feedManagement.addFeed.preview.rateLimited.retryAt.format" : {
+      "comment" : "Feed preview rate limit detail. Placeholder is a locale-formatted date and time supplied by the server. No automatic retry is scheduled.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "يحد الخادم من الطلبات (HTTP 429). يمكنك المحاولة مرة أخرى بعد %@‏"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Der Server begrenzt die Anfragen (HTTP 429). Versuche es nach %@ erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The server is limiting requests (HTTP 429). Try again after %@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "El servidor está limitando las solicitudes (HTTP 429). Vuelve a intentarlo después de %@."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "سرور تعداد درخواست‌ها را محدود می‌کند (HTTP 429). پس از %@ دوباره تلاش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Le serveur limite les requêtes (HTTP 429). Réessayez après %@."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "השרת מגביל בקשות (HTTP 429). ניתן לנסות שוב לאחר %@."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Il server sta limitando le richieste (HTTP 429). Riprova dopo %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "サーバーでリクエストが制限されています（HTTP 429）。%@以降にもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "서버가 요청을 제한하고 있습니다(HTTP 429). %@ 이후에 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "O servidor está limitando as solicitações (HTTP 429). Tente novamente após %@."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Сервер ограничивает число запросов (HTTP 429). Попробуйте ещё раз после %@."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "سرور درخواستوں کی تعداد محدود کر رہا ہے (HTTP 429)۔ %@ کے بعد دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "服务器正在限制请求（HTTP 429）。请在 %@ 后重试。"
+          }
+        }
+      }
+    },
+    "feedManagement.addFeed.preview.rateLimited.title" : {
+      "comment" : "Feed preview title for HTTP 429 rate limiting.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "طلبات كثيرة جدًا"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Zu viele Anfragen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Too many requests"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Demasiadas solicitudes"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "درخواست‌های بیش از حد"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Trop de requêtes"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "יותר מדי בקשות"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Troppe richieste"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "リクエストが多すぎます"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "요청이 너무 많습니다"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Muitas solicitações"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Слишком много запросов"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "بہت زیادہ درخواستیں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "请求过多"
           }
         }
       }
@@ -15600,6 +16050,96 @@
         }
       }
     },
+    "reading.article.error.loadFailed" : {
+      "comment" : "Reader load failure description. Technical error details are kept in diagnostics, not shown here.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعذر تحميل المقال. حاول مرة أخرى."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Der Artikel konnte nicht geladen werden. Versuche es erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The article could not be loaded. Try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "No se pudo cargar el artículo. Inténtalo de nuevo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "مقاله بارگذاری نشد. دوباره تلاش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "L’article n’a pas pu être chargé. Réessayez."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "לא ניתן לטעון את הכתבה. נסה שוב."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Non è stato possibile caricare l’articolo. Riprova."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "記事を読み込めませんでした。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "기사를 불러올 수 없습니다. 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Não foi possível carregar o artigo. Tente novamente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Не удалось загрузить статью. Попробуйте ещё раз."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "مضمون لوڈ نہیں ہو سکا۔ دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "无法加载这篇文章。请重试。"
+          }
+        }
+      }
+    },
     "reading.article.error.queryUnavailable" : {
       "comment" : "Article reader failure message when the query service is unavailable.",
       "localizations" : {
@@ -16762,8 +17302,8 @@
       "localizations" : {
         "ar" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "لا يمكن تحميل المقالة المحددة من الثبات."
+            "state" : "machine_translated",
+            "value" : "تعذر تحميل المقال المحدد من التخزين المحلي."
           }
         },
         "de" : {
@@ -17113,6 +17653,366 @@
         }
       }
     },
+    "reading.article.state.read" : {
+      "comment" : "VoiceOver value describing the current article as already read, not an action.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "مقروء"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Gelesen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Read"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Leído"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "خوانده‌شده"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Lu"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "נקראה"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Letto"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "既読"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "읽음"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Lido"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Прочитана"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "پڑھا ہوا"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "已读"
+          }
+        }
+      }
+    },
+    "reading.article.state.starred" : {
+      "comment" : "VoiceOver value describing the current article as in Starred, not an action.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "في المفضلة"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "In den Favoriten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Starred"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "En favoritos"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "ستاره‌دار"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Dans les favoris"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "במועדפים"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Nei preferiti"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "スター付き"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "별표 표시됨"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Nos favoritos"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "В избранном"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "پسندیدہ میں شامل"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "已加星标"
+          }
+        }
+      }
+    },
+    "reading.article.state.unread" : {
+      "comment" : "VoiceOver value describing the current article as not yet read, not an action.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "غير مقروء"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Ungelesen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unread"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "No leído"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "خوانده‌نشده"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Non lu"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "לא נקראה"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Non letto"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "未読"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "읽지 않음"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Não lido"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Не прочитана"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "نہ پڑھا ہوا"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "未读"
+          }
+        }
+      }
+    },
+    "reading.article.state.unstarred" : {
+      "comment" : "VoiceOver value describing the current article as not in Starred, not an action.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "ليس في المفضلة"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Nicht in den Favoriten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Not Starred"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "No está en favoritos"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "بدون ستاره"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Pas dans les favoris"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "לא במועדפים"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Non nei preferiti"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "スターなし"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "별표 표시 안 됨"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Não está nos favoritos"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Не в избранном"
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "پسندیدہ میں شامل نہیں"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "未加星标"
+          }
+        }
+      }
+    },
     "reading.article.untitled.title" : {
       "comment" : "Fallback article title when the feed item has no title.",
       "localizations" : {
@@ -17198,6 +18098,96 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无标题文章"
+          }
+        }
+      }
+    },
+    "reading.articles.error.loadFailed" : {
+      "comment" : "Article list or search load failure description. Technical error details are kept in diagnostics, not shown here.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعذر تحميل المقالات. حاول مرة أخرى."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Die Artikel konnten nicht geladen werden. Versuche es erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The articles could not be loaded. Try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "No se pudieron cargar los artículos. Inténtalo de nuevo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "مقاله‌ها بارگذاری نشدند. دوباره تلاش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Les articles n’ont pas pu être chargés. Réessayez."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "לא ניתן לטעון את הכתבות. נסה שוב."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Non è stato possibile caricare gli articoli. Riprova."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "記事一覧を読み込めませんでした。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "기사 목록을 불러올 수 없습니다. 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Não foi possível carregar os artigos. Tente novamente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Не удалось загрузить статьи. Попробуйте ещё раз."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "مضامین لوڈ نہیں ہو سکے۔ دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "无法加载文章列表。请重试。"
           }
         }
       }
@@ -17470,7 +18460,7 @@
       }
     },
     "reading.articles.markAllRead.accessibility" : {
-      "comment" : "Accessibility label for the mark all visible articles as read toolbar action.",
+      "comment" : "Accessibility label for the mark all articles in the current selection as read toolbar action.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -17559,7 +18549,7 @@
       }
     },
     "reading.articles.markAllRead.dialog.confirm" : {
-      "comment" : "Destructive confirmation action title for marking all visible articles as read.",
+      "comment" : "Destructive confirmation action title for marking all articles in the current selection as read.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -17648,96 +18638,96 @@
       }
     },
     "reading.articles.markAllRead.dialog.message" : {
-      "comment" : "Confirmation dialog message for marking all visible articles as read.",
+      "comment" : "Confirmation message for the complete current selection, including active filters, search and pages not loaded yet.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "سيؤدي هذا الإجراء إلى وضع علامة على جميع المقالات المرئية كمقروءة."
+            "state" : "machine_translated",
+            "value" : "سيؤدي هذا الإجراء إلى وضع علامة على جميع المقالات ضمن النطاق الحالي كمقروءة."
           }
         },
         "de" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Diese Aktion markiert alle sichtbaren Artikel als gelesen."
+            "state" : "machine_translated",
+            "value" : "Mit dieser Aktion werden alle Artikel der aktuellen Auswahl als gelesen markiert."
           }
         },
         "en" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "This action will mark all visible articles as read."
+            "state" : "machine_translated",
+            "value" : "This action will mark all articles in the current selection as read."
           }
         },
         "es" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Esta acción marcará como leídos todos los artículos visibles."
+            "state" : "machine_translated",
+            "value" : "Esta acción marcará como leídos todos los artículos de la selección actual."
           }
         },
         "fa" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "این کار همهٔ مقاله‌های قابل مشاهده را به‌عنوان خوانده‌شده علامت‌گذاری می‌کند."
+            "state" : "machine_translated",
+            "value" : "با این کار، همهٔ مقاله‌های محدودهٔ فعلی به‌عنوان خوانده‌شده علامت‌گذاری می‌شوند."
           }
         },
         "fr" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cette action marquera tous les articles visibles comme lus."
+            "state" : "machine_translated",
+            "value" : "Cette action marquera tous les articles de la sélection actuelle comme lus."
           }
         },
         "he" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "פעולה זו תסמן את כל הכתבות הגלויות כנקראות."
+            "state" : "machine_translated",
+            "value" : "פעולה זו תסמן את כל הכתבות בבחירה הנוכחית כנקראות."
           }
         },
         "it" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Questa azione segnerà come letti tutti gli articoli visibili."
+            "state" : "machine_translated",
+            "value" : "Questa azione segnerà come letti tutti gli articoli della selezione attuale."
           }
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "この操作により、表示中のすべての記事が既読になります。"
+            "state" : "machine_translated",
+            "value" : "この操作により、現在の選択範囲に含まれるすべての記事が既読になります。"
           }
         },
         "ko" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "이 작업은 표시된 모든 기사를 읽음으로 표시합니다."
+            "state" : "machine_translated",
+            "value" : "이 작업은 현재 선택 범위에 포함된 모든 기사를 읽음으로 표시합니다."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Esta ação marcará todos os artigos visíveis como lidos."
+            "state" : "machine_translated",
+            "value" : "Esta ação marcará todos os artigos da seleção atual como lidos."
           }
         },
         "ru" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Это действие отметит все видимые статьи как прочитанные."
+            "state" : "machine_translated",
+            "value" : "Это действие отметит все статьи текущей выборки как прочитанные."
           }
         },
         "ur" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "یہ عمل تمام نظر آنے والے مضامین کو پڑھا ہوا نشان زد کر دے گا۔"
+            "state" : "machine_translated",
+            "value" : "اس عمل سے موجودہ انتخاب میں شامل تمام مضامین کو پڑھا ہوا نشان زد کر دیا جائے گا۔"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "此操作会将所有可见文章标记为已读。"
+            "state" : "machine_translated",
+            "value" : "此操作会将当前范围内的所有文章标记为已读。"
           }
         }
       }
     },
     "reading.articles.markAllRead.dialog.title" : {
-      "comment" : "Confirmation dialog title for marking all visible articles as read.",
+      "comment" : "Confirmation dialog title for marking all articles in the current selection as read.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -23465,96 +24455,96 @@
       }
     },
     "settings.articleList.askBeforeMarkingAllRead.subtitle" : {
-      "comment" : "Toggle subtitle explaining confirmation before marking all visible articles read.",
+      "comment" : "Toggle subtitle for confirming the complete current selection, including active filters, search and pages not loaded yet.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "أظهر تأكيدًا قبل وضع علامة على جميع المقالات المرئية كمقروءة."
+            "state" : "machine_translated",
+            "value" : "إظهار تأكيد قبل وضع علامة على جميع المقالات ضمن النطاق الحالي كمقروءة."
           }
         },
         "de" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vor dem Markieren aller sichtbaren Artikel als gelesen eine Bestätigung anzeigen."
+            "state" : "machine_translated",
+            "value" : "Vor dem Markieren aller Artikel der aktuellen Auswahl als gelesen eine Bestätigung anzeigen."
           }
         },
         "en" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show a confirmation before marking all visible articles as read."
+            "state" : "machine_translated",
+            "value" : "Show a confirmation before marking all articles in the current selection as read."
           }
         },
         "es" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar una confirmación antes de marcar como leídos todos los artículos visibles."
+            "state" : "machine_translated",
+            "value" : "Mostrar una confirmación antes de marcar como leídos todos los artículos de la selección actual."
           }
         },
         "fa" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "پیش از علامت‌گذاری همهٔ مقاله‌های قابل مشاهده به‌عنوان خوانده‌شده، تأیید نمایش داده شود."
+            "state" : "machine_translated",
+            "value" : "پیش از علامت‌گذاری همهٔ مقاله‌های محدودهٔ فعلی به‌عنوان خوانده‌شده، تأیید نمایش داده شود."
           }
         },
         "fr" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Afficher une confirmation avant de marquer tous les articles visibles comme lus."
+            "state" : "machine_translated",
+            "value" : "Afficher une confirmation avant de marquer tous les articles de la sélection actuelle comme lus."
           }
         },
         "he" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "הצג אישור לפני סימון כל הכתבות הגלויות כנקראות."
+            "state" : "machine_translated",
+            "value" : "הצג אישור לפני סימון כל הכתבות בבחירה הנוכחית כנקראות."
           }
         },
         "it" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostra una conferma prima di segnare come letti tutti gli articoli visibili."
+            "state" : "machine_translated",
+            "value" : "Mostra una conferma prima di segnare come letti tutti gli articoli della selezione attuale."
           }
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "表示中のすべての記事を既読にする前に確認を表示します。"
+            "state" : "machine_translated",
+            "value" : "現在の選択範囲に含まれるすべての記事を既読にする前に、確認を表示します。"
           }
         },
         "ko" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "표시된 모든 기사를 읽음으로 표시하기 전에 확인을 표시합니다."
+            "state" : "machine_translated",
+            "value" : "현재 선택 범위에 포함된 모든 기사를 읽음으로 표시하기 전에 확인을 표시합니다."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar uma confirmação antes de marcar todos os artigos visíveis como lidos."
+            "state" : "machine_translated",
+            "value" : "Mostrar uma confirmação antes de marcar todos os artigos da seleção atual como lidos."
           }
         },
         "ru" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Показывать подтверждение перед отметкой всех видимых статей как прочитанных."
+            "state" : "machine_translated",
+            "value" : "Показывать подтверждение перед отметкой всех статей текущей выборки как прочитанных."
           }
         },
         "ur" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "تمام نظر آنے والے مضامین کو پڑھا ہوا نشان زد کرنے سے پہلے تصدیق دکھائیں۔"
+            "state" : "machine_translated",
+            "value" : "موجودہ انتخاب میں شامل تمام مضامین کو پڑھا ہوا نشان زد کرنے سے پہلے تصدیق دکھائیں۔"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "将所有可见文章标记为已读前显示确认。"
+            "state" : "machine_translated",
+            "value" : "将当前范围内的所有文章标记为已读前显示确认。"
           }
         }
       }
     },
     "settings.articleList.askBeforeMarkingAllRead.title" : {
-      "comment" : "Toggle title for asking before marking all visible articles read.",
+      "comment" : "Toggle title for asking before marking all articles in the current selection read.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -23643,7 +24633,7 @@
       }
     },
     "settings.articleList.keepArticles.title" : {
-      "comment" : "Picker title for current and archived article retention.",
+      "comment" : "Picker title for automatic article retention.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -23732,90 +24722,90 @@
       }
     },
     "settings.articleList.section.footer" : {
-      "comment" : "Footer explaining the time, count, missing-date, and starred article retention rules.",
+      "comment" : "Footer explaining that articles are kept while returned by a feed, timed retention starts when an article disappears during an update, no more than 2,000 articles are kept per feed, and articles in Starred are kept until removed from Starred.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ينطبق الاحتفاظ على جميع المقالات غير المميزة بنجمة، بما فيها العناصر التي لا تزال في الخلاصة: تُحفظ من تاريخها في الخلاصة للمدة المحددة، بحد أقصى ٢٬٠٠٠ مقال لكل خلاصة. يزيل خيار «ما دامت في الخلاصة» العناصر بعد اختفائها. تخضع العناصر بلا تاريخ لحد العدد. تُحفظ المقالات المميزة بنجمة حتى إزالة النجمة."
+            "value" : "تبقى المقالات على الجهاز ما دامت الخلاصة تواصل إرجاعها. إذا اختفت مقالة من القائمة أثناء التحديث، يزيلها خيار «ما دامت في القائمة» فورًا، بينما تزيلها الخيارات المحددة بمدة بعد انقضاء المدة المختارة بدءًا من ذلك التحديث. يُحتفظ بحد أقصى ٢٬٠٠٠ مقالة لكل خلاصة. تُحفظ المقالات في المفضلة حتى تزيلها من المفضلة."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die Aufbewahrung gilt für alle Artikel ohne Stern, auch wenn sie noch im Feed stehen: Sie werden ab ihrem Feed-Datum für die gewählte Dauer aufbewahrt, höchstens 2.000 pro Feed. „Solange im Feed“ entfernt Einträge nach ihrem Verschwinden. Einträge ohne Datum unterliegen dem Anzahl-Limit. Artikel mit Stern bleiben bis zum Entfernen des Sterns erhalten."
+            "value" : "Artikel bleiben auf dem Gerät, solange ein Feed sie weiterhin zurückgibt. Wenn ein Artikel bei einer Aktualisierung nicht mehr in der Liste erscheint, wird er mit „Solange gelistet“ sofort entfernt; bei den zeitbasierten Optionen wird er nach Ablauf des gewählten Zeitraums ab dieser Aktualisierung entfernt. Pro Feed werden höchstens 2.000 Artikel gespeichert. Artikel unter „Mit Stern“ bleiben gespeichert, bis sie daraus entfernt werden."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Retention applies to all unstarred articles, including entries still in the feed: keep them from their feed date for the selected time, up to 2,000 per feed. \"While in Feed\" removes entries after they disappear. Missing-date entries use the count limit. Starred articles are kept until unstarred."
+            "value" : "Articles stay on your device while a feed keeps returning them. If an article disappears from the list during an update, \"While Listed\" removes it immediately, while time-based options remove it after the selected period starting from that update. No more than 2,000 articles are kept per feed. Articles in Starred are kept until you remove them from Starred."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La retención se aplica a todos los artículos sin estrella, incluidos los que aún aparecen en el feed: se conservan desde su fecha en el feed durante el tiempo elegido, con un máximo de 2.000 por feed. «Mientras esté en el feed» elimina las entradas cuando desaparecen. Las entradas sin fecha usan el límite de cantidad. Los artículos con estrella se conservan hasta quitarles la estrella."
+            "value" : "Los artículos permanecen en el dispositivo mientras el feed siga incluyéndolos. Si un artículo desaparece de la lista durante una actualización, «Mientras aparezca» lo elimina de inmediato; las opciones temporales lo eliminan cuando transcurre el periodo elegido desde esa actualización. Se guardan como máximo 2.000 artículos por feed. Los artículos en Favoritos se guardan hasta que los elimines de Favoritos."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "نگهداری برای همهٔ مقاله‌های بدون ستاره، از جمله مواردی که هنوز در فید هستند، اعمال می‌شود: آن‌ها از تاریخ درج‌شده در فید تا مدت انتخابی و حداکثر ۲٬۰۰۰ مورد برای هر فید نگه داشته می‌شوند. «تا وقتی در فید است» موارد ناپدیدشده را حذف می‌کند. موارد بدون تاریخ فقط تابع سقف تعداد هستند. مقاله‌های ستاره‌دار تا برداشتن ستاره نگه داشته می‌شوند."
+            "value" : "مقاله‌ها تا زمانی که فید همچنان آن‌ها را برمی‌گرداند روی دستگاه باقی می‌مانند. اگر مقاله‌ای هنگام به‌روزرسانی از فهرست ناپدید شود، گزینهٔ «تا وقتی در فهرست است» آن را فوراً حذف می‌کند و گزینه‌های زمان‌دار پس از پایان مدت انتخابی از زمان همان به‌روزرسانی آن را حذف می‌کنند. برای هر فید حداکثر ۲٬۰۰۰ مقاله نگه داشته می‌شود. مقاله‌های موجود در ستاره‌دارها تا وقتی آن‌ها را از ستاره‌دارها حذف کنید نگه داشته می‌شوند."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La conservation s’applique à tous les articles non marqués, y compris ceux encore présents dans le flux : ils sont conservés depuis leur date dans le flux pendant la durée choisie, dans la limite de 2 000 par flux. « Tant que présent » supprime les entrées après leur disparition. Les entrées sans date utilisent la limite de nombre. Les articles marqués sont conservés jusqu’au retrait de l’étoile."
+            "value" : "Les articles restent sur l’appareil tant que le flux continue de les fournir. Si un article disparaît de la liste lors d’une actualisation, « Tant qu’il apparaît » le supprime immédiatement ; les options de durée le suppriment à la fin de la période choisie à compter de cette actualisation. Chaque flux conserve au maximum 2 000 articles. Les articles dans Favoris sont conservés jusqu’à ce que vous les retiriez de Favoris."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "השמירה חלה על כל הכתבות ללא כוכב, כולל פריטים שעדיין מופיעים בפיד: הן נשמרות מתאריך הפיד למשך הזמן שנבחר, עד 2,000 בכל פיד. ״כל עוד בפיד״ מסיר פריטים לאחר שהם נעלמים. פריטים ללא תאריך כפופים למגבלת הכמות. כתבות עם כוכב נשמרות עד להסרת הכוכב."
+            "value" : "הכתבות נשארות במכשיר כל עוד הפיד ממשיך להחזיר אותן. אם כתבה נעלמה מהרשימה במהלך עדכון, האפשרות ״כל עוד ברשימה״ מסירה אותה מיד, ואפשרויות הזמן מסירות אותה בתום התקופה שנבחרה החל מאותו עדכון. בכל פיד נשמרות לכל היותר 2,000 כתבות. כתבות במועדפים נשמרות עד להסרתן מהמועדפים."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La conservazione si applica a tutti gli articoli senza stella, inclusi quelli ancora presenti nel feed: vengono conservati dalla data nel feed per il periodo scelto, fino a 2.000 per feed. “Finché nel feed” rimuove le voci quando scompaiono. Le voci senza data usano il limite numerico. Gli articoli con stella restano finché la stella non viene rimossa."
+            "value" : "Gli articoli restano sul dispositivo finché il feed continua a restituirli. Se durante un aggiornamento un articolo scompare dall’elenco, “Finché è presente” lo rimuove subito, mentre le opzioni a tempo lo rimuovono allo scadere del periodo scelto a partire da quell’aggiornamento. Per ogni feed vengono conservati al massimo 2.000 articoli. Gli articoli nei Preferiti vengono conservati finché non li rimuovi dai Preferiti."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "保持期間は、フィードにまだある項目を含むスターなしの記事すべてに適用されます。フィードの日付から選択した期間、1フィードにつき最大2,000件を保持します。「フィードにある間」は、消えた項目を削除します。日付のない項目には件数上限のみが適用されます。スター付きの記事はスターを外すまで保持されます。"
+            "value" : "記事は、フィードが返し続けている間はデバイスに残ります。更新時に記事が配信一覧から消えた場合、「配信一覧にある間」ではすぐに削除され、期間を指定するオプションでは、その更新時点から選択した期間が経過した後に削除されます。フィードごとに保存される記事は最大2,000件です。スター付きの記事は、「スター付き」から削除するまで保存されます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "보관 정책은 피드에 아직 있는 항목을 포함한 별표 없는 모든 기사에 적용됩니다. 피드 날짜부터 선택한 기간 동안 피드당 최대 2,000개를 보관합니다. ‘피드에 있는 동안’은 사라진 항목을 삭제합니다. 날짜가 없는 항목에는 개수 제한만 적용됩니다. 별표 표시한 기사는 별표를 해제할 때까지 보관됩니다."
+            "value" : "기사는 피드가 계속 반환하는 동안 기기에 남아 있습니다. 업데이트할 때 기사가 피드 목록에서 사라지면 ‘목록에 있는 동안’ 옵션은 즉시 삭제하고, 기간 옵션은 해당 업데이트부터 선택한 기간이 지난 후 삭제합니다. 피드당 최대 2,000개의 기사가 저장됩니다. 별표 표시된 기사는 ‘별표 표시됨’에서 제거할 때까지 저장됩니다."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A retenção vale para todos os artigos sem estrela, inclusive os que ainda estão no feed: eles são mantidos desde a data no feed pelo período escolhido, até 2.000 por feed. “Enquanto estiver no feed” remove itens após desaparecerem. Itens sem data usam o limite de quantidade. Artigos com estrela são mantidos até você remover a estrela."
+            "value" : "Os artigos permanecem no dispositivo enquanto o feed continuar a fornecê-los. Se um artigo desaparecer da lista durante uma atualização, “Enquanto aparecer” o removerá imediatamente; as opções com prazo o removerão após o período escolhido, contado a partir dessa atualização. São mantidos no máximo 2.000 artigos por feed. Os artigos nos Favoritos são mantidos até você removê-los dos Favoritos."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Срок хранения применяется ко всем статьям без звезды, включая те, которые ещё есть в ленте: они хранятся выбранное время от даты в ленте, но не более 2 000 на ленту. «Пока есть в ленте» удаляет пропавшие записи. Для записей без даты действует лимит количества. Статьи со звездой хранятся, пока звезда не снята."
+            "value" : "Статьи остаются на устройстве, пока лента продолжает их возвращать. Если при обновлении статья пропала из выдачи, вариант «Пока есть в выдаче» удалит её сразу, а варианты со сроком — по истечении выбранного срока с этого обновления. Для каждой ленты сохраняется не более 2 000 статей. Статьи в Избранном хранятся, пока вы не удалите их из Избранного."
           }
         },
         "ur" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "حفاظت کا اصول ستارے کے بغیر تمام مضامین پر لاگو ہوتا ہے، ان پر بھی جو ابھی فیڈ میں ہیں: انہیں فیڈ کی تاریخ سے منتخب مدت تک، ہر فیڈ میں زیادہ سے زیادہ 2,000، رکھا جاتا ہے۔ ”جب تک فیڈ میں ہو“ غائب ہونے والی اندراجات ہٹا دیتا ہے۔ بغیر تاریخ اندراجات پر تعداد کی حد لاگو ہوتی ہے۔ ستارے والے مضامین ستارہ ہٹانے تک محفوظ رہتے ہیں۔"
+            "value" : "مضامین اس وقت تک ڈیوائس پر رہتے ہیں جب تک فیڈ انہیں واپس بھیجتی رہتی ہے۔ اگر اپ ڈیٹ کے دوران کوئی مضمون فہرست سے غائب ہو جائے تو ”جب تک فہرست میں ہو“ اسے فوراً حذف کر دیتا ہے، جبکہ مدت والے اختیارات اسے اسی اپ ڈیٹ سے منتخب مدت پوری ہونے کے بعد حذف کرتے ہیں۔ ہر فیڈ کے لیے زیادہ سے زیادہ 2,000 مضامین محفوظ رکھے جاتے ہیں۔ پسندیدہ مضامین اس وقت تک محفوظ رہتے ہیں جب تک آپ انہیں پسندیدہ سے ہٹا نہ دیں۔"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "保留规则适用于所有未加星标的文章，包括仍在订阅源中的条目：从订阅源日期起按所选时长保留，每个订阅源最多 2,000 篇。“仍在订阅源中”会在条目消失后将其删除。无日期条目仅受数量上限约束。加星标文章会保留到取消星标为止。"
+            "value" : "只要订阅源继续返回文章，文章就会保留在设备上。如果文章在更新时从列表中消失，“仍在列表中”选项会立即将其删除，按时长保留的选项则会从此次更新起，在所选时限到期后将其删除。每个订阅源最多保留 2,000 篇文章。已加星标的文章会保留，直到你将其从“已加星标”中移除。"
           }
         }
       }
@@ -29533,90 +30523,90 @@
       }
     },
     "settings.option.retention.currentFeedOnly" : {
-      "comment" : "Picker option that keeps unstarred articles only while their feed continues returning them.",
+      "comment" : "Picker option that removes an article immediately when it no longer appears in the feed's returned article list.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ما دامت في الخلاصة"
+            "value" : "ما دامت في القائمة"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Solange im Feed"
+            "value" : "Solange gelistet"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "While in Feed"
+            "value" : "While Listed"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mientras esté en el feed"
+            "value" : "Mientras aparezca"
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "تا وقتی در فید است"
+            "value" : "تا وقتی در فهرست است"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tant que présent"
+            "value" : "Tant qu’il apparaît"
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "כל עוד בפיד"
+            "value" : "כל עוד ברשימה"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Finché nel feed"
+            "value" : "Finché è presente"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "フィードにある間"
+            "value" : "配信一覧にある間"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "피드에 있는 동안"
+            "value" : "목록에 있는 동안"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Enquanto estiver no feed"
+            "value" : "Enquanto aparecer"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Пока есть в ленте"
+            "value" : "Пока есть в выдаче"
           }
         },
         "ur" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "جب تک فیڈ میں ہو"
+            "value" : "جب تک فہرست میں ہو"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "仍在订阅源中"
+            "value" : "仍在列表中"
           }
         }
       }
@@ -32465,6 +33455,366 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "iCloud 同步已关闭。"
+          }
+        }
+      }
+    },
+    "settings.syncStatus.error.export.detail" : {
+      "comment" : "Failure subtitle when exporting changes to iCloud. Technical diagnostics are not user-facing copy.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعذر رفع التغييرات إلى iCloud‏. حاول مرة أخرى لاحقًا."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Änderungen konnten nicht in iCloud hochgeladen werden. Versuche es später erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unable to upload changes to iCloud. Try again later."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "No se pudieron subir los cambios a iCloud. Inténtalo de nuevo más tarde."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "بارگذاری تغییرات در iCloud انجام نشد. بعداً دوباره تلاش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Impossible d’envoyer les modifications vers iCloud. Réessayez plus tard."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "לא ניתן להעלות שינויים ל-iCloud. נסה שוב מאוחר יותר."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Non è stato possibile caricare le modifiche su iCloud. Riprova più tardi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "iCloud に変更をアップロードできませんでした。後でもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "iCloud에 변경 사항을 업로드할 수 없습니다. 나중에 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Não foi possível enviar as alterações para o iCloud. Tente novamente mais tarde."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Не удалось отправить изменения в iCloud. Попробуйте позже."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تبدیلیاں ⁨iCloud⁩ پر اپ لوڈ نہیں ہو سکیں۔ بعد میں دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "无法将更改上传到 iCloud。请稍后重试。"
+          }
+        }
+      }
+    },
+    "settings.syncStatus.error.generic.detail" : {
+      "comment" : "Generic iCloud failure subtitle when the failed activity is unknown. Technical diagnostics are not user-facing copy.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعذرت المزامنة مع iCloud‏. حاول مرة أخرى لاحقًا."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Die Synchronisierung mit iCloud ist fehlgeschlagen. Versuche es später erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unable to sync with iCloud. Try again later."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "No se pudo sincronizar con iCloud. Inténtalo de nuevo más tarde."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "همگام‌سازی با iCloud انجام نشد. بعداً دوباره تلاش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Impossible de synchroniser avec iCloud. Réessayez plus tard."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "לא ניתן לסנכרן עם iCloud. נסה שוב מאוחר יותר."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Non è stato possibile sincronizzare con iCloud. Riprova più tardi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "iCloud と同期できませんでした。後でもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "iCloud와 동기화할 수 없습니다. 나중에 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Não foi possível sincronizar com o iCloud. Tente novamente mais tarde."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Не удалось синхронизировать данные с iCloud. Попробуйте позже."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "⁨iCloud⁩ کے ساتھ ہم وقت سازی نہیں ہو سکی۔ بعد میں دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "无法与 iCloud 同步。请稍后重试。"
+          }
+        }
+      }
+    },
+    "settings.syncStatus.error.import.detail" : {
+      "comment" : "Failure subtitle when importing changes from iCloud. Technical diagnostics are not user-facing copy.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعذر تنزيل التغييرات من iCloud‏. حاول مرة أخرى لاحقًا."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Änderungen aus iCloud konnten nicht heruntergeladen werden. Versuche es später erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unable to download changes from iCloud. Try again later."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "No se pudieron descargar los cambios de iCloud. Inténtalo de nuevo más tarde."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "دریافت تغییرات از iCloud انجام نشد. بعداً دوباره تلاش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Impossible de télécharger les modifications depuis iCloud. Réessayez plus tard."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "לא ניתן להוריד שינויים מ-iCloud. נסה שוב מאוחר יותר."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Non è stato possibile scaricare le modifiche da iCloud. Riprova più tardi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "iCloud から変更をダウンロードできませんでした。後でもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "iCloud에서 변경 사항을 다운로드할 수 없습니다. 나중에 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Não foi possível baixar as alterações do iCloud. Tente novamente mais tarde."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Не удалось загрузить изменения из iCloud. Попробуйте позже."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "⁨iCloud⁩ سے تبدیلیاں ڈاؤن لوڈ نہیں ہو سکیں۔ بعد میں دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "无法从 iCloud 下载更改。请稍后重试。"
+          }
+        }
+      }
+    },
+    "settings.syncStatus.error.setup.detail" : {
+      "comment" : "Failure subtitle when preparing the iCloud sync session. Technical diagnostics are not user-facing copy.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعذر إعداد مزامنة iCloud‏. حاول مرة أخرى لاحقًا."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Die iCloud-Synchronisierung konnte nicht vorbereitet werden. Versuche es später erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unable to prepare iCloud sync. Try again later."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "No se pudo preparar la sincronización con iCloud. Inténtalo de nuevo más tarde."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "آماده‌سازی همگام‌سازی iCloud انجام نشد. بعداً دوباره تلاش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Impossible de préparer la synchronisation iCloud. Réessayez plus tard."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "לא ניתן להכין את סנכרון iCloud. נסה שוב מאוחר יותר."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Non è stato possibile preparare la sincronizzazione iCloud. Riprova più tardi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "iCloud 同期の準備ができませんでした。後でもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "iCloud 동기화를 준비할 수 없습니다. 나중에 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Não foi possível preparar a sincronização do iCloud. Tente novamente mais tarde."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Не удалось подготовить синхронизацию с iCloud. Попробуйте позже."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "⁨iCloud⁩ ہم وقت سازی تیار نہیں ہو سکی۔ بعد میں دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "无法准备 iCloud 同步。请稍后重试。"
           }
         }
       }
@@ -36475,90 +37825,90 @@
       }
     },
     "sidebar.empty.description" : {
-      "comment" : "Empty state description for the feeds sidebar.",
+      "comment" : "Device-neutral empty state description inviting the user to add their first feed and start reading articles.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "أضف خلاصة لملء الشريط الجانبي للخلاصات."
+            "value" : "أضف خلاصتك الأولى لبدء قراءة المقالات."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Füge einen Feed hinzu, um die Feed-Seitenleiste zu füllen."
+            "value" : "Füge deinen ersten Feed hinzu, um Artikel zu lesen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Add a feed to populate the Feeds sidebar."
+            "value" : "Add your first feed to start reading articles."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Añade una fuente para llenar la barra lateral de fuentes."
+            "value" : "Añade tu primera fuente para empezar a leer artículos."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "برای نمایش محتوا در نوار کناری فیدها، یک فید اضافه کنید."
+            "value" : "اولین فید خود را اضافه کنید تا خواندن مقاله‌ها را شروع کنید."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajoutez un flux pour remplir la barre latérale des flux."
+            "value" : "Ajoutez votre premier flux pour commencer à lire des articles."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "הוסף פיד כדי למלא את סרגל הצד של הפידים."
+            "value" : "הוסף את הפיד הראשון שלך כדי להתחיל לקרוא כתבות."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aggiungi una fonte per popolare la barra laterale."
+            "value" : "Aggiungi il tuo primo feed per iniziare a leggere gli articoli."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "フィードを追加すると、フィードのサイドバーに表示されます。"
+            "value" : "最初のフィードを追加して、記事を読み始めましょう。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "피드를 추가하면 피드 사이드바에 표시됩니다."
+            "value" : "첫 번째 피드를 추가하고 기사를 읽어 보세요."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Adicione um feed para preencher a barra lateral."
+            "value" : "Adicione seu primeiro feed para começar a ler artigos."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Добавьте ленту, чтобы заполнить боковую панель."
+            "value" : "Добавьте первую ленту, чтобы начать читать статьи."
           }
         },
         "ur" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "فیڈز کی سائیڈبار میں مواد دکھانے کے لیے ایک فیڈ شامل کریں۔"
+            "value" : "مضامین پڑھنا شروع کرنے کے لیے اپنی پہلی فیڈ شامل کریں۔"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "添加订阅源后，侧边栏会显示内容。"
+            "value" : "添加第一个订阅源，开始阅读文章。"
           }
         }
       }
@@ -38433,5 +39783,5 @@
       }
     }
   },
-  "version" : "1.1"
+  "version" : "1.3"
 }

@@ -15,6 +15,28 @@ enum SidebarArticleFilter: String, Hashable, Sendable, CaseIterable {
     case starred
 }
 
+enum ManualFeedRefreshScope: Equatable, Sendable {
+    case allFeeds
+    case folder(String)
+    case feed(UUID)
+}
+
+struct ManualFeedRefreshContext: Equatable, Sendable {
+    let selection: SidebarSelection?
+    let sidebarArticleFilter: SidebarArticleFilter
+
+    var scope: ManualFeedRefreshScope {
+        switch selection {
+        case .feed(let feedID):
+            .feed(feedID)
+        case .folder(let folderName):
+            .folder(folderName)
+        case .inbox, .unread, .starred, .none:
+            .allFeeds
+        }
+    }
+}
+
 struct ArticleSafariRoute: Hashable, Sendable {
     let articleID: UUID
     let url: URL
@@ -233,6 +255,13 @@ public final class AppState {
         return route
     }
 
+    var isArticleListCoveredByDetailRoute: Bool {
+        if case .none = selectedDetailRoute {
+            return false
+        }
+        return true
+    }
+
     @discardableResult
     func presentSafari(articleID: UUID, url: URL) -> Bool {
         readingNavigation.presentSafari(articleID: articleID, url: url)
@@ -338,6 +367,8 @@ public final class AppState {
         sidebarSelection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter
     ) {
+        guard isArticleListCoveredByDetailRoute == false else { return }
+
         let key = ArticleListScrollPositionKey(
             sidebarSelection: sidebarSelection,
             sidebarArticleFilter: sidebarArticleFilter
@@ -476,18 +507,35 @@ public final class AppState {
         }
 
         selectArticle(targetArticleID)
+        // Only an explicit Reader navigation command may replace the saved
+        // position while passive geometry callbacks are frozen under detail routes.
+        // The screen-owned scroll coordinator reveals the row before Back.
+        articleListScrollPositionIDs[
+            ArticleListScrollPositionKey(
+                sidebarSelection: selectedSidebarSelection,
+                sidebarArticleFilter: selectedSidebarArticleFilter
+            )
+        ] = targetArticleID
         return true
     }
 
     func adjacentArticleID(_ direction: ReaderAdjacentArticleNavigationDirection) -> UUID? {
+        adjacentArticleIDs(direction, limit: 1).first
+    }
+
+    func adjacentArticleIDs(
+        _ direction: ReaderAdjacentArticleNavigationDirection,
+        limit: Int
+    ) -> [UUID] {
+        guard limit > 0 else { return [] }
         guard articleNavigationContextSidebarSelection == selectedSidebarSelection,
               articleNavigationContextSidebarArticleFilter == selectedSidebarArticleFilter else {
-            return nil
+            return []
         }
 
         guard let selectedArticleID,
               let currentIndex = articleNavigationContextIDs.firstIndex(of: selectedArticleID) else {
-            return nil
+            return []
         }
 
         let step: Int
@@ -498,17 +546,19 @@ public final class AppState {
             step = 1
         }
 
+        var adjacentArticleIDs: [UUID] = []
+        var seenArticleIDs: Set<UUID> = [selectedArticleID]
         var targetIndex = currentIndex + step
-        while articleNavigationContextIDs.indices.contains(targetIndex) {
+        while articleNavigationContextIDs.indices.contains(targetIndex),
+              adjacentArticleIDs.count < limit {
             let targetArticleID = articleNavigationContextIDs[targetIndex]
-            if targetArticleID != selectedArticleID {
-                return targetArticleID
+            if seenArticleIDs.insert(targetArticleID).inserted {
+                adjacentArticleIDs.append(targetArticleID)
             }
-
             targetIndex += step
         }
 
-        return nil
+        return adjacentArticleIDs
     }
 
     public init() {}

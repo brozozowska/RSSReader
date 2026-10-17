@@ -6,6 +6,8 @@ nonisolated enum FeedParserAnomalyKind: Sendable {
     case entryMissingTitle
     case entryMissingURL
     case entryMissingDates
+    case entryUnrecognizedPublishedDate
+    case entryUnrecognizedUpdatedDate
     case entryMissingContent
 }
 
@@ -215,6 +217,26 @@ extension FeedParserService {
                         kind: .entryMissingDates,
                         entryIndex: index,
                         message: "Entry is missing published and updated dates"
+                    )
+                )
+            }
+
+            if hasValue(entry.publishedAtRaw), entry.publishedAt == nil {
+                anomalies.append(
+                    FeedParserAnomaly(
+                        kind: .entryUnrecognizedPublishedDate,
+                        entryIndex: index,
+                        message: "Entry has an unrecognized published date"
+                    )
+                )
+            }
+
+            if hasValue(entry.updatedAtRaw), entry.updatedAt == nil {
+                anomalies.append(
+                    FeedParserAnomaly(
+                        kind: .entryUnrecognizedUpdatedDate,
+                        entryIndex: index,
+                        message: "Entry has an unrecognized updated date"
                     )
                 )
             }

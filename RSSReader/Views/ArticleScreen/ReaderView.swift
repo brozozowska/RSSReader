@@ -4,6 +4,7 @@ struct ReaderView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appDependencies) private var dependencies
     @Environment(\.appThemeVariant) private var appThemeVariant
+    @Environment(\.displayScale) private var displayScale
     @Environment(\.layoutDirection) private var layoutDirection
     @Environment(\.openURL) private var openURL
     let articleID: UUID?
@@ -11,7 +12,10 @@ struct ReaderView: View {
     let sourceArticleSafariInteraction: ReaderSourceArticleSafariInteractionHandlers
     let canLoadNextArticleContinuation: Bool
     let loadArticleContinuation: @MainActor (ReaderAdjacentArticleNavigationDirection) async -> UUID?
+    let prefetchArticleContinuation: @MainActor (Int) async -> Void
+    let articleNavigationHandler: @MainActor (UUID, ReaderAdjacentArticleNavigationDirection, ArticleListSessionReference?) -> Void
     let previewScreenState: ArticleScreenState?
+    let articleStateMutationHandler: @MainActor (UUID, ArticleUserStateSnapshot, ArticleListSessionReference) -> Void
     @State private var controller = ArticleScreenController()
     @State private var adjacentNavigationControlsMode: ReaderAdjacentNavigationControlsMode = .swipesAndToolbarControls
     @State private var adjacentArticleTransitionContext: AdjacentArticleTransitionContext?
@@ -22,6 +26,7 @@ struct ReaderView: View {
     @State private var hasTriggeredAdjacentArticleOverscrollReadyHaptic = false
     @State private var isLoadingAdjacentArticleContinuation = false
     @State private var interactionContainerWidth: CGFloat = 0
+    @State private var codeBlockInteractionFrames: [CGRect] = []
 
     init(
         articleID: UUID?,
@@ -29,14 +34,20 @@ struct ReaderView: View {
         sourceArticleSafariInteraction: ReaderSourceArticleSafariInteractionHandlers = .inactive,
         canLoadNextArticleContinuation: Bool = false,
         loadArticleContinuation: @escaping @MainActor (ReaderAdjacentArticleNavigationDirection) async -> UUID? = { _ in nil },
-        previewScreenState: ArticleScreenState? = nil
+        prefetchArticleContinuation: @escaping @MainActor (Int) async -> Void = { _ in },
+        articleNavigationHandler: @escaping @MainActor (UUID, ReaderAdjacentArticleNavigationDirection, ArticleListSessionReference?) -> Void = { _, _, _ in },
+        previewScreenState: ArticleScreenState? = nil,
+        articleStateMutationHandler: @escaping @MainActor (UUID, ArticleUserStateSnapshot, ArticleListSessionReference) -> Void = { _, _, _ in }
     ) {
         self.articleID = articleID
         self.reloadID = reloadID
         self.sourceArticleSafariInteraction = sourceArticleSafariInteraction
         self.canLoadNextArticleContinuation = canLoadNextArticleContinuation
         self.loadArticleContinuation = loadArticleContinuation
+        self.prefetchArticleContinuation = prefetchArticleContinuation
+        self.articleNavigationHandler = articleNavigationHandler
         self.previewScreenState = previewScreenState
+        self.articleStateMutationHandler = articleStateMutationHandler
         self._controller = State(initialValue: ArticleScreenController(previewScreenState: previewScreenState))
     }
 
@@ -63,6 +74,7 @@ struct ReaderView: View {
                     onScrollGeometryChange: handleArticleScrollGeometryChange,
                     onScrollPhaseChange: handleArticleScrollPhaseChange
                 )
+                .background(appThemeVariant.primaryBackground)
                 .id(contentTransitionID)
                 .transition(articleTransition)
             }
@@ -129,6 +141,15 @@ struct ReaderView: View {
                 transitionContext: adjacentTransitionContext
             )
         }
+        .task(id: adjacentImagePrefetchContext, priority: .utility) {
+            updateAdjacentImagePrefetchWindow()
+        }
+        .task(id: articleContinuationPrefetchContext, priority: .utility) {
+            guard let articleContinuationPrefetchContext else { return }
+            await prefetchArticleContinuation(
+                articleContinuationPrefetchContext.minimumNextArticleCount
+            )
+        }
         .onChange(of: appState.isPresentingSettingsScreen) { _, isPresentingSettingsScreen in
             guard previewScreenState == nil, isPresentingSettingsScreen == false else { return }
             loadReaderAdjacentNavigationControlsMode()
@@ -138,11 +159,74 @@ struct ReaderView: View {
         } action: { newWidth in
             interactionContainerWidth = newWidth
         }
+        .onPreferenceChange(ReaderArticleCodeBlockFramesPreferenceKey.self) { frames in
+            codeBlockInteractionFrames = frames
+        }
         .simultaneousGesture(openSourceArticleGesture)
     }
 
     private var resolvedArticleID: UUID? {
         previewScreenState == nil ? appState.selectedArticleID : articleID
+    }
+
+    private var adjacentImagePrefetchContext: ReaderAdjacentArticleImagePrefetchContext? {
+        guard previewScreenState == nil,
+              let currentArticleID = resolvedArticleID,
+              let articleListSession = appState.currentArticleListSessionReference,
+              interactionContainerWidth.isFinite,
+              displayScale.isFinite else {
+            return nil
+        }
+
+        let contentWidth = interactionContainerWidth - (ReaderChromeUnderlayLayout.contentMargin * 2)
+        guard contentWidth > 0, displayScale > 0 else { return nil }
+
+        let previousCandidateArticleIDs = appState.adjacentArticleIDs(
+            .previous,
+            limit: ReaderAdjacentArticleImagePrefetchPolicy.maximumCandidateArticleCountPerDirection
+        )
+        let nextCandidateArticleIDs = appState.adjacentArticleIDs(
+            .next,
+            limit: ReaderAdjacentArticleImagePrefetchPolicy.maximumCandidateArticleCountPerDirection
+        )
+        guard previousCandidateArticleIDs.isEmpty == false
+                || nextCandidateArticleIDs.isEmpty == false else {
+            return nil
+        }
+
+        return ReaderAdjacentArticleImagePrefetchContext(
+            currentArticleID: currentArticleID,
+            articleListSessionID: articleListSession.id,
+            previousCandidateArticleIDs: previousCandidateArticleIDs,
+            nextCandidateArticleIDs: nextCandidateArticleIDs,
+            displayTarget: ArticleImageDisplayTarget(
+                displayWidth: Double(contentWidth),
+                displayScale: Double(displayScale)
+            )
+        )
+    }
+
+    private var articleContinuationPrefetchContext: ReaderArticleContinuationPrefetchContext? {
+        guard previewScreenState == nil,
+              canLoadNextArticleContinuation,
+              let currentArticleID = resolvedArticleID,
+              let articleListSession = appState.currentArticleListSessionReference else {
+            return nil
+        }
+
+        let minimumNextArticleCount =
+            ReaderAdjacentArticleImagePrefetchPolicy.maximumCandidateArticleCountPerDirection
+        let materializedNextArticleCount = appState.adjacentArticleIDs(
+            .next,
+            limit: minimumNextArticleCount
+        ).count
+        guard materializedNextArticleCount < minimumNextArticleCount else { return nil }
+
+        return ReaderArticleContinuationPrefetchContext(
+            currentArticleID: currentArticleID,
+            articleListSessionID: articleListSession.id,
+            minimumNextArticleCount: minimumNextArticleCount
+        )
     }
 
     private func loadReaderAdjacentNavigationControlsMode() {
@@ -172,13 +256,13 @@ struct ReaderView: View {
 
     private func adjacentArticleTransition(insertionEdge: Edge, removalEdge: Edge) -> AnyTransition {
         .asymmetric(
-            insertion: .move(edge: insertionEdge).combined(with: .opacity),
-            removal: .move(edge: removalEdge).combined(with: .opacity)
+            insertion: .move(edge: insertionEdge),
+            removal: .move(edge: removalEdge)
         )
     }
 
     private var adjacentArticleAnimation: Animation {
-        .snappy(duration: 0.28)
+        .easeInOut(duration: 0.28)
     }
 
     private func activeAdjacentArticleTransitionContext(
@@ -193,7 +277,7 @@ struct ReaderView: View {
     }
 
     private var openSourceArticleGesture: some Gesture {
-        DragGesture(minimumDistance: 20)
+        DragGesture(minimumDistance: 20, coordinateSpace: .global)
             .onChanged { value in
                 handleOpenSourceArticleDragChange(value)
             }
@@ -206,7 +290,9 @@ struct ReaderView: View {
         let progress = ArticleScreenNavigationState.openSourceArticleSwipeProgress(
             layoutDirection: layoutDirection,
             containerWidth: interactionContainerWidth,
-            translation: value.translation
+            translation: value.translation,
+            startLocation: value.startLocation,
+            excludedSourceSwipeRegions: codeBlockInteractionFrames
         )
         guard progress > 0 else {
             sourceArticleSafariInteraction.cancel()
@@ -226,7 +312,9 @@ struct ReaderView: View {
         guard ArticleScreenNavigationState.shouldOpenSourceArticleOnDrag(
             layoutDirection: layoutDirection,
             containerWidth: interactionContainerWidth,
-            translation: value.translation
+            translation: value.translation,
+            startLocation: value.startLocation,
+            excludedSourceSwipeRegions: codeBlockInteractionFrames
         ) else {
             sourceArticleSafariInteraction.cancel()
             return
@@ -352,21 +440,28 @@ struct ReaderView: View {
         )
         adjacentArticleTransitionContext = transitionContext
 
-        var didSelectAdjacentArticle = false
-        withAnimation(adjacentArticleAnimation) {
-            didSelectAdjacentArticle = appState.selectAdjacentArticle(direction)
-        }
+        let didSelectAdjacentArticle = appState.selectAdjacentArticle(direction)
 
         if didSelectAdjacentArticle == false {
             clearAdjacentArticleTransitionContext(transitionContext)
             return
         }
 
+        articleNavigationHandler(targetArticleID, direction, appState.currentArticleListSessionReference)
+        updateAdjacentImagePrefetchWindow()
+
         Task {
             await loadCurrentArticleAfterAdjacentNavigationIfNeeded(
                 transitionContext: transitionContext
             )
         }
+    }
+
+    private func updateAdjacentImagePrefetchWindow() {
+        ReaderAdjacentArticleImagePrefetchCoordinator.shared.update(
+            context: adjacentImagePrefetchContext,
+            articleQueryService: dependencies.articleQueryService
+        )
     }
 
     @MainActor
@@ -436,26 +531,32 @@ struct ReaderView: View {
         guard let listSession else { return nil }
 
         return { articleID, persistedState in
-            appState.recordArticleReadOnOpen(
-                articleID,
-                isRead: persistedState.isRead,
-                in: listSession
-            )
+            articleStateMutationHandler(articleID, persistedState, listSession)
         }
     }
 
     private var actionHandlers: ArticleScreenActionHandlers {
         ArticleScreenActionHandlers(
             toggleReadStatus: {
-                _controller.wrappedValue.toggleArticleReadStatus(
+                let listSession = appState.currentArticleListSessionReference
+                controller.toggleArticleReadStatus(
                     dependencies: dependencies,
-                    isPreviewMode: previewScreenState != nil
+                    isPreviewMode: previewScreenState != nil,
+                    articleStateMutationHandler: { articleID, persistedState in
+                        guard let listSession else { return }
+                        articleStateMutationHandler(articleID, persistedState, listSession)
+                    }
                 )
             },
             toggleStarredStatus: {
-                _controller.wrappedValue.toggleArticleStarredStatus(
+                let listSession = appState.currentArticleListSessionReference
+                controller.toggleArticleStarredStatus(
                     dependencies: dependencies,
-                    isPreviewMode: previewScreenState != nil
+                    isPreviewMode: previewScreenState != nil,
+                    articleStateMutationHandler: { articleID, persistedState in
+                        guard let listSession else { return }
+                        articleStateMutationHandler(articleID, persistedState, listSession)
+                    }
                 )
             },
             openSourceArticle: {
@@ -494,6 +595,12 @@ struct ReaderView: View {
 private struct ArticleScreenLoadContext: Hashable {
     let articleID: UUID?
     let reloadID: UUID
+}
+
+private struct ReaderArticleContinuationPrefetchContext: Hashable {
+    let currentArticleID: UUID
+    let articleListSessionID: UUID
+    let minimumNextArticleCount: Int
 }
 
 private struct AdjacentArticleTransitionContext: Equatable {

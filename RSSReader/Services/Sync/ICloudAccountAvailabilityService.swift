@@ -14,7 +14,7 @@ protocol ICloudAccountAvailabilityService: Sendable {
     func availabilityChanges() -> AsyncStream<ICloudAccountAvailability>
 }
 
-protocol CloudKitAccountStatusQuerying {
+nonisolated protocol CloudKitAccountStatusQuerying {
     func accountStatus() async throws -> CKAccountStatus
 }
 

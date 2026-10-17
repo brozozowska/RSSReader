@@ -82,14 +82,16 @@ struct FeedManagementFeedbackCard: View {
             Image(systemName: feedback.tone.systemImageName)
                 .foregroundStyle(feedback.tone.color)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(feedback.title)
                     .font(.body.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if let detail = feedback.detail {
                     Text(detail)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }

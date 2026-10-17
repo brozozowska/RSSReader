@@ -13,6 +13,7 @@ struct ReaderArticleDTO: Sendable, Identifiable {
     let author: String?
     let publishedAt: Date?
     let updatedAtSource: Date?
+    let effectiveDate: Date
     let articleURL: String
     let canonicalURL: String?
     let imageURL: String?
@@ -34,6 +35,7 @@ struct ReaderArticleDTO: Sendable, Identifiable {
         author: String?,
         publishedAt: Date?,
         updatedAtSource: Date?,
+        effectiveDate: Date,
         articleURL: String,
         canonicalURL: String?,
         imageURL: String?,
@@ -54,6 +56,7 @@ struct ReaderArticleDTO: Sendable, Identifiable {
         self.author = author
         self.publishedAt = publishedAt
         self.updatedAtSource = updatedAtSource
+        self.effectiveDate = effectiveDate
         self.articleURL = articleURL
         self.canonicalURL = canonicalURL
         self.imageURL = imageURL
@@ -76,6 +79,7 @@ struct ReaderArticleDTO: Sendable, Identifiable {
         self.author = article.author
         self.publishedAt = article.publishedAt
         self.updatedAtSource = article.updatedAtSource
+        self.effectiveDate = article.querySortDate
         self.articleURL = article.url
         self.canonicalURL = article.canonicalURL
         self.imageURL = article.imageURL
@@ -103,6 +107,7 @@ struct ReaderArticleDTO: Sendable, Identifiable {
             author: author,
             publishedAt: publishedAt,
             updatedAtSource: updatedAtSource,
+            effectiveDate: effectiveDate,
             articleURL: articleURL,
             canonicalURL: canonicalURL,
             imageURL: imageURL,

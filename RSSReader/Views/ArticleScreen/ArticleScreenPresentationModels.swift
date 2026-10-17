@@ -53,17 +53,28 @@ struct ArticleScreenContentState: Equatable {
 
 @MainActor
 struct ArticleScreenHeaderState: Equatable {
-    let publishedAtText: String?
+    let effectiveDateText: String
     let title: String
     let author: String?
     let feedTitle: String?
     let canOpenSourceArticle: Bool
 
     init(article: ReaderArticleDTO) {
-        self.publishedAtText = article.publishedAt.map(ArticleScreenDateFormatter.string(from:))
+        self.effectiveDateText = ArticleScreenDateFormatter.string(from: article.effectiveDate)
         self.title = article.title.nilIfBlank ?? ReadingLocalization.untitledArticleTitle
-        self.author = article.author?.nilIfBlank
-        self.feedTitle = article.feedTitle.nilIfBlank
+        let author = article.author?.nilIfBlank
+        let feedTitle = article.feedTitle.nilIfBlank
+        if let author, let feedTitle,
+           author.metadataComparisonValue.compare(
+               feedTitle.metadataComparisonValue,
+               options: .caseInsensitive,
+               locale: Locale(identifier: "en_US_POSIX")
+           ) == .orderedSame {
+            self.author = nil
+        } else {
+            self.author = author
+        }
+        self.feedTitle = feedTitle
         self.canOpenSourceArticle = ArticleScreenURLResolver.resolveExternalURL(
             canonicalURL: article.canonicalURL,
             articleURL: article.articleURL
@@ -75,17 +86,21 @@ struct ArticleScreenHeaderState: Equatable {
 struct ArticleScreenBottomActionsState: Equatable {
     let readToggleTitle: String
     let readToggleSystemImage: String
+    let readAccessibilityValue: String
     let starTitle: String
     let starSystemImage: String
+    let starAccessibilityValue: String
     let openSourceArticleTitle: String
     let openSourceArticleSystemImage: String
     let canOpenSourceArticle: Bool
 
     init(article: ReaderArticleDTO) {
         self.readToggleTitle = article.isRead ? ReadingLocalization.markUnreadAction : ReadingLocalization.markReadAction
-        self.readToggleSystemImage = article.isRead ? "circle.slash" : "circle"
+        self.readToggleSystemImage = ArticleStateSymbols.read(isRead: article.isRead)
+        self.readAccessibilityValue = article.isRead ? ReadingLocalization.readState : ReadingLocalization.unreadState
         self.starTitle = article.isStarred ? ReadingLocalization.unstarAction : ReadingLocalization.starAction
-        self.starSystemImage = article.isStarred ? "star.slash" : "star"
+        self.starSystemImage = ArticleStateSymbols.starred(isStarred: article.isStarred)
+        self.starAccessibilityValue = article.isStarred ? ReadingLocalization.starredState : ReadingLocalization.unstarredState
         self.openSourceArticleTitle = ReadingLocalization.openSourceArticleAction
         self.openSourceArticleSystemImage = "safari"
         self.canOpenSourceArticle = ArticleScreenURLResolver.resolveExternalURL(
@@ -204,6 +219,10 @@ enum ArticleScreenURLResolver {
 }
 
 private extension String {
+    var metadataComparisonValue: String {
+        split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+    }
+
     var nilIfBlank: String? {
         let trimmedValue = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmedValue.isEmpty ? nil : trimmedValue

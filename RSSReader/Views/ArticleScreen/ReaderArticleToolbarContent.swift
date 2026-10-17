@@ -31,18 +31,20 @@ struct ReaderArticleToolbarContent: ToolbarContent {
            let bottomActions = toolbarActions.bottomActions {
             ToolbarItem(placement: .bottomBar) {
                 Button(action: actionHandlers.toggleReadStatus) {
-                    Image(systemName: bottomActions.readToggleSystemImage)
+                    ArticleStateSymbol(systemName: bottomActions.readToggleSystemImage)
                 }
                 .accessibilityLabel(bottomActions.readToggleTitle)
+                .accessibilityValue(bottomActions.readAccessibilityValue)
             }
 
             ToolbarSpacer(placement: .bottomBar)
 
             ToolbarItem(placement: .bottomBar) {
                 Button(action: actionHandlers.toggleStarredStatus) {
-                    Image(systemName: bottomActions.starSystemImage)
+                    ArticleStateSymbol(systemName: bottomActions.starSystemImage)
                 }
                 .accessibilityLabel(bottomActions.starTitle)
+                .accessibilityValue(bottomActions.starAccessibilityValue)
             }
 
             ToolbarSpacer(placement: .bottomBar)

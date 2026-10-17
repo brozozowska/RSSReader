@@ -3,8 +3,6 @@ import SwiftUI
 
 enum SidebarToolbarPlacement {
     static let settings: ToolbarItemPlacement = .topBarLeading
-    static let title: ToolbarItemPlacement = .title
-    static let subtitle: ToolbarItemPlacement = .subtitle
     static let addFeed: ToolbarItemPlacement = .topBarTrailing
     static let filter: ToolbarItemPlacement = .topBarTrailing
 }
@@ -48,6 +46,8 @@ struct SidebarSubtitleFormatter {
             return lastUpdatedText(for: lastUpdatedAt)
         case .syncing:
             return RuntimeFeedbackLocalization.syncingStatusTitle
+        case .failed:
+            return RuntimeFeedbackLocalization.syncFailedStatusTitle
         }
     }
 

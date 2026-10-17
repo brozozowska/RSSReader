@@ -8,7 +8,12 @@ struct SidebarScreenState {
     private(set) var starredFeedIDs = Set<UUID>()
     private(set) var phase: SidebarContentPhase = .loading
     private(set) var refreshStatus: SidebarRefreshStatus = .idle(lastUpdatedAt: nil)
-    private(set) var customRefreshState: SidebarCustomRefreshState = .idle
+    private var customRefreshID: UUID?
+    private(set) var customRefreshState: SidebarCustomRefreshState = .idle {
+        didSet {
+            if customRefreshState.phase != .refreshing { customRefreshID = nil }
+        }
+    }
 
     var isSyncing: Bool {
         refreshStatus.isSyncing
@@ -33,16 +38,25 @@ struct SidebarScreenState {
         customRefreshState = .pulling(progress: progress)
     }
 
-    mutating func beginCustomRefresh() {
+    @discardableResult
+    mutating func beginCustomRefresh() -> UUID {
+        let refreshID = UUID()
         customRefreshState = .refreshing
+        customRefreshID = refreshID
+        return refreshID
     }
 
-    mutating func endCustomRefresh() {
+    mutating func endCustomRefresh(ifMatching refreshID: UUID? = nil) {
+        if let refreshID, refreshID != customRefreshID { return }
         customRefreshState = .idle
     }
 
     mutating func restoreRefreshStatus(_ previousStatus: SidebarRefreshStatus) {
         refreshStatus = previousStatus
+    }
+
+    mutating func applyRefreshFailure(lastUpdatedAt: Date?) {
+        refreshStatus = .failed(lastUpdatedAt: lastUpdatedAt)
     }
 
     mutating func applyLoadedSnapshot(
@@ -72,7 +86,7 @@ struct SidebarScreenState {
 
     func derivedViewState(
         filter: SidebarArticleFilter,
-        expandedFolderNames: Set<String>,
+        collapsedFolderIDs: Set<UUID>,
         iCloudSyncStatus: ICloudSyncStatus
     ) -> SidebarScreenDerivedViewState {
         let visibleFeeds = SidebarFeedVisibility.filteredFeeds(
@@ -91,18 +105,19 @@ struct SidebarScreenState {
             starredSmartCount: starredSmartCount
         )
         let folderRows = folderGroups.flatMap { group in
+            let isExpanded = group.folderID.map { collapsedFolderIDs.contains($0) == false } ?? true
             var rows: [SidebarFolderSectionRowState] = [
                 .folder(
                     SidebarFolderRowState(
                         folderID: group.folderID,
                         name: group.name,
                         count: SidebarCountPresentation.folderCount(for: group, filter: filter),
-                        isExpanded: expandedFolderNames.contains(group.name),
+                        isExpanded: isExpanded,
                         selection: .folder(group.name)
                     )
                 )
             ]
-            if expandedFolderNames.contains(group.name) {
+            if isExpanded {
                 rows.append(
                     contentsOf: group.feeds.map {
                         .feed(

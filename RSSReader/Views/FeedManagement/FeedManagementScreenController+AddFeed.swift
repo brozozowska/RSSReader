@@ -129,7 +129,8 @@ extension FeedManagementScreenController {
             _ = await dependencies.appActions.completeFeedManagementFeedSave(
                 id: createdFeed.id,
                 using: appState,
-                selectsSavedFeed: false
+                selectsSavedFeed: false,
+                initialFetchSnapshot: createCommand.preview.initialFetchSnapshot
             )
         } catch let error as FeedManagementServiceError {
             dependencies.logger.error("Failed to create feed through feed management flow: \(error)")

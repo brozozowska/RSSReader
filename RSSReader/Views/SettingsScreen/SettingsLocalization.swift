@@ -100,8 +100,8 @@ enum SettingsLocalization {
     )
     static let articleListSectionFooter = String(
         localized: "settings.articleList.section.footer",
-        defaultValue: "Retention applies to all unstarred articles, including entries still in the feed: keep them from their feed date for the selected time, up to 2,000 per feed. \"While in Feed\" removes entries after they disappear. Missing-date entries use the count limit. Starred articles are kept until unstarred.",
-        comment: "Footer explaining the time, count, missing-date, and starred article retention rules."
+        defaultValue: "Articles stay on your device while a feed keeps returning them. If an article disappears from the list during an update, \"While Listed\" removes it immediately, while time-based options remove it after the selected period starting from that update. No more than 2,000 articles are kept per feed. Articles in Starred are kept until you remove them from Starred.",
+        comment: "Footer explaining that articles are kept while returned by a feed, timed retention starts when an article disappears during an update, no more than 2,000 articles are kept per feed, and articles in Starred are kept until removed from Starred."
     )
     static let sortUnreadArticlesTitle = String(
         localized: "settings.articleList.sortUnread.title",
@@ -111,17 +111,17 @@ enum SettingsLocalization {
     static let askBeforeMarkingAllReadTitle = String(
         localized: "settings.articleList.askBeforeMarkingAllRead.title",
         defaultValue: "Ask Before Marking All Read",
-        comment: "Toggle title for asking before marking all visible articles read."
+        comment: "Toggle title for asking before marking all articles in the current selection read."
     )
     static let askBeforeMarkingAllReadSubtitle = String(
         localized: "settings.articleList.askBeforeMarkingAllRead.subtitle",
-        defaultValue: "Show a confirmation before marking all visible articles as read.",
-        comment: "Toggle subtitle explaining confirmation before marking all visible articles read."
+        defaultValue: "Show a confirmation before marking all articles in the current selection as read.",
+        comment: "Toggle subtitle for confirming the complete current selection, including active filters, search and pages not loaded yet."
     )
     static let keepArticlesTitle = String(
         localized: "settings.articleList.keepArticles.title",
         defaultValue: "Keep Articles",
-        comment: "Picker title for current and archived article retention."
+        comment: "Picker title for automatic article retention."
     )
     static let updatesSyncSectionTitle = String(
         localized: "settings.updatesSync.section.title",
@@ -283,8 +283,8 @@ enum SettingsLocalization {
     )
     static let currentFeedOnlyOptionTitle = String(
         localized: "settings.option.retention.currentFeedOnly",
-        defaultValue: "While in Feed",
-        comment: "Picker option that keeps unstarred articles only while their feed continues returning them."
+        defaultValue: "While Listed",
+        comment: "Picker option that removes an article immediately when it no longer appears in the feed's returned article list."
     )
     static let twoDaysOptionTitle = String(
         localized: "settings.option.retention.twoDays",
@@ -440,6 +440,26 @@ enum SettingsLocalization {
         localized: "settings.syncStatus.couldNotDetermine.title",
         defaultValue: "Account Unavailable",
         comment: "Value title when iCloud account status could not be determined."
+    )
+    static let syncFailedMessage = String(
+        localized: "settings.syncStatus.error.generic.detail",
+        defaultValue: "Unable to sync with iCloud. Try again later.",
+        comment: "Generic iCloud failure subtitle when the failed activity is unknown. Technical diagnostics are not user-facing copy."
+    )
+    static let syncSetupFailedMessage = String(
+        localized: "settings.syncStatus.error.setup.detail",
+        defaultValue: "Unable to prepare iCloud sync. Try again later.",
+        comment: "Failure subtitle when preparing the iCloud sync session. Technical diagnostics are not user-facing copy."
+    )
+    static let syncImportFailedMessage = String(
+        localized: "settings.syncStatus.error.import.detail",
+        defaultValue: "Unable to download changes from iCloud. Try again later.",
+        comment: "Failure subtitle when importing changes from iCloud. Technical diagnostics are not user-facing copy."
+    )
+    static let syncExportFailedMessage = String(
+        localized: "settings.syncStatus.error.export.detail",
+        defaultValue: "Unable to upload changes to iCloud. Try again later.",
+        comment: "Failure subtitle when exporting changes to iCloud. Technical diagnostics are not user-facing copy."
     )
     static let syncStatusErrorTitle = String(
         localized: "settings.syncStatus.error.title",

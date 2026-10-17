@@ -7,10 +7,45 @@ struct ArticlesScreenState {
     private(set) var navigationSubtitle = ReadingLocalization.noUnreadItemsSubtitle
     private(set) var phase: ArticlesScreenPhase = .noSelection
     private(set) var refreshState: ArticlesScreenRefreshState = .idle
-    private(set) var customRefreshState: ArticlesScreenCustomRefreshState = .idle
+    private var customRefreshID: UUID?
+    private var feedRefreshID: UUID?
+
+    var isRefreshingFeeds: Bool { feedRefreshID != nil }
+
+    private(set) var customRefreshState: ArticlesScreenCustomRefreshState = .idle {
+        didSet {
+            if customRefreshState.phase != .refreshing { customRefreshID = nil }
+        }
+    }
     private(set) var refreshFeedback: ArticlesScreenRefreshFeedback?
     private(set) var emptyContentKind: ArticlesScreenEmptyContentKind = .selection
     private(set) var listAnimationState = ArticleListAnimationState()
+    private var hasPresentedSnapshot = false
+    private(set) var pendingSearchContext: ArticleListSession.Context?
+
+    func canPresentSearchTransition(to context: ArticleListSession.Context) -> Bool {
+        hasPresentedSnapshot && articleListSession.context.hasSamePresentationScope(as: context)
+    }
+
+    mutating func beginSearchTransition(to context: ArticleListSession.Context) {
+        precondition(canPresentSearchTransition(to: context))
+        pendingConfirmation = nil
+        isLoadingNextPage = false
+        pendingSearchContext = context
+        feedRefreshID = nil
+        // Keep the committed context with its rows, placeholder, cursor and chrome.
+        // A fresh identity invalidates events captured before the query edit.
+        articleListSession.startNewSession(
+            context: articleListSession.context,
+            retainsCurrentEntries: true
+        )
+        updateToolbarActions(for: selection)
+    }
+
+    mutating func cancelSearchTransition() {
+        pendingSearchContext = nil
+        updateToolbarActions(for: selection)
+    }
     private(set) var isLoadingNextPage = false
     private(set) var toolbarActions = ArticlesScreenToolbarActionsState(
         selection: nil,
@@ -24,7 +59,7 @@ struct ArticlesScreenState {
     }
 
     var canLoadNextPage: Bool {
-        articleListSession.nextPageCursor != nil && isLoadingNextPage == false
+        pendingSearchContext == nil && articleListSession.nextPageCursor != nil && isLoadingNextPage == false
     }
 
     var placeholder: ArticlesScreenPlaceholderState? {
@@ -82,6 +117,7 @@ struct ArticlesScreenState {
         startsNewSession: Bool = false,
         sessionContext: ArticleListSession.Context? = nil
     ) {
+        pendingSearchContext = nil
         pendingConfirmation = nil
         isLoadingNextPage = false
         emptyContentKind = .selection
@@ -93,6 +129,10 @@ struct ArticlesScreenState {
             sessionContext: sessionContext
         )
 
+        if selection == nil || resolvedSessionContext != articleListSession.context {
+            feedRefreshID = nil
+        }
+
         if startsNewSession {
             articleListSession.startNewSession(
                 context: resolvedSessionContext,
@@ -101,6 +141,7 @@ struct ArticlesScreenState {
         }
 
         guard selection != nil else {
+            hasPresentedSnapshot = false
             listAnimationState.prepareForSnapshotReplacement()
             articleListSession.replaceArticles([], context: resolvedSessionContext)
             phase = .noSelection
@@ -115,6 +156,7 @@ struct ArticlesScreenState {
             refreshFeedback = nil
             customRefreshState = .idle
             if resetsContent {
+                hasPresentedSnapshot = false
                 listAnimationState.prepareForSnapshotReplacement()
                 articleListSession.replaceArticles([], context: resolvedSessionContext)
             }
@@ -167,17 +209,24 @@ struct ArticlesScreenState {
         nextPageCursor: ArticleSearchRequest.Cursor? = nil,
         scopeMetric: ArticleScopeMetric? = nil
     ) {
-        listAnimationState.prepareForSnapshotReplacement()
+        let context = resolvedContext(selection: selection, sessionContext: sessionContext)
+        if context != articleListSession.context { feedRefreshID = nil }
+        if pendingSearchContext == context, canPresentSearchTransition(to: context) {
+            listAnimationState.prepareForSearchTransition()
+        } else if hasPresentedSnapshot, selection != nil, context == articleListSession.context {
+            listAnimationState.prepareForLocalMutation()
+        } else {
+            listAnimationState.prepareForSnapshotReplacement()
+        }
+        pendingSearchContext = nil
+        hasPresentedSnapshot = selection != nil
         self.selection = selection
         self.navigationTitle = navigationTitle
         self.navigationSubtitle = navigationSubtitle
         self.emptyContentKind = loadedEntries.isEmpty ? emptyContentKind : .selection
         articleListSession.replaceEntries(
             loadedEntries,
-            context: resolvedContext(
-                selection: selection,
-                sessionContext: sessionContext
-            ),
+            context: context,
             nextPageCursor: nextPageCursor,
             scopeMetric: scopeMetric
         )
@@ -241,6 +290,12 @@ struct ArticlesScreenState {
         retainsContent: Bool,
         sessionContext: ArticleListSession.Context? = nil
     ) {
+        if pendingSearchContext != nil, retainsContent {
+            cancelSearchTransition()
+            refreshFeedback = ArticlesScreenRefreshFeedback(message: message)
+            return
+        }
+        pendingSearchContext = nil
         self.selection = selection
         self.navigationTitle = navigationTitle
         self.navigationSubtitle = navigationSubtitle
@@ -256,11 +311,13 @@ struct ArticlesScreenState {
             phase = .loaded
             refreshFeedback = ArticlesScreenRefreshFeedback(message: message)
         } else if selection == nil {
+            hasPresentedSnapshot = false
             listAnimationState.prepareForSnapshotReplacement()
             articleListSession.replaceArticles([], context: resolvedSessionContext)
             phase = .noSelection
             refreshFeedback = nil
         } else {
+            hasPresentedSnapshot = false
             listAnimationState.prepareForSnapshotReplacement()
             articleListSession.replaceArticles([], context: resolvedSessionContext)
             phase = .failed(message)
@@ -361,16 +418,33 @@ struct ArticlesScreenState {
         updateToolbarActions(for: selection)
     }
 
+    @discardableResult
+    mutating func beginFeedRefresh() -> UUID {
+        let id = UUID()
+        feedRefreshID = id
+        return id
+    }
+
+    mutating func endFeedRefresh(ifMatching id: UUID) {
+        guard feedRefreshID == id else { return }
+        feedRefreshID = nil
+    }
+
     mutating func updateCustomRefreshPullProgress(_ progress: Double) {
         guard customRefreshState.phase != .refreshing else { return }
         customRefreshState = .pulling(progress: progress)
     }
 
-    mutating func beginCustomRefresh() {
+    @discardableResult
+    mutating func beginCustomRefresh() -> UUID {
+        let refreshID = UUID()
         customRefreshState = .refreshing
+        customRefreshID = refreshID
+        return refreshID
     }
 
-    mutating func endCustomRefresh() {
+    mutating func endCustomRefresh(ifMatching refreshID: UUID? = nil) {
+        if let refreshID, refreshID != customRefreshID { return }
         customRefreshState = .idle
     }
 
@@ -398,7 +472,8 @@ struct ArticlesScreenState {
         toolbarActions = ArticlesScreenToolbarActionsState(
             selection: selection,
             visibleArticles: articles,
-            phase: phase
+            phase: phase,
+            allowsMutations: pendingSearchContext == nil
         )
     }
 

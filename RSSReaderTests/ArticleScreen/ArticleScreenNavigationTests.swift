@@ -5,6 +5,32 @@ import Testing
 @Suite("Article Screen / Navigation")
 @MainActor
 struct ArticleScreenNavigationTests {
+    @Test(arguments: [LayoutDirection.leftToRight, .rightToLeft])
+    func sourceSwipeIgnoresGesturesStartingInsideCodeBlocks(_ direction: LayoutDirection) {
+        let codeFrame = CGRect(x: 16, y: 200, width: 288, height: 120)
+        let translation = CGSize(width: direction == .leftToRight ? -160 : 160, height: 8)
+        let start = CGPoint(x: 160, y: 240)
+        #expect(ArticleScreenNavigationState.openSourceArticleSwipeProgress(
+            layoutDirection: direction, containerWidth: 320, translation: translation,
+            startLocation: start, excludedSourceSwipeRegions: [codeFrame]
+        ) == 0)
+        #expect(!ArticleScreenNavigationState.shouldOpenSourceArticleOnDrag(
+            layoutDirection: direction, containerWidth: 320, translation: translation,
+            startLocation: start, excludedSourceSwipeRegions: [codeFrame]
+        ))
+
+        // The gesture belongs to its starting surface even if it subsequently crosses a code block.
+        let outsideStart = CGPoint(x: direction == .leftToRight ? 315 : 5, y: 240)
+        #expect(ArticleScreenNavigationState.openSourceArticleSwipeProgress(
+            layoutDirection: direction, containerWidth: 320, translation: translation,
+            startLocation: outsideStart, excludedSourceSwipeRegions: [codeFrame]
+        ) == 0.5)
+        #expect(ArticleScreenNavigationState.shouldOpenSourceArticleOnDrag(
+            layoutDirection: direction, containerWidth: 320, translation: translation,
+            startLocation: outsideStart, excludedSourceSwipeRegions: [codeFrame]
+        ))
+    }
+
     @Test
     func articleScreenNavigationStateRecognizesLTRTrailingToLeadingOpenSourceSwipe() {
         #expect(

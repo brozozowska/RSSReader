@@ -23,13 +23,11 @@ extension ArticlesScreenState {
             navigationChrome: ArticlesScreenNavigationChromeState(
                 sessionContext: articleListSession.context,
                 title: navigationTitle,
-                subtitle: navigationSubtitle
+                subtitle: isRefreshingFeeds
+                    ? RuntimeFeedbackLocalization.syncingStatusTitle
+                    : navigationSubtitle
             ),
-            toolbarActions: ArticlesScreenToolbarActionsState(
-                selection: selection,
-                visibleArticles: visibleArticles,
-                phase: phase
-            ),
+            toolbarActions: toolbarActions,
             searchPlaceholder: searchPlaceholder(
                 normalizedSearchText: articleListSession.context.normalizedSearchText,
                 visibleArticles: visibleArticles

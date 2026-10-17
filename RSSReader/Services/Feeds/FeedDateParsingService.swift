@@ -24,6 +24,10 @@ private nonisolated final class SynchronizedFeedDateParser: @unchecked Sendable 
         return formatter
     }()
     private let dateFormatters: [DateFormatter] = [
+        makeDateFormatter("EEE, d MMM yy HH:mm:ss Z"),
+        makeDateFormatter("EEE, dd MMM yy HH:mm:ss Z"),
+        makeDateFormatter("EEE, d MMM yy HH:mm Z"),
+        makeDateFormatter("EEE, dd MMM yy HH:mm Z"),
         makeDateFormatter("EEE, d MMM yyyy HH:mm:ss Z"),
         makeDateFormatter("EEE, dd MMM yyyy HH:mm:ss Z"),
         makeDateFormatter("EEE, d MMM yyyy HH:mm Z"),
@@ -36,7 +40,8 @@ private nonisolated final class SynchronizedFeedDateParser: @unchecked Sendable 
         makeDateFormatter("EEE MMM dd HH:mm:ss yyyy"),
         makeDateFormatter("yyyy-MM-dd HH:mm:ss Z"),
         makeDateFormatter("yyyy-MM-dd'T'HH:mm:ssZ"),
-        makeDateFormatter("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+        makeDateFormatter("yyyy-MM-dd'T'HH:mm:ss.SSSZ"),
+        makeDateFormatter("yyyy-MM-dd")
     ]
 
     func parse(_ value: String?) -> Date? {
@@ -67,6 +72,8 @@ private nonisolated final class SynchronizedFeedDateParser: @unchecked Sendable 
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.isLenient = false
         formatter.dateFormat = format
         return formatter
     }
