@@ -6,6 +6,17 @@ import Testing
 @MainActor
 struct ArticleScreenControllerTests {
     @Test
+    func technicalReaderFailureUsesLocalizedCopyAndRetainsDiagnostics() async throws {
+        let logger = RecordingLogger()
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient(), logger: logger)
+        let controller = ArticleScreenController(articleQueryService: FailingReaderQueryService())
+        await controller.load(articleID: UUID(), dependencies: harness.dependencies)
+        #expect(controller.screenState.placeholder?.description == ReadingLocalization.articleLoadFailedMessage)
+        #expect(controller.screenState.phase == .failed(ReadingLocalization.articleLoadFailedMessage))
+        #expect(logger.contains("PrivateReaderStorage", level: .error))
+    }
+
+    @Test
     func articleScreenControllerLoadsReaderArticleForCurrentSelection() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
         let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/article-screen-load.xml"]).first)
@@ -460,5 +471,22 @@ struct ArticleScreenControllerTests {
         #expect(externallyOpenedURL == tappedURL)
         #expect(appState.selectedDetailRoute == .none)
         #expect(appState.presentedSafariRoute == nil)
+    }
+}
+
+@MainActor
+private struct FailingReaderQueryService: ArticleQueryService {
+    func fetchReaderArticle(id: UUID) throws -> ReaderArticleDTO? {
+        throw NSError(domain: "PrivateReaderStorage", code: 77, userInfo: [
+            NSLocalizedDescriptionKey: "Internal reader details must not become UI copy"
+        ])
+    }
+
+    func fetchArticleSearchSnapshot(_ request: ArticleSearchRequest) async throws -> ArticleSearchResultSnapshot {
+        throw NSError(domain: "UnexpectedSearch", code: 1)
+    }
+
+    func fetchReaderArticles(ids: [UUID]) throws -> [ReaderArticleDTO] {
+        throw NSError(domain: "UnexpectedAdjacentLookup", code: 1)
     }
 }

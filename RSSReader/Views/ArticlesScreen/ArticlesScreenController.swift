@@ -392,7 +392,7 @@ final class ArticlesScreenController {
                 "Failed to load article list for selection \(String(describing: plan.selection)): \(error)"
             )
             screenState.applyLoadingFailure(
-                error.localizedDescription,
+                ReadingLocalization.articlesLoadFailedMessage,
                 selection: plan.selection,
                 navigationTitle: plan.navigationTitle,
                 navigationSubtitle: plan.loadingSubtitle,

@@ -111,12 +111,12 @@ enum SettingsLocalization {
     static let askBeforeMarkingAllReadTitle = String(
         localized: "settings.articleList.askBeforeMarkingAllRead.title",
         defaultValue: "Ask Before Marking All Read",
-        comment: "Toggle title for asking before marking all visible articles read."
+        comment: "Toggle title for asking before marking all articles in the current selection read."
     )
     static let askBeforeMarkingAllReadSubtitle = String(
         localized: "settings.articleList.askBeforeMarkingAllRead.subtitle",
-        defaultValue: "Show a confirmation before marking all visible articles as read.",
-        comment: "Toggle subtitle explaining confirmation before marking all visible articles read."
+        defaultValue: "Show a confirmation before marking all articles in the current selection as read.",
+        comment: "Toggle subtitle for confirming the complete current selection, including active filters, search and pages not loaded yet."
     )
     static let keepArticlesTitle = String(
         localized: "settings.articleList.keepArticles.title",
@@ -440,6 +440,26 @@ enum SettingsLocalization {
         localized: "settings.syncStatus.couldNotDetermine.title",
         defaultValue: "Account Unavailable",
         comment: "Value title when iCloud account status could not be determined."
+    )
+    static let syncFailedMessage = String(
+        localized: "settings.syncStatus.error.generic.detail",
+        defaultValue: "Unable to sync with iCloud. Try again later.",
+        comment: "Generic iCloud failure subtitle when the failed activity is unknown. Technical diagnostics are not user-facing copy."
+    )
+    static let syncSetupFailedMessage = String(
+        localized: "settings.syncStatus.error.setup.detail",
+        defaultValue: "Unable to prepare iCloud sync. Try again later.",
+        comment: "Failure subtitle when preparing the iCloud sync session. Technical diagnostics are not user-facing copy."
+    )
+    static let syncImportFailedMessage = String(
+        localized: "settings.syncStatus.error.import.detail",
+        defaultValue: "Unable to download changes from iCloud. Try again later.",
+        comment: "Failure subtitle when importing changes from iCloud. Technical diagnostics are not user-facing copy."
+    )
+    static let syncExportFailedMessage = String(
+        localized: "settings.syncStatus.error.export.detail",
+        defaultValue: "Unable to upload changes to iCloud. Try again later.",
+        comment: "Failure subtitle when exporting changes to iCloud. Technical diagnostics are not user-facing copy."
     )
     static let syncStatusErrorTitle = String(
         localized: "settings.syncStatus.error.title",

@@ -8,14 +8,17 @@ typealias ArticleStateMutationHandler = @MainActor (UUID, ArticleUserStateSnapsh
 @Observable
 final class ArticleScreenController {
     var screenState: ArticleScreenState
+    private let articleQueryService: (any ArticleQueryService)?
     private let articleStateService: (any ArticleStateServicing)?
 
     init(
         previewScreenState: ArticleScreenState? = nil,
-        articleStateService: (any ArticleStateServicing)? = nil
+        articleStateService: (any ArticleStateServicing)? = nil,
+        articleQueryService: (any ArticleQueryService)? = nil
     ) {
         self.screenState = previewScreenState ?? ArticleScreenState()
         self.articleStateService = articleStateService
+        self.articleQueryService = articleQueryService
     }
 
     func load(
@@ -33,7 +36,7 @@ final class ArticleScreenController {
             return
         }
 
-        guard let articleQueryService = dependencies.articleQueryService else {
+        guard let articleQueryService = articleQueryService ?? dependencies.articleQueryService else {
             screenState.applyLoadingFailure(
                 ReadingLocalization.articleQueryUnavailableMessage,
                 articleID: articleID
@@ -67,7 +70,7 @@ final class ArticleScreenController {
             }
             dependencies.logger.error("Failed to load article by ID \(articleID): \(error)")
             screenState.applyLoadingFailure(
-                error.localizedDescription,
+                ReadingLocalization.articleLoadFailedMessage,
                 articleID: articleID
             )
         }

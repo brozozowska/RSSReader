@@ -16050,6 +16050,96 @@
         }
       }
     },
+    "reading.article.error.loadFailed" : {
+      "comment" : "Reader load failure description. Technical error details are kept in diagnostics, not shown here.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعذر تحميل المقال. حاول مرة أخرى."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Der Artikel konnte nicht geladen werden. Versuche es erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The article could not be loaded. Try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "No se pudo cargar el artículo. Inténtalo de nuevo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "مقاله بارگذاری نشد. دوباره تلاش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "L’article n’a pas pu être chargé. Réessayez."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "לא ניתן לטעון את הכתבה. נסה שוב."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Non è stato possibile caricare l’articolo. Riprova."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "記事を読み込めませんでした。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "기사를 불러올 수 없습니다. 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Não foi possível carregar o artigo. Tente novamente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Не удалось загрузить статью. Попробуйте ещё раз."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "مضمون لوڈ نہیں ہو سکا۔ دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "无法加载这篇文章。请重试。"
+          }
+        }
+      }
+    },
     "reading.article.error.queryUnavailable" : {
       "comment" : "Article reader failure message when the query service is unavailable.",
       "localizations" : {
@@ -17212,8 +17302,8 @@
       "localizations" : {
         "ar" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "لا يمكن تحميل المقالة المحددة من الثبات."
+            "state" : "machine_translated",
+            "value" : "تعذر تحميل المقال المحدد من التخزين المحلي."
           }
         },
         "de" : {
@@ -18012,6 +18102,96 @@
         }
       }
     },
+    "reading.articles.error.loadFailed" : {
+      "comment" : "Article list or search load failure description. Technical error details are kept in diagnostics, not shown here.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعذر تحميل المقالات. حاول مرة أخرى."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Die Artikel konnten nicht geladen werden. Versuche es erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The articles could not be loaded. Try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "No se pudieron cargar los artículos. Inténtalo de nuevo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "مقاله‌ها بارگذاری نشدند. دوباره تلاش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Les articles n’ont pas pu être chargés. Réessayez."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "לא ניתן לטעון את הכתבות. נסה שוב."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Non è stato possibile caricare gli articoli. Riprova."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "記事一覧を読み込めませんでした。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "기사 목록을 불러올 수 없습니다. 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Não foi possível carregar os artigos. Tente novamente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Не удалось загрузить статьи. Попробуйте ещё раз."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "مضامین لوڈ نہیں ہو سکے۔ دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "无法加载文章列表。请重试。"
+          }
+        }
+      }
+    },
     "reading.articles.error.queryUnavailable" : {
       "comment" : "Article list failure message when the query service is unavailable.",
       "localizations" : {
@@ -18280,7 +18460,7 @@
       }
     },
     "reading.articles.markAllRead.accessibility" : {
-      "comment" : "Accessibility label for the mark all visible articles as read toolbar action.",
+      "comment" : "Accessibility label for the mark all articles in the current selection as read toolbar action.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -18369,7 +18549,7 @@
       }
     },
     "reading.articles.markAllRead.dialog.confirm" : {
-      "comment" : "Destructive confirmation action title for marking all visible articles as read.",
+      "comment" : "Destructive confirmation action title for marking all articles in the current selection as read.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -18458,96 +18638,96 @@
       }
     },
     "reading.articles.markAllRead.dialog.message" : {
-      "comment" : "Confirmation dialog message for marking all visible articles as read.",
+      "comment" : "Confirmation message for the complete current selection, including active filters, search and pages not loaded yet.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "سيؤدي هذا الإجراء إلى وضع علامة على جميع المقالات المرئية كمقروءة."
+            "state" : "machine_translated",
+            "value" : "سيؤدي هذا الإجراء إلى وضع علامة على جميع المقالات ضمن النطاق الحالي كمقروءة."
           }
         },
         "de" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Diese Aktion markiert alle sichtbaren Artikel als gelesen."
+            "state" : "machine_translated",
+            "value" : "Mit dieser Aktion werden alle Artikel der aktuellen Auswahl als gelesen markiert."
           }
         },
         "en" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "This action will mark all visible articles as read."
+            "state" : "machine_translated",
+            "value" : "This action will mark all articles in the current selection as read."
           }
         },
         "es" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Esta acción marcará como leídos todos los artículos visibles."
+            "state" : "machine_translated",
+            "value" : "Esta acción marcará como leídos todos los artículos de la selección actual."
           }
         },
         "fa" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "این کار همهٔ مقاله‌های قابل مشاهده را به‌عنوان خوانده‌شده علامت‌گذاری می‌کند."
+            "state" : "machine_translated",
+            "value" : "با این کار، همهٔ مقاله‌های محدودهٔ فعلی به‌عنوان خوانده‌شده علامت‌گذاری می‌شوند."
           }
         },
         "fr" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cette action marquera tous les articles visibles comme lus."
+            "state" : "machine_translated",
+            "value" : "Cette action marquera tous les articles de la sélection actuelle comme lus."
           }
         },
         "he" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "פעולה זו תסמן את כל הכתבות הגלויות כנקראות."
+            "state" : "machine_translated",
+            "value" : "פעולה זו תסמן את כל הכתבות בבחירה הנוכחית כנקראות."
           }
         },
         "it" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Questa azione segnerà come letti tutti gli articoli visibili."
+            "state" : "machine_translated",
+            "value" : "Questa azione segnerà come letti tutti gli articoli della selezione attuale."
           }
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "この操作により、表示中のすべての記事が既読になります。"
+            "state" : "machine_translated",
+            "value" : "この操作により、現在の選択範囲に含まれるすべての記事が既読になります。"
           }
         },
         "ko" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "이 작업은 표시된 모든 기사를 읽음으로 표시합니다."
+            "state" : "machine_translated",
+            "value" : "이 작업은 현재 선택 범위에 포함된 모든 기사를 읽음으로 표시합니다."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Esta ação marcará todos os artigos visíveis como lidos."
+            "state" : "machine_translated",
+            "value" : "Esta ação marcará todos os artigos da seleção atual como lidos."
           }
         },
         "ru" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Это действие отметит все видимые статьи как прочитанные."
+            "state" : "machine_translated",
+            "value" : "Это действие отметит все статьи текущей выборки как прочитанные."
           }
         },
         "ur" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "یہ عمل تمام نظر آنے والے مضامین کو پڑھا ہوا نشان زد کر دے گا۔"
+            "state" : "machine_translated",
+            "value" : "اس عمل سے موجودہ انتخاب میں شامل تمام مضامین کو پڑھا ہوا نشان زد کر دیا جائے گا۔"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "此操作会将所有可见文章标记为已读。"
+            "state" : "machine_translated",
+            "value" : "此操作会将当前范围内的所有文章标记为已读。"
           }
         }
       }
     },
     "reading.articles.markAllRead.dialog.title" : {
-      "comment" : "Confirmation dialog title for marking all visible articles as read.",
+      "comment" : "Confirmation dialog title for marking all articles in the current selection as read.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -24275,96 +24455,96 @@
       }
     },
     "settings.articleList.askBeforeMarkingAllRead.subtitle" : {
-      "comment" : "Toggle subtitle explaining confirmation before marking all visible articles read.",
+      "comment" : "Toggle subtitle for confirming the complete current selection, including active filters, search and pages not loaded yet.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "أظهر تأكيدًا قبل وضع علامة على جميع المقالات المرئية كمقروءة."
+            "state" : "machine_translated",
+            "value" : "إظهار تأكيد قبل وضع علامة على جميع المقالات ضمن النطاق الحالي كمقروءة."
           }
         },
         "de" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vor dem Markieren aller sichtbaren Artikel als gelesen eine Bestätigung anzeigen."
+            "state" : "machine_translated",
+            "value" : "Vor dem Markieren aller Artikel der aktuellen Auswahl als gelesen eine Bestätigung anzeigen."
           }
         },
         "en" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show a confirmation before marking all visible articles as read."
+            "state" : "machine_translated",
+            "value" : "Show a confirmation before marking all articles in the current selection as read."
           }
         },
         "es" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar una confirmación antes de marcar como leídos todos los artículos visibles."
+            "state" : "machine_translated",
+            "value" : "Mostrar una confirmación antes de marcar como leídos todos los artículos de la selección actual."
           }
         },
         "fa" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "پیش از علامت‌گذاری همهٔ مقاله‌های قابل مشاهده به‌عنوان خوانده‌شده، تأیید نمایش داده شود."
+            "state" : "machine_translated",
+            "value" : "پیش از علامت‌گذاری همهٔ مقاله‌های محدودهٔ فعلی به‌عنوان خوانده‌شده، تأیید نمایش داده شود."
           }
         },
         "fr" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Afficher une confirmation avant de marquer tous les articles visibles comme lus."
+            "state" : "machine_translated",
+            "value" : "Afficher une confirmation avant de marquer tous les articles de la sélection actuelle comme lus."
           }
         },
         "he" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "הצג אישור לפני סימון כל הכתבות הגלויות כנקראות."
+            "state" : "machine_translated",
+            "value" : "הצג אישור לפני סימון כל הכתבות בבחירה הנוכחית כנקראות."
           }
         },
         "it" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostra una conferma prima di segnare come letti tutti gli articoli visibili."
+            "state" : "machine_translated",
+            "value" : "Mostra una conferma prima di segnare come letti tutti gli articoli della selezione attuale."
           }
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "表示中のすべての記事を既読にする前に確認を表示します。"
+            "state" : "machine_translated",
+            "value" : "現在の選択範囲に含まれるすべての記事を既読にする前に、確認を表示します。"
           }
         },
         "ko" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "표시된 모든 기사를 읽음으로 표시하기 전에 확인을 표시합니다."
+            "state" : "machine_translated",
+            "value" : "현재 선택 범위에 포함된 모든 기사를 읽음으로 표시하기 전에 확인을 표시합니다."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar uma confirmação antes de marcar todos os artigos visíveis como lidos."
+            "state" : "machine_translated",
+            "value" : "Mostrar uma confirmação antes de marcar todos os artigos da seleção atual como lidos."
           }
         },
         "ru" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Показывать подтверждение перед отметкой всех видимых статей как прочитанных."
+            "state" : "machine_translated",
+            "value" : "Показывать подтверждение перед отметкой всех статей текущей выборки как прочитанных."
           }
         },
         "ur" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "تمام نظر آنے والے مضامین کو پڑھا ہوا نشان زد کرنے سے پہلے تصدیق دکھائیں۔"
+            "state" : "machine_translated",
+            "value" : "موجودہ انتخاب میں شامل تمام مضامین کو پڑھا ہوا نشان زد کرنے سے پہلے تصدیق دکھائیں۔"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "将所有可见文章标记为已读前显示确认。"
+            "state" : "machine_translated",
+            "value" : "将当前范围内的所有文章标记为已读前显示确认。"
           }
         }
       }
     },
     "settings.articleList.askBeforeMarkingAllRead.title" : {
-      "comment" : "Toggle title for asking before marking all visible articles read.",
+      "comment" : "Toggle title for asking before marking all articles in the current selection read.",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
@@ -33275,6 +33455,366 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "iCloud 同步已关闭。"
+          }
+        }
+      }
+    },
+    "settings.syncStatus.error.export.detail" : {
+      "comment" : "Failure subtitle when exporting changes to iCloud. Technical diagnostics are not user-facing copy.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعذر رفع التغييرات إلى iCloud‏. حاول مرة أخرى لاحقًا."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Änderungen konnten nicht in iCloud hochgeladen werden. Versuche es später erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unable to upload changes to iCloud. Try again later."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "No se pudieron subir los cambios a iCloud. Inténtalo de nuevo más tarde."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "بارگذاری تغییرات در iCloud انجام نشد. بعداً دوباره تلاش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Impossible d’envoyer les modifications vers iCloud. Réessayez plus tard."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "לא ניתן להעלות שינויים ל-iCloud. נסה שוב מאוחר יותר."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Non è stato possibile caricare le modifiche su iCloud. Riprova più tardi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "iCloud に変更をアップロードできませんでした。後でもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "iCloud에 변경 사항을 업로드할 수 없습니다. 나중에 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Não foi possível enviar as alterações para o iCloud. Tente novamente mais tarde."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Не удалось отправить изменения в iCloud. Попробуйте позже."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تبدیلیاں ⁨iCloud⁩ پر اپ لوڈ نہیں ہو سکیں۔ بعد میں دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "无法将更改上传到 iCloud。请稍后重试。"
+          }
+        }
+      }
+    },
+    "settings.syncStatus.error.generic.detail" : {
+      "comment" : "Generic iCloud failure subtitle when the failed activity is unknown. Technical diagnostics are not user-facing copy.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعذرت المزامنة مع iCloud‏. حاول مرة أخرى لاحقًا."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Die Synchronisierung mit iCloud ist fehlgeschlagen. Versuche es später erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unable to sync with iCloud. Try again later."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "No se pudo sincronizar con iCloud. Inténtalo de nuevo más tarde."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "همگام‌سازی با iCloud انجام نشد. بعداً دوباره تلاش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Impossible de synchroniser avec iCloud. Réessayez plus tard."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "לא ניתן לסנכרן עם iCloud. נסה שוב מאוחר יותר."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Non è stato possibile sincronizzare con iCloud. Riprova più tardi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "iCloud と同期できませんでした。後でもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "iCloud와 동기화할 수 없습니다. 나중에 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Não foi possível sincronizar com o iCloud. Tente novamente mais tarde."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Не удалось синхронизировать данные с iCloud. Попробуйте позже."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "⁨iCloud⁩ کے ساتھ ہم وقت سازی نہیں ہو سکی۔ بعد میں دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "无法与 iCloud 同步。请稍后重试。"
+          }
+        }
+      }
+    },
+    "settings.syncStatus.error.import.detail" : {
+      "comment" : "Failure subtitle when importing changes from iCloud. Technical diagnostics are not user-facing copy.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعذر تنزيل التغييرات من iCloud‏. حاول مرة أخرى لاحقًا."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Änderungen aus iCloud konnten nicht heruntergeladen werden. Versuche es später erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unable to download changes from iCloud. Try again later."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "No se pudieron descargar los cambios de iCloud. Inténtalo de nuevo más tarde."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "دریافت تغییرات از iCloud انجام نشد. بعداً دوباره تلاش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Impossible de télécharger les modifications depuis iCloud. Réessayez plus tard."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "לא ניתן להוריד שינויים מ-iCloud. נסה שוב מאוחר יותר."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Non è stato possibile scaricare le modifiche da iCloud. Riprova più tardi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "iCloud から変更をダウンロードできませんでした。後でもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "iCloud에서 변경 사항을 다운로드할 수 없습니다. 나중에 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Não foi possível baixar as alterações do iCloud. Tente novamente mais tarde."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Не удалось загрузить изменения из iCloud. Попробуйте позже."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "⁨iCloud⁩ سے تبدیلیاں ڈاؤن لوڈ نہیں ہو سکیں۔ بعد میں دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "无法从 iCloud 下载更改。请稍后重试。"
+          }
+        }
+      }
+    },
+    "settings.syncStatus.error.setup.detail" : {
+      "comment" : "Failure subtitle when preparing the iCloud sync session. Technical diagnostics are not user-facing copy.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "تعذر إعداد مزامنة iCloud‏. حاول مرة أخرى لاحقًا."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Die iCloud-Synchronisierung konnte nicht vorbereitet werden. Versuche es später erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unable to prepare iCloud sync. Try again later."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "No se pudo preparar la sincronización con iCloud. Inténtalo de nuevo más tarde."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "آماده‌سازی همگام‌سازی iCloud انجام نشد. بعداً دوباره تلاش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Impossible de préparer la synchronisation iCloud. Réessayez plus tard."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "לא ניתן להכין את סנכרון iCloud. נסה שוב מאוחר יותר."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Non è stato possibile preparare la sincronizzazione iCloud. Riprova più tardi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "iCloud 同期の準備ができませんでした。後でもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "iCloud 동기화를 준비할 수 없습니다. 나중에 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Não foi possível preparar a sincronização do iCloud. Tente novamente mais tarde."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Не удалось подготовить синхронизацию с iCloud. Попробуйте позже."
+          }
+        },
+        "ur" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "⁨iCloud⁩ ہم وقت سازی تیار نہیں ہو سکی۔ بعد میں دوبارہ کوشش کریں۔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "无法准备 iCloud 同步。请稍后重试。"
           }
         }
       }

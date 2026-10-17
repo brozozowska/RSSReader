@@ -50,7 +50,7 @@ private struct ArticleStateToolbarPreview: View {
 #Preview("Failed") {
     ArticleScreenPreviewContainer(
         screenState: .previewFailed(
-            message: "The selected article could not be loaded from persistence."
+            message: ReadingLocalization.articleLoadFailedMessage
         )
     )
 }

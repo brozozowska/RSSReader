@@ -45,11 +45,14 @@ struct StringCatalogPluralizationTests {
     }
 
     @Test
-    func cjkLocalizationsCoverEveryCatalogEntry() throws {
+    func allTargetLocalizationsCoverEveryCatalogEntryAndVariant() throws {
         let strings = try Self.catalogStrings()
 
         for (key, entry) in strings {
-            for language in Self.cjkLanguages {
+            let dictionary = try #require(entry as? [String: Any])
+            let localizations = try #require(dictionary["localizations"] as? [String: Any])
+            #expect(Set(localizations.keys) == Set(Self.supportedLanguages), "Locale set differs for \(key)")
+            for language in Self.supportedLanguages where language != "en" {
                 #expect(
                     Self.hasTranslatedLocalization(in: entry, language: language),
                     "Missing \(language) localization for \(key)"
@@ -59,15 +62,73 @@ struct StringCatalogPluralizationTests {
     }
 
     @Test
-    func projectKnownRegionsIncludeCJKLocalizations() throws {
+    func projectKnownRegionsMatchSupportedLanguages() throws {
         let projectFileURL = try #require(Self.projectFileURL())
         let projectFile = try String(contentsOf: projectFileURL, encoding: .utf8)
 
         #expect(projectFile.contains("developmentRegion = en;"))
 
-        for language in ["ja", "\"zh-Hans\"", "ko"] {
-            #expect(projectFile.contains("\(language),"))
+        let regionList = try #require(projectFile.range(of: "knownRegions = ("))
+        let regionEnd = try #require(projectFile[regionList.upperBound...].firstIndex(of: ")"))
+        let regions = projectFile[regionList.upperBound..<regionEnd].split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "\"", with: "") }
+            .filter { !$0.isEmpty && $0 != "Base" }
+        #expect(Set(regions) == Set(Self.supportedLanguages))
+    }
+
+    @Test
+    func englishSourceAndAllTargetFormatArgumentsRemainCompatible() throws {
+        for (key, untypedEntry) in try Self.catalogStrings() {
+            let entry = try #require(untypedEntry as? [String: Any])
+            let localizations = try #require(entry["localizations"] as? [String: Any])
+            let source = try #require(localizations["en"] as? [String: Any])
+            let sourceUnits = Self.stringUnits(in: source)
+            #expect(!sourceUnits.isEmpty, "Missing English source: \(key)")
+            let reference = try #require(sourceUnits.first?["value"] as? String)
+            #expect(!reference.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            let signature = Self.formatArguments(in: reference)
+            for language in Self.supportedLanguages {
+                let localization = try #require(localizations[language] as? [String: Any])
+                for (path, unit) in Self.stringVariants(in: localization) {
+                    let value = try #require(unit["value"] as? String)
+                    #expect(!value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                            "Empty source/translation for \(key), locale \(language), variant \(path)")
+                    #expect(Self.compatibleFormatArguments(in: value, source: signature, variantPath: path),
+                            "Format arguments differ for \(key), locale \(language): \(value)")
+                }
+            }
         }
+    }
+
+    @Test
+    func bulkReadCopyUsesTheApprovedCurrentSelectionScope() throws {
+        let strings = try Self.catalogStrings()
+        for (key, english, russian) in [
+            ("reading.articles.markAllRead.dialog.message",
+             "This action will mark all articles in the current selection as read.",
+             "Это действие отметит все статьи текущей выборки как прочитанные."),
+            ("settings.articleList.askBeforeMarkingAllRead.subtitle",
+             "Show a confirmation before marking all articles in the current selection as read.",
+             "Показывать подтверждение перед отметкой всех статей текущей выборки как прочитанных.")
+        ] {
+            #expect(Self.localizedValue(in: strings, key: key, language: "en") == english)
+            #expect(Self.localizedValue(in: strings, key: key, language: "ru") == russian)
+        }
+    }
+
+    @Test
+    func formatSignatureAllowsArgumentReorderingButDetectsTypeAndPositionChanges() {
+        #expect(Self.formatArguments(in: "%1$lld feeds: %2$@")
+                == Self.formatArguments(in: "%2$@ — %1$lld feeds"))
+        #expect(Self.formatArguments(in: "%lld feeds: %@")
+                == Self.formatArguments(in: "%2$@ — %1$lld feeds"))
+        #expect(Self.formatArguments(in: "%% %@") == [1: "@"])
+        #expect(Self.formatArguments(in: "%1$lld: %2$@") != Self.formatArguments(in: "%1$@: %2$lld"))
+        // Arabic/Hebrew zero, one and two can express the count in words.
+        let source = Self.formatArguments(in: "%1$lld feeds: %2$@")
+        #expect(Self.compatibleFormatArguments(in: "One feed: %2$@", source: source, variantPath: "variations.plural.one"))
+        #expect(!Self.compatibleFormatArguments(in: "One feed: %@", source: source, variantPath: "variations.plural.one"))
+        #expect(!Self.compatibleFormatArguments(in: "Feeds: %2$@", source: source, variantPath: "variations.plural.other"))
     }
 
     @Test
@@ -239,7 +300,6 @@ struct StringCatalogPluralizationTests {
         "feedManagement.feedCount.format"
     ]
 
-    private static let cjkLanguages = ["ja", "zh-Hans", "ko"]
     private static let supportedLanguages = [
         "ar", "de", "en", "es", "fa", "fr", "he", "it", "ja", "ko", "pt-BR", "ru", "ur", "zh-Hans"
     ]
@@ -294,20 +354,54 @@ struct StringCatalogPluralizationTests {
             return false
         }
 
-        if let stringUnit = localization["stringUnit"] as? [String: Any],
-           let value = stringUnit["value"] as? String {
-            return Self.isUsableTranslationState(stringUnit["state"] as? String) && !value.isEmpty
+        let units = Self.stringUnits(in: localization)
+        return !units.isEmpty && units.allSatisfy { unit in
+            guard let value = unit["value"] as? String else { return false }
+            return Self.isUsableTranslationState(unit["state"] as? String)
+                && !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
+    }
 
-        if let variations = localization["variations"] as? [String: Any],
-           let plural = variations["plural"] as? [String: Any],
-           let other = plural["other"] as? [String: Any],
-           let stringUnit = other["stringUnit"] as? [String: Any],
-           let value = stringUnit["value"] as? String {
-            return Self.isUsableTranslationState(stringUnit["state"] as? String) && !value.isEmpty
+    private static func stringUnits(in dictionary: [String: Any]) -> [[String: Any]] {
+        stringVariants(in: dictionary).map { $0.unit }
+    }
+
+    private static func stringVariants(in dictionary: [String: Any], path: String = "") -> [(path: String, unit: [String: Any])] {
+        var result: [(path: String, unit: [String: Any])] = []
+        if let unit = dictionary["stringUnit"] as? [String: Any] { result.append((path, unit)) }
+        for (key, value) in dictionary where key != "stringUnit" {
+            if let child = value as? [String: Any] {
+                result += stringVariants(in: child, path: path.isEmpty ? key : "\(path).\(key)")
+            }
         }
+        return result
+    }
 
-        return false
+    private static func compatibleFormatArguments(in value: String, source: [Int: String], variantPath: String) -> Bool {
+        let actual = formatArguments(in: value)
+        if actual == source { return true }
+        let implicitCount = ["zero", "one", "two"].contains { variantPath == "variations.plural.\($0)" }
+        let countArguments = source.filter { ["d", "u", "ld", "lu", "lld", "llu"].contains($0.value) }
+        guard implicitCount, countArguments.count == 1, let position = countArguments.keys.first else { return false }
+        var withoutCount = source
+        withoutCount.removeValue(forKey: position)
+        return actual == withoutCount
+    }
+
+    private static func formatArguments(in value: String) -> [Int: String] {
+        let text = value.replacingOccurrences(of: "%%", with: "")
+        let regex = try! NSRegularExpression(pattern: #"%(?:(\d+)\$)?[-+ #0]*\d*(?:\.\d+)?(hh|ll|h|l|z|t|j)?([@diuoxXfFeEgGaAcCsSp])"#)
+        let range = NSRange(text.startIndex..., in: text)
+        var result: [Int: String] = [:]
+        var nextPosition = 1
+        for match in regex.matches(in: text, range: range) {
+            let position = Range(match.range(at: 1), in: text).flatMap { Int(text[$0]) } ?? nextPosition
+            let modifier = Range(match.range(at: 2), in: text).map { String(text[$0]) } ?? ""
+            let type = Range(match.range(at: 3), in: text).map { String(text[$0]) } ?? ""
+            result[position] = modifier + type
+            nextPosition += 1
+        }
+        return result
     }
 
     private static func isUsableTranslationState(_ state: String?) -> Bool {

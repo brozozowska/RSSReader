@@ -48,12 +48,12 @@ struct ArticlesScreenPresentationTests {
             article: makeArticleListItemDTO(isRead: true, isStarred: true)
         )
 
-        #expect(unreadUnstarred.readActionTitle == ReadingLocalization.readAction)
+        #expect(unreadUnstarred.readActionTitle == ReadingLocalization.markReadAction)
         #expect(unreadUnstarred.readActionSystemImage == "circle.fill")
         #expect(unreadUnstarred.starActionTitle == ReadingLocalization.starAction)
         #expect(unreadUnstarred.starActionSystemImage == "star")
 
-        #expect(readStarred.readActionTitle == ReadingLocalization.unreadAction)
+        #expect(readStarred.readActionTitle == ReadingLocalization.markUnreadAction)
         #expect(readStarred.readActionSystemImage == "circle")
         #expect(readStarred.starActionTitle == ReadingLocalization.unstarAction)
         #expect(readStarred.starActionSystemImage == "star.fill")

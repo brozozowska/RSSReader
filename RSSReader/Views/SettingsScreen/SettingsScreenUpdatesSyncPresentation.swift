@@ -145,8 +145,13 @@ extension SettingsScreenPresentationBuilder {
             return SettingsLocalization.syncTemporarilyUnavailableSubtitle
         case .couldNotDetermine:
             return SettingsLocalization.syncCouldNotDetermineSubtitle
-        case .failed(let message):
-            return message
+        case .failed(let failure):
+            switch failure.activity {
+            case .setup: return SettingsLocalization.syncSetupFailedMessage
+            case .import: return SettingsLocalization.syncImportFailedMessage
+            case .export: return SettingsLocalization.syncExportFailedMessage
+            case nil: return SettingsLocalization.syncFailedMessage
+            }
         }
     }
 

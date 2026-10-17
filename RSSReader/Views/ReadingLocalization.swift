@@ -168,23 +168,23 @@ enum ReadingLocalization {
     static let markAllAsReadAccessibilityLabel = String(
         localized: "reading.articles.markAllRead.accessibility",
         defaultValue: "Mark all as read",
-        comment: "Accessibility label for the mark all visible articles as read toolbar action."
+        comment: "Accessibility label for the mark all articles in the current selection as read toolbar action."
     )
     static let markAllAsReadDialogTitle = String(
         localized: "reading.articles.markAllRead.dialog.title",
         defaultValue: "Mark all as read?",
-        comment: "Confirmation dialog title for marking all visible articles as read."
+        comment: "Confirmation dialog title for marking all articles in the current selection as read."
     )
     static let markAllAsReadDialogAction = String(
         localized: "reading.articles.markAllRead.dialog.confirm",
         defaultValue: "Mark all as read",
-        comment: "Destructive confirmation action title for marking all visible articles as read."
+        comment: "Destructive confirmation action title for marking all articles in the current selection as read."
     )
     static let cancelAction = CommonLocalization.cancelAction
     static let markAllAsReadDialogMessage = String(
         localized: "reading.articles.markAllRead.dialog.message",
-        defaultValue: "This action will mark all visible articles as read.",
-        comment: "Confirmation dialog message for marking all visible articles as read."
+        defaultValue: "This action will mark all articles in the current selection as read.",
+        comment: "Confirmation message for the complete current selection, including active filters, search and pages not loaded yet."
     )
     static let todaySectionTitle = String(
         localized: "reading.articles.section.today",
@@ -215,6 +215,16 @@ enum ReadingLocalization {
         localized: "reading.article.placeholder.failed.title",
         defaultValue: "Failed to Load Article",
         comment: "Article reader placeholder title when article loading fails."
+    )
+    static let articleLoadFailedMessage = String(
+        localized: "reading.article.error.loadFailed",
+        defaultValue: "The article could not be loaded. Try again.",
+        comment: "Reader load failure description. Technical error details are kept in diagnostics, not shown here."
+    )
+    static let articlesLoadFailedMessage = String(
+        localized: "reading.articles.error.loadFailed",
+        defaultValue: "The articles could not be loaded. Try again.",
+        comment: "Article list or search load failure description. Technical error details are kept in diagnostics, not shown here."
     )
     static let articleQueryUnavailableMessage = String(
         localized: "reading.article.error.queryUnavailable",

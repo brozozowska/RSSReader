@@ -6,6 +6,20 @@ import Testing
 @Suite("Articles Screen / Controller / Loading")
 @MainActor
 struct ArticlesScreenControllerLoadingTests {
+    @Test
+    func technicalQueryFailureUsesLocalizedCopyAndRetainsDiagnostics() async throws {
+        let logger = RecordingLogger()
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient(), logger: logger)
+        let controller = ArticlesScreenController(searchQueryOperation: { _, _ in
+            throw NSError(domain: "PrivateQueryStorage", code: 77, userInfo: [
+                NSLocalizedDescriptionKey: "Internal storage details must not become UI copy"
+            ])
+        })
+        await controller.load(selection: .inbox, sidebarArticleFilter: .allItems, dependencies: harness.dependencies)
+        #expect(controller.screenState.placeholder?.description == ReadingLocalization.articlesLoadFailedMessage)
+        #expect(controller.screenState.phase == .failed(ReadingLocalization.articlesLoadFailedMessage))
+        #expect(logger.contains("PrivateQueryStorage", level: .error))
+    }
 
     @Test(arguments: ["match", ""])
     func searchTransitionKeepsCommittedSnapshotAndBlocksActionsUntilQueryCompletes(_ query: String) async throws {
