@@ -334,17 +334,3 @@ struct FolderSidebarGroup: Identifiable {
         groups(from: [], feeds: feeds)
     }
 }
-
-enum FolderSectionRow: Identifiable {
-    case folder(FolderSidebarGroup)
-    case feed(FeedSidebarItem)
-
-    var id: String {
-        switch self {
-        case .folder(let group):
-            "folder-\(group.id)"
-        case .feed(let feed):
-            "feed-\(feed.id.uuidString)"
-        }
-    }
-}

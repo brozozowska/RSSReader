@@ -53,9 +53,4 @@ struct CloudKitSyncScope: Equatable, Sendable {
     var keepsFeedFetchLogsLocalOnly: Bool {
         storesLocallyOnly(.feedFetchLog)
     }
-
-    func settingsSectionFooter(readingScenario: CrossDeviceReadingScenario) -> String {
-        let readingStateCopy = readingScenario.settingsSectionFooter
-        return "\(readingStateCopy) Settings sync through iCloud too."
-    }
 }

@@ -17,12 +17,6 @@ extension AppDependencies {
         return AppDependencies(logger: logger)
     }
 
-    @MainActor
-    static func makeDefault(syncCoordinator: SyncCoordinator) -> AppDependencies {
-        let logger = makeDefaultLogger()
-        return AppDependencies(logger: logger, syncCoordinator: syncCoordinator)
-    }
-
 }
 
 extension AppDependencies {
