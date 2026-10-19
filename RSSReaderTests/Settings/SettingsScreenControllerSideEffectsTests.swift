@@ -228,7 +228,7 @@ struct SettingsScreenControllerSideEffectsTests {
         )
 
         #expect(controller.applySettingsChanges(dependencies: dependencies))
-        await waitForBadgePreferences([true], in: badgeService)
+        try await waitForBadgePreferences([true], in: badgeService)
         let persistedSnapshot = try settingsService.fetchSettings()
         let replacedConfiguration = try #require(scheduler.lastReplacedConfiguration)
 
@@ -283,7 +283,7 @@ struct SettingsScreenControllerSideEffectsTests {
         )
 
         #expect(controller.applySettingsChanges(dependencies: dependencies, appState: appState))
-        await waitForBadgeRefreshCount(1, in: badgeService)
+        try await waitForBadgeRefreshCount(1, in: badgeService)
 
         #expect(try harness.articleRepository.fetchArticle(id: article.id) == nil)
         #expect(appState.sidebarReloadID != initialSidebarReloadID)
@@ -406,12 +406,9 @@ private final class SettingsRecordingSyncBootstrapPreferenceStore: AppSyncBootst
 private func waitForBadgePreferences(
     _ expectedPreferences: [Bool],
     in badgeService: SettingsRecordingUnreadAppIconBadgeService
-) async {
-    for _ in 0..<20 {
-        if badgeService.appliedPreferences == expectedPreferences {
-            return
-        }
-        await Task.yield()
+) async throws {
+    try await waitUntil("badge preference callback: \(expectedPreferences)") {
+        badgeService.appliedPreferences == expectedPreferences
     }
 }
 
@@ -419,11 +416,8 @@ private func waitForBadgePreferences(
 private func waitForBadgeRefreshCount(
     _ expectedCount: Int,
     in badgeService: SettingsRecordingUnreadAppIconBadgeService
-) async {
-    for _ in 0..<20 {
-        if badgeService.refreshBadgeCountCallCount == expectedCount {
-            return
-        }
-        await Task.yield()
+) async throws {
+    try await waitUntil("badge refresh callback count: \(expectedCount)") {
+        badgeService.refreshBadgeCountCallCount == expectedCount
     }
 }
