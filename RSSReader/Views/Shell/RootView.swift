@@ -139,7 +139,7 @@ struct RootView: View {
         .background(themeApplicationPolicy.resolvedTheme.primaryBackground.ignoresSafeArea())
         .onChange(of: appState.selectedArticleID) { _, selectedArticleID in
             guard selectedArticleID == nil else { return }
-            ReaderAdjacentArticleImagePrefetchCoordinator.shared.clear()
+            dependencies.articleImageRuntime.prefetchCoordinator.clear()
         }
         .onChange(of: appState.isPresentingFeedManagementScreen) { _, isPresenting in
             if isPresenting {

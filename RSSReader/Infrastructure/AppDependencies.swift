@@ -39,6 +39,8 @@ final class AppDependencies {
     let logger: Logging
     let httpClient: any HTTPClient
     let feedFetcher: any FeedFetching
+    let articleImageRuntime: ArticleImageRuntime
+    var articleImageCache: any ArticleImageCacheManaging { articleImageRuntime }
     let feedIconCache: any FeedIconCaching
     let feedRefreshService: FeedRefreshService?
     let feedRepository: (any FeedRepository)?
@@ -78,6 +80,7 @@ final class AppDependencies {
         httpClient: any HTTPClient = URLSessionHTTPClient(),
         feedFetcher: (any FeedFetching)? = nil,
         feedIconCache: (any FeedIconCaching)? = nil,
+        articleImageRuntime: ArticleImageRuntime? = nil,
         modelContainer: ModelContainer? = nil,
         modelContainerBootstrapFailureDescription: String? = nil,
         syncBackedStoreReference: SyncBackedStoreReference? = nil,
@@ -261,6 +264,7 @@ final class AppDependencies {
         let persistentStoreRemoteChangeSource = persistentStoreRemoteChangeSource ?? DefaultPersistentStoreRemoteChangeSource()
         let syncBootstrapPreferenceStore = syncBootstrapPreferenceStore
             ?? AppSyncBootstrapPreferenceStore(logger: logger)
+        self.articleImageRuntime = articleImageRuntime ?? .makeIsolated()
         self.logger = logger
         self.httpClient = httpClient
         self.feedIconCache = resolvedFeedIconCache

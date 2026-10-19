@@ -865,6 +865,51 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
         #expect(memoryCache.image(for: newURL) != nil)
     }
 
+    @Test
+    func composedRuntimeSharesVisibleLoadWithPrefetchAndSurvivesRouteCleanup() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = try #require(URL(string: "https://example.com/composed.png"))
+        let data = makePNGData(width: 32, height: 16)
+        let gate = ScriptedHTTPClientResponseGate()
+        let httpClient = ScriptedHTTPClient(steps: [
+            .gatedDataResponse(statusCode: 200, headers: ["Content-Type": "image/png"], body: data, gate: gate)
+        ])
+        let runtime = ArticleImageRuntime(httpClient: httpClient, directoryURL: directory)
+        let dependencies = AppDependencies(logger: TestLogger(), articleImageRuntime: runtime)
+        #expect(dependencies.articleImageRuntime === runtime)
+        let nextID = UUID()
+        let context = makeContext(nextArticleID: nextID)
+        let query = PrefetchArticleQueryService(articlesByID: [
+            nextID: makeReaderArticleDTO(id: nextID, imageURL: url.absoluteString)
+        ])
+        runtime.prefetchCoordinator.update(context: context, articleQueryService: query)
+        try await waitUntilGate(gate, reachesEntryCount: 1)
+
+        let (started, continuation) = AsyncStream<Void>.makeStream()
+        let visibleLoad = Task { @MainActor in
+            // The main actor cannot resume the observer until loadImage registers its waiter and suspends.
+            continuation.yield(())
+            continuation.finish()
+            return try await dependencies.articleImageRuntime.imageLoading.loadImage(
+                from: url, displayTarget: context.displayTarget
+            )
+        }
+        var iterator = started.makeAsyncIterator()
+        _ = await iterator.next()
+        runtime.prefetchCoordinator.clear()
+        await gate.release()
+        let image = try await visibleLoad.value
+        #expect(runtime.imageLoading.cachedImage(for: url, targetMaximumPixelWidth: 320) === image)
+        #expect(await httpClient.recordedRequests().count == 1)
+        let cache = ArticleImageDiskCache(directoryURL: directory)
+        try await waitUntil("composed runtime disk persistence completed") {
+            try await cache.data(for: url) == data
+        }
+        try await dependencies.articleImageCache.clearCachedImages()
+        #expect(try await dependencies.articleImageCache.hasCachedImages() == false)
+    }
+
     private func makeContext(
         currentArticleID: UUID = UUID(),
         articleListSessionID: UUID = UUID(),

@@ -40,7 +40,8 @@ enum AppComposition {
             syncEnablementPolicy: resolvedSyncEnablementPolicy,
             syncCoordinator: syncCoordinator,
             globalOrphanSweepScheduleStore: UserDefaultsGlobalOrphanSweepScheduleStore(),
-            logger: logger
+            logger: logger,
+            articleImageRuntime: .makeLive()
         )
         dependencies.startSyncCoordinatorAppLifetime()
         return dependencies

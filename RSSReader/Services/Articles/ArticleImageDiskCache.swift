@@ -9,8 +9,6 @@ nonisolated protocol ArticleImageDiskCaching: Sendable {
 }
 
 actor ArticleImageDiskCache: ArticleImageDiskCaching {
-    static let shared = ArticleImageDiskCache()
-
     private let directoryURL: URL
     private let capacityLimit: Int64
     private let fileManager: FileManager

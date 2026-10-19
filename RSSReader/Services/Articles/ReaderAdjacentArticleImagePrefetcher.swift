@@ -44,10 +44,6 @@ extension ArticleImageLoader: ArticleImagePrefetching {}
 
 @MainActor
 final class ReaderAdjacentArticleImagePrefetchCoordinator {
-    static let shared = ReaderAdjacentArticleImagePrefetchCoordinator(
-        imagePrefetcher: ArticleImageLoader.shared
-    )
-
     private let imagePrefetcher: any ArticleImagePrefetching
     private var activeContext: ReaderAdjacentArticleImagePrefetchContext?
     private var activeTasks: [URL: ActivePrefetchTask] = [:]

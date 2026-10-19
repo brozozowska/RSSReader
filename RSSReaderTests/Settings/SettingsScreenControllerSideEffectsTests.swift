@@ -32,25 +32,94 @@ struct SettingsScreenControllerSideEffectsTests {
     @Test
     func settingsScreenControllerClearsArticleImageCacheWithoutChangingSettings() async throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
-        let settingsService = try #require(harness.dependencies.appSettingsService)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let memoryCache = ArticleImageMemoryCache()
+        let diskCache = ArticleImageDiskCache(directoryURL: directory)
+        let runtime = ArticleImageRuntime(
+            httpClient: ScriptedHTTPClient(),
+            memoryCache: memoryCache,
+            diskCache: diskCache
+        )
+        let dependencies = AppDependencies(
+            logger: TestLogger(),
+            articleImageRuntime: runtime,
+            modelContainer: harness.modelContainer
+        )
+        let settingsService = try #require(dependencies.appSettingsService)
         let controller = SettingsScreenController()
         let imageURL = try #require(URL(string: "https://example.com/article-image.png"))
         let initialSnapshot = try settingsService.fetchSettings()
 
-        try await ArticleImageDiskCache.shared.removeAll()
-        try await ArticleImageDiskCache.shared.insert(Data([1, 2, 3]), for: imageURL)
-        ArticleImageMemoryCache.shared.insert(UIImage(), for: imageURL)
-        controller.screenState.applyArticleImageCacheAvailability(true)
+        try await diskCache.insert(Data([1, 2, 3]), for: imageURL)
+        memoryCache.insert(UIImage(), for: imageURL)
+        await controller.refreshArticleImageCacheAvailability(dependencies: dependencies)
+        #expect(controller.screenState.hasArticleImageCache)
 
         await controller.handleButtonTap(
             itemID: .clearArticleImageCache,
-            dependencies: harness.dependencies
+            dependencies: dependencies
         )
 
-        #expect(ArticleImageMemoryCache.shared.hasImages == false)
-        #expect(try await ArticleImageDiskCache.shared.isEmpty())
+        #expect(memoryCache.hasImages == false)
+        #expect(try await diskCache.isEmpty())
         #expect(controller.screenState.hasArticleImageCache == false)
         #expect(try settingsService.fetchSettings() == initialSnapshot)
+    }
+
+    @Test
+    func clearingImagesDuringLoadAllowsRepopulationAndDoesNotAffectAnotherRuntime() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let otherDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+            try? FileManager.default.removeItem(at: otherDirectory)
+        }
+        let url = try #require(URL(string: "https://example.com/in-flight.png"))
+        let oldURL = try #require(URL(string: "https://example.com/old.png"))
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let data = UIGraphicsImageRenderer(size: CGSize(width: 16, height: 16), format: format).pngData {
+            $0.fill(CGRect(x: 0, y: 0, width: 16, height: 16))
+        }
+        let gate = ScriptedHTTPClientResponseGate()
+        let httpClient = ScriptedHTTPClient(steps: [
+            .gatedDataResponse(statusCode: 200, headers: ["Content-Type": "image/png"], body: data, gate: gate)
+        ])
+        let memory = ArticleImageMemoryCache()
+        let disk = ArticleImageDiskCache(directoryURL: directory)
+        let runtime = ArticleImageRuntime(httpClient: httpClient, memoryCache: memory, diskCache: disk)
+        let otherMemory = ArticleImageMemoryCache()
+        let otherDisk = ArticleImageDiskCache(directoryURL: otherDirectory)
+        let otherRuntime = ArticleImageRuntime(
+            httpClient: ScriptedHTTPClient(), memoryCache: otherMemory, diskCache: otherDisk
+        )
+        memory.insert(UIImage(), for: oldURL)
+        otherMemory.insert(UIImage(), for: oldURL)
+        try await disk.insert(Data([1]), for: oldURL)
+        try await otherDisk.insert(Data([2]), for: oldURL)
+        let dependencies = AppDependencies(logger: TestLogger(), articleImageRuntime: runtime)
+        let controller = SettingsScreenController()
+        let load = Task { @MainActor in
+            try await runtime.imageLoading.loadImage(from: url, displayTarget: .init(maximumPixelWidth: 16))
+        }
+        try await waitUntil("image transport suspended before settings clear") { await gate.hasEntered() }
+        await controller.handleButtonTap(itemID: .clearArticleImageCache, dependencies: dependencies)
+        #expect(runtime.hasMemoryImages == false)
+        #expect(try await disk.isEmpty())
+        #expect(controller.screenState.hasArticleImageCache == false)
+        #expect(otherRuntime.hasMemoryImages)
+        #expect(try await otherDisk.data(for: oldURL) == Data([2]))
+
+        await gate.release()
+        let image = try await load.value
+        #expect(runtime.imageLoading.cachedImage(for: url, targetMaximumPixelWidth: 16) === image)
+        try await waitUntil("active load repopulates cleared disk cache") {
+            try await disk.data(for: url) == data
+        }
+        await controller.refreshArticleImageCacheAvailability(dependencies: dependencies)
+        #expect(controller.screenState.hasArticleImageCache)
+        #expect(await httpClient.recordedRequests().count == 1)
     }
 
     @Test

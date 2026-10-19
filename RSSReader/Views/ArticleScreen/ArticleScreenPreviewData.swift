@@ -446,3 +446,29 @@ private enum ArticleScreenPreviewData {
         )
     }
 }
+
+// MARK: - Isolated Image Runtime
+
+#Preview("Isolated Image Runtime") {
+    ArticleImageRuntimePreview()
+}
+
+private struct ArticleImageRuntimePreview: View {
+    private let runtime: ArticleImageRuntime
+    private let imageURL = URL(string: "https://example.invalid/preview-image.png")!
+
+    init() {
+        let memory = ArticleImageMemoryCache()
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 320, height: 160)).image { context in
+            UIColor.systemTeal.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 320, height: 160))
+        }
+        memory.insert(image, for: imageURL)
+        runtime = ArticleImageRuntime.makeIsolated(memoryCache: memory)
+    }
+
+    var body: some View {
+        CachedArticleImageView(url: imageURL, imageLoading: runtime.imageLoading)
+            .padding()
+    }
+}
