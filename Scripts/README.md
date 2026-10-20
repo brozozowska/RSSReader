@@ -68,7 +68,9 @@ runtime. Более новый destination не заменяет отдельн�
 
 Ошибка аргументов или preflight даёт ненулевой статус. Ошибка внешней команды
 сохраняет её статус, в частности build/test failure не скрывается обработкой
-логов. Названия фаз и исходный stdout build/tests выводятся в консоль; stderr
+логов. Названия фаз и исходный stdout build/tests выводятся в консоль отдельным
+ограниченным временем команды monitor: Xcode пишет в файл, а `tail` явно
+останавливается после команды, не ожидая закрытия stdout её потомками. stderr
 сохраняется отдельно и печатается при ошибке. При test failure скрипт всё равно
 пытается извлечь `.xcresult`.
 Ноль выполненных тестов, cases без результата и неполный/неуспешный отчёт
@@ -129,3 +131,9 @@ CloudKit; release/signing/deployment и UI smoke в него не входят.
 `.github/actionlint.yaml` дополняет inventory линтера preview label `xcode-27`;
 название секции `self-hosted-runner` принадлежит формату actionlint и не означает
 использование self-hosted infrastructure.
+
+Для `main` включены обязательный PR и successful check `Clean build and full unit suite`
+именно от GitHub Actions, с требованием актуальности ветки относительно `main`.
+Правила действуют и для администратора; обязательных сторонних approvals нет.
+Force push и удаление `main` запрещены. Имя required check — часть внешнего
+repository contract: при переименовании job нужно согласованно обновить правило.

@@ -7,6 +7,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 
@@ -26,6 +27,20 @@ if pathlib.Path(sys.argv[0]).name == "xcodebuild":
               "TARGETED_DEVICE_FAMILY":"1,2"}} for t in ["RSSReader","RSSReaderTests"]])
     elif "test" in a:
         pathlib.Path(a[a.index("-resultBundlePath")+1]).mkdir()
+        if scenario == "descendant-output":
+            import subprocess
+            parent = str(pathlib.Path(a[a.index("-resultBundlePath")+1]).parent)
+            child = """
+import pathlib, sys, time
+root = pathlib.Path(sys.argv[1])
+deadline = time.monotonic() + 5
+while not (root / "tests.exit-status").exists() and time.monotonic() < deadline:
+    time.sleep(0.01)
+if not (root / "tests.exit-status").exists():
+    (root / "descendant-watchdog-expired").write_text("command completion waited for inherited output EOF")
+(root / "descendant-done").write_text("done")
+"""
+            subprocess.Popen([sys.executable, "-c", child, parent], start_new_session=True)
         if scenario.startswith("test-failure"): sys.exit(65)
     elif scenario == "build-failure": sys.exit(42)
 else:
@@ -66,7 +81,7 @@ class ValidationCLI(unittest.TestCase):
                      "RSSReader.xcodeproj/xcshareddata/xcschemes/RSSReader.xcscheme", scheme)
         self.bin = self.root / "bin"
         self.bin.mkdir()
-        for name in ["jq", "xmllint", "tee", "mktemp", "dirname", "mkdir", "cat"]:
+        for name in ["jq", "xmllint", "tee", "tail", "mktemp", "dirname", "mkdir", "cat"]:
             (self.bin / name).symlink_to(shutil.which(name))
         for name in ["xcodebuild", "xcrun"]:
             tool = self.bin / name
@@ -141,14 +156,24 @@ class ValidationCLI(unittest.TestCase):
         self.assertTrue(self.artifact("report.json").exists())
 
     def test_logger_failure_does_not_hide_xcode_failure(self):
-        real_tee = shlex.quote(shutil.which("tee"))
-        logger = self.bin / "tee"
+        real_tail = shlex.quote(shutil.which("tail"))
+        logger = self.bin / "tail"
         logger.unlink()
-        logger.write_text('#!/bin/bash\nif [[ "$1" == */tests.log ]]; then exit 9; fi\n'
-                          f'exec {real_tee} "$@"\n')
+        logger.write_text('#!/bin/bash\nfor arg in "$@"; do if [[ "$arg" == */tests.log ]]; then exit 9; fi; done\n'
+                          f'exec {real_tail} "$@"\n')
         logger.chmod(0o755)
         self.assertEqual(self.run_cli("full").returncode, 9)
         self.assertEqual(self.run_cli("full", scenario="test-failure").returncode, 65)
+
+    def test_inherited_output_does_not_delay_command_completion(self):
+        result = self.run_cli("full", scenario="descendant-output")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        root = self.artifact("tests.exit-status").parent
+        deadline = time.monotonic() + 10
+        while not (root / "descendant-done").exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertTrue((root / "descendant-done").exists())
+        self.assertFalse((root / "descendant-watchdog-expired").exists())
 
     def test_malformed_report_does_not_hide_test_failure(self):
         self.assertEqual(self.run_cli("full", scenario="test-failure-malformed").returncode, 65)

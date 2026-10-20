@@ -46,7 +46,7 @@ if [[ -n "${DEVELOPER_DIR:-}" ]]; then
     [[ -d "$DEVELOPER_DIR" ]] || die "Developer directory does not exist: $DEVELOPER_DIR"
     export DEVELOPER_DIR="$(cd "$DEVELOPER_DIR" && pwd -P)"
 fi
-for tool in xcodebuild xcrun jq xmllint tee mktemp; do
+for tool in xcodebuild xcrun jq xmllint tee tail mktemp; do
     command -v "$tool" >/dev/null || die "Missing prerequisite: $tool"
 done
 # Resolve repository independently of caller's working directory. Resolve user
@@ -64,7 +64,7 @@ trap 'status=$?; echo "$status" > "$run_dir/exit-status.txt"; echo "Validation e
 
 # Every external phase records its own unformatted output and original status.
 run() {
-    local label=$1 status
+    local label=$1 status monitor_pid= monitor_status=0
     shift
     printf '%q ' "$@" >> "$run_dir/commands.sh"
     printf '\n' >> "$run_dir/commands.sh"
@@ -72,18 +72,23 @@ run() {
     # Xcode may emit simulator warnings on stderr even with -json. Keep the
     # machine-readable stdout intact and retain diagnostics as a sibling log.
     if [[ "$label" == build || "$label" == tests ]]; then
-        # Stream long-running phases while retaining raw stdout. Capture both
-        # pipeline statuses immediately so a formatter/logger cannot hide Xcode.
-        local pipeline_status
-        if "$@" 2> "$run_dir/$label.stderr.log" | tee "$run_dir/$label.log"; then
-            status=0
+        # A Simulator descendant may inherit output descriptors. Do not make
+        # command completion depend on a pipe reaching EOF in those descendants.
+        : > "$run_dir/$label.log"
+        tail -n +1 -f "$run_dir/$label.log" &
+        monitor_pid=$!
+    fi
+    if "$@" > "$run_dir/$label.log" 2> "$run_dir/$label.stderr.log"; then status=0; else status=$?; fi
+    if [[ -n "$monitor_pid" ]]; then
+        if kill -0 "$monitor_pid" 2>/dev/null; then
+            kill "$monitor_pid" 2>/dev/null || true
+            wait "$monitor_pid" 2>/dev/null || true
         else
-            pipeline_status=("${PIPESTATUS[@]}")
-            status=${pipeline_status[0]}
-            ((status != 0)) || status=${pipeline_status[1]}
+            wait "$monitor_pid" || monitor_status=$?
         fi
-    else
-        if "$@" > "$run_dir/$label.log" 2> "$run_dir/$label.stderr.log"; then status=0; else status=$?; fi
+        # Include the final lines even when the command ended between tail polls.
+        tail -n 20 "$run_dir/$label.log" || monitor_status=$?
+        if ((status == 0)); then status=$monitor_status; fi
     fi
     echo "$status" > "$run_dir/$label.exit-status"
     echo "Completed phase: $label (exit $status)"
