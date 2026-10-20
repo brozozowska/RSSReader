@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -139,6 +140,16 @@ class ValidationCLI(unittest.TestCase):
         self.assertEqual(result.returncode, 65)
         self.assertTrue(self.artifact("report.json").exists())
 
+    def test_logger_failure_does_not_hide_xcode_failure(self):
+        real_tee = shlex.quote(shutil.which("tee"))
+        logger = self.bin / "tee"
+        logger.unlink()
+        logger.write_text('#!/bin/bash\nif [[ "$1" == */tests.log ]]; then exit 9; fi\n'
+                          f'exec {real_tee} "$@"\n')
+        logger.chmod(0o755)
+        self.assertEqual(self.run_cli("full").returncode, 9)
+        self.assertEqual(self.run_cli("full", scenario="test-failure").returncode, 65)
+
     def test_malformed_report_does_not_hide_test_failure(self):
         self.assertEqual(self.run_cli("full", scenario="test-failure-malformed").returncode, 65)
 
@@ -148,6 +159,13 @@ class ValidationCLI(unittest.TestCase):
         result = self.run_cli("full")
         self.assertEqual(result.returncode, 2)
         self.assertIn("must remain serial", result.stderr)
+
+    def test_unpinned_test_locale_is_rejected(self):
+        scheme = next(self.repo.glob("**/*.xcscheme"))
+        scheme.write_text(scheme.read_text().replace('language = "ru"', 'language = "en"'))
+        result = self.run_cli("full")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("ru/RU baseline", result.stderr)
 
     def test_zero_tests_and_no_result_are_not_success(self):
         for scenario in ["zero-tests", "no-result", "parameter-no-result", "malformed-report"]:

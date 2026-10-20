@@ -68,12 +68,27 @@ run() {
     shift
     printf '%q ' "$@" >> "$run_dir/commands.sh"
     printf '\n' >> "$run_dir/commands.sh"
+    echo "Starting phase: $label"
     # Xcode may emit simulator warnings on stderr even with -json. Keep the
     # machine-readable stdout intact and retain diagnostics as a sibling log.
-    if "$@" > "$run_dir/$label.log" 2> "$run_dir/$label.stderr.log"; then status=0; else status=$?; fi
+    if [[ "$label" == build || "$label" == tests ]]; then
+        # Stream long-running phases while retaining raw stdout. Capture both
+        # pipeline statuses immediately so a formatter/logger cannot hide Xcode.
+        local pipeline_status
+        if "$@" 2> "$run_dir/$label.stderr.log" | tee "$run_dir/$label.log"; then
+            status=0
+        else
+            pipeline_status=("${PIPESTATUS[@]}")
+            status=${pipeline_status[0]}
+            ((status != 0)) || status=${pipeline_status[1]}
+        fi
+    else
+        if "$@" > "$run_dir/$label.log" 2> "$run_dir/$label.stderr.log"; then status=0; else status=$?; fi
+    fi
     echo "$status" > "$run_dir/$label.exit-status"
+    echo "Completed phase: $label (exit $status)"
     if ((status != 0)); then
-        cat "$run_dir/$label.log" >&2
+        if [[ "$label" != build && "$label" != tests ]]; then cat "$run_dir/$label.log" >&2; fi
         cat "$run_dir/$label.stderr.log" >&2
         echo "ERROR: $label failed ($status)" >&2
     fi
@@ -86,6 +101,9 @@ scheme_file=RSSReader.xcodeproj/xcshareddata/xcschemes/RSSReader.xcscheme
 [[ -f "$scheme_file" ]] || die "Missing shared RSSReader scheme"
 serial=$(xmllint --xpath 'string(//TestableReference[BuildableReference/@BlueprintName="RSSReaderTests"]/@parallelizable)' "$scheme_file")
 [[ "$serial" == NO ]] || die "RSSReaderTests must remain serial in the shared scheme"
+test_language=$(xmllint --xpath 'string(//TestAction/@language)' "$scheme_file")
+test_region=$(xmllint --xpath 'string(//TestAction/@region)' "$scheme_file")
+[[ "$test_language" == ru && "$test_region" == RU ]] || die "RSSReaderTests requires the shared ru/RU baseline"
 if [[ -n "$ui_target" ]]; then
     [[ "$ui_target" != RSSReaderTests && "$ui_target" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "Invalid UI smoke target"
     ui_present=$(xmllint --xpath "count(//TestableReference[@skipped='NO'][BuildableReference/@BlueprintName='$ui_target'])" "$scheme_file")
@@ -137,7 +155,7 @@ derived_data=$(cd "$derived_data" && pwd -P)
 base+=(-derivedDataPath "$derived_data")
 jq -n --arg mode "$mode" --arg destination "$destination" --arg minimum "$minimum_ios" \
     --arg derivedData "$derived_data" --arg artifacts "$run_dir" --arg ui "$ui_target" \
-    '{mode:$mode,destination:$destination,minimumIOS:$minimum,derivedData:$derivedData,artifacts:$artifacts,uiSmokeTarget:$ui}' > "$run_dir/context.json"
+    '{mode:$mode,destination:$destination,minimumIOS:$minimum,derivedData:$derivedData,artifacts:$artifacts,uiSmokeTarget:$ui,testLanguage:"ru",testRegion:"RU"}' > "$run_dir/context.json"
 echo "Mode: $mode; destination: $destination; DerivedData: $derived_data"
 if [[ "$mode" == full ]]; then run build "${base[@]}" clean build; else run build "${base[@]}" build; fi
 selection=(-only-testing:RSSReaderTests)

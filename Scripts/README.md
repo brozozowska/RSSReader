@@ -15,6 +15,9 @@ utilities. Скрипт проверяет shared scheme и effective settings D
 Simulator SDK, точный minimum-supported runtime и доступный simulator в нём.
 Baseline берётся из project settings. При отсутствии prerequisites проверка
 завершается ошибкой; runtime и simulator автоматически не устанавливаются.
+Shared TestAction задаёт язык `ru` и регион `RU`: часть unit assertions проверяет
+русские строки. Скрипт проверяет этот baseline, чтобы результат не зависел от
+языка Mac/Simulator. Это не заменяет отдельную locale regression matrix.
 
 ## Режимы
 
@@ -65,7 +68,9 @@ runtime. Более новый destination не заменяет отдельн�
 
 Ошибка аргументов или preflight даёт ненулевой статус. Ошибка внешней команды
 сохраняет её статус, в частности build/test failure не скрывается обработкой
-логов. При test failure скрипт всё равно пытается извлечь `.xcresult`.
+логов. Названия фаз и исходный stdout build/tests выводятся в консоль; stderr
+сохраняется отдельно и печатается при ошибке. При test failure скрипт всё равно
+пытается извлечь `.xcresult`.
 Ноль выполненных тестов, cases без результата и неполный/неуспешный отчёт
 не считаются успехом (report gate: exit 3). Expected failures отражаются отдельно.
 Skipped tests перечислены счётчиком; успешный run не означает, что они проверены.
@@ -103,7 +108,11 @@ workflow проверяет exact Xcode version/build, а `validate.sh` — SDK,
 runtime и доступный simulator. При изменении inventory проверка завершается
 ошибкой; fallback на latest, другой Xcode/runtime или снижение target отсутствует.
 
-Job timeout — 70 минут, validation step — 45 минут; оставшееся время отведено
+Перед validation отдельный шаг выбирает существующий `iPhone 18 Pro` на iOS 27.0
+и ожидает его boot через `simctl bootstatus -b` (timeout 10 минут). UUID передаётся
+в `validate.sh --destination`; runtime/устройство не создаются и не устанавливаются.
+
+Job timeout — 80 минут, validation step — 45 минут; оставшееся время отведено
 в том числе диагностике. Оба завершающих шага используют `always()`:
 `rssreader-ci-diagnostics.tar.gz` содержит raw environment/build/test logs,
 phase statuses, reports и доступный `Tests.xcresult`, включая частичный bundle.
