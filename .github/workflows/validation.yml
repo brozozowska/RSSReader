@@ -1,0 +1,87 @@
+name: Validation
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-unit:
+    name: Clean build and full unit suite
+    # Preview image inventory checked 2026-10-20:
+    # https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md
+    runs-on: xcode-27
+    # Leave time after the validation timeout to package/upload partial results.
+    timeout-minutes: 70
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      EXPECTED_XCODE_VERSION: '27.1'
+      EXPECTED_XCODE_BUILD: 27A9275
+
+    steps:
+      - name: Checkout
+        timeout-minutes: 5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Verify pinned toolchain
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          CI_ARTIFACTS="$RUNNER_TEMP/rssreader-ci"
+          mkdir -p "$CI_ARTIFACTS"
+          {
+            printf 'ImageOS=%s\nImageVersion=%s\n' "${ImageOS:-unknown}" "${ImageVersion:-unknown}"
+            sw_vers
+            uname -m
+            ls -d /Applications/Xcode*.app
+            test -d "$DEVELOPER_DIR"
+            xcodebuild -version > "$CI_ARTIFACTS/xcode-version.txt"
+            cat "$CI_ARTIFACTS/xcode-version.txt"
+            test "$(sed -n '1p' "$CI_ARTIFACTS/xcode-version.txt")" = "Xcode $EXPECTED_XCODE_VERSION"
+            test "$(sed -n '2p' "$CI_ARTIFACTS/xcode-version.txt")" = "Build version $EXPECTED_XCODE_BUILD"
+            xcrun --sdk iphonesimulator --show-sdk-version
+            xcrun simctl list --json devices runtimes > "$CI_ARTIFACTS/simulators.json"
+          } 2>&1 | tee "$CI_ARTIFACTS/environment.log"
+
+      - name: Clean build and run all unit tests
+        timeout-minutes: 45
+        run: |
+          set -euo pipefail
+          CI_ARTIFACTS="$RUNNER_TEMP/rssreader-ci"
+          Scripts/validate.sh full --fresh --artifacts-dir "$CI_ARTIFACTS" \
+            2>&1 | tee "$CI_ARTIFACTS/validation.log"
+
+      - name: Package diagnostics including partial xcresult
+        if: ${{ always() }}
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          CI_ARTIFACTS="$RUNNER_TEMP/rssreader-ci"
+          if [[ -d "$CI_ARTIFACTS" ]]; then
+            tar --exclude='DerivedData' -czf "$RUNNER_TEMP/rssreader-ci-diagnostics.tar.gz" \
+              -C "$CI_ARTIFACTS" .
+          fi
+
+      - name: Upload diagnostics
+        if: ${{ always() }}
+        timeout-minutes: 5
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/rssreader-ci-diagnostics.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

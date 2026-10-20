@@ -86,3 +86,36 @@ python3 Scripts/test_validate.py
 
 Эти проверки используют изолированные fake tools для failure paths и отчётов;
 они дополняют реальные `fast`/`full`, а не заменяют их.
+
+## GitHub Actions
+
+`.github/workflows/validation.yml` запускает `full --fresh` для pull requests,
+pushes в `main` и `workflow_dispatch`. Ручной запуск становится доступен после
+появления workflow в default branch; для первого CI run нужен pull request.
+
+Выбран hosted preview runner `xcode-27` (macOS 27, arm64), Xcode 27.1 build
+`27A9275` через `/Applications/Xcode_27.1.app/Contents/Developer` и точный minimum
+runtime iOS 27.0. Источник выбора — [runner inventory](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md),
+image `20261012.0260.1`, проверенный 20 октября 2026. Preview status означает
+возможные environment/queue failures. Label не фиксирует весь VM image:
+workflow проверяет exact Xcode version/build, а `validate.sh` — SDK, minimum
+runtime и доступный simulator. При изменении inventory проверка завершается
+ошибкой; fallback на latest, другой Xcode/runtime или снижение target отсутствует.
+
+Job timeout — 70 минут, validation step — 45 минут; оставшееся время отведено
+в том числе диагностике. Оба завершающих шага используют `always()`:
+`rssreader-ci-diagnostics.tar.gz` содержит raw environment/build/test logs,
+phase statuses, reports и доступный `Tests.xcresult`, включая частичный bundle.
+DerivedData исключён из архива. Артефакт `validation-<run_id>-<run_attempt>`
+сохраняется на 7 дней, включая успешные runs. При принудительном завершении VM
+или job timeout доставка артефакта не гарантируется.
+
+`pipefail` сохраняет build/test failure через `tee`; упаковка/upload не заменяют
+его успешным статусом. Workflow использует только read-only repository token,
+не сохраняет checkout credentials, не требует secrets, Apple account или live
+CloudKit; release/signing/deployment и UI smoke в него не входят.
+
+Статическая проверка: `actionlint .github/workflows/validation.yml`.
+`.github/actionlint.yaml` дополняет inventory линтера preview label `xcode-27`;
+название секции `self-hosted-runner` принадлежит формату actionlint и не означает
+использование self-hosted infrastructure.
