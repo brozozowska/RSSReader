@@ -1,7 +1,7 @@
 import Foundation
 @testable import RSSReader
 
-actor ScriptedHTTPClient: HTTPClient {
+actor ScriptedHTTPClient {
     enum Step: Sendable {
         case response(statusCode: Int, headers: [String: String], body: String)
         case dataResponse(statusCode: Int, headers: [String: String], body: Data)
@@ -157,6 +157,10 @@ actor ScriptedHTTPClient: HTTPClient {
         inFlightExecutions
     }
 }
+
+// Keep imported nonisolated protocol inference off the actor declaration.
+// Xcode 27.1 on hosted runners can otherwise reject it as implicitly nonisolated.
+extension ScriptedHTTPClient: HTTPClient {}
 
 actor ScriptedHTTPClientResponseGate {
     private var entryCount = 0
