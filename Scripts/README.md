@@ -51,7 +51,8 @@ runtime. Более новый destination не заменяет отдельн�
 завершении. Артефакты не удаляются автоматически и не предназначены для Git:
 
 - `commands.sh`, `context.json`, toolchain/settings/simulator logs;
-- исходные `build.log`, `tests.log` и phase-specific `.exit-status`;
+- исходные stdout `build.log`, `tests.log`, отдельные phase-specific `.stderr.log`
+  и `.exit-status` (diagnostics не смешиваются с JSON/SDK stdout);
 - `Tests.xcresult`, если Xcode успел его создать;
 - `summary.log`, `test-tree.log` — JSON от `xcresulttool`;
 - `report.json` — passed/failed/skipped/expected failures, executed и cases без

@@ -68,10 +68,13 @@ run() {
     shift
     printf '%q ' "$@" >> "$run_dir/commands.sh"
     printf '\n' >> "$run_dir/commands.sh"
-    if "$@" > "$run_dir/$label.log" 2>&1; then status=0; else status=$?; fi
+    # Xcode may emit simulator warnings on stderr even with -json. Keep the
+    # machine-readable stdout intact and retain diagnostics as a sibling log.
+    if "$@" > "$run_dir/$label.log" 2> "$run_dir/$label.stderr.log"; then status=0; else status=$?; fi
     echo "$status" > "$run_dir/$label.exit-status"
     if ((status != 0)); then
         cat "$run_dir/$label.log" >&2
+        cat "$run_dir/$label.stderr.log" >&2
         echo "ERROR: $label failed ($status)" >&2
     fi
     return "$status"

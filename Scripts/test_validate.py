@@ -13,6 +13,7 @@ FAKE = r'''
 import json, os, pathlib, sys
 a = sys.argv[1:]
 scenario = os.environ.get("SCENARIO", "ok")
+if scenario == "diagnostic-stderr": print("Simulator diagnostic fixture", file=sys.stderr)
 def emit(value): print(json.dumps(value))
 if pathlib.Path(sys.argv[0]).name == "xcodebuild":
     if "-version" in a: print("Xcode fixture")
@@ -96,6 +97,15 @@ class ValidationCLI(unittest.TestCase):
         self.assertIn("clean build", commands)
         self.assertIn("-only-testing:RSSReaderTests ", commands)
         self.assertNotIn("-only-testing:RSSReaderTests/", commands)
+
+    def test_stderr_diagnostics_do_not_corrupt_json_or_sdk_output(self):
+        result = self.run_cli("full", scenario="diagnostic-stderr")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        for label in ["project", "settings-Debug", "settings-Release", "destination-settings", "summary", "test-tree"]:
+            with self.subTest(label=label):
+                json.loads(self.artifact(f"{label}.log").read_text())
+                self.assertIn("Simulator diagnostic fixture", self.artifact(f"{label}.stderr.log").read_text())
+        self.assertEqual(self.artifact("sdk-version.log").read_text().strip(), "27.1")
 
     def test_invalid_arguments(self):
         for args in [("invalid",), ("fast", "--unknown"), ("fast", "--destination"),
