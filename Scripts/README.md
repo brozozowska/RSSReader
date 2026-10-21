@@ -97,8 +97,10 @@ python3 Scripts/test_validate.py
 
 ## GitHub Actions
 
-`.github/workflows/validation.yml` запускает `full --fresh` для pull requests,
-pushes в `main` и `workflow_dispatch`. Ручной запуск становится доступен после
+`.github/workflows/validation.yml` запускает `full --fresh` для pull requests
+и `workflow_dispatch`. Повторного автоматического запуска после merge/push в
+`main` нет: обязательная проверка выполняется на PR перед merge.
+Ручной запуск становится доступен после
 появления workflow в default branch; для первого CI run нужен pull request.
 
 Выбран hosted preview runner `xcode-27` (macOS 27, arm64), Xcode 27.1 build
