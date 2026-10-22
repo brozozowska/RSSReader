@@ -12,10 +12,14 @@ struct SidebarView: View {
 
     init(
         selection: Binding<SidebarSelection?>,
-        previewScreenState: SidebarScreenState? = nil
+        previewScreenState: SidebarScreenState? = nil,
+        folderExpansionStore: SidebarFolderExpansionStore? = nil
     ) {
         _selection = selection
-        self._controller = State(initialValue: SidebarScreenController(previewScreenState: previewScreenState))
+        self._controller = State(initialValue: SidebarScreenController(
+            previewScreenState: previewScreenState,
+            folderExpansionStore: folderExpansionStore
+        ))
     }
 
     var body: some View {

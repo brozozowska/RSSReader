@@ -16,6 +16,7 @@ struct ReaderArticleContentView: View {
                 actionHandlers: actionHandlers
             )
             .id(content.articleID)
+            .accessibilityIdentifier("reader.content.\(content.articleID.uuidString)")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -41,6 +42,7 @@ private struct ReaderArticleHeaderView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(ReadingLocalization.openOriginalArticleAccessibilityLabel)
+                .accessibilityIdentifier("reader.openSource")
             } else {
                 Text(header.title)
                     .font(.title2.weight(.semibold))

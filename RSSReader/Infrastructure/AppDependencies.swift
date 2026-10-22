@@ -40,6 +40,7 @@ final class AppDependencies {
     let httpClient: any HTTPClient
     let feedFetcher: any FeedFetching
     let articleImageRuntime: ArticleImageRuntime
+    let sidebarFolderExpansionStore: SidebarFolderExpansionStore
     var articleImageCache: any ArticleImageCacheManaging { articleImageRuntime }
     let feedIconCache: any FeedIconCaching
     let feedRefreshService: FeedRefreshService?
@@ -81,6 +82,7 @@ final class AppDependencies {
         feedFetcher: (any FeedFetching)? = nil,
         feedIconCache: (any FeedIconCaching)? = nil,
         articleImageRuntime: ArticleImageRuntime? = nil,
+        sidebarFolderExpansionStore: SidebarFolderExpansionStore? = nil,
         modelContainer: ModelContainer? = nil,
         modelContainerBootstrapFailureDescription: String? = nil,
         syncBackedStoreReference: SyncBackedStoreReference? = nil,
@@ -265,6 +267,7 @@ final class AppDependencies {
         let syncBootstrapPreferenceStore = syncBootstrapPreferenceStore
             ?? AppSyncBootstrapPreferenceStore(logger: logger)
         self.articleImageRuntime = articleImageRuntime ?? .makeIsolated()
+        self.sidebarFolderExpansionStore = sidebarFolderExpansionStore ?? SidebarFolderExpansionStore()
         self.logger = logger
         self.httpClient = httpClient
         self.feedIconCache = resolvedFeedIconCache

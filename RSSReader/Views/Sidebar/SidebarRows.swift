@@ -25,6 +25,7 @@ struct SidebarFeedRowView: View {
 
             Text(row.title)
                 .lineLimit(1)
+                .accessibilityIdentifier("sidebar.feed.\(row.id.uuidString)")
 
             Spacer()
 

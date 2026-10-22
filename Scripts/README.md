@@ -79,12 +79,50 @@ Skipped tests перечислены счётчиком; успешный run н
 
 ## UI и границы проверки
 
-`fast` и `full` запускают только unit tests. После добавления UI smoke в #720
-включать его явно: `--ui-smoke-target <ACTUAL_TARGET_NAME>`. Target должен быть
-включён в shared scheme; до его появления опция завершится понятной ошибкой.
-UI smoke и ручная визуальная проверка остаются разными видами evidence.
-`build-for-testing` отдельно только собирает тесты и не подтверждает их выполнение.
-Скрипт не исправляет scheduler-dependent waits (#849) и image isolation (#848).
+`fast` и `full` запускают только unit tests. UI smoke включается явно:
+
+```sh
+Scripts/validate.sh fast --ui-smoke-target RSSReaderUITests \
+  --destination 'platform=iOS Simulator,name=<IPHONE_OR_IPAD_NAME>,OS=27.0'
+```
+
+Эта команда выполняет build, быстрые unit suites и UI smoke. Для полного unit
+runner вместе с UI используйте `full`. В shared scheme `RSSReader` оба test targets
+включены, поэтому Xcode Run All Tests запускает также UI suite; unit-only CLI
+должен сохранять `-only-testing:RSSReaderTests`.
+
+Отдельный UI-only запуск из repository root:
+
+```sh
+xcodebuild -project RSSReader.xcodeproj -scheme RSSReader -configuration Debug \
+  -destination 'platform=iOS Simulator,name=<IPHONE_OR_IPAD_NAME>,OS=27.0' \
+  -derivedDataPath <ISOLATED_DERIVED_DATA_PATH> \
+  -resultBundlePath <NEW_RESULT_BUNDLE_PATH> \
+  -only-testing:RSSReaderUITests test
+```
+
+Выполните suite отдельно на iPhone и iPad, затем повторите с новым result path.
+Для iPad suite использует landscape и проверяет доступность списка рядом с Reader.
+Нужны уже установленный iOS 27.0 runtime и созданные destinations; отсутствующая
+проверка не считается successful run. Фактическое выполнение и результаты
+проверяйте в `.xcresult`, включая failures/skips и нулевой test count.
+
+`NavigationSmokeTests` запускает приложение с `--ui-smoke` и
+`RSSREADER_UI_SMOKE_SOURCE_URL`, передавая адрес собственного HTTP fixture server
+на `127.0.0.1` с динамическим портом. Test-only bootstrap доступен только в Debug
+Simulator, срабатывает до production migration/stores и отклоняет отсутствующий
+или нелокальный URL. Каждый launch создаёт новые in-memory SwiftData stores,
+settings, folder preferences и feed-icon cache; image runtime изолирован и offline.
+CloudKit sources и background scheduler подменены локальными зависимостями.
+UI runner отклоняет Release/device запуск до app launch. Аргументы не сохраняются в shared LaunchAction; обычный запуск использует live
+composition. Реальный `SFSafariViewController` получает локальную HTML-страницу.
+
+Suite проверяет Reader/Safari/return routes, Settings dismissal и повторный launch.
+Assertions используют semantic identifiers и bounded waits. На iOS 27 рамка URL в accessibility Safari перекрывает Close: автоматический XCTest hit point на iPhone попадает в угол вне круглой кнопки. Только для этого native control нажатие направляется в центр его актуального semantic element frame; фиксированные экранные координаты не используются. Business logic
+остаётся в unit tests; pixel layout, жесты, RTL/Dynamic Type и ручная визуальная
+корректность этим suite не подтверждаются. Hosted CI пока запускает только unit
+baseline: UI не добавлен без отдельной проверки runner/destination.
+`build-for-testing` только собирает тесты и не подтверждает их выполнение.
 
 Проверка самого CLI без Xcode/Simulator:
 

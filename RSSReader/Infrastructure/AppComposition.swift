@@ -24,6 +24,15 @@ enum AppComposition {
         modelPartition: AppPersistenceModelPartition? = nil,
         syncEnablementPolicy: AppSyncEnablementPolicy? = nil
     ) -> AppDependencies {
+#if DEBUG && targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("--ui-smoke") {
+            do {
+                return try UISmokeBootstrap.makeDependencies(environment: ProcessInfo.processInfo.environment)
+            } catch {
+                fatalError("UI smoke bootstrap failed: \(error)")
+            }
+        }
+#endif
         let logger = AppDependencies.makeDefaultLogger()
         let resolvedModelPartition = modelPartition ?? persistenceModelPartition
         let resolvedSyncEnablementPolicy = syncEnablementPolicy ?? self.syncEnablementPolicy

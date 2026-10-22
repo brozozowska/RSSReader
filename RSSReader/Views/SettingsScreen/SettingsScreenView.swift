@@ -46,6 +46,7 @@ struct SettingsScreenView: View {
                             Image(systemName: "xmark")
                         }
                         .accessibilityLabel(SettingsLocalization.closeSettingsAccessibilityLabel)
+                        .accessibilityIdentifier("settings.close")
                     }
 
                     ToolbarItem(placement: .confirmationAction) {

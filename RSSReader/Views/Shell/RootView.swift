@@ -33,7 +33,7 @@ struct RootView: View {
         )
 
         NavigationSplitView {
-            SidebarView(selection: sidebarSelection)
+            SidebarView(selection: sidebarSelection, folderExpansionStore: dependencies.sidebarFolderExpansionStore)
         } content: {
             ArticleListView(
                 selectedSidebarSelection: appState.selectedSidebarSelection,

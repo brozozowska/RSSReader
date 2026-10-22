@@ -43,6 +43,13 @@
                ReferencedContainer = "container:RSSReader.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference skipped = "NO" parallelizable = "NO">
+            <BuildableReference BuildableIdentifier = "primary"
+               BlueprintIdentifier = "720000000000000000000001"
+               BuildableName = "RSSReaderUITests.xctest" BlueprintName = "RSSReaderUITests"
+               ReferencedContainer = "container:RSSReader.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
