@@ -525,12 +525,13 @@ struct ArticleImageLoaderTests {
             await completion.markCompleted()
             return image
         }
-
-        await diskCache.waitUntilInsertStarts()
-        for _ in 0..<100 {
-            if await completion.isCompleted { break }
-            await Task.yield()
+        defer {
+            task.cancel()
+            diskCache.insertRelease.release()
         }
+
+        try await diskCache.waitUntilInsertStarts()
+        try await completion.waitUntilCompleted()
 
         #expect(await completion.isCompleted)
         #expect(fixture.memoryCache.image(for: imageURL) != nil)
@@ -538,7 +539,8 @@ struct ArticleImageLoaderTests {
 
         await diskCache.resumeInsert()
         _ = try await task.value
-        #expect(try await waitForCachedData(in: diskCache, for: imageURL) == imageData)
+        try await diskCache.waitUntilInsertCompletes()
+        #expect(await diskCache.data(for: imageURL) == imageData)
     }
 
     private func makeFixture(
@@ -658,9 +660,9 @@ private actor DiscardingArticleImageDiskCache: ArticleImageDiskCaching {
 
 private actor SuspendedArticleImageDiskCache: ArticleImageDiskCaching {
     private var storage: [URL: Data] = [:]
-    private var insertStarted = false
-    private var insertStartWaiters: [CheckedContinuation<Void, Never>] = []
-    private var insertContinuation: CheckedContinuation<Void, Never>?
+    private let insertStarted = AsyncTestGate()
+    nonisolated let insertRelease = AsyncTestGate()
+    private let insertCompleted = AsyncTestGate()
 
     func data(for url: URL) -> Data? {
         storage[url]
@@ -670,38 +672,42 @@ private actor SuspendedArticleImageDiskCache: ArticleImageDiskCaching {
         storage[url]
     }
 
-    func insert(_ data: Data, for url: URL) async {
-        insertStarted = true
-        insertStartWaiters.forEach { $0.resume() }
-        insertStartWaiters.removeAll()
-
-        await withCheckedContinuation { continuation in
-            insertContinuation = continuation
-        }
+    func insert(_ data: Data, for url: URL) async throws {
+        insertStarted.release()
+        // Keep this watchdog longer than the image-completion deadline so a
+        // blocked loader cannot pass merely because the fixture timed out.
+        try await insertRelease.wait("optional disk insertion released", timeout: .seconds(10))
         storage[url] = data
+        insertCompleted.release()
     }
 
     func removeData(for url: URL) {
         storage[url] = nil
     }
 
-    func waitUntilInsertStarts() async {
-        guard insertStarted == false else { return }
-        await withCheckedContinuation { continuation in
-            insertStartWaiters.append(continuation)
-        }
+    func waitUntilInsertStarts() async throws {
+        try await insertStarted.wait("optional disk insertion started")
+    }
+
+    func waitUntilInsertCompletes() async throws {
+        try await insertCompleted.wait("optional disk insertion completed")
     }
 
     func resumeInsert() {
-        insertContinuation?.resume()
-        insertContinuation = nil
+        insertRelease.release()
     }
 }
 
 private actor ArticleImageLoadCompletionProbe {
     private(set) var isCompleted = false
+    private let completed = AsyncTestGate()
 
     func markCompleted() {
         isCompleted = true
+        completed.release()
+    }
+
+    func waitUntilCompleted() async throws {
+        try await completed.wait("decoded image returned before disk insertion released")
     }
 }

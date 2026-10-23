@@ -16,6 +16,7 @@ struct ReaderArticleContentView: View {
                 actionHandlers: actionHandlers
             )
             .id(content.articleID)
+            .accessibilityIdentifier("reader.content.\(content.articleID.uuidString)")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -41,6 +42,7 @@ private struct ReaderArticleHeaderView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(ReadingLocalization.openOriginalArticleAccessibilityLabel)
+                .accessibilityIdentifier("reader.openSource")
             } else {
                 Text(header.title)
                     .font(.title2.weight(.semibold))
@@ -80,6 +82,7 @@ private struct ReaderArticleBodyBlocksView: View {
 }
 
 private struct ReaderArticleBodyBlockView: View {
+    @Environment(\.appDependencies) private var dependencies
     let block: ArticleScreenBodyBlock
     let actionHandlers: ArticleScreenActionHandlers
 
@@ -167,7 +170,7 @@ private struct ReaderArticleBodyBlockView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         case .image(let url):
-            CachedArticleImageView(url: url)
+            CachedArticleImageView(url: url, imageLoading: dependencies.articleImageRuntime.imageLoading)
                 .id(url)
         case .media(let media):
             ReaderArticleMediaView(

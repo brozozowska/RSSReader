@@ -40,6 +40,7 @@ struct ArticleListContentView: View {
             paginationFooter
         }
         .disabled(allowsArticleActions == false)
+        .accessibilityIdentifier("articles.list")
         .listStyle(.plain)
         .listSectionSpacing(12)
         .scrollContentBackground(.hidden)

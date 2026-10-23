@@ -142,7 +142,8 @@ struct FeedRefreshServiceConcurrencyTests {
     @Test
     func simultaneousCallerCancellationCancelsSharedRefreshAndCleansRegistry() async throws {
         let harness = try makeCancellationHarness(
-            feedURL: "https://example.com/all-callers-cancelled-feed.xml"
+            feedURL: "https://example.com/all-callers-cancelled-feed.xml",
+            honorsTransportCancellation: false
         )
         let feed = harness.feed
         harness.feedOperations.reset()
@@ -182,7 +183,8 @@ struct FeedRefreshServiceConcurrencyTests {
     @Test
     func callerArrivingWhileCancelledExecutionDrainsStartsAfterCleanup() async throws {
         let feedURL = "https://example.com/draining-retry-feed.xml"
-        let cancelledExecutionGate = ScriptedHTTPClientResponseGate()
+        // Keep the cancelled execution suspended to exercise the draining registry.
+        let cancelledExecutionGate = ScriptedHTTPClientResponseGate(honorsCancellation: false)
         let retryExecutionGate = ScriptedHTTPClientResponseGate()
         let responseBody = makeCoalescedFeedXML()
         let feedOperations = SwiftDataRepositoryOperationCounter()
@@ -252,7 +254,8 @@ struct FeedRefreshServiceConcurrencyTests {
     }
 
     private func makeCancellationHarness(
-        feedURL: String
+        feedURL: String,
+        honorsTransportCancellation: Bool = true
     ) throws -> (
         testHarness: TestHarness,
         feed: Feed,
@@ -260,7 +263,7 @@ struct FeedRefreshServiceConcurrencyTests {
         articleOperations: SwiftDataRepositoryOperationCounter,
         responseGate: ScriptedHTTPClientResponseGate
     ) {
-        let responseGate = ScriptedHTTPClientResponseGate()
+        let responseGate = ScriptedHTTPClientResponseGate(honorsCancellation: honorsTransportCancellation)
         let responseBody = makeCoalescedFeedXML()
         let feedOperations = SwiftDataRepositoryOperationCounter()
         let articleOperations = SwiftDataRepositoryOperationCounter()

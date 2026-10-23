@@ -66,6 +66,7 @@ private struct ArticleSafariViewController: UIViewControllerRepresentable {
         )
         safariViewController.dismissButtonStyle = presentationConfiguration.dismissButtonStyle
         safariViewController.delegate = context.coordinator
+        safariViewController.view.accessibilityIdentifier = "safari.browser"
         context.coordinator.installBackNavigationGesture(
             on: safariViewController.view,
             layoutDirection: context.environment.layoutDirection,

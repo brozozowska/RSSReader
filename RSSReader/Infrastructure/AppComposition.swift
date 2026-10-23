@@ -13,8 +13,6 @@ enum AppComposition {
     static let localOnlyModels = persistenceModelPartition.localOnlyModels
     static let appModels = persistenceModelPartition.allModels
     @MainActor
-    static let disposableCacheMigrationGuard = AppLaunchBootstrapGuard()
-    @MainActor
     static let developmentSchemaBootstrapGuard = AppLaunchBootstrapGuard()
     @MainActor
     static let backgroundRefreshLaunchSchedulingGuard = AppLaunchBootstrapGuard()
@@ -24,11 +22,18 @@ enum AppComposition {
         modelPartition: AppPersistenceModelPartition? = nil,
         syncEnablementPolicy: AppSyncEnablementPolicy? = nil
     ) -> AppDependencies {
+#if DEBUG && targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("--ui-smoke") {
+            do {
+                return try UISmokeBootstrap.makeDependencies(environment: ProcessInfo.processInfo.environment)
+            } catch {
+                fatalError("UI smoke bootstrap failed: \(error)")
+            }
+        }
+#endif
         let logger = AppDependencies.makeDefaultLogger()
         let resolvedModelPartition = modelPartition ?? persistenceModelPartition
         let resolvedSyncEnablementPolicy = syncEnablementPolicy ?? self.syncEnablementPolicy
-
-        runDisposableCacheMigrationIfNeeded(logger: logger)
 
 #if DEBUG
         runDevelopmentSchemaBootstrapIfNeeded(logger: logger)
@@ -40,7 +45,8 @@ enum AppComposition {
             syncEnablementPolicy: resolvedSyncEnablementPolicy,
             syncCoordinator: syncCoordinator,
             globalOrphanSweepScheduleStore: UserDefaultsGlobalOrphanSweepScheduleStore(),
-            logger: logger
+            logger: logger,
+            articleImageRuntime: .makeLive()
         )
         dependencies.startSyncCoordinatorAppLifetime()
         return dependencies

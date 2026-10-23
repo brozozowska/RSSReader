@@ -35,7 +35,8 @@ extension AppDependencies {
         syncCoordinator: SyncCoordinator,
         syncBootstrapPreferenceStore: (any AppSyncBootstrapPreferenceStoring)? = nil,
         globalOrphanSweepScheduleStore: (any GlobalOrphanSweepScheduleStoring)? = nil,
-        logger: Logging? = nil
+        logger: Logging? = nil,
+        articleImageRuntime: ArticleImageRuntime? = nil
     ) -> AppDependencies {
         let logger = logger ?? makeDefaultLogger()
 
@@ -102,6 +103,7 @@ extension AppDependencies {
         }
         return AppDependencies(
             logger: logger,
+            articleImageRuntime: articleImageRuntime,
             modelContainer: modelContainer,
             modelContainerBootstrapFailureDescription: modelContainerBootstrapFailureDescription,
             syncBackedStoreReference: syncBackedStoreReference,

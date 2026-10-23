@@ -60,12 +60,11 @@ final class SettingsScreenController {
 
     func refreshArticleImageCacheAvailability(dependencies: AppDependencies) async {
         do {
-            let hasDiskCache = try await ArticleImageDiskCache.shared.isEmpty() == false
-            let hasMemoryCache = ArticleImageMemoryCache.shared.hasImages
-            screenState.applyArticleImageCacheAvailability(hasDiskCache || hasMemoryCache)
+            let hasCache = try await dependencies.articleImageCache.hasCachedImages()
+            screenState.applyArticleImageCacheAvailability(hasCache)
         } catch {
             dependencies.logger.error("Failed to inspect article image cache: \(error)")
-            screenState.applyArticleImageCacheAvailability(ArticleImageMemoryCache.shared.hasImages)
+            screenState.applyArticleImageCacheAvailability(dependencies.articleImageCache.hasMemoryImages)
         }
     }
 

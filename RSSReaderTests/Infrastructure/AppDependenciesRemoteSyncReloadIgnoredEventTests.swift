@@ -35,13 +35,13 @@ struct AppDependenciesRemoteSyncReloadIgnoredEventTests {
             remoteChangeSource: remoteChangeSource
         )
 
-        await remoteChangeSource.yield(
+        try await remoteChangeSource.yieldAndWait(
             PersistentStoreRemoteChangeEvent(
                 storeUUID: "SyncBackedStore",
                 storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
             )
         )
-        await cloudKitRuntimeEventSource.yield(
+        try await cloudKitRuntimeEventSource.yieldAndWait(
             .finished(
                 .export,
                 CloudKitRuntimeEventContext(
@@ -53,7 +53,7 @@ struct AppDependenciesRemoteSyncReloadIgnoredEventTests {
             )
         )
 
-        try await expectAppDependenciesNoReload(
+        expectAppDependenciesNoReload(
             sidebarReloadID: initialSidebarReloadID,
             articleListReloadID: initialArticleListReloadID,
             articleScreenReloadID: initialArticleScreenReloadID,
@@ -89,13 +89,13 @@ struct AppDependenciesRemoteSyncReloadIgnoredEventTests {
             remoteChangeSource: remoteChangeSource
         )
 
-        await remoteChangeSource.yield(
+        try await remoteChangeSource.yieldAndWait(
             PersistentStoreRemoteChangeEvent(
                 storeUUID: "LocalOnlyStore",
                 storeURL: URL(string: "file:///tmp/LocalOnlyStore.sqlite")
             )
         )
-        await cloudKitRuntimeEventSource.yield(
+        try await cloudKitRuntimeEventSource.yieldAndWait(
             .finished(
                 .import,
                 CloudKitRuntimeEventContext(
@@ -106,8 +106,6 @@ struct AppDependenciesRemoteSyncReloadIgnoredEventTests {
                 )
             )
         )
-
-        try await Task.sleep(for: .milliseconds(100))
 
         #expect(appState.sidebarReloadID == initialSidebarReloadID)
         #expect(appState.articleListReloadID == initialArticleListReloadID)
@@ -142,13 +140,13 @@ struct AppDependenciesRemoteSyncReloadIgnoredEventTests {
             remoteChangeSource: remoteChangeSource
         )
 
-        await remoteChangeSource.yield(
+        try await remoteChangeSource.yieldAndWait(
             PersistentStoreRemoteChangeEvent(
                 storeUUID: "SyncBackedStore",
                 storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
             )
         )
-        await cloudKitRuntimeEventSource.yield(
+        try await cloudKitRuntimeEventSource.yieldAndWait(
             .finished(
                 .import,
                 CloudKitRuntimeEventContext(
@@ -159,8 +157,6 @@ struct AppDependenciesRemoteSyncReloadIgnoredEventTests {
                 )
             )
         )
-
-        try await Task.sleep(for: .milliseconds(100))
 
         #expect(appState.sidebarReloadID == initialSidebarReloadID)
         #expect(appState.articleListReloadID == initialArticleListReloadID)
@@ -196,13 +192,13 @@ struct AppDependenciesRemoteSyncReloadIgnoredEventTests {
             remoteChangeSource: remoteChangeSource
         )
 
-        await remoteChangeSource.yield(
+        try await remoteChangeSource.yieldAndWait(
             PersistentStoreRemoteChangeEvent(
                 storeUUID: "SyncBackedStore",
                 storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
             )
         )
-        await cloudKitRuntimeEventSource.yield(
+        try await cloudKitRuntimeEventSource.yieldAndWait(
             .finished(
                 .import,
                 CloudKitRuntimeEventContext(
@@ -225,7 +221,7 @@ struct AppDependenciesRemoteSyncReloadIgnoredEventTests {
         let firstArticleListReloadID = appState.articleListReloadID
         let firstArticleScreenReloadID = appState.articleScreenReloadID
 
-        await cloudKitRuntimeEventSource.yield(
+        try await cloudKitRuntimeEventSource.yieldAndWait(
             .finished(
                 .import,
                 CloudKitRuntimeEventContext(
@@ -236,8 +232,6 @@ struct AppDependenciesRemoteSyncReloadIgnoredEventTests {
                 )
             )
         )
-
-        try await Task.sleep(for: .milliseconds(100))
 
         #expect(appState.sidebarReloadID == firstSidebarReloadID)
         #expect(appState.articleListReloadID == firstArticleListReloadID)

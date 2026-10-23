@@ -458,7 +458,7 @@ struct ReaderView: View {
     }
 
     private func updateAdjacentImagePrefetchWindow() {
-        ReaderAdjacentArticleImagePrefetchCoordinator.shared.update(
+        dependencies.articleImageRuntime.prefetchCoordinator.update(
             context: adjacentImagePrefetchContext,
             articleQueryService: dependencies.articleQueryService
         )

@@ -3,15 +3,6 @@ import Foundation
 import SwiftUI
 import SwiftData
 
-// MARK: - AppDependencies protocol
-public protocol AppDependenciesProtocol {
-    var logger: Logging { get }
-    var httpClient: any HTTPClient { get }
-    var feedFetcher: any FeedFetching { get }
-    var feedIconCache: any FeedIconCaching { get }
-    var modelContainer: ModelContainer? { get }
-}
-
 final class AppDependencyTaskStore: @unchecked Sendable {
     private let lock = NSLock()
     private var tasks: [Task<Void, Never>] = []
@@ -43,12 +34,15 @@ final class AppDependencyTaskStore: @unchecked Sendable {
     }
 }
 
-public final class AppDependencies: AppDependenciesProtocol {
+final class AppDependencies {
     
-    public let logger: Logging
-    public let httpClient: any HTTPClient
-    public let feedFetcher: any FeedFetching
-    public let feedIconCache: any FeedIconCaching
+    let logger: Logging
+    let httpClient: any HTTPClient
+    let feedFetcher: any FeedFetching
+    let articleImageRuntime: ArticleImageRuntime
+    let sidebarFolderExpansionStore: SidebarFolderExpansionStore
+    var articleImageCache: any ArticleImageCacheManaging { articleImageRuntime }
+    let feedIconCache: any FeedIconCaching
     let feedRefreshService: FeedRefreshService?
     let feedRepository: (any FeedRepository)?
     let folderRepository: (any FolderRepository)?
@@ -74,7 +68,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let persistentStoreRemoteChangeSource: any PersistentStoreRemoteChangeSource
     let syncCoordinator: SyncCoordinator?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
-    public let modelContainer: ModelContainer?
+    let modelContainer: ModelContainer?
     let modelContainerBootstrapFailureDescription: String?
     let syncBackedStoreReference: SyncBackedStoreReference?
     let syncBootstrapPreferenceStore: any AppSyncBootstrapPreferenceStoring
@@ -87,6 +81,8 @@ public final class AppDependencies: AppDependenciesProtocol {
         httpClient: any HTTPClient = URLSessionHTTPClient(),
         feedFetcher: (any FeedFetching)? = nil,
         feedIconCache: (any FeedIconCaching)? = nil,
+        articleImageRuntime: ArticleImageRuntime? = nil,
+        sidebarFolderExpansionStore: SidebarFolderExpansionStore? = nil,
         modelContainer: ModelContainer? = nil,
         modelContainerBootstrapFailureDescription: String? = nil,
         syncBackedStoreReference: SyncBackedStoreReference? = nil,
@@ -270,6 +266,8 @@ public final class AppDependencies: AppDependenciesProtocol {
         let persistentStoreRemoteChangeSource = persistentStoreRemoteChangeSource ?? DefaultPersistentStoreRemoteChangeSource()
         let syncBootstrapPreferenceStore = syncBootstrapPreferenceStore
             ?? AppSyncBootstrapPreferenceStore(logger: logger)
+        self.articleImageRuntime = articleImageRuntime ?? .makeIsolated()
+        self.sidebarFolderExpansionStore = sidebarFolderExpansionStore ?? SidebarFolderExpansionStore()
         self.logger = logger
         self.httpClient = httpClient
         self.feedIconCache = resolvedFeedIconCache

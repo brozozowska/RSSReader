@@ -30,15 +30,22 @@ struct AppDependenciesRemoteSyncReloadLifecycleTests {
         let initialArticleScreenReloadID = appState.articleScreenReloadID
 
         dependencies.startRemoteSyncReloadAppLifetime(using: appState)
+        try await expectAppDependenciesRemoteSyncReloadObservationStarted(
+            cloudKitRuntimeEventSource: cloudKitRuntimeEventSource,
+            remoteChangeSource: remoteChangeSource
+        )
         dependencies.stopSyncRuntimeAppLifetime()
+        try await waitUntil("remote reload subscriptions cancelled") {
+            cloudKitRuntimeEventSource.subscriberCount == 0 && remoteChangeSource.subscriberCount == 0
+        }
 
-        await remoteChangeSource.yield(
+        try await remoteChangeSource.yieldAndWait(
             PersistentStoreRemoteChangeEvent(
                 storeUUID: "SyncBackedStore",
                 storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
             )
         )
-        await cloudKitRuntimeEventSource.yield(
+        try await cloudKitRuntimeEventSource.yieldAndWait(
             .finished(
                 .import,
                 CloudKitRuntimeEventContext(
@@ -49,8 +56,6 @@ struct AppDependenciesRemoteSyncReloadLifecycleTests {
                 )
             )
         )
-
-        try await Task.sleep(for: .milliseconds(100))
 
         #expect(appState.sidebarReloadID == initialSidebarReloadID)
         #expect(appState.articleListReloadID == initialArticleListReloadID)

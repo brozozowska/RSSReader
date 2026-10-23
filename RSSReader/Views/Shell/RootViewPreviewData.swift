@@ -5,7 +5,7 @@ import SwiftData
     RootViewPreviewContainer()
 }
 
-private struct RootViewPreviewContainer: View {
+struct RootViewPreviewContainer: View {
     let dependencies: AppDependencies
     @State private var appState: AppState
 
