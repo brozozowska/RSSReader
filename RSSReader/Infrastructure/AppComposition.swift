@@ -13,8 +13,6 @@ enum AppComposition {
     static let localOnlyModels = persistenceModelPartition.localOnlyModels
     static let appModels = persistenceModelPartition.allModels
     @MainActor
-    static let disposableCacheMigrationGuard = AppLaunchBootstrapGuard()
-    @MainActor
     static let developmentSchemaBootstrapGuard = AppLaunchBootstrapGuard()
     @MainActor
     static let backgroundRefreshLaunchSchedulingGuard = AppLaunchBootstrapGuard()
@@ -36,8 +34,6 @@ enum AppComposition {
         let logger = AppDependencies.makeDefaultLogger()
         let resolvedModelPartition = modelPartition ?? persistenceModelPartition
         let resolvedSyncEnablementPolicy = syncEnablementPolicy ?? self.syncEnablementPolicy
-
-        runDisposableCacheMigrationIfNeeded(logger: logger)
 
 #if DEBUG
         runDevelopmentSchemaBootstrapIfNeeded(logger: logger)

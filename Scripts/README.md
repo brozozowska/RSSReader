@@ -110,7 +110,7 @@ xcodebuild -project RSSReader.xcodeproj -scheme RSSReader -configuration Debug \
 `NavigationSmokeTests` запускает приложение с `--ui-smoke` и
 `RSSREADER_UI_SMOKE_SOURCE_URL`, передавая адрес собственного HTTP fixture server
 на `127.0.0.1` с динамическим портом. Test-only bootstrap доступен только в Debug
-Simulator, срабатывает до production migration/stores и отклоняет отсутствующий
+Simulator, срабатывает до production bootstrap/stores и отклоняет отсутствующий
 или нелокальный URL. Каждый launch создаёт новые in-memory SwiftData stores,
 settings, folder preferences и feed-icon cache; image runtime изолирован и offline.
 CloudKit sources и background scheduler подменены локальными зависимостями.
