@@ -340,12 +340,33 @@ struct ArticleRepositoryTests {
         modelContext.insert(articleState)
         try modelContext.save()
 
-        _ = try harness.articleRepository.reconcileFeedSnapshot(
+        let operations = SwiftDataRepositoryOperationCounter()
+        let repository = SwiftDataArticleRepository(
+            modelContext: modelContext,
+            persistenceOperationRecorder: operations.record
+        )
+        _ = try repository.reconcileFeedSnapshot(
             [],
             into: feed,
             fetchedAt: newerUpdatedAt,
             saveAfterOperation: false
         )
+
+        // The query helper sees staged repair in the same context without committing it.
+        let stagedQuery = try repository.fetchArticleQueryRecordScanBatch(
+            matching: ArticleQueryCriteria(
+                scope: .feed(feed.id),
+                archived: .isTrue,
+                read: .isTrue,
+                starred: .isTrue,
+                sortMode: .publishedAtDescending
+            ),
+            cursor: nil,
+            limit: 1
+        )
+        #expect(stagedQuery.records.map(\.article.id) == [canonicalArticle.id])
+        #expect(stagedQuery.records.first?.state?.articleExternalID == "rollback-identity")
+        #expect(operations.saveCount == 0)
 
         let stagedArticles = try modelContext.fetch(FetchDescriptor<Article>())
         let stagedStates = try modelContext.fetch(FetchDescriptor<ArticleState>())
