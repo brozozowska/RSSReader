@@ -104,7 +104,7 @@ struct ReaderArticleTableLayoutPolicyTests {
         })
         renderer.scale = 1
         renderer.proposedSize = ProposedViewSize(width: 900, height: nil)
-        let image = try #require(renderer.cgImage)
+        let image = try renderBitmap(renderer)
         #expect(image.width == 900)
         #expect(try pixel(image, x: 1) == [255, 0, 0])
         #expect(try pixel(image, x: 200) == [0, 255, 0])
@@ -136,7 +136,7 @@ struct ReaderArticleTableLayoutPolicyTests {
         })
         renderer.scale = 1
         renderer.proposedSize = ProposedViewSize(width: 900, height: nil)
-        let image = try #require(renderer.cgImage)
+        let image = try renderBitmap(renderer)
         #expect(image.height == 70)
     }
 
@@ -166,7 +166,28 @@ struct ReaderArticleTableLayoutPolicyTests {
         }.environment(\.layoutDirection, direction))
         renderer.scale = 1
         renderer.proposedSize = ProposedViewSize(width: width, height: nil)
-        return try #require(renderer.cgImage)
+        return try renderBitmap(renderer)
+    }
+
+    private func renderBitmap<Content: View>(_ renderer: ImageRenderer<Content>) throws -> CGImage {
+        let colorSpace = try #require(CGColorSpace(name: CGColorSpace.sRGB))
+        var image: CGImage?
+        // Draw these vector-only fixtures directly into an owned bitmap. ImageRenderer.cgImage
+        // can defer rasterization to a Metal image provider that times out on a cold CI runner.
+        renderer.render(rasterizationScale: 1) { size, draw in
+            guard let context = CGContext(
+                data: nil,
+                width: Int(size.width.rounded(.up)),
+                height: Int(size.height.rounded(.up)),
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return }
+            draw(context)
+            image = context.makeImage()
+        }
+        return try #require(image, "Core Graphics bitmap rendering must produce an image")
     }
 
     private func pixel(_ image: CGImage, x: Int) throws -> [UInt8] {
