@@ -543,6 +543,48 @@ struct ArticleImageLoaderTests {
         #expect(await diskCache.data(for: imageURL) == imageData)
     }
 
+    @Test
+    func diskCacheWaitDoesNotCompleteBeforeInsertionIsPersisted() async throws {
+        let imageURL = try #require(URL(string: "https://example.com/images/persistence-barrier.png"))
+        let imageData = makePNGData(width: 32, height: 16)
+        let diskCache = SuspendedArticleImageDiskCache()
+        let insertion = Task { try await diskCache.insert(imageData, for: imageURL) }
+        var didReturnCachedData = false
+        let waiting = Task { @MainActor in
+            let data = try await waitForCachedData(in: diskCache, for: imageURL)
+            didReturnCachedData = true
+            return data
+        }
+        defer {
+            insertion.cancel()
+            waiting.cancel()
+            diskCache.insertRelease.release()
+        }
+
+        try await diskCache.waitUntilInsertStarts()
+        try await waitUntil("disk cache read while insertion is suspended") {
+            await diskCache.readCount > 0
+        }
+        #expect(didReturnCachedData == false)
+
+        await diskCache.resumeInsert()
+        try await insertion.value
+        #expect(try await waiting.value == imageData)
+        #expect(didReturnCachedData)
+    }
+
+    @Test
+    func diskCacheWaitFailsWhenPersistenceNeverCompletes() async throws {
+        let imageURL = try #require(URL(string: "https://example.com/images/missing-persistence.png"))
+        await #expect(throws: AsyncTestTimeout.self) {
+            _ = try await waitForCachedData(
+                in: DiscardingArticleImageDiskCache(),
+                for: imageURL,
+                timeout: .milliseconds(20)
+            )
+        }
+    }
+
     private func makeFixture(
         steps: [ScriptedHTTPClient.Step],
         budget: RuntimeImageInputBudget = AppResourceBudgetContract.current.articleImage,
@@ -615,15 +657,15 @@ struct ArticleImageLoaderTests {
 
     private func waitForCachedData(
         in diskCache: any ArticleImageDiskCaching,
-        for url: URL
-    ) async throws -> Data? {
-        for _ in 0..<1_000 {
-            if let data = try await diskCache.data(for: url) {
-                return data
-            }
-            await Task.yield()
+        for url: URL,
+        timeout: Duration = .seconds(5)
+    ) async throws -> Data {
+        var cachedData: Data?
+        try await waitUntil("article image persisted in disk cache", timeout: timeout) {
+            cachedData = try await diskCache.data(for: url)
+            return cachedData != nil
         }
-        return nil
+        return try #require(cachedData)
     }
 
     private func waitUntilResponseGateIsEntered(
@@ -660,12 +702,14 @@ private actor DiscardingArticleImageDiskCache: ArticleImageDiskCaching {
 
 private actor SuspendedArticleImageDiskCache: ArticleImageDiskCaching {
     private var storage: [URL: Data] = [:]
+    private(set) var readCount = 0
     private let insertStarted = AsyncTestGate()
     nonisolated let insertRelease = AsyncTestGate()
     private let insertCompleted = AsyncTestGate()
 
     func data(for url: URL) -> Data? {
-        storage[url]
+        readCount += 1
+        return storage[url]
     }
 
     func data(for url: URL, maximumBytes: Int64) -> Data? {
