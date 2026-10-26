@@ -115,7 +115,7 @@ extension ArticlesScreenController {
                 sidebarArticleFilter: sidebarArticleFilter,
                 searchText: searchText,
                 dependencies: dependencies,
-                refreshesScopeMetric: true
+                scopeMetric: .baseScope
             )
         }
         await refreshTask.value

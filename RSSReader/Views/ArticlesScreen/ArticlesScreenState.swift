@@ -39,19 +39,20 @@ struct ArticlesScreenState {
             context: articleListSession.context,
             retainsCurrentEntries: true
         )
-        updateToolbarActions(for: selection)
     }
 
     mutating func cancelSearchTransition() {
         pendingSearchContext = nil
-        updateToolbarActions(for: selection)
     }
     private(set) var isLoadingNextPage = false
-    private(set) var toolbarActions = ArticlesScreenToolbarActionsState(
-        selection: nil,
-        visibleArticles: [],
-        phase: .noSelection
-    )
+    var toolbarActions: ArticlesScreenToolbarActionsState {
+        ArticlesScreenToolbarActionsState(
+            selection: selection,
+            visibleArticles: articles,
+            phase: phase,
+            allowsMutations: pendingSearchContext == nil
+        )
+    }
     var pendingConfirmation: ArticlesScreenConfirmationDialog?
 
     var articles: [ArticleListItemDTO] {
@@ -148,7 +149,6 @@ struct ArticlesScreenState {
             refreshState = .idle
             customRefreshState = .idle
             refreshFeedback = nil
-            updateToolbarActions(for: selection)
             return
         }
 
@@ -170,8 +170,6 @@ struct ArticlesScreenState {
             )
             refreshState = .refreshing
         }
-
-        updateToolbarActions(for: selection)
     }
 
     mutating func applyLoadedArticles(
@@ -244,8 +242,6 @@ struct ArticlesScreenState {
         } else {
             phase = .loaded
         }
-
-        updateToolbarActions(for: selection)
     }
 
     @discardableResult
@@ -275,7 +271,6 @@ struct ArticlesScreenState {
             phase = .loaded
             emptyContentKind = .selection
         }
-        updateToolbarActions(for: selection)
     }
 
     mutating func endLoadingNextPage() {
@@ -323,8 +318,6 @@ struct ArticlesScreenState {
             phase = .failed(message)
             refreshFeedback = nil
         }
-
-        updateToolbarActions(for: selection)
     }
 
     mutating func presentRefreshFailure(_ message: String) {
@@ -375,8 +368,6 @@ struct ArticlesScreenState {
         } else {
             phase = .loaded
         }
-
-        updateToolbarActions(for: selection)
     }
 
     mutating func applyArticleRowMutation(
@@ -414,8 +405,6 @@ struct ArticlesScreenState {
         } else {
             phase = .loaded
         }
-
-        updateToolbarActions(for: selection)
     }
 
     @discardableResult
@@ -464,17 +453,6 @@ struct ArticlesScreenState {
         } else {
             phase = .loaded
         }
-
-        updateToolbarActions(for: selection)
-    }
-
-    private mutating func updateToolbarActions(for selection: SidebarSelection?) {
-        toolbarActions = ArticlesScreenToolbarActionsState(
-            selection: selection,
-            visibleArticles: articles,
-            phase: phase,
-            allowsMutations: pendingSearchContext == nil
-        )
     }
 
     private func resolvedContext(

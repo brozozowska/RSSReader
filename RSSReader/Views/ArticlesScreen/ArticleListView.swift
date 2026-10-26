@@ -142,7 +142,7 @@ struct ArticleListView: View {
                 return
             }
             guard hasDeferredCoveredListLoad == false else { return }
-            await loadArticles(retainsSessionFilterMutations: true)
+            await loadArticles()
         }
         .onChange(of: appState.presentedSidebarSelection) { _, newValue in
             guard newValue == nil else { return }
@@ -172,11 +172,7 @@ struct ArticleListView: View {
 
     @MainActor
     private func loadArticles(
-        retainsSessionFilterMutations: Bool = true,
-        retainedSessionMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterFilterMutation,
-        preservesRefreshFeedback: Bool = false,
-        refreshesScopeMetric: Bool? = nil,
-        preservesMaterializedSessionSnapshot: Bool = false
+        policy: ArticlesScreenLoadPolicy = .retainSession
     ) async {
         let loadingSidebarSelection = selectedSidebarSelection
         let loadingSidebarArticleFilter = selectedSidebarArticleFilter
@@ -187,14 +183,9 @@ struct ArticleListView: View {
             sidebarArticleFilter: loadingSidebarArticleFilter,
             reloadID: loadingReloadID
         )
-        let shouldRefreshScopeMetric = refreshesScopeMetric
-            ?? (
-                lastScopeMetricReloadContext != scopeMetricReloadContext
-                    || (
-                        controller.screenState.articleListSession.scopeMetric == nil
-                            && loadingNormalizedSearchText.isEmpty
-                    )
-            )
+        let shouldRefreshScopeMetric = lastScopeMetricReloadContext != scopeMetricReloadContext
+            || (controller.screenState.articleListSession.scopeMetric == nil
+                && loadingNormalizedSearchText.isEmpty)
         if shouldRefreshScopeMetric {
             lastScopeMetricReloadContext = scopeMetricReloadContext
         }
@@ -204,11 +195,8 @@ struct ArticleListView: View {
             sidebarArticleFilter: loadingSidebarArticleFilter,
             searchText: searchText,
             dependencies: dependencies,
-            refreshesScopeMetric: shouldRefreshScopeMetric,
-            retainsSessionFilterMutations: retainsSessionFilterMutations,
-            retainedSessionMembershipStatus: retainedSessionMembershipStatus,
-            preservesRefreshFeedback: preservesRefreshFeedback,
-            preservesMaterializedSessionSnapshot: preservesMaterializedSessionSnapshot
+            scopeMetric: shouldRefreshScopeMetric ? .baseScope : .none,
+            policy: policy
         )
 
         guard Task.isCancelled == false,
@@ -339,8 +327,7 @@ struct ArticleListView: View {
 
             hasDeferredCoveredListLoad = false
             await loadArticles(
-                retainsSessionFilterMutations: true,
-                preservesMaterializedSessionSnapshot: true
+                policy: .resumeMaterializedSession
             )
             deferredCoveredListLoadTask = nil
         }
@@ -497,7 +484,7 @@ struct ArticleListView: View {
 
     private func retryPrimaryLoad() {
         Task {
-            await loadArticles(retainsSessionFilterMutations: true)
+            await loadArticles()
         }
     }
 

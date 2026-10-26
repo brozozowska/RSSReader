@@ -11,7 +11,7 @@ struct ArticleScreenReadConsistencyTests {
         let (harness, article) = try makeArticle(markAsReadOnOpen: markAsReadOnOpen)
         let list = ArticlesScreenController()
         await list.load(selection: .unread, sidebarArticleFilter: .allItems,
-            dependencies: harness.dependencies, refreshesScopeMetric: true)
+            dependencies: harness.dependencies, scopeMetric: .baseScope)
         let session = reference(for: list)
         let callback: ArticleStateMutationHandler = { id, state in
             #expect(list.applyArticleStateMutation(articleID: id, persistedState: state, in: session))
@@ -33,15 +33,15 @@ struct ArticleScreenReadConsistencyTests {
         #expect(list.visibleArticleIDs() == [article.id])
 
         await list.load(selection: .unread, sidebarArticleFilter: .allItems,
-            dependencies: harness.dependencies, refreshesScopeMetric: false,
-            retainsSessionFilterMutations: true, preservesMaterializedSessionSnapshot: true)
+            dependencies: harness.dependencies, scopeMetric: .none,
+            policy: .resumeMaterializedSession)
         #expect(list.currentArticleListSessionID == session.id)
         #expect(list.screenState.articles.first?.isRead == expectedIsRead)
         #expect(list.screenState.articleListSession.scopeMetric == ArticleScopeMetric(kind: .unread, count: expectedIsRead ? 0 : 1))
         #expect(list.visibleArticleIDs() == [article.id])
 
         await list.load(selection: .unread, sidebarArticleFilter: .allItems,
-            dependencies: harness.dependencies, refreshesScopeMetric: true)
+            dependencies: harness.dependencies, scopeMetric: .baseScope)
         #expect(list.visibleArticleIDs() == (expectedIsRead ? [] : [article.id]))
     }
 
@@ -76,7 +76,7 @@ struct ArticleScreenReadConsistencyTests {
         let (harness, article) = try makeArticle(markAsReadOnOpen: false)
         let list = ArticlesScreenController()
         await list.load(selection: .unread, sidebarArticleFilter: .allItems,
-            dependencies: harness.dependencies, refreshesScopeMetric: true)
+            dependencies: harness.dependencies, scopeMetric: .baseScope)
         let session = reference(for: list)
         let state = try setRead(true, article: article, service: harness.articleStateService)
         let event = ArticleReadOnOpenEvent(articleID: article.id,

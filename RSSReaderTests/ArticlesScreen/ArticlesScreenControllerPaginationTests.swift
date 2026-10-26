@@ -54,7 +54,7 @@ struct ArticlesScreenControllerPaginationTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
-            refreshesScopeMetric: true
+            scopeMetric: .baseScope
         )
         let originalContext = controller.screenState.articleListSession.context
         await controller.loadNextPage(
@@ -468,7 +468,7 @@ struct ArticlesScreenControllerPaginationTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
-            refreshesScopeMetric: true
+            scopeMetric: .baseScope
         )
         let ascendingCursor = try #require(
             controller.screenState.articleListSession.nextPageCursor
@@ -498,7 +498,7 @@ struct ArticlesScreenControllerPaginationTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
-            refreshesScopeMetric: true
+            scopeMetric: .baseScope
         )
 
         #expect(controller.screenState.articleListSession.context.selection == .feed(feed.id))

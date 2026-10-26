@@ -82,7 +82,7 @@ struct ArticlesScreenControllerSessionReloadTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
-            retainsSessionFilterMutations: true
+            policy: .retainSession
         )
 
         #expect(controller.screenState.phase == .loaded)
@@ -135,8 +135,7 @@ struct ArticlesScreenControllerSessionReloadTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
-            retainsSessionFilterMutations: true,
-            retainedSessionMembershipStatus: .retainedAfterRefresh
+            policy: .retainAfterRefresh
         )
 
         #expect(controller.screenState.phase == .loaded)
@@ -175,8 +174,7 @@ struct ArticlesScreenControllerSessionReloadTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
-            retainsSessionFilterMutations: false,
-            retainedSessionMembershipStatus: .retainedAfterRefresh
+            policy: .replace
         )
 
         #expect(controller.screenState.phase == .empty)
@@ -229,8 +227,7 @@ struct ArticlesScreenControllerSessionReloadTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
-            retainsSessionFilterMutations: false,
-            retainedSessionMembershipStatus: .retainedAfterRefresh
+            policy: .replace
         )
 
         #expect(controller.screenState.phase == .empty)
@@ -273,7 +270,7 @@ struct ArticlesScreenControllerSessionReloadTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
-            retainsSessionFilterMutations: true
+            policy: .retainSession
         )
 
         #expect(controller.screenState.phase == .loaded)
@@ -328,8 +325,7 @@ struct ArticlesScreenControllerSessionReloadTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
-            retainsSessionFilterMutations: true,
-            retainedSessionMembershipStatus: .retainedAfterRefresh
+            policy: .retainAfterRefresh
         )
 
         #expect(controller.screenState.phase == .loaded)
@@ -464,7 +460,7 @@ struct ArticlesScreenControllerSessionReloadTests {
                 selection: .feed(feedB.id),
                 sidebarArticleFilter: .unread,
                 dependencies: harness.dependencies,
-                retainsSessionFilterMutations: true
+                policy: .retainSession
             )
         }
         await waitUntilSessionReload("feed B query suspended") {
@@ -476,7 +472,7 @@ struct ArticlesScreenControllerSessionReloadTests {
                 selection: .feed(feedA.id),
                 sidebarArticleFilter: .unread,
                 dependencies: harness.dependencies,
-                retainsSessionFilterMutations: true
+                policy: .retainSession
             )
         }
         await waitUntilSessionReload("feed A re-entry query suspended") {
@@ -524,7 +520,7 @@ struct ArticlesScreenControllerSessionReloadTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
-            refreshesScopeMetric: true
+            scopeMetric: .baseScope
         )
         #expect(controller.screenState.articleListSession.scopeMetric == ArticleScopeMetric(kind: .unread, count: 1))
         let loadedArticle = try #require(controller.screenState.articles.first)

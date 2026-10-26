@@ -182,7 +182,7 @@ struct ArticlesScreenControllerLifecycleTests {
                 selection: .feed(secondFeed.id),
                 sidebarArticleFilter: .unread,
                 dependencies: harness.dependencies,
-                retainsSessionFilterMutations: true
+                policy: .retainSession
             )
         }
         try await waitUntil("coalesced primary load caller entered") { coalescedCallerEntered }

@@ -33,7 +33,7 @@ struct ArticlesScreenControllerSearchTests {
         let pending = Task { @MainActor in
             await controller.load(
                 selection: .inbox, sidebarArticleFilter: .allItems, searchText: query,
-                dependencies: harness.dependencies, retainsSessionFilterMutations: true
+                dependencies: harness.dependencies, policy: .retainSession
             )
         }
         defer { pending.cancel(); gate.releaseSuspendedRequest() }
@@ -426,7 +426,7 @@ struct ArticlesScreenControllerSearchTests {
                 sidebarArticleFilter: .allItems,
                 searchText: "old",
                 dependencies: harness.dependencies,
-                refreshesScopeMetric: true
+                scopeMetric: .baseScope
             )
         }
         defer { staleLoad.cancel(); queryGate.releaseSuspendedRequest() }
@@ -439,7 +439,7 @@ struct ArticlesScreenControllerSearchTests {
             sidebarArticleFilter: .allItems,
             searchText: "new",
             dependencies: harness.dependencies,
-            refreshesScopeMetric: true
+            scopeMetric: .baseScope
         )
         let newestChrome = controller.screenState.derivedViewState().navigationChrome
         queryGate.releaseSuspendedRequest()
@@ -483,7 +483,7 @@ struct ArticlesScreenControllerSearchTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
-            refreshesScopeMetric: true
+            scopeMetric: .baseScope
         )
         await controller.load(
             selection: .feed(feed.id),
