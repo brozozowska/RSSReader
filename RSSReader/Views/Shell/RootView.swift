@@ -15,7 +15,7 @@ struct RootView: View {
 
     var body: some View {
         let themeApplicationPolicy = AppThemeApplicationPolicy(
-            interfaceThemeMode: appState.interfaceThemeMode,
+            interfaceThemeMode: appState.runtime.interfaceThemeMode,
             systemColorScheme: systemColorScheme
         )
         let detailDestination = safariDismissalInteraction.transition?.destination
@@ -38,7 +38,7 @@ struct RootView: View {
             ArticleListView(
                 selectedSidebarSelection: appState.selectedSidebarSelection,
                 selectedSidebarArticleFilter: appState.selectedSidebarArticleFilter,
-                reloadID: appState.articleListReloadID,
+                reloadID: appState.reload.articleListReloadID,
                 controller: articlesScreenController,
                 previewScreenState: nil,
                 selection: articleSelection,
@@ -52,14 +52,14 @@ struct RootView: View {
                 } else {
                 ReaderView(
                     articleID: nil,
-                    reloadID: appState.articleScreenReloadID,
+                    reloadID: appState.reload.articleScreenReloadID,
                     sourceArticleSafariInteraction: sourceArticleSafariInteraction
                 )
                 }
             case .article(let articleID):
                 ReaderView(
                     articleID: articleID,
-                    reloadID: appState.articleScreenReloadID,
+                    reloadID: appState.reload.articleScreenReloadID,
                     sourceArticleSafariInteraction: sourceArticleSafariInteraction,
                     canLoadNextArticleContinuation: ArticleListContinuationCoordinator.canLoadNextArticle(
                         appState: appState,
@@ -115,7 +115,7 @@ struct RootView: View {
         .animation(safariPresentationAnimation, value: appState.presentedSafariRoute)
         .sheet(isPresented: settingsPresentationBinding) {
             AppThemePresentationScope(
-                interfaceThemeMode: appState.interfaceThemeMode,
+                interfaceThemeMode: appState.runtime.interfaceThemeMode,
                 systemColorScheme: systemColorScheme
             ) {
                 SettingsScreenView(
@@ -125,7 +125,7 @@ struct RootView: View {
         }
         .sheet(isPresented: feedManagementPresentationBinding) {
             AppThemePresentationScope(
-                interfaceThemeMode: appState.interfaceThemeMode,
+                interfaceThemeMode: appState.runtime.interfaceThemeMode,
                 systemColorScheme: systemColorScheme
             ) {
                 FeedManagementScreenView(
@@ -141,13 +141,13 @@ struct RootView: View {
             guard selectedArticleID == nil else { return }
             dependencies.articleImageRuntime.prefetchCoordinator.clear()
         }
-        .onChange(of: appState.isPresentingFeedManagementScreen) { _, isPresenting in
+        .onChange(of: appState.presentation.isPresentingFeedManagementScreen) { _, isPresenting in
             if isPresenting {
-                presentedFeedManagementLaunchContext = appState.feedManagementLaunchContext
+                presentedFeedManagementLaunchContext = appState.presentation.feedManagementLaunchContext
             }
         }
-        .onChange(of: appState.feedManagementLaunchContext) { _, launchContext in
-            if appState.isPresentingFeedManagementScreen {
+        .onChange(of: appState.presentation.feedManagementLaunchContext) { _, launchContext in
+            if appState.presentation.isPresentingFeedManagementScreen {
                 presentedFeedManagementLaunchContext = launchContext
             }
         }
@@ -194,7 +194,7 @@ struct RootView: View {
 
     private var settingsPresentationBinding: Binding<Bool> {
         Binding(
-            get: { appState.isPresentingSettingsScreen },
+            get: { appState.presentation.isPresentingSettingsScreen },
             set: { isPresented in
                 if isPresented {
                     appState.presentSettingsScreen()
@@ -207,10 +207,10 @@ struct RootView: View {
 
     private var feedManagementPresentationBinding: Binding<Bool> {
         Binding(
-            get: { appState.isPresentingFeedManagementScreen },
+            get: { appState.presentation.isPresentingFeedManagementScreen },
             set: { isPresented in
                 if isPresented {
-                    presentedFeedManagementLaunchContext = appState.feedManagementLaunchContext
+                    presentedFeedManagementLaunchContext = appState.presentation.feedManagementLaunchContext
                     appState.presentFeedManagementScreen()
                 } else {
                     appState.dismissFeedManagementScreen()
@@ -220,8 +220,8 @@ struct RootView: View {
     }
 
     private var feedManagementLaunchContextForPresentation: FeedManagementScreenLaunchContext {
-        if appState.isPresentingFeedManagementScreen {
-            return appState.feedManagementLaunchContext
+        if appState.presentation.isPresentingFeedManagementScreen {
+            return appState.presentation.feedManagementLaunchContext
         }
 
         return presentedFeedManagementLaunchContext

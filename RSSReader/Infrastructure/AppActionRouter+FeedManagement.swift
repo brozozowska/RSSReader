@@ -336,7 +336,7 @@ extension AppActionRouter {
 
     @MainActor
     func confirmPendingFeedUnsubscribe(using appState: AppState) {
-        guard let pendingConfirmation = appState.pendingFeedUnsubscribeConfirmation else {
+        guard let pendingConfirmation = appState.confirmations.pendingFeedUnsubscribeConfirmation else {
             return
         }
 
@@ -359,7 +359,7 @@ extension AppActionRouter {
 
     @MainActor
     func confirmPendingFolderDelete(using appState: AppState) {
-        guard let pendingConfirmation = appState.pendingFolderDeleteConfirmation else {
+        guard let pendingConfirmation = appState.confirmations.pendingFolderDeleteConfirmation else {
             return
         }
 

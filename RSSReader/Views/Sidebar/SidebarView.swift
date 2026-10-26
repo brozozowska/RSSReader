@@ -63,7 +63,7 @@ struct SidebarView: View {
                 dependencies.appActions.cancelFeedUnsubscribeConfirmation(using: appState)
             }
         } message: {
-            if let pendingConfirmation = appState.pendingFeedUnsubscribeConfirmation {
+            if let pendingConfirmation = appState.confirmations.pendingFeedUnsubscribeConfirmation {
                 Text(
                     SidebarLocalization.unsubscribeConfirmationMessage(
                         feedTitle: pendingConfirmation.feedTitle
@@ -82,7 +82,7 @@ struct SidebarView: View {
                 dependencies.appActions.cancelFolderDeleteConfirmation(using: appState)
             }
         } message: {
-            if let pendingConfirmation = appState.pendingFolderDeleteConfirmation {
+            if let pendingConfirmation = appState.confirmations.pendingFolderDeleteConfirmation {
                 Text(
                     SidebarLocalization.folderDeleteConfirmationMessage(
                         folderName: pendingConfirmation.folderName
@@ -94,7 +94,7 @@ struct SidebarView: View {
             guard controller.isPreviewMode == false else { return }
             await loadFeeds(showsFullScreenLoading: true, refreshedAt: nil)
         }
-        .onChange(of: appState.sidebarReloadID) { _, _ in
+        .onChange(of: appState.reload.sidebarReloadID) { _, _ in
             guard controller.isPreviewMode == false else { return }
             Task {
                 await loadFeeds(showsFullScreenLoading: false, refreshedAt: nil)
@@ -227,7 +227,7 @@ struct SidebarView: View {
 
     private var feedUnsubscribeConfirmationIsPresented: Binding<Bool> {
         Binding(
-            get: { appState.pendingFeedUnsubscribeConfirmation != nil },
+            get: { appState.confirmations.pendingFeedUnsubscribeConfirmation != nil },
             set: { isPresented in
                 if isPresented == false {
                     dependencies.appActions.cancelFeedUnsubscribeConfirmation(using: appState)
@@ -238,7 +238,7 @@ struct SidebarView: View {
 
     private var folderDeleteConfirmationIsPresented: Binding<Bool> {
         Binding(
-            get: { appState.pendingFolderDeleteConfirmation != nil },
+            get: { appState.confirmations.pendingFolderDeleteConfirmation != nil },
             set: { isPresented in
                 if isPresented == false {
                     dependencies.appActions.cancelFolderDeleteConfirmation(using: appState)

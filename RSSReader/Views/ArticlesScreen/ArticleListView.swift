@@ -159,7 +159,7 @@ struct ArticleListView: View {
         .onChange(of: appState.isArticleListCoveredByDetailRoute) { oldValue, newValue in
             handleArticleListCoverageChange(wasCovered: oldValue, isCovered: newValue)
         }
-        .onChange(of: appState.articleReadOnOpenEvent) { _, event in
+        .onChange(of: appState.articleListNavigation.readOnOpenEvent) { _, event in
             applyArticleReadOnOpenEvent(event)
         }
         .sensoryFeedback(
@@ -217,7 +217,7 @@ struct ArticleListView: View {
               loadingSidebarSelection == appState.selectedSidebarSelection,
               loadingSidebarArticleFilter == appState.selectedSidebarArticleFilter,
               loadingNormalizedSearchText == ArticleSearchScope.normalizedSearchText(searchText),
-              loadingReloadID == appState.articleListReloadID else {
+              loadingReloadID == appState.reload.articleListReloadID else {
             return
         }
 
