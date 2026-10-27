@@ -49,7 +49,22 @@ enum UISmokeBootstrap {
 
 private nonisolated struct OfflineHTTPClient: HTTPClient {
     func execute(_ request: HTTPRequest) async throws -> HTTPResponse {
-        throw URLError(.notConnectedToInternet)
+        guard request.url.absoluteString == "https://ui-smoke.invalid/added-feed" else {
+            throw URLError(.notConnectedToInternet)
+        }
+        let body = """
+        <rss version="2.0"><channel><title>Added Smoke Feed</title>
+        <link>https://ui-smoke.invalid/</link><description>Local fixture</description>
+        <item><guid>added-smoke-article</guid><title>Added Smoke Article</title>
+        <link>https://ui-smoke.invalid/article</link><description>Local article body.</description>
+        </item></channel></rss>
+        """
+        return await MainActor.run {
+            HTTPResponse(
+                url: request.url, statusCode: 200,
+                headers: ["Content-Type": "application/rss+xml"], body: Data(body.utf8)
+            )
+        }
     }
 }
 

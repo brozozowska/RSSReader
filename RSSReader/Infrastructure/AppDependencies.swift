@@ -3,37 +3,6 @@ import Foundation
 import SwiftUI
 import SwiftData
 
-final class AppDependencyTaskStore: @unchecked Sendable {
-    private let lock = NSLock()
-    private var tasks: [Task<Void, Never>] = []
-
-    func append(_ task: Task<Void, Never>) {
-        lock.lock()
-        tasks.append(task)
-        lock.unlock()
-    }
-
-    func waitForAll() async {
-        while true {
-            let currentTasks = takeTasks()
-
-            guard currentTasks.isEmpty == false else { return }
-
-            for task in currentTasks {
-                await task.value
-            }
-        }
-    }
-
-    private func takeTasks() -> [Task<Void, Never>] {
-        lock.lock()
-        let currentTasks = tasks
-        tasks.removeAll()
-        lock.unlock()
-        return currentTasks
-    }
-}
-
 final class AppDependencies {
     
     let logger: Logging
@@ -74,7 +43,7 @@ final class AppDependencies {
     let syncBootstrapPreferenceStore: any AppSyncBootstrapPreferenceStoring
     let syncBootstrapContext: AppSyncBootstrapContext?
     let syncRuntimeOrchestrator: AppSyncRuntimeOrchestrator
-    let feedSaveRefreshTaskStore: AppDependencyTaskStore?
+    let feedSaveRefreshScheduler = FeedSaveRefreshScheduler()
 
     init(
         logger: Logging,
@@ -98,8 +67,7 @@ final class AppDependencies {
         persistentStoreRemoteChangeSource: (any PersistentStoreRemoteChangeSource)? = nil,
         syncCoordinator: SyncCoordinator? = nil,
         unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = nil,
-        articleSearchScanBatchProbe: ArticleSearchScanBatchProbe? = nil,
-        tracksFeedSaveRefreshTasks: Bool = false
+        articleSearchScanBatchProbe: ArticleSearchScanBatchProbe? = nil
     ) {
         let feedRepository = modelContainer.map { container in
             SwiftDataFeedRepository(modelContext: container.mainContext)
@@ -302,9 +270,6 @@ final class AppDependencies {
         self.syncCoordinator = syncCoordinator
         self.feedFetchLogRepository = feedFetchLogRepository
         self.feedFetcher = resolvedFeedFetcher
-        self.feedSaveRefreshTaskStore = tracksFeedSaveRefreshTasks
-            ? AppDependencyTaskStore()
-            : nil
         self.syncRuntimeOrchestrator = AppSyncRuntimeOrchestrator(
             logger: logger,
             syncCoordinator: syncCoordinator,

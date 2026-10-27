@@ -15,6 +15,24 @@ struct UISmokeBootstrapTests {
     }
 
     @Test
+    func localAddFeedFixturePreviewsSavesAndRefreshesWithoutNetwork() async throws {
+        let dependencies = try UISmokeBootstrap.makeDependencies(environment: [
+            "RSSREADER_UI_SMOKE_SOURCE_URL": "http://127.0.0.1:8000/article"
+        ])
+        let appState = AppState()
+        let controller = FeedManagementScreenController()
+        controller.handleScenarioSelection(.addFeed, dependencies: dependencies)
+        controller.handleAddFeedURLChange("https://ui-smoke.invalid/added-feed")
+        await controller.handleAddFeedPrimaryAction(dependencies: dependencies, appState: appState)
+        await controller.handleAddFeedPrimaryAction(dependencies: dependencies, appState: appState)
+        await dependencies.appActions.waitForScheduledFeedSaveRefreshes()
+
+        let feed = try #require(try dependencies.feedRepository?.fetchFeed(url: "https://ui-smoke.invalid/added-feed"))
+        #expect(feed.lastSuccessfulFetchAt != nil)
+        #expect(try dependencies.articleRepository?.fetchArticles(feedID: feed.id).map(\.title) == ["Added Smoke Article"])
+    }
+
+    @Test
     func launchesHaveIndependentStoresSettingsAndCaches() async throws {
         let environment = ["RSSREADER_UI_SMOKE_SOURCE_URL": "http://127.0.0.1:8000/article"]
         let first = try UISmokeBootstrap.makeDependencies(environment: environment)

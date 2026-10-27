@@ -91,6 +91,109 @@ final class NavigationSmokeTests: XCTestCase {
         openFixtureArticle()
     }
 
+    func testFeedSaveInitialRefreshRenameAndUnsubscribe() {
+        expect(element(feedID))
+        tap(app.buttons["Add Feed"].firstMatch)
+        tap(app.collectionViews.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Add Feed")).firstMatch)
+        let url = app.textFields["example.com"]
+        tap(url)
+        url.typeText("https://ui-smoke.invalid/added-feed\n")
+        expect(app.staticTexts["Added Smoke Feed"].firstMatch)
+        tap(app.navigationBars["Add Feed"].buttons["Add Feed"])
+        let added = app.staticTexts["Added Smoke Feed"].firstMatch
+        expect(added)
+        tap(added)
+        expect(app.staticTexts["Added Smoke Article"].firstMatch)
+        if !isPad {
+            tap(app.navigationBars.buttons.matching(identifier: "BackButton").firstMatch)
+        }
+
+        expect(added)
+        pressSidebarRow(containing: added)
+        tap(app.buttons["Rename..."])
+        replaceText(in: app.textFields.firstMatch, with: "Renamed Smoke Feed")
+        tap(app.buttons["Save Changes"])
+        let renamed = app.staticTexts["Renamed Smoke Feed"].firstMatch
+        expect(renamed)
+
+        pressSidebarRow(containing: renamed)
+        tap(app.buttons["Unsubscribe"])
+        tap(app.alerts.buttons["Cancel"])
+        expect(renamed)
+        pressSidebarRow(containing: renamed)
+        tap(app.buttons["Unsubscribe"])
+        tap(app.alerts.buttons["Unsubscribe"])
+        expectAbsent(renamed)
+        expect(element(feedID))
+    }
+
+    func testFolderCreateRenameMoveAndDelete() {
+        expect(element(feedID))
+        tap(app.buttons["Add Feed"].firstMatch)
+        tap(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Create Folder")).firstMatch)
+        replaceText(in: app.textFields.firstMatch, with: "Smoke Folder")
+        tap(app.navigationBars.buttons["Create Folder"])
+        tap(app.navigationBars.buttons.matching(identifier: "BackButton").firstMatch)
+        tap(app.buttons["Close Manage Feeds"])
+        let folder = app.buttons["Smoke Folder"].firstMatch
+        expect(folder)
+        pressSidebarRow(containing: folder, type: .button)
+        tap(app.buttons["Rename..."])
+        replaceText(in: app.textFields.firstMatch, with: "Renamed Smoke Folder")
+        tap(app.buttons["Save Folder"])
+
+        pressSidebarRow(containing: element(feedID))
+        tap(app.buttons["Organize..."])
+        let placement = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH %@", "Renamed Smoke Folder,")
+        ).firstMatch
+        expect(placement)
+        // Plain SwiftUI buttons do not hit-test the empty Spacer on wide iPad rows.
+        tap(placement.staticTexts["Renamed Smoke Folder"])
+        let move = app.navigationBars.buttons["Move Feed"]
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: move)
+        guard XCTWaiter.wait(for: [enabled], timeout: 10) == .completed else {
+            attachFailureScreenshot()
+            XCTFail("Expected enabled Move Feed\n\(app.debugDescription)")
+            return
+        }
+        tap(move)
+        expectAbsent(app.navigationBars["Move Feed"])
+        expect(element(feedID))
+
+        let folderRow = app.cells.containing(
+            .button, identifier: "Renamed Smoke Folder"
+        ).firstMatch
+        tap(folderRow.buttons["chevron.down"])
+        expectAbsent(element(feedID))
+        tap(folderRow.buttons["chevron.right"])
+        expect(element(feedID))
+
+        let renamedFolder = app.buttons["Renamed Smoke Folder"].firstMatch
+        expect(renamedFolder)
+        pressSidebarRow(containing: renamedFolder, type: .button)
+        tap(app.buttons["Delete"])
+        tap(app.alerts.buttons["Delete Folder"])
+        expectAbsent(renamedFolder)
+        // Deleting a folder keeps its feed as an ungrouped subscription.
+        expect(element(feedID))
+    }
+
+    private func pressSidebarRow(containing text: XCUIElement, type: XCUIElement.ElementType = .staticText) {
+        let identifier = text.identifier.isEmpty ? text.label : text.identifier
+        let row = app.cells.containing(
+            type, identifier: identifier
+        ).firstMatch
+        expect(row)
+        row.press(forDuration: 1)
+    }
+
+    private func replaceText(in field: XCUIElement, with value: String) {
+        tap(field)
+        let current = field.value as? String ?? ""
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count) + value)
+    }
+
     private func openFixtureArticle() {
         tap(element(feedID))
         tap(element(rowID))
@@ -122,7 +225,11 @@ final class NavigationSmokeTests: XCTestCase {
     private func tap(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
         expect(element, file: file, line: line)
         let hittable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: element)
-        XCTAssertEqual(XCTWaiter.wait(for: [hittable], timeout: 10), .completed, file: file, line: line)
+        guard XCTWaiter.wait(for: [hittable], timeout: 10) == .completed else {
+            attachFailureScreenshot()
+            XCTFail("Expected hittable \(element)\n\(app.debugDescription)", file: file, line: line)
+            return
+        }
         element.tap()
     }
 

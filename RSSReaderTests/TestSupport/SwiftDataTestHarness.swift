@@ -52,8 +52,7 @@ struct TestHarness {
             modelContainer: modelContainer,
             feedIconDiscoveryService: resolvedFeedIconDiscoveryService,
             unreadAppIconBadgeService: unreadAppIconBadgeService ?? NoOpUnreadAppIconBadgeService(),
-            articleSearchScanBatchProbe: articleSearchScanBatchProbe,
-            tracksFeedSaveRefreshTasks: true
+            articleSearchScanBatchProbe: articleSearchScanBatchProbe
         )
 
         let feedRepository = SwiftDataFeedRepository(

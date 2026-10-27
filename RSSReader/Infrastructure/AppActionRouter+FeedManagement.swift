@@ -2,55 +2,49 @@ import Foundation
 
 extension AppActionRouter {
     @MainActor
+    private var feedManagementPresentation: FeedManagementPresentationActions {
+        FeedManagementPresentationActions(
+            logger: logger,
+            folderRepository: folderRepository,
+            feedManagementService: feedManagementService
+        )
+    }
+
+    @MainActor
+    private var feedManagementDestructiveActions: FeedManagementDestructiveActions {
+        FeedManagementDestructiveActions(
+            logger: logger,
+            folderRepository: folderRepository,
+            feedManagementService: feedManagementService,
+            scheduleUnreadAppIconBadgeRefresh: { scheduleUnreadAppIconBadgeRefresh() }
+        )
+    }
+
+    @MainActor
     func showFeedManagement(using appState: AppState) {
-        appState.presentFeedManagementScreen()
+        feedManagementPresentation.showFeedManagement(using: appState)
     }
 
     @MainActor
     func showFeedEditor(id feedID: UUID, using appState: AppState) {
-        appState.presentFeedManagementScreen(launchContext: .editFeed(feedID))
+        feedManagementPresentation.showFeedEditor(id: feedID, using: appState)
     }
 
     @MainActor
     func showFeedOrganizer(id feedID: UUID, using appState: AppState) {
-        appState.presentFeedManagementScreen(launchContext: .organizeFeed(feedID))
+        feedManagementPresentation.showFeedOrganizer(id: feedID, using: appState)
     }
 
     @MainActor
     func showFolderEditor(named folderName: String, using appState: AppState) {
-        guard let folderRepository else {
-            logger.error("Folder repository is unavailable for folder editing")
-            return
-        }
-
-        do {
-            guard let folder = try folderRepository.fetchFolder(name: folderName) else {
-                logger.error("Skipped folder editor presentation because folder \(folderName) was not found")
-                return
-            }
-            appState.presentFeedManagementScreen(launchContext: .editFolder(folder.id))
-        } catch {
-            logger.error("Failed to resolve folder editor presentation for \(folderName): \(error)")
-        }
+        feedManagementPresentation.showFolderEditor(named: folderName, using: appState)
     }
 
     @MainActor
     func loadFeedManagementAddFeedContext(
         into screenState: inout FeedManagementScreenState
     ) {
-        guard let feedManagementService else {
-            logger.error("Skipped add-feed folder context loading because feed management service is unavailable")
-            screenState.applyAddFeedFolderContext(folders: [])
-            return
-        }
-
-        do {
-            let folders = try feedManagementService.fetchFolders()
-            screenState.applyAddFeedFolderContext(folders: folders)
-        } catch {
-            logger.error("Failed to load folder context for add-feed flow: \(error)")
-            screenState.applyAddFeedFolderContext(folders: [])
-        }
+        feedManagementPresentation.loadFeedManagementAddFeedContext(into: &screenState)
     }
 
     @MainActor
@@ -58,51 +52,14 @@ extension AppActionRouter {
         feedID: UUID,
         into screenState: inout FeedManagementScreenState
     ) {
-        screenState.resetAddFeedForEntry()
-
-        guard let feedManagementService else {
-            logger.error("Skipped feed editor context loading because feed management service is unavailable")
-            screenState.applyAddFeedFolderContext(folders: [])
-            return
-        }
-
-        do {
-            guard let feed = try feedManagementService.fetchFeed(id: feedID) else {
-                logger.error("Skipped feed editor context loading because feed \(feedID) was not found")
-                screenState.applyAddFeedFolderContext(folders: [])
-                return
-            }
-
-            let folders = try feedManagementService.fetchFolders()
-            screenState.applyAddFeedEditContext(feed: feed, folders: folders)
-        } catch {
-            logger.error("Failed to load feed editor context for feed management screen: \(error)")
-            screenState.applyAddFeedFolderContext(folders: [])
-        }
+        feedManagementPresentation.loadFeedManagementAddFeedEditContext(feedID: feedID, into: &screenState)
     }
 
     @MainActor
     func loadFeedManagementCreateFolderContext(
         into screenState: inout FeedManagementScreenState
     ) {
-        guard let feedManagementService else {
-            logger.error("Skipped create-folder context loading because feed management service is unavailable")
-            screenState.applyCreateFolderServiceUnavailable(
-                title: FeedManagementLocalization.folderCreationUnavailableTitle,
-                message: FeedManagementLocalization.folderCreationUnavailableMessage
-            )
-            return
-        }
-
-        do {
-            let folders = try feedManagementService.fetchFolders()
-            screenState.applyCreateFolderContext(folders: folders)
-        } catch {
-            logger.error("Failed to load folder context for feed management screen: \(error)")
-            screenState.applyCreateFolderFailure(
-                FeedManagementLocalization.existingFoldersLoadFailureMessage
-            )
-        }
+        feedManagementPresentation.loadFeedManagementCreateFolderContext(into: &screenState)
     }
 
     @MainActor
@@ -110,31 +67,7 @@ extension AppActionRouter {
         folderID: UUID,
         into screenState: inout FeedManagementScreenState
     ) {
-        screenState.resetCreateFolderForEntry()
-
-        guard let feedManagementService else {
-            logger.error("Skipped folder editor context loading because feed management service is unavailable")
-            screenState.applyCreateFolderServiceUnavailable(
-                title: FeedManagementLocalization.folderEditingUnavailableTitle,
-                message: FeedManagementLocalization.folderEditingUnavailableMessage
-            )
-            return
-        }
-
-        do {
-            guard let folder = try feedManagementService.fetchFolder(id: folderID) else {
-                logger.error("Skipped folder editor context loading because folder \(folderID) was not found")
-                return
-            }
-
-            let folders = try feedManagementService.fetchFolders()
-            screenState.applyCreateFolderEditContext(folder: folder, folders: folders)
-        } catch {
-            logger.error("Failed to load folder editor context for feed management screen: \(error)")
-            screenState.applyCreateFolderFailure(
-                FeedManagementLocalization.folderDetailsLoadFailureMessage
-            )
-        }
+        feedManagementPresentation.loadFeedManagementCreateFolderEditContext(folderID: folderID, into: &screenState)
     }
 
     @MainActor
@@ -142,30 +75,7 @@ extension AppActionRouter {
         selectedFeedID: UUID? = nil,
         into screenState: inout FeedManagementScreenState
     ) {
-        guard let feedManagementService else {
-            logger.error("Skipped move-feed context loading because feed management service is unavailable")
-            screenState.applyMoveFeedContext(feeds: [], folders: [])
-            screenState.applyMoveFeedFailure(
-                FeedManagementLocalization.feedMovesEnvironmentUnavailableMessage
-            )
-            return
-        }
-
-        do {
-            let feeds = try feedManagementService.fetchFeeds()
-            let folders = try feedManagementService.fetchFolders()
-            screenState.applyMoveFeedContext(
-                feeds: feeds,
-                folders: folders,
-                selectedFeedID: selectedFeedID
-            )
-        } catch {
-            logger.error("Failed to load move-feed context for feed management screen: \(error)")
-            screenState.applyMoveFeedContext(feeds: [], folders: [])
-            screenState.applyMoveFeedFailure(
-                FeedManagementLocalization.existingFeedsLoadFailureMessage
-            )
-        }
+        feedManagementPresentation.loadFeedManagementMoveFeedContext(selectedFeedID: selectedFeedID, into: &screenState)
     }
 
     @MainActor
@@ -173,9 +83,7 @@ extension AppActionRouter {
         _ folder: FeedManagementFolderSummary,
         into screenState: inout FeedManagementScreenState
     ) {
-        loadFeedManagementAddFeedContext(into: &screenState)
-        screenState.selectAddFeedFolderPlacement(.folder(folder.id))
-        screenState.presentScenario(.addFeed)
+        feedManagementPresentation.restoreAddFeedAfterCreatingFolder(folder, into: &screenState)
     }
 
     @MainActor
@@ -184,21 +92,16 @@ extension AppActionRouter {
         updatedFolderName: String,
         using appState: AppState
     ) {
-        appState.requestSidebarReload()
-        if appState.selectedSidebarSelection == .folder(previousName) {
-            appState.reconcileSidebarSelection(
-                .folder(updatedFolderName),
-                expectedSelection: .folder(previousName),
-                expectedFilter: appState.selectedSidebarArticleFilter
-            )
-        }
-        dismissFeedManagement(using: appState)
+        feedManagementPresentation.finishFolderEditing(
+            previousName: previousName,
+            updatedFolderName: updatedFolderName,
+            using: appState
+        )
     }
 
     @MainActor
     func finishCreatingFolder(named folderName: String, using appState: AppState) {
-        logger.info("Finished feed management folder creation for \(folderName)")
-        appState.requestSidebarReload()
+        feedManagementPresentation.finishCreatingFolder(named: folderName, using: appState)
     }
 
     @MainActor
@@ -208,22 +111,12 @@ extension AppActionRouter {
         updatedFolderName: String?,
         using appState: AppState
     ) {
-        appState.requestSidebarReload()
-
-        switch appState.selectedSidebarSelection {
-        case .feed(let selectedFeedID):
-            if selectedFeedID == feedID {
-                appState.requestArticleListReload()
-            }
-        case .folder(let folderName):
-            if folderName == previousFolderName || folderName == updatedFolderName {
-                appState.requestArticleListReload()
-            }
-        case .inbox, .unread, .starred, .none:
-            break
-        }
-
-        dismissFeedManagement(using: appState)
+        feedManagementPresentation.finishMovingFeed(
+            feedID: feedID,
+            previousFolderName: previousFolderName,
+            updatedFolderName: updatedFolderName,
+            using: appState
+        )
     }
 
     @MainActor
@@ -233,19 +126,25 @@ extension AppActionRouter {
         selectsSavedFeed: Bool = true,
         initialFetchSnapshot: FeedInitialFetchSnapshot? = nil
     ) async -> FeedRefreshResult? {
-        appState.requestSidebarReload()
-        if selectsSavedFeed {
-            showFeed(id: feedID, using: appState)
-        } else {
-            appState.selectSidebarSelection(nil)
-        }
-        dismissFeedManagement(using: appState)
-        scheduleInitialRefreshAfterSavingFeed(id: feedID, using: appState, initialFetchSnapshot: initialFetchSnapshot)
+        feedManagementPresentation.finishSavingFeed(
+            id: feedID,
+            using: appState,
+            selectsSavedFeed: selectsSavedFeed
+        )
+        dependencies.feedSaveRefreshScheduler.schedule(
+            id: feedID,
+            initialFetchSnapshot: initialFetchSnapshot,
+            using: appState,
+            refresh: { id, snapshot in
+                _ = await refreshFeed(id: id, initialFetchSnapshot: snapshot)
+            }
+        )
         return nil
     }
 
+    @MainActor
     func waitForScheduledFeedSaveRefreshes() async {
-        await feedSaveRefreshTaskStore?.waitForAll()
+        await dependencies.feedSaveRefreshScheduler.waitForAll()
     }
 
     @MainActor
@@ -254,8 +153,7 @@ extension AppActionRouter {
         updatedFolderName: String,
         using appState: AppState?
     ) {
-        guard let appState, let previousName else { return }
-        finishFolderEditing(
+        feedManagementPresentation.completeFeedManagementFolderEditing(
             previousName: previousName,
             updatedFolderName: updatedFolderName,
             using: appState
@@ -267,8 +165,7 @@ extension AppActionRouter {
         named folderName: String,
         using appState: AppState?
     ) {
-        guard let appState else { return }
-        finishCreatingFolder(named: folderName, using: appState)
+        feedManagementPresentation.completeFeedManagementFolderCreation(named: folderName, using: appState)
     }
 
     @MainActor
@@ -278,8 +175,7 @@ extension AppActionRouter {
         updatedFolderName: String?,
         using appState: AppState?
     ) {
-        guard let appState else { return }
-        finishMovingFeed(
+        feedManagementPresentation.completeFeedManagementMove(
             feedID: feedID,
             previousFolderName: previousFolderName,
             updatedFolderName: updatedFolderName,
@@ -305,16 +201,7 @@ extension AppActionRouter {
 
     @MainActor
     func finishUnsubscribingFeed(id feedID: UUID, using appState: AppState) {
-        appState.requestSidebarReload()
-        if appState.selectedSidebarSelection == .feed(feedID) {
-            appState.reconcileSidebarSelection(
-                .inbox,
-                expectedSelection: .feed(feedID),
-                expectedFilter: appState.selectedSidebarArticleFilter
-            )
-        } else {
-            appState.requestArticleListReload()
-        }
+        feedManagementDestructiveActions.finishUnsubscribingFeed(id: feedID, using: appState)
     }
 
     @MainActor
@@ -323,25 +210,21 @@ extension AppActionRouter {
         title feedTitle: String,
         using appState: AppState
     ) {
-        appState.presentFeedUnsubscribeConfirmation(
-            feedID: feedID,
-            feedTitle: feedTitle
+        feedManagementDestructiveActions.requestFeedUnsubscribeConfirmation(
+            id: feedID,
+            title: feedTitle,
+            using: appState
         )
     }
 
     @MainActor
     func cancelFeedUnsubscribeConfirmation(using appState: AppState) {
-        appState.dismissFeedUnsubscribeConfirmation()
+        feedManagementDestructiveActions.cancelFeedUnsubscribeConfirmation(using: appState)
     }
 
     @MainActor
     func confirmPendingFeedUnsubscribe(using appState: AppState) {
-        guard let pendingConfirmation = appState.confirmations.pendingFeedUnsubscribeConfirmation else {
-            return
-        }
-
-        appState.dismissFeedUnsubscribeConfirmation()
-        unsubscribeFeed(id: pendingConfirmation.feedID, using: appState)
+        feedManagementDestructiveActions.confirmPendingFeedUnsubscribe(using: appState)
     }
 
     @MainActor
@@ -349,93 +232,36 @@ extension AppActionRouter {
         named folderName: String,
         using appState: AppState
     ) {
-        appState.presentFolderDeleteConfirmation(folderName: folderName)
+        feedManagementDestructiveActions.requestFolderDeleteConfirmation(named: folderName, using: appState)
     }
 
     @MainActor
     func cancelFolderDeleteConfirmation(using appState: AppState) {
-        appState.dismissFolderDeleteConfirmation()
+        feedManagementDestructiveActions.cancelFolderDeleteConfirmation(using: appState)
     }
 
     @MainActor
     func confirmPendingFolderDelete(using appState: AppState) {
-        guard let pendingConfirmation = appState.confirmations.pendingFolderDeleteConfirmation else {
-            return
-        }
-
-        appState.dismissFolderDeleteConfirmation()
-        deleteFolder(named: pendingConfirmation.folderName, using: appState)
+        feedManagementDestructiveActions.confirmPendingFolderDelete(using: appState)
     }
 
     @MainActor
     func finishDeletingFolder(named folderName: String, using appState: AppState) {
-        appState.requestSidebarReload()
-        if appState.selectedSidebarSelection == .folder(folderName) {
-            appState.reconcileSidebarSelection(
-                .inbox,
-                expectedSelection: .folder(folderName),
-                expectedFilter: appState.selectedSidebarArticleFilter
-            )
-        } else {
-            appState.requestArticleListReload()
-        }
+        feedManagementDestructiveActions.finishDeletingFolder(named: folderName, using: appState)
     }
 
     @MainActor
     func unsubscribeFeed(id feedID: UUID, using appState: AppState) {
-        guard let feedManagementService else {
-            logger.error("Feed management service is unavailable for feed deletion")
-            return
-        }
-
-        do {
-            try feedManagementService.deleteFeed(id: feedID)
-            finishUnsubscribingFeed(id: feedID, using: appState)
-            scheduleUnreadAppIconBadgeRefresh()
-        } catch {
-            logger.error("Failed to unsubscribe feed \(feedID): \(error)")
-        }
+        feedManagementDestructiveActions.unsubscribeFeed(id: feedID, using: appState)
     }
 
     @MainActor
     func deleteFolder(named folderName: String, using appState: AppState) {
-        guard let folderRepository else {
-            logger.error("Folder repository is unavailable for folder deletion")
-            return
-        }
-        guard let feedManagementService else {
-            logger.error("Feed management service is unavailable for folder deletion")
-            return
-        }
-
-        do {
-            guard let folder = try folderRepository.fetchFolder(name: folderName) else {
-                logger.error("Skipped folder deletion because folder \(folderName) was not found")
-                return
-            }
-            try feedManagementService.deleteFolder(id: folder.id)
-            finishDeletingFolder(named: folderName, using: appState)
-        } catch {
-            logger.error("Failed to delete folder \(folderName): \(error)")
-        }
+        feedManagementDestructiveActions.deleteFolder(named: folderName, using: appState)
     }
 
     @MainActor
     func dismissFeedManagement(using appState: AppState) {
-        appState.dismissFeedManagementScreen()
-    }
-
-    @MainActor
-    private func scheduleInitialRefreshAfterSavingFeed(
-        id feedID: UUID,
-        using appState: AppState,
-        initialFetchSnapshot: FeedInitialFetchSnapshot?
-    ) {
-        let task = Task { @MainActor in
-            _ = await refreshFeed(id: feedID, initialFetchSnapshot: initialFetchSnapshot)
-            appState.requestSidebarReload()
-            appState.requestArticleListReload()
-        }
-        feedSaveRefreshTaskStore?.append(task)
+        feedManagementPresentation.dismissFeedManagement(using: appState)
     }
 }

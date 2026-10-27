@@ -117,7 +117,16 @@ CloudKit sources и background scheduler подменены локальными
 UI runner отклоняет Release/device запуск до app launch. Аргументы не сохраняются в shared LaunchAction; обычный запуск использует live
 composition. Реальный `SFSafariViewController` получает локальную HTML-страницу.
 
-Suite проверяет Reader/Safari/return routes, Settings dismissal и повторный launch.
+Suite проверяет Reader/Safari/return routes, Settings dismissal и повторный launch,
+а также add/initial refresh/rename/unsubscribe cancel+confirm и
+create/rename folder/move/delete folder с сохранением подписки. Для add-feed
+точный URL `https://ui-smoke.invalid/added-feed` возвращает локальный RSS fixture
+из Debug Simulator bootstrap; остальные app HTTP requests остаются offline.
+Long press контекстных меню направляется в содержащую native List cell,
+найденную по semantic identity дочернего элемента. Проверка move дополнительно
+сворачивает/раскрывает папку и сверяет видимость перенесённой ленты.
+Выбор destination folder направляется во вложенный `Text`: центр широкой
+plain Button на iPad попадает в пустой `Spacer` вне её текущей hit area.
 Assertions используют semantic identifiers и bounded waits. На iOS 27 рамка URL в accessibility Safari перекрывает Close: автоматический XCTest hit point на iPhone попадает в угол вне круглой кнопки. Только для этого native control нажатие направляется в центр его актуального semantic element frame; фиксированные экранные координаты не используются. Business logic
 остаётся в unit tests; pixel layout, жесты, RTL/Dynamic Type и ручная визуальная
 корректность этим suite не подтверждаются. Hosted CI пока запускает только unit
