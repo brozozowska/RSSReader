@@ -33,7 +33,7 @@ extension ArticleScreenBodyPayloadRenderer {
     ) -> [ArticleScreenBodyBlock] {
         let uncommentedHTML = ArticleScreenHTMLCommentFilter.removingComments(in: contentHTML)
         let readableHTML = removingDisclosureDecorations(removingNonReadableHTMLBlocks(from: uncommentedHTML))
-        return renderHTML(readableHTML, article: article, containerDepth: 0)
+        return renderHTML(recoveringRedditHTML(readableHTML, article: article), article: article, containerDepth: 0)
     }
 
     private static func renderHTML(
