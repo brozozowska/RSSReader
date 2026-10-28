@@ -6,7 +6,7 @@ struct ArticleListContentView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     let sections: [ArticlesDaySection]
     let animationState: ArticleListAnimationState
-    let customRefreshState: ArticlesScreenCustomRefreshState
+    let customRefreshState: AppPullRefreshState
     let canLoadNextPage: Bool
     let isLoadingNextPage: Bool
     var allowsArticleActions = true

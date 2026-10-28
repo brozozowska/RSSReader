@@ -7,15 +7,13 @@ struct ArticlesScreenState {
     private(set) var navigationSubtitle = ReadingLocalization.noUnreadItemsSubtitle
     private(set) var phase: ArticlesScreenPhase = .noSelection
     private(set) var refreshState: ArticlesScreenRefreshState = .idle
-    private var customRefreshID: UUID?
+    private var customRefreshLifecycle = AppPullRefreshLifecycle()
     private var feedRefreshID: UUID?
 
     var isRefreshingFeeds: Bool { feedRefreshID != nil }
 
-    private(set) var customRefreshState: ArticlesScreenCustomRefreshState = .idle {
-        didSet {
-            if customRefreshState.phase != .refreshing { customRefreshID = nil }
-        }
+    var customRefreshState: AppPullRefreshState {
+        customRefreshLifecycle.state
     }
     private(set) var refreshFeedback: ArticlesScreenRefreshFeedback?
     private(set) var emptyContentKind: ArticlesScreenEmptyContentKind = .selection
@@ -147,14 +145,14 @@ struct ArticlesScreenState {
             articleListSession.replaceArticles([], context: resolvedSessionContext)
             phase = .noSelection
             refreshState = .idle
-            customRefreshState = .idle
+            customRefreshLifecycle.end()
             refreshFeedback = nil
             return
         }
 
         if resetsContent || articles.isEmpty {
             refreshFeedback = nil
-            customRefreshState = .idle
+            customRefreshLifecycle.end()
             if resetsContent {
                 hasPresentedSnapshot = false
                 listAnimationState.prepareForSnapshotReplacement()
@@ -230,7 +228,7 @@ struct ArticlesScreenState {
         )
         isLoadingNextPage = false
         refreshState = .idle
-        customRefreshState = .idle
+        customRefreshLifecycle.end()
         if preservesRefreshFeedback == false {
             refreshFeedback = nil
         }
@@ -300,7 +298,7 @@ struct ArticlesScreenState {
             sessionContext: sessionContext
         )
         refreshState = .idle
-        customRefreshState = .idle
+        customRefreshLifecycle.end()
 
         if retainsContent && articles.isEmpty == false {
             phase = .loaded
@@ -359,7 +357,7 @@ struct ArticlesScreenState {
         }
         pendingConfirmation = nil
         refreshState = .idle
-        customRefreshState = .idle
+        customRefreshLifecycle.end()
 
         if selection == nil {
             phase = .noSelection
@@ -391,7 +389,7 @@ struct ArticlesScreenState {
             scopeMetric: articleListSession.scopeMetric
         )
         refreshState = .idle
-        customRefreshState = .idle
+        customRefreshLifecycle.end()
         if articles.isEmpty {
             emptyContentKind = inferredEmptyContentKind()
         } else {
@@ -420,21 +418,16 @@ struct ArticlesScreenState {
     }
 
     mutating func updateCustomRefreshPullProgress(_ progress: Double) {
-        guard customRefreshState.phase != .refreshing else { return }
-        customRefreshState = .pulling(progress: progress)
+        customRefreshLifecycle.updatePullProgress(progress)
     }
 
     @discardableResult
     mutating func beginCustomRefresh() -> UUID {
-        let refreshID = UUID()
-        customRefreshState = .refreshing
-        customRefreshID = refreshID
-        return refreshID
+        customRefreshLifecycle.begin()
     }
 
     mutating func endCustomRefresh(ifMatching refreshID: UUID? = nil) {
-        if let refreshID, refreshID != customRefreshID { return }
-        customRefreshState = .idle
+        customRefreshLifecycle.end(ifMatching: refreshID)
     }
 
     mutating func markArticleAsReadInCurrentSession(articleID: UUID) {

@@ -5,7 +5,7 @@ struct SidebarContentList: View {
 
     @Binding var selection: SidebarSelection?
     let viewState: SidebarScreenDerivedViewState
-    let customRefreshState: SidebarCustomRefreshState
+    let customRefreshState: AppPullRefreshState
     let appThemeVariant: AppThemeVariant
     let actionHandlers: SidebarActionHandlers
     let onFolderExpansionToggle: (String) -> Void
