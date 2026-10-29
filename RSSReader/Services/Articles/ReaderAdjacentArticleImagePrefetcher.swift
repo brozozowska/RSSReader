@@ -213,23 +213,7 @@ enum ReaderAdjacentArticleImagePrefetcher {
     }
 
     private static func firstRenderedImageURL(for article: ReaderArticleDTO) -> URL? {
-        firstRenderedImageURL(in: ArticleScreenContentRenderer.renderBody(for: article).blocks)
-    }
-
-    private static func firstRenderedImageURL(in blocks: [ArticleScreenBodyBlock]) -> URL? {
-        for block in blocks {
-            switch block {
-            case .image(let url):
-                return url
-            case .figure(let figureBlocks), .aside(let figureBlocks):
-                if let url = firstRenderedImageURL(in: figureBlocks) {
-                    return url
-                }
-            default:
-                continue
-            }
-        }
-        return nil
+        ArticleContentParser.renderBody(for: article).firstImageURL
     }
 }
 

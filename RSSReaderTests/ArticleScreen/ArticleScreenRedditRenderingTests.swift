@@ -7,7 +7,7 @@ import Testing
 struct ArticleScreenRedditRenderingTests {
     @Test func savedPortRadarPayloadRecoversFiveItemsWithInlineStyles() throws {
         let blocks = render(Self.portRadarHTML)
-        let lists = blocks.compactMap { block -> ArticleScreenListBlock? in
+        let lists = blocks.compactMap { block -> ArticleContentListBlock? in
             if case .list(let list) = block { return list }
             return nil
         }
@@ -35,10 +35,10 @@ struct ArticleScreenRedditRenderingTests {
     @Test func recoveryIsRestrictedToRedditMarkdownHTML() {
         for url in ["https://example.com/post", "https://reddit.com.example.com/post"] {
             let article = makeReaderArticleDTO(contentHTML: Self.portRadarHTML, articleURL: url)
-            #expect(ArticleScreenBodyPayloadRenderer.recoveringRedditHTML(Self.portRadarHTML, article: article) == Self.portRadarHTML)
+            #expect(ArticleContentBodyPayloadRenderer.recoveringRedditHTML(Self.portRadarHTML, article: article) == Self.portRadarHTML)
         }
         let html = "<p>```swift let x = 1 ```</p>"
-        #expect(ArticleScreenBodyPayloadRenderer.recoveringRedditHTML(html, article: makeReaderArticleDTO(articleURL: Self.redditURL)) == html)
+        #expect(ArticleContentBodyPayloadRenderer.recoveringRedditHTML(html, article: makeReaderArticleDTO(articleURL: Self.redditURL)) == html)
     }
 
     @Test func preservesLiteralCodeExistingBlocksAndAmbiguousProse() {
@@ -52,7 +52,7 @@ struct ArticleScreenRedditRenderingTests {
             "<ul><li>Already semantic</li></ul>"
         ] {
             let html = "<div class=\"md\">" + inner + "</div>"
-            #expect(ArticleScreenBodyPayloadRenderer.recoveringRedditHTML(html, article: makeReaderArticleDTO(articleURL: Self.redditURL)) == html)
+            #expect(ArticleContentBodyPayloadRenderer.recoveringRedditHTML(html, article: makeReaderArticleDTO(articleURL: Self.redditURL)) == html)
         }
     }
 
@@ -69,7 +69,7 @@ struct ArticleScreenRedditRenderingTests {
         #expect(list.items[1].spans.contains { $0.linkURL != nil && $0.text.contains("literal") })
     }
 
-    private func render(_ html: String) -> [ArticleScreenBodyBlock] {
+    private func render(_ html: String) -> [ArticleContentBodyBlock] {
         ArticleScreenContentState(article: makeReaderArticleDTO(
             contentHTML: html, articleURL: Self.redditURL, canonicalURL: nil
         )).body.blocks

@@ -1,22 +1,22 @@
 import Foundation
 
-enum ArticleScreenBodyPayloadKind: Equatable {
+enum ArticleContentBodyPayloadKind: Equatable {
     case plainText
     case html
 }
 
-struct ArticleScreenBodyPayload: Equatable {
-    let kind: ArticleScreenBodyPayloadKind
+struct ArticleContentBodyPayload: Equatable {
+    let kind: ArticleContentBodyPayloadKind
     let value: String
 }
 
-enum ArticleScreenBodyPayloadNormalizer {
+enum ArticleContentBodyPayloadNormalizer {
     static let recognizedHTMLTagNamePattern = #"a|abbr|address|article|aside|audio|b|button|bdi|bdo|blockquote|br|caption|cite|code|col|colgroup|data|dd|del|details|dfn|div|dl|dt|em|embed|figcaption|figure|footer|h[1-6]|header|hgroup|hr|i|iframe|img|ins|kbd|label|li|main|mark|nav|ol|p|picture|pre|q|rp|rt|ruby|s|samp|section|small|source|span|strong|sub|summary|sup|table|tbody|td|tfoot|th|thead|time|tr|u|ul|var|video|wbr"#
 
     static func normalize(
         _ rawValue: String?,
-        preferredKind: ArticleScreenBodyPayloadKind
-    ) -> ArticleScreenBodyPayload? {
+        preferredKind: ArticleContentBodyPayloadKind
+    ) -> ArticleContentBodyPayload? {
         guard let rawValue else { return nil }
 
         let scalarValue = normalizeScalar(rawValue)
@@ -26,7 +26,7 @@ enum ArticleScreenBodyPayloadNormalizer {
         for _ in 0..<3 {
             // Decode only the outer feed envelope. Once markup exists, entities are
             // text/attribute content and must not become comment or structure tokens.
-            let visibleMarkup = ArticleScreenHTMLCommentFilter.removingComments(in: decodedValue)
+            let visibleMarkup = ArticleContentHTMLCommentFilter.removingComments(in: decodedValue)
             if containsHTMLTag(visibleMarkup)
                 || (preferredKind == .html && decodedValue.contains("<!--") && containsEscapedHTMLTag(visibleMarkup) == false) {
                 break
@@ -38,7 +38,7 @@ enum ArticleScreenBodyPayloadNormalizer {
         // With no document structure, an escaped comment embedded in prose is
         // literal text, not an outer HTML envelope. Decode it only at text rendering.
         if preferredKind == .html,
-           containsHTMLTag(ArticleScreenHTMLCommentFilter.removingComments(in: decodedValue)) == false,
+           containsHTMLTag(ArticleContentHTMLCommentFilter.removingComments(in: decodedValue)) == false,
            scalarValue.contains("<!--") == false,
            decodedValue.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("<!--") == false {
             decodedValue = scalarValue
@@ -58,7 +58,7 @@ enum ArticleScreenBodyPayloadNormalizer {
         }
 
         guard normalizedValue.isEmpty == false else { return nil }
-        return ArticleScreenBodyPayload(kind: resolvedKind, value: normalizedValue)
+        return ArticleContentBodyPayload(kind: resolvedKind, value: normalizedValue)
     }
 
     static func decodeHTMLEntities(in value: String) -> String {
@@ -92,10 +92,10 @@ enum ArticleScreenBodyPayloadNormalizer {
     private static func resolvedKind(
         rawValue: String,
         decodedValue: String,
-        preferredKind: ArticleScreenBodyPayloadKind
-    ) -> ArticleScreenBodyPayloadKind {
-        if containsHTMLTag(ArticleScreenHTMLCommentFilter.removingComments(in: decodedValue))
-            || containsEscapedHTMLTag(ArticleScreenHTMLCommentFilter.removingComments(in: rawValue)) {
+        preferredKind: ArticleContentBodyPayloadKind
+    ) -> ArticleContentBodyPayloadKind {
+        if containsHTMLTag(ArticleContentHTMLCommentFilter.removingComments(in: decodedValue))
+            || containsEscapedHTMLTag(ArticleContentHTMLCommentFilter.removingComments(in: rawValue)) {
             return .html
         }
 

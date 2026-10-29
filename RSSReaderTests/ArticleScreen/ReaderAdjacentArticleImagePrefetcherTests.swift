@@ -6,6 +6,49 @@ import UIKit
 @Suite("Article Screen / Adjacent Image Prefetch")
 @MainActor
 struct ReaderAdjacentArticleImagePrefetcherTests {
+    @Test(arguments: [
+        "<!-- <img src='/hidden.png'> --><aside><figure><img data-src='/visible.png'><figcaption>A &amp; B</figcaption></figure></aside>",
+        "<pre><code>&lt;img src='/code.png'&gt;</code></pre><picture><source srcset='/small.png 1x, /visible.png 2x'></picture>",
+        "<details open><summary>More</summary><img src='/disclosure.png'></details><img src='/visible.png'>",
+        "<table><tr><td>&lt;img src='/literal.png'&gt;</td></tr></table><img src='/visible.png'>",
+        "&lt;figure&gt;&lt;img src='/visible.png'&gt;&lt;/figure&gt;"
+    ])
+    func sharedContentFixturesKeepReaderAndPrefetchImageSemantics(_ html: String) throws {
+        let article = makeReaderArticleDTO(
+            contentHTML: html,
+            articleURL: "https://example.com/articles/entry",
+            canonicalURL: "https://canonical.example/post"
+        )
+        let body = ArticleScreenContentState(article: article).body
+        let parsed = ArticleContentParser.renderBody(for: article)
+        let query = PrefetchArticleQueryService(articlesByID: [article.id: article])
+        let plan = try ReaderAdjacentArticleImagePrefetcher.plan(
+            context: makeContext(currentArticleID: article.id),
+            articleQueryService: query
+        )
+
+        // Image paths retain the article URL base, independently of inline link base.
+        let expected = URL(string: "https://example.com/visible.png")
+        #expect(body == parsed)
+        #expect(body.firstImageURL == expected)
+        #expect(plan.currentImageURL == expected)
+    }
+
+    @Test
+    func sharedFallbackKeepsSemanticNoticeAndPresentationCopy() throws {
+        let article = makeReaderArticleDTO(summary: "Summary &amp; details", imageURL: "https://example.com/lead.png")
+        let body = ArticleScreenContentState(article: article).body
+        #expect(body.source == .summary)
+        #expect(body.blocks.last == .fallbackNotice(.summaryOnly))
+        #expect(ArticleContentNotice.summaryOnly.localizedText == ReadingLocalization.summaryOnlyFallbackNotice)
+        #expect(ArticleContentNotice.emptyBody.localizedText == ReadingLocalization.emptyBodyFallbackNotice)
+        let query = PrefetchArticleQueryService(articlesByID: [article.id: article])
+        let plan = try ReaderAdjacentArticleImagePrefetcher.plan(
+            context: makeContext(currentArticleID: article.id), articleQueryService: query
+        )
+        #expect(plan.currentImageURL == body.firstImageURL)
+    }
+
     @Test
     func prefetchSelectsOnlyFirstRenderedImageFromEachCandidateArticle() async throws {
         let currentID = UUID()

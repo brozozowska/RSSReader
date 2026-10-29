@@ -252,7 +252,7 @@ struct ArticleListRowContent: Equatable {
 
 private enum ArticleListRowPreviewNormalizer {
     static func normalizedPreview(from rawValue: String?) -> String? {
-        guard let payload = ArticleScreenBodyPayloadNormalizer.normalize(
+        guard let payload = ArticleContentBodyPayloadNormalizer.normalize(
             rawValue,
             preferredKind: .plainText
         ) else {
@@ -310,6 +310,6 @@ private extension String {
     }
 
     func decodingHTMLEntitiesForArticleListPreview() -> String {
-        ArticleScreenBodyPayloadNormalizer.decodeHTMLEntities(in: self)
+        ArticleContentBodyPayloadNormalizer.decodeHTMLEntities(in: self)
     }
 }

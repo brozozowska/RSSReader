@@ -1,7 +1,7 @@
 import Foundation
 
 /// Recognizes static header/panel pairs. No feed-provided actions are executed.
-enum ArticleScreenAccordionHTMLParser {
+enum ArticleContentAccordionHTMLParser {
     struct Disclosure {
         let summaryHTML: String
         let panelHTML: String
@@ -39,12 +39,12 @@ enum ArticleScreenAccordionHTMLParser {
             guard buttons.count == 1 else { return nil }
             let buttonIndex = buttons[0]
             let button = elements[buttonIndex]
-            let target = ArticleScreenBodyPayloadRenderer.htmlAttribute(named: "aria-controls", in: button.opening)
+            let target = ArticleContentBodyPayloadRenderer.htmlAttribute(named: "aria-controls", in: button.opening)
             let panelIndex: Int
             if let target {
                 guard target.isEmpty == false, target.contains(where: \.isWhitespace) == false else { return nil }
                 let targets = elements.indices.filter {
-                    ArticleScreenBodyPayloadRenderer.htmlAttribute(named: "id", in: elements[$0].opening) == target
+                    ArticleContentBodyPayloadRenderer.htmlAttribute(named: "id", in: elements[$0].opening) == target
                 }
                 guard targets.count == 1, roots.contains(targets[0]), targets[0] != headerIndex else { return nil }
                 panelIndex = targets[0]
@@ -83,17 +83,17 @@ enum ArticleScreenAccordionHTMLParser {
             location: min(button.end, header.innerEnd), length: max(0, header.innerEnd - button.end)
         ))
         if headerIndex != buttonIndex {
-            guard ArticleScreenBodyPayloadRenderer.stripHTML(beforeButton + afterButton)
+            guard ArticleContentBodyPayloadRenderer.stripHTML(beforeButton + afterButton)
                 .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         }
         let panelHTML = nsHTML.substring(with: NSRange(location: panel.innerStart, length: panel.innerEnd - panel.innerStart))
-        guard ArticleScreenBodyPayloadRenderer.stripHTML(panelHTML)
+        guard ArticleContentBodyPayloadRenderer.stripHTML(panelHTML)
             .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ||
             panelHTML.range(of: #"<(img|video|audio|iframe|embed)\b"#, options: [.regularExpression, .caseInsensitive]) != nil
         else { return nil }
         let hidden = elements.indices.filter {
             isDescendant($0, of: buttonIndex, elements: elements) &&
-            ArticleScreenBodyPayloadRenderer.htmlAttribute(named: "aria-hidden", in: elements[$0].opening)?.lowercased() == "true"
+            ArticleContentBodyPayloadRenderer.htmlAttribute(named: "aria-hidden", in: elements[$0].opening)?.lowercased() == "true"
         }
         let summary = NSMutableString(string: nsHTML.substring(with: NSRange(
             location: button.innerStart, length: button.innerEnd - button.innerStart
@@ -110,13 +110,13 @@ enum ArticleScreenAccordionHTMLParser {
             panelHTML: panelHTML,
             prefixHTML: nsHTML.substring(to: header.start),
             suffixHTML: nsHTML.substring(from: panel.end),
-            isInitiallyExpanded: ArticleScreenBodyPayloadRenderer.htmlAttribute(named: "aria-expanded", in: button.opening)?
+            isInitiallyExpanded: ArticleContentBodyPayloadRenderer.htmlAttribute(named: "aria-expanded", in: button.opening)?
                 .lowercased() == "true"
         )
     }
 
     static func hasClass(_ name: String, in tag: String) -> Bool {
-        ArticleScreenBodyPayloadRenderer.htmlAttribute(named: "class", in: tag)?
+        ArticleContentBodyPayloadRenderer.htmlAttribute(named: "class", in: tag)?
             .split(whereSeparator: \.isWhitespace).contains(Substring(name)) == true
     }
 

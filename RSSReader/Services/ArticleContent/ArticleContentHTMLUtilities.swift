@@ -1,6 +1,6 @@
 import Foundation
 
-extension ArticleScreenBodyPayloadRenderer {
+extension ArticleContentBodyPayloadRenderer {
     static func leadingTagName(in html: String) -> String {
         guard
             let tagRegex = try? NSRegularExpression(pattern: #"<\s*([a-zA-Z0-9]+)"#, options: []),
@@ -91,7 +91,7 @@ extension ArticleScreenBodyPayloadRenderer {
     }
 
     static func removingDisclosureDecorations(_ value: String) -> String {
-        ArticleScreenBodyPayloadNormalizer.transformOutsideCode(value) { fragment in
+        ArticleContentBodyPayloadNormalizer.transformOutsideCode(value) { fragment in
             fragment.replacingOccurrences(
                 of: #"(?is)<span\b[^>]*class\s*=\s*["'][^"']*\bwp-block-accordion-heading__toggle-icon\b[^"']*["'][^>]*>.*?</span\s*>"#,
                 with: "",
@@ -113,14 +113,14 @@ extension ArticleScreenBodyPayloadRenderer {
                 options: .regularExpression
             )
             .replacingOccurrences(
-                of: #"(?i)<\s*/?\s*(?:\#(ArticleScreenBodyPayloadNormalizer.recognizedHTMLTagNamePattern))\b(?:[^>"']|"[^"]*"|'[^']*')*>"#,
+                of: #"(?i)<\s*/?\s*(?:\#(ArticleContentBodyPayloadNormalizer.recognizedHTMLTagNamePattern))\b(?:[^>"']|"[^"]*"|'[^']*')*>"#,
                 with: "",
                 options: .regularExpression
             )
             // Retain the established readable recovery for malformed/unbalanced
             // attribute quotes after well-formed quoted tags have been consumed.
             .replacingOccurrences(
-                of: #"(?i)<\s*/?\s*(?:\#(ArticleScreenBodyPayloadNormalizer.recognizedHTMLTagNamePattern))\b[^>]*>"#,
+                of: #"(?i)<\s*/?\s*(?:\#(ArticleContentBodyPayloadNormalizer.recognizedHTMLTagNamePattern))\b[^>]*>"#,
                 with: "",
                 options: .regularExpression
             )
@@ -128,7 +128,7 @@ extension ArticleScreenBodyPayloadRenderer {
     }
 
     static func removingNonReadableHTMLBlocks(from value: String) -> String {
-        ArticleScreenBodyPayloadNormalizer.transformOutsideCode(value) { fragment in
+        ArticleContentBodyPayloadNormalizer.transformOutsideCode(value) { fragment in
             fragment.replacingOccurrences(
                 of: #"(?is)<(style|script|noscript|svg)\b[^>]*>.*?</\1\s*>"#,
                 with: "",
@@ -138,7 +138,7 @@ extension ArticleScreenBodyPayloadRenderer {
     }
 }
 
-extension Array where Element == ArticleScreenBodyBlock {
+extension Array where Element == ArticleContentBodyBlock {
     var containsImageBlock: Bool {
         contains {
             if case .image = $0 {
@@ -153,12 +153,12 @@ extension Array where Element == ArticleScreenBodyBlock {
 }
 
 extension String {
-    var articleScreenNilIfBlank: String? {
+    var articleContentNilIfBlank: String? {
         let trimmedValue = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmedValue.isEmpty ? nil : trimmedValue
     }
 
-    var articleScreenNormalizedParagraphs: [String] {
+    var articleContentNormalizedParagraphs: [String] {
         replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
             .components(separatedBy: "\n\n")
@@ -173,6 +173,6 @@ extension String {
     }
 
     func articleScreenDecodingHTMLEntities() -> String {
-        ArticleScreenBodyPayloadNormalizer.decodeHTMLEntities(in: self)
+        ArticleContentBodyPayloadNormalizer.decodeHTMLEntities(in: self)
     }
 }

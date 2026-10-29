@@ -1,20 +1,20 @@
 import Foundation
 
-struct ArticleScreenInlineTextStyle {
+struct ArticleContentInlineTextStyle {
     var linkURL: URL?
     var isStrong = false
     var isEmphasized = false
     var isCode = false
     var isMarked = false
-    var verticalAlignment: ArticleScreenInlineVerticalAlignment?
+    var verticalAlignment: ArticleContentInlineVerticalAlignment?
     var isDeleted = false
     var isInserted = false
-    var codeSemantic: ArticleScreenInlineCodeSemantic?
+    var codeSemantic: ArticleContentInlineCodeSemantic?
     var isCitation = false
 }
 
-extension ArticleScreenBodyPayloadRenderer {
-    static func renderTextBlock(_ text: String) -> [ArticleScreenBodyBlock] {
+extension ArticleContentBodyPayloadRenderer {
+    static func renderTextBlock(_ text: String) -> [ArticleContentBodyBlock] {
         splitIntoParagraphStrings(text).map { paragraph in
             .paragraph(makeTextBlock(fromPlainText: paragraph))
         }
@@ -23,7 +23,7 @@ extension ArticleScreenBodyPayloadRenderer {
     static func renderHTMLTextSegment(
         _ htmlSegment: String,
         article: ReaderArticleDTO
-    ) -> [ArticleScreenBodyBlock] {
+    ) -> [ArticleContentBodyBlock] {
         let normalizedHTML = removingNonReadableHTMLBlocks(from: htmlSegment)
             .replacingOccurrences(
                 of: #"(?i)<br\s*/?>"#,
@@ -44,8 +44,8 @@ extension ArticleScreenBodyPayloadRenderer {
             return renderTextBlock(stripHTML(normalizedHTML))
         }
 
-        var renderedBlocks: [ArticleScreenBodyBlock] = []
-        var currentParagraphSpans: [ArticleScreenTextSpan] = []
+        var renderedBlocks: [ArticleContentBodyBlock] = []
+        var currentParagraphSpans: [ArticleContentTextSpan] = []
         var currentLocation = 0
         let matches = anchorRegex.matches(
             in: normalizedHTML,
@@ -69,7 +69,7 @@ extension ArticleScreenBodyPayloadRenderer {
             let linkText = stripHTML(htmlNSString.substring(with: match.range(at: 2)))
             appendTextSegment(
                 linkText,
-                linkURL: ArticleScreenURLResolver.resolveArticleBodyLinkURL(
+                linkURL: ArticleContentURLResolver.resolveArticleBodyLinkURL(
                     rawValue: rawHref,
                     baseURLString: article.canonicalURL ?? article.articleURL
                 ),
@@ -98,24 +98,24 @@ extension ArticleScreenBodyPayloadRenderer {
     static func makeTextBlock(
         fromHTML html: String,
         article: ReaderArticleDTO
-    ) -> ArticleScreenTextBlock? {
-        var spans: [ArticleScreenTextSpan] = []
+    ) -> ArticleContentTextBlock? {
+        var spans: [ArticleContentTextSpan] = []
         appendInlineHTML(
             html,
             article: article,
-            style: ArticleScreenInlineTextStyle(),
+            style: ArticleContentInlineTextStyle(),
             to: &spans
         )
 
         let trimmedSpans = trimBoundaryWhitespace(in: spans)
-        return trimmedSpans.isEmpty ? nil : ArticleScreenTextBlock(spans: trimmedSpans)
+        return trimmedSpans.isEmpty ? nil : ArticleContentTextBlock(spans: trimmedSpans)
     }
 
     static func appendInlineHTML(
         _ html: String,
         article: ReaderArticleDTO,
-        style: ArticleScreenInlineTextStyle,
-        to spans: inout [ArticleScreenTextSpan]
+        style: ArticleContentInlineTextStyle,
+        to spans: inout [ArticleContentTextSpan]
     ) {
         let inlinePattern = #"(?is)<br\s*/?>|<(a|strong|b|em|i|code|mark|sup|sub|del|ins|kbd|samp|var|cite)\b([^>]*)>(.*?)</\1\s*>"#
         guard let inlineRegex = try? NSRegularExpression(
@@ -155,7 +155,7 @@ extension ArticleScreenBodyPayloadRenderer {
                 switch tagName {
                 case "a":
                     if let rawHref = htmlAttribute(named: "href", in: attributes) {
-                        childStyle.linkURL = ArticleScreenURLResolver.resolveArticleBodyLinkURL(
+                        childStyle.linkURL = ArticleContentURLResolver.resolveArticleBodyLinkURL(
                             rawValue: rawHref,
                             baseURLString: article.canonicalURL ?? article.articleURL
                         )
@@ -194,7 +194,7 @@ extension ArticleScreenBodyPayloadRenderer {
                     of: #"(?i)(?:&lt;|<)!--|&lt;\s*/?\s*[a-z]|<\s*/?\s*(button|details|summary|div|section|pre)\b"#,
                     options: .regularExpression
                 ) != nil {
-                    appendStyledText(ArticleScreenBodyPayloadNormalizer.decodeHTMLEntities(in: innerHTML), style: childStyle, to: &spans)
+                    appendStyledText(ArticleContentBodyPayloadNormalizer.decodeHTMLEntities(in: innerHTML), style: childStyle, to: &spans)
                 } else {
                     appendInlineHTML(innerHTML, article: article, style: childStyle, to: &spans)
                 }
@@ -215,8 +215,8 @@ extension ArticleScreenBodyPayloadRenderer {
 
     static func appendStyledHTMLFragment(
         _ htmlFragment: String,
-        style: ArticleScreenInlineTextStyle,
-        to spans: inout [ArticleScreenTextSpan]
+        style: ArticleContentInlineTextStyle,
+        to spans: inout [ArticleContentTextSpan]
     ) {
         let strippedText = stripHTML(htmlFragment)
             .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
@@ -225,8 +225,8 @@ extension ArticleScreenBodyPayloadRenderer {
 
     static func appendStyledText(
         _ text: String,
-        style: ArticleScreenInlineTextStyle,
-        to spans: inout [ArticleScreenTextSpan]
+        style: ArticleContentInlineTextStyle,
+        to spans: inout [ArticleContentTextSpan]
     ) {
         appendInlineText(
             text,
@@ -247,8 +247,8 @@ extension ArticleScreenBodyPayloadRenderer {
     static func appendHTMLFragment(
         _ htmlFragment: String,
         article: ReaderArticleDTO,
-        to renderedBlocks: inout [ArticleScreenBodyBlock],
-        currentParagraphSpans: inout [ArticleScreenTextSpan]
+        to renderedBlocks: inout [ArticleContentBodyBlock],
+        currentParagraphSpans: inout [ArticleContentTextSpan]
     ) {
         _ = article
         appendTextSegment(
@@ -262,8 +262,8 @@ extension ArticleScreenBodyPayloadRenderer {
     static func appendTextSegment(
         _ text: String,
         linkURL: URL?,
-        renderedBlocks: inout [ArticleScreenBodyBlock],
-        currentParagraphSpans: inout [ArticleScreenTextSpan]
+        renderedBlocks: inout [ArticleContentBodyBlock],
+        currentParagraphSpans: inout [ArticleContentTextSpan]
     ) {
         let normalizedText = text
             .replacingOccurrences(of: "\r\n", with: "\n")
@@ -330,12 +330,12 @@ extension ArticleScreenBodyPayloadRenderer {
         isEmphasized: Bool,
         isCode: Bool,
         isMarked: Bool = false,
-        verticalAlignment: ArticleScreenInlineVerticalAlignment? = nil,
+        verticalAlignment: ArticleContentInlineVerticalAlignment? = nil,
         isDeleted: Bool = false,
         isInserted: Bool = false,
-        codeSemantic: ArticleScreenInlineCodeSemantic? = nil,
+        codeSemantic: ArticleContentInlineCodeSemantic? = nil,
         isCitation: Bool = false,
-        to spans: inout [ArticleScreenTextSpan]
+        to spans: inout [ArticleContentTextSpan]
     ) {
         guard text.isEmpty == false else { return }
 
@@ -350,7 +350,7 @@ extension ArticleScreenBodyPayloadRenderer {
            lastSpan.isInserted == isInserted,
            lastSpan.codeSemantic == codeSemantic,
            lastSpan.isCitation == isCitation {
-            spans[spans.count - 1] = ArticleScreenTextSpan(
+            spans[spans.count - 1] = ArticleContentTextSpan(
                 text: lastSpan.text + text,
                 linkURL: linkURL,
                 isStrong: isStrong,
@@ -365,7 +365,7 @@ extension ArticleScreenBodyPayloadRenderer {
             )
         } else {
             spans.append(
-                ArticleScreenTextSpan(
+                ArticleContentTextSpan(
                     text: text,
                     linkURL: linkURL,
                     isStrong: isStrong,
@@ -383,8 +383,8 @@ extension ArticleScreenBodyPayloadRenderer {
     }
 
     static func finalizeParagraph(
-        _ spans: inout [ArticleScreenTextSpan],
-        into renderedBlocks: inout [ArticleScreenBodyBlock]
+        _ spans: inout [ArticleContentTextSpan],
+        into renderedBlocks: inout [ArticleContentBodyBlock]
     ) {
         let trimmedSpans = trimBoundaryWhitespace(in: spans)
         guard trimmedSpans.isEmpty == false else {
@@ -392,11 +392,11 @@ extension ArticleScreenBodyPayloadRenderer {
             return
         }
 
-        renderedBlocks.append(.paragraph(ArticleScreenTextBlock(spans: trimmedSpans)))
+        renderedBlocks.append(.paragraph(ArticleContentTextBlock(spans: trimmedSpans)))
         spans = []
     }
 
-    static func makeTextBlock(fromPlainText text: String) -> ArticleScreenTextBlock {
+    static func makeTextBlock(fromPlainText text: String) -> ArticleContentTextBlock {
         let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
         let nsText = text as NSString
         let matches = detector?.matches(
@@ -405,41 +405,41 @@ extension ArticleScreenBodyPayloadRenderer {
             range: NSRange(location: 0, length: nsText.length)
         ) ?? []
 
-        var spans: [ArticleScreenTextSpan] = []
+        var spans: [ArticleContentTextSpan] = []
         var currentLocation = 0
 
         for match in matches {
             let leadingRange = NSRange(location: currentLocation, length: match.range.location - currentLocation)
             if leadingRange.length > 0 {
-                spans.append(ArticleScreenTextSpan(text: nsText.substring(with: leadingRange)))
+                spans.append(ArticleContentTextSpan(text: nsText.substring(with: leadingRange)))
             }
 
             let linkText = nsText.substring(with: match.range)
             let linkURL = match.url.flatMap { url in
-                ArticleScreenURLResolver.resolveArticleBodyLinkURL(
+                ArticleContentURLResolver.resolveArticleBodyLinkURL(
                     rawValue: url.absoluteString,
                     baseURLString: nil
                 )
             }
-            spans.append(ArticleScreenTextSpan(text: linkText, linkURL: linkURL))
+            spans.append(ArticleContentTextSpan(text: linkText, linkURL: linkURL))
             currentLocation = match.range.location + match.range.length
         }
 
         if currentLocation < nsText.length {
             let trailingRange = NSRange(location: currentLocation, length: nsText.length - currentLocation)
-            spans.append(ArticleScreenTextSpan(text: nsText.substring(with: trailingRange)))
+            spans.append(ArticleContentTextSpan(text: nsText.substring(with: trailingRange)))
         }
 
-        return ArticleScreenTextBlock(spans: mergedSpans(spans))
+        return ArticleContentTextBlock(spans: mergedSpans(spans))
     }
 
     static func splitIntoParagraphStrings(_ text: String) -> [String] {
         text
-            .articleScreenNormalizedParagraphs
+            .articleContentNormalizedParagraphs
             .filter { $0.isEmpty == false }
     }
 
-    static func trimBoundaryWhitespace(in spans: [ArticleScreenTextSpan]) -> [ArticleScreenTextSpan] {
+    static func trimBoundaryWhitespace(in spans: [ArticleContentTextSpan]) -> [ArticleContentTextSpan] {
         var trimmedSpans = spans
 
         while let firstSpan = trimmedSpans.first {
@@ -447,7 +447,7 @@ extension ArticleScreenBodyPayloadRenderer {
             if trimmedText.isEmpty {
                 trimmedSpans.removeFirst()
             } else {
-                trimmedSpans[0] = ArticleScreenTextSpan(
+                trimmedSpans[0] = ArticleContentTextSpan(
                     text: trimLeadingWhitespace(in: firstSpan.text),
                     linkURL: firstSpan.linkURL,
                     isStrong: firstSpan.isStrong,
@@ -469,7 +469,7 @@ extension ArticleScreenBodyPayloadRenderer {
             if trimmedText.isEmpty {
                 trimmedSpans.removeLast()
             } else {
-                trimmedSpans[trimmedSpans.count - 1] = ArticleScreenTextSpan(
+                trimmedSpans[trimmedSpans.count - 1] = ArticleContentTextSpan(
                     text: trimTrailingWhitespace(in: lastSpan.text),
                     linkURL: lastSpan.linkURL,
                     isStrong: lastSpan.isStrong,
@@ -489,8 +489,8 @@ extension ArticleScreenBodyPayloadRenderer {
         return mergedSpans(trimmedSpans.filter { $0.text.isEmpty == false })
     }
 
-    static func mergedSpans(_ spans: [ArticleScreenTextSpan]) -> [ArticleScreenTextSpan] {
-        spans.reduce(into: [ArticleScreenTextSpan]()) { partialResult, span in
+    static func mergedSpans(_ spans: [ArticleContentTextSpan]) -> [ArticleContentTextSpan] {
+        spans.reduce(into: [ArticleContentTextSpan]()) { partialResult, span in
             guard span.text.isEmpty == false else { return }
 
             if let lastSpan = partialResult.last,
@@ -504,7 +504,7 @@ extension ArticleScreenBodyPayloadRenderer {
                lastSpan.isInserted == span.isInserted,
                lastSpan.codeSemantic == span.codeSemantic,
                lastSpan.isCitation == span.isCitation {
-                partialResult[partialResult.count - 1] = ArticleScreenTextSpan(
+                partialResult[partialResult.count - 1] = ArticleContentTextSpan(
                     text: lastSpan.text + span.text,
                     linkURL: span.linkURL,
                     isStrong: span.isStrong,

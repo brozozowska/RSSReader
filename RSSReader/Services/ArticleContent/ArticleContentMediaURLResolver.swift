@@ -1,10 +1,10 @@
 import Foundation
 
-extension ArticleScreenBodyPayloadRenderer {
+extension ArticleContentBodyPayloadRenderer {
     static func appendLeadImageIfNeeded(
-        _ blocks: [ArticleScreenBodyBlock],
+        _ blocks: [ArticleContentBodyBlock],
         article: ReaderArticleDTO
-    ) -> [ArticleScreenBodyBlock] {
+    ) -> [ArticleContentBodyBlock] {
         guard blocks.containsImageBlock == false, let imageBlock = leadImageBlock(for: article) else {
             return blocks
         }
@@ -12,10 +12,10 @@ extension ArticleScreenBodyPayloadRenderer {
         return [imageBlock] + blocks
     }
 
-    static func leadImageBlock(for article: ReaderArticleDTO) -> ArticleScreenBodyBlock? {
+    static func leadImageBlock(for article: ReaderArticleDTO) -> ArticleContentBodyBlock? {
         guard
-            let imageURLString = article.imageURL?.articleScreenNilIfBlank,
-            let imageURL = ArticleScreenURLResolver.resolveMediaURL(
+            let imageURLString = article.imageURL?.articleContentNilIfBlank,
+            let imageURL = ArticleContentURLResolver.resolveMediaURL(
                 rawValue: imageURLString,
                 baseURLString: article.canonicalURL ?? article.articleURL
             )
@@ -93,7 +93,7 @@ extension ArticleScreenBodyPayloadRenderer {
     static func resolveVideoLikeMediaFallback(
         fromHTML html: String,
         article: ReaderArticleDTO
-    ) -> (url: URL, kind: ArticleScreenMediaKind)? {
+    ) -> (url: URL, kind: ArticleContentMediaKind)? {
         let directAttributes = [
             "data-src",
             "data-original",
@@ -161,7 +161,7 @@ extension ArticleScreenBodyPayloadRenderer {
             return nil
         }
 
-        return ArticleScreenURLResolver.resolveMediaURL(
+        return ArticleContentURLResolver.resolveMediaURL(
             rawValue: trimmedValue,
             baseURLString: article.articleURL
         )
@@ -175,7 +175,7 @@ extension ArticleScreenBodyPayloadRenderer {
         return videoLikeMediaFallbackKind(for: url) == nil
     }
 
-    static func videoLikeMediaFallbackKind(for url: URL) -> ArticleScreenMediaKind? {
+    static func videoLikeMediaFallbackKind(for url: URL) -> ArticleContentMediaKind? {
         let fileExtension = url.pathExtension.lowercased()
         let path = url.path.lowercased()
 
@@ -221,10 +221,10 @@ extension ArticleScreenBodyPayloadRenderer {
                     .map(String.init)
             }
             .last?
-            .articleScreenNilIfBlank
+            .articleContentNilIfBlank
     }
 
-    static func unsupportedMediaKind(for tagName: String, url: URL) -> ArticleScreenMediaKind {
+    static func unsupportedMediaKind(for tagName: String, url: URL) -> ArticleContentMediaKind {
         switch tagName {
         case "iframe":
             isKnownEmbeddedMediaURL(url) ? .knownEmbedded : .embedded

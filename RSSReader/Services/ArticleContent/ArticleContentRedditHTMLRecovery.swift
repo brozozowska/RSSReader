@@ -2,7 +2,7 @@ import Foundation
 
 /// Reddit's legacy Atom HTML can retain Markdown markers after flattening its layout.
 /// Recover only explicit structures; never invent code indentation or parse general prose.
-extension ArticleScreenBodyPayloadRenderer {
+extension ArticleContentBodyPayloadRenderer {
     static func recoveringRedditHTML(_ html: String, article: ReaderArticleDTO) -> String {
         guard let host = URL(string: article.articleURL)?.host?.lowercased(),
               ["reddit.com", "www.reddit.com", "old.reddit.com"].contains(host),

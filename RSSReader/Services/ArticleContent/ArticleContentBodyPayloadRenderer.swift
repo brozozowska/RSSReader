@@ -1,11 +1,10 @@
 import Foundation
 
-@MainActor
-enum ArticleScreenBodyPayloadRenderer {
+enum ArticleContentBodyPayloadRenderer {
     static func renderBodyPayload(
-        _ payload: ArticleScreenBodyPayload,
+        _ payload: ArticleContentBodyPayload,
         article: ReaderArticleDTO
-    ) -> [ArticleScreenBodyBlock] {
+    ) -> [ArticleContentBodyBlock] {
         switch payload.kind {
         case .plainText:
             renderTextBlock(payload.value)
