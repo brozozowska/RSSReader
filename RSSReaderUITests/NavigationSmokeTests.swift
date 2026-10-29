@@ -82,6 +82,48 @@ final class NavigationSmokeTests: XCTestCase {
         expect(element(feedID))
     }
 
+    func testOPMLPickerCancelPreservesDraftUntilApply() {
+        tap(element("sidebar.settings"))
+        let apply = app.buttons["Apply Settings"]
+        expect(apply)
+        XCTAssertFalse(apply.isEnabled)
+        let draftSwitch = app.switches.firstMatch
+        let control = draftSwitch.switches.firstMatch
+        tap(control.exists ? control : draftSwitch)
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: apply)
+        XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 10), .completed, app.debugDescription)
+
+        for title in ["Export OPML", "Import OPML"] {
+            let action = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+            for _ in 0..<6 {
+                if action.exists && action.isHittable { break }
+                element("settings.list").swipeUp()
+            }
+            tap(action)
+            let pickerBar = app.navigationBars["FullDocumentManagerViewControllerNavigationBar"]
+            expect(pickerBar)
+            let cancel = app.navigationBars.buttons.matching(
+                NSPredicate(format: "label IN %@", ["Cancel", "Отменить", "Отмена"])
+            ).firstMatch
+            // Files can restore a nested location. Browse exposes native Cancel.
+            if cancel.exists == false {
+                tap(pickerBar.buttons["BackButton"])
+            }
+            tap(cancel)
+            expectAbsent(app.navigationBars["FullDocumentManagerViewControllerNavigationBar"])
+            if app.alerts.firstMatch.exists {
+                tap(app.alerts.firstMatch.buttons.firstMatch)
+            }
+            XCTAssertTrue(apply.isEnabled, "Picker cancellation must retain the Settings draft")
+        }
+        tap(apply)
+        expectAbsent(element("settings.close"))
+        tap(element("sidebar.settings"))
+        expect(apply)
+        XCTAssertFalse(apply.isEnabled)
+        tap(element("settings.close"))
+    }
+
     func testRelaunchStartsWithFreshFixtures() {
         openFixtureArticle()
         app.terminate()

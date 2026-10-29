@@ -18,8 +18,6 @@ struct ArticleListView: View {
     @FocusState private var isSearchFocused: Bool
     @State private var refreshStartHapticTrigger = 0
     @State private var lastScopeMetricReloadContext: ArticleScopeMetricReloadContext?
-    @State private var hasDeferredCoveredListLoad = false
-    @State private var deferredCoveredListLoadTask: Task<Void, Never>?
 
     init(
         selectedSidebarSelection: SidebarSelection?,
@@ -126,39 +124,18 @@ struct ArticleListView: View {
                 dismissAction: dismissRefreshFeedback
             )
         }
-        .task(id: ArticleListLoadContext(
-            sidebarSelection: selectedSidebarSelection,
-            sidebarArticleFilter: selectedSidebarArticleFilter,
-            normalizedSearchText: ArticleSearchScope.normalizedSearchText(searchText),
-            reloadID: reloadID
-        )) {
-            guard isPreviewMode == false,
-                  searchLifecycleState.allowsQueryLoad else {
-                return
-            }
-            guard appState.isArticleListCoveredByDetailRoute == false else {
-                hasDeferredCoveredListLoad = true
-                controller.suspendLoadsForCoveredArticleList()
-                return
-            }
-            guard hasDeferredCoveredListLoad == false else { return }
-            await loadArticles()
-        }
-        .onChange(of: appState.presentedSidebarSelection) { _, newValue in
-            guard newValue == nil else { return }
-            isSearchFocused = false
-            deferredCoveredListLoadTask?.cancel()
-            deferredCoveredListLoadTask = nil
-            hasDeferredCoveredListLoad = false
-        }
-        .onChange(of: selectedSidebarSelection) { oldValue, newValue in
-            guard oldValue != newValue else { return }
-            isSearchFocused = false
-            controller.selectSearchScope(newValue)
-        }
-        .onChange(of: appState.isArticleListCoveredByDetailRoute) { oldValue, newValue in
-            handleArticleListCoverageChange(wasCovered: oldValue, isCovered: newValue)
-        }
+        .modifier(ArticleListPresentationLifecycleModifier(
+            controller: controller,
+            loadContext: ArticleListLoadContext(
+                sidebarSelection: selectedSidebarSelection,
+                sidebarArticleFilter: selectedSidebarArticleFilter,
+                normalizedSearchText: ArticleSearchScope.normalizedSearchText(searchText),
+                reloadID: reloadID
+            ),
+            isPreviewMode: isPreviewMode,
+            searchFocus: $isSearchFocused,
+            loadArticles: loadArticles
+        ))
         .onChange(of: appState.articleListNavigation.readOnOpenEvent) { _, event in
             applyArticleReadOnOpenEvent(event)
         }
@@ -294,43 +271,6 @@ struct ArticleListView: View {
             sidebarSelection: selectedSidebarSelection,
             sidebarArticleFilter: selectedSidebarArticleFilter
         )
-    }
-
-    @MainActor
-    private func handleArticleListCoverageChange(
-        wasCovered: Bool,
-        isCovered: Bool
-    ) {
-        guard isPreviewMode == false else { return }
-
-        if isCovered {
-            deferredCoveredListLoadTask?.cancel()
-            deferredCoveredListLoadTask = nil
-            hasDeferredCoveredListLoad = true
-            controller.suspendLoadsForCoveredArticleList()
-            return
-        }
-
-        guard wasCovered, hasDeferredCoveredListLoad else { return }
-        deferredCoveredListLoadTask?.cancel()
-        deferredCoveredListLoadTask = Task { @MainActor in
-            do {
-                try await Task.sleep(for: .milliseconds(400))
-            } catch {
-                return
-            }
-            guard Task.isCancelled == false,
-                  appState.isArticleListCoveredByDetailRoute == false,
-                  appState.presentedSidebarSelection != nil else {
-                return
-            }
-
-            hasDeferredCoveredListLoad = false
-            await loadArticles(
-                policy: .resumeMaterializedSession
-            )
-            deferredCoveredListLoadTask = nil
-        }
     }
 
     // MARK: Confirmation
@@ -587,7 +527,7 @@ private extension View {
 
 // MARK: - Helpers
 
-private struct ArticleListLoadContext: Hashable {
+struct ArticleListLoadContext: Hashable {
     let sidebarSelection: SidebarSelection?
     let sidebarArticleFilter: SidebarArticleFilter
     let normalizedSearchText: String
