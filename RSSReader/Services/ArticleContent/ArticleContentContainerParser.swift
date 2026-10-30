@@ -1,10 +1,10 @@
 import Foundation
 
 extension ArticleContentBodyPayloadRenderer {
-    private static let maximumHTMLContainerDepth = 12
-    private static let semanticHTMLContainerNames = "div|section|article|main|header|footer|aside|details"
+    private nonisolated static let maximumHTMLContainerDepth = 12
+    private nonisolated static let semanticHTMLContainerNames = "div|section|article|main|header|footer|aside|details"
 
-    static func renderHTML(
+    nonisolated static func renderHTML(
         _ contentHTML: String,
         article: ReaderArticleDTO
     ) -> [ArticleContentBodyBlock] {
@@ -13,7 +13,7 @@ extension ArticleContentBodyPayloadRenderer {
         return renderHTML(recoveringRedditHTML(readableHTML, article: article), article: article, containerDepth: 0)
     }
 
-    static func renderHTML(
+    nonisolated static func renderHTML(
         _ contentHTML: String,
         article: ReaderArticleDTO,
         containerDepth: Int
@@ -103,7 +103,7 @@ extension ArticleContentBodyPayloadRenderer {
         return blocks
     }
 
-    private static func renderHTMLWithoutStructuralContainers(
+    private nonisolated static func renderHTMLWithoutStructuralContainers(
         _ contentHTML: String,
         article: ReaderArticleDTO,
         containerDepth: Int
@@ -150,7 +150,7 @@ extension ArticleContentBodyPayloadRenderer {
         return blocks
     }
 
-    private static func firstStructuralHTMLContainer(
+    private nonisolated static func firstStructuralHTMLContainer(
         in html: String,
         startingAt location: Int
     ) -> (tagName: String, openingTagHTML: String, outerRange: NSRange, innerRange: NSRange)? {
@@ -202,7 +202,7 @@ extension ArticleContentBodyPayloadRenderer {
         return nil
     }
 
-    private static func renderHTMLDisclosure(
+    private nonisolated static func renderHTMLDisclosure(
         _ innerHTML: String,
         openingTagHTML: String,
         article: ReaderArticleDTO,

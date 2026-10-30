@@ -3,7 +3,7 @@ import Foundation
 /// A Reader preprocessing pass, not a replacement HTML parser.
 /// Comments are opaque before any block/link/media extraction. Literal code and quoted
 /// attributes are copied unchanged; an unclosed comment consumes the remaining payload.
-enum ArticleContentHTMLCommentFilter {
+nonisolated enum ArticleContentHTMLCommentFilter {
     static func removingComments(in html: String) -> String {
         var result = ""
         var index = html.startIndex

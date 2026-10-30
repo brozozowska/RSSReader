@@ -1,7 +1,7 @@
 import Foundation
 
 extension ArticleContentBodyPayloadRenderer {
-    static func renderHTMLBlock(
+    nonisolated static func renderHTMLBlock(
         _ blockHTML: String,
         article: ReaderArticleDTO,
         containerDepth: Int

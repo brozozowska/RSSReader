@@ -88,7 +88,7 @@ struct ArticleRepositoryTests {
         #expect(insertedArticle.url == "https://example.com/new-updated")
         #expect(insertedArticle.title == "Updated duplicate title")
         #expect(insertedArticle.searchableText.contains("Updated duplicate title"))
-        #expect(insertedArticle.searchableText.utf8.count <= ArticleSearchableTextPolicy.maximumUTF8ByteCount)
+        #expect(insertedArticle.searchableText.hasPrefix(ArticleSearchableTextPolicy.formatPrefix))
         #expect(insertedArticle.fetchedAt == fetchedAt)
         #expect(otherFeedArticle.title == "Other feed title")
         #expect(persistedArticles.allSatisfy { $0.feedTitle == "Display Feed" })

@@ -1,7 +1,7 @@
 import Foundation
 
 extension ArticleContentBodyPayloadRenderer {
-    static func leadingTagName(in html: String) -> String {
+    nonisolated static func leadingTagName(in html: String) -> String {
         guard
             let tagRegex = try? NSRegularExpression(pattern: #"<\s*([a-zA-Z0-9]+)"#, options: []),
             let match = tagRegex.firstMatch(
@@ -17,17 +17,17 @@ extension ArticleContentBodyPayloadRenderer {
         return (html as NSString).substring(with: match.range(at: 1)).lowercased()
     }
 
-    static func unwrapHTMLBlock(_ html: String) -> String {
+    nonisolated static func unwrapHTMLBlock(_ html: String) -> String {
         html
             .replacingOccurrences(of: #"(?is)^<[^>]+>"#, with: "", options: .regularExpression)
             .replacingOccurrences(of: #"(?is)</[^>]+>\s*$"#, with: "", options: .regularExpression)
     }
 
-    static func firstHTMLTag(named tagName: String, in html: String) -> String? {
+    nonisolated static func firstHTMLTag(named tagName: String, in html: String) -> String? {
         htmlTags(named: tagName, in: html).first
     }
 
-    static func htmlTags(named tagName: String, in html: String) -> [String] {
+    nonisolated static func htmlTags(named tagName: String, in html: String) -> [String] {
         let tagPattern = #"(?is)<\#(tagName)\b[^>]*>"#
         guard
             let tagRegex = try? NSRegularExpression(pattern: tagPattern, options: [.caseInsensitive]),
@@ -49,7 +49,7 @@ extension ArticleContentBodyPayloadRenderer {
         .map { nsHTML.substring(with: $0.range) }
     }
 
-    static func firstHTMLBlock(named tagName: String, in html: String) -> String? {
+    nonisolated static func firstHTMLBlock(named tagName: String, in html: String) -> String? {
         let blockPattern = #"(?is)<\#(tagName)\b[^>]*>.*?</\#(tagName)\s*>"#
         guard
             let blockRegex = try? NSRegularExpression(pattern: blockPattern, options: [.caseInsensitive, .dotMatchesLineSeparators]),
@@ -65,7 +65,7 @@ extension ArticleContentBodyPayloadRenderer {
         return (html as NSString).substring(with: match.range)
     }
 
-    static func htmlAttribute(named attributeName: String, in html: String) -> String? {
+    nonisolated static func htmlAttribute(named attributeName: String, in html: String) -> String? {
         let attributePattern = #"(?:^|\s)([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))"#
         guard
             let attributeRegex = try? NSRegularExpression(pattern: attributePattern, options: [.caseInsensitive]),
@@ -90,7 +90,7 @@ extension ArticleContentBodyPayloadRenderer {
         return nil
     }
 
-    static func removingDisclosureDecorations(_ value: String) -> String {
+    nonisolated static func removingDisclosureDecorations(_ value: String) -> String {
         ArticleContentBodyPayloadNormalizer.transformOutsideCode(value) { fragment in
             fragment.replacingOccurrences(
                 of: #"(?is)<span\b[^>]*class\s*=\s*["'][^"']*\bwp-block-accordion-heading__toggle-icon\b[^"']*["'][^>]*>.*?</span\s*>"#,
@@ -100,7 +100,7 @@ extension ArticleContentBodyPayloadRenderer {
         }
     }
 
-    static func stripHTML(_ value: String) -> String {
+    nonisolated static func stripHTML(_ value: String) -> String {
         removingNonReadableHTMLBlocks(from: value)
             .replacingOccurrences(
                 of: #"(?i)<br\s*/?>"#,
@@ -127,7 +127,7 @@ extension ArticleContentBodyPayloadRenderer {
             .articleScreenDecodingHTMLEntities()
     }
 
-    static func removingNonReadableHTMLBlocks(from value: String) -> String {
+    nonisolated static func removingNonReadableHTMLBlocks(from value: String) -> String {
         ArticleContentBodyPayloadNormalizer.transformOutsideCode(value) { fragment in
             fragment.replacingOccurrences(
                 of: #"(?is)<(style|script|noscript|svg)\b[^>]*>.*?</\1\s*>"#,
@@ -139,7 +139,7 @@ extension ArticleContentBodyPayloadRenderer {
 }
 
 extension Array where Element == ArticleContentBodyBlock {
-    var containsImageBlock: Bool {
+    nonisolated var containsImageBlock: Bool {
         contains {
             if case .image = $0 {
                 return true
@@ -153,12 +153,12 @@ extension Array where Element == ArticleContentBodyBlock {
 }
 
 extension String {
-    var articleContentNilIfBlank: String? {
+    nonisolated var articleContentNilIfBlank: String? {
         let trimmedValue = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmedValue.isEmpty ? nil : trimmedValue
     }
 
-    var articleContentNormalizedParagraphs: [String] {
+    nonisolated var articleContentNormalizedParagraphs: [String] {
         replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
             .components(separatedBy: "\n\n")
@@ -172,7 +172,7 @@ extension String {
             .filter { $0.isEmpty == false }
     }
 
-    func articleScreenDecodingHTMLEntities() -> String {
+    nonisolated func articleScreenDecodingHTMLEntities() -> String {
         ArticleContentBodyPayloadNormalizer.decodeHTMLEntities(in: self)
     }
 }

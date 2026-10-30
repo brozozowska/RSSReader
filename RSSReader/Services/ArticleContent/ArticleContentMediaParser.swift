@@ -1,7 +1,7 @@
 import Foundation
 
 extension ArticleContentBodyPayloadRenderer {
-    static func renderHTMLFigure(
+    nonisolated static func renderHTMLFigure(
         _ innerHTML: String,
         article: ReaderArticleDTO,
         containerDepth: Int
@@ -18,14 +18,14 @@ extension ArticleContentBodyPayloadRenderer {
         return containsMedia ? [.figure(content)] : content
     }
 
-    static func renderHTMLPicture(
+    nonisolated static func renderHTMLPicture(
         _ innerHTML: String,
         article: ReaderArticleDTO
     ) -> [ArticleContentBodyBlock] {
         firstHTMLMediaImageBlocks(in: innerHTML, article: article) ?? []
     }
 
-    static func firstHTMLMediaImageBlocks(
+    nonisolated static func firstHTMLMediaImageBlocks(
         in innerHTML: String,
         article: ReaderArticleDTO
     ) -> [ArticleContentBodyBlock]? {
@@ -43,7 +43,7 @@ extension ArticleContentBodyPayloadRenderer {
         return nil
     }
 
-    static func renderUnsupportedMediaFallback(
+    nonisolated static func renderUnsupportedMediaFallback(
         tagName: String,
         html: String,
         innerHTML: String,
@@ -59,7 +59,7 @@ extension ArticleContentBodyPayloadRenderer {
         )
     }
 
-    static func renderImageOrMediaFallback(
+    nonisolated static func renderImageOrMediaFallback(
         fromImageTag imageTag: String,
         article: ReaderArticleDTO
     ) -> [ArticleContentBodyBlock] {
@@ -74,7 +74,7 @@ extension ArticleContentBodyPayloadRenderer {
         return []
     }
 
-    static func mediaFallbackBlock(
+    nonisolated static func mediaFallbackBlock(
         kind: ArticleContentMediaKind,
         url: URL
     ) -> [ArticleContentBodyBlock] {

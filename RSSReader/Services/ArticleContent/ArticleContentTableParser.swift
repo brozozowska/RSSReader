@@ -1,10 +1,10 @@
 import Foundation
 
-private struct ArticleContentParsedTableCell {
+private nonisolated struct ArticleContentParsedTableCell {
     let isHeader: Bool
     let content: ArticleContentTextBlock?
 
-    var isStronglyEmphasized: Bool {
+    nonisolated var isStronglyEmphasized: Bool {
         guard let content, content.spans.isEmpty == false else { return false }
         return content.spans.allSatisfy { span in
             span.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || span.isStrong
@@ -12,19 +12,19 @@ private struct ArticleContentParsedTableCell {
     }
 }
 
-private struct ArticleContentParsedTableRow {
+private nonisolated struct ArticleContentParsedTableRow {
     let isInTableHead: Bool
     let cells: [ArticleContentParsedTableCell]
 }
 
 private extension Collection {
-    subscript(safe index: Index) -> Element? {
+    nonisolated subscript(safe index: Index) -> Element? {
         indices.contains(index) ? self[index] : nil
     }
 }
 
 extension ArticleContentBodyPayloadRenderer {
-    static func renderHTMLTable(
+    nonisolated static func renderHTMLTable(
         _ innerHTML: String,
         article: ReaderArticleDTO
     ) -> [ArticleContentBodyBlock] {
@@ -82,7 +82,7 @@ extension ArticleContentBodyPayloadRenderer {
         ]
     }
 
-    fileprivate static func parseHTMLTableRows(
+    fileprivate nonisolated static func parseHTMLTableRows(
         _ innerHTML: String,
         article: ReaderArticleDTO
     ) -> [ArticleContentParsedTableRow]? {
@@ -135,7 +135,7 @@ extension ArticleContentBodyPayloadRenderer {
         return rows
     }
 
-    static func renderHTMLTableFallback(
+    nonisolated static func renderHTMLTableFallback(
         _ innerHTML: String,
         article: ReaderArticleDTO
     ) -> [ArticleContentBodyBlock] {

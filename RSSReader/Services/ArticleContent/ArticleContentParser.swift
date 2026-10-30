@@ -1,6 +1,6 @@
 import Foundation
 
-enum ArticleContentParser {
+nonisolated enum ArticleContentParser {
     static func renderBody(for article: ReaderArticleDTO) -> ArticleContent {
         let contentHTMLPayload = ArticleContentBodyPayloadNormalizer.normalize(
             article.contentHTML,

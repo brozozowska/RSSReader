@@ -1,7 +1,7 @@
 import Foundation
 
 extension ArticleContentBodyPayloadRenderer {
-    static func appendLeadImageIfNeeded(
+    nonisolated static func appendLeadImageIfNeeded(
         _ blocks: [ArticleContentBodyBlock],
         article: ReaderArticleDTO
     ) -> [ArticleContentBodyBlock] {
@@ -12,7 +12,7 @@ extension ArticleContentBodyPayloadRenderer {
         return [imageBlock] + blocks
     }
 
-    static func leadImageBlock(for article: ReaderArticleDTO) -> ArticleContentBodyBlock? {
+    nonisolated static func leadImageBlock(for article: ReaderArticleDTO) -> ArticleContentBodyBlock? {
         guard
             let imageURLString = article.imageURL?.articleContentNilIfBlank,
             let imageURL = ArticleContentURLResolver.resolveMediaURL(
@@ -32,7 +32,7 @@ extension ArticleContentBodyPayloadRenderer {
         return .image(imageURL)
     }
 
-    static func resolveImageURL(
+    nonisolated static func resolveImageURL(
         fromImageTag imageTag: String,
         article: ReaderArticleDTO
     ) -> URL? {
@@ -69,7 +69,7 @@ extension ArticleContentBodyPayloadRenderer {
         return nil
     }
 
-    static func resolvePictureImageURL(
+    nonisolated static func resolvePictureImageURL(
         fromInnerHTML innerHTML: String,
         article: ReaderArticleDTO
     ) -> URL? {
@@ -90,7 +90,7 @@ extension ArticleContentBodyPayloadRenderer {
         return nil
     }
 
-    static func resolveVideoLikeMediaFallback(
+    nonisolated static func resolveVideoLikeMediaFallback(
         fromHTML html: String,
         article: ReaderArticleDTO
     ) -> (url: URL, kind: ArticleContentMediaKind)? {
@@ -127,7 +127,7 @@ extension ArticleContentBodyPayloadRenderer {
         return nil
     }
 
-    static func resolveMediaFallbackURL(
+    nonisolated static func resolveMediaFallbackURL(
         fromHTML html: String,
         article: ReaderArticleDTO
     ) -> URL? {
@@ -149,7 +149,7 @@ extension ArticleContentBodyPayloadRenderer {
         return nil
     }
 
-    static func resolveArticleMediaURL(
+    nonisolated static func resolveArticleMediaURL(
         _ rawValue: String,
         article: ReaderArticleDTO
     ) -> URL? {
@@ -167,7 +167,7 @@ extension ArticleContentBodyPayloadRenderer {
         )
     }
 
-    static func isRenderableImageURL(_ url: URL) -> Bool {
+    nonisolated static func isRenderableImageURL(_ url: URL) -> Bool {
         let fileExtension = url.pathExtension.lowercased()
         if fileExtension == "svg" {
             return false
@@ -175,7 +175,7 @@ extension ArticleContentBodyPayloadRenderer {
         return videoLikeMediaFallbackKind(for: url) == nil
     }
 
-    static func videoLikeMediaFallbackKind(for url: URL) -> ArticleContentMediaKind? {
+    nonisolated static func videoLikeMediaFallbackKind(for url: URL) -> ArticleContentMediaKind? {
         let fileExtension = url.pathExtension.lowercased()
         let path = url.path.lowercased()
 
@@ -202,7 +202,7 @@ extension ArticleContentBodyPayloadRenderer {
         return nil
     }
 
-    static func isKnownEmbeddedMediaURL(_ url: URL) -> Bool {
+    nonisolated static func isKnownEmbeddedMediaURL(_ url: URL) -> Bool {
         guard let host = url.host?.lowercased() else { return false }
         return host == "youtu.be"
             || host == "youtube.com"
@@ -211,7 +211,7 @@ extension ArticleContentBodyPayloadRenderer {
             || host.hasSuffix(".vimeo.com")
     }
 
-    static func preferredURLCandidate(fromSrcset srcset: String) -> String? {
+    nonisolated static func preferredURLCandidate(fromSrcset srcset: String) -> String? {
         srcset
             .split(separator: ",")
             .compactMap { candidate -> String? in
@@ -224,7 +224,7 @@ extension ArticleContentBodyPayloadRenderer {
             .articleContentNilIfBlank
     }
 
-    static func unsupportedMediaKind(for tagName: String, url: URL) -> ArticleContentMediaKind {
+    nonisolated static func unsupportedMediaKind(for tagName: String, url: URL) -> ArticleContentMediaKind {
         switch tagName {
         case "iframe":
             isKnownEmbeddedMediaURL(url) ? .knownEmbedded : .embedded

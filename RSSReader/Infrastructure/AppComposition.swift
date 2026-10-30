@@ -25,7 +25,9 @@ enum AppComposition {
 #if DEBUG && targetEnvironment(simulator)
         if ProcessInfo.processInfo.arguments.contains("--ui-smoke") {
             do {
-                return try UISmokeBootstrap.makeDependencies(environment: ProcessInfo.processInfo.environment)
+                let dependencies = try UISmokeBootstrap.makeDependencies(environment: ProcessInfo.processInfo.environment)
+                dependencies.articleSearchIndexMaintenance?.start()
+                return dependencies
             } catch {
                 fatalError("UI smoke bootstrap failed: \(error)")
             }
@@ -48,6 +50,7 @@ enum AppComposition {
             logger: logger,
             articleImageRuntime: .makeLive()
         )
+        dependencies.articleSearchIndexMaintenance?.start()
         dependencies.startSyncCoordinatorAppLifetime()
         return dependencies
     }
@@ -95,6 +98,9 @@ struct AppRootContainer: View {
             await dependencies.appActions.refreshUnreadAppIconBadgeCount()
         }
         .task(id: scenePhase) {
+            if scenePhase == .active {
+                dependencies.articleSearchIndexMaintenance?.retry()
+            }
             _ = await AppComposition.runGlobalOrphanSweepLifecycleIfNeeded(
                 from: scenePhase,
                 using: dependencies

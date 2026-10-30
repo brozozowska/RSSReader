@@ -69,6 +69,38 @@ final class NavigationSmokeTests: XCTestCase {
         }
     }
 
+    func testReaderVisibleSearchExcludesMarkupAndFindsLongAndCollapsedText() {
+        app.terminate()
+        app.launchEnvironment["RSSREADER_UI_SMOKE_SEARCH"] = "1"
+        app.launch()
+        tap(element(feedID))
+        expect(app.staticTexts["Markup Only Article"].firstMatch)
+        let field = app.searchFields.firstMatch
+        if !field.exists { tap(app.buttons["Search"].firstMatch) }
+        tap(field)
+        field.typeText("Open")
+        expect(app.staticTexts["Open Reader Article"].firstMatch)
+        expectAbsent(app.staticTexts["Markup Only Article"].firstMatch)
+        for (query, title) in [("TailNeedle", "Long Reader Article"), ("CollapsedNeedle", "Long Reader Article"),
+                               ("Search Writer", "Markup Only Article"), ("UI Smoke Feed", "Markup Only Article")] {
+            tap(field)
+            let value = field.value as? String ?? ""
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count) + query)
+            expect(app.staticTexts[title].firstMatch)
+        }
+        tap(field)
+        let value = field.value as? String ?? ""
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count) + "Open")
+        tap(app.staticTexts["Open Reader Article"].firstMatch)
+        expect(app.staticTexts["Visible Open content."].firstMatch)
+        if !isPad {
+            tap(app.navigationBars.buttons.matching(identifier: "BackButton").firstMatch)
+            expect(app.staticTexts["Open Reader Article"].firstMatch)
+        } else {
+            expect(element("articles.list"))
+        }
+    }
+
     func testSettingsPresentationAndDismissal() {
         expect(element(feedID))
         tap(element("sidebar.settings"))

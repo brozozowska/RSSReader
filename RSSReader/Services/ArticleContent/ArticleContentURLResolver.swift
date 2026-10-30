@@ -1,6 +1,6 @@
 import Foundation
 
-enum ArticleContentURLResolver {
+nonisolated enum ArticleContentURLResolver {
     static func resolveExternalURL(canonicalURL: String?, articleURL: String) -> URL? {
         if let canonicalURL, let resolvedCanonicalURL = validatedExternalURL(from: canonicalURL) {
             return resolvedCanonicalURL

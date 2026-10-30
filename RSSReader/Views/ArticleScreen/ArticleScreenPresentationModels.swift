@@ -40,19 +40,8 @@ struct ArticleScreenHeaderState: Equatable {
     init(article: ReaderArticleDTO) {
         self.effectiveDateText = ArticleScreenDateFormatter.string(from: article.effectiveDate)
         self.title = article.title.nilIfBlank ?? ReadingLocalization.untitledArticleTitle
-        let author = article.author?.nilIfBlank
-        let feedTitle = article.feedTitle.nilIfBlank
-        if let author, let feedTitle,
-           author.metadataComparisonValue.compare(
-               feedTitle.metadataComparisonValue,
-               options: .caseInsensitive,
-               locale: Locale(identifier: "en_US_POSIX")
-           ) == .orderedSame {
-            self.author = nil
-        } else {
-            self.author = author
-        }
-        self.feedTitle = feedTitle
+        self.author = ReaderArticleMetadataPolicy.author(article.author, feedTitle: article.feedTitle)
+        self.feedTitle = article.feedTitle.nilIfBlank
         self.canOpenSourceArticle = ArticleContentURLResolver.resolveExternalURL(
             canonicalURL: article.canonicalURL,
             articleURL: article.articleURL
@@ -145,10 +134,6 @@ enum ArticleScreenShareURLResolver {
 }
 
 private extension String {
-    var metadataComparisonValue: String {
-        split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
-    }
-
     var nilIfBlank: String? {
         let trimmedValue = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmedValue.isEmpty ? nil : trimmedValue

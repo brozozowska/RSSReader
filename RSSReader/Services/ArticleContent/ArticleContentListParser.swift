@@ -1,7 +1,7 @@
 import Foundation
 
 extension ArticleContentBodyPayloadRenderer {
-    static func renderHTMLList(
+    nonisolated static func renderHTMLList(
         _ innerHTML: String,
         kind: ArticleContentListKind,
         article: ReaderArticleDTO
@@ -25,7 +25,7 @@ extension ArticleContentBodyPayloadRenderer {
         return items.isEmpty ? [] : [.list(ArticleContentListBlock(kind: kind, items: items))]
     }
 
-    static func renderHTMLDefinitionList(
+    nonisolated static func renderHTMLDefinitionList(
         _ innerHTML: String,
         article: ReaderArticleDTO
     ) -> [ArticleContentBodyBlock] {
@@ -86,7 +86,7 @@ extension ArticleContentBodyPayloadRenderer {
         return [.definitionList(ArticleContentDefinitionListBlock(entries: entries))]
     }
 
-    static func renderHTMLDefinitionListFallback(
+    nonisolated static func renderHTMLDefinitionListFallback(
         _ innerHTML: String,
         article: ReaderArticleDTO
     ) -> [ArticleContentBodyBlock] {

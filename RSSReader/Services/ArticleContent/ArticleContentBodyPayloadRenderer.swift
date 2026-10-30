@@ -1,6 +1,6 @@
 import Foundation
 
-enum ArticleContentBodyPayloadRenderer {
+nonisolated enum ArticleContentBodyPayloadRenderer {
     static func renderBodyPayload(
         _ payload: ArticleContentBodyPayload,
         article: ReaderArticleDTO

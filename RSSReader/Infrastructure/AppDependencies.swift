@@ -22,6 +22,7 @@ final class AppDependencies {
     let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)?
     let persistenceBoundedGrowthCleanupService: (any PersistenceBoundedGrowthCleanupServicing)?
     let globalOrphanSweepTriggerService: (any GlobalOrphanSweepTriggerServicing)?
+    let articleSearchIndexMaintenance: ArticleSearchIndexMaintenance?
     let articleQueryService: (any ArticleQueryService)?
     let sidebarQueryService: (any SidebarQueryService)?
     let articleStateRepository: (any ArticleStateRepository)?
@@ -87,6 +88,8 @@ final class AppDependencies {
         let appSettingsService = appSettingsRepository.map { repository in
             DefaultAppSettingsService(repository: repository)
         }
+        let indexMaintenance = modelContainer.map { ArticleSearchIndexMaintenance(container: $0) }
+        self.articleSearchIndexMaintenance = indexMaintenance
         let articleQueryService: (any ArticleQueryService)? = {
             guard let articleRepository,
                   let articleStateRepository,
@@ -98,7 +101,8 @@ final class AppDependencies {
                 articleRepository: articleRepository,
                 articleStateRepository: articleStateRepository,
                 feedRepository: feedRepository,
-                searchScanBatchProbe: articleSearchScanBatchProbe
+                searchScanBatchProbe: articleSearchScanBatchProbe,
+                indexMaintenance: indexMaintenance
             )
         }()
         let resolvedUnreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = unreadAppIconBadgeService ?? {
@@ -282,6 +286,7 @@ final class AppDependencies {
             appSettingsService: appSettingsService,
             remoteSyncImportAppAction: RemoteSyncImportAppAction(
                 logger: logger,
+                indexMaintenance: indexMaintenance,
                 unreadAppIconBadgeService: resolvedUnreadAppIconBadgeService
             )
         )

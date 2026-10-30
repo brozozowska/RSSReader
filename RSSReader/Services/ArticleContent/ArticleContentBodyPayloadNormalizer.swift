@@ -1,16 +1,16 @@
 import Foundation
 
-enum ArticleContentBodyPayloadKind: Equatable {
+nonisolated enum ArticleContentBodyPayloadKind: Equatable {
     case plainText
     case html
 }
 
-struct ArticleContentBodyPayload: Equatable {
+nonisolated struct ArticleContentBodyPayload: Equatable {
     let kind: ArticleContentBodyPayloadKind
     let value: String
 }
 
-enum ArticleContentBodyPayloadNormalizer {
+nonisolated enum ArticleContentBodyPayloadNormalizer {
     static let recognizedHTMLTagNamePattern = #"a|abbr|address|article|aside|audio|b|button|bdi|bdo|blockquote|br|caption|cite|code|col|colgroup|data|dd|del|details|dfn|div|dl|dt|em|embed|figcaption|figure|footer|h[1-6]|header|hgroup|hr|i|iframe|img|ins|kbd|label|li|main|mark|nav|ol|p|picture|pre|q|rp|rt|ruby|s|samp|section|small|source|span|strong|sub|summary|sup|table|tbody|td|tfoot|th|thead|time|tr|u|ul|var|video|wbr"#
 
     static func normalize(

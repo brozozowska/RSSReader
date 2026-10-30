@@ -1,7 +1,7 @@
 import Foundation
 
 /// Recognizes static header/panel pairs. No feed-provided actions are executed.
-enum ArticleContentAccordionHTMLParser {
+nonisolated enum ArticleContentAccordionHTMLParser {
     struct Disclosure {
         let summaryHTML: String
         let panelHTML: String

@@ -3,7 +3,7 @@ import Foundation
 /// Reddit's legacy Atom HTML can retain Markdown markers after flattening its layout.
 /// Recover only explicit structures; never invent code indentation or parse general prose.
 extension ArticleContentBodyPayloadRenderer {
-    static func recoveringRedditHTML(_ html: String, article: ReaderArticleDTO) -> String {
+    nonisolated static func recoveringRedditHTML(_ html: String, article: ReaderArticleDTO) -> String {
         guard let host = URL(string: article.articleURL)?.host?.lowercased(),
               ["reddit.com", "www.reddit.com", "old.reddit.com"].contains(host),
               htmlTags(named: "div", in: html).contains(where: {
@@ -13,7 +13,7 @@ extension ArticleContentBodyPayloadRenderer {
         return recoverRedditLists(recoverRedditFences(html))
     }
 
-    private static func recoverRedditFences(_ html: String) -> String {
+    private nonisolated static func recoverRedditFences(_ html: String) -> String {
         // A language-labelled fence must occupy whole paragraphs. Encoded source
         // remains encoded until the existing <pre><code> rendering boundary.
         let pattern = #"(?is)<(pre|code)\b[^>]*>.*?</\1\s*>|<p>\s*(`{3,})([a-z][a-z0-9_+-]*)[ \t\n]+(.*?)\s+\2\s*</p>"#
@@ -33,7 +33,7 @@ extension ArticleContentBodyPayloadRenderer {
         return result
     }
 
-    private static func recoverRedditLists(_ html: String) -> String {
+    private nonisolated static func recoverRedditLists(_ html: String) -> String {
         let paragraphPattern = #"(?is)<(pre|code)\b[^>]*>.*?</\1\s*>|<p>(.*?)</p>"#
         let markerPattern = #"\s+-\s+(?=<strong>)"#
         guard let paragraphs = try? NSRegularExpression(pattern: paragraphPattern),

@@ -1,6 +1,6 @@
 import Foundation
 
-enum ArticleContentBodyBlock: Equatable, Sendable {
+nonisolated enum ArticleContentBodyBlock: Equatable, Sendable {
     case heading(level: Int, ArticleContentTextBlock)
     case paragraph(ArticleContentTextBlock)
     case list(ArticleContentListBlock)
@@ -20,12 +20,12 @@ enum ArticleContentBodyBlock: Equatable, Sendable {
     case fallbackNotice(ArticleContentNotice)
 }
 
-struct ArticleContentMediaBlock: Equatable, Sendable {
+nonisolated struct ArticleContentMediaBlock: Equatable, Sendable {
     let kind: ArticleContentMediaKind
     let url: URL
 }
 
-enum ArticleContentMediaKind: Equatable, Sendable {
+nonisolated enum ArticleContentMediaKind: Equatable, Sendable {
     case audio
     case video
     case knownEmbedded
@@ -33,21 +33,21 @@ enum ArticleContentMediaKind: Equatable, Sendable {
     case generic
 }
 
-enum ArticleContentListKind: Equatable, Sendable {
+nonisolated enum ArticleContentListKind: Equatable, Sendable {
     case ordered
     case unordered
 }
 
-struct ArticleContentListBlock: Equatable, Sendable {
+nonisolated struct ArticleContentListBlock: Equatable, Sendable {
     let kind: ArticleContentListKind
     let items: [ArticleContentTextBlock]
 }
 
-struct ArticleContentDefinitionListBlock: Equatable, Sendable {
+nonisolated struct ArticleContentDefinitionListBlock: Equatable, Sendable {
     let entries: [ArticleContentDefinitionEntry]
 }
 
-struct ArticleContentDefinitionEntry: Identifiable, Sendable {
+nonisolated struct ArticleContentDefinitionEntry: Identifiable, Sendable {
     let id = UUID()
     let term: ArticleContentTextBlock?
     let definitions: [ArticleContentTextBlock?]
@@ -59,24 +59,24 @@ struct ArticleContentDefinitionEntry: Identifiable, Sendable {
 
 extension ArticleContentDefinitionEntry: Equatable {}
 
-struct ArticleContentDisclosureBlock: Equatable, Sendable {
+nonisolated struct ArticleContentDisclosureBlock: Equatable, Sendable {
     let summary: ArticleContentTextBlock
     let content: [ArticleContentBodyBlock]
     let isInitiallyExpanded: Bool
 }
 
-struct ArticleContentTableBlock: Equatable, Sendable {
+nonisolated struct ArticleContentTableBlock: Equatable, Sendable {
     let columnHeaders: [ArticleContentTextBlock?]
     let headerSource: ArticleContentTableHeaderSource?
     let rows: [ArticleContentTableRow]
 }
 
-enum ArticleContentTableHeaderSource: Equatable, Sendable {
+nonisolated enum ArticleContentTableHeaderSource: Equatable, Sendable {
     case explicit
     case inferred
 }
 
-struct ArticleContentTableRow: Identifiable, Sendable {
+nonisolated struct ArticleContentTableRow: Identifiable, Sendable {
     let id = UUID()
     let heading: ArticleContentTextBlock?
     let cells: [ArticleContentTableCell]
@@ -101,7 +101,7 @@ struct ArticleContentTableRow: Identifiable, Sendable {
 
 extension ArticleContentTableRow: Equatable {}
 
-struct ArticleContentTableCell: Identifiable, Sendable {
+nonisolated struct ArticleContentTableCell: Identifiable, Sendable {
     let id = UUID()
     let columnHeader: ArticleContentTextBlock?
     let content: ArticleContentTextBlock?
@@ -113,7 +113,7 @@ struct ArticleContentTableCell: Identifiable, Sendable {
 
 extension ArticleContentTableCell: Equatable {}
 
-struct ArticleContentTextSpan: Equatable, Sendable {
+nonisolated struct ArticleContentTextSpan: Equatable, Sendable {
     let text: String
     let linkURL: URL?
     let isStrong: Bool
@@ -153,18 +153,18 @@ struct ArticleContentTextSpan: Equatable, Sendable {
     }
 }
 
-enum ArticleContentInlineVerticalAlignment: Equatable, Sendable {
+nonisolated enum ArticleContentInlineVerticalAlignment: Equatable, Sendable {
     case superscript
     case lowered
 }
 
-enum ArticleContentInlineCodeSemantic: Equatable, Sendable {
+nonisolated enum ArticleContentInlineCodeSemantic: Equatable, Sendable {
     case keyboardInput
     case sampleOutput
     case variable
 }
 
-struct ArticleContentTextBlock: Equatable, Sendable {
+nonisolated struct ArticleContentTextBlock: Equatable, Sendable {
     let spans: [ArticleContentTextSpan]
 
     var plainText: String {
@@ -180,19 +180,19 @@ struct ArticleContentTextBlock: Equatable, Sendable {
     }
 }
 
-enum ArticleContentNotice: Equatable, Sendable {
+nonisolated enum ArticleContentNotice: Equatable, Sendable {
     case summaryOnly
     case emptyBody
 }
 
-enum ArticleContentBodySource: Equatable, Sendable {
+nonisolated enum ArticleContentBodySource: Equatable, Sendable {
     case summary
     case contentText
     case contentHTML
     case empty
 }
 
-struct ArticleContent: Equatable, Sendable {
+nonisolated struct ArticleContent: Equatable, Sendable {
     let blocks: [ArticleContentBodyBlock]
     let source: ArticleContentBodySource
 

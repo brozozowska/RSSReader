@@ -86,7 +86,10 @@ final class Article {
             summary: summary,
             contentHTML: contentHTML,
             contentText: contentText,
-            author: author
+            author: author,
+            articleURL: url,
+            canonicalURL: canonicalURL,
+            feedSiteURL: feedSiteURL
         )
         self.author = author
         self.publishedAt = publishedAt

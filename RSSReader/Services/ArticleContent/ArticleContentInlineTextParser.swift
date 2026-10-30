@@ -1,6 +1,6 @@
 import Foundation
 
-struct ArticleContentInlineTextStyle {
+nonisolated struct ArticleContentInlineTextStyle {
     var linkURL: URL?
     var isStrong = false
     var isEmphasized = false
@@ -14,13 +14,13 @@ struct ArticleContentInlineTextStyle {
 }
 
 extension ArticleContentBodyPayloadRenderer {
-    static func renderTextBlock(_ text: String) -> [ArticleContentBodyBlock] {
+    nonisolated static func renderTextBlock(_ text: String) -> [ArticleContentBodyBlock] {
         splitIntoParagraphStrings(text).map { paragraph in
             .paragraph(makeTextBlock(fromPlainText: paragraph))
         }
     }
 
-    static func renderHTMLTextSegment(
+    nonisolated static func renderHTMLTextSegment(
         _ htmlSegment: String,
         article: ReaderArticleDTO
     ) -> [ArticleContentBodyBlock] {
@@ -95,7 +95,7 @@ extension ArticleContentBodyPayloadRenderer {
         return renderedBlocks
     }
 
-    static func makeTextBlock(
+    nonisolated static func makeTextBlock(
         fromHTML html: String,
         article: ReaderArticleDTO
     ) -> ArticleContentTextBlock? {
@@ -111,7 +111,7 @@ extension ArticleContentBodyPayloadRenderer {
         return trimmedSpans.isEmpty ? nil : ArticleContentTextBlock(spans: trimmedSpans)
     }
 
-    static func appendInlineHTML(
+    nonisolated static func appendInlineHTML(
         _ html: String,
         article: ReaderArticleDTO,
         style: ArticleContentInlineTextStyle,
@@ -213,7 +213,7 @@ extension ArticleContentBodyPayloadRenderer {
         }
     }
 
-    static func appendStyledHTMLFragment(
+    nonisolated static func appendStyledHTMLFragment(
         _ htmlFragment: String,
         style: ArticleContentInlineTextStyle,
         to spans: inout [ArticleContentTextSpan]
@@ -223,7 +223,7 @@ extension ArticleContentBodyPayloadRenderer {
         appendStyledText(strippedText, style: style, to: &spans)
     }
 
-    static func appendStyledText(
+    nonisolated static func appendStyledText(
         _ text: String,
         style: ArticleContentInlineTextStyle,
         to spans: inout [ArticleContentTextSpan]
@@ -244,7 +244,7 @@ extension ArticleContentBodyPayloadRenderer {
         )
     }
 
-    static func appendHTMLFragment(
+    nonisolated static func appendHTMLFragment(
         _ htmlFragment: String,
         article: ReaderArticleDTO,
         to renderedBlocks: inout [ArticleContentBodyBlock],
@@ -259,7 +259,7 @@ extension ArticleContentBodyPayloadRenderer {
         )
     }
 
-    static func appendTextSegment(
+    nonisolated static func appendTextSegment(
         _ text: String,
         linkURL: URL?,
         renderedBlocks: inout [ArticleContentBodyBlock],
@@ -323,7 +323,7 @@ extension ArticleContentBodyPayloadRenderer {
         }
     }
 
-    static func appendInlineText(
+    nonisolated static func appendInlineText(
         _ text: String,
         linkURL: URL?,
         isStrong: Bool,
@@ -382,7 +382,7 @@ extension ArticleContentBodyPayloadRenderer {
         }
     }
 
-    static func finalizeParagraph(
+    nonisolated static func finalizeParagraph(
         _ spans: inout [ArticleContentTextSpan],
         into renderedBlocks: inout [ArticleContentBodyBlock]
     ) {
@@ -396,7 +396,7 @@ extension ArticleContentBodyPayloadRenderer {
         spans = []
     }
 
-    static func makeTextBlock(fromPlainText text: String) -> ArticleContentTextBlock {
+    nonisolated static func makeTextBlock(fromPlainText text: String) -> ArticleContentTextBlock {
         let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
         let nsText = text as NSString
         let matches = detector?.matches(
@@ -433,13 +433,13 @@ extension ArticleContentBodyPayloadRenderer {
         return ArticleContentTextBlock(spans: mergedSpans(spans))
     }
 
-    static func splitIntoParagraphStrings(_ text: String) -> [String] {
+    nonisolated static func splitIntoParagraphStrings(_ text: String) -> [String] {
         text
             .articleContentNormalizedParagraphs
             .filter { $0.isEmpty == false }
     }
 
-    static func trimBoundaryWhitespace(in spans: [ArticleContentTextSpan]) -> [ArticleContentTextSpan] {
+    nonisolated static func trimBoundaryWhitespace(in spans: [ArticleContentTextSpan]) -> [ArticleContentTextSpan] {
         var trimmedSpans = spans
 
         while let firstSpan = trimmedSpans.first {
@@ -489,7 +489,7 @@ extension ArticleContentBodyPayloadRenderer {
         return mergedSpans(trimmedSpans.filter { $0.text.isEmpty == false })
     }
 
-    static func mergedSpans(_ spans: [ArticleContentTextSpan]) -> [ArticleContentTextSpan] {
+    nonisolated static func mergedSpans(_ spans: [ArticleContentTextSpan]) -> [ArticleContentTextSpan] {
         spans.reduce(into: [ArticleContentTextSpan]()) { partialResult, span in
             guard span.text.isEmpty == false else { return }
 
@@ -523,11 +523,11 @@ extension ArticleContentBodyPayloadRenderer {
         }
     }
 
-    static func trimLeadingWhitespace(in value: String) -> String {
+    nonisolated static func trimLeadingWhitespace(in value: String) -> String {
         String(value.drop(while: { $0.isWhitespace }))
     }
 
-    static func trimTrailingWhitespace(in value: String) -> String {
+    nonisolated static func trimTrailingWhitespace(in value: String) -> String {
         String(value.reversed().drop(while: { $0.isWhitespace }).reversed())
     }
 }

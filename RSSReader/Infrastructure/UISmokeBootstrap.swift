@@ -28,6 +28,21 @@ enum UISmokeBootstrap {
             title: "UI Smoke Article", contentHTML: "<p>Deterministic reader fixture.</p>",
             publishedAt: date, fetchedAt: date, createdAt: date, updatedAt: date
         ))
+        if environment["RSSREADER_UI_SMOKE_SEARCH"] == "1" {
+            let fixtures: [(String, String?, String?, String?)] = [
+                ("Markup Only Article", "<p>Visible reference <a rel=\"noopener nofollow\" href=\"https://invisible.invalid\">link</a></p>", nil, "old noopener"),
+                ("Open Reader Article", nil, "<p>Visible Open content.</p>", nil),
+                ("Long Reader Article", nil, "<p>" + String(repeating: "Long body ", count: 3_000) + "TailNeedle</p><details><summary>More</summary><p>CollapsedNeedle</p></details>", nil)
+            ]
+            for (number, fixture) in fixtures.enumerated() {
+                context.insert(Article(
+                    id: UUID(uuidString: String(format: "85700000-0000-0000-0000-%012d", number + 1))!,
+                    feedID: feedID, feedTitle: "UI Smoke Feed", externalID: "search-\(number)",
+                    url: sourceURL.absoluteString, title: fixture.0, contentHTML: fixture.2,
+                    contentText: fixture.1, searchableText: fixture.3, author: "Search Writer", publishedAt: date
+                ))
+            }
+        }
         context.insert(AppSettings(
             refreshIntervalPreference: .manual, useiCloudSync: false, showUnreadCountBadge: false,
             createdAt: date, updatedAt: date
