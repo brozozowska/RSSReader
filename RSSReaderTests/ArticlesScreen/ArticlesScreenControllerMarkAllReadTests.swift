@@ -530,7 +530,7 @@ struct ArticlesScreenControllerMarkAllReadTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .unread,
             dependencies: harness.dependencies,
-            refreshesScopeMetric: true
+            scopeMetric: .baseScope
         )
         await controller.confirmMarkAllAsRead(
             searchText: "",

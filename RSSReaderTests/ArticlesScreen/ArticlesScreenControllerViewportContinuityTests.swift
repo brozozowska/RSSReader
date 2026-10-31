@@ -48,7 +48,7 @@ struct ArticlesScreenControllerViewportContinuityTests {
                 selection: .feed(feed.id),
                 sidebarArticleFilter: .allItems,
                 dependencies: harness.dependencies,
-                retainsSessionFilterMutations: true
+                policy: .retainSession
             )
         }
         try await waitForCoveredArticleListReload(queryGate)
@@ -147,8 +147,7 @@ struct ArticlesScreenControllerViewportContinuityTests {
                 selection: selection,
                 sidebarArticleFilter: sidebarArticleFilter,
                 dependencies: harness.dependencies,
-                retainsSessionFilterMutations: true,
-                preservesMaterializedSessionSnapshot: true
+                policy: .resumeMaterializedSession
             )
 
             #expect(controller.currentArticleListSessionID == materializedSessionID)

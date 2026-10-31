@@ -31,7 +31,7 @@ final class URLIdentifiedNSCacheTracker<Entry: URLIdentifiedNSCacheEntry>:
     }
 
     func removeEntry(for url: URL) {
-        lock.withLock {
+        _ = lock.withLock {
             entryIdentifiersByURL.removeValue(forKey: url)
         }
     }

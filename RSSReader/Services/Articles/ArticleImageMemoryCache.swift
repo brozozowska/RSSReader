@@ -2,8 +2,6 @@ import UIKit
 
 @MainActor
 final class ArticleImageMemoryCache {
-    static let shared = ArticleImageMemoryCache()
-
     private let storage = NSCache<NSURL, ArticleImageMemoryCacheEntry>()
     private let entryTracker = URLIdentifiedNSCacheTracker<ArticleImageMemoryCacheEntry>()
     private let totalCountLimit: Int

@@ -7,6 +7,74 @@ import Testing
 @MainActor
 struct ArticleStateRepositoryTests {
     @Test
+    func snapshotAndAggregateReadsPreserveDuplicatesAndUnrelatedStagedChanges() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feed = try #require(try harness.insertFeeds(urls: ["https://example.com/read-boundary.xml"]).first)
+        let article = try harness.insertArticle(
+            feed: feed, externalID: "article", url: "https://example.com/article", title: "Original"
+        )
+        let context = harness.modelContainer.mainContext
+        context.autosaveEnabled = false
+        let timestamp = Date(timeIntervalSince1970: 100)
+        let loser = ArticleState(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+            articleExternalID: article.externalID, feedID: feed.id, updatedAt: timestamp
+        )
+        let winner = ArticleState(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+            articleExternalID: article.externalID, feedID: feed.id,
+            isRead: true, readAt: timestamp, isStarred: true, starredAt: timestamp,
+            updatedAt: timestamp
+        )
+        let whitespaceState = ArticleState(
+            articleExternalID: " article ", feedID: feed.id,
+            updatedAt: timestamp.addingTimeInterval(1)
+        )
+        for state in [loser, winner, whitespaceState] {
+            context.insert(state)
+        }
+        try context.save()
+        article.title = "Unrelated staged title"
+        let operations = SwiftDataRepositoryOperationCounter()
+        var saveCalls = 0
+        let repository = SwiftDataArticleStateRepository(
+            modelContext: context,
+            persistenceOperationRecorder: operations.record,
+            persistenceSaveOperation: { _ in saveCalls += 1 },
+            queryBatchSize: 1
+        )
+
+        let state = try repository.fetchState(feedID: feed.id, articleExternalID: article.externalID)
+        let single = try repository.fetchStateSnapshot(feedID: feed.id, articleExternalID: article.externalID)
+        let batch = try repository.fetchStateSnapshots(feedID: feed.id, articleExternalIDs: [" article ", "article"])
+        let grouped = try repository.fetchStateSnapshots(for: [article])
+        let aggregate = try repository.fetchAggregateCounts(feedIDs: [feed.id])
+
+        #expect(state?.id == winner.id)
+        for snapshot in [single, batch["article"], grouped[ArticleStateIdentity.lookupKey(
+            feedID: feed.id, articleExternalID: article.externalID
+        )]] {
+            let snapshot = try #require(snapshot)
+            #expect(snapshot.isRead)
+            #expect(snapshot.isStarred)
+            #expect(snapshot.readAt == timestamp)
+            #expect(snapshot.starredAt == timestamp)
+            #expect(snapshot.updatedAt == timestamp)
+        }
+        #expect(aggregate.unreadByFeedID[feed.id] == 0)
+        #expect(aggregate.starredByFeedID[feed.id] == 1)
+        #expect(try context.fetchCount(FetchDescriptor<ArticleState>()) == 3)
+        #expect(whitespaceState.articleExternalID == " article ")
+        #expect(context.deletedModelsArray.isEmpty)
+        #expect(article.title == "Unrelated staged title")
+        #expect(context.hasChanges)
+        #expect(operations.saveCount == 0)
+        #expect(saveCalls == 0)
+        let persistedArticles = try ModelContext(harness.modelContainer).fetch(FetchDescriptor<Article>())
+        #expect(persistedArticles.first?.title == "Original")
+    }
+
+    @Test
     func articleAndStateSchemaIndexProductionIdentityAggregateAndKeysetPredicates() throws {
         let schema = AppComposition.persistenceModelPartition.schema
         let articleStateEntity = try #require(

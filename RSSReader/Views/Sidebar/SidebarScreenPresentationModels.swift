@@ -30,52 +30,6 @@ enum SidebarRefreshStatus: Equatable {
     }
 }
 
-struct SidebarCustomRefreshState: Equatable {
-    enum Phase: Equatable {
-        case idle
-        case pulling
-        case ready
-        case refreshing
-    }
-
-    static let idle = SidebarCustomRefreshState(phase: .idle, pullProgress: 0)
-    static let refreshing = SidebarCustomRefreshState(phase: .refreshing, pullProgress: 1)
-
-    let phase: Phase
-    let pullProgress: Double
-
-    var showsIndicator: Bool {
-        phase != .idle
-    }
-
-    var indicatorState: AppRefreshIndicatorState {
-        switch phase {
-        case .idle:
-            .idle
-        case .pulling:
-            .pulling(progress: pullProgress)
-        case .ready:
-            .ready
-        case .refreshing:
-            .refreshing
-        }
-    }
-
-    static func pulling(progress: Double) -> SidebarCustomRefreshState {
-        let normalizedProgress = min(max(progress, 0), 1)
-
-        if normalizedProgress <= 0 {
-            return .idle
-        }
-
-        if normalizedProgress >= 1 {
-            return SidebarCustomRefreshState(phase: .ready, pullProgress: 1)
-        }
-
-        return SidebarCustomRefreshState(phase: .pulling, pullProgress: normalizedProgress)
-    }
-}
-
 struct SidebarScreenPrimaryLoadingState: Equatable {
     let title: String
 }
@@ -332,19 +286,5 @@ struct FolderSidebarGroup: Identifiable {
 
     static func groups(from feeds: [FeedSidebarItem]) -> [FolderSidebarGroup] {
         groups(from: [], feeds: feeds)
-    }
-}
-
-enum FolderSectionRow: Identifiable {
-    case folder(FolderSidebarGroup)
-    case feed(FeedSidebarItem)
-
-    var id: String {
-        switch self {
-        case .folder(let group):
-            "folder-\(group.id)"
-        case .feed(let feed):
-            "feed-\(feed.id.uuidString)"
-        }
     }
 }

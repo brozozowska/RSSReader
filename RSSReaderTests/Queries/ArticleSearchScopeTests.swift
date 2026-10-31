@@ -170,7 +170,7 @@ struct ArticleSearchScopeTests {
     }
 
     @Test
-    func articleSearchableTextPolicyNormalizesHTMLAndBoundsUTF8Output() {
+    func articleSearchableTextPolicyUsesReaderBodyAndPreservesLongText() {
         let normalized = ArticleSearchableTextPolicy.materialize(
             title: "  Search   title  ",
             summary: nil,
@@ -182,12 +182,12 @@ struct ArticleSearchScopeTests {
             title: "Article",
             summary: nil,
             contentHTML: nil,
-            contentText: String(repeating: "а", count: ArticleSearchableTextPolicy.maximumUTF8ByteCount),
+            contentText: String(repeating: "а", count: 20_000),
             author: nil
         )
 
-        #expect(normalized == "Search title Jane Search HTML fallback")
-        #expect(bounded.utf8.count <= ArticleSearchableTextPolicy.maximumUTF8ByteCount)
+        #expect(normalized == ArticleSearchableTextPolicy.formatPrefix + "Search title\nHTML fallback")
+        #expect(bounded.contains(String(repeating: "а", count: 20_000)))
         #expect(bounded.isEmpty == false)
     }
 

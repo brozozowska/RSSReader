@@ -7,7 +7,7 @@ struct ArticlesScreenDerivedViewState {
     let navigationChrome: ArticlesScreenNavigationChromeState
     let toolbarActions: ArticlesScreenToolbarActionsState
     let searchPlaceholder: ArticlesScreenPlaceholderState?
-    let customRefreshState: ArticlesScreenCustomRefreshState
+    let customRefreshState: AppPullRefreshState
     let refreshBanner: ArticlesScreenRefreshBannerState?
     let primaryLoadingState: ArticlesScreenPrimaryLoadingState?
 }

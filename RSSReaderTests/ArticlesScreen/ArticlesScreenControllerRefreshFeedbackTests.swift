@@ -115,7 +115,7 @@ struct ArticlesScreenControllerRefreshFeedbackTests {
         harness.dependencies.appActions.showFeed(id: feed.id, using: appState)
         await controller.load(
             selection: .feed(feed.id), sidebarArticleFilter: .unread, searchText: "Match",
-            dependencies: harness.dependencies, refreshesScopeMetric: true
+            dependencies: harness.dependencies, scopeMetric: .baseScope
         )
         let article = try #require(controller.screenState.articles.first)
         controller.toggleArticleReadStatus(
@@ -490,9 +490,8 @@ struct ArticlesScreenControllerRefreshFeedbackTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .allItems,
             dependencies: harness.dependencies,
-            retainsSessionFilterMutations: false,
-            retainedSessionMembershipStatus: .retainedAfterRefresh,
-            preservesRefreshFeedback: true
+            policy: .replace,
+            feedback: .preserve
         )
 
         #expect(controller.screenState.phase == .loaded)

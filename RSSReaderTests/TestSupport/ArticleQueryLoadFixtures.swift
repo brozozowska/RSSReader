@@ -137,7 +137,7 @@ struct ArticleQueryLoadFixture {
                 url: "https://example.com/query-load/articles/\(index)",
                 title: "Query Load Article \(index)",
                 contentHTML: contentHTML,
-                searchableText: searchableText,
+                searchableText: ArticleSearchableTextPolicy.formatPrefix + searchableText,
                 publishedAt: sortDate(
                     for: index,
                     baseDate: baseDate,

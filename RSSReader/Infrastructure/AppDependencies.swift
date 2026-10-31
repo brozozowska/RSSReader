@@ -3,52 +3,15 @@ import Foundation
 import SwiftUI
 import SwiftData
 
-// MARK: - AppDependencies protocol
-public protocol AppDependenciesProtocol {
-    var logger: Logging { get }
-    var httpClient: any HTTPClient { get }
-    var feedFetcher: any FeedFetching { get }
-    var feedIconCache: any FeedIconCaching { get }
-    var modelContainer: ModelContainer? { get }
-}
-
-final class AppDependencyTaskStore: @unchecked Sendable {
-    private let lock = NSLock()
-    private var tasks: [Task<Void, Never>] = []
-
-    func append(_ task: Task<Void, Never>) {
-        lock.lock()
-        tasks.append(task)
-        lock.unlock()
-    }
-
-    func waitForAll() async {
-        while true {
-            let currentTasks = takeTasks()
-
-            guard currentTasks.isEmpty == false else { return }
-
-            for task in currentTasks {
-                await task.value
-            }
-        }
-    }
-
-    private func takeTasks() -> [Task<Void, Never>] {
-        lock.lock()
-        let currentTasks = tasks
-        tasks.removeAll()
-        lock.unlock()
-        return currentTasks
-    }
-}
-
-public final class AppDependencies: AppDependenciesProtocol {
+final class AppDependencies {
     
-    public let logger: Logging
-    public let httpClient: any HTTPClient
-    public let feedFetcher: any FeedFetching
-    public let feedIconCache: any FeedIconCaching
+    let logger: Logging
+    let httpClient: any HTTPClient
+    let feedFetcher: any FeedFetching
+    let articleImageRuntime: ArticleImageRuntime
+    let sidebarFolderExpansionStore: SidebarFolderExpansionStore
+    var articleImageCache: any ArticleImageCacheManaging { articleImageRuntime }
+    let feedIconCache: any FeedIconCaching
     let feedRefreshService: FeedRefreshService?
     let feedRepository: (any FeedRepository)?
     let folderRepository: (any FolderRepository)?
@@ -59,6 +22,7 @@ public final class AppDependencies: AppDependenciesProtocol {
     let articleRetentionCleanupService: (any ArticleRetentionCleanupServicing)?
     let persistenceBoundedGrowthCleanupService: (any PersistenceBoundedGrowthCleanupServicing)?
     let globalOrphanSweepTriggerService: (any GlobalOrphanSweepTriggerServicing)?
+    let articleSearchIndexMaintenance: ArticleSearchIndexMaintenance?
     let articleQueryService: (any ArticleQueryService)?
     let sidebarQueryService: (any SidebarQueryService)?
     let articleStateRepository: (any ArticleStateRepository)?
@@ -74,19 +38,21 @@ public final class AppDependencies: AppDependenciesProtocol {
     let persistentStoreRemoteChangeSource: any PersistentStoreRemoteChangeSource
     let syncCoordinator: SyncCoordinator?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
-    public let modelContainer: ModelContainer?
+    let modelContainer: ModelContainer?
     let modelContainerBootstrapFailureDescription: String?
     let syncBackedStoreReference: SyncBackedStoreReference?
     let syncBootstrapPreferenceStore: any AppSyncBootstrapPreferenceStoring
     let syncBootstrapContext: AppSyncBootstrapContext?
     let syncRuntimeOrchestrator: AppSyncRuntimeOrchestrator
-    let feedSaveRefreshTaskStore: AppDependencyTaskStore?
+    let feedSaveRefreshScheduler = FeedSaveRefreshScheduler()
 
     init(
         logger: Logging,
         httpClient: any HTTPClient = URLSessionHTTPClient(),
         feedFetcher: (any FeedFetching)? = nil,
         feedIconCache: (any FeedIconCaching)? = nil,
+        articleImageRuntime: ArticleImageRuntime? = nil,
+        sidebarFolderExpansionStore: SidebarFolderExpansionStore? = nil,
         modelContainer: ModelContainer? = nil,
         modelContainerBootstrapFailureDescription: String? = nil,
         syncBackedStoreReference: SyncBackedStoreReference? = nil,
@@ -102,8 +68,7 @@ public final class AppDependencies: AppDependenciesProtocol {
         persistentStoreRemoteChangeSource: (any PersistentStoreRemoteChangeSource)? = nil,
         syncCoordinator: SyncCoordinator? = nil,
         unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = nil,
-        articleSearchScanBatchProbe: ArticleSearchScanBatchProbe? = nil,
-        tracksFeedSaveRefreshTasks: Bool = false
+        articleSearchScanBatchProbe: ArticleSearchScanBatchProbe? = nil
     ) {
         let feedRepository = modelContainer.map { container in
             SwiftDataFeedRepository(modelContext: container.mainContext)
@@ -123,6 +88,8 @@ public final class AppDependencies: AppDependenciesProtocol {
         let appSettingsService = appSettingsRepository.map { repository in
             DefaultAppSettingsService(repository: repository)
         }
+        let indexMaintenance = modelContainer.map { ArticleSearchIndexMaintenance(container: $0) }
+        self.articleSearchIndexMaintenance = indexMaintenance
         let articleQueryService: (any ArticleQueryService)? = {
             guard let articleRepository,
                   let articleStateRepository,
@@ -134,7 +101,8 @@ public final class AppDependencies: AppDependenciesProtocol {
                 articleRepository: articleRepository,
                 articleStateRepository: articleStateRepository,
                 feedRepository: feedRepository,
-                searchScanBatchProbe: articleSearchScanBatchProbe
+                searchScanBatchProbe: articleSearchScanBatchProbe,
+                indexMaintenance: indexMaintenance
             )
         }()
         let resolvedUnreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? = unreadAppIconBadgeService ?? {
@@ -270,6 +238,8 @@ public final class AppDependencies: AppDependenciesProtocol {
         let persistentStoreRemoteChangeSource = persistentStoreRemoteChangeSource ?? DefaultPersistentStoreRemoteChangeSource()
         let syncBootstrapPreferenceStore = syncBootstrapPreferenceStore
             ?? AppSyncBootstrapPreferenceStore(logger: logger)
+        self.articleImageRuntime = articleImageRuntime ?? .makeIsolated()
+        self.sidebarFolderExpansionStore = sidebarFolderExpansionStore ?? SidebarFolderExpansionStore()
         self.logger = logger
         self.httpClient = httpClient
         self.feedIconCache = resolvedFeedIconCache
@@ -304,9 +274,6 @@ public final class AppDependencies: AppDependenciesProtocol {
         self.syncCoordinator = syncCoordinator
         self.feedFetchLogRepository = feedFetchLogRepository
         self.feedFetcher = resolvedFeedFetcher
-        self.feedSaveRefreshTaskStore = tracksFeedSaveRefreshTasks
-            ? AppDependencyTaskStore()
-            : nil
         self.syncRuntimeOrchestrator = AppSyncRuntimeOrchestrator(
             logger: logger,
             syncCoordinator: syncCoordinator,
@@ -319,6 +286,7 @@ public final class AppDependencies: AppDependenciesProtocol {
             appSettingsService: appSettingsService,
             remoteSyncImportAppAction: RemoteSyncImportAppAction(
                 logger: logger,
+                indexMaintenance: indexMaintenance,
                 unreadAppIconBadgeService: resolvedUnreadAppIconBadgeService
             )
         )

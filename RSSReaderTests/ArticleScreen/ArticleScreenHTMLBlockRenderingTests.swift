@@ -25,11 +25,11 @@ struct ArticleScreenHTMLBlockRenderingTests {
                 .paragraph(.plainText("First paragraph.")),
                 .image(URL(string: "https://example.com/images/inline.png")!),
                 .paragraph(
-                    ArticleScreenTextBlock(
+                    ArticleContentTextBlock(
                         spans: [
-                            ArticleScreenTextSpan(text: "Second "),
-                            ArticleScreenTextSpan(text: "paragraph", isStrong: true),
-                            ArticleScreenTextSpan(text: ".")
+                            ArticleContentTextSpan(text: "Second "),
+                            ArticleContentTextSpan(text: "paragraph", isStrong: true),
+                            ArticleContentTextSpan(text: ".")
                         ]
                     )
                 )
@@ -61,37 +61,37 @@ struct ArticleScreenHTMLBlockRenderingTests {
             content.body.blocks == [
                 .heading(level: 2, .plainText("Что такое аванс")),
                 .paragraph(
-                    ArticleScreenTextBlock(
+                    ArticleContentTextBlock(
                         spans: [
-                            ArticleScreenTextSpan(text: "Аванс — это часть "),
-                            ArticleScreenTextSpan(text: "зарплаты", isStrong: true),
-                            ArticleScreenTextSpan(text: ", которую выплачивают заранее.")
+                            ArticleContentTextSpan(text: "Аванс — это часть "),
+                            ArticleContentTextSpan(text: "зарплаты", isStrong: true),
+                            ArticleContentTextSpan(text: ", которую выплачивают заранее.")
                         ]
                     )
                 ),
                 .list(
-                    ArticleScreenListBlock(
+                    ArticleContentListBlock(
                         kind: .unordered,
                         items: [
                             .plainText("Оклад"),
-                            ArticleScreenTextBlock(
+                            ArticleContentTextBlock(
                                 spans: [
-                                    ArticleScreenTextSpan(text: "Компенсационные", isEmphasized: true),
-                                    ArticleScreenTextSpan(text: " надбавки")
+                                    ArticleContentTextSpan(text: "Компенсационные", isEmphasized: true),
+                                    ArticleContentTextSpan(text: " надбавки")
                                 ]
                             )
                         ]
                     )
                 ),
                 .list(
-                    ArticleScreenListBlock(
+                    ArticleContentListBlock(
                         kind: .ordered,
                         items: [
                             .plainText("Первый шаг"),
-                            ArticleScreenTextBlock(
+                            ArticleContentTextBlock(
                                 spans: [
-                                    ArticleScreenTextSpan(text: "Второй "),
-                                    ArticleScreenTextSpan(text: "step", isCode: true)
+                                    ArticleContentTextSpan(text: "Второй "),
+                                    ArticleContentTextSpan(text: "step", isCode: true)
                                 ]
                             )
                         ]
@@ -122,14 +122,14 @@ struct ArticleScreenHTMLBlockRenderingTests {
                 .blockquote(
                     [
                         .plainText("Первая цитата."),
-                        ArticleScreenTextBlock(
+                        ArticleContentTextBlock(
                             spans: [
-                                ArticleScreenTextSpan(text: "Вторая "),
-                                ArticleScreenTextSpan(
+                                ArticleContentTextSpan(text: "Вторая "),
+                                ArticleContentTextSpan(
                                     text: "цитата",
                                     linkURL: URL(string: "https://example.com/quote")!
                                 ),
-                                ArticleScreenTextSpan(text: ".")
+                                ArticleContentTextSpan(text: ".")
                             ]
                         )
                     ]
@@ -159,10 +159,10 @@ struct ArticleScreenHTMLBlockRenderingTests {
                 .figure([
                     .image(URL(string: "https://example.com/images/book.png")!),
                     .caption(
-                        ArticleScreenTextBlock(
+                        ArticleContentTextBlock(
                             spans: [
-                                ArticleScreenTextSpan(text: "Обложка "),
-                                ArticleScreenTextSpan(text: "книги", isStrong: true)
+                                ArticleContentTextSpan(text: "Обложка "),
+                                ArticleContentTextSpan(text: "книги", isStrong: true)
                             ]
                         )
                     )
@@ -193,11 +193,11 @@ struct ArticleScreenHTMLBlockRenderingTests {
 
         #expect(blocks == [
             .image(URL(string: "https://example.com/images/small.jpg")!),
-            .media(ArticleScreenMediaBlock(kind: .audio, url: URL(string: "https://example.com/media/episode.mp3")!)),
-            .media(ArticleScreenMediaBlock(kind: .video, url: URL(string: "https://example.com/media/trailer.mp4")!)),
-            .caption(ArticleScreenTextBlock(spans: [
-                ArticleScreenTextSpan(text: "Медиа "),
-                ArticleScreenTextSpan(text: "подборка", isStrong: true)
+            .media(ArticleContentMediaBlock(kind: .audio, url: URL(string: "https://example.com/media/episode.mp3")!)),
+            .media(ArticleContentMediaBlock(kind: .video, url: URL(string: "https://example.com/media/trailer.mp4")!)),
+            .caption(ArticleContentTextBlock(spans: [
+                ArticleContentTextSpan(text: "Медиа "),
+                ArticleContentTextSpan(text: "подборка", isStrong: true)
             ]))
         ])
     }
@@ -223,9 +223,9 @@ struct ArticleScreenHTMLBlockRenderingTests {
         }
 
         #expect(blocks == [
-            .media(ArticleScreenMediaBlock(kind: .knownEmbedded, url: URL(string: "https://www.youtube.com/embed/video-id")!)),
-            .media(ArticleScreenMediaBlock(kind: .embedded, url: URL(string: "https://widgets.example.org/player/42")!)),
-            .media(ArticleScreenMediaBlock(kind: .generic, url: URL(string: "https://example.com/media/widget")!)),
+            .media(ArticleContentMediaBlock(kind: .knownEmbedded, url: URL(string: "https://www.youtube.com/embed/video-id")!)),
+            .media(ArticleContentMediaBlock(kind: .embedded, url: URL(string: "https://widgets.example.org/player/42")!)),
+            .media(ArticleContentMediaBlock(kind: .generic, url: URL(string: "https://example.com/media/widget")!)),
             .caption(.plainText("Три источника"))
         ])
     }
@@ -323,7 +323,7 @@ struct ArticleScreenHTMLBlockRenderingTests {
         #expect(
             content.body.blocks == [
                 .paragraph(.plainText("«Вкалывают роботы, а не человек»")),
-                .media(ArticleScreenMediaBlock(
+                .media(ArticleContentMediaBlock(
                     kind: .video,
                     url: URL(string: "https://cdn.example.com/video/figure-shift.mp4")!
                 ))
@@ -342,7 +342,7 @@ struct ArticleScreenHTMLBlockRenderingTests {
 
         #expect(
             content.body.blocks == [
-                .media(ArticleScreenMediaBlock(
+                .media(ArticleContentMediaBlock(
                     kind: .video,
                     url: URL(string: "https://cdn.example.com/video/lead-video.webm")!
                 )),
@@ -377,9 +377,9 @@ struct ArticleScreenHTMLBlockRenderingTests {
             content.body.blocks == [
                 .paragraph(.plainText("Всё, продолжаем про аванс.")),
                 .paragraph(
-                    ArticleScreenTextBlock(
+                    ArticleContentTextBlock(
                         spans: [
-                            ArticleScreenTextSpan(
+                            ArticleContentTextSpan(
                                 text: "Стать контент-маркетологом",
                                 linkURL: URL(string: "https://practicum.yandex.ru/content-marketer/")!
                             )
@@ -405,10 +405,10 @@ struct ArticleScreenHTMLBlockRenderingTests {
 
         #expect(
             content.body.blocks == [
-                .media(ArticleScreenMediaBlock(kind: .knownEmbedded, url: URL(string: "https://www.youtube.com/embed/video-id")!)),
-                .media(ArticleScreenMediaBlock(kind: .video, url: URL(string: "https://example.com/media/movie.mp4")!)),
-                .media(ArticleScreenMediaBlock(kind: .audio, url: URL(string: "https://example.com/media/audio.mp3")!)),
-                .media(ArticleScreenMediaBlock(kind: .generic, url: URL(string: "https://example.com/media/widget")!))
+                .media(ArticleContentMediaBlock(kind: .knownEmbedded, url: URL(string: "https://www.youtube.com/embed/video-id")!)),
+                .media(ArticleContentMediaBlock(kind: .video, url: URL(string: "https://example.com/media/movie.mp4")!)),
+                .media(ArticleContentMediaBlock(kind: .audio, url: URL(string: "https://example.com/media/audio.mp3")!)),
+                .media(ArticleContentMediaBlock(kind: .generic, url: URL(string: "https://example.com/media/widget")!))
             ]
         )
     }
@@ -429,14 +429,14 @@ struct ArticleScreenHTMLBlockRenderingTests {
         #expect(
             content.body.blocks == [
                 .table(
-                    ArticleScreenTableBlock(
+                    ArticleContentTableBlock(
                         columnHeaders: [.plainText("Платёж"), .plainText("Дата")],
                         headerSource: .explicit,
                         rows: [
-                            ArticleScreenTableRow(
+                            ArticleContentTableRow(
                                 heading: .plainText("Аванс"),
                                 cells: [
-                                    ArticleScreenTableCell(
+                                    ArticleContentTableCell(
                                         columnHeader: .plainText("Дата"),
                                         content: .plainText("15 мая")
                                     )
@@ -651,7 +651,7 @@ struct ArticleScreenHTMLBlockRenderingTests {
         #expect(content.body.blocks[0] == .paragraph(.plainText("До контейнера")))
         #expect(content.body.blocks[1] == .heading(level: 2, .plainText("Заголовок")))
         #expect(content.body.blocks[2].textForTest == "Абзац guide")
-        #expect(content.body.blocks[3] == .list(ArticleScreenListBlock(
+        #expect(content.body.blocks[3] == .list(ArticleContentListBlock(
             kind: .unordered,
             items: [.plainText("Первый"), .plainText("Второй")]
         )))
@@ -662,7 +662,7 @@ struct ArticleScreenHTMLBlockRenderingTests {
             .caption(.plainText("Подпись"))
         ]))
         #expect(content.body.blocks[7].isTableForTest)
-        #expect(content.body.blocks[8] == .media(ArticleScreenMediaBlock(
+        #expect(content.body.blocks[8] == .media(ArticleContentMediaBlock(
             kind: .video,
             url: URL(string: "https://example.com/movie.mp4")!
         )))
@@ -854,7 +854,7 @@ struct ArticleScreenHTMLBlockRenderingTests {
     }
 }
 
-private extension ArticleScreenBodyBlock {
+private extension ArticleContentBodyBlock {
     var textForTest: String? {
         guard case .paragraph(let text) = self else { return nil }
         return text.plainText

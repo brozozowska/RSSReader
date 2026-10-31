@@ -1,130 +1,95 @@
 import Foundation
 
 nonisolated enum ArticleSearchQueryNormalizationPolicy {
-    static let maximumUTF8ByteCount = ArticleSearchableTextPolicy.maximumUTF8ByteCount
+    static let maximumUTF8ByteCount = 16 * 1_024
 
     static func normalize(_ query: String) -> String {
-        ArticleSearchTextNormalization.normalizedWhitespace(
-            query,
-            maximumSourceUTF8ByteCount: maximumUTF8ByteCount
-        )
+        var bounded = ""
+        var bytes = 0
+        for character in query {
+            let size = String(character).utf8.count
+            guard bytes + size <= maximumUTF8ByteCount else { break }
+            bounded.append(character)
+            bytes += size
+        }
+        return ArticleSearchableTextPolicy.normalize(bounded)
     }
 }
 
+/// A derived, complete Reader-text projection. Newlines separate independent
+/// fields/blocks/cells; normalized queries cannot match across those boundaries.
 nonisolated enum ArticleSearchableTextPolicy {
-    static let maximumUTF8ByteCount = 16 * 1_024
-    private static let maximumSourceUTF8ByteCount = 64 * 1_024
+    static let formatPrefix = "\u{001E}reader-text-2\n"
+
+    static func normalize(_ text: String) -> String {
+        text.precomposedStringWithCanonicalMapping
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
+    }
+
+    static func contains(_ index: String, feedTitle: String, author: String? = nil, query: String) -> Bool {
+        let text = index.hasPrefix(formatPrefix) ? index.dropFirst(formatPrefix.count) : index[...]
+        return text.localizedCaseInsensitiveContains(query)
+            || normalize(feedTitle).localizedCaseInsensitiveContains(query)
+            || normalize(ReaderArticleMetadataPolicy.author(author, feedTitle: feedTitle) ?? "").localizedCaseInsensitiveContains(query)
+    }
 
     static func materialize(
         title: String,
         summary: String?,
         contentHTML: String?,
         contentText: String?,
-        author: String?
+        author: String?,
+        articleURL: String = "",
+        canonicalURL: String? = nil,
+        feedSiteURL: String? = nil
     ) -> String {
-        var result = ""
-
-        append(title, to: &result)
-        append(summary, to: &result)
-        append(contentText, to: &result)
-        append(author, to: &result)
-        append(plainTextFallback(fromHTML: contentHTML), to: &result)
-
-        return result
+        let article = ReaderArticleDTO(
+            id: UUID(), feedID: UUID(), feedTitle: "", feedSiteURL: feedSiteURL,
+            articleExternalID: "", title: title, summary: summary,
+            contentHTML: contentHTML, contentText: contentText, author: author,
+            publishedAt: nil, updatedAtSource: nil, effectiveDate: .distantPast,
+            articleURL: articleURL, canonicalURL: canonicalURL, imageURL: nil,
+            isRead: false, isStarred: false, isHidden: false
+        )
+        return materialize(article)
     }
 
-    private static func append(_ value: String?, to result: inout String) {
-        guard result.utf8.count < maximumUTF8ByteCount,
-              let normalizedValue = normalizedPlainText(value),
-              normalizedValue.isEmpty == false else {
-            return
+    static func materialize(_ article: ReaderArticleDTO) -> String {
+        var segments = [article.title]
+        append(ArticleContentParser.renderBody(for: article).blocks, to: &segments)
+        return formatPrefix + segments.map(normalize).filter { !$0.isEmpty }.joined(separator: "\n")
+    }
+
+    private static func append(_ blocks: [ArticleContentBodyBlock], to segments: inout [String]) {
+        for block in blocks {
+            switch block {
+            case .heading(_, let text), .paragraph(let text), .address(let text), .caption(let text):
+                segments.append(text.plainText)
+            case .codeBlock(let text), .preformattedText(let text):
+                segments.append(text)
+            case .list(let list):
+                segments.append(contentsOf: list.items.map(\.plainText))
+            case .definitionList(let list):
+                for entry in list.entries {
+                    if let term = entry.term { segments.append(term.plainText) }
+                    segments.append(contentsOf: entry.definitions.compactMap { $0?.plainText })
+                }
+            case .table(let table):
+                segments.append(contentsOf: table.columnHeaders.compactMap { $0?.plainText })
+                for row in table.rows {
+                    segments.append(contentsOf: row.gridContents.compactMap { $0?.plainText })
+                }
+            case .blockquote(let texts):
+                segments.append(contentsOf: texts.map(\.plainText))
+            case .disclosure(let disclosure):
+                segments.append(disclosure.summary.plainText)
+                append(disclosure.content, to: &segments)
+            case .aside(let children), .figure(let children):
+                append(children, to: &segments)
+            case .divider, .image, .media, .fallbackNotice:
+                break
+            }
         }
-
-        let separator = result.isEmpty ? "" : " "
-        let remainingByteCount = maximumUTF8ByteCount - result.utf8.count
-        guard remainingByteCount > separator.utf8.count else { return }
-
-        let boundedValue = ArticleSearchTextNormalization.boundedUTF8Prefix(
-            normalizedValue,
-            maximumByteCount: remainingByteCount - separator.utf8.count
-        )
-        guard boundedValue.isEmpty == false else { return }
-
-        result += separator
-        result += boundedValue
-    }
-
-    private static func normalizedPlainText(_ value: String?) -> String? {
-        guard let value else { return nil }
-
-        let normalizedValue = ArticleSearchTextNormalization.normalizedWhitespace(
-            value,
-            maximumSourceUTF8ByteCount: maximumSourceUTF8ByteCount
-        )
-
-        return normalizedValue.isEmpty ? nil : normalizedValue
-    }
-
-    private static func plainTextFallback(fromHTML html: String?) -> String? {
-        guard let html else { return nil }
-
-        let boundedHTML = ArticleSearchTextNormalization.boundedUTF8Prefix(
-            html,
-            maximumByteCount: maximumSourceUTF8ByteCount
-        )
-        return boundedHTML
-            .replacingOccurrences(of: #"(?i)<br\s*/?>"#, with: " ", options: .regularExpression)
-            .replacingOccurrences(
-                of: #"(?i)</?(p|div|section|article|blockquote|ul|ol|li|h[1-6]|pre|figure|figcaption|table|tbody|thead|tr|td|th)\b[^>]*>"#,
-                with: " ",
-                options: .regularExpression
-            )
-            .replacingOccurrences(of: #"<[^>]+>"#, with: "", options: .regularExpression)
-            .decodingBasicHTMLEntities()
-    }
-}
-
-private nonisolated enum ArticleSearchTextNormalization {
-    static func normalizedWhitespace(
-        _ value: String,
-        maximumSourceUTF8ByteCount: Int
-    ) -> String {
-        boundedUTF8Prefix(
-            value,
-            maximumByteCount: maximumSourceUTF8ByteCount
-        )
-        .precomposedStringWithCanonicalMapping
-        .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-        .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    static func boundedUTF8Prefix(
-        _ value: String,
-        maximumByteCount: Int
-    ) -> String {
-        guard maximumByteCount > 0 else { return "" }
-        guard value.utf8.count > maximumByteCount else { return value }
-
-        var result = ""
-        var byteCount = 0
-        for character in value {
-            let characterByteCount = String(character).utf8.count
-            guard byteCount + characterByteCount <= maximumByteCount else { break }
-            result.append(character)
-            byteCount += characterByteCount
-        }
-        return result
-    }
-}
-
-private extension String {
-    nonisolated func decodingBasicHTMLEntities() -> String {
-        replacingOccurrences(of: "&nbsp;", with: " ")
-            .replacingOccurrences(of: "&amp;", with: "&")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&#39;", with: "'")
-            .replacingOccurrences(of: "&apos;", with: "'")
     }
 }

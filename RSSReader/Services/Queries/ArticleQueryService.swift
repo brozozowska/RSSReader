@@ -101,14 +101,17 @@ final class DefaultArticleQueryService: ArticleQueryService {
     private let articleRepository: any ArticleRepository
     private let articleStateRepository: any ArticleStateRepository
     private let feedRepository: any FeedRepository
+    private let indexMaintenance: ArticleSearchIndexMaintenance?
     private let searchScanBatchProbe: ArticleSearchScanBatchProbe?
 
     init(
         articleRepository: any ArticleRepository,
         articleStateRepository: any ArticleStateRepository,
         feedRepository: any FeedRepository,
-        searchScanBatchProbe: ArticleSearchScanBatchProbe? = nil
+        searchScanBatchProbe: ArticleSearchScanBatchProbe? = nil,
+        indexMaintenance: ArticleSearchIndexMaintenance? = nil
     ) {
+        self.indexMaintenance = indexMaintenance
         self.articleRepository = articleRepository
         self.articleStateRepository = articleStateRepository
         self.feedRepository = feedRepository
@@ -125,6 +128,9 @@ final class DefaultArticleQueryService: ArticleQueryService {
             return ArticleSearchResultSnapshot(articles: [], hasScopeContent: false)
         }
 
+        if !request.normalizedQuery.isEmpty {
+            try await indexMaintenance?.waitUntilReady()
+        }
         let criteria = ArticleQueryCriteria(
             scope: scope,
             hidden: hiddenFilter(for: request.listFilter),
@@ -183,7 +189,7 @@ final class DefaultArticleQueryService: ArticleQueryService {
         var hasScopeContent = request.cursor != nil
 
         guard limit > 0 else {
-            let batch = try processSearchScanBatch(
+            let batch = try await processSearchScanBatch(
                 request: request,
                 matching: criteria,
                 cursor: repositoryCursor,
@@ -201,7 +207,7 @@ final class DefaultArticleQueryService: ArticleQueryService {
         var matchingRecords: [ArticleSearchScanMatch] = []
 
         while matchingRecords.count < targetResultCount {
-            let batch = try processSearchScanBatch(
+            let batch = try await processSearchScanBatch(
                 request: request,
                 matching: criteria,
                 cursor: repositoryCursor,
@@ -319,62 +325,56 @@ final class DefaultArticleQueryService: ArticleQueryService {
         matching criteria: ArticleQueryCriteria,
         cursor: ArticleQueryCursor?,
         limit: Int
-    ) throws -> ArticleSearchProcessedScanBatch {
-        let searchScope = ArticleSearchScope(
-            normalizedQuery: request.normalizedQuery,
-            selection: request.selection,
-            sidebarArticleFilter: request.sidebarArticleFilter
-        )
-        let batch = try articleRepository.fetchArticleQueryRecordScanBatch(
-            matching: criteria,
-            cursor: cursor,
-            limit: limit
-        )
+    ) async throws -> ArticleSearchProcessedScanBatch {
+        let prepared = try prepareSearchScanBatch(criteria: criteria, cursor: cursor, limit: limit)
         var matches: [ArticleSearchScanMatch] = []
-        matches.reserveCapacity(batch.records.count)
-
-        for record in batch.records {
+        for (candidate, continuationCursor) in prepared.candidates {
             try Task.checkCancellation()
-            let candidate = ArticleSearchCandidateDTO(
-                article: record.article,
-                state: record.state
-            )
-            guard matchesSearch(
-                candidate,
-                request: request,
-                searchScope: searchScope
-            ) else { continue }
-            matches.append(
-                ArticleSearchScanMatch(
-                    article: candidate.listItem,
-                    continuationCursor: record.continuationCursor
-                )
-            )
+            if !request.normalizedQuery.isEmpty,
+               !candidate.searchableText.hasPrefix(ArticleSearchableTextPolicy.formatPrefix) {
+                // Never publish a partially repaired search as a complete result.
+                throw ArticleSearchIndexError.outdatedIndex
+            }
+            let textMatches: Bool
+            if request.normalizedQuery.isEmpty {
+                textMatches = true
+            } else {
+                let text = candidate.searchableText
+                let feedTitle = candidate.listItem.feedTitle
+                let author = candidate.listItem.author
+                let query = request.normalizedQuery
+                let worker = Task.detached {
+                    try Task.checkCancellation()
+                    return ArticleSearchableTextPolicy.contains(text, feedTitle: feedTitle, author: author, query: query)
+                }
+                textMatches = try await withTaskCancellationHandler {
+                    try await worker.value
+                } onCancel: { worker.cancel() }
+                try Task.checkCancellation()
+            }
+            guard textMatches,
+                  request.requiresUnread == false || candidate.listItem.isRead == false else { continue }
+            matches.append(ArticleSearchScanMatch(article: candidate.listItem, continuationCursor: continuationCursor))
         }
 
         return ArticleSearchProcessedScanBatch(
             matches: matches,
-            hasScopeContent: batch.records.isEmpty == false,
-            nextCursor: batch.nextCursor,
+            hasScopeContent: prepared.candidates.isEmpty == false,
+            nextCursor: prepared.nextCursor,
             observation: ArticleSearchScanBatchObservation(
                 normalizedQuery: request.normalizedQuery,
-                scannedCandidateCount: batch.scannedCandidateCount,
-                stateMatchingCandidateCount: batch.records.count,
+                scannedCandidateCount: prepared.scannedCandidateCount,
+                stateMatchingCandidateCount: prepared.candidates.count,
                 searchMatchingCandidateCount: matches.count
             )
         )
     }
 
-    private func matchesSearch(
-        _ candidate: ArticleSearchCandidateDTO,
-        request: ArticleSearchRequest,
-        searchScope: ArticleSearchScope
-    ) -> Bool {
-        guard request.requiresUnread == false || candidate.listItem.isRead == false else {
-            return false
-        }
-
-        return searchScope.contains(candidate)
+    private func prepareSearchScanBatch(
+        criteria: ArticleQueryCriteria, cursor: ArticleQueryCursor?, limit: Int
+    ) throws -> (candidates: [(ArticleSearchCandidateDTO, ArticleQueryCursor)], nextCursor: ArticleQueryCursor?, scannedCandidateCount: Int) {
+        let batch = try articleRepository.fetchArticleQueryRecordScanBatch(matching: criteria, cursor: cursor, limit: limit)
+        return (batch.records.map { (ArticleSearchCandidateDTO(article: $0.article, state: $0.state), $0.continuationCursor) }, batch.nextCursor, batch.scannedCandidateCount)
     }
 
     private func queryScope(for selection: SidebarSelection?) -> ArticleQueryScope? {

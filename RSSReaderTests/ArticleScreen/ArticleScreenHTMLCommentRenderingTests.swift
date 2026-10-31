@@ -44,7 +44,7 @@ struct ArticleScreenHTMLCommentRenderingTests {
         let content = ArticleScreenContentState(article: makeReaderArticleDTO(contentHTML: escaped(html, levels: levels)))
         #expect(content.body.blocks == [
             .paragraph(.plainText("Example: <!-- literal prose -->.")),
-            .paragraph(ArticleScreenTextBlock(spans: [ArticleScreenTextSpan(text: "<!-- literal inline -->", isCode: true)])),
+            .paragraph(ArticleContentTextBlock(spans: [ArticleContentTextSpan(text: "<!-- literal inline -->", isCode: true)])),
             .codeBlock("<!-- <p>literal block</p> -->"),
             .paragraph(.plainText("CI"))
         ])
@@ -57,7 +57,7 @@ struct ArticleScreenHTMLCommentRenderingTests {
         ))
         #expect(content.body.blocks == [
             .preformattedText("<!-- literal block -->"),
-            .paragraph(ArticleScreenTextBlock(spans: [ArticleScreenTextSpan(text: "<!-- literal inline -->", isCode: true)]))
+            .paragraph(ArticleContentTextBlock(spans: [ArticleContentTextSpan(text: "<!-- literal inline -->", isCode: true)]))
         ])
     }
 
@@ -76,7 +76,7 @@ struct ArticleScreenHTMLCommentRenderingTests {
             summary: escaped(html, levels: 2), contentHTML: html, contentText: " \n" + html
         ))
         #expect(content.body.source == .empty)
-        #expect(content.body.blocks == [.fallbackNotice(ReadingLocalization.emptyBodyFallbackNotice)])
+        #expect(content.body.blocks == [.fallbackNotice(.emptyBody)])
     }
 
     @Test

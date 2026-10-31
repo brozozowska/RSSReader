@@ -30,5 +30,4 @@ struct AppActionRouter {
     var unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)? {
         dependencies.unreadAppIconBadgeService
     }
-    var feedSaveRefreshTaskStore: AppDependencyTaskStore? { dependencies.feedSaveRefreshTaskStore }
 }

@@ -27,11 +27,7 @@ nonisolated struct ArticleImageDisplayTarget: Equatable, Hashable, Sendable {
 }
 
 @MainActor
-final class ArticleImageLoader {
-    static let shared = ArticleImageLoader(
-        httpClient: URLSessionHTTPClient(configuration: .articleImageRequestsDefault())
-    )
-
+final class ArticleImageLoader: ArticleImageLoading {
     private let httpClient: any HTTPClient
     private let memoryCache: ArticleImageMemoryCache
     private let diskCache: any ArticleImageDiskCaching
@@ -40,14 +36,21 @@ final class ArticleImageLoader {
 
     init(
         httpClient: any HTTPClient,
-        memoryCache: ArticleImageMemoryCache? = nil,
-        diskCache: any ArticleImageDiskCaching = ArticleImageDiskCache.shared,
+        memoryCache: ArticleImageMemoryCache,
+        diskCache: any ArticleImageDiskCaching,
         budget: RuntimeImageInputBudget = AppComposition.resourceBudgetContract.articleImage
     ) {
         self.httpClient = httpClient
-        self.memoryCache = memoryCache ?? .shared
+        self.memoryCache = memoryCache
         self.diskCache = diskCache
         self.budget = budget
+    }
+
+    func cachedImage(for url: URL, targetMaximumPixelWidth: Int?) -> UIImage? {
+        if let targetMaximumPixelWidth {
+            return memoryCache.image(for: url, targetMaximumPixelWidth: targetMaximumPixelWidth)
+        }
+        return memoryCache.image(for: url)
     }
 
     func loadImage(from url: URL, displayTarget: ArticleImageDisplayTarget) async throws -> UIImage {

@@ -24,7 +24,7 @@ struct ArticlesScreenControllerStarredSessionTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .starred,
             dependencies: harness.dependencies,
-            refreshesScopeMetric: true
+            scopeMetric: .baseScope
         )
 
         #expect(
@@ -86,7 +86,7 @@ struct ArticlesScreenControllerStarredSessionTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .starred,
             dependencies: harness.dependencies,
-            refreshesScopeMetric: true
+            scopeMetric: .baseScope
         )
         let loadedArticle = try #require(controller.screenState.articles.first)
         controller.toggleStarredState(
@@ -142,7 +142,7 @@ struct ArticlesScreenControllerStarredSessionTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .starred,
             dependencies: harness.dependencies,
-            retainsSessionFilterMutations: true
+            policy: .retainSession
         )
 
         #expect(controller.screenState.phase == .loaded)
@@ -194,8 +194,7 @@ struct ArticlesScreenControllerStarredSessionTests {
             selection: .feed(feed.id),
             sidebarArticleFilter: .starred,
             dependencies: harness.dependencies,
-            retainsSessionFilterMutations: false,
-            retainedSessionMembershipStatus: .retainedAfterRefresh
+            policy: .replace
         )
 
         #expect(controller.screenState.phase == .empty)

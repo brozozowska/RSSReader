@@ -8,6 +8,21 @@ import Testing
 @MainActor
 struct AppDependenciesCompositionTests {
     @Test
+    func defaultImageRuntimesAreIndependentAndHaveNoLiveTransport() async throws {
+        let first = AppDependencies(logger: TestLogger())
+        let second = AppDependencies(logger: TestLogger())
+        #expect(first.articleImageRuntime !== second.articleImageRuntime)
+        let url = try #require(URL(string: "https://example.com/offline-preview.png"))
+        await #expect(throws: URLError.self) {
+            _ = try await first.articleImageRuntime.imageLoading.loadImage(
+                from: url, displayTarget: .init(maximumPixelWidth: 32)
+            )
+        }
+        #expect(try await first.articleImageCache.hasCachedImages() == false)
+        #expect(try await second.articleImageCache.hasCachedImages() == false)
+    }
+
+    @Test
     func appDependenciesExposeSeparateFolderRepositoryWhenSwiftDataIsAvailable() throws {
         let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
 

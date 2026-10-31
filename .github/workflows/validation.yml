@@ -1,0 +1,127 @@
+name: Validation
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-unit:
+    name: Clean build and full unit suite
+    # Temporary, user-approved RC bridge; replace with stable 27B52 after validation.
+    # Preview image inventory checked 2026-10-31:
+    # https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md
+    runs-on: xcode-27
+    # Leave time after the validation timeout to package/upload partial results.
+    timeout-minutes: 100
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2_Release_Candidate.app/Contents/Developer
+      EXPECTED_XCODE_VERSION: '27.2'
+      EXPECTED_XCODE_BUILD: 27B48
+      EXPECTED_IOS_VERSION: '27.2'
+      EXPECTED_IOS_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-27-2
+      EXPECTED_IOS_RUNTIME_BUILD: 24B8117
+      CI_DEVICE_TYPE: com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro
+
+    steps:
+      - name: Checkout
+        timeout-minutes: 5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Verify pinned toolchain
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          CI_ARTIFACTS="$RUNNER_TEMP/rssreader-ci"
+          mkdir -p "$CI_ARTIFACTS"
+          {
+            printf 'ImageOS=%s\nImageVersion=%s\n' "${ImageOS:-unknown}" "${ImageVersion:-unknown}"
+            sw_vers
+            uname -m
+            ls -d /Applications/Xcode*.app
+            test -d "$DEVELOPER_DIR"
+            xcodebuild -version > "$CI_ARTIFACTS/xcode-version.txt"
+            cat "$CI_ARTIFACTS/xcode-version.txt"
+            test "$(sed -n '1p' "$CI_ARTIFACTS/xcode-version.txt")" = "Xcode $EXPECTED_XCODE_VERSION"
+            test "$(sed -n '2p' "$CI_ARTIFACTS/xcode-version.txt")" = "Build version $EXPECTED_XCODE_BUILD"
+            xcrun --sdk iphonesimulator --show-sdk-version
+            xcrun simctl list --json devices runtimes > "$CI_ARTIFACTS/simulators.json"
+          } 2>&1 | tee "$CI_ARTIFACTS/environment.log"
+
+      - name: Prepare minimum-runtime simulator
+        timeout-minutes: 25
+        run: |
+          set -euo pipefail
+          CI_ARTIFACTS="$RUNNER_TEMP/rssreader-ci"
+          # The hosted image currently documents SDK 27.2 but no 27.2 runtime.
+          # Explicit provisioning on this disposable runner; no older-OS fallback.
+          # Release 27.2 is ambiguous: it can select the Duo-only hardware image.
+          # Request the general image by its exact build, then validate its profile.
+          if ! jq -e --arg runtime "$EXPECTED_IOS_RUNTIME" \
+            'any(.runtimes[]; .identifier == $runtime and .isAvailable)' \
+            "$CI_ARTIFACTS/simulators.json" >/dev/null; then
+            xcodebuild -downloadPlatform iOS -buildVersion "$EXPECTED_IOS_RUNTIME_BUILD" \
+              -architectureVariant arm64 2>&1 | tee "$CI_ARTIFACTS/runtime-install.log"
+          fi
+          xcrun simctl list --json devices runtimes > "$CI_ARTIFACTS/simulators-prepared.json"
+          runtime=$(jq -er --arg runtime "$EXPECTED_IOS_RUNTIME" \
+            --arg version "$EXPECTED_IOS_VERSION" --arg build "$EXPECTED_IOS_RUNTIME_BUILD" \
+            --arg type "$CI_DEVICE_TYPE" '
+            [.runtimes[] | select(.identifier == $runtime and .platform == "iOS"
+              and .version == $version and .buildversion == $build and .isAvailable
+              and any(.supportedDeviceTypes[]?; .identifier == $type))]
+            | if length == 1 then .[0].identifier
+              else error("Required runtime " + $runtime + " (" + $version + "/" + $build
+                + ") supporting " + $type + " unavailable") end
+          ' "$CI_ARTIFACTS/simulators-prepared.json")
+          simulator=$(jq -r --arg runtime "$runtime" --arg type "$CI_DEVICE_TYPE" '
+            [.devices[$runtime][]? | select(.deviceTypeIdentifier == $type and .isAvailable)]
+            | sort_by(.udid) | .[0].udid // empty
+          ' "$CI_ARTIFACTS/simulators-prepared.json")
+          if [[ -z "$simulator" ]]; then
+            simulator=$(xcrun simctl create 'RSSReader CI iPhone' "$CI_DEVICE_TYPE" "$runtime")
+          fi
+          xcrun simctl list --json devices runtimes > "$CI_ARTIFACTS/simulators-ready.json"
+          printf 'CI_DESTINATION=platform=iOS Simulator,id=%s\n' "$simulator" >> "$GITHUB_ENV"
+          xcrun simctl bootstatus "$simulator" -b 2>&1 | tee "$CI_ARTIFACTS/simulator-boot.log"
+
+      - name: Clean build and run all unit tests
+        timeout-minutes: 45
+        run: |
+          set -euo pipefail
+          CI_ARTIFACTS="$RUNNER_TEMP/rssreader-ci"
+          Scripts/validate.sh full --fresh --destination "$CI_DESTINATION" --artifacts-dir "$CI_ARTIFACTS" \
+            2>&1 | tee "$CI_ARTIFACTS/validation.log"
+
+      - name: Package diagnostics including partial xcresult
+        if: ${{ always() }}
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          CI_ARTIFACTS="$RUNNER_TEMP/rssreader-ci"
+          if [[ -d "$CI_ARTIFACTS" ]]; then
+            tar --exclude='DerivedData' -czf "$RUNNER_TEMP/rssreader-ci-diagnostics.tar.gz" \
+              -C "$CI_ARTIFACTS" .
+          fi
+
+      - name: Upload diagnostics
+        if: ${{ always() }}
+        timeout-minutes: 5
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6 (Node 24)
+        with:
+          name: validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/rssreader-ci-diagnostics.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

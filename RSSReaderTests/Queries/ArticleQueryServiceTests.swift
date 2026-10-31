@@ -542,7 +542,7 @@ struct ArticleQueryServiceTests {
             ArticleSearchRequest(
                 selection: .feed(feed.id),
                 sidebarArticleFilter: .allItems,
-                query: "candidate-only-token",
+                query: "Reader HTML body",
                 sortMode: .publishedAtDescending
             )
         )
@@ -887,9 +887,9 @@ struct ArticleQueryServiceTests {
             sortMode: .publishedAtDescending
         )
 
-        let results = try await queryService.fetchArticleSearchSnapshot(request).articles
-
-        #expect(results.isEmpty)
+        await #expect(throws: ArticleSearchIndexError.self) {
+            _ = try await queryService.fetchArticleSearchSnapshot(request)
+        }
         #expect(article.searchableText.isEmpty)
         #expect(operations.saveCount == 0)
     }

@@ -64,16 +64,16 @@ struct StringCatalogPluralizationTests {
     @Test
     func projectKnownRegionsMatchSupportedLanguages() throws {
         let projectFileURL = try #require(Self.projectFileURL())
-        let projectFile = try String(contentsOf: projectFileURL, encoding: .utf8)
-
-        #expect(projectFile.contains("developmentRegion = en;"))
-
-        let regionList = try #require(projectFile.range(of: "knownRegions = ("))
-        let regionEnd = try #require(projectFile[regionList.upperBound...].firstIndex(of: ")"))
-        let regions = projectFile[regionList.upperBound..<regionEnd].split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "\"", with: "") }
-            .filter { !$0.isEmpty && $0 != "Base" }
-        #expect(Set(regions) == Set(Self.supportedLanguages))
+        // Xcode's JSON project format allows trailing commas. Its development
+        // language is implicit in supported localizations, unlike knownRegions.
+        let project = try #require(try JSONSerialization.jsonObject(
+            with: Data(contentsOf: projectFileURL), options: [.json5Allowed]
+        ) as? [String: Any])
+        let localizations = try #require(project["localizations"] as? [String: Any])
+        let development = try #require(localizations["development"] as? String)
+        let supported = try #require(localizations["supported"] as? [String])
+        #expect(development == "en")
+        #expect(Set(supported.filter { $0 != "Base" } + [development]) == Set(Self.supportedLanguages))
     }
 
     @Test
@@ -334,7 +334,7 @@ struct StringCatalogPluralizationTests {
         var directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
 
         while directory.path != "/" {
-            let candidate = directory.appendingPathComponent("RSSReader.xcodeproj/project.pbxproj")
+            let candidate = directory.appendingPathComponent("RSSReader.xcodeproj/project.xcproj")
             if fileManager.fileExists(atPath: candidate.path) {
                 return candidate
             }

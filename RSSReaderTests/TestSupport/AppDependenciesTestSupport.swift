@@ -82,72 +82,28 @@ final class AppDependenciesRecordingBackgroundRefreshForegroundHandoffCoordinato
 }
 
 final class AppDependenciesTestCloudKitRuntimeEventSource: CloudKitRuntimeEventSource, @unchecked Sendable {
-    private let queue = DispatchQueue(label: "RSSReaderTests.AppDependencies.CloudKitRuntimeEvents")
-    private var continuations: [UUID: AsyncStream<CloudKitRuntimeEvent>.Continuation] = [:]
+    private let source = AcknowledgedTestEventSource<CloudKitRuntimeEvent>()
 
-    func events() -> AsyncStream<CloudKitRuntimeEvent> {
-        AsyncStream { continuation in
-            let id = UUID()
-            queue.sync {
-                continuations[id] = continuation
-            }
-            continuation.onTermination = { [weak self] _ in
-                guard let self else { return }
-                queue.async {
-                    self.continuations.removeValue(forKey: id)
-                }
-            }
-        }
-    }
+    func events() -> AsyncStream<CloudKitRuntimeEvent> { source.events() }
+    var subscriberCount: Int { source.subscriberCount }
+    func yield(_ event: CloudKitRuntimeEvent) async { source.yield(event) }
 
-    var subscriberCount: Int {
-        queue.sync {
-            continuations.count
-        }
-    }
-
-    func yield(_ event: CloudKitRuntimeEvent) async {
-        let activeContinuations = queue.sync {
-            Array(continuations.values)
-        }
-        activeContinuations.forEach { continuation in
-            continuation.yield(event)
-        }
+    @MainActor
+    func yieldAndWait(_ event: CloudKitRuntimeEvent) async throws {
+        try await source.yieldAndWait(event)
     }
 }
 
 final class AppDependenciesTestPersistentStoreRemoteChangeSource: PersistentStoreRemoteChangeSource, @unchecked Sendable {
-    private let queue = DispatchQueue(label: "RSSReaderTests.AppDependencies.PersistentStoreRemoteChanges")
-    private var continuations: [UUID: AsyncStream<PersistentStoreRemoteChangeEvent>.Continuation] = [:]
+    private let source = AcknowledgedTestEventSource<PersistentStoreRemoteChangeEvent>()
 
-    func events() -> AsyncStream<PersistentStoreRemoteChangeEvent> {
-        AsyncStream { continuation in
-            let id = UUID()
-            queue.sync {
-                continuations[id] = continuation
-            }
-            continuation.onTermination = { [weak self] _ in
-                guard let self else { return }
-                queue.async {
-                    self.continuations.removeValue(forKey: id)
-                }
-            }
-        }
-    }
+    func events() -> AsyncStream<PersistentStoreRemoteChangeEvent> { source.events() }
+    var subscriberCount: Int { source.subscriberCount }
+    func yield(_ event: PersistentStoreRemoteChangeEvent) async { source.yield(event) }
 
-    var subscriberCount: Int {
-        queue.sync {
-            continuations.count
-        }
-    }
-
-    func yield(_ event: PersistentStoreRemoteChangeEvent) async {
-        let activeContinuations = queue.sync {
-            Array(continuations.values)
-        }
-        activeContinuations.forEach { continuation in
-            continuation.yield(event)
-        }
+    @MainActor
+    func yieldAndWait(_ event: PersistentStoreRemoteChangeEvent) async throws {
+        try await source.yieldAndWait(event)
     }
 }
 
@@ -160,8 +116,6 @@ struct AppDependenciesFixedSyncBootstrapPreferenceStore: AppSyncBootstrapPrefere
 
     func saveBootPreference(_ preference: AppSyncBootPreference) {}
 }
-
-struct AppDependenciesTimedOutError: Error {}
 
 enum AppDependenciesSyncBootstrapAccountStatusScenario: CaseIterable {
     case available
@@ -215,17 +169,11 @@ func expectAppDependenciesEventually(
     timeoutNanoseconds: UInt64 = 5_000_000_000,
     condition: @escaping @MainActor () -> Bool
 ) async throws {
-    let deadline = ContinuousClock.now + .nanoseconds(Int64(timeoutNanoseconds))
-
-    while ContinuousClock.now < deadline {
-        if await MainActor.run(body: condition) {
-            return
-        }
-
-        try await Task.sleep(for: .milliseconds(10))
-    }
-
-    throw AppDependenciesTimedOutError()
+    try await waitUntil(
+        "AppDependencies observable condition",
+        timeout: .nanoseconds(Int64(timeoutNanoseconds)),
+        condition: condition
+    )
 }
 
 func expectAppDependenciesRemoteSyncReloadObservationStarted(
@@ -238,23 +186,15 @@ func expectAppDependenciesRemoteSyncReloadObservationStarted(
     }
 }
 
+@MainActor
 func expectAppDependenciesNoReload(
     sidebarReloadID: UUID,
     articleListReloadID: UUID,
     articleScreenReloadID: UUID,
-    in appState: AppState,
-    durationNanoseconds: UInt64 = 200_000_000
-) async throws {
-    let deadline = ContinuousClock.now + .nanoseconds(Int64(durationNanoseconds))
-
-    while ContinuousClock.now < deadline {
-        let reloadOccurred = await MainActor.run {
-            appState.sidebarReloadID != sidebarReloadID
-                || appState.articleListReloadID != articleListReloadID
-                || appState.articleScreenReloadID != articleScreenReloadID
-        }
-
-        #expect(reloadOccurred == false)
-        try await Task.sleep(for: .milliseconds(10))
-    }
+    in appState: AppState
+) {
+    // Call only after yieldAndWait acknowledges the relevant event loop bodies.
+    #expect(appState.sidebarReloadID == sidebarReloadID)
+    #expect(appState.articleListReloadID == articleListReloadID)
+    #expect(appState.articleScreenReloadID == articleScreenReloadID)
 }

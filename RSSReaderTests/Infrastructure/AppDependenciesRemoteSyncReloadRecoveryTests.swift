@@ -36,7 +36,7 @@ struct AppDependenciesRemoteSyncReloadRecoveryTests {
             remoteChangeSource: remoteChangeSource
         )
 
-        await remoteChangeSource.yield(
+        try await remoteChangeSource.yieldAndWait(
             PersistentStoreRemoteChangeEvent(
                 storeUUID: "SyncBackedStore",
                 storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
@@ -48,7 +48,7 @@ struct AppDependenciesRemoteSyncReloadRecoveryTests {
                 level: .info
             )
         }
-        await cloudKitRuntimeEventSource.yield(
+        try await cloudKitRuntimeEventSource.yieldAndWait(
             .failed(
                 .import,
                 CloudKitRuntimeEventContext(
@@ -66,7 +66,7 @@ struct AppDependenciesRemoteSyncReloadRecoveryTests {
                 level: .error
             )
         }
-        await cloudKitRuntimeEventSource.yield(
+        try await cloudKitRuntimeEventSource.yieldAndWait(
             .finished(
                 .import,
                 CloudKitRuntimeEventContext(
@@ -78,14 +78,14 @@ struct AppDependenciesRemoteSyncReloadRecoveryTests {
             )
         )
 
-        try await expectAppDependenciesNoReload(
+        expectAppDependenciesNoReload(
             sidebarReloadID: initialSidebarReloadID,
             articleListReloadID: initialArticleListReloadID,
             articleScreenReloadID: initialArticleScreenReloadID,
             in: appState
         )
 
-        await remoteChangeSource.yield(
+        try await remoteChangeSource.yieldAndWait(
             PersistentStoreRemoteChangeEvent(
                 storeUUID: "SyncBackedStore",
                 storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
@@ -128,7 +128,7 @@ struct AppDependenciesRemoteSyncReloadRecoveryTests {
             remoteChangeSource: remoteChangeSource
         )
 
-        await remoteChangeSource.yield(
+        try await remoteChangeSource.yieldAndWait(
             PersistentStoreRemoteChangeEvent(
                 storeUUID: "SyncBackedStore",
                 storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")
@@ -140,7 +140,7 @@ struct AppDependenciesRemoteSyncReloadRecoveryTests {
                 level: .info
             )
         }
-        await cloudKitRuntimeEventSource.yield(
+        try await cloudKitRuntimeEventSource.yieldAndWait(
             .failed(
                 .import,
                 CloudKitRuntimeEventContext(
@@ -152,7 +152,7 @@ struct AppDependenciesRemoteSyncReloadRecoveryTests {
                 "cancelled"
             )
         )
-        await cloudKitRuntimeEventSource.yield(
+        try await cloudKitRuntimeEventSource.yieldAndWait(
             .finished(
                 .import,
                 CloudKitRuntimeEventContext(
@@ -164,14 +164,14 @@ struct AppDependenciesRemoteSyncReloadRecoveryTests {
             )
         )
 
-        try await expectAppDependenciesNoReload(
+        expectAppDependenciesNoReload(
             sidebarReloadID: initialSidebarReloadID,
             articleListReloadID: initialArticleListReloadID,
             articleScreenReloadID: initialArticleScreenReloadID,
             in: appState
         )
 
-        await remoteChangeSource.yield(
+        try await remoteChangeSource.yieldAndWait(
             PersistentStoreRemoteChangeEvent(
                 storeUUID: "SyncBackedStore",
                 storeURL: URL(string: "file:///tmp/SyncBackedStore.sqlite")

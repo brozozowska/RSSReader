@@ -1,7 +1,7 @@
 import Foundation
 @testable import RSSReader
 
-actor ScriptedHTTPClient: HTTPClient {
+actor ScriptedHTTPClient {
     enum Step: Sendable {
         case response(statusCode: Int, headers: [String: String], body: String)
         case dataResponse(statusCode: Int, headers: [String: String], body: Data)
@@ -158,35 +158,27 @@ actor ScriptedHTTPClient: HTTPClient {
     }
 }
 
+// Keep imported nonisolated protocol inference off the actor declaration.
+// Xcode 27.1 on hosted runners can otherwise reject it as implicitly nonisolated.
+extension ScriptedHTTPClient: HTTPClient {}
+
 actor ScriptedHTTPClientResponseGate {
     private var entryCount = 0
-    private var released = false
-    private var releaseContinuations: [CheckedContinuation<Void, Never>] = []
+    private let gate = AsyncTestGate()
+    private let honorsCancellation: Bool
+
+    init(honorsCancellation: Bool = true) {
+        self.honorsCancellation = honorsCancellation
+    }
 
     func enterAndWaitForRelease() async throws {
         entryCount += 1
-        if released == false {
-            await withCheckedContinuation { continuation in
-                releaseContinuations.append(continuation)
-            }
-        }
+        try await gate.wait("HTTP response gate release", honorsCancellation: honorsCancellation)
         try Task.checkCancellation()
     }
 
-    func hasEntered() -> Bool {
-        entryCount > 0
-    }
-
-    func enteredCount() -> Int {
-        entryCount
-    }
-
-    func release() {
-        released = true
-        let continuations = releaseContinuations
-        releaseContinuations.removeAll()
-        for continuation in continuations {
-            continuation.resume()
-        }
-    }
+    func hasEntered() -> Bool { entryCount > 0 }
+    func enteredCount() -> Int { entryCount }
+    func suspendedWaiterCount() -> Int { gate.waiterCount }
+    func release() { gate.release() }
 }
