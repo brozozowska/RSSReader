@@ -155,7 +155,9 @@ python3 Scripts/test_ci_simulator.py
 
 test_ci_simulator.py выполняет фактический preparation block workflow с fake Xcode tools:
 reuse, download/create, Duo-only inventory, wrong build/profile, missing runtime
-и сохранение download failure status.
+и сохранение download failure status. Fixture Scripts/Fixtures/ci-ios-27.2-duo-runtime.json
+содержит relevant metadata реального hosted Duo-only runtime (run 41186673111);
+fake download различает запрос release 27.2 и exact build 24B8117.
 
 Эти проверки используют изолированные fake tools для failure paths и отчётов;
 они дополняют реальные `fast`/`full`, а не заменяют их.
@@ -170,10 +172,13 @@ reuse, download/create, Duo-only inventory, wrong build/profile, missing runtime
 image 20261026.0314.1, подтверждает наличие RC. После появления stable требуется
 отдельная правка пути/build pin и hosted validation; silently принимать RC/stable нельзя.
 
-Hosted run на этой конфигурации ещё не выполнен. Наличие iOS 27.2 runtime в inventory
+Первый hosted run 41186673111 подтвердил Xcode RC/SDK, но остановился до build/tests:
+version-only download выбрал Duo-only runtime. Исправленный запрос exact build
+ещё требует нового hosted run. Наличие iOS 27.2 runtime в inventory
 не подтверждено, поэтому workflow явно подготавливает его на disposable runner:
 при отсутствии обычного image запускает xcodebuild -downloadPlatform iOS
--buildVersion 27.2 -architectureVariant arm64. После установки обязательны точные
+-buildVersion 24B8117 -architectureVariant arm64. Выбор только по release 27.2
+неоднозначен: первый hosted run скачал Duo-only 24B91014. После установки обязательны точные
 identifier com.apple.CoreSimulator.SimRuntime.iOS-27-2, version 27.2, build 24B8117
 и поддержка выбранного device type. Duo-only image не заменяет обычный. Другой build,
 недоступный download или несовместимость runtime с RC дают failure; fallback на

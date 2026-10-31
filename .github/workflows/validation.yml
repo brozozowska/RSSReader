@@ -66,10 +66,12 @@ jobs:
           CI_ARTIFACTS="$RUNNER_TEMP/rssreader-ci"
           # The hosted image currently documents SDK 27.2 but no 27.2 runtime.
           # Explicit provisioning on this disposable runner; no older-OS fallback.
+          # Release 27.2 is ambiguous: it can select the Duo-only hardware image.
+          # Request the general image by its exact build, then validate its profile.
           if ! jq -e --arg runtime "$EXPECTED_IOS_RUNTIME" \
             'any(.runtimes[]; .identifier == $runtime and .isAvailable)' \
             "$CI_ARTIFACTS/simulators.json" >/dev/null; then
-            xcodebuild -downloadPlatform iOS -buildVersion "$EXPECTED_IOS_VERSION" \
+            xcodebuild -downloadPlatform iOS -buildVersion "$EXPECTED_IOS_RUNTIME_BUILD" \
               -architectureVariant arm64 2>&1 | tee "$CI_ARTIFACTS/runtime-install.log"
           fi
           xcrun simctl list --json devices runtimes > "$CI_ARTIFACTS/simulators-prepared.json"
@@ -80,7 +82,8 @@ jobs:
               and .version == $version and .buildversion == $build and .isAvailable
               and any(.supportedDeviceTypes[]?; .identifier == $type))]
             | if length == 1 then .[0].identifier
-              else error("Required exact iOS runtime/build/device profile unavailable") end
+              else error("Required runtime " + $runtime + " (" + $version + "/" + $build
+                + ") supporting " + $type + " unavailable") end
           ' "$CI_ARTIFACTS/simulators-prepared.json")
           simulator=$(jq -r --arg runtime "$runtime" --arg type "$CI_DEVICE_TYPE" '
             [.devices[$runtime][]? | select(.deviceTypeIdentifier == $type and .isAvailable)]

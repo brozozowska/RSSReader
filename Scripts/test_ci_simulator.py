@@ -17,20 +17,24 @@ with (root / "calls.jsonl").open("a") as log:
     log.write(json.dumps([pathlib.Path(sys.argv[0]).name] + args) + "\n")
 if pathlib.Path(sys.argv[0]).name == "xcodebuild":
     if scenario == "download-failure": sys.exit(71)
-    (root / "installed").touch()
+    (root / "installed").write_text(args[args.index("-buildVersion") + 1])
 elif args[:2] == ["simctl", "create"]:
     (root / "created").touch()
     print("created-id")
 elif args[:2] == ["simctl", "list"]:
     runtime = os.environ["EXPECTED_IOS_RUNTIME"]
     available = scenario not in ["missing", "download-failure", "no-runtime-after-install", "duo-only"]
-    available |= (root / "installed").exists() and scenario != "no-runtime-after-install"
+    installed = (root / "installed").read_text() if (root / "installed").exists() else ""
+    # CI run 41186673111: selecting release 27.2 downloads the Duo-only
+    # 24B91014 image. Requesting the exact general build is required.
+    available |= installed == "24B8117" and scenario != "no-runtime-after-install"
     entry = {"identifier": runtime, "platform":"iOS", "version":"27.2",
              "buildversion":"wrong" if scenario == "wrong-build" else "24B8117",
              "isAvailable":True, "supportedDeviceTypes":[] if scenario == "wrong-profile" else
              [{"identifier":os.environ["CI_DEVICE_TYPE"]}]}
     entries = [entry] if available else []
-    if scenario == "duo-only": entries.insert(0, dict(entry, identifier=runtime + "-iPhone19-4"))
+    if scenario == "duo-only" or installed == "27.2":
+        entries.insert(0, json.loads(pathlib.Path(os.environ["DUO_RUNTIME_FIXTURE"]).read_text()))
     device = {"udid":"created-id" if (root / "created").exists() else "existing-id",
               "isAvailable":True, "deviceTypeIdentifier":os.environ["CI_DEVICE_TYPE"]}
     devices = {runtime:[device] if scenario == "existing" or (root / "created").exists() else []}
@@ -59,6 +63,7 @@ class CISimulatorPreparation(unittest.TestCase):
                                SCENARIO=scenario, EXPECTED_IOS_VERSION="27.2",
                                EXPECTED_IOS_RUNTIME="com.apple.CoreSimulator.SimRuntime.iOS-27-2",
                                EXPECTED_IOS_RUNTIME_BUILD="24B8117",
+                               DUO_RUNTIME_FIXTURE=str(Path(__file__).with_name("Fixtures") / "ci-ios-27.2-duo-runtime.json"),
                                CI_DEVICE_TYPE="com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro")
             # The preceding workflow step captures this initial inventory.
             inventory = subprocess.run([str(binaries / "xcrun"), "simctl", "list", "--json", "devices", "runtimes"],
@@ -80,7 +85,7 @@ class CISimulatorPreparation(unittest.TestCase):
             with self.subTest(scenario=scenario):
                 result, calls, destination = self.run_preparation(scenario)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn(["xcodebuild", "-downloadPlatform", "iOS", "-buildVersion", "27.2",
+                self.assertIn(["xcodebuild", "-downloadPlatform", "iOS", "-buildVersion", "24B8117",
                                "-architectureVariant", "arm64"], calls)
                 create = next(call for call in calls if call[1:3] == ["simctl", "create"])
                 self.assertEqual(create[-1], "com.apple.CoreSimulator.SimRuntime.iOS-27-2")
