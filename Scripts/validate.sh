@@ -123,7 +123,8 @@ done
 minimum_ios=$(jq -er '[.[] | select(.target == "RSSReader")][0].buildSettings.IPHONEOS_DEPLOYMENT_TARGET' "$run_dir/settings-Debug.log")
 for configuration in Debug Release; do
     jq -e --arg minimum "$minimum_ios" '
-      ([.[].target] | index("RSSReader") != null and index("RSSReaderTests") != null)
+      ([.[].target] | index("RSSReader") != null and index("RSSReaderTests") != null
+        and index("RSSReaderUITests") != null)
       and all(.[]; .buildSettings.IPHONEOS_DEPLOYMENT_TARGET == $minimum
         and .buildSettings.TARGETED_DEVICE_FAMILY == "1,2")
     ' "$run_dir/settings-$configuration.log" >/dev/null || die "Inconsistent platform baseline"
@@ -135,11 +136,15 @@ jq -en --arg sdk "$sdk" --arg minimum "$minimum_ios" '
 ' >/dev/null || die "Simulator SDK $sdk is older than $minimum_ios"
 run simulators xcrun simctl list --json devices runtimes
 # Require minimum runtime even for an explicitly requested newer destination.
-runtime=$(jq -er --arg minimum "$minimum_ios" '
-  [.runtimes[] | select(.platform == "iOS" and .version == $minimum and .isAvailable)][0].identifier
-  // error("Minimum iOS runtime unavailable")' "$run_dir/simulators.log")
-default_id=$(jq -er --arg runtime "$runtime" '
-  [.devices[$runtime][]? | select(.isAvailable)] | sort_by(.udid) | .[0].udid
+minimum_runtimes=$(jq -ec --arg minimum "$minimum_ios" '
+  [.runtimes[] | select(.platform == "iOS" and .version == $minimum and .isAvailable) | .identifier]
+  | if length > 0 then . else error("Minimum iOS runtime unavailable") end' "$run_dir/simulators.log")
+# One OS version can have multiple hardware images (for example iPhone Duo).
+# Join devices to their own runtime; never choose an arbitrary first image.
+default_id=$(jq -er --argjson runtimes "$minimum_runtimes" '
+  .devices as $devices |
+  [$runtimes[] as $runtime | $devices[$runtime][]? | select(.isAvailable)
+    | {runtime:$runtime, udid:.udid}] | sort_by(.runtime, .udid) | .[0].udid
   // error("No simulator for minimum runtime")' "$run_dir/simulators.log")
 destination=${destination:-platform=iOS Simulator,id=$default_id}
 [[ "$destination" == platform=iOS\ Simulator,* && "$destination" != *generic* ]] || die "A concrete iOS Simulator destination is required"

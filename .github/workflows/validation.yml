@@ -14,18 +14,23 @@ concurrency:
 jobs:
   full-unit:
     name: Clean build and full unit suite
-    # Preview image inventory checked 2026-10-20:
+    # Temporary, user-approved RC bridge; replace with stable 27B52 after validation.
+    # Preview image inventory checked 2026-10-31:
     # https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md
     runs-on: xcode-27
     # Leave time after the validation timeout to package/upload partial results.
-    timeout-minutes: 80
+    timeout-minutes: 100
     defaults:
       run:
         shell: bash
     env:
-      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
-      EXPECTED_XCODE_VERSION: '27.1'
-      EXPECTED_XCODE_BUILD: 27A9275
+      DEVELOPER_DIR: /Applications/Xcode_27.2_Release_Candidate.app/Contents/Developer
+      EXPECTED_XCODE_VERSION: '27.2'
+      EXPECTED_XCODE_BUILD: 27B48
+      EXPECTED_IOS_VERSION: '27.2'
+      EXPECTED_IOS_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-27-2
+      EXPECTED_IOS_RUNTIME_BUILD: 24B8117
+      CI_DEVICE_TYPE: com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro
 
     steps:
       - name: Checkout
@@ -54,13 +59,37 @@ jobs:
             xcrun simctl list --json devices runtimes > "$CI_ARTIFACTS/simulators.json"
           } 2>&1 | tee "$CI_ARTIFACTS/environment.log"
 
-      - name: Boot minimum-runtime simulator
-        timeout-minutes: 10
+      - name: Prepare minimum-runtime simulator
+        timeout-minutes: 25
         run: |
           set -euo pipefail
           CI_ARTIFACTS="$RUNNER_TEMP/rssreader-ci"
-          runtime=$(jq -er '.runtimes[] | select(.platform == "iOS" and .version == "27.0" and .isAvailable) | .identifier' "$CI_ARTIFACTS/simulators.json")
-          simulator=$(jq -er --arg runtime "$runtime" '[.devices[$runtime][] | select(.name == "iPhone 18 Pro" and .isAvailable)] | sort_by(.udid) | .[0].udid // error("Required minimum-runtime iPhone unavailable")' "$CI_ARTIFACTS/simulators.json")
+          # The hosted image currently documents SDK 27.2 but no 27.2 runtime.
+          # Explicit provisioning on this disposable runner; no older-OS fallback.
+          if ! jq -e --arg runtime "$EXPECTED_IOS_RUNTIME" \
+            'any(.runtimes[]; .identifier == $runtime and .isAvailable)' \
+            "$CI_ARTIFACTS/simulators.json" >/dev/null; then
+            xcodebuild -downloadPlatform iOS -buildVersion "$EXPECTED_IOS_VERSION" \
+              -architectureVariant arm64 2>&1 | tee "$CI_ARTIFACTS/runtime-install.log"
+          fi
+          xcrun simctl list --json devices runtimes > "$CI_ARTIFACTS/simulators-prepared.json"
+          runtime=$(jq -er --arg runtime "$EXPECTED_IOS_RUNTIME" \
+            --arg version "$EXPECTED_IOS_VERSION" --arg build "$EXPECTED_IOS_RUNTIME_BUILD" \
+            --arg type "$CI_DEVICE_TYPE" '
+            [.runtimes[] | select(.identifier == $runtime and .platform == "iOS"
+              and .version == $version and .buildversion == $build and .isAvailable
+              and any(.supportedDeviceTypes[]?; .identifier == $type))]
+            | if length == 1 then .[0].identifier
+              else error("Required exact iOS runtime/build/device profile unavailable") end
+          ' "$CI_ARTIFACTS/simulators-prepared.json")
+          simulator=$(jq -r --arg runtime "$runtime" --arg type "$CI_DEVICE_TYPE" '
+            [.devices[$runtime][]? | select(.deviceTypeIdentifier == $type and .isAvailable)]
+            | sort_by(.udid) | .[0].udid // empty
+          ' "$CI_ARTIFACTS/simulators-prepared.json")
+          if [[ -z "$simulator" ]]; then
+            simulator=$(xcrun simctl create 'RSSReader CI iPhone' "$CI_DEVICE_TYPE" "$runtime")
+          fi
+          xcrun simctl list --json devices runtimes > "$CI_ARTIFACTS/simulators-ready.json"
           printf 'CI_DESTINATION=platform=iOS Simulator,id=%s\n' "$simulator" >> "$GITHUB_ENV"
           xcrun simctl bootstatus "$simulator" -b 2>&1 | tee "$CI_ARTIFACTS/simulator-boot.log"
 

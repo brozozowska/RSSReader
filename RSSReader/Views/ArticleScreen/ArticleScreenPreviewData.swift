@@ -226,16 +226,21 @@ private struct ArticleScreenAccordionPreview: View {
 }
 
 private struct ArticleScreenPreviewContainer: View {
+    @Environment(\.colorScheme) private var colorScheme
     let screenState: ArticleScreenState
 
     var body: some View {
         NavigationStack {
             ReaderView(
-                articleID: nil,
+                articleID: screenState.articleID,
                 previewScreenState: screenState
             )
             .environment(\.appDependencies, AppDependencies.makeDefault())
             .environment(AppState())
+            .environment(\.appThemeVariant, AppThemeApplicationPolicy(
+                interfaceThemeMode: .automaticLightDark,
+                systemColorScheme: colorScheme
+            ).resolvedTheme)
         }
     }
 }

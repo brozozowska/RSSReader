@@ -23,8 +23,8 @@ if pathlib.Path(sys.argv[0]).name == "xcodebuild":
     elif "-showdestinations" in a: print("fixture simulator")
     elif "-showBuildSettings" in a:
         if "-destination" in a and "missing" in a[a.index("-destination")+1]: sys.exit(70)
-        emit([{"target":t,"buildSettings":{"IPHONEOS_DEPLOYMENT_TARGET":"27.0",
-              "TARGETED_DEVICE_FAMILY":"1,2"}} for t in ["RSSReader","RSSReaderTests"]])
+        emit([{"target":t,"buildSettings":{"IPHONEOS_DEPLOYMENT_TARGET":"27.2",
+              "TARGETED_DEVICE_FAMILY":"1,2"}} for t in (["RSSReader", "RSSReaderTests"] if scenario == "missing-ui-target" else ["RSSReader", "RSSReaderTests", "RSSReaderUITests"])])
     elif "test" in a:
         pathlib.Path(a[a.index("-resultBundlePath")+1]).mkdir()
         if scenario == "descendant-output":
@@ -45,12 +45,20 @@ if not (root / "tests.exit-status").exists():
     elif scenario == "build-failure": sys.exit(42)
 else:
     if a[:2] == ["swift","--version"]: print("Swift fixture")
-    elif "--show-sdk-version" in a: print("26.0" if scenario == "old-sdk" else "27.1")
+    elif "--show-sdk-version" in a: print("26.0" if scenario == "old-sdk" else "27.2")
     elif a[0] == "simctl":
-        emit({"runtimes":[] if scenario == "missing-runtime" else [
-          {"identifier":"runtime","platform":"iOS","version":"27.0","isAvailable":True}],
-          "devices":{"runtime":[] if scenario == "missing-simulator" else [
-          {"udid":"fixture-id","isAvailable":True}]}})
+        runtime = {"identifier":"runtime","platform":"iOS","version":"27.2","isAvailable":True}
+        runtimes = [] if scenario == "missing-runtime" else [runtime]
+        devices = {"runtime":[] if scenario == "missing-simulator" else [
+            {"udid":"fixture-id","isAvailable":True}]}
+        if scenario in ["multiple-images", "empty-first-image", "secondary-image-only"]:
+            # Duo comes first in inventory; order must not determine the image.
+            runtimes.insert(0, dict(runtime, identifier="runtime-iPhone19-4"))
+            devices["runtime-iPhone19-4"] = [{"udid":"duo-id","isAvailable":True}]
+            if scenario == "empty-first-image": devices["runtime-iPhone19-4"] = []
+            if scenario == "secondary-image-only": devices["runtime"] = []
+        if scenario == "unavailable-device": devices["runtime"][0]["isAvailable"] = False
+        emit({"runtimes":runtimes,"devices":devices})
     elif "summary" in a:
         if scenario == "report-tool-failure": sys.exit(44)
         if scenario in ["malformed-report", "test-failure-malformed"]: print("not json"); sys.exit(0)
@@ -121,7 +129,7 @@ class ValidationCLI(unittest.TestCase):
             with self.subTest(label=label):
                 json.loads(self.artifact(f"{label}.log").read_text())
                 self.assertIn("Simulator diagnostic fixture", self.artifact(f"{label}.stderr.log").read_text())
-        self.assertEqual(self.artifact("sdk-version.log").read_text().strip(), "27.1")
+        self.assertEqual(self.artifact("sdk-version.log").read_text().strip(), "27.2")
 
     def test_invalid_arguments(self):
         for args in [("invalid",), ("fast", "--unknown"), ("fast", "--destination"),
@@ -136,9 +144,19 @@ class ValidationCLI(unittest.TestCase):
         self.assertIn("Missing prerequisite: jq", result.stderr)
 
     def test_runtime_sdk_and_simulator_failures(self):
-        for scenario in ["missing-runtime", "missing-simulator", "old-sdk"]:
+        for scenario in ["missing-runtime", "missing-simulator", "unavailable-device", "old-sdk", "missing-ui-target"]:
             with self.subTest(scenario=scenario):
                 self.assertNotEqual(self.run_cli("fast", scenario=scenario).returncode, 0)
+
+    def test_same_version_hardware_images_are_joined_to_their_devices(self):
+        for scenario in ["multiple-images", "empty-first-image", "secondary-image-only"]:
+            with self.subTest(scenario=scenario):
+                result = self.run_cli("fast", scenario=scenario)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                run_dir = Path(result.stdout.split("Validation artifacts: ", 1)[1].splitlines()[0])
+                context = json.loads((run_dir / "context.json").read_text())
+                expected_id = "duo-id" if scenario == "secondary-image-only" else "fixture-id"
+                self.assertEqual(context["destination"], f"platform=iOS Simulator,id={expected_id}")
 
     def test_unavailable_destination_preserves_status(self):
         result = self.run_cli("fast", "--destination", "platform=iOS Simulator,name=missing")

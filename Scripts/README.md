@@ -15,9 +15,18 @@ utilities. Скрипт проверяет shared scheme и effective settings D
 Simulator SDK, точный minimum-supported runtime и доступный simulator в нём.
 Baseline берётся из project settings. При отсутствии prerequisites проверка
 завершается ошибкой; runtime и simulator автоматически не устанавливаются.
+Локальный baseline #858 — Xcode 27.2 stable `27B52`, SDK/minimum iOS 27.2,
+Swift language mode 5.0; hosted adoption ещё не подтверждён реальным run (см. GitHub Actions ниже).
 Shared TestAction задаёт язык `ru` и регион `RU`: часть unit assertions проверяет
 русские строки. Скрипт проверяет этот baseline, чтобы результат не зависел от
 языка Mac/Simulator. Это не заменяет отдельную locale regression matrix.
+
+Project configuration хранится в `RSSReader.xcodeproj/project.xcproj`, созданном
+штатной конвертацией Xcode. Формат допускает trailing commas (JSON5): `jq empty`
+и `plutil -lint` к нему неприменимы. Syntax check — Foundation `JSONSerialization`
+с `.json5Allowed`; semantic validation — `xcodebuild -list`, effective settings и
+реальный build/tests. `validate.sh` использует контейнер `.xcodeproj` через Xcode
+и не разбирает project configuration как прежнюю PBX objects map.
 
 ## Режимы
 
@@ -45,7 +54,11 @@ Scripts/validate.sh full --developer-dir /Applications/Xcode.app/Contents/Develo
 ```
 
 По умолчанию Xcode выбирается через `DEVELOPER_DIR` / `xcode-select`. Destination
-выбирается из доступных устройств точного minimum runtime, стабильно по UUID.
+выбирается из доступных устройств всех images точного minimum runtime, стабильно
+по runtime identifier и UUID. У iOS 27.2 обычный image
+`com.apple.CoreSimulator.SimRuntime.iOS-27-2` (`24B8117`) и Duo-only
+`com.apple.CoreSimulator.SimRuntime.iOS-27-2-iPhone19-4` (`24B91016s`) имеют одну
+версию, но разные hardware profiles; устройство связано со своим image.
 Явный destination разрешает Xcode; нужны конкретный iOS Simulator и совместимый
 runtime. Более новый destination не заменяет отдельную minimum-runtime проверку.
 
@@ -83,7 +96,7 @@ Skipped tests перечислены счётчиком; успешный run н
 
 ```sh
 Scripts/validate.sh fast --ui-smoke-target RSSReaderUITests \
-  --destination 'platform=iOS Simulator,name=<IPHONE_OR_IPAD_NAME>,OS=27.0'
+  --destination 'platform=iOS Simulator,name=<IPHONE_OR_IPAD_NAME>,OS=27.2'
 ```
 
 Эта команда выполняет build, быстрые unit suites и UI smoke. Для полного unit
@@ -95,7 +108,7 @@ runner вместе с UI используйте `full`. В shared scheme `RSSRe
 
 ```sh
 xcodebuild -project RSSReader.xcodeproj -scheme RSSReader -configuration Debug \
-  -destination 'platform=iOS Simulator,name=<IPHONE_OR_IPAD_NAME>,OS=27.0' \
+  -destination 'platform=iOS Simulator,name=<IPHONE_OR_IPAD_NAME>,OS=27.2' \
   -derivedDataPath <ISOLATED_DERIVED_DATA_PATH> \
   -resultBundlePath <NEW_RESULT_BUNDLE_PATH> \
   -only-testing:RSSReaderUITests test
@@ -103,7 +116,7 @@ xcodebuild -project RSSReader.xcodeproj -scheme RSSReader -configuration Debug \
 
 Выполните suite отдельно на iPhone и iPad, затем повторите с новым result path.
 Для iPad suite использует landscape и проверяет доступность списка рядом с Reader.
-Нужны уже установленный iOS 27.0 runtime и созданные destinations; отсутствующая
+Нужны уже установленный iOS 27.2 runtime и созданные destinations; отсутствующая
 проверка не считается successful run. Фактическое выполнение и результаты
 проверяйте в `.xcresult`, включая failures/skips и нулевой test count.
 
@@ -137,12 +150,43 @@ baseline: UI не добавлен без отдельной проверки ru
 
 ```sh
 python3 Scripts/test_validate.py
+python3 Scripts/test_ci_simulator.py
 ```
+
+test_ci_simulator.py выполняет фактический preparation block workflow с fake Xcode tools:
+reuse, download/create, Duo-only inventory, wrong build/profile, missing runtime
+и сохранение download failure status.
 
 Эти проверки используют изолированные fake tools для failure paths и отчётов;
 они дополняют реальные `fast`/`full`, а не заменяют их.
 
 ## GitHub Actions
+
+По решению пользователя от 31 октября 2026 CI временно использует Xcode 27.2
+**RC 27B48**, пока локальная разработка остаётся на stable 27B52. Это явное
+исключение для CI, не смена общего stable baseline. Выбран точный путь
+/Applications/Xcode_27.2_Release_Candidate.app/Contents/Developer, без mutable latest
+или автоматического принятия другого build. [Runner inventory](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md),
+image 20261026.0314.1, подтверждает наличие RC. После появления stable требуется
+отдельная правка пути/build pin и hosted validation; silently принимать RC/stable нельзя.
+
+Hosted run на этой конфигурации ещё не выполнен. Наличие iOS 27.2 runtime в inventory
+не подтверждено, поэтому workflow явно подготавливает его на disposable runner:
+при отсутствии обычного image запускает xcodebuild -downloadPlatform iOS
+-buildVersion 27.2 -architectureVariant arm64. После установки обязательны точные
+identifier com.apple.CoreSimulator.SimRuntime.iOS-27-2, version 27.2, build 24B8117
+и поддержка выбранного device type. Duo-only image не заменяет обычный. Другой build,
+недоступный download или несовместимость runtime с RC дают failure; fallback на
+старую iOS или ослабление checks отсутствует. При отсутствии устройства создаётся
+один RSSReader CI iPhone через simctl. Локальные runtimes script не меняет.
+
+Для #858 пользователь подтвердил работу на iPhone 18 Pro / iOS 27.2 и принял
+ограниченный Duo gate: native launch без compatibility/emulation layout с тёмным
+полем сбоку. Полная Duo matrix (poses, resize/rotation, navigation и continuity)
+перенесена в отдельный будущий эпик и не блокирует этот переход.
+После принятия локального результата и успешного hosted RC run
+можно завершить cleanup старых локальных runtimes; ждать stable в CI ради cleanup
+при этом временном разрешении не требуется. Смена CI на stable остаётся follow-up.
 
 `.github/workflows/validation.yml` запускает `full --fresh` для pull requests
 и `workflow_dispatch`. Повторного автоматического запуска после merge/push в
@@ -150,20 +194,18 @@ python3 Scripts/test_validate.py
 Ручной запуск становится доступен после
 появления workflow в default branch; для первого CI run нужен pull request.
 
-Выбран hosted preview runner `xcode-27` (macOS 27, arm64), Xcode 27.1 build
-`27A9275` через `/Applications/Xcode_27.1.app/Contents/Developer` и точный minimum
-runtime iOS 27.0. Источник выбора — [runner inventory](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md),
-image `20261012.0260.1`, проверенный 20 октября 2026. Preview status означает
-возможные environment/queue failures. Label не фиксирует весь VM image:
-workflow проверяет exact Xcode version/build, а `validate.sh` — SDK, minimum
-runtime и доступный simulator. При изменении inventory проверка завершается
-ошибкой; fallback на latest, другой Xcode/runtime или снижение target отсутствует.
+Hosted preview runner — xcode-27 (macOS 27, arm64). Label не фиксирует весь VM image:
+workflow проверяет exact Xcode version/build, а validate.sh — SDK, minimum runtime
+и доступный simulator. Required check Clean build and full unit suite сохраняется.
+Preview runner допускает queue/environment failures; CI RC пока не считается проверенным.
 
-Перед validation отдельный шаг выбирает существующий `iPhone 18 Pro` на iOS 27.0
-и ожидает его boot через `simctl bootstatus -b` (timeout 10 минут). UUID передаётся
-в `validate.sh --destination`; runtime/устройство не создаются и не устанавливаются.
+Подготовка runtime/device ограничена 25 минутами, boot — внутри того же шага через
+simctl bootstatus -b. Исходный, подготовленный и итоговый simulator inventories,
+runtime-install.log и simulator-boot.log входят в diagnostics. UUID передаётся в
+validate.sh --destination. Сам validate.sh по-прежнему не устанавливает runtime
+и не создаёт simulator: явная CI preparation вынесена в workflow.
 
-Job timeout — 80 минут, validation step — 45 минут; оставшееся время отведено
+Job timeout — 100 минут, validation step — 45 минут; оставшееся время отведено
 в том числе диагностике. Оба завершающих шага используют `always()`:
 `rssreader-ci-diagnostics.tar.gz` содержит raw environment/build/test logs,
 phase statuses, reports и доступный `Tests.xcresult`, включая частичный bundle.
