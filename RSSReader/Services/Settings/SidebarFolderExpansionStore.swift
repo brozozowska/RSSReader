@@ -11,7 +11,7 @@ final class SidebarFolderExpansionStore {
     private let userDefaults: UserDefaults?
 
     /// A nil backing store keeps previews and tests in memory.
-    init(userDefaults: UserDefaults? = .standard) {
+    init(userDefaults: UserDefaults? = nil) {
         self.userDefaults = userDefaults
         self.collapsedFolderIDs = Set(
             (userDefaults?.stringArray(forKey: Self.preferenceKey) ?? [])

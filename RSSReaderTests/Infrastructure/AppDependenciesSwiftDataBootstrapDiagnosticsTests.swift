@@ -17,7 +17,10 @@ struct AppDependenciesSwiftDataBootstrapDiagnosticsTests {
             syncEnablementPolicy: .current,
             syncCoordinator: syncCoordinator,
             syncBootstrapPreferenceStore: AppDependenciesFixedSyncBootstrapPreferenceStore(currentPreference: .disabled),
-            logger: logger
+            logger: logger,
+            httpClient: UnavailableFixtureHTTPClient(),
+            feedIconCache: FeedIconCacheService(),
+            sidebarFolderExpansionStore: SidebarFolderExpansionStore(userDefaults: nil)
         )
 
         #expect(logger.contains("Starting model container setup"))

@@ -48,7 +48,7 @@ final class AppDependencies {
 
     init(
         logger: Logging,
-        httpClient: any HTTPClient = URLSessionHTTPClient(),
+        httpClient: any HTTPClient = UnavailableFixtureHTTPClient(),
         feedFetcher: (any FeedFetching)? = nil,
         feedIconCache: (any FeedIconCaching)? = nil,
         articleImageRuntime: ArticleImageRuntime? = nil,
@@ -239,7 +239,7 @@ final class AppDependencies {
         let syncBootstrapPreferenceStore = syncBootstrapPreferenceStore
             ?? AppSyncBootstrapPreferenceStore(logger: logger)
         self.articleImageRuntime = articleImageRuntime ?? .makeIsolated()
-        self.sidebarFolderExpansionStore = sidebarFolderExpansionStore ?? SidebarFolderExpansionStore()
+        self.sidebarFolderExpansionStore = sidebarFolderExpansionStore ?? SidebarFolderExpansionStore(userDefaults: nil)
         self.logger = logger
         self.httpClient = httpClient
         self.feedIconCache = resolvedFeedIconCache
@@ -290,5 +290,12 @@ final class AppDependencies {
                 unreadAppIconBadgeService: resolvedUnreadAppIconBadgeService
             )
         )
+    }
+}
+
+/// Default dependency graphs are offline; live bootstrap supplies its transport explicitly.
+nonisolated struct UnavailableFixtureHTTPClient: HTTPClient {
+    func execute(_ request: HTTPRequest) async throws -> HTTPResponse {
+        throw URLError(.notConnectedToInternet)
     }
 }

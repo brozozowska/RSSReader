@@ -12,6 +12,10 @@ enum AppComposition {
     static let syncBackedModels = persistenceModelPartition.syncBackedModels
     static let localOnlyModels = persistenceModelPartition.localOnlyModels
     static let appModels = persistenceModelPartition.allModels
+    /// All live graphs in this process share memory, disk serialization and clear semantics.
+    /// Fixtures never resolve this owner.
+    @MainActor
+    static let liveFeedIconCache = FeedIconCacheService(diskCache: FeedIconDiskCache())
     @MainActor
     static let developmentSchemaBootstrapGuard = AppLaunchBootstrapGuard()
     @MainActor
@@ -48,7 +52,10 @@ enum AppComposition {
             syncCoordinator: syncCoordinator,
             globalOrphanSweepScheduleStore: UserDefaultsGlobalOrphanSweepScheduleStore(),
             logger: logger,
-            articleImageRuntime: .makeLive()
+            articleImageRuntime: .makeLive(),
+            httpClient: URLSessionHTTPClient(),
+            feedIconCache: liveFeedIconCache,
+            sidebarFolderExpansionStore: SidebarFolderExpansionStore(userDefaults: .standard)
         )
         dependencies.articleSearchIndexMaintenance?.start()
         dependencies.startSyncCoordinatorAppLifetime()

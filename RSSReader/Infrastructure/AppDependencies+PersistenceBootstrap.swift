@@ -36,7 +36,10 @@ extension AppDependencies {
         syncBootstrapPreferenceStore: (any AppSyncBootstrapPreferenceStoring)? = nil,
         globalOrphanSweepScheduleStore: (any GlobalOrphanSweepScheduleStoring)? = nil,
         logger: Logging? = nil,
-        articleImageRuntime: ArticleImageRuntime? = nil
+        articleImageRuntime: ArticleImageRuntime? = nil,
+        httpClient: any HTTPClient = URLSessionHTTPClient(),
+        feedIconCache: (any FeedIconCaching)? = nil,
+        sidebarFolderExpansionStore: SidebarFolderExpansionStore? = nil
     ) -> AppDependencies {
         let logger = logger ?? makeDefaultLogger()
 
@@ -103,7 +106,11 @@ extension AppDependencies {
         }
         return AppDependencies(
             logger: logger,
+            httpClient: httpClient,
+            feedIconCache: feedIconCache ?? AppComposition.liveFeedIconCache,
             articleImageRuntime: articleImageRuntime,
+            sidebarFolderExpansionStore: sidebarFolderExpansionStore
+                ?? SidebarFolderExpansionStore(userDefaults: .standard),
             modelContainer: modelContainer,
             modelContainerBootstrapFailureDescription: modelContainerBootstrapFailureDescription,
             syncBackedStoreReference: syncBackedStoreReference,
