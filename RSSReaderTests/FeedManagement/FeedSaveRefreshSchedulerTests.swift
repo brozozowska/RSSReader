@@ -108,8 +108,9 @@ struct FeedSaveRefreshSchedulerTests {
         let appState = AppState()
         harness.dependencies.appActions.showFeedManagement(using: appState)
 
-        let result = await harness.dependencies.appActions.finishSavingFeed(id: feed.id, using: appState)
-        #expect(result == nil)
+        harness.dependencies.appActions.completeFeedManagementFeedSave(
+            id: feed.id, using: appState, selectsSavedFeed: true
+        )
         #expect(appState.isPresentingFeedManagementScreen == false)
         #expect(appState.selectedSidebarSelection == .feed(feed.id))
         let sidebarBeforeCompletion = appState.sidebarReloadID
@@ -129,11 +130,10 @@ struct FeedSaveRefreshSchedulerTests {
     func completionWithoutAppStateDoesNotScheduleRefresh() async throws {
         let client = ScriptedHTTPClient()
         let harness = try TestHarness.make(httpClient: client)
-        let result = await harness.dependencies.appActions.completeFeedManagementFeedSave(
+        harness.dependencies.appActions.completeFeedManagementFeedSave(
             id: UUID(), using: nil, selectsSavedFeed: false
         )
         await harness.dependencies.appActions.waitForScheduledFeedSaveRefreshes()
-        #expect(result == nil)
         #expect(await client.recordedRequests().isEmpty)
     }
 

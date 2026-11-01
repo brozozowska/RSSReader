@@ -4,7 +4,6 @@ import Observation
 
 /// Сборка корневого дерева приложения с app-level зависимостями и SwiftData контейнером.
 /// Для app bootstrap всегда использует единый `makeAppDependencies()` path.
-/// - Parameter modelPartition: Partition SwiftData моделей. Если `nil`, используется `current` partition.
 enum AppComposition {
     nonisolated static let resourceBudgetContract = AppResourceBudgetContract.current
     static let persistenceModelPartition = AppPersistenceModelPartition.current
@@ -60,14 +59,6 @@ enum AppComposition {
         dependencies.articleSearchIndexMaintenance?.start()
         dependencies.startSyncCoordinatorAppLifetime()
         return dependencies
-    }
-
-    @MainActor
-    @ViewBuilder
-    static func makeRoot(modelPartition: AppPersistenceModelPartition? = nil) -> some View {
-        let deps = makeAppDependencies(modelPartition: modelPartition)
-
-        AppRootContainer(dependencies: deps)
     }
 
     @MainActor

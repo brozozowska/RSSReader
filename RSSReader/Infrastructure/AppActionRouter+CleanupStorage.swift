@@ -89,24 +89,6 @@ extension AppActionRouter {
 
     @MainActor
     @discardableResult
-    func cleanupPersistenceBoundedGrowth(now: Date = .now) -> PersistenceBoundedGrowthCleanupResult? {
-        guard let persistenceBoundedGrowthCleanupService else {
-            logger.debug("Persistence bounded growth cleanup service is unavailable")
-            return nil
-        }
-
-        do {
-            let result = try persistenceBoundedGrowthCleanupService.cleanupBoundedGrowth(now: now)
-            globalOrphanSweepTriggerService?.recordSuccessfulGlobalSweepCompleted(at: now)
-            return result
-        } catch {
-            logger.error("Failed to clean up bounded persistence growth: \(error)")
-            return nil
-        }
-    }
-
-    @MainActor
-    @discardableResult
     func runScheduledGlobalOrphanSweepIfDue(
         now: Date = .now
     ) async -> GlobalOrphanSweepTriggerResult? {

@@ -87,62 +87,6 @@ extension AppActionRouter {
     }
 
     @MainActor
-    func finishFolderEditing(
-        previousName: String,
-        updatedFolderName: String,
-        using appState: AppState
-    ) {
-        feedManagementPresentation.finishFolderEditing(
-            previousName: previousName,
-            updatedFolderName: updatedFolderName,
-            using: appState
-        )
-    }
-
-    @MainActor
-    func finishCreatingFolder(named folderName: String, using appState: AppState) {
-        feedManagementPresentation.finishCreatingFolder(named: folderName, using: appState)
-    }
-
-    @MainActor
-    func finishMovingFeed(
-        feedID: UUID,
-        previousFolderName: String?,
-        updatedFolderName: String?,
-        using appState: AppState
-    ) {
-        feedManagementPresentation.finishMovingFeed(
-            feedID: feedID,
-            previousFolderName: previousFolderName,
-            updatedFolderName: updatedFolderName,
-            using: appState
-        )
-    }
-
-    @MainActor
-    func finishSavingFeed(
-        id feedID: UUID,
-        using appState: AppState,
-        selectsSavedFeed: Bool = true,
-        initialFetchSnapshot: FeedInitialFetchSnapshot? = nil
-    ) async -> FeedRefreshResult? {
-        feedManagementPresentation.finishSavingFeed(
-            id: feedID,
-            using: appState,
-            selectsSavedFeed: selectsSavedFeed
-        )
-        dependencies.feedSaveRefreshScheduler.schedule(
-            id: feedID,
-            initialFetchSnapshot: initialFetchSnapshot,
-            using: appState,
-            refresh: { id, snapshot in
-                _ = await refreshFeed(id: id, initialFetchSnapshot: snapshot)
-            }
-        )
-        return nil
-    }
-
-    @MainActor
     func waitForScheduledFeedSaveRefreshes() async {
         await dependencies.feedSaveRefreshScheduler.waitForAll()
     }
@@ -189,13 +133,20 @@ extension AppActionRouter {
         using appState: AppState?,
         selectsSavedFeed: Bool,
         initialFetchSnapshot: FeedInitialFetchSnapshot? = nil
-    ) async -> FeedRefreshResult? {
-        guard let appState else { return nil }
-        return await finishSavingFeed(
+    ) {
+        guard let appState else { return }
+        feedManagementPresentation.finishSavingFeed(
             id: feedID,
             using: appState,
-            selectsSavedFeed: selectsSavedFeed,
-            initialFetchSnapshot: initialFetchSnapshot
+            selectsSavedFeed: selectsSavedFeed
+        )
+        dependencies.feedSaveRefreshScheduler.schedule(
+            id: feedID,
+            initialFetchSnapshot: initialFetchSnapshot,
+            using: appState,
+            refresh: { id, snapshot in
+                _ = await refreshFeed(id: id, initialFetchSnapshot: snapshot)
+            }
         )
     }
 
