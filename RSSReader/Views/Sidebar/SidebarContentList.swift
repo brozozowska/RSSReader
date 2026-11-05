@@ -23,7 +23,9 @@ struct SidebarContentList: View {
         }
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
-        .background(appThemeVariant.primaryBackground)
+        .background {
+            appThemeVariant.primaryBackground.ignoresSafeArea()
+        }
         .scrollDisabled(viewState.shouldDisableScrolling)
         .animation(
             accessibilityReduceMotion ? nil : .snappy(duration: 0.24),
