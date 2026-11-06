@@ -18,8 +18,6 @@ struct ArticleListView: View {
     @FocusState private var isSearchFocused: Bool
     @State private var refreshStartHapticTrigger = 0
     @State private var lastScopeMetricReloadContext: ArticleScopeMetricReloadContext?
-    @State private var hasDeferredCoveredListLoad = false
-    @State private var deferredCoveredListLoadTask: Task<Void, Never>?
 
     init(
         selectedSidebarSelection: SidebarSelection?,
@@ -126,40 +124,19 @@ struct ArticleListView: View {
                 dismissAction: dismissRefreshFeedback
             )
         }
-        .task(id: ArticleListLoadContext(
-            sidebarSelection: selectedSidebarSelection,
-            sidebarArticleFilter: selectedSidebarArticleFilter,
-            normalizedSearchText: ArticleSearchScope.normalizedSearchText(searchText),
-            reloadID: reloadID
-        )) {
-            guard isPreviewMode == false,
-                  searchLifecycleState.allowsQueryLoad else {
-                return
-            }
-            guard appState.isArticleListCoveredByDetailRoute == false else {
-                hasDeferredCoveredListLoad = true
-                controller.suspendLoadsForCoveredArticleList()
-                return
-            }
-            guard hasDeferredCoveredListLoad == false else { return }
-            await loadArticles(retainsSessionFilterMutations: true)
-        }
-        .onChange(of: appState.presentedSidebarSelection) { _, newValue in
-            guard newValue == nil else { return }
-            isSearchFocused = false
-            deferredCoveredListLoadTask?.cancel()
-            deferredCoveredListLoadTask = nil
-            hasDeferredCoveredListLoad = false
-        }
-        .onChange(of: selectedSidebarSelection) { oldValue, newValue in
-            guard oldValue != newValue else { return }
-            isSearchFocused = false
-            controller.selectSearchScope(newValue)
-        }
-        .onChange(of: appState.isArticleListCoveredByDetailRoute) { oldValue, newValue in
-            handleArticleListCoverageChange(wasCovered: oldValue, isCovered: newValue)
-        }
-        .onChange(of: appState.articleReadOnOpenEvent) { _, event in
+        .modifier(ArticleListPresentationLifecycleModifier(
+            controller: controller,
+            loadContext: ArticleListLoadContext(
+                sidebarSelection: selectedSidebarSelection,
+                sidebarArticleFilter: selectedSidebarArticleFilter,
+                normalizedSearchText: ArticleSearchScope.normalizedSearchText(searchText),
+                reloadID: reloadID
+            ),
+            isPreviewMode: isPreviewMode,
+            searchFocus: $isSearchFocused,
+            loadArticles: loadArticles
+        ))
+        .onChange(of: appState.articleListNavigation.readOnOpenEvent) { _, event in
             applyArticleReadOnOpenEvent(event)
         }
         .sensoryFeedback(
@@ -172,11 +149,7 @@ struct ArticleListView: View {
 
     @MainActor
     private func loadArticles(
-        retainsSessionFilterMutations: Bool = true,
-        retainedSessionMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterFilterMutation,
-        preservesRefreshFeedback: Bool = false,
-        refreshesScopeMetric: Bool? = nil,
-        preservesMaterializedSessionSnapshot: Bool = false
+        policy: ArticlesScreenLoadPolicy = .retainSession
     ) async {
         let loadingSidebarSelection = selectedSidebarSelection
         let loadingSidebarArticleFilter = selectedSidebarArticleFilter
@@ -187,14 +160,9 @@ struct ArticleListView: View {
             sidebarArticleFilter: loadingSidebarArticleFilter,
             reloadID: loadingReloadID
         )
-        let shouldRefreshScopeMetric = refreshesScopeMetric
-            ?? (
-                lastScopeMetricReloadContext != scopeMetricReloadContext
-                    || (
-                        controller.screenState.articleListSession.scopeMetric == nil
-                            && loadingNormalizedSearchText.isEmpty
-                    )
-            )
+        let shouldRefreshScopeMetric = lastScopeMetricReloadContext != scopeMetricReloadContext
+            || (controller.screenState.articleListSession.scopeMetric == nil
+                && loadingNormalizedSearchText.isEmpty)
         if shouldRefreshScopeMetric {
             lastScopeMetricReloadContext = scopeMetricReloadContext
         }
@@ -204,11 +172,8 @@ struct ArticleListView: View {
             sidebarArticleFilter: loadingSidebarArticleFilter,
             searchText: searchText,
             dependencies: dependencies,
-            refreshesScopeMetric: shouldRefreshScopeMetric,
-            retainsSessionFilterMutations: retainsSessionFilterMutations,
-            retainedSessionMembershipStatus: retainedSessionMembershipStatus,
-            preservesRefreshFeedback: preservesRefreshFeedback,
-            preservesMaterializedSessionSnapshot: preservesMaterializedSessionSnapshot
+            scopeMetric: shouldRefreshScopeMetric ? .baseScope : .none,
+            policy: policy
         )
 
         guard Task.isCancelled == false,
@@ -217,7 +182,7 @@ struct ArticleListView: View {
               loadingSidebarSelection == appState.selectedSidebarSelection,
               loadingSidebarArticleFilter == appState.selectedSidebarArticleFilter,
               loadingNormalizedSearchText == ArticleSearchScope.normalizedSearchText(searchText),
-              loadingReloadID == appState.articleListReloadID else {
+              loadingReloadID == appState.reload.articleListReloadID else {
             return
         }
 
@@ -306,44 +271,6 @@ struct ArticleListView: View {
             sidebarSelection: selectedSidebarSelection,
             sidebarArticleFilter: selectedSidebarArticleFilter
         )
-    }
-
-    @MainActor
-    private func handleArticleListCoverageChange(
-        wasCovered: Bool,
-        isCovered: Bool
-    ) {
-        guard isPreviewMode == false else { return }
-
-        if isCovered {
-            deferredCoveredListLoadTask?.cancel()
-            deferredCoveredListLoadTask = nil
-            hasDeferredCoveredListLoad = true
-            controller.suspendLoadsForCoveredArticleList()
-            return
-        }
-
-        guard wasCovered, hasDeferredCoveredListLoad else { return }
-        deferredCoveredListLoadTask?.cancel()
-        deferredCoveredListLoadTask = Task { @MainActor in
-            do {
-                try await Task.sleep(for: .milliseconds(400))
-            } catch {
-                return
-            }
-            guard Task.isCancelled == false,
-                  appState.isArticleListCoveredByDetailRoute == false,
-                  appState.presentedSidebarSelection != nil else {
-                return
-            }
-
-            hasDeferredCoveredListLoad = false
-            await loadArticles(
-                retainsSessionFilterMutations: true,
-                preservesMaterializedSessionSnapshot: true
-            )
-            deferredCoveredListLoadTask = nil
-        }
     }
 
     // MARK: Confirmation
@@ -497,7 +424,7 @@ struct ArticleListView: View {
 
     private func retryPrimaryLoad() {
         Task {
-            await loadArticles(retainsSessionFilterMutations: true)
+            await loadArticles()
         }
     }
 
@@ -600,7 +527,7 @@ private extension View {
 
 // MARK: - Helpers
 
-private struct ArticleListLoadContext: Hashable {
+struct ArticleListLoadContext: Hashable {
     let sidebarSelection: SidebarSelection?
     let sidebarArticleFilter: SidebarArticleFilter
     let normalizedSearchText: String

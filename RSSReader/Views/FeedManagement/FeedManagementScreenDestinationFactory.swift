@@ -11,10 +11,8 @@ struct FeedManagementScreenDestinationFactory {
     func handleLaunchContext(_ launchContext: FeedManagementScreenLaunchContext) {
         controller.handleLaunchContext(launchContext, dependencies: dependencies)
         switch launchContext {
-        case .entry:
+        case .entry, .editFeed:
             return
-        case .editFeed:
-            destinationPath = [.addFeed]
         case .editFolder:
             destinationPath = [.createFolder]
         case .organizeFeed:

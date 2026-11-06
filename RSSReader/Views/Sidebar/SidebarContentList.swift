@@ -5,7 +5,7 @@ struct SidebarContentList: View {
 
     @Binding var selection: SidebarSelection?
     let viewState: SidebarScreenDerivedViewState
-    let customRefreshState: SidebarCustomRefreshState
+    let customRefreshState: AppPullRefreshState
     let appThemeVariant: AppThemeVariant
     let actionHandlers: SidebarActionHandlers
     let onFolderExpansionToggle: (String) -> Void
@@ -23,7 +23,9 @@ struct SidebarContentList: View {
         }
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
-        .background(appThemeVariant.primaryBackground)
+        .background {
+            appThemeVariant.primaryBackground.ignoresSafeArea()
+        }
         .scrollDisabled(viewState.shouldDisableScrolling)
         .animation(
             accessibilityReduceMotion ? nil : .snappy(duration: 0.24),

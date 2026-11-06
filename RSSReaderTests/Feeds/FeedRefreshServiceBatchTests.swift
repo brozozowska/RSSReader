@@ -361,7 +361,9 @@ struct FeedRefreshServiceBatchTests {
         #expect(result.results[1].status == .failed)
         #expect(result.retryFeedIDs == [feeds[1].id])
         #expect(retryResult?.targetFeedIDs.isEmpty == true)
-        #expect(requestedURLs == urls)
+        // Task-group children may reach the HTTP client in either order.
+        // Sorting preserves multiplicity while checking the exact target set.
+        #expect(requestedURLs.sorted() == urls.sorted())
         #expect(requestedURLs.contains(addedFeed.url) == false)
     }
 

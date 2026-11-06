@@ -145,7 +145,7 @@ struct ShellActionEntryPointTests {
     }
 
     @Test
-    func shellActionEntryPointsRefreshCurrentFeedTriggersReloadAfterFeedRefresh() async throws {
+    func shellActionEntryPointsRefreshSelectionTriggersReloadAfterFeedRefresh() async throws {
         let client = ScriptedHTTPClient(
             responsesByURL: [
                 "https://example.com/shell-refresh-current.xml": .response(
@@ -163,15 +163,18 @@ struct ShellActionEntryPointTests {
         harness.dependencies.appActions.showFeed(id: feed.id, using: appState)
         let reloadIDAfterSidebarSelection = appState.articleListReloadID
 
-        let result = await harness.dependencies.appActions.refreshCurrentFeed(using: appState)
+        let result = await harness.dependencies.appActions.refreshSelection(
+            ManualFeedRefreshContext(selection: .feed(feed.id), sidebarArticleFilter: .allItems),
+            using: appState
+        )
 
-        #expect(result?.status == .notModified)
+        #expect(result?.results.first?.status == .notModified)
         #expect(appState.articleListReloadID != reloadIDAfterSidebarSelection)
         #expect(appState.articleListReloadID != reloadIDBeforeRefresh)
     }
 
     @Test
-    func shellActionEntryPointsRefreshAfterAddingFeedRefreshesNewFeedSelectsItAndClosesModalFlow() async throws {
+    func shellActionEntryPointsCompleteFeedSaveSchedulesRefreshSelectsFeedAndClosesModalFlow() async throws {
         let feedURL = "https://example.com/shell-refresh-added.xml"
         let harness = try TestHarness.make(
             httpClient: ScriptedHTTPClient(
@@ -212,11 +215,16 @@ struct ShellActionEntryPointTests {
 
         harness.dependencies.appActions.showFeedManagement(using: appState)
 
-        let result = await harness.dependencies.appActions.refreshAfterAddingFeed(id: feed.id, using: appState)
+        harness.dependencies.appActions.completeFeedManagementFeedSave(
+            id: feed.id, using: appState, selectsSavedFeed: true
+        )
+        #expect(appState.isPresentingFeedManagementScreen == false)
+        #expect(appState.selectedSidebarSelection == .feed(feed.id))
+
+        await harness.dependencies.appActions.waitForScheduledFeedSaveRefreshes()
         let refreshedFeed = try #require(try harness.feedRepository.fetchFeed(id: feed.id))
         let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
 
-        #expect(result?.status == .fetched)
         #expect(appState.isPresentingFeedManagementScreen == false)
         #expect(appState.selectedSidebarSelection == .feed(feed.id))
         #expect(appState.articleListReloadID != articleReloadIDBeforeRefresh)

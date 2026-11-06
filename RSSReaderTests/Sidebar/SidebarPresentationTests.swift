@@ -213,29 +213,6 @@ struct SidebarPresentationTests {
     }
 
     @Test
-    func sidebarCustomRefreshStateMapsPullProgressToIndicatorContract() {
-        let idleState = SidebarCustomRefreshState.pulling(progress: -0.1)
-        let pullingState = SidebarCustomRefreshState.pulling(progress: 0.4)
-        let readyState = SidebarCustomRefreshState.pulling(progress: 1.2)
-        let refreshingState = SidebarCustomRefreshState.refreshing
-
-        #expect(idleState == .idle)
-        #expect(idleState.showsIndicator == false)
-        #expect(idleState.indicatorState == .idle)
-
-        #expect(pullingState.phase == .pulling)
-        #expect(pullingState.pullProgress == 0.4)
-        #expect(pullingState.indicatorState == .pulling(progress: 0.4))
-
-        #expect(readyState.phase == .ready)
-        #expect(readyState.pullProgress == 1)
-        #expect(readyState.indicatorState == .ready)
-
-        #expect(refreshingState.phase == .refreshing)
-        #expect(refreshingState.indicatorState == .refreshing)
-    }
-
-    @Test
     func sidebarToolbarStateUsesRuntimeFailureStatusForShellToolbar() {
         let refreshDate = Calendar.current.date(byAdding: .hour, value: -2, to: Date()) ?? Date()
         let state = SidebarToolbarState(

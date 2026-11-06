@@ -15,7 +15,7 @@ struct ShellActionCompletionTests {
         let sidebarReloadIDBeforeCompletion = appState.sidebarReloadID
         let articleReloadIDBeforeCompletion = appState.articleListReloadID
 
-        harness.dependencies.appActions.finishCreatingFolder(named: "Research", using: appState)
+        harness.dependencies.appActions.completeFeedManagementFolderCreation(named: "Research", using: appState)
 
         #expect(appState.isPresentingFeedManagementScreen)
         #expect(appState.selectedSidebarSelection == .inbox)
@@ -40,7 +40,7 @@ struct ShellActionCompletionTests {
         let sidebarReloadIDBeforeCompletion = appState.sidebarReloadID
         let articleReloadIDBeforeCompletion = appState.articleListReloadID
 
-        harness.dependencies.appActions.finishMovingFeed(
+        harness.dependencies.appActions.completeFeedManagementMove(
             feedID: feed.id,
             previousFolderName: "News",
             updatedFolderName: "Tech",
@@ -63,7 +63,7 @@ struct ShellActionCompletionTests {
         let sidebarReloadIDBeforeCompletion = appState.sidebarReloadID
         let articleReloadIDBeforeCompletion = appState.articleListReloadID
 
-        harness.dependencies.appActions.finishFolderEditing(
+        harness.dependencies.appActions.completeFeedManagementFolderEditing(
             previousName: "News",
             updatedFolderName: "World News",
             using: appState
@@ -84,7 +84,7 @@ struct ShellActionCompletionTests {
         appState.updatePresentedSidebarSelection(nil)
         harness.dependencies.appActions.showFeedManagement(using: appState)
 
-        harness.dependencies.appActions.finishFolderEditing(
+        harness.dependencies.appActions.completeFeedManagementFolderEditing(
             previousName: "News",
             updatedFolderName: "World News",
             using: appState
@@ -133,10 +133,11 @@ struct ShellActionCompletionTests {
         let sidebarReloadIDBeforeCompletion = appState.sidebarReloadID
         let articleReloadIDBeforeCompletion = appState.articleListReloadID
 
-        let result = await harness.dependencies.appActions.finishSavingFeed(id: feed.id, using: appState)
+        harness.dependencies.appActions.completeFeedManagementFeedSave(
+            id: feed.id, using: appState, selectsSavedFeed: true
+        )
         let articles = try harness.articleRepository.fetchArticles(feedID: feed.id)
 
-        #expect(result == nil)
         #expect(appState.isPresentingFeedManagementScreen == false)
         #expect(appState.selectedSidebarSelection == .feed(feed.id))
         #expect(appState.sidebarReloadID != sidebarReloadIDBeforeCompletion)

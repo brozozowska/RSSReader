@@ -6,6 +6,14 @@ import UIKit
 @Suite("Shell / List Navigation Bar")
 @MainActor
 struct AppListNavigationBarTests {
+    private func makeWindow(width: Double) throws -> UIWindow {
+        let scene = try #require(UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: width, height: 874)
+        return window
+    }
+
     @Test
     func configuresOwnNavigationItemWhileReaderIsOnTop() throws {
         let list = UIViewController()
@@ -224,7 +232,7 @@ struct AppListNavigationBarTests {
         navigation.navigationBar.semanticContentAttribute = isRTL ? .forceRightToLeft : .forceLeftToRight
         navigation.navigationBar.prefersLargeTitles = true
         screen.navigationItem.style = .browser
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: 874))
+        let window = try makeWindow(width: width)
         window.rootViewController = navigation
         window.isHidden = false
         navigation.view.layoutIfNeeded()
@@ -274,7 +282,7 @@ struct AppListNavigationBarTests {
     @Test
     func swiftUIToolbarReconciliationKeepsNativeCenterHosting() async throws {
         let host = UIHostingController(rootView: navigationFixture(state: .ready, title: "Feed"))
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        let window = try makeWindow(width: 402)
         window.rootViewController = host
         window.isHidden = false
         defer { window.isHidden = true }
@@ -340,7 +348,7 @@ struct AppListNavigationBarTests {
         articles.navigationItem.largeTitleDisplayMode = .never
         let navigation = UINavigationController(rootViewController: sidebar)
         navigation.setViewControllers([sidebar, articles], animated: false)
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: 874))
+        let window = try makeWindow(width: width)
         window.rootViewController = navigation
         window.isHidden = false
         defer { window.isHidden = true }

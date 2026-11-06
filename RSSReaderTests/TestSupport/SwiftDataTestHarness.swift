@@ -49,11 +49,12 @@ struct TestHarness {
             logger: logger,
             httpClient: httpClient,
             feedFetcher: feedFetcher,
+            feedIconCache: FeedIconCacheService(),
+            sidebarFolderExpansionStore: SidebarFolderExpansionStore(userDefaults: nil),
             modelContainer: modelContainer,
             feedIconDiscoveryService: resolvedFeedIconDiscoveryService,
             unreadAppIconBadgeService: unreadAppIconBadgeService ?? NoOpUnreadAppIconBadgeService(),
-            articleSearchScanBatchProbe: articleSearchScanBatchProbe,
-            tracksFeedSaveRefreshTasks: true
+            articleSearchScanBatchProbe: articleSearchScanBatchProbe
         )
 
         let feedRepository = SwiftDataFeedRepository(

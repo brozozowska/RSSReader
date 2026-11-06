@@ -19,7 +19,7 @@ final class SidebarScreenController {
     ) {
         self.screenState = previewScreenState ?? SidebarScreenState()
         self.folderExpansionStore = folderExpansionStore ?? SidebarFolderExpansionStore(
-            userDefaults: previewScreenState == nil ? .standard : nil
+            userDefaults: nil
         )
         self.isPreviewMode = previewScreenState != nil
     }

@@ -14,14 +14,15 @@ public enum FeedIconCacheError: Error {
 
 public actor FeedIconCacheService: FeedIconCaching {
     private let cache: FeedIconMemoryCache
-    private let diskCache: FeedIconDiskCache
+    private let diskCache: FeedIconDiskCache?
 
+    /// With no disk owner, this instance is memory-only and never touches the filesystem.
     public init(
         cache: FeedIconMemoryCache? = nil,
         diskCache: FeedIconDiskCache? = nil
     ) {
         self.cache = cache ?? FeedIconMemoryCache()
-        self.diskCache = diskCache ?? FeedIconDiskCache.shared
+        self.diskCache = diskCache
     }
 
     public func cachedImageData(for url: URL) async throws -> Data? {
@@ -29,7 +30,7 @@ public actor FeedIconCacheService: FeedIconCaching {
             return cachedData
         }
 
-        if let diskCachedData = try await diskCache.data(for: url) {
+        if let diskCachedData = try await diskCache?.data(for: url) {
             await cache.insert(diskCachedData, for: url)
             return diskCachedData
         }
@@ -42,7 +43,7 @@ public actor FeedIconCacheService: FeedIconCaching {
             throw FeedIconCacheError.emptyImageData
         }
 
-        try await diskCache.insert(data, for: url)
+        try await diskCache?.insert(data, for: url)
         await cache.insert(data, for: url)
     }
 
@@ -52,12 +53,12 @@ public actor FeedIconCacheService: FeedIconCaching {
             return true
         }
 
-        return try await diskCache.isEmpty() == false
+        return try await diskCache?.isEmpty() == false
     }
 
     public func removeAllCachedData() async throws {
         await cache.removeAll()
-        try await diskCache.removeAll()
+        try await diskCache?.removeAll()
     }
 }
 
@@ -114,7 +115,6 @@ private final class FeedIconMemoryCacheEntry: NSObject, URLIdentifiedNSCacheEntr
 }
 
 public actor FeedIconDiskCache {
-    public static let shared = FeedIconDiskCache()
     static let directoryName = "RSSReaderFeedIcons"
 
     private let directoryURL: URL

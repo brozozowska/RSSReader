@@ -25,6 +25,7 @@ struct SidebarFeedRowView: View {
 
             Text(row.title)
                 .lineLimit(1)
+                .accessibilityIdentifier("sidebar.feed.\(row.id.uuidString)")
 
             Spacer()
 
@@ -158,6 +159,8 @@ private struct SidebarContextMenuRow<Content: View, MenuItems: View>: View {
                     sourceEnvironment: previewEnvironment
                 )
             }
+            // Give each resolved theme its own detached menu presentation.
+            .id(appThemeVariant)
     }
 }
 
@@ -167,14 +170,35 @@ struct SidebarContextMenuPreview<Content: View>: View {
     let sourceEnvironment: EnvironmentValues
 
     var body: some View {
+        let theme = currentTheme
+
         content
             .modifier(SidebarContextMenuRowLayout())
             .frame(width: rowWidth > 0 ? rowWidth : nil)
             .fixedSize(horizontal: false, vertical: true)
-            .background(sourceEnvironment.appThemeVariant.contextMenuPreviewBackground, in: Capsule(style: .continuous))
+            .background(theme.contextMenuPreviewBackground, in: Capsule(style: .continuous))
+            .foregroundStyle(Color.primary)
+            .environment(\.appThemeVariant, theme)
+            .environment(\.colorScheme, theme == .light ? .light : .dark)
             .environment(\.backgroundProminence, .standard)
             .allowsHitTesting(false)
             .environment(\.self, sourceEnvironment)
+    }
+
+    private var currentTheme: AppThemeVariant {
+        guard let appState = sourceEnvironment[AppState.self] else {
+            return sourceEnvironment.appThemeVariant
+        }
+
+        // A retained preview must observe appearance changes through the same
+        // AppState as its source row, rather than keep its captured colors.
+        switch appState.interfaceThemeMode {
+        case .light: return .light
+        case .dark: return .dark
+        case .black: return .black
+        case .automaticLightDark, .automaticLightBlack:
+            return sourceEnvironment.appThemeVariant
+        }
     }
 }
 

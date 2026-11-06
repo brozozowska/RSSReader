@@ -85,7 +85,7 @@ extension FeedManagementScreenController {
         do {
             let updatedFeed = try feedManagementService.updateFeed(updateCommand)
             screenState.applyCreatedAddFeed(updatedFeed)
-            _ = await dependencies.appActions.completeFeedManagementFeedSave(
+            dependencies.appActions.completeFeedManagementFeedSave(
                 id: updatedFeed.id,
                 using: appState,
                 selectsSavedFeed: false
@@ -126,7 +126,7 @@ extension FeedManagementScreenController {
         do {
             let createdFeed = try feedManagementService.createFeed(createCommand)
             screenState.applyCreatedAddFeed(createdFeed)
-            _ = await dependencies.appActions.completeFeedManagementFeedSave(
+            dependencies.appActions.completeFeedManagementFeedSave(
                 id: createdFeed.id,
                 using: appState,
                 selectsSavedFeed: false,

@@ -1,19 +1,23 @@
 import Foundation
 
 struct RemoteSyncImportAppAction {
+    private let indexMaintenance: ArticleSearchIndexMaintenance?
     private let logger: Logging
     private let unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)?
 
     init(
         logger: Logging,
+        indexMaintenance: ArticleSearchIndexMaintenance? = nil,
         unreadAppIconBadgeService: (any UnreadAppIconBadgeServicing)?
     ) {
+        self.indexMaintenance = indexMaintenance
         self.logger = logger
         self.unreadAppIconBadgeService = unreadAppIconBadgeService
     }
 
     @MainActor
     func perform(using appState: AppState) {
+        indexMaintenance?.retry()
         appState.requestRemoteSyncImportReload()
 
         guard let unreadAppIconBadgeService else {

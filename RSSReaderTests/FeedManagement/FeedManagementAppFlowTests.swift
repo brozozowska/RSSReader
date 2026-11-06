@@ -71,7 +71,7 @@ struct FeedManagementAppFlowTests {
         #expect(persistedFeedBeforeRefresh.lastSuccessfulFetchAt == nil)
         #expect(articlesBeforeRefresh.isEmpty)
 
-        _ = await harness.dependencies.appActions.completeFeedManagementFeedSave(
+        harness.dependencies.appActions.completeFeedManagementFeedSave(
             id: createdFeed.id,
             using: appState,
             selectsSavedFeed: false
@@ -150,7 +150,7 @@ struct FeedManagementAppFlowTests {
             )
         }
 
-        _ = await harness.dependencies.appActions.completeFeedManagementFeedSave(
+        harness.dependencies.appActions.completeFeedManagementFeedSave(
             id: feed.id,
             using: appState,
             selectsSavedFeed: false

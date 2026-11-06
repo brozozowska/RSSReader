@@ -107,6 +107,9 @@ private enum SidebarPreviewFactory {
         seed(container.mainContext, for: scenario)
         return AppDependencies(
             logger: ConsoleLogger(),
+            httpClient: UnavailableFixtureHTTPClient(),
+            feedIconCache: FeedIconCacheService(),
+            sidebarFolderExpansionStore: SidebarFolderExpansionStore(userDefaults: nil),
             modelContainer: container
         )
     }

@@ -1,6 +1,6 @@
 import Foundation
 
-struct ReaderArticleDTO: Sendable, Identifiable {
+nonisolated struct ReaderArticleDTO: Sendable, Identifiable {
     let id: UUID
     let feedID: UUID
     let feedTitle: String
@@ -66,6 +66,7 @@ struct ReaderArticleDTO: Sendable, Identifiable {
         self.isHidden = isHidden
     }
 
+    @MainActor
     init(article: Article, state: ArticleUserStateSnapshot?) {
         self.id = article.id
         self.feedID = article.feedID
@@ -116,5 +117,19 @@ struct ReaderArticleDTO: Sendable, Identifiable {
             isStarred: isStarred ?? self.isStarred,
             isHidden: isHidden ?? self.isHidden
         )
+    }
+}
+
+/// Shared Reader header semantics, also used by search without a View dependency.
+nonisolated enum ReaderArticleMetadataPolicy {
+    static func author(_ author: String?, feedTitle: String) -> String? {
+        guard let author = author?.trimmingCharacters(in: .whitespacesAndNewlines), !author.isEmpty else { return nil }
+        let feed = feedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !feed.isEmpty,
+           author.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ").compare(
+               feed.split(whereSeparator: { $0.isWhitespace }).joined(separator: " "),
+               options: .caseInsensitive, locale: Locale(identifier: "en_US_POSIX")
+           ) == .orderedSame { return nil }
+        return author
     }
 }

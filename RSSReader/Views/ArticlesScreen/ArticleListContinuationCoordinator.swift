@@ -6,7 +6,7 @@ enum ArticleListContinuationCoordinator {
         appState: AppState,
         controller: ArticlesScreenController
     ) -> Bool {
-        guard let sessionReference = appState.currentArticleListSessionReference else {
+        guard let sessionReference = appState.articleListNavigation.currentSessionReference else {
             return false
         }
 
@@ -22,7 +22,7 @@ enum ArticleListContinuationCoordinator {
         guard direction == .next,
               let sourceArticleID = appState.selectedArticleID,
               appState.adjacentArticleID(direction) == nil,
-              let sessionReference = appState.currentArticleListSessionReference,
+              let sessionReference = appState.articleListNavigation.currentSessionReference,
               controller.hasNextPageContinuation(for: sessionReference.id) else {
             return nil
         }
@@ -50,7 +50,7 @@ enum ArticleListContinuationCoordinator {
                 .next,
                 limit: minimumNextArticleCount
               ).count < minimumNextArticleCount,
-              let sessionReference = appState.currentArticleListSessionReference,
+              let sessionReference = appState.articleListNavigation.currentSessionReference,
               controller.hasNextPageContinuation(for: sessionReference.id) else {
             return
         }
@@ -60,7 +60,7 @@ enum ArticleListContinuationCoordinator {
         )
         guard let continuationSnapshot,
               continuationSnapshot.sessionID == sessionReference.id,
-              appState.currentArticleListSessionReference == sessionReference else {
+              appState.articleListNavigation.currentSessionReference == sessionReference else {
             return
         }
 

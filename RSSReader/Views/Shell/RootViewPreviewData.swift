@@ -5,7 +5,7 @@ import SwiftData
     RootViewPreviewContainer()
 }
 
-private struct RootViewPreviewContainer: View {
+struct RootViewPreviewContainer: View {
     let dependencies: AppDependencies
     @State private var appState: AppState
 
@@ -24,7 +24,7 @@ private struct RootViewPreviewContainer: View {
     }
 }
 
-private enum RootViewPreviewFactory {
+enum RootViewPreviewFactory {
     enum SampleIDs {
         static let techFolderID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
         static let researchFolderID = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
@@ -52,7 +52,10 @@ private enum RootViewPreviewFactory {
 
         return AppDependencies(
             logger: ConsoleLogger(),
+            httpClient: UnavailableFixtureHTTPClient(),
             feedFetcher: RootViewPreviewFeedFetcher(),
+            feedIconCache: FeedIconCacheService(),
+            sidebarFolderExpansionStore: SidebarFolderExpansionStore(userDefaults: nil),
             modelContainer: container
         )
     }

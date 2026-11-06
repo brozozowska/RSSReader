@@ -43,18 +43,14 @@ final class ArticlesScreenController {
         searchSelection == selection ? searchText : ""
     }
     @ObservationIgnored private let searchDebounceOperation: ArticlesScreenSearchDebounceOperation
-    @ObservationIgnored private let searchQueryOperation: ArticlesScreenSearchQueryOperation
+    @ObservationIgnored private let queryLoader: ArticlesScreenQueryLoader
     @ObservationIgnored let scopeReadMutationOperation: ArticlesScreenScopeReadMutationOperation
     @ObservationIgnored let pageSize: Int
-    @ObservationIgnored private var activeLoadTask: Task<Void, Never>?
-    @ObservationIgnored private var activeLoadSessionContext: ArticleListSession.Context?
+    @ObservationIgnored private let primaryLoad = ArticlesScreenPrimaryLoadLifecycle()
+    @ObservationIgnored private let continuationLoad = ArticlesScreenContinuationLifecycle()
     @ObservationIgnored let readerScrollCoordinator = ArticleListReaderScrollCoordinator()
-    @ObservationIgnored private var activeNextPageTask: Task<ArticleListContinuationSnapshot?, Never>?
-    @ObservationIgnored private var activeNextPageIdentity: ArticleListNextPageIdentity?
-    @ObservationIgnored private var loadGeneration = 0
-    @ObservationIgnored private var manualRefreshGeneration = 0
     @ObservationIgnored private var lastAppliedReadOnOpenEventID: UUID?
-    @ObservationIgnored private var pendingRetryFeedIDs: [UUID] = []
+    @ObservationIgnored private let refreshLifecycle = ArticlesScreenRefreshLifecycle()
     private var lastLoadedSessionContext: ArticleListSession.Context
 
     init(
@@ -69,9 +65,12 @@ final class ArticlesScreenController {
         self.searchDebounceOperation = searchDebounceOperation ?? {
             try await Task.sleep(for: ArticlesScreenSearchPolicy.debounceDuration)
         }
-        self.searchQueryOperation = searchQueryOperation ?? { request, articleQueryService in
-            try await articleQueryService.fetchArticleSearchSnapshot(request)
-        }
+        self.queryLoader = ArticlesScreenQueryLoader(
+            pageSize: pageSize,
+            queryOperation: searchQueryOperation ?? { request, articleQueryService in
+                try await articleQueryService.fetchArticleSearchSnapshot(request)
+            }
+        )
         self.scopeReadMutationOperation = scopeReadMutationOperation ?? {
             request,
             articleStateService,
@@ -112,36 +111,9 @@ final class ArticlesScreenController {
             dependencies: dependencies
         )
         guard loadPlan.sessionContextChanged else { return nil }
-        pendingRetryFeedIDs = []
+        refreshLifecycle.reset()
 
-        loadGeneration += 1
-        let currentLoadGeneration = loadGeneration
-        activeLoadTask?.cancel()
-        cancelActiveNextPageLoad()
-        prepareScreenStateForLoad(loadPlan, startsNewSession: true)
-        let currentSessionID = screenState.articleListSession.id
-        let loadTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            await performLoad(
-                plan: loadPlan,
-                dependencies: dependencies,
-                retainsSessionFilterMutations: true,
-                retainedSessionMembershipStatus: .retainedAfterFilterMutation,
-                preservesRefreshFeedback: false,
-                preservesMaterializedSessionSnapshot: false,
-                sessionID: currentSessionID,
-                generation: currentLoadGeneration
-            )
-        }
-        activeLoadTask = loadTask
-        activeLoadSessionContext = loadPlan.sessionContext
-        Task { @MainActor [weak self] in
-            await loadTask.value
-            guard let self, currentLoadGeneration == loadGeneration else { return }
-            activeLoadTask = nil
-            activeLoadSessionContext = nil
-        }
-        return loadTask
+        return startLoad(plan: loadPlan, policy: .retainSession, feedback: .dismiss, dependencies: dependencies)
     }
 
     var currentArticleListSessionID: UUID {
@@ -149,12 +121,8 @@ final class ArticlesScreenController {
     }
 
     func endPresentation() {
-        loadGeneration += 1
-        manualRefreshGeneration += 1
-        pendingRetryFeedIDs = []
-        activeLoadTask?.cancel()
-        activeLoadTask = nil
-        activeLoadSessionContext = nil
+        primaryLoad.cancel()
+        refreshLifecycle.reset()
         cancelActiveNextPageLoad()
         lastLoadedSessionContext = .noSelection
         readerScrollCoordinator.reset()
@@ -163,11 +131,8 @@ final class ArticlesScreenController {
 
     @discardableResult
     func suspendLoadsForCoveredArticleList() -> Bool {
-        let hadActivePrimaryLoad = activeLoadTask != nil
-        loadGeneration += 1
-        activeLoadTask?.cancel()
-        activeLoadTask = nil
-        activeLoadSessionContext = nil
+        let hadActivePrimaryLoad = primaryLoad.isActive
+        primaryLoad.cancel()
         cancelActiveNextPageLoad()
         screenState.cancelSearchTransition()
         return hadActivePrimaryLoad
@@ -231,73 +196,64 @@ final class ArticlesScreenController {
         sidebarArticleFilter: SidebarArticleFilter,
         searchText: String = "",
         dependencies: AppDependencies,
-        refreshesScopeMetric: Bool = false,
-        retainsSessionFilterMutations: Bool = false,
-        retainedSessionMembershipStatus: ArticleListEntryMembershipStatus = .retainedAfterFilterMutation,
-        preservesRefreshFeedback: Bool = false,
-        preservesMaterializedSessionSnapshot: Bool = false
+        scopeMetric: ArticleSearchRequest.ScopeMetricLoadingPolicy = .none,
+        policy: ArticlesScreenLoadPolicy = .replace,
+        feedback: ArticlesScreenLoadFeedbackPolicy = .dismiss
     ) async {
         let loadPlan = makeLoadPlan(
             selection: selection,
             sidebarArticleFilter: sidebarArticleFilter,
             searchText: searchText,
-            refreshesScopeMetric: refreshesScopeMetric,
+            refreshesScopeMetric: scopeMetric == .baseScope,
             dependencies: dependencies
         )
         if loadPlan.sessionContextChanged {
-            pendingRetryFeedIDs = []
+            refreshLifecycle.reset()
         }
-        if retainsSessionFilterMutations,
-           activeLoadSessionContext == loadPlan.sessionContext,
-           let activeLoadTask {
-            await activeLoadTask.value
+        if policy.retainsSession,
+           let task = primaryLoad.activeTask(for: loadPlan.sessionContext) {
+            await task.value
             return
         }
 
-        loadGeneration += 1
-        let currentLoadGeneration = loadGeneration
-        activeLoadTask?.cancel()
+        let task = startLoad(plan: loadPlan, policy: policy, feedback: feedback, dependencies: dependencies)
+        await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    private func startLoad(
+        plan: ArticlesScreenLoadPlan,
+        policy: ArticlesScreenLoadPolicy,
+        feedback: ArticlesScreenLoadFeedbackPolicy,
+        dependencies: AppDependencies
+    ) -> Task<Void, Never> {
         cancelActiveNextPageLoad()
         prepareScreenStateForLoad(
-            loadPlan,
-            startsNewSession: loadPlan.sessionContextChanged || retainsSessionFilterMutations == false
+            plan,
+            startsNewSession: plan.sessionContextChanged || policy.retainsSession == false
         )
-        let currentSessionID = screenState.articleListSession.id
-        let loadTask = Task { @MainActor [weak self] in
+        let sessionID = screenState.articleListSession.id
+        return primaryLoad.start(context: plan.sessionContext) { [weak self] generation in
             guard let self else { return }
             await performLoad(
-                plan: loadPlan,
+                plan: plan,
                 dependencies: dependencies,
-                retainsSessionFilterMutations: retainsSessionFilterMutations,
-                retainedSessionMembershipStatus: retainedSessionMembershipStatus,
-                preservesRefreshFeedback: preservesRefreshFeedback,
-                preservesMaterializedSessionSnapshot: preservesMaterializedSessionSnapshot,
-                sessionID: currentSessionID,
-                generation: currentLoadGeneration
+                policy: policy,
+                feedback: feedback,
+                sessionID: sessionID,
+                generation: generation
             )
-        }
-        activeLoadTask = loadTask
-        activeLoadSessionContext = loadPlan.sessionContext
-
-        await withTaskCancellationHandler {
-            await loadTask.value
-        } onCancel: {
-            loadTask.cancel()
-        }
-
-        if currentLoadGeneration == loadGeneration {
-            activeLoadTask = nil
-            activeLoadSessionContext = nil
         }
     }
 
     private func performLoad(
         plan: ArticlesScreenLoadPlan,
         dependencies: AppDependencies,
-        retainsSessionFilterMutations: Bool,
-        retainedSessionMembershipStatus: ArticleListEntryMembershipStatus,
-        preservesRefreshFeedback: Bool,
-        preservesMaterializedSessionSnapshot: Bool,
+        policy: ArticlesScreenLoadPolicy,
+        feedback: ArticlesScreenLoadFeedbackPolicy,
         sessionID currentSessionID: UUID,
         generation currentLoadGeneration: Int
     ) async {
@@ -325,7 +281,7 @@ final class ArticlesScreenController {
                 return
             }
 
-            let loadResult = try await loadArticles(
+            let loadResult = try await queryLoader.load(
                 for: plan.selection,
                 sidebarArticleFilter: plan.sidebarArticleFilter,
                 normalizedSearchText: plan.normalizedSearchText,
@@ -335,15 +291,15 @@ final class ArticlesScreenController {
             )
             try Task.checkCancellation()
             let preservesCurrentMaterializedSnapshot = plan.sessionContextChanged == false
-                && plan.isSearchTransition == false && preservesMaterializedSessionSnapshot
+                && plan.isSearchTransition == false && policy.preservesMaterializedSnapshot
             let resolvedEntries = entriesByRetainingSessionItems(
                 loadResult.articles,
                 selection: plan.selection,
                 sidebarArticleFilter: plan.sidebarArticleFilter,
                 retainsCurrentContent: plan.sessionContextChanged == false
-                    && plan.isSearchTransition == false && retainsSessionFilterMutations,
+                    && plan.isSearchTransition == false && policy.retainsSession,
                 preservesMaterializedSessionSnapshot: preservesCurrentMaterializedSnapshot,
-                retainedMembershipStatus: retainedSessionMembershipStatus,
+                retainedMembershipStatus: policy.retainedMembershipStatus,
                 sortMode: plan.sortMode
             )
             let resolvedArticles = resolvedEntries.map(\.article)
@@ -366,7 +322,7 @@ final class ArticlesScreenController {
                 navigationTitle: plan.navigationTitle,
                 navigationSubtitle: navigationSubtitle,
                 sessionContext: plan.sessionContext,
-                preservesRefreshFeedback: preservesRefreshFeedback,
+                preservesRefreshFeedback: feedback == .preserve,
                 emptyContentKind: loadResult.emptyContentKind,
                 nextPageCursor: preservesCurrentMaterializedSnapshot
                     ? screenState.articleListSession.nextPageCursor
@@ -472,22 +428,20 @@ final class ArticlesScreenController {
         sessionID: UUID,
         context: ArticleListSession.Context
     ) -> Bool {
-        generation == loadGeneration
+        generation == primaryLoad.generation
             && sessionID == screenState.articleListSession.id
             && context == (screenState.pendingSearchContext ?? screenState.articleListSession.context)
     }
 
     private func cancelActiveNextPageLoad() {
-        activeNextPageTask?.cancel()
-        activeNextPageTask = nil
-        activeNextPageIdentity = nil
+        continuationLoad.cancel()
         screenState.endLoadingNextPage()
     }
 
     private func isCurrentNextPageLoad(
         _ identity: ArticleListNextPageIdentity
     ) -> Bool {
-        identity.generation == loadGeneration
+        identity.generation == primaryLoad.generation
             && identity.sessionID == screenState.articleListSession.id
             && identity.context == lastLoadedSessionContext
             && identity.context == screenState.articleListSession.context
@@ -497,7 +451,7 @@ final class ArticlesScreenController {
     private func currentContinuationSnapshot(
         for identity: ArticleListNextPageIdentity
     ) -> ArticleListContinuationSnapshot? {
-        guard identity.generation == loadGeneration,
+        guard identity.generation == primaryLoad.generation,
               identity.sessionID == screenState.articleListSession.id,
               identity.context == screenState.articleListSession.context else {
             return nil
@@ -516,7 +470,7 @@ final class ArticlesScreenController {
         dependencies: AppDependencies
     ) async -> ArticleListContinuationSnapshot? {
         do {
-            let loadResult = try await loadArticles(
+            let loadResult = try await queryLoader.load(
                 for: identity.context.selection,
                 sidebarArticleFilter: identity.context.sidebarArticleFilter,
                 normalizedSearchText: identity.context.normalizedSearchText,
@@ -606,23 +560,22 @@ final class ArticlesScreenController {
         }
 
         let identity = ArticleListNextPageIdentity(
-            generation: loadGeneration,
+            generation: primaryLoad.generation,
             sessionID: screenState.articleListSession.id,
             context: sessionContext,
             cursor: nextPageCursor
         )
-        if activeNextPageIdentity == identity,
-           let activeNextPageTask {
-            return await activeNextPageTask.value
+        if let task = continuationLoad.activeTask(for: identity) {
+            return await task.value
         }
 
-        guard activeNextPageTask == nil,
+        guard continuationLoad.isActive == false,
               let articleQueryService = dependencies.articleQueryService,
               screenState.beginLoadingNextPage() else {
             return nil
         }
 
-        let nextPageTask = Task<ArticleListContinuationSnapshot?, Never> { @MainActor [weak self] in
+        let nextPageTask = continuationLoad.start(identity: identity) { [weak self] in
             guard let self else { return nil }
             return await performNextPageLoad(
                 identity: identity,
@@ -630,15 +583,7 @@ final class ArticlesScreenController {
                 dependencies: dependencies
             )
         }
-        activeNextPageIdentity = identity
-        activeNextPageTask = nextPageTask
-
-        let snapshot = await nextPageTask.value
-        if activeNextPageIdentity == identity {
-            activeNextPageIdentity = nil
-            activeNextPageTask = nil
-        }
-        return snapshot
+        return await nextPageTask.value
     }
 
     func followReaderArticle(
@@ -689,35 +634,26 @@ final class ArticlesScreenController {
         screenState.dismissRefreshFeedback()
         let feedRefreshID = screenState.beginFeedRefresh()
         defer { screenState.endFeedRefresh(ifMatching: feedRefreshID) }
-        manualRefreshGeneration += 1
-        let currentRefreshGeneration = manualRefreshGeneration
-        let currentSessionID = currentArticleListSessionID
-        let articleListContext = screenState.articleListSession.context
-        let result: FeedRefreshBatchResult?
-        if pendingRetryFeedIDs.isEmpty == false {
-            result = await dependencies.appActions.retryFeeds(
-                pendingRetryFeedIDs,
-                context: refreshContext,
-                using: appState,
-                requestsArticleListReload: requestsArticleListReload
-            )
-        } else {
-            result = await dependencies.appActions.refreshSelection(
-                refreshContext,
-                using: appState,
-                requestsArticleListReload: requestsArticleListReload
-            )
-        }
+        let identity = refreshLifecycle.begin(
+            sessionID: currentArticleListSessionID,
+            context: screenState.articleListSession.context
+        )
+        let result = await refreshLifecycle.refresh(
+            context: refreshContext,
+            dependencies: dependencies,
+            appState: appState,
+            requestsArticleListReload: requestsArticleListReload
+        )
 
-        guard currentRefreshGeneration == manualRefreshGeneration,
-              currentSessionID == currentArticleListSessionID,
-              articleListContext == screenState.articleListSession.context else {
-            return result
-        }
+        guard refreshLifecycle.isCurrent(
+            identity,
+            sessionID: currentArticleListSessionID,
+            context: screenState.articleListSession.context
+        ) else { return result }
 
-        pendingRetryFeedIDs = result?.retryFeedIDs ?? pendingRetryFeedIDs
+        refreshLifecycle.accept(result)
 
-        if let result, let refreshFailureMessage = refreshFailureMessage(for: result) {
+        if let result, let refreshFailureMessage = refreshLifecycle.failureMessage(for: result) {
             screenState.presentRefreshFailure(refreshFailureMessage)
             return result
         }
@@ -731,10 +667,9 @@ final class ArticlesScreenController {
             await load(
                 selection: selection,
                 sidebarArticleFilter: sidebarArticleFilter,
-                searchText: articleListContext.normalizedSearchText,
+                searchText: identity.context.normalizedSearchText,
                 dependencies: dependencies,
-                refreshesScopeMetric: true,
-                retainsSessionFilterMutations: false
+                scopeMetric: .baseScope
             )
         }
 
@@ -769,46 +704,6 @@ final class ArticlesScreenController {
             dependencies.logger.error("Failed to load app settings for unread article sort mode: \(error)")
             return .publishedAtDescending
         }
-    }
-
-    private func loadArticles(
-        for selection: SidebarSelection?,
-        sidebarArticleFilter: SidebarArticleFilter,
-        normalizedSearchText: String,
-        sortMode: ArticleSortMode,
-        loadsScopeMetric: Bool,
-        articleQueryService: any ArticleQueryService,
-        cursor: ArticleSearchRequest.Cursor? = nil
-    ) async throws -> ArticleListLoadResult {
-        let request = ArticleSearchRequest(
-            selection: selection,
-            sidebarArticleFilter: sidebarArticleFilter,
-            query: normalizedSearchText,
-            sortMode: sortMode,
-            limit: pageSize,
-            cursor: cursor,
-            scopeMetricLoadingPolicy: loadsScopeMetric ? .baseScope : .none
-        )
-        let snapshot = try await searchQueryOperation(request, articleQueryService)
-
-        return ArticleListLoadResult(
-            articles: snapshot.articles,
-            emptyContentKind: emptyContentKind(snapshot: snapshot, request: request),
-            nextPageCursor: snapshot.nextCursor,
-            scopeMetric: snapshot.scopeMetric
-        )
-    }
-
-    private func emptyContentKind(
-        snapshot: ArticleSearchResultSnapshot,
-        request: ArticleSearchRequest
-    ) -> ArticlesScreenEmptyContentKind {
-        guard snapshot.articles.isEmpty,
-              request.normalizedQuery.isEmpty == false else {
-            return .selection
-        }
-
-        return snapshot.hasScopeContent ? .searchResults : .selection
     }
 
     private func articleListFilter(
@@ -902,47 +797,6 @@ final class ArticlesScreenController {
             sortMode: sortMode
         )
     }
-
-    private func refreshFailureMessage(for result: FeedRefreshBatchResult) -> String? {
-        guard result.hasUnsuccessfulOutcome else {
-            return nil
-        }
-
-        let unsuccessfulCount = max(
-            result.retryFeedIDs.count,
-            result.batchErrorDescription == nil ? 0 : 1
-        )
-
-        if let firstError = result.failureDescriptions.first {
-            if unsuccessfulCount == 1 {
-                return firstError
-            }
-            return ReadingLocalization.multipleFeedsRefreshFailed(
-                count: unsuccessfulCount,
-                firstError: firstError
-            )
-        }
-
-        if unsuccessfulCount == 1 {
-            return ReadingLocalization.singleFeedRefreshFailed
-        }
-
-        return ReadingLocalization.multipleFeedsRefreshFailed(count: unsuccessfulCount)
-    }
-}
-
-private struct ArticleListLoadResult {
-    let articles: [ArticleListItemDTO]
-    let emptyContentKind: ArticlesScreenEmptyContentKind
-    let nextPageCursor: ArticleSearchRequest.Cursor?
-    let scopeMetric: ArticleScopeMetric?
-}
-
-private struct ArticleListNextPageIdentity: Equatable {
-    let generation: Int
-    let sessionID: UUID
-    let context: ArticleListSession.Context
-    let cursor: ArticleSearchRequest.Cursor
 }
 
 private struct ArticlesScreenLoadPlan {
