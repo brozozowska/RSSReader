@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import RSSReader
 
@@ -27,14 +28,16 @@ struct AppCompositionTests {
     }
 
     @Test
-    func appCompositionMakeAppDependenciesUsesUnifiedSwiftDataBootstrapPath() {
-        let dependencies = AppComposition.makeAppDependencies(
-            modelPartition: AppComposition.persistenceModelPartition
-        )
+    func appCompositionSwiftDataFactoryBuildsAnIsolatedGraph() throws {
+        let dependencies = makeIsolatedSwiftDataBootstrap(logger: TestLogger())
 
-        #expect(dependencies.modelContainer != nil)
+        let container = try #require(dependencies.modelContainer)
+        #expect(container.configurations.count == 2)
+        #expect(container.configurations.allSatisfy { $0.isStoredInMemoryOnly })
         #expect(dependencies.syncCoordinator != nil)
         #expect(dependencies.appSettingsService != nil)
+        #expect(dependencies.syncBackedStoreReference == nil)
+        #expect(dependencies.syncBootstrapContext?.modelContainerCloudKitPolicy == .disabled)
     }
 
     @Test

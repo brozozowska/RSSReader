@@ -1,6 +1,3 @@
-import CloudKit
-import Foundation
-import SwiftData
 import Testing
 @testable import RSSReader
 
@@ -10,21 +7,11 @@ struct AppDependenciesSwiftDataBootstrapDiagnosticsTests {
     @Test
     func appDependenciesMakeWithSwiftDataLogsModelContainerSetupMarkers() {
         let logger = RecordingLogger()
-        let syncCoordinator = SyncCoordinator(logger: logger)
-
-        _ = AppDependencies.makeWithSwiftData(
-            modelPartition: .current,
-            syncEnablementPolicy: .current,
-            syncCoordinator: syncCoordinator,
-            syncBootstrapPreferenceStore: AppDependenciesFixedSyncBootstrapPreferenceStore(currentPreference: .disabled),
-            logger: logger,
-            httpClient: UnavailableFixtureHTTPClient(),
-            feedIconCache: FeedIconCacheService(),
-            sidebarFolderExpansionStore: SidebarFolderExpansionStore(userDefaults: nil)
-        )
+        _ = makeIsolatedSwiftDataBootstrap(logger: logger)
 
         #expect(logger.contains("Starting model container setup"))
         #expect(logger.contains("syncBackedStoreIdentifier=SyncBackedStore"))
+        #expect(logger.contains("syncBackedStoreURL=in-memory"))
         #expect(logger.contains("Model container setup succeeded"))
     }
 }

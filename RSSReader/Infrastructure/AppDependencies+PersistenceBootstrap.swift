@@ -39,7 +39,9 @@ extension AppDependencies {
         articleImageRuntime: ArticleImageRuntime? = nil,
         httpClient: any HTTPClient = URLSessionHTTPClient(),
         feedIconCache: (any FeedIconCaching)? = nil,
-        sidebarFolderExpansionStore: SidebarFolderExpansionStore? = nil
+        sidebarFolderExpansionStore: SidebarFolderExpansionStore? = nil,
+        isStoredInMemoryOnly: Bool = false,
+        iCloudAccountAvailabilityService: (any ICloudAccountAvailabilityService)? = nil
     ) -> AppDependencies {
         let logger = logger ?? makeDefaultLogger()
 
@@ -47,6 +49,7 @@ extension AppDependencies {
             ?? AppSyncBootstrapPreferenceStore(logger: logger)
         let bootstrapSettingsSnapshot = makeSyncEnablementBootstrapSettingsSnapshot(
             modelPartition: modelPartition,
+            isStoredInMemoryOnly: isStoredInMemoryOnly,
             logger: logger
         )
         logger.info(
@@ -63,31 +66,37 @@ extension AppDependencies {
         )
         let syncBootstrapContext = resolveSyncBootstrapContext(
             desiredBootPreference: desiredBootPreference,
-            desiredPolicy: desiredSyncBackedCloudKitPolicy,
+            desiredPolicy: isStoredInMemoryOnly ? .disabled : desiredSyncBackedCloudKitPolicy,
             logger: logger
         )
         logger.info(
             "Resolved sync bootstrap policy selection: desiredBootPreference=\(desiredBootPreference.rawValue) desiredSyncBackedCloudKitPolicy=\(String(describing: desiredSyncBackedCloudKitPolicy)) effectiveModelContainerCloudKitPolicy=\(String(describing: syncBootstrapContext.modelContainerCloudKitPolicy)) accountAvailabilityAtBootstrap=\(String(describing: syncBootstrapContext.accountAvailabilityAtBootstrap)) localOnlyFallback=\(syncBootstrapContext.isRunningLocalOnlyFallbackForCurrentLaunch)"
         )
         let syncBackedCloudKitPolicy = syncBootstrapContext.modelContainerCloudKitPolicy
-        let syncBackedStoreReference = makeSyncBackedStoreReference(
+        let configurationPlan = makeSwiftDataConfigurationPlan(
             modelPartition: modelPartition,
+            isStoredInMemoryOnly: isStoredInMemoryOnly,
             syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
         )
+        let syncBackedStore = configurationPlan.syncBackedStore
+        let syncBackedStoreReference = isStoredInMemoryOnly ? nil : SyncBackedStoreReference(
+            runtimeStoreIdentifier: syncBackedStore.name,
+            persistentStoreURL: syncBackedStore.modelConfiguration.url
+        )
+        let storePath = syncBackedStoreReference?.persistentStoreURL.path ?? "in-memory"
         let modelContainer: ModelContainer?
         let modelContainerBootstrapFailureDescription: String?
         do {
             logger.info(
-                "Starting model container setup: syncBackedPolicy=\(String(describing: syncBackedCloudKitPolicy)) syncBackedStoreIdentifier=\(syncBackedStoreReference.runtimeStoreIdentifier) syncBackedStoreURL=\(syncBackedStoreReference.persistentStoreURL.path)"
+                "Starting model container setup: syncBackedPolicy=\(String(describing: syncBackedCloudKitPolicy)) syncBackedStoreIdentifier=\(syncBackedStore.name) syncBackedStoreURL=\(storePath)"
             )
-            modelContainer = try makeModelContainer(
-                modelPartition: modelPartition,
-                isStoredInMemoryOnly: false,
-                syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
+            modelContainer = try ModelContainer(
+                for: modelPartition.schema,
+                configurations: configurationPlan.modelContainerConfigurations
             )
             modelContainerBootstrapFailureDescription = nil
             logger.info(
-                "Model container setup succeeded: syncBackedPolicy=\(String(describing: syncBackedCloudKitPolicy)) syncBackedStoreIdentifier=\(syncBackedStoreReference.runtimeStoreIdentifier)"
+                "Model container setup succeeded: syncBackedPolicy=\(String(describing: syncBackedCloudKitPolicy)) syncBackedStoreIdentifier=\(syncBackedStore.name)"
             )
         } catch {
             let persistentStoreProbeFailureDescription = makePersistentStoreProbeFailureDescription(
@@ -95,7 +104,7 @@ extension AppDependencies {
                 syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
             )
             logger.error(
-                "Model container setup failed: syncBackedPolicy=\(String(describing: syncBackedCloudKitPolicy)) syncBackedStoreIdentifier=\(syncBackedStoreReference.runtimeStoreIdentifier) error=\(error)"
+                "Model container setup failed: syncBackedPolicy=\(String(describing: syncBackedCloudKitPolicy)) syncBackedStoreIdentifier=\(syncBackedStore.name) error=\(error)"
             )
             modelContainer = nil
             modelContainerBootstrapFailureDescription = makeModelContainerBootstrapFailureDescription(
@@ -117,6 +126,7 @@ extension AppDependencies {
             syncBootstrapPreferenceStore: resolvedSyncBootstrapPreferenceStore,
             syncBootstrapContext: syncBootstrapContext,
             globalOrphanSweepScheduleStore: globalOrphanSweepScheduleStore,
+            iCloudAccountAvailabilityService: iCloudAccountAvailabilityService,
             syncCoordinator: syncCoordinator
         )
     }
@@ -251,12 +261,13 @@ extension AppDependencies {
     @MainActor
     private static func makeSyncEnablementBootstrapSettingsSnapshot(
         modelPartition: AppPersistenceModelPartition,
+        isStoredInMemoryOnly: Bool,
         logger: Logging
     ) -> AppSettingsSnapshot? {
         do {
             let bootstrapContainer = try makeModelContainer(
                 modelPartition: modelPartition,
-                isStoredInMemoryOnly: false,
+                isStoredInMemoryOnly: isStoredInMemoryOnly,
                 syncBackedCloudKitPolicy: .disabled
             )
             return try fetchSyncEnablementBootstrapSettings(from: bootstrapContainer)
@@ -289,23 +300,6 @@ extension AppDependencies {
             storeConfigurationName: syncBackedStore.name,
             storeURL: syncBackedStore.modelConfiguration.url,
             modelTypes: syncBackedStore.modelTypes
-        )
-    }
-
-    private static func makeSyncBackedStoreReference(
-        modelPartition: AppPersistenceModelPartition,
-        syncBackedCloudKitPolicy: AppPersistenceCloudKitPolicy
-    ) -> SyncBackedStoreReference {
-        let configurationPlan = makeSwiftDataConfigurationPlan(
-            modelPartition: modelPartition,
-            isStoredInMemoryOnly: false,
-            syncBackedCloudKitPolicy: syncBackedCloudKitPolicy
-        )
-        let syncBackedStore = configurationPlan.syncBackedStore
-
-        return SyncBackedStoreReference(
-            runtimeStoreIdentifier: syncBackedStore.name,
-            persistentStoreURL: syncBackedStore.modelConfiguration.url
         )
     }
 }

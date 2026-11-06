@@ -107,6 +107,23 @@ final class AppDependenciesTestPersistentStoreRemoteChangeSource: PersistentStor
     }
 }
 
+/// Exercises the live composition's factory without starting app-lifetime work.
+@MainActor
+func makeIsolatedSwiftDataBootstrap(logger: Logging) -> AppDependencies {
+    AppDependencies.makeWithSwiftData(
+        modelPartition: AppComposition.persistenceModelPartition,
+        syncEnablementPolicy: AppComposition.syncEnablementPolicy,
+        syncCoordinator: SyncCoordinator(logger: logger),
+        syncBootstrapPreferenceStore: AppDependenciesFixedSyncBootstrapPreferenceStore(currentPreference: nil),
+        logger: logger,
+        httpClient: UnavailableFixtureHTTPClient(),
+        feedIconCache: FeedIconCacheService(),
+        sidebarFolderExpansionStore: SidebarFolderExpansionStore(userDefaults: nil),
+        isStoredInMemoryOnly: true,
+        iCloudAccountAvailabilityService: AppDependenciesTestICloudAccountAvailabilityService(initialAvailability: .noAccount)
+    )
+}
+
 struct AppDependenciesFixedSyncBootstrapPreferenceStore: AppSyncBootstrapPreferenceStoring {
     let currentPreference: AppSyncBootPreference?
 
