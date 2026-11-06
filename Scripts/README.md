@@ -164,34 +164,23 @@ fake download различает запрос release 27.2 и exact build 24B811
 
 ## GitHub Actions
 
-По решению пользователя от 31 октября 2026 CI временно использует Xcode 27.2
-**RC 27B48**, пока локальная разработка остаётся на stable 27B52. Это явное
-исключение для CI, не смена общего stable baseline. Выбран точный путь
-/Applications/Xcode_27.2_Release_Candidate.app/Contents/Developer, без mutable latest
-или автоматического принятия другого build. [Runner inventory](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md),
-image 20261026.0314.1, подтверждает наличие RC. После появления stable требуется
-отдельная правка пути/build pin и hosted validation; silently принимать RC/stable нельзя.
+CI закрепляет стабильный Xcode 27.2 build **27B52** на runner `xcode-27`.
+Точный путь — `/Applications/Xcode_27.2.app/Contents/Developer`.
+[Образ 20261104.0337.1](https://github.com/actions/runner-images/releases/tag/xcode-27-arm64%2F20261104.0337)
+заменил RC 27B48 на stable и добавил iOS 27.2. Run 42065784439 получил этот
+образ и остановился на проверке старого пути RC до сборки и тестов.
 
-Первый hosted run 41186673111 подтвердил Xcode RC/SDK, но остановился до build/tests:
-version-only download выбрал Duo-only runtime. Исправленный запрос exact build
-ещё требует нового hosted run. Наличие iOS 27.2 runtime в inventory
-не подтверждено, поэтому workflow явно подготавливает его на disposable runner:
-при отсутствии обычного image запускает xcodebuild -downloadPlatform iOS
--buildVersion 24B8117 -architectureVariant arm64. Выбор только по release 27.2
-неоднозначен: первый hosted run скачал Duo-only 24B91014. После установки обязательны точные
-identifier com.apple.CoreSimulator.SimRuntime.iOS-27-2, version 27.2, build 24B8117
-и поддержка выбранного device type. Duo-only image не заменяет обычный. Другой build,
-недоступный download или несовместимость runtime с RC дают failure; fallback на
-старую iOS или ослабление checks отсутствует. При отсутствии устройства создаётся
-один RSSReader CI iPhone через simctl. Локальные runtimes script не меняет.
+Workflow использует установленный runtime iOS 27.2. Если обычный image отсутствует,
+runner загружает его через `xcodebuild -downloadPlatform iOS -buildVersion 24B8117 -architectureVariant arm64`.
+Перед запуском проверяются identifier `com.apple.CoreSimulator.SimRuntime.iOS-27-2`,
+версия 27.2, build 24B8117 и поддержка iPhone 18 Pro. Выбор только по release 27.2
+неоднозначен. В run 41186673111 такой запрос загрузил Duo-only build 24B91014.
+Если подходящего устройства нет, workflow создаёт один RSSReader CI iPhone на runner.
 
 Для #858 пользователь подтвердил работу на iPhone 18 Pro / iOS 27.2 и принял
 ограниченный Duo gate: native launch без compatibility/emulation layout с тёмным
 полем сбоку. Полная Duo matrix (poses, resize/rotation, navigation и continuity)
 перенесена в отдельный будущий эпик и не блокирует этот переход.
-После принятия локального результата и успешного hosted RC run
-можно завершить cleanup старых локальных runtimes; ждать stable в CI ради cleanup
-при этом временном разрешении не требуется. Смена CI на stable остаётся follow-up.
 
 `.github/workflows/validation.yml` запускает `full --fresh` для pull requests
 и `workflow_dispatch`. Повторного автоматического запуска после merge/push в

@@ -14,9 +14,8 @@ concurrency:
 jobs:
   full-unit:
     name: Clean build and full unit suite
-    # Temporary, user-approved RC bridge; replace with stable 27B52 after validation.
-    # Preview image inventory checked 2026-10-31:
-    # https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md
+    # Stable Xcode 27.2 is installed from image 20261104.0337.1:
+    # https://github.com/actions/runner-images/releases/tag/xcode-27-arm64%2F20261104.0337
     runs-on: xcode-27
     # Leave time after the validation timeout to package/upload partial results.
     timeout-minutes: 100
@@ -24,9 +23,9 @@ jobs:
       run:
         shell: bash
     env:
-      DEVELOPER_DIR: /Applications/Xcode_27.2_Release_Candidate.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       EXPECTED_XCODE_VERSION: '27.2'
-      EXPECTED_XCODE_BUILD: 27B48
+      EXPECTED_XCODE_BUILD: 27B52
       EXPECTED_IOS_VERSION: '27.2'
       EXPECTED_IOS_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-27-2
       EXPECTED_IOS_RUNTIME_BUILD: 24B8117
@@ -64,8 +63,7 @@ jobs:
         run: |
           set -euo pipefail
           CI_ARTIFACTS="$RUNNER_TEMP/rssreader-ci"
-          # The hosted image currently documents SDK 27.2 but no 27.2 runtime.
-          # Explicit provisioning on this disposable runner; no older-OS fallback.
+          # Reuse the hosted minimum runtime when present, otherwise provision it.
           # Release 27.2 is ambiguous: it can select the Duo-only hardware image.
           # Request the general image by its exact build, then validate its profile.
           if ! jq -e --arg runtime "$EXPECTED_IOS_RUNTIME" \
