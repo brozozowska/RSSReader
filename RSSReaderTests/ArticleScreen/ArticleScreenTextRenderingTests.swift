@@ -166,15 +166,15 @@ struct ArticleScreenTextRenderingTests {
         #expect(
             validContent.body.blocks == [
                 .paragraph(
-                    ArticleScreenTextBlock(
+                    ArticleContentTextBlock(
                         spans: [
-                            ArticleScreenTextSpan(text: "Use CI, keep spans, "),
-                            ArticleScreenTextSpan(text: "bold", isStrong: true),
-                            ArticleScreenTextSpan(text: ", "),
-                            ArticleScreenTextSpan(text: "emphasis", isEmphasized: true),
-                            ArticleScreenTextSpan(text: ", and "),
-                            ArticleScreenTextSpan(text: "2 < 3", isCode: true),
-                            ArticleScreenTextSpan(text: ". Outside 5 > 4.")
+                            ArticleContentTextSpan(text: "Use CI, keep spans, "),
+                            ArticleContentTextSpan(text: "bold", isStrong: true),
+                            ArticleContentTextSpan(text: ", "),
+                            ArticleContentTextSpan(text: "emphasis", isEmphasized: true),
+                            ArticleContentTextSpan(text: ", and "),
+                            ArticleContentTextSpan(text: "2 < 3", isCode: true),
+                            ArticleContentTextSpan(text: ". Outside 5 > 4.")
                         ]
                     )
                 )
@@ -198,15 +198,15 @@ struct ArticleScreenTextRenderingTests {
             content.body.blocks == [
                 .paragraph(.plainText("Это уже другой уровень")),
                 .paragraph(
-                    ArticleScreenTextBlock(
+                    ArticleContentTextBlock(
                         spans: [
-                            ArticleScreenTextSpan(text: "Сообщение "),
-                            ArticleScreenTextSpan(
+                            ArticleContentTextSpan(text: "Сообщение "),
+                            ArticleContentTextSpan(
                                 text: "Создатели Flipper Zero анонсировали карманный Linux-компьютер",
                                 linkURL: URL(string: "https://thecode.media/komanda-flipper-zero")!
                             ),
-                            ArticleScreenTextSpan(text: " появились сначала на "),
-                            ArticleScreenTextSpan(
+                            ArticleContentTextSpan(text: " появились сначала на "),
+                            ArticleContentTextSpan(
                                 text: "Журнал «Код»",
                                 linkURL: URL(string: "https://thecode.media")!
                             )
@@ -231,15 +231,15 @@ struct ArticleScreenTextRenderingTests {
         #expect(
             content.body.blocks == [
                 .paragraph(
-                    ArticleScreenTextBlock(
+                    ArticleContentTextBlock(
                         spans: [
-                            ArticleScreenTextSpan(text: "Short "),
-                            ArticleScreenTextSpan(text: "summary", isStrong: true),
-                            ArticleScreenTextSpan(text: " paragraph.")
+                            ArticleContentTextSpan(text: "Short "),
+                            ArticleContentTextSpan(text: "summary", isStrong: true),
+                            ArticleContentTextSpan(text: " paragraph.")
                         ]
                     )
                 ),
-                .fallbackNotice(ReadingLocalization.summaryOnlyFallbackNotice)
+                .fallbackNotice(.summaryOnly)
             ]
         )
         #expect(content.body.source == .summary)
@@ -259,14 +259,14 @@ struct ArticleScreenTextRenderingTests {
         #expect(
             content.body.blocks == [
                 .paragraph(
-                    ArticleScreenTextBlock(
+                    ArticleContentTextBlock(
                         spans: [
-                            ArticleScreenTextSpan(text: "Read "),
-                            ArticleScreenTextSpan(
+                            ArticleContentTextSpan(text: "Read "),
+                            ArticleContentTextSpan(
                                 text: "Swift Guide",
                                 linkURL: URL(string: "https://example.com/guides/swift")!
                             ),
-                            ArticleScreenTextSpan(text: " today.")
+                            ArticleContentTextSpan(text: " today.")
                         ]
                     )
                 )
@@ -286,14 +286,14 @@ struct ArticleScreenTextRenderingTests {
         #expect(
             content.body.blocks == [
                 .paragraph(
-                    ArticleScreenTextBlock(
+                    ArticleContentTextBlock(
                         spans: [
-                            ArticleScreenTextSpan(text: "Read more at "),
-                            ArticleScreenTextSpan(
+                            ArticleContentTextSpan(text: "Read more at "),
+                            ArticleContentTextSpan(
                                 text: "https://example.com/guides/swift",
                                 linkURL: URL(string: "https://example.com/guides/swift")!
                             ),
-                            ArticleScreenTextSpan(text: " today.")
+                            ArticleContentTextSpan(text: " today.")
                         ]
                     )
                 )
@@ -304,14 +304,14 @@ struct ArticleScreenTextRenderingTests {
 
     @Test
     func articleScreenTextBlockBuildsAttributedStringWithLinkAttributes() {
-        let textBlock = ArticleScreenTextBlock(
+        let textBlock = ArticleContentTextBlock(
             spans: [
-                ArticleScreenTextSpan(text: "Read "),
-                ArticleScreenTextSpan(
+                ArticleContentTextSpan(text: "Read "),
+                ArticleContentTextSpan(
                     text: "Swift Guide",
                     linkURL: URL(string: "https://example.com/guides/swift")!
                 ),
-                ArticleScreenTextSpan(text: " today.")
+                ArticleContentTextSpan(text: " today.")
             ]
         )
 
@@ -378,14 +378,14 @@ struct ArticleScreenTextRenderingTests {
 
         // Mark contributes no attributes; every other supported intent stays identical.
         for span in text.spans where span.isMarked {
-            let unmarked = ArticleScreenTextSpan(
+            let unmarked = ArticleContentTextSpan(
                 text: span.text, linkURL: span.linkURL,
                 isStrong: span.isStrong, isEmphasized: span.isEmphasized, isCode: span.isCode,
                 verticalAlignment: span.verticalAlignment, isDeleted: span.isDeleted,
                 isInserted: span.isInserted, codeSemantic: span.codeSemantic, isCitation: span.isCitation
             )
-            #expect(ArticleScreenTextBlock(spans: [span]).attributedString ==
-                    ArticleScreenTextBlock(spans: [unmarked]).attributedString)
+            #expect(ArticleContentTextBlock(spans: [span]).attributedString ==
+                    ArticleContentTextBlock(spans: [unmarked]).attributedString)
         }
     }
 
@@ -474,7 +474,7 @@ struct ArticleScreenTextRenderingTests {
             content.body.blocks == [
                 .paragraph(.plainText("Short summary paragraph.")),
                 .paragraph(.plainText("Another summary paragraph.")),
-                .fallbackNotice(ReadingLocalization.summaryOnlyFallbackNotice)
+                .fallbackNotice(.summaryOnly)
             ]
         )
         #expect(content.body.source == .summary)
@@ -492,7 +492,7 @@ struct ArticleScreenTextRenderingTests {
 
         #expect(
             content.body.blocks == [
-                .fallbackNotice(ReadingLocalization.emptyBodyFallbackNotice)
+                .fallbackNotice(.emptyBody)
             ]
         )
         #expect(content.body.source == .empty)

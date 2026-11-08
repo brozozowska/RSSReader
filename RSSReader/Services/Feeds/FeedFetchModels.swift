@@ -126,10 +126,6 @@ public struct FeedRequest: Sendable {
         )
     }
 
-    public var hasConditionalHeaders: Bool {
-        ifNoneMatch != nil || ifModifiedSince != nil
-    }
-
     private static func normalizeHeaderValue(_ value: String?) -> String? {
         guard let value else { return nil }
 
@@ -152,7 +148,7 @@ public struct FeedRequest: Sendable {
     }()
 }
 
-public struct FeedResponse: Sendable {
+public nonisolated struct FeedResponse: Sendable {
     public let request: FeedRequest
     public let sourceURL: URL
     public let statusCode: Int
@@ -195,19 +191,6 @@ public struct FeedResponse: Sendable {
 
     public var contentType: String? {
         headers["content-type"]
-    }
-
-    public var normalizedContentType: String? {
-        guard let contentType else { return nil }
-
-        let rawValue = contentType
-            .split(separator: ";", maxSplits: 1)
-            .first?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-
-        guard let rawValue, rawValue.isEmpty == false else { return nil }
-        return rawValue
     }
 
     public var isNotModified: Bool {

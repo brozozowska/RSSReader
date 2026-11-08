@@ -91,7 +91,7 @@ struct AppRefreshIndicator: View {
     }
 }
 
-private struct RefreshRing: Shape {
+private nonisolated struct RefreshRing: Shape {
     let progress: Double
 
     func path(in rect: CGRect) -> Path {

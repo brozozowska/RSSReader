@@ -281,16 +281,6 @@ enum ReadingLocalization {
         defaultValue: "Unstar",
         comment: "Action title for unstarring an article."
     )
-    static let readAction = String(
-        localized: "reading.articles.row.action.read",
-        defaultValue: "Read",
-        comment: "Swipe action title for marking an article row as read."
-    )
-    static let unreadAction = String(
-        localized: "reading.articles.row.action.unread",
-        defaultValue: "Unread",
-        comment: "Swipe action title for marking an article row as unread."
-    )
     static let openSourceArticleAction = String(
         localized: "reading.article.action.openSource",
         defaultValue: "Open Source Article",

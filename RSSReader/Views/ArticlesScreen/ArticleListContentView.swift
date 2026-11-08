@@ -6,7 +6,7 @@ struct ArticleListContentView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     let sections: [ArticlesDaySection]
     let animationState: ArticleListAnimationState
-    let customRefreshState: ArticlesScreenCustomRefreshState
+    let customRefreshState: AppPullRefreshState
     let canLoadNextPage: Bool
     let isLoadingNextPage: Bool
     var allowsArticleActions = true
@@ -14,7 +14,7 @@ struct ArticleListContentView: View {
     var listSessionID: UUID?
     @Binding var selection: UUID?
     @Binding var scrollPositionID: UUID?
-    let customRefreshPullProgressChanged: @MainActor (Double) -> Void
+    let customRefreshPullProgressChanged: @MainActor @Sendable (Double) -> Void
     let customRefreshReleaseAction: @MainActor () async -> Void
     let loadNextPageAction: @MainActor () async -> Void
     let toggleReadStatusAction: @MainActor (ArticleListItemDTO) -> Void
@@ -40,6 +40,7 @@ struct ArticleListContentView: View {
             paginationFooter
         }
         .disabled(allowsArticleActions == false)
+        .accessibilityIdentifier("articles.list")
         .listStyle(.plain)
         .listSectionSpacing(12)
         .scrollContentBackground(.hidden)

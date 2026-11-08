@@ -31,6 +31,7 @@ struct ArticleListRowView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(content.titleText)
+                    .accessibilityIdentifier("articles.row.\(article.id.uuidString)")
                     .font(.body)
                     .foregroundStyle(titleForegroundStyle)
                     .multilineTextAlignment(.leading)

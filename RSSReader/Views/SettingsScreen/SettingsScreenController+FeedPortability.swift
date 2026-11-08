@@ -34,6 +34,7 @@ extension SettingsScreenController {
         } catch is CancellationError {
             return
         } catch {
+            guard Task.isCancelled == false else { return }
             dependencies.logger.error("Failed to prepare OPML import preview: \(error)")
             screenState.applyOPMLTransferStatus(
                 SettingsOPMLTransferStatusPresentation(
@@ -43,6 +44,17 @@ extension SettingsScreenController {
                 )
             )
         }
+    }
+
+    func applyOPMLImportPresentationFailure(_ error: any Error, dependencies: AppDependencies) {
+        dependencies.logger.error("OPML file importer failed: \(error)")
+        screenState.applyOPMLTransferStatus(
+            SettingsOPMLTransferStatusPresentation(
+                title: SettingsLocalization.opmlImportFailedTitle,
+                message: SettingsLocalization.selectedFileOpenFailureMessage,
+                kind: .failure
+            )
+        )
     }
 
     func dismissOPMLImportPreview() {

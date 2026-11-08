@@ -16,25 +16,6 @@ extension AppActionRouter {
     }
 
     @MainActor
-    func refreshAfterAddingFeed(id feedID: UUID, using appState: AppState) async -> FeedRefreshResult? {
-        guard let result = await refreshFeed(id: feedID) else { return nil }
-        appState.requestSidebarReload()
-        showFeed(id: feedID, using: appState)
-        dismissFeedManagement(using: appState)
-        return result
-    }
-
-    @MainActor
-    func refreshSelectedFeed(using appState: AppState) async -> FeedRefreshResult? {
-        guard let selectedFeedID = appState.selectedFeedID else {
-            logger.info("Skipped manual refresh because no feed is selected")
-            return nil
-        }
-
-        return await refreshFeed(id: selectedFeedID)
-    }
-
-    @MainActor
     func refreshAllFeeds() async -> FeedRefreshBatchResult? {
         guard let feedRefreshService else {
             logger.error("Feed refresh service is unavailable")
@@ -105,21 +86,6 @@ extension AppActionRouter {
                 requestedTargetFeedIDs: requestedFeedIDs
             )
             return result
-        }
-    }
-
-    @MainActor
-    func refreshCurrentFeed(using appState: AppState) async -> FeedRefreshResult? {
-        switch appState.selectedSidebarSelection {
-        case .feed(let feedID):
-            let result = await refreshFeed(id: feedID)
-            if result != nil {
-                appState.requestArticleListReload()
-            }
-            return result
-        case .inbox, .unread, .starred, .folder, .none:
-            logger.info("Skipped feed refresh because the current sidebar selection is not a single feed")
-            return nil
         }
     }
 

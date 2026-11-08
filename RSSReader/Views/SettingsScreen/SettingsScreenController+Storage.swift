@@ -3,10 +3,8 @@ import Foundation
 @MainActor
 extension SettingsScreenController {
     func clearArticleImageCache(dependencies: AppDependencies) async {
-        ArticleImageMemoryCache.shared.removeAllImages()
-
         do {
-            try await ArticleImageDiskCache.shared.removeAll()
+            try await dependencies.articleImageCache.clearCachedImages()
             screenState.applyArticleImageCacheAvailability(false)
             dependencies.logger.info("Cleared article image cache")
         } catch {

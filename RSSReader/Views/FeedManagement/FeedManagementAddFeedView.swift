@@ -159,7 +159,13 @@ struct FeedManagementAddFeedView: View {
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
-        .background(appThemeVariant.primaryBackground)
+        .background {
+            if isRenamingFeed {
+                appThemeVariant.primaryBackground.ignoresSafeArea()
+            } else {
+                appThemeVariant.primaryBackground
+            }
+        }
         .navigationTitle(presentation.title)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(showsCloseControl)
@@ -185,7 +191,7 @@ struct FeedManagementAddFeedView: View {
         }
     }
 
-    private var shouldFocusDisplayNameOnAppear: Bool {
+    private var isRenamingFeed: Bool {
         presentation.showsDisplayNameInput
         && presentation.showsURLInput == false
         && presentation.allowsPreviewAction == false
@@ -193,7 +199,7 @@ struct FeedManagementAddFeedView: View {
 
     @MainActor
     private func requestInitialDisplayNameFocusIfNeeded() async {
-        guard shouldFocusDisplayNameOnAppear,
+        guard isRenamingFeed,
               didRequestInitialDisplayNameFocus == false else {
             return
         }

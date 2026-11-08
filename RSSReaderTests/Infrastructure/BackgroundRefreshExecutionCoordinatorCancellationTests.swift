@@ -26,7 +26,9 @@ struct BackgroundRefreshExecutionCoordinatorCancellationTests {
             await coordinator.executeAppRefresh()
         }
 
-        await Task.yield()
+        defer { task.cancel() }
+
+        try await backgroundRefreshService.started.wait("background refresh service entry")
         task.cancel()
         let outcome = await task.value
 

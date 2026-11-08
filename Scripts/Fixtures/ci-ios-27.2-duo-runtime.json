@@ -1,0 +1,14 @@
+{
+  "identifier": "com.apple.CoreSimulator.SimRuntime.iOS-27-2-iPhone19-4",
+  "platform": "iOS",
+  "version": "27.2",
+  "buildversion": "24B91014",
+  "isAvailable": true,
+  "supportedDeviceTypes": [
+    {
+      "name": "iPhone Duo",
+      "productFamily": "iPhone",
+      "identifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-Duo"
+    }
+  ]
+}

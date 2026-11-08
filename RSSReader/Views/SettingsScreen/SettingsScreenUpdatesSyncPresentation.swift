@@ -2,13 +2,10 @@ import Foundation
 
 extension SettingsScreenPresentationBuilder {
     static func updatesAndSyncSection(from input: SettingsScreenInput) -> SettingsScreenSectionPresentation {
-        let readingScenario = CrossDeviceReadingScenario.current
-        let syncScope = CloudKitSyncScope.current
-
-        return SettingsScreenSectionPresentation(
+        SettingsScreenSectionPresentation(
             id: .updatesAndSync,
             title: SettingsLocalization.updatesSyncSectionTitle,
-            footer: updatesAndSyncSectionFooter(input: input, syncScope: syncScope, readingScenario: readingScenario),
+            footer: updatesAndSyncSectionFooter(input: input),
             items: [
                 .picker(
                     SettingsPickerItemPresentation(
@@ -156,9 +153,7 @@ extension SettingsScreenPresentationBuilder {
     }
 
     private static func updatesAndSyncSectionFooter(
-        input: SettingsScreenInput,
-        syncScope: CloudKitSyncScope,
-        readingScenario: CrossDeviceReadingScenario
+        input: SettingsScreenInput
     ) -> String {
         let fallbackFooter: String
         if input.isUsingLocalOnlySyncFallbackForCurrentLaunch {
@@ -166,9 +161,6 @@ extension SettingsScreenPresentationBuilder {
         } else {
             fallbackFooter = ""
         }
-
-        _ = syncScope
-        _ = readingScenario
 
         return "\(SettingsLocalization.iCloudScopeAccountFooter) \(fallbackFooter)"
             .trimmingCharacters(in: .whitespaces)

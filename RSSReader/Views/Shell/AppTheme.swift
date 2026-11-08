@@ -46,17 +46,6 @@ enum AppThemeVariant: String, Equatable, Sendable {
             tertiaryBackground
         }
     }
-
-    var previewGradientColors: [Color] {
-        switch self {
-        case .light:
-            [Color.white, Color(uiColor: .systemGray6)]
-        case .dark:
-            [Color(red: 0.16, green: 0.16, blue: 0.18), Color(red: 0.11, green: 0.11, blue: 0.13)]
-        case .black:
-            [Color.black, Color(red: 0.05, green: 0.05, blue: 0.06)]
-        }
-    }
 }
 
 struct AppThemeApplicationPolicy {

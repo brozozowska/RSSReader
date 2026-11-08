@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 @testable import RSSReader
 
@@ -217,7 +218,7 @@ struct URLSessionHTTPClientTests {
 }
 
 private nonisolated final class BoundedHTTPURLProtocol: URLProtocol, @unchecked Sendable {
-    nonisolated struct Scenario: @unchecked Sendable {
+    nonisolated struct Scenario: Sendable {
         let statusCode: Int
         let headers: [String: String]
         let chunks: [Data]
@@ -269,30 +270,23 @@ private nonisolated final class BoundedHTTPURLProtocol: URLProtocol, @unchecked 
         }
     }
 
-    private static let registryLock = NSLock()
-    nonisolated(unsafe) private static var scenariosByURL: [URL: Scenario] = [:]
+    private static let scenariosByURL = Mutex<[URL: Scenario]>([:])
 
     private let stateLock = NSLock()
     private var deliveryTask: Task<Void, Never>?
     private var stopped = false
 
     static func register(_ scenario: Scenario, for url: URL) {
-        registryLock.lock()
-        scenariosByURL[url] = scenario
-        registryLock.unlock()
+        scenariosByURL.withLock { $0[url] = scenario }
     }
 
     static func unregister(_ url: URL) {
-        registryLock.lock()
-        scenariosByURL[url] = nil
-        registryLock.unlock()
+        scenariosByURL.withLock { $0[url] = nil }
     }
 
     override class func canInit(with request: URLRequest) -> Bool {
         guard let url = request.url else { return false }
-        registryLock.lock()
-        defer { registryLock.unlock() }
-        return scenariosByURL[url] != nil
+        return scenario(for: url) != nil
     }
 
     override class func canonicalRequest(for request: URLRequest) -> URLRequest {
@@ -315,7 +309,7 @@ private nonisolated final class BoundedHTTPURLProtocol: URLProtocol, @unchecked 
         scenario.lifecycleProbe?.markStarted()
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
 
-        let deliveryTask = Task { [weak self] in
+        let deliveryTask = Task { @Sendable [weak self] in
             guard let self else { return }
 
             for chunk in scenario.chunks {
@@ -364,8 +358,6 @@ private nonisolated final class BoundedHTTPURLProtocol: URLProtocol, @unchecked 
     }
 
     private static func scenario(for url: URL) -> Scenario? {
-        registryLock.lock()
-        defer { registryLock.unlock() }
-        return scenariosByURL[url]
+        scenariosByURL.withLock { $0[url] }
     }
 }

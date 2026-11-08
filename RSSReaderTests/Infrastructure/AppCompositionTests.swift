@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import RSSReader
 
@@ -27,14 +28,16 @@ struct AppCompositionTests {
     }
 
     @Test
-    func appCompositionMakeAppDependenciesUsesUnifiedSwiftDataBootstrapPath() {
-        let dependencies = AppComposition.makeAppDependencies(
-            modelPartition: AppComposition.persistenceModelPartition
-        )
+    func appCompositionSwiftDataFactoryBuildsAnIsolatedGraph() throws {
+        let dependencies = makeIsolatedSwiftDataBootstrap(logger: TestLogger())
 
-        #expect(dependencies.modelContainer != nil)
+        let container = try #require(dependencies.modelContainer)
+        #expect(container.configurations.count == 2)
+        #expect(container.configurations.allSatisfy { $0.isStoredInMemoryOnly })
         #expect(dependencies.syncCoordinator != nil)
         #expect(dependencies.appSettingsService != nil)
+        #expect(dependencies.syncBackedStoreReference == nil)
+        #expect(dependencies.syncBootstrapContext?.modelContainerCloudKitPolicy == .disabled)
     }
 
     @Test
@@ -61,31 +64,6 @@ struct AppCompositionTests {
         #expect(
             logger.contains(
                 "Skipped CloudKit development schema bootstrap because app launch guard already attempted it",
-                level: .debug
-            )
-        )
-    }
-
-    @Test
-    func appCompositionDisposableCacheMigrationGuardRunsCleanupOnlyOncePerLaunch() {
-        let logger = RecordingLogger()
-        let bootstrapGuard = AppLaunchBootstrapGuard()
-        var cleanupRunCount = 0
-
-        for _ in 0..<2 {
-            AppComposition.runDisposableCacheMigrationIfNeeded(
-                logger: logger,
-                guard: bootstrapGuard
-            ) {
-                cleanupRunCount += 1
-                return false
-            }
-        }
-
-        #expect(cleanupRunCount == 1)
-        #expect(
-            logger.contains(
-                "Skipped disposable cache migration because app launch guard already attempted it",
                 level: .debug
             )
         )

@@ -34,8 +34,4 @@ struct CrossDeviceReadingScenario: Equatable, Sendable {
     var keepsArticleImagesLocalOnly: Bool {
         true
     }
-
-    var settingsSectionFooter: String {
-        "Feeds, folders, articles, and reading state sync across devices. Article images stay cached on each device."
-    }
 }

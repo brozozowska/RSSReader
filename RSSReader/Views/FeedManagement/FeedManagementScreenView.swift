@@ -34,6 +34,30 @@ struct FeedManagementScreenView: View {
             destinationPath: $destinationPath
         )
 
+        Group {
+            if case .editFeed = activeLaunchContext {
+                NavigationStack {
+                    if viewState.presentedDestination?.id == .addFeed {
+                        destinationFactory.destinationView(for: .addFeed)
+                    }
+                }
+            } else {
+                scenarioNavigation(viewState: viewState, destinationFactory: destinationFactory)
+            }
+        }
+        .task(id: activeLaunchContext) {
+            destinationFactory.handleLaunchContext(activeLaunchContext)
+        }
+        .onChange(of: launchContext) { _, newValue in
+            updateActiveLaunchContext(newValue)
+        }
+        .presentationDetents(feedManagementPresentationDetents)
+    }
+
+    private func scenarioNavigation(
+        viewState: FeedManagementScreenViewState,
+        destinationFactory: FeedManagementScreenDestinationFactory
+    ) -> some View {
         NavigationStack(path: destinationPathBinding) {
             List {
                 Section {
@@ -75,14 +99,7 @@ struct FeedManagementScreenView: View {
             .navigationDestination(for: FeedManagementScenarioID.self) { scenarioID in
                 destinationFactory.destinationView(for: scenarioID)
             }
-            .task(id: activeLaunchContext) {
-                destinationFactory.handleLaunchContext(activeLaunchContext)
-            }
-            .onChange(of: launchContext) { _, newValue in
-                updateActiveLaunchContext(newValue)
-            }
         }
-        .presentationDetents(feedManagementPresentationDetents)
     }
 
     private var feedManagementPresentationDetents: Set<PresentationDetent> {

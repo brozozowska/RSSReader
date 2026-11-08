@@ -10,6 +10,7 @@ struct SidebarToolbarContent: ToolbarContent {
                 Image(systemName: "gearshape")
             }
             .accessibilityLabel(SidebarLocalization.settingsAccessibilityLabel)
+            .accessibilityIdentifier("sidebar.settings")
         }
 
         ToolbarItem(placement: SidebarToolbarPlacement.addFeed) {

@@ -1,0 +1,223 @@
+import Foundation
+
+nonisolated enum ArticleContentBodyPayloadKind: Equatable {
+    case plainText
+    case html
+}
+
+nonisolated struct ArticleContentBodyPayload: Equatable {
+    let kind: ArticleContentBodyPayloadKind
+    let value: String
+}
+
+nonisolated enum ArticleContentBodyPayloadNormalizer {
+    static let recognizedHTMLTagNamePattern = #"a|abbr|address|article|aside|audio|b|button|bdi|bdo|blockquote|br|caption|cite|code|col|colgroup|data|dd|del|details|dfn|div|dl|dt|em|embed|figcaption|figure|footer|h[1-6]|header|hgroup|hr|i|iframe|img|ins|kbd|label|li|main|mark|nav|ol|p|picture|pre|q|rp|rt|ruby|s|samp|section|small|source|span|strong|sub|summary|sup|table|tbody|td|tfoot|th|thead|time|tr|u|ul|var|video|wbr"#
+
+    static func normalize(
+        _ rawValue: String?,
+        preferredKind: ArticleContentBodyPayloadKind
+    ) -> ArticleContentBodyPayload? {
+        guard let rawValue else { return nil }
+
+        let scalarValue = normalizeScalar(rawValue)
+        guard scalarValue.isEmpty == false else { return nil }
+
+        var decodedValue = scalarValue
+        for _ in 0..<3 {
+            // Decode only the outer feed envelope. Once markup exists, entities are
+            // text/attribute content and must not become comment or structure tokens.
+            let visibleMarkup = ArticleContentHTMLCommentFilter.removingComments(in: decodedValue)
+            if containsHTMLTag(visibleMarkup)
+                || (preferredKind == .html && decodedValue.contains("<!--") && containsEscapedHTMLTag(visibleMarkup) == false) {
+                break
+            }
+            let nextValue = transformOutsideCode(decodedValue) { decodeHTMLEntitiesOnce(in: $0) }
+            if nextValue == decodedValue { break }
+            decodedValue = nextValue
+        }
+        // With no document structure, an escaped comment embedded in prose is
+        // literal text, not an outer HTML envelope. Decode it only at text rendering.
+        if preferredKind == .html,
+           containsHTMLTag(ArticleContentHTMLCommentFilter.removingComments(in: decodedValue)) == false,
+           scalarValue.contains("<!--") == false,
+           decodedValue.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("<!--") == false {
+            decodedValue = scalarValue
+        }
+        let resolvedKind = resolvedKind(
+            rawValue: scalarValue,
+            decodedValue: decodedValue,
+            preferredKind: preferredKind
+        )
+
+        let normalizedValue: String
+        switch resolvedKind {
+        case .plainText:
+            normalizedValue = normalizePlainText(decodedValue)
+        case .html:
+            normalizedValue = normalizeHTML(decodedValue)
+        }
+
+        guard normalizedValue.isEmpty == false else { return nil }
+        return ArticleContentBodyPayload(kind: resolvedKind, value: normalizedValue)
+    }
+
+    static func decodeHTMLEntities(in value: String) -> String {
+        var decodedValue = value
+
+        for _ in 0..<3 {
+            let nextValue = decodeHTMLEntitiesOnce(in: decodedValue)
+            guard nextValue != decodedValue else { break }
+            decodedValue = nextValue
+        }
+
+        return decodedValue
+    }
+
+    /// Literal code/pre content must not become executable article structure after entity decoding.
+    static func transformOutsideCode(_ html: String, transform: (String) -> String) -> String {
+        let pattern = #"(?is)<(pre|code)\b[^>]*>.*?</\1\s*>"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return transform(html) }
+        let nsHTML = html as NSString
+        var result = ""
+        var location = 0
+        for match in regex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length)) {
+            result += transform(nsHTML.substring(with: NSRange(location: location, length: match.range.location - location)))
+            result += nsHTML.substring(with: match.range)
+            location = NSMaxRange(match.range)
+        }
+        result += transform(nsHTML.substring(from: location))
+        return result
+    }
+
+    private static func resolvedKind(
+        rawValue: String,
+        decodedValue: String,
+        preferredKind: ArticleContentBodyPayloadKind
+    ) -> ArticleContentBodyPayloadKind {
+        if containsHTMLTag(ArticleContentHTMLCommentFilter.removingComments(in: decodedValue))
+            || containsEscapedHTMLTag(ArticleContentHTMLCommentFilter.removingComments(in: rawValue)) {
+            return .html
+        }
+
+        return preferredKind
+    }
+
+    private static func normalizeScalar(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .replacingOccurrences(of: "\u{FEFF}", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func normalizePlainText(_ value: String) -> String {
+        let paragraphs = value.components(separatedBy: "\n\n")
+        let normalizedParagraphs = paragraphs.compactMap { paragraph -> String? in
+            let normalizedLines = paragraph
+                .components(separatedBy: .newlines)
+                .map(normalizeInlineWhitespace)
+                .filter { $0.isEmpty == false }
+
+            let normalizedParagraph = normalizedLines.joined(separator: " ")
+            return normalizedParagraph.isEmpty ? nil : normalizedParagraph
+        }
+
+        return normalizedParagraphs.joined(separator: "\n\n")
+    }
+
+    nonisolated private static func normalizeInlineWhitespace(_ value: String) -> String {
+        value
+            .components(separatedBy: .whitespaces)
+            .filter { $0.isEmpty == false }
+            .joined(separator: " ")
+    }
+
+    private static func normalizeHTML(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\u{00A0}", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func containsHTMLTag(_ value: String) -> Bool {
+        value.range(
+            of: #"<\s*/?\s*(\#(recognizedHTMLTagNamePattern))\b"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil
+    }
+
+    private static func containsEscapedHTMLTag(_ value: String) -> Bool {
+        value.range(
+            of: #"&lt;\s*/?\s*(\#(recognizedHTMLTagNamePattern))\b"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil
+    }
+
+    private static func decodeHTMLEntitiesOnce(in value: String) -> String {
+        var decodedValue = ""
+        var currentIndex = value.startIndex
+
+        while currentIndex < value.endIndex {
+            guard value[currentIndex] == "&",
+                  let semicolonIndex = value[currentIndex...].firstIndex(of: ";")
+            else {
+                decodedValue.append(value[currentIndex])
+                currentIndex = value.index(after: currentIndex)
+                continue
+            }
+
+            let entityStartIndex = value.index(after: currentIndex)
+            let entity = String(value[entityStartIndex..<semicolonIndex])
+
+            if let decodedEntity = decodeEntity(entity) {
+                decodedValue.append(decodedEntity)
+                currentIndex = value.index(after: semicolonIndex)
+            } else {
+                decodedValue.append(value[currentIndex])
+                currentIndex = value.index(after: currentIndex)
+            }
+        }
+
+        return decodedValue
+    }
+
+    private static func decodeEntity(_ entity: String) -> String? {
+        if entity.hasPrefix("#x") || entity.hasPrefix("#X") {
+            return decodeNumericEntity(String(entity.dropFirst(2)), radix: 16)
+        }
+
+        if entity.hasPrefix("#") {
+            return decodeNumericEntity(String(entity.dropFirst()), radix: 10)
+        }
+
+        return namedHTMLEntities[entity.lowercased()]
+    }
+
+    private static func decodeNumericEntity(_ value: String, radix: Int) -> String? {
+        guard let scalarValue = UInt32(value, radix: radix),
+              let scalar = UnicodeScalar(scalarValue)
+        else {
+            return nil
+        }
+
+        return String(Character(scalar))
+    }
+
+    private static let namedHTMLEntities: [String: String] = [
+        "amp": "&",
+        "apos": "'",
+        "bull": "•",
+        "copy": "©",
+        "gt": ">",
+        "hellip": "...",
+        "laquo": "«",
+        "lt": "<",
+        "mdash": "—",
+        "ndash": "–",
+        "nbsp": " ",
+        "quot": "\"",
+        "raquo": "»",
+        "reg": "®",
+        "rsquo": "’",
+        "trade": "™"
+    ]
+}

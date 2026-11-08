@@ -166,11 +166,6 @@ enum SettingsLocalization {
         defaultValue: "App settings, feeds, folders, articles, and their states sync across devices using iCloud and your Apple ID. Article images and feed icons are stored separately on each device. Changing the sync setting applies on the next app launch.",
         comment: "Footer explaining iCloud sync scope and relaunch behavior in the Updates & Sync settings section."
     )
-    static let iCloudScopeRelaunchFooter = String(
-        localized: "settings.updatesSync.footer.relaunch",
-        defaultValue: "Changing the sync preference applies on the next app launch.",
-        comment: "Footer sentence explaining sync preference relaunch behavior."
-    )
     static let iCloudScopeFallbackFooter = String(
         localized: "settings.updatesSync.footer.fallback",
         defaultValue: "Sync will try again on the next launch when iCloud is available.",
@@ -754,11 +749,6 @@ enum SettingsLocalization {
         localized: "settings.feedPortability.import.readFailure.message",
         defaultValue: "The app could not read the selected OPML file.",
         comment: "Status alert message when OPML parsing fails for an unknown reason."
-    )
-    static let selectedFileReadFailureMessage = String(
-        localized: "settings.feedPortability.import.selectedFileReadFailure.message",
-        defaultValue: "The app could not read the selected file.",
-        comment: "Status alert message when the imported file URL cannot be read."
     )
     static let selectedFileOpenFailureMessage = String(
         localized: "settings.feedPortability.import.selectedFileOpenFailure.message",

@@ -24,7 +24,7 @@ protocol CloudKitRuntimeEventSource: Sendable {
     func events() -> AsyncStream<CloudKitRuntimeEvent>
 }
 
-protocol PersistentCloudKitEventRepresenting {
+nonisolated protocol PersistentCloudKitEventRepresenting {
     var type: NSPersistentCloudKitContainer.EventType { get }
     var identifier: UUID { get }
     var storeIdentifier: String { get }
@@ -36,7 +36,7 @@ protocol PersistentCloudKitEventRepresenting {
 
 extension NSPersistentCloudKitContainer.Event: PersistentCloudKitEventRepresenting {}
 
-struct DefaultCloudKitRuntimeEventSource: CloudKitRuntimeEventSource, @unchecked Sendable {
+nonisolated struct DefaultCloudKitRuntimeEventSource: CloudKitRuntimeEventSource {
     private let notificationCenter: NotificationCenter
     private let eventChangedNotification: Notification.Name
     private let eventNotificationUserInfoKey: String
@@ -53,11 +53,7 @@ struct DefaultCloudKitRuntimeEventSource: CloudKitRuntimeEventSource, @unchecked
 
     func events() -> AsyncStream<CloudKitRuntimeEvent> {
         AsyncStream { continuation in
-            let observer = notificationCenter.addObserver(
-                forName: eventChangedNotification,
-                object: nil,
-                queue: nil
-            ) { notification in
+            let observation = NotificationObservation(center: notificationCenter, name: eventChangedNotification) { notification in
                 guard let runtimeEvent = Self.makeRuntimeEvent(
                     from: notification,
                     eventNotificationUserInfoKey: eventNotificationUserInfoKey
@@ -68,9 +64,7 @@ struct DefaultCloudKitRuntimeEventSource: CloudKitRuntimeEventSource, @unchecked
                 continuation.yield(runtimeEvent)
             }
 
-            continuation.onTermination = { _ in
-                notificationCenter.removeObserver(observer)
-            }
+            continuation.onTermination = { _ in observation.cancel() }
         }
     }
 

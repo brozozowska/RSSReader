@@ -677,11 +677,11 @@ struct ReadingShellAppStateTests {
         let articleID = UUID()
         let nextArticleID = UUID()
 
-        appState.articleNavigationContextIDs = [
+        appState.updateArticleNavigationContext([
             articleID,
             articleID,
             nextArticleID
-        ]
+        ])
         appState.selectedArticleID = articleID
 
         #expect(appState.selectAdjacentArticle(.next))

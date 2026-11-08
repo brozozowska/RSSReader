@@ -19,10 +19,7 @@ struct SettingsScreenView: View {
     @State private var isArchivedArticlesPurgeConfirmationPresented = false
     @State private var isArticleImageCacheResetConfirmationPresented = false
     @State private var isFeedIconCacheResetConfirmationPresented = false
-    @State private var isOPMLImporterPresented = false
-    @State private var isOPMLExporterPresented = false
-    @State private var opmlExportDocument: SettingsOPMLFileDocument?
-    @State private var opmlImportTask: Task<Void, Never>?
+    @State private var opmlPresentation = SettingsOPMLPresentationBridge()
     let dismiss: () -> Void
 
     init(
@@ -46,6 +43,7 @@ struct SettingsScreenView: View {
                             Image(systemName: "xmark")
                         }
                         .accessibilityLabel(SettingsLocalization.closeSettingsAccessibilityLabel)
+                        .accessibilityIdentifier("settings.close")
                     }
 
                     ToolbarItem(placement: .confirmationAction) {
@@ -67,7 +65,6 @@ struct SettingsScreenView: View {
                     await controller.refreshFeedIconCacheAvailability(dependencies: dependencies)
                 }
                 .onDisappear {
-                    opmlImportTask?.cancel()
                     guard didCommitSettingsChanges == false else { return }
                     controller.discardPreviewedAppearanceChanges(appState: appState)
                 }
@@ -104,52 +101,10 @@ struct SettingsScreenView: View {
                 } message: {
                     Text(SettingsLocalization.clearFeedIconCacheAlertMessage)
                 }
-                .fileImporter(
-                    isPresented: $isOPMLImporterPresented,
-                    allowedContentTypes: SettingsOPMLFileDocument.readableContentTypes
-                ) { result in
-                    handleOPMLImportResult(result)
-                }
-                .fileExporter(
-                    isPresented: $isOPMLExporterPresented,
-                    document: opmlExportDocument,
-                    contentType: SettingsOPMLFileDocument.contentType,
-                    defaultFilename: "RSSReader-Subscriptions.opml"
-                ) { result in
-                    opmlExportDocument = nil
-                    controller.applyOPMLExportCompletion(result, dependencies: dependencies)
-                }
-                .sheet(
-                    item: Binding(
-                        get: { controller.screenState.opmlImportPreview },
-                        set: { newValue in
-                            if newValue == nil {
-                                controller.dismissOPMLImportPreview()
-                            }
-                        }
-                    )
-                ) { preview in
-                    opmlImportPreviewSheet(preview)
-                }
-                .alert(
-                    statusAlertTitle(for: viewState.opmlTransferStatus),
-                    isPresented: Binding(
-                        get: { controller.screenState.opmlTransferStatus != nil },
-                        set: { isPresented in
-                            if isPresented == false {
-                                controller.dismissOPMLTransferStatus()
-                            }
-                        }
-                    )
-                ) {
-                    Button(SettingsLocalization.okAction, role: .cancel) {
-                        controller.dismissOPMLTransferStatus()
-                    }
-                } message: {
-                    if let status = controller.screenState.opmlTransferStatus {
-                        Text(status.message)
-                    }
-                }
+                .modifier(SettingsOPMLPresentationModifier(
+                    controller: controller,
+                    presentation: opmlPresentation
+                ))
         }
     }
 
@@ -224,6 +179,7 @@ struct SettingsScreenView: View {
                     }
                 }
             }
+            .accessibilityIdentifier("settings.list")
             .scrollContentBackground(.hidden)
             .background(appThemeVariant.primaryBackground)
         }
@@ -272,12 +228,11 @@ struct SettingsScreenView: View {
     private func handleButtonTap(_ buttonItem: SettingsButtonItemPresentation) {
         switch buttonItem.id {
         case .importOPML:
-            isOPMLImporterPresented = true
+            opmlPresentation.isImporterPresented = true
         case .exportOPML:
-            if let document = controller.makeOPMLExportDocument(dependencies: dependencies) {
-                opmlExportDocument = document
-                isOPMLExporterPresented = true
-            }
+            opmlPresentation.presentExporter(
+                document: controller.makeOPMLExportDocument(dependencies: dependencies)
+            )
         case .purgeArchivedArticles:
             isArchivedArticlesPurgeConfirmationPresented = true
         case .clearArticleImageCache:
@@ -299,85 +254,6 @@ struct SettingsScreenView: View {
                 .appearance:
             actionHandlers.tapButton(buttonItem.id)
         }
-    }
-
-    private func handleOPMLImportResult(_ result: Result<URL, any Error>) {
-        switch result {
-        case .success(let url):
-            opmlImportTask?.cancel()
-            opmlImportTask = Task {
-                await controller.prepareOPMLImportPreview(
-                    fileURL: url,
-                    dependencies: dependencies
-                )
-            }
-        case .failure(let error):
-            opmlImportTask?.cancel()
-            dependencies.logger.error("OPML file importer failed: \(error)")
-            controller.screenState.applyOPMLTransferStatus(
-                SettingsOPMLTransferStatusPresentation(
-                    title: SettingsLocalization.opmlImportFailedTitle,
-                    message: SettingsLocalization.selectedFileOpenFailureMessage,
-                    kind: .failure
-                )
-            )
-        }
-    }
-
-    private func opmlImportPreviewSheet(_ preview: SettingsOPMLImportPreviewPresentation) -> some View {
-        NavigationStack {
-            List {
-                Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(SettingsLocalization.importPreviewHeadline)
-                            .font(.headline)
-
-                        Text(SettingsLocalization.importPreviewDescription)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                }
-
-                Section {
-                    LabeledContent(SettingsLocalization.importPreviewSubscriptionsTitle, value: "\(preview.totalEntryCount)")
-                    LabeledContent(SettingsLocalization.importPreviewReadyTitle, value: "\(preview.importableEntryCount)")
-                    LabeledContent(SettingsLocalization.importPreviewSkippedTitle, value: "\(preview.skippedEntryCount)")
-                    LabeledContent(SettingsLocalization.importPreviewNewFoldersTitle, value: "\(preview.createdFolderCount)")
-                } footer: {
-                    Text(SettingsLocalization.importPreviewFooter)
-                }
-            }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .background(appThemeVariant.primaryBackground)
-            .navigationTitle(SettingsLocalization.importPreviewNavigationTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        controller.dismissOPMLImportPreview()
-                    } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .accessibilityLabel(SettingsLocalization.importPreviewCloseAccessibilityLabel)
-                }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(SettingsLocalization.importPreviewImportAction) {
-                        controller.commitOPMLImportPreview(
-                            dependencies: dependencies,
-                            appState: appState
-                        )
-                    }
-                    .disabled(preview.importableEntryCount == 0)
-                }
-            }
-        }
-    }
-
-    private func statusAlertTitle(for status: SettingsOPMLTransferStatusPresentation?) -> String {
-        status?.title ?? SettingsLocalization.opmlStatusFallbackTitle
     }
 
     @ViewBuilder

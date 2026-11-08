@@ -47,15 +47,6 @@ struct FeedRefreshTransactionBoundary: Sendable, Equatable {
     let atomicComponents: Set<FeedRefreshPersistenceComponent>
     let nonAtomicComponents: Set<FeedRefreshPersistenceComponent>
 
-    var allComponents: Set<FeedRefreshPersistenceComponent> {
-        atomicComponents.union(nonAtomicComponents)
-    }
-
-    var storesArticlesAtomically: Bool {
-        atomicComponents.contains(.articleUpserts) &&
-        atomicComponents.contains(.articleReconciliation)
-    }
-
     static let singleFeedRefresh = FeedRefreshTransactionBoundary(
         atomicComponents: [
             .articleUpserts,
@@ -171,15 +162,6 @@ struct FeedRefreshResult: Sendable, Identifiable {
 
     var duration: TimeInterval {
         max(0, finishedAt.timeIntervalSince(startedAt))
-    }
-
-    var isSuccess: Bool {
-        switch status {
-        case .fetched, .notModified:
-            true
-        case .failed, .cancelled:
-            false
-        }
     }
 
     init(
@@ -344,14 +326,6 @@ struct FeedRefreshBatchResult: Sendable {
 
     var failedResults: [FeedRefreshResult] {
         results.filter { $0.status == .failed }
-    }
-
-    var cancelledResults: [FeedRefreshResult] {
-        results.filter { $0.status == .cancelled }
-    }
-
-    var failedFeedIDs: [UUID] {
-        failedResults.map(\.feedID)
     }
 
     var retryFeedIDs: [UUID] {

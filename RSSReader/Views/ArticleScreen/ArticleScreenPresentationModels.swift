@@ -17,37 +17,15 @@ struct ArticleScreenPlaceholderState: Equatable {
 }
 
 @MainActor
-enum ArticleScreenBodySource: Equatable {
-    case summary
-    case contentText
-    case contentHTML
-    case empty
-}
-
-@MainActor
-struct ArticleScreenBodyContentState: Equatable {
-    let blocks: [ArticleScreenBodyBlock]
-    let source: ArticleScreenBodySource
-
-    init(
-        blocks: [ArticleScreenBodyBlock],
-        source: ArticleScreenBodySource
-    ) {
-        self.blocks = blocks
-        self.source = source
-    }
-}
-
-@MainActor
 struct ArticleScreenContentState: Equatable {
     let articleID: UUID
     let header: ArticleScreenHeaderState
-    let body: ArticleScreenBodyContentState
+    let body: ArticleContent
 
     init(article: ReaderArticleDTO) {
         self.articleID = article.id
         self.header = ArticleScreenHeaderState(article: article)
-        self.body = ArticleScreenContentRenderer.renderBody(for: article)
+        self.body = ArticleContentParser.renderBody(for: article)
     }
 }
 
@@ -62,20 +40,9 @@ struct ArticleScreenHeaderState: Equatable {
     init(article: ReaderArticleDTO) {
         self.effectiveDateText = ArticleScreenDateFormatter.string(from: article.effectiveDate)
         self.title = article.title.nilIfBlank ?? ReadingLocalization.untitledArticleTitle
-        let author = article.author?.nilIfBlank
-        let feedTitle = article.feedTitle.nilIfBlank
-        if let author, let feedTitle,
-           author.metadataComparisonValue.compare(
-               feedTitle.metadataComparisonValue,
-               options: .caseInsensitive,
-               locale: Locale(identifier: "en_US_POSIX")
-           ) == .orderedSame {
-            self.author = nil
-        } else {
-            self.author = author
-        }
-        self.feedTitle = feedTitle
-        self.canOpenSourceArticle = ArticleScreenURLResolver.resolveExternalURL(
+        self.author = ReaderArticleMetadataPolicy.author(article.author, feedTitle: article.feedTitle)
+        self.feedTitle = article.feedTitle.nilIfBlank
+        self.canOpenSourceArticle = ArticleContentURLResolver.resolveExternalURL(
             canonicalURL: article.canonicalURL,
             articleURL: article.articleURL
         ) != nil
@@ -103,7 +70,7 @@ struct ArticleScreenBottomActionsState: Equatable {
         self.starAccessibilityValue = article.isStarred ? ReadingLocalization.starredState : ReadingLocalization.unstarredState
         self.openSourceArticleTitle = ReadingLocalization.openSourceArticleAction
         self.openSourceArticleSystemImage = "safari"
-        self.canOpenSourceArticle = ArticleScreenURLResolver.resolveExternalURL(
+        self.canOpenSourceArticle = ArticleContentURLResolver.resolveExternalURL(
             canonicalURL: article.canonicalURL,
             articleURL: article.articleURL
         ) != nil
@@ -159,70 +126,14 @@ enum ArticleScreenDateFormatter {
 
 enum ArticleScreenShareURLResolver {
     static func resolveShareURL(article: ReaderArticleDTO) -> URL? {
-        ArticleScreenURLResolver.resolveExternalURL(
+        ArticleContentURLResolver.resolveExternalURL(
             canonicalURL: article.canonicalURL,
             articleURL: article.articleURL
         )
     }
 }
 
-enum ArticleScreenURLResolver {
-    static func resolveExternalURL(canonicalURL: String?, articleURL: String) -> URL? {
-        if let canonicalURL, let resolvedCanonicalURL = validatedExternalURL(from: canonicalURL) {
-            return resolvedCanonicalURL
-        }
-
-        return validatedExternalURL(from: articleURL)
-    }
-
-    static func resolveArticleBodyLinkURL(rawValue: String, baseURLString: String?) -> URL? {
-        resolveMediaURL(rawValue: rawValue, baseURLString: baseURLString)
-    }
-
-    static func resolveMediaURL(rawValue: String, baseURLString: String?) -> URL? {
-        if let validatedURL = validatedExternalURL(from: rawValue) {
-            return validatedURL
-        }
-
-        guard
-            let normalizedValue = rawValue.nilIfBlank,
-            let baseURLString,
-            let baseURL = validatedExternalURL(from: baseURLString),
-            let relativeURL = URL(string: normalizedValue, relativeTo: baseURL)?.absoluteURL,
-            let components = URLComponents(url: relativeURL, resolvingAgainstBaseURL: true),
-            let scheme = components.scheme?.lowercased(),
-            let host = components.host,
-            host.isEmpty == false,
-            ["http", "https"].contains(scheme)
-        else {
-            return nil
-        }
-
-        return relativeURL
-    }
-
-    private static func validatedExternalURL(from rawValue: String) -> URL? {
-        guard
-            let normalizedValue = rawValue.nilIfBlank,
-            let components = URLComponents(string: normalizedValue),
-            let scheme = components.scheme?.lowercased(),
-            let host = components.host,
-            host.isEmpty == false,
-            ["http", "https"].contains(scheme),
-            let url = components.url
-        else {
-            return nil
-        }
-
-        return url
-    }
-}
-
 private extension String {
-    var metadataComparisonValue: String {
-        split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
-    }
-
     var nilIfBlank: String? {
         let trimmedValue = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmedValue.isEmpty ? nil : trimmedValue

@@ -85,7 +85,7 @@ extension FeedManagementScreenController {
         do {
             let updatedFeed = try feedManagementService.updateFeed(updateCommand)
             screenState.applyCreatedAddFeed(updatedFeed)
-            _ = await dependencies.appActions.completeFeedManagementFeedSave(
+            dependencies.appActions.completeFeedManagementFeedSave(
                 id: updatedFeed.id,
                 using: appState,
                 selectsSavedFeed: false
@@ -126,7 +126,7 @@ extension FeedManagementScreenController {
         do {
             let createdFeed = try feedManagementService.createFeed(createCommand)
             screenState.applyCreatedAddFeed(createdFeed)
-            _ = await dependencies.appActions.completeFeedManagementFeedSave(
+            dependencies.appActions.completeFeedManagementFeedSave(
                 id: createdFeed.id,
                 using: appState,
                 selectsSavedFeed: false,
@@ -190,9 +190,9 @@ extension FeedManagementScreenController {
         }
     }
 
-    func withAddFeedPreviewTimeout<T>(
+    func withAddFeedPreviewTimeout<T: Sendable>(
         timeout: Duration,
-        operation: @escaping () async throws -> T
+        operation: @escaping @MainActor @Sendable () async throws -> T
     ) async throws -> T {
         try await withThrowingTaskGroup(of: T.self) { group in
             defer { group.cancelAll() }

@@ -20,65 +20,6 @@ enum ArticlesScreenRefreshState: Equatable {
     case refreshing
 }
 
-struct ArticlesScreenCustomRefreshState: Equatable {
-    enum Phase: Equatable {
-        case idle
-        case pulling
-        case ready
-        case refreshing
-    }
-
-    static let idle = ArticlesScreenCustomRefreshState(
-        phase: .idle,
-        pullProgress: 0
-    )
-
-    static let refreshing = ArticlesScreenCustomRefreshState(
-        phase: .refreshing,
-        pullProgress: 1
-    )
-
-    let phase: Phase
-    let pullProgress: Double
-
-    var showsIndicator: Bool {
-        phase != .idle
-    }
-
-    var indicatorState: AppRefreshIndicatorState {
-        switch phase {
-        case .idle:
-            .idle
-        case .pulling:
-            .pulling(progress: pullProgress)
-        case .ready:
-            .ready
-        case .refreshing:
-            .refreshing
-        }
-    }
-
-    static func pulling(progress: Double) -> ArticlesScreenCustomRefreshState {
-        let normalizedProgress = min(max(progress, 0), 1)
-
-        if normalizedProgress <= 0 {
-            return .idle
-        }
-
-        if normalizedProgress >= 1 {
-            return ArticlesScreenCustomRefreshState(
-                phase: .ready,
-                pullProgress: 1
-            )
-        }
-
-        return ArticlesScreenCustomRefreshState(
-            phase: .pulling,
-            pullProgress: normalizedProgress
-        )
-    }
-}
-
 struct ArticleListPaginationGeometry: Equatable {
     var contentHeight: CGFloat
     var visibleMaxY: CGFloat
@@ -311,7 +252,7 @@ struct ArticleListRowContent: Equatable {
 
 private enum ArticleListRowPreviewNormalizer {
     static func normalizedPreview(from rawValue: String?) -> String? {
-        guard let payload = ArticleScreenBodyPayloadNormalizer.normalize(
+        guard let payload = ArticleContentBodyPayloadNormalizer.normalize(
             rawValue,
             preferredKind: .plainText
         ) else {
@@ -369,6 +310,6 @@ private extension String {
     }
 
     func decodingHTMLEntitiesForArticleListPreview() -> String {
-        ArticleScreenBodyPayloadNormalizer.decodeHTMLEntities(in: self)
+        ArticleContentBodyPayloadNormalizer.decodeHTMLEntities(in: self)
     }
 }

@@ -6,6 +6,49 @@ import UIKit
 @Suite("Article Screen / Adjacent Image Prefetch")
 @MainActor
 struct ReaderAdjacentArticleImagePrefetcherTests {
+    @Test(arguments: [
+        "<!-- <img src='/hidden.png'> --><aside><figure><img data-src='/visible.png'><figcaption>A &amp; B</figcaption></figure></aside>",
+        "<pre><code>&lt;img src='/code.png'&gt;</code></pre><picture><source srcset='/small.png 1x, /visible.png 2x'></picture>",
+        "<details open><summary>More</summary><img src='/disclosure.png'></details><img src='/visible.png'>",
+        "<table><tr><td>&lt;img src='/literal.png'&gt;</td></tr></table><img src='/visible.png'>",
+        "&lt;figure&gt;&lt;img src='/visible.png'&gt;&lt;/figure&gt;"
+    ])
+    func sharedContentFixturesKeepReaderAndPrefetchImageSemantics(_ html: String) throws {
+        let article = makeReaderArticleDTO(
+            contentHTML: html,
+            articleURL: "https://example.com/articles/entry",
+            canonicalURL: "https://canonical.example/post"
+        )
+        let body = ArticleScreenContentState(article: article).body
+        let parsed = ArticleContentParser.renderBody(for: article)
+        let query = PrefetchArticleQueryService(articlesByID: [article.id: article])
+        let plan = try ReaderAdjacentArticleImagePrefetcher.plan(
+            context: makeContext(currentArticleID: article.id),
+            articleQueryService: query
+        )
+
+        // Image paths retain the article URL base, independently of inline link base.
+        let expected = URL(string: "https://example.com/visible.png")
+        #expect(body == parsed)
+        #expect(body.firstImageURL == expected)
+        #expect(plan.currentImageURL == expected)
+    }
+
+    @Test
+    func sharedFallbackKeepsSemanticNoticeAndPresentationCopy() throws {
+        let article = makeReaderArticleDTO(summary: "Summary &amp; details", imageURL: "https://example.com/lead.png")
+        let body = ArticleScreenContentState(article: article).body
+        #expect(body.source == .summary)
+        #expect(body.blocks.last == .fallbackNotice(.summaryOnly))
+        #expect(ArticleContentNotice.summaryOnly.localizedText == ReadingLocalization.summaryOnlyFallbackNotice)
+        #expect(ArticleContentNotice.emptyBody.localizedText == ReadingLocalization.emptyBodyFallbackNotice)
+        let query = PrefetchArticleQueryService(articlesByID: [article.id: article])
+        let plan = try ReaderAdjacentArticleImagePrefetcher.plan(
+            context: makeContext(currentArticleID: article.id), articleQueryService: query
+        )
+        #expect(plan.currentImageURL == body.firstImageURL)
+    }
+
     @Test
     func prefetchSelectsOnlyFirstRenderedImageFromEachCandidateArticle() async throws {
         let currentID = UUID()
@@ -254,14 +297,16 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
             ]
         )
         let context = makeContext(previousArticleID: previousID, nextArticleID: nextID)
-        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: loader)
+        let trackedPrefetcher = CompletingArticleImagePrefetcher(loader: loader)
+        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: trackedPrefetcher)
+        defer { coordinator.clear() }
 
         coordinator.update(
             context: context,
             articleQueryService: articleQueryService
         )
-        await waitUntilImageIsCached(memoryCache, url: previousURL)
-        await waitUntilImageIsCached(memoryCache, url: nextURL)
+        try await waitUntilImageIsCached(memoryCache, url: previousURL)
+        try await waitUntilImageIsCached(memoryCache, url: nextURL)
         _ = try await loader.loadImage(from: previousURL, displayTarget: context.displayTarget)
         _ = try await loader.loadImage(from: nextURL, displayTarget: context.displayTarget)
 
@@ -326,14 +371,16 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
             previousCandidateArticleIDs: [firstPreviousID, secondPreviousID],
             nextCandidateArticleIDs: [nextWithoutImageID, firstNextImageID, secondNextImageID]
         )
-        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: loader)
+        let trackedPrefetcher = CompletingArticleImagePrefetcher(loader: loader)
+        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: trackedPrefetcher)
+        defer { coordinator.clear() }
 
         coordinator.update(
             context: context,
             articleQueryService: articleQueryService
         )
         for imageURL in imageURLs {
-            await waitUntilImageIsCached(memoryCache, url: imageURL)
+            try await waitUntilImageIsCached(memoryCache, url: imageURL)
             _ = try await loader.loadImage(from: imageURL, displayTarget: context.displayTarget)
         }
 
@@ -373,7 +420,9 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
                 ($0.0, makeReaderArticleDTO(id: $0.0, imageURL: $0.1.absoluteString))
             })
         )
-        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: loader)
+        let trackedPrefetcher = CompletingArticleImagePrefetcher(loader: loader)
+        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: trackedPrefetcher)
+        defer { coordinator.clear() }
 
         coordinator.update(
             context: makeContext(
@@ -382,13 +431,13 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
             ),
             articleQueryService: articleQueryService
         )
-        await waitUntilGate(responseGate, reachesEntryCount: 2)
+        try await waitUntilGate(responseGate, reachesEntryCount: 2)
 
         #expect(await httpClient.maxConcurrentExecutions() == 2)
 
         await responseGate.release()
         for imageURL in imageURLs {
-            await waitUntilImageIsCached(memoryCache, url: imageURL)
+            try await waitUntilImageIsCached(memoryCache, url: imageURL)
         }
 
         #expect(await httpClient.maxConcurrentExecutions() == 2)
@@ -409,13 +458,15 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
         let articleQueryService = PrefetchArticleQueryService(
             articlesByID: [nextID: makeReaderArticleDTO(id: nextID, imageURL: imageURL.absoluteString)]
         )
-        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: loader)
+        let trackedPrefetcher = CompletingArticleImagePrefetcher(loader: loader)
+        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: trackedPrefetcher)
+        defer { coordinator.clear() }
 
         coordinator.update(
             context: makeContext(nextArticleID: nextID),
             articleQueryService: articleQueryService
         )
-        await Task.yield()
+        try await waitUntil("cached prefetch completed") { trackedPrefetcher.completedURLs.contains(imageURL) }
 
         #expect(await httpClient.recordedRequests().isEmpty)
     }
@@ -434,14 +485,17 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
         let articleQueryService = PrefetchArticleQueryService(
             articlesByID: [nextID: makeReaderArticleDTO(id: nextID, imageURL: imageURL.absoluteString)]
         )
-        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: loader)
+        let trackedPrefetcher = CompletingArticleImagePrefetcher(loader: loader)
+        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: trackedPrefetcher)
+        defer { coordinator.clear() }
 
         coordinator.update(
             context: makeContext(nextArticleID: nextID),
             articleQueryService: articleQueryService
         )
-        await waitUntilRequestStarts(httpClient)
-        await waitUntilRequestsFinish(httpClient)
+        try await waitUntilRequestStarts(httpClient)
+        try await waitUntilRequestsFinish(httpClient)
+        try await waitUntil("failed prefetch completed") { trackedPrefetcher.completedURLs.contains(imageURL) }
 
         #expect(await httpClient.recordedRequests().count == 1)
         #expect(memoryCache.image(for: imageURL) == nil)
@@ -472,7 +526,9 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
         )
         let oldContext = makeContext(articleListSessionID: UUID(), nextArticleID: nextID)
         let newContext = makeContext(articleListSessionID: UUID(), nextArticleID: nextID)
-        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: loader)
+        let trackedPrefetcher = CompletingArticleImagePrefetcher(loader: loader)
+        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: trackedPrefetcher)
+        defer { coordinator.clear() }
 
         #expect(oldContext != newContext)
 
@@ -480,10 +536,10 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
             context: oldContext,
             articleQueryService: articleQueryService
         )
-        await waitUntilRequestStarts(httpClient)
+        try await waitUntilRequestStarts(httpClient)
         coordinator.clear()
-        await Task.yield()
-        await waitUntilRequestsFinish(httpClient)
+        try await waitUntil("cancelled prefetch completed") { trackedPrefetcher.completedURLs.contains(imageURL) }
+        try await waitUntilRequestsFinish(httpClient)
 
         #expect(await httpClient.currentInFlightExecutionCount() == 0)
         #expect(memoryCache.image(for: imageURL) == nil)
@@ -515,21 +571,23 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
             articlesByID: [nextID: makeReaderArticleDTO(id: nextID, imageURL: imageURL.absoluteString)]
         )
         let context = makeContext(articleListSessionID: UUID(), nextArticleID: nextID)
-        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: loader)
+        let trackedPrefetcher = CompletingArticleImagePrefetcher(loader: loader)
+        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: trackedPrefetcher)
+        defer { coordinator.clear() }
 
         coordinator.update(
             context: context,
             articleQueryService: articleQueryService
         )
-        await waitUntilRequestStarts(httpClient)
+        try await waitUntilRequestStarts(httpClient)
 
         coordinator.update(
             context: context,
             articleQueryService: articleQueryService
         )
         await responseGate.release()
-        await waitUntilRequestsFinish(httpClient)
-        await waitUntilImageIsCached(memoryCache, url: imageURL)
+        try await waitUntilRequestsFinish(httpClient)
+        try await waitUntilImageIsCached(memoryCache, url: imageURL)
 
         #expect(await httpClient.recordedRequests().count == 1)
         #expect(memoryCache.image(for: imageURL) != nil)
@@ -571,7 +629,9 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
             ]
         )
         let sessionID = UUID()
-        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: loader)
+        let trackedPrefetcher = CompletingArticleImagePrefetcher(loader: loader)
+        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: trackedPrefetcher)
+        defer { coordinator.clear() }
 
         coordinator.update(
             context: makeContext(
@@ -581,7 +641,7 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
             ),
             articleQueryService: articleQueryService
         )
-        await waitUntilImageIsCached(memoryCache, url: secondURL)
+        try await waitUntilImageIsCached(memoryCache, url: secondURL)
 
         coordinator.update(
             context: makeContext(
@@ -592,7 +652,7 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
             ),
             articleQueryService: articleQueryService
         )
-        await waitUntilImageIsCached(memoryCache, url: thirdURL)
+        try await waitUntilImageIsCached(memoryCache, url: thirdURL)
 
         let requestedURLs = await httpClient.recordedRequests().map(\.url)
         #expect(requestedURLs == [secondURL, thirdURL])
@@ -628,7 +688,7 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
             ),
             articleQueryService: articleQueryService
         )
-        await Task.yield()
+        try await waitUntil("first reservation prefetch entered") { imagePrefetcher.requestedURLs.contains(secondURL) }
         coordinator.update(
             context: makeContext(
                 currentArticleID: secondID,
@@ -664,8 +724,6 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
             articleQueryService: articleQueryService
         )
         coordinator.clear()
-        await Task.yield()
-        await Task.yield()
 
         #expect(imagePrefetcher.clearReservationCount == 1)
     }
@@ -698,7 +756,7 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
             ),
             articleQueryService: articleQueryService
         )
-        await Task.yield()
+        try await waitUntil("first reader prefetch entered") { imagePrefetcher.requestedURLs.contains(firstURL) }
         coordinator.clear()
         coordinator.update(
             context: makeContext(
@@ -708,8 +766,7 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
             ),
             articleQueryService: articleQueryService
         )
-        await Task.yield()
-        await Task.yield()
+        try await waitUntil("reopened reader prefetch entered") { imagePrefetcher.requestedURLs.contains(secondURL) }
 
         #expect(imagePrefetcher.clearReservationCount == 1)
         #expect(imagePrefetcher.requestedURLs.contains(firstURL))
@@ -755,7 +812,9 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
             ]
         )
         let sessionID = UUID()
-        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: loader)
+        let trackedPrefetcher = CompletingArticleImagePrefetcher(loader: loader)
+        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: trackedPrefetcher)
+        defer { coordinator.clear() }
 
         coordinator.update(
             context: makeContext(
@@ -765,7 +824,7 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
             ),
             articleQueryService: articleQueryService
         )
-        await waitUntilRequestStarts(httpClient)
+        try await waitUntilRequestStarts(httpClient)
 
         coordinator.update(
             context: makeContext(
@@ -779,9 +838,10 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
         let visibleLoad = Task { @MainActor in
             try await loader.loadImage(from: secondURL, displayTarget: makeContext().displayTarget)
         }
+        defer { visibleLoad.cancel() }
         await secondResponseGate.release()
         _ = try await visibleLoad.value
-        await waitUntilImageIsCached(memoryCache, url: thirdURL)
+        try await waitUntilImageIsCached(memoryCache, url: thirdURL)
 
         let requestedURLs = await httpClient.recordedRequests().map(\.url)
         #expect(requestedURLs.count == 2)
@@ -825,24 +885,72 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
                 newNextID: makeReaderArticleDTO(id: newNextID, imageURL: newURL.absoluteString)
             ]
         )
-        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: loader)
+        let trackedPrefetcher = CompletingArticleImagePrefetcher(loader: loader)
+        let coordinator = ReaderAdjacentArticleImagePrefetchCoordinator(imagePrefetcher: trackedPrefetcher)
+        defer { coordinator.clear() }
 
         coordinator.update(
             context: makeContext(articleListSessionID: UUID(), nextArticleID: oldNextID),
             articleQueryService: articleQueryService
         )
-        await waitUntilRequestStarts(httpClient)
+        try await waitUntilRequestStarts(httpClient)
 
         coordinator.update(
             context: makeContext(articleListSessionID: UUID(), nextArticleID: newNextID),
             articleQueryService: articleQueryService
         )
         await oldResponseGate.release()
-        await waitUntilRequestsFinish(httpClient)
-        await waitUntilImageIsCached(memoryCache, url: newURL)
+        try await waitUntilRequestsFinish(httpClient)
+        try await waitUntilImageIsCached(memoryCache, url: newURL)
 
+        try await waitUntil("old session prefetch completed") { trackedPrefetcher.completedURLs.contains(oldURL) }
         #expect(memoryCache.image(for: oldURL) == nil)
         #expect(memoryCache.image(for: newURL) != nil)
+    }
+
+    @Test
+    func composedRuntimeSharesVisibleLoadWithPrefetchAndSurvivesRouteCleanup() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = try #require(URL(string: "https://example.com/composed.png"))
+        let data = makePNGData(width: 32, height: 16)
+        let gate = ScriptedHTTPClientResponseGate()
+        let httpClient = ScriptedHTTPClient(steps: [
+            .gatedDataResponse(statusCode: 200, headers: ["Content-Type": "image/png"], body: data, gate: gate)
+        ])
+        let runtime = ArticleImageRuntime(httpClient: httpClient, directoryURL: directory)
+        let dependencies = AppDependencies(logger: TestLogger(), articleImageRuntime: runtime)
+        #expect(dependencies.articleImageRuntime === runtime)
+        let nextID = UUID()
+        let context = makeContext(nextArticleID: nextID)
+        let query = PrefetchArticleQueryService(articlesByID: [
+            nextID: makeReaderArticleDTO(id: nextID, imageURL: url.absoluteString)
+        ])
+        runtime.prefetchCoordinator.update(context: context, articleQueryService: query)
+        try await waitUntilGate(gate, reachesEntryCount: 1)
+
+        let (started, continuation) = AsyncStream<Void>.makeStream()
+        let visibleLoad = Task { @MainActor in
+            // The main actor cannot resume the observer until loadImage registers its waiter and suspends.
+            continuation.yield(())
+            continuation.finish()
+            return try await dependencies.articleImageRuntime.imageLoading.loadImage(
+                from: url, displayTarget: context.displayTarget
+            )
+        }
+        var iterator = started.makeAsyncIterator()
+        _ = await iterator.next()
+        runtime.prefetchCoordinator.clear()
+        await gate.release()
+        let image = try await visibleLoad.value
+        #expect(runtime.imageLoading.cachedImage(for: url, targetMaximumPixelWidth: 320) === image)
+        #expect(await httpClient.recordedRequests().count == 1)
+        let cache = ArticleImageDiskCache(directoryURL: directory)
+        try await waitUntil("composed runtime disk persistence completed") {
+            try await cache.data(for: url) == data
+        }
+        try await dependencies.articleImageCache.clearCachedImages()
+        #expect(try await dependencies.articleImageCache.hasCachedImages() == false)
     }
 
     private func makeContext(
@@ -894,44 +1002,31 @@ struct ReaderAdjacentArticleImagePrefetcherTests {
         }
     }
 
-    private func waitUntilRequestStarts(_ httpClient: ScriptedHTTPClient) async {
-        for _ in 0..<1_000 {
-            if await httpClient.currentInFlightExecutionCount() > 0 {
-                return
-            }
-            await Task.yield()
+    private func waitUntilRequestStarts(_ httpClient: ScriptedHTTPClient) async throws {
+        try await waitUntil("prefetch HTTP request recorded") {
+            await httpClient.recordedRequests().isEmpty == false
         }
     }
 
-    private func waitUntilRequestsFinish(_ httpClient: ScriptedHTTPClient) async {
-        for _ in 0..<1_000 {
-            if await httpClient.currentInFlightExecutionCount() == 0 {
-                return
-            }
-            await Task.yield()
+    private func waitUntilRequestsFinish(_ httpClient: ScriptedHTTPClient) async throws {
+        try await waitUntil("prefetch HTTP executions finished") {
+            await httpClient.currentInFlightExecutionCount() == 0
         }
     }
 
-    private func waitUntilImageIsCached(_ cache: ArticleImageMemoryCache, url: URL) async {
-        for _ in 0..<1_000 {
-            if cache.image(for: url) != nil {
-                return
-            }
-            await Task.yield()
-        }
+    private func waitUntilImageIsCached(_ cache: ArticleImageMemoryCache, url: URL) async throws {
+        try await waitUntil("prefetch cached image: \(url)") { cache.image(for: url) != nil }
     }
 
     private func waitUntilGate(
         _ gate: ScriptedHTTPClientResponseGate,
         reachesEntryCount expectedCount: Int
-    ) async {
-        for _ in 0..<1_000 {
-            if await gate.enteredCount() >= expectedCount {
-                return
-            }
-            await Task.yield()
+    ) async throws {
+        try await waitUntil("HTTP gate entry count: \(expectedCount)") {
+            await gate.enteredCount() >= expectedCount
         }
     }
+
 }
 
 @MainActor
@@ -986,4 +1081,24 @@ private actor PrefetchDiscardingDiskCache: ArticleImageDiskCaching {
     func data(for url: URL, maximumBytes: Int64) -> Data? { nil }
     func insert(_ data: Data, for url: URL) {}
     func removeData(for url: URL) {}
+}
+
+/// Acknowledges the loader returning, including cancellation/failure paths after transport.
+@MainActor
+private final class CompletingArticleImagePrefetcher: ArticleImagePrefetching {
+    private let loader: ArticleImageLoader
+    private(set) var completedURLs: Set<URL> = []
+
+    init(loader: ArticleImageLoader) { self.loader = loader }
+
+    func prefetchImage(from url: URL, displayTarget: ArticleImageDisplayTarget) async {
+        await loader.prefetchImage(from: url, displayTarget: displayTarget)
+        completedURLs.insert(url)
+    }
+
+    func replacePrefetchReservations(with urls: [URL]) {
+        loader.replacePrefetchReservations(with: urls)
+    }
+
+    func clearPrefetchReservations() { loader.clearPrefetchReservations() }
 }

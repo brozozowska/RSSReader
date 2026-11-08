@@ -1,7 +1,7 @@
 import Foundation
 
-struct GlobalOrphanSweepTriggerContract: Equatable, Sendable {
-    nonisolated static let current = GlobalOrphanSweepTriggerContract(
+nonisolated struct GlobalOrphanSweepTriggerContract: Equatable, Sendable {
+    static let current = GlobalOrphanSweepTriggerContract(
         successfulSweepCadence: 7 * 24 * 60 * 60,
         feedScopedCleanupSuppressionWindow: 60 * 60
     )

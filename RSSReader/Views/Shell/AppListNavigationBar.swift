@@ -122,7 +122,7 @@ struct AppListNavigationBarBridge: UIViewControllerRepresentable {
             return group
         }()
 
-        private var refreshConfiguration: UIHostingConfiguration<some View, EmptyView> {
+        private var refreshConfiguration: any UIContentConfiguration {
             UIHostingConfiguration {
                 AppRefreshIndicator(state: refreshState, size: 24, lineWidth: 2.5)
                     .frame(width: 32, height: 32)

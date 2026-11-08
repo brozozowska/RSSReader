@@ -119,6 +119,57 @@ struct ICloudAccountAvailabilityServiceTests {
         #expect(logger.contains("Received \(notificationName.rawValue) notification; requerying CloudKit account status"))
     }
 
+    @Test
+    func repeatedAccountNotificationsAreDeliveredUntilConsumerCancels() async throws {
+        let center = NotificationCenter()
+        let name = Notification.Name("RepeatedTestCKAccountChanged")
+        let logger = RecordingLogger()
+        let service = makeService(
+            results: [.success(.restricted), .success(.available)],
+            notificationCenter: center,
+            notificationName: name,
+            logger: logger
+        )
+        let stream = service.availabilityChanges()
+        var values: [ICloudAccountAvailability] = []
+        let consumer = Task {
+            for await value in stream { values.append(value) }
+        }
+        defer { consumer.cancel() }
+
+        await Task.detached { center.post(name: name, object: nil) }.value
+        try await waitUntil("first account status update") { values.count == 1 }
+        await Task.detached { center.post(name: name, object: nil) }.value
+        try await waitUntil("second account status update") { values.count == 2 }
+        #expect(values == [.restricted, .available])
+
+        consumer.cancel()
+        await consumer.value
+        let entriesAfterCancellation = logger.entries
+        // Logging happens synchronously on the posting thread, before any requery.
+        await Task.detached { center.post(name: name, object: nil) }.value
+        #expect(logger.entries == entriesAfterCancellation)
+    }
+
+    @Test
+    func bootstrapStatusResolverReturnsCallbackStatus() {
+        let status = CloudKitAccountStatusResolver.currentStatus(timeout: .seconds(1)) { complete in
+            DispatchQueue.global().async { complete(.available, nil) }
+        }
+        #expect(status == .available)
+    }
+
+    @Test
+    func bootstrapStatusResolverReturnsFallbackBeforeLateCallback() {
+        var completeLater: (@Sendable (CKAccountStatus, (any Error)?) -> Void)?
+        let status = CloudKitAccountStatusResolver.currentStatus(timeout: .nanoseconds(0)) { complete in
+            completeLater = complete
+        }
+        #expect(status == .couldNotDetermine)
+        #expect(completeLater != nil)
+        completeLater?(.available, nil)
+    }
+
     private func makeService(
         results: [Result<CKAccountStatus, Error>],
         notificationCenter: NotificationCenter = NotificationCenter(),

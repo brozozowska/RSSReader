@@ -1,217 +1,30 @@
 import Foundation
 import Observation
 
-enum SidebarSelection: Hashable, Sendable {
-    case inbox
-    case unread
-    case starred
-    case folder(String)
-    case feed(UUID)
-}
-
-enum SidebarArticleFilter: String, Hashable, Sendable, CaseIterable {
-    case allItems
-    case unread
-    case starred
-}
-
-enum ManualFeedRefreshScope: Equatable, Sendable {
-    case allFeeds
-    case folder(String)
-    case feed(UUID)
-}
-
-struct ManualFeedRefreshContext: Equatable, Sendable {
-    let selection: SidebarSelection?
-    let sidebarArticleFilter: SidebarArticleFilter
-
-    var scope: ManualFeedRefreshScope {
-        switch selection {
-        case .feed(let feedID):
-            .feed(feedID)
-        case .folder(let folderName):
-            .folder(folderName)
-        case .inbox, .unread, .starred, .none:
-            .allFeeds
-        }
-    }
-}
-
-struct ArticleSafariRoute: Hashable, Sendable {
-    let articleID: UUID
-    let url: URL
-
-    static func canOpen(_ url: URL) -> Bool {
-        guard let scheme = url.scheme else {
-            return false
-        }
-        let normalizedScheme = scheme.lowercased()
-        guard normalizedScheme == "http" || normalizedScheme == "https" else {
-            return false
-        }
-        return url.host?.isEmpty == false
-    }
-}
-
-enum ReadingDetailRoute: Hashable, Sendable {
-    case none
-    case article(UUID)
-    case safari(ArticleSafariRoute, dismissalTarget: ArticleSafariDismissalTarget)
-}
-
-enum ArticleSafariDismissalTarget: Hashable, Sendable {
-    case article
-    case articleList
-}
-
-enum ReaderAdjacentArticleNavigationDirection: Equatable, Sendable {
-    case previous
-    case next
-}
-
-struct ReadingNavigationState: Hashable, Sendable {
-    var sidebarSelection: SidebarSelection? = nil
-    var presentedSidebarSelection: SidebarSelection? = nil
-    var articleSelection: UUID? = nil
-    var detailRoute: ReadingDetailRoute = .none
-
-    mutating func selectSidebarSelection(_ sidebarSelection: SidebarSelection?) {
-        presentedSidebarSelection = sidebarSelection
-        guard self.sidebarSelection != sidebarSelection else { return }
-
-        self.sidebarSelection = sidebarSelection
-        articleSelection = nil
-        detailRoute = .none
-    }
-
-    mutating func dismissSidebarSelectionPresentation() {
-        presentedSidebarSelection = nil
-    }
-
-    mutating func reconcileSidebarSelection(_ sidebarSelection: SidebarSelection?) {
-        guard self.sidebarSelection != sidebarSelection else { return }
-
-        let preservesPresentation = presentedSidebarSelection != nil
-        self.sidebarSelection = sidebarSelection
-        presentedSidebarSelection = preservesPresentation ? sidebarSelection : nil
-        articleSelection = nil
-        detailRoute = .none
-    }
-
-    mutating func selectArticle(_ articleID: UUID?) {
-        articleSelection = articleID
-        detailRoute = articleID.map(ReadingDetailRoute.article) ?? .none
-    }
-
-    @discardableResult
-    mutating func presentSafari(articleID: UUID, url: URL) -> Bool {
-        guard ArticleSafariRoute.canOpen(url) else {
-            return false
-        }
-
-        articleSelection = articleID
-        detailRoute = .safari(
-            ArticleSafariRoute(
-                articleID: articleID,
-                url: url
-            ),
-            dismissalTarget: .article
-        )
-        return true
-    }
-
-    @discardableResult
-    mutating func presentSafariFromArticleList(articleID: UUID, url: URL) -> Bool {
-        guard ArticleSafariRoute.canOpen(url) else {
-            return false
-        }
-
-        articleSelection = nil
-        detailRoute = .safari(
-            ArticleSafariRoute(
-                articleID: articleID,
-                url: url
-            ),
-            dismissalTarget: .articleList
-        )
-        return true
-    }
-
-    mutating func dismissSafari() {
-        guard case .safari(_, let dismissalTarget) = detailRoute else {
-            return
-        }
-
-        switch dismissalTarget {
-        case .article:
-            detailRoute = articleSelection.map(ReadingDetailRoute.article) ?? .none
-        case .articleList:
-            articleSelection = nil
-            detailRoute = .none
-        }
-    }
-}
-
-struct ArticleListScrollPositionKey: Hashable, Sendable {
-    let sidebarSelection: SidebarSelection?
-    let sidebarArticleFilter: SidebarArticleFilter
-}
-
-struct ArticleReadOnOpenEvent: Equatable, Sendable {
-    let id = UUID()
-    let articleID: UUID
-    let articleListSessionID: UUID
-    let sidebarSelection: SidebarSelection?
-    let sidebarArticleFilter: SidebarArticleFilter
-    let isRead: Bool
-}
-
-struct ArticleListSessionReference: Equatable, Sendable {
-    let id: UUID
-    let sidebarSelection: SidebarSelection?
-    let sidebarArticleFilter: SidebarArticleFilter
-}
-
-struct PendingFeedUnsubscribeConfirmation: Identifiable, Equatable, Sendable {
-    let feedID: UUID
-    let feedTitle: String
-
-    var id: UUID { feedID }
-}
-
-struct PendingFolderDeleteConfirmation: Identifiable, Equatable, Sendable {
-    let folderName: String
-
-    var id: String { folderName }
-}
-
-enum AppContentReloadTrigger: Equatable, Sendable {
-    case remoteSyncImport
-    case backgroundRefresh
-}
-
 @Observable
 public final class AppState {
-    var readingNavigation = ReadingNavigationState()
-    var selectedSidebarArticleFilter: SidebarArticleFilter = .allItems
-    var interfaceThemeMode: InterfaceThemeMode = .automaticLightDark
-    var iCloudSyncStatus: ICloudSyncStatus = .disabled
-    var isPresentingSettingsScreen = false
-    var isPresentingFeedManagementScreen = false
-    var feedManagementLaunchContext: FeedManagementScreenLaunchContext = .entry
-    var articleNavigationContextIDs: [UUID] = []
-    private var articleNavigationContextSidebarSelection: SidebarSelection?
-    private var articleNavigationContextSidebarArticleFilter: SidebarArticleFilter = .allItems
-    private var articleNavigationContextListSessionID: UUID?
-    private var articleListScrollPositionIDs: [ArticleListScrollPositionKey: UUID] = [:]
-    var articleListReloadID = UUID()
-    var sidebarReloadID = UUID()
-    var feedIconCacheResetID = UUID()
-    var articleScreenReloadID = UUID()
-    var articleReadOnOpenEvent: ArticleReadOnOpenEvent?
-    var lastContentReloadTrigger: AppContentReloadTrigger?
-    var pendingFeedUnsubscribeConfirmation: PendingFeedUnsubscribeConfirmation?
-    var pendingFolderDeleteConfirmation: PendingFolderDeleteConfirmation?
+    private(set) var readingNavigation = ReadingNavigationState()
+    private(set) var presentation = AppPresentationState()
+    private(set) var confirmations = AppConfirmationState()
+    private(set) var reload = AppReloadState()
+    private(set) var runtime = AppRuntimeState()
+    private(set) var articleListNavigation = ArticleListNavigationState()
+
+    var selectedSidebarArticleFilter: SidebarArticleFilter { readingNavigation.sidebarArticleFilter }
+    var interfaceThemeMode: InterfaceThemeMode { runtime.interfaceThemeMode }
+    var iCloudSyncStatus: ICloudSyncStatus { runtime.iCloudSyncStatus }
+    var isPresentingSettingsScreen: Bool { presentation.isPresentingSettingsScreen }
+    var isPresentingFeedManagementScreen: Bool { presentation.isPresentingFeedManagementScreen }
+    var feedManagementLaunchContext: FeedManagementScreenLaunchContext { presentation.feedManagementLaunchContext }
+    var articleNavigationContextIDs: [UUID] { articleListNavigation.articleIDs }
+    var articleListReloadID: UUID { reload.articleListReloadID }
+    var sidebarReloadID: UUID { reload.sidebarReloadID }
+    var feedIconCacheResetID: UUID { reload.feedIconCacheResetID }
+    var articleScreenReloadID: UUID { reload.articleScreenReloadID }
+    var articleReadOnOpenEvent: ArticleReadOnOpenEvent? { articleListNavigation.readOnOpenEvent }
+    var lastContentReloadTrigger: AppContentReloadTrigger? { reload.lastContentReloadTrigger }
+    var pendingFeedUnsubscribeConfirmation: PendingFeedUnsubscribeConfirmation? { confirmations.pendingFeedUnsubscribeConfirmation }
+    var pendingFolderDeleteConfirmation: PendingFolderDeleteConfirmation? { confirmations.pendingFolderDeleteConfirmation }
 
     var selectedSidebarSelection: SidebarSelection? {
         get { readingNavigation.sidebarSelection }
@@ -277,31 +90,26 @@ public final class AppState {
     }
 
     func presentSettingsScreen() {
-        isPresentingSettingsScreen = true
+        presentation.presentSettingsScreen()
     }
 
     func dismissSettingsScreen() {
-        isPresentingSettingsScreen = false
+        presentation.dismissSettingsScreen()
     }
 
     func presentFeedManagementScreen(
         launchContext: FeedManagementScreenLaunchContext = .entry
     ) {
-        feedManagementLaunchContext = launchContext
-        isPresentingFeedManagementScreen = true
+        presentation.presentFeedManagementScreen(launchContext: launchContext)
     }
 
     func dismissFeedManagementScreen() {
-        isPresentingFeedManagementScreen = false
-        feedManagementLaunchContext = .entry
+        presentation.dismissFeedManagementScreen()
     }
 
     func selectSidebarArticleFilter(_ filter: SidebarArticleFilter) {
-        guard selectedSidebarArticleFilter != filter else {
-            return
-        }
-
-        selectedSidebarArticleFilter = filter
+        guard selectedSidebarArticleFilter != filter else { return }
+        readingNavigation.selectSidebarArticleFilter(filter)
     }
 
     func selectArticle(_ articleID: UUID?) {
@@ -315,25 +123,19 @@ public final class AppState {
     }
 
     func applyInterfaceThemeMode(_ mode: InterfaceThemeMode) {
-        interfaceThemeMode = mode
+        runtime.applyInterfaceThemeMode(mode)
     }
 
     func applyICloudSyncStatus(_ status: ICloudSyncStatus) {
-        iCloudSyncStatus = status
+        runtime.applyICloudSyncStatus(status)
     }
 
     func requestArticleListReload() {
-        articleListReloadID = UUID()
+        reload.requestArticleListReload()
     }
 
     var currentArticleListSessionReference: ArticleListSessionReference? {
-        guard let articleNavigationContextListSessionID else { return nil }
-
-        return ArticleListSessionReference(
-            id: articleNavigationContextListSessionID,
-            sidebarSelection: articleNavigationContextSidebarSelection,
-            sidebarArticleFilter: articleNavigationContextSidebarArticleFilter
-        )
+        articleListNavigation.currentSessionReference
     }
 
     func recordArticleReadOnOpen(
@@ -341,25 +143,14 @@ public final class AppState {
         isRead: Bool,
         in listSession: ArticleListSessionReference
     ) {
-        articleReadOnOpenEvent = ArticleReadOnOpenEvent(
-            articleID: articleID,
-            articleListSessionID: listSession.id,
-            sidebarSelection: listSession.sidebarSelection,
-            sidebarArticleFilter: listSession.sidebarArticleFilter,
-            isRead: isRead
-        )
+        articleListNavigation.recordReadOnOpen(articleID, isRead: isRead, in: listSession)
     }
 
     func articleListScrollPositionID(
         sidebarSelection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter
     ) -> UUID? {
-        articleListScrollPositionIDs[
-            ArticleListScrollPositionKey(
-                sidebarSelection: sidebarSelection,
-                sidebarArticleFilter: sidebarArticleFilter
-            )
-        ]
+        articleListNavigation.scrollPositionID(sidebarSelection: sidebarSelection, sidebarArticleFilter: sidebarArticleFilter)
     }
 
     func updateArticleListScrollPosition(
@@ -367,67 +158,46 @@ public final class AppState {
         sidebarSelection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter
     ) {
-        guard isArticleListCoveredByDetailRoute == false else { return }
-
-        let key = ArticleListScrollPositionKey(
-            sidebarSelection: sidebarSelection,
-            sidebarArticleFilter: sidebarArticleFilter
+        articleListNavigation.updateScrollPosition(
+            articleID, sidebarSelection: sidebarSelection, sidebarArticleFilter: sidebarArticleFilter,
+            detailRoute: selectedDetailRoute
         )
-
-        if let articleID {
-            articleListScrollPositionIDs[key] = articleID
-        } else {
-            articleListScrollPositionIDs.removeValue(forKey: key)
-        }
     }
 
     func requestSidebarReload() {
-        sidebarReloadID = UUID()
+        reload.requestSidebarReload()
     }
 
     func requestFeedIconCacheReset() {
-        feedIconCacheResetID = UUID()
+        reload.requestFeedIconCacheReset()
     }
 
     func requestArticleScreenReload() {
-        articleScreenReloadID = UUID()
+        reload.requestArticleScreenReload()
     }
 
     func requestRemoteSyncImportReload() {
-        lastContentReloadTrigger = .remoteSyncImport
-        requestSidebarReload()
-        requestArticleListReload()
-        requestArticleScreenReload()
+        reload.requestContentReload(.remoteSyncImport)
     }
 
     func requestBackgroundRefreshReload() {
-        lastContentReloadTrigger = .backgroundRefresh
-        requestSidebarReload()
-        requestArticleListReload()
-        requestArticleScreenReload()
+        reload.requestContentReload(.backgroundRefresh)
     }
 
     func presentFeedUnsubscribeConfirmation(feedID: UUID, feedTitle: String) {
-        pendingFolderDeleteConfirmation = nil
-        pendingFeedUnsubscribeConfirmation = PendingFeedUnsubscribeConfirmation(
-            feedID: feedID,
-            feedTitle: feedTitle
-        )
+        confirmations.presentFeedUnsubscribeConfirmation(feedID: feedID, feedTitle: feedTitle)
     }
 
     func dismissFeedUnsubscribeConfirmation() {
-        pendingFeedUnsubscribeConfirmation = nil
+        confirmations.dismissFeedUnsubscribeConfirmation()
     }
 
     func presentFolderDeleteConfirmation(folderName: String) {
-        pendingFeedUnsubscribeConfirmation = nil
-        pendingFolderDeleteConfirmation = PendingFolderDeleteConfirmation(
-            folderName: folderName
-        )
+        confirmations.presentFolderDeleteConfirmation(folderName: folderName)
     }
 
     func dismissFolderDeleteConfirmation() {
-        pendingFolderDeleteConfirmation = nil
+        confirmations.dismissFolderDeleteConfirmation()
     }
 
     func selectSidebarSelection(_ sidebarSelection: SidebarSelection?) {
@@ -474,7 +244,7 @@ public final class AppState {
             articleIDs,
             sidebarSelection: selectedSidebarSelection,
             sidebarArticleFilter: selectedSidebarArticleFilter,
-            articleListSessionID: articleNavigationContextListSessionID
+            articleListSessionID: articleListNavigation.currentSessionReference?.id
         )
     }
 
@@ -484,20 +254,16 @@ public final class AppState {
         sidebarArticleFilter: SidebarArticleFilter,
         articleListSessionID: UUID? = nil
     ) {
-        var seenArticleIDs = Set<UUID>()
-        articleNavigationContextSidebarSelection = sidebarSelection
-        articleNavigationContextSidebarArticleFilter = sidebarArticleFilter
-        articleNavigationContextListSessionID = articleListSessionID
-        articleNavigationContextIDs = articleIDs.filter { articleID in
-            seenArticleIDs.insert(articleID).inserted
-        }
+        articleListNavigation.updateContext(
+            articleIDs, sidebarSelection: sidebarSelection, sidebarArticleFilter: sidebarArticleFilter,
+            articleListSessionID: articleListSessionID
+        )
     }
 
     private func clearArticleNavigationContext() {
-        articleNavigationContextIDs = []
-        articleNavigationContextSidebarSelection = selectedSidebarSelection
-        articleNavigationContextSidebarArticleFilter = selectedSidebarArticleFilter
-        articleNavigationContextListSessionID = nil
+        articleListNavigation.clearContext(
+            sidebarSelection: selectedSidebarSelection, sidebarArticleFilter: selectedSidebarArticleFilter
+        )
     }
 
     @discardableResult
@@ -507,15 +273,7 @@ public final class AppState {
         }
 
         selectArticle(targetArticleID)
-        // Only an explicit Reader navigation command may replace the saved
-        // position while passive geometry callbacks are frozen under detail routes.
-        // The screen-owned scroll coordinator reveals the row before Back.
-        articleListScrollPositionIDs[
-            ArticleListScrollPositionKey(
-                sidebarSelection: selectedSidebarSelection,
-                sidebarArticleFilter: selectedSidebarArticleFilter
-            )
-        ] = targetArticleID
+        articleListNavigation.followReaderArticle(targetArticleID, navigation: readingNavigation)
         return true
     }
 
@@ -527,38 +285,7 @@ public final class AppState {
         _ direction: ReaderAdjacentArticleNavigationDirection,
         limit: Int
     ) -> [UUID] {
-        guard limit > 0 else { return [] }
-        guard articleNavigationContextSidebarSelection == selectedSidebarSelection,
-              articleNavigationContextSidebarArticleFilter == selectedSidebarArticleFilter else {
-            return []
-        }
-
-        guard let selectedArticleID,
-              let currentIndex = articleNavigationContextIDs.firstIndex(of: selectedArticleID) else {
-            return []
-        }
-
-        let step: Int
-        switch direction {
-        case .previous:
-            step = -1
-        case .next:
-            step = 1
-        }
-
-        var adjacentArticleIDs: [UUID] = []
-        var seenArticleIDs: Set<UUID> = [selectedArticleID]
-        var targetIndex = currentIndex + step
-        while articleNavigationContextIDs.indices.contains(targetIndex),
-              adjacentArticleIDs.count < limit {
-            let targetArticleID = articleNavigationContextIDs[targetIndex]
-            if seenArticleIDs.insert(targetArticleID).inserted {
-                adjacentArticleIDs.append(targetArticleID)
-            }
-            targetIndex += step
-        }
-
-        return adjacentArticleIDs
+        articleListNavigation.adjacentArticleIDs(direction, limit: limit, navigation: readingNavigation)
     }
 
     public init() {}

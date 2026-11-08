@@ -5,7 +5,7 @@ import Testing
 @Suite("Article Screen / Accordion Rendering")
 @MainActor
 struct ArticleScreenAccordionRenderingTests {
-    private func render(_ html: String) -> [ArticleScreenBodyBlock] {
+    private func render(_ html: String) -> [ArticleContentBodyBlock] {
         ArticleScreenContentState(article: makeReaderArticleDTO(contentHTML: html)).body.blocks
     }
 
@@ -76,7 +76,7 @@ struct ArticleScreenAccordionRenderingTests {
         #expect(disclosure.isInitiallyExpanded)
         guard case .paragraph(let ordinary) = blocks[3] else { Issue.record("Missing ordinary button text"); return }
         #expect(ordinary.plainText == "Ordinary button")
-        #expect(ArticleScreenBodyPayloadRenderer.htmlAttribute(named: "id", in: "<button data-id='x' title=\"id='fake'\">") == nil)
+        #expect(ArticleContentBodyPayloadRenderer.htmlAttribute(named: "id", in: "<button data-id='x' title=\"id='fake'\">") == nil)
     }
 
     @Test(arguments: [

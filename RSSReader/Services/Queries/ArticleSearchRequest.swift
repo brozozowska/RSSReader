@@ -1,7 +1,7 @@
 import Foundation
 
 struct ArticleSearchRequest: Sendable, Equatable {
-    struct Cursor: Sendable, Equatable {
+    nonisolated struct Cursor: Sendable, Equatable {
         let repositoryCursor: ArticleQueryCursor
 
         init(repositoryCursor: ArticleQueryCursor) {

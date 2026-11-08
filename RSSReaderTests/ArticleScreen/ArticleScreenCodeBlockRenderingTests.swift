@@ -53,10 +53,10 @@ struct ArticleScreenCodeBlockRenderingTests {
         #expect(content.body.blocks == [
             .preformattedText("    Wrapped prose\n    第二行"),
             .codeBlock("    let value = 42"),
-            .paragraph(ArticleScreenTextBlock(spans: [
-                ArticleScreenTextSpan(text: "Use "),
-                ArticleScreenTextSpan(text: "AccountViewModel", isCode: true),
-                ArticleScreenTextSpan(text: ".")
+            .paragraph(ArticleContentTextBlock(spans: [
+                ArticleContentTextSpan(text: "Use "),
+                ArticleContentTextSpan(text: "AccountViewModel", isCode: true),
+                ArticleContentTextSpan(text: ".")
             ]))
         ])
     }
@@ -64,7 +64,7 @@ struct ArticleScreenCodeBlockRenderingTests {
     @Test(arguments: ["Example: ", "<!-- literal -->"])
     func barePreLiteralCodeTagsDoNotBecomeAnEnclosingCodeWrapper(_ prefix: String) {
         let source = prefix + "<code>literal</code>"
-        let blocks = ArticleScreenBodyPayloadRenderer.renderHTML(
+        let blocks = ArticleContentBodyPayloadRenderer.renderHTML(
             "<pre>\(source)</pre>", article: makeReaderArticleDTO()
         )
         #expect(blocks == [.preformattedText(source)])
@@ -73,7 +73,7 @@ struct ArticleScreenCodeBlockRenderingTests {
     @Test
     func suppressesWhitespaceOnlyPreAndCode() {
         let article = makeReaderArticleDTO(summary: nil, contentHTML: nil)
-        let blocks = ArticleScreenBodyPayloadRenderer.renderHTML(
+        let blocks = ArticleContentBodyPayloadRenderer.renderHTML(
             "<pre> \n\t </pre><pre><code> \n\t </code></pre>",
             article: article
         )

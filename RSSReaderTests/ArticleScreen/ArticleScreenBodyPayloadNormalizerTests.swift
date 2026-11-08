@@ -5,7 +5,7 @@ import UIKit
 
 @Suite("Article Screen / Content Rendering / Body Payload Normalizer")
 @MainActor
-struct ArticleScreenBodyPayloadNormalizerTests {
+struct ArticleContentBodyPayloadNormalizerTests {
     @Test(arguments: [
         "(c)", "(C)", "C(c) = 6c+1", "(c)(c) (C)",
         "( c ) (c ) ( c) [(c)], (c). (r) (tm) (a+b)",
@@ -14,10 +14,10 @@ struct ArticleScreenBodyPayloadNormalizerTests {
     func preservesLiteralCopyrightSequencesWhileDecodingEntities(_ raw: String) throws {
         let expected = raw == "© &copy; &#169; &#xA9;" ? "© © © ©" : raw
         let payload = try #require(
-            ArticleScreenBodyPayloadNormalizer.normalize(raw, preferredKind: .plainText)
+            ArticleContentBodyPayloadNormalizer.normalize(raw, preferredKind: .plainText)
         )
         #expect(payload.value == expected)
-        #expect(ArticleScreenBodyPayloadNormalizer.decodeHTMLEntities(in: raw) == expected)
+        #expect(ArticleContentBodyPayloadNormalizer.decodeHTMLEntities(in: raw) == expected)
         #expect(FeedTextHTMLNormalizer.normalizeTextContent(raw) == raw)
         #expect(FeedTextHTMLNormalizer.normalizeHTMLContent(raw) == raw)
     }
@@ -25,7 +25,7 @@ struct ArticleScreenBodyPayloadNormalizerTests {
     @Test
     func articleScreenBodyPayloadNormalizerClassifiesEscapedHTMLAsHTML() throws {
         let payload = try #require(
-            ArticleScreenBodyPayloadNormalizer.normalize(
+            ArticleContentBodyPayloadNormalizer.normalize(
                 """
                 &lt;p&gt;Это уже другой уровень&lt;/p&gt;
                 &lt;p&gt;Сообщение &lt;a href=&quot;https://thecode.media/article&quot;&gt;Создатели Flipper Zero&lt;/a&gt; появились сначала&lt;/p&gt;
@@ -42,7 +42,7 @@ struct ArticleScreenBodyPayloadNormalizerTests {
     @Test
     func articleScreenBodyPayloadNormalizerDecodesNumericEntities() throws {
         let payload = try #require(
-            ArticleScreenBodyPayloadNormalizer.normalize(
+            ArticleContentBodyPayloadNormalizer.normalize(
                 "Зарплата &#8381; и аванс &#x20BD;",
                 preferredKind: .plainText
             )
@@ -55,13 +55,13 @@ struct ArticleScreenBodyPayloadNormalizerTests {
     @Test
     func articleScreenBodyPayloadNormalizerClassifiesAbbreviationMarkupAsHTML() throws {
         let rawPayload = try #require(
-            ArticleScreenBodyPayloadNormalizer.normalize(
+            ArticleContentBodyPayloadNormalizer.normalize(
                 #"Read <abbr title="Continuous Integration">CI</abbr> safely."#,
                 preferredKind: .plainText
             )
         )
         let repeatedlyEscapedPayload = try #require(
-            ArticleScreenBodyPayloadNormalizer.normalize(
+            ArticleContentBodyPayloadNormalizer.normalize(
                 #"Read &amp;lt;abbr title=&amp;quot;Continuous Integration&amp;quot;&amp;gt;CI&amp;lt;/abbr&amp;gt; safely."#,
                 preferredKind: .plainText
             )
@@ -75,7 +75,7 @@ struct ArticleScreenBodyPayloadNormalizerTests {
     @Test
     func articleScreenBodyPayloadNormalizerDoesNotTreatComparisonsAsHTML() throws {
         let payload = try #require(
-            ArticleScreenBodyPayloadNormalizer.normalize(
+            ArticleContentBodyPayloadNormalizer.normalize(
                 "Bounds stay 2 < 3 and 5 > 4.",
                 preferredKind: .plainText
             )

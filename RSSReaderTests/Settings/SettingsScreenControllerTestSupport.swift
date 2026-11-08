@@ -62,10 +62,12 @@ enum SettingsRuntimeAccountAvailabilityScenario: CaseIterable {
         }
     }
 
+    @MainActor
     var expectedPresentation: SettingsSyncStatusPresentation {
         SettingsSyncStatusPresentation(accountAvailability: availability)
     }
 
+    @MainActor
     var expectedICloudSyncStatus: ICloudSyncStatus {
         expectedPresentation.iCloudSyncStatus
     }
@@ -90,6 +92,7 @@ enum SettingsBootstrapFallbackScenario: CaseIterable {
         }
     }
 
+    @MainActor
     var expectedPresentation: SettingsSyncStatusPresentation {
         SettingsSyncStatusPresentation(accountAvailability: availability)
     }

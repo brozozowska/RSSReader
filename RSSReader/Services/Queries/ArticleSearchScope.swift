@@ -1,6 +1,6 @@
 import Foundation
 
-struct ArticleSearchCandidateDTO: Sendable, Equatable {
+nonisolated struct ArticleSearchCandidateDTO: Sendable, Equatable {
     let listItem: ArticleListItemDTO
     let searchableText: String
 
@@ -46,8 +46,10 @@ struct ArticleSearchScope: Sendable, Equatable {
             return true
         }
 
-        return candidate.searchableText.localizedCaseInsensitiveContains(normalizedQuery)
-            || candidate.listItem.feedTitle.localizedCaseInsensitiveContains(normalizedQuery)
+        return ArticleSearchableTextPolicy.contains(
+            candidate.searchableText, feedTitle: candidate.listItem.feedTitle,
+            author: candidate.listItem.author, query: normalizedQuery
+        )
     }
 
     static func listFilter(

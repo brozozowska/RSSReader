@@ -10,14 +10,10 @@ enum ArticlesScreenMutationReducer {
         selection: SidebarSelection?,
         sidebarArticleFilter: SidebarArticleFilter
     ) -> ArticleListFilter {
-        switch selection {
-        case .unread:
-            .unread
-        case .starred:
-            .starred
-        case .inbox, .folder, .feed, .none:
-            SidebarArticleFilterResolver.resolve(for: sidebarArticleFilter)
-        }
+        ArticleSearchScope.listFilter(
+            selection: selection,
+            sidebarArticleFilter: sidebarArticleFilter
+        )
     }
 
     static func reduceAfterMarkAllAsRead(

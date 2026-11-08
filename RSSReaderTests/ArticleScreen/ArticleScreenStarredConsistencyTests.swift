@@ -59,7 +59,7 @@ struct ArticleScreenStarredConsistencyTests {
         let list = ArticlesScreenController()
         await list.load(
             selection: .starred, sidebarArticleFilter: .allItems,
-            dependencies: harness.dependencies, refreshesScopeMetric: true
+            dependencies: harness.dependencies, scopeMetric: .baseScope
         )
         let session = reference(for: list)
         let reader = ArticleScreenController()
@@ -87,8 +87,7 @@ struct ArticleScreenStarredConsistencyTests {
 
         await list.load(
             selection: .starred, sidebarArticleFilter: .allItems,
-            dependencies: harness.dependencies, retainsSessionFilterMutations: true,
-            preservesMaterializedSessionSnapshot: true
+            dependencies: harness.dependencies, policy: .resumeMaterializedSession
         )
         #expect(list.currentArticleListSessionID == session.id)
         #expect(list.screenState.articles.first?.isStarred == false)
@@ -108,7 +107,7 @@ struct ArticleScreenStarredConsistencyTests {
         let list = ArticlesScreenController()
         await list.load(
             selection: .starred, sidebarArticleFilter: .allItems,
-            dependencies: harness.dependencies, refreshesScopeMetric: true
+            dependencies: harness.dependencies, scopeMetric: .baseScope
         )
         let session = reference(for: list)
         let reader = ArticleScreenController()

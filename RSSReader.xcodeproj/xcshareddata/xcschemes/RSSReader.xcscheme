@@ -25,6 +25,8 @@
    </BuildAction>
    <TestAction
       buildConfiguration = "Debug"
+      language = "ru"
+      region = "RU"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
@@ -38,6 +40,13 @@
                BlueprintIdentifier = "4EC805A32F7EB73A004CDFE9"
                BuildableName = "RSSReaderTests.xctest"
                BlueprintName = "RSSReaderTests"
+               ReferencedContainer = "container:RSSReader.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference skipped = "NO" parallelizable = "NO">
+            <BuildableReference BuildableIdentifier = "primary"
+               BlueprintIdentifier = "720000000000000000000001"
+               BuildableName = "RSSReaderUITests.xctest" BlueprintName = "RSSReaderUITests"
                ReferencedContainer = "container:RSSReader.xcodeproj">
             </BuildableReference>
          </TestableReference>

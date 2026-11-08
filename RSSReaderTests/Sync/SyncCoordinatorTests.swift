@@ -330,7 +330,8 @@ struct SyncCoordinatorTests {
     }
 }
 
-private final class TestICloudAccountAvailabilityService: ICloudAccountAvailabilityService, @unchecked Sendable {
+// The queue owns the subscription dictionary; yields use a snapshot outside it.
+private nonisolated final class TestICloudAccountAvailabilityService: ICloudAccountAvailabilityService, @unchecked Sendable {
     private let initialAvailability: ICloudAccountAvailability
     private let queue = DispatchQueue(label: "RSSReaderTests.SyncCoordinator.AccountAvailability")
     private var continuations: [UUID: AsyncStream<ICloudAccountAvailability>.Continuation] = [:]
@@ -374,7 +375,8 @@ private final class TestICloudAccountAvailabilityService: ICloudAccountAvailabil
     }
 }
 
-private final class TestCloudKitRuntimeEventSource: CloudKitRuntimeEventSource, @unchecked Sendable {
+// The queue owns the subscription dictionary; yields use a snapshot outside it.
+private nonisolated final class TestCloudKitRuntimeEventSource: CloudKitRuntimeEventSource, @unchecked Sendable {
     private let queue = DispatchQueue(label: "RSSReaderTests.SyncCoordinator.CloudKitRuntimeEvents")
     private var continuations: [UUID: AsyncStream<CloudKitRuntimeEvent>.Continuation] = [:]
 

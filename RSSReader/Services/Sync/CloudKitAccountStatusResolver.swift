@@ -1,5 +1,6 @@
 import CloudKit
 import Foundation
+import Synchronization
 
 enum CloudKitAccountStatusResolver {
     static func currentStatus(
@@ -7,15 +8,26 @@ enum CloudKitAccountStatusResolver {
         timeout: DispatchTimeInterval = .seconds(5)
     ) -> CKAccountStatus {
         let container = CKContainer(identifier: containerIdentifier)
-        let semaphore = DispatchSemaphore(value: 0)
-        var resolvedStatus: CKAccountStatus = .couldNotDetermine
+        return currentStatus(timeout: timeout) { completion in
+            container.accountStatus(completionHandler: completion)
+        }
+    }
 
-        container.accountStatus { status, _ in
-            resolvedStatus = status
+    static func currentStatus(
+        timeout: DispatchTimeInterval,
+        requestStatus: (@escaping @Sendable (CKAccountStatus, (any Error)?) -> Void) -> Void
+    ) -> CKAccountStatus {
+        let semaphore = DispatchSemaphore(value: 0)
+        let resolvedStatus = Mutex(CKAccountStatus.couldNotDetermine)
+
+        requestStatus { status, _ in
+            resolvedStatus.withLock { $0 = status }
             semaphore.signal()
         }
 
-        _ = semaphore.wait(timeout: .now() + timeout)
-        return resolvedStatus
+        guard semaphore.wait(timeout: .now() + timeout) == .success else {
+            return .couldNotDetermine
+        }
+        return resolvedStatus.withLock { $0 }
     }
 }

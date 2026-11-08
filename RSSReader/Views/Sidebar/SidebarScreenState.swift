@@ -8,11 +8,9 @@ struct SidebarScreenState {
     private(set) var starredFeedIDs = Set<UUID>()
     private(set) var phase: SidebarContentPhase = .loading
     private(set) var refreshStatus: SidebarRefreshStatus = .idle(lastUpdatedAt: nil)
-    private var customRefreshID: UUID?
-    private(set) var customRefreshState: SidebarCustomRefreshState = .idle {
-        didSet {
-            if customRefreshState.phase != .refreshing { customRefreshID = nil }
-        }
+    private var customRefreshLifecycle = AppPullRefreshLifecycle()
+    var customRefreshState: AppPullRefreshState {
+        customRefreshLifecycle.state
     }
 
     var isSyncing: Bool {
@@ -34,21 +32,16 @@ struct SidebarScreenState {
     }
 
     mutating func updateCustomRefreshPullProgress(_ progress: Double) {
-        guard customRefreshState.phase != .refreshing else { return }
-        customRefreshState = .pulling(progress: progress)
+        customRefreshLifecycle.updatePullProgress(progress)
     }
 
     @discardableResult
     mutating func beginCustomRefresh() -> UUID {
-        let refreshID = UUID()
-        customRefreshState = .refreshing
-        customRefreshID = refreshID
-        return refreshID
+        customRefreshLifecycle.begin()
     }
 
     mutating func endCustomRefresh(ifMatching refreshID: UUID? = nil) {
-        if let refreshID, refreshID != customRefreshID { return }
-        customRefreshState = .idle
+        customRefreshLifecycle.end(ifMatching: refreshID)
     }
 
     mutating func restoreRefreshStatus(_ previousStatus: SidebarRefreshStatus) {

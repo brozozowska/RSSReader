@@ -3,6 +3,7 @@ import Testing
 @testable import RSSReader
 
 @Suite("Infrastructure / Background Refresh Foreground Handoff Policy")
+@MainActor
 struct BackgroundRefreshForegroundHandoffPolicyTests {
     @Test
     func foregroundHandoffPolicyRequestsImmediateReloadWhenForegroundRuntimeHasMaterializedRefresh() {
@@ -107,6 +108,7 @@ struct BackgroundRefreshForegroundHandoffPolicyTests {
     }
 }
 
+@MainActor
 private func makeBackgroundResult(results: [FeedRefreshResult]) -> BackgroundFeedRefreshResult {
     BackgroundFeedRefreshResult(
         batchResult: FeedRefreshBatchResult(

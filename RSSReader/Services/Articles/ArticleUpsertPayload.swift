@@ -51,7 +51,9 @@ nonisolated struct ArticleUpsertPayload: Sendable {
             summary: entry.summary,
             contentHTML: entry.contentHTML,
             contentText: entry.contentText,
-            author: entry.author
+            author: entry.author,
+            articleURL: self.url,
+            canonicalURL: entry.canonicalURL
         )
         self.author = entry.author
         self.publishedAt = entry.publishedAt

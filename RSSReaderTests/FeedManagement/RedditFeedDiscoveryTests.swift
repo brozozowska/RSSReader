@@ -66,7 +66,7 @@ struct RedditFeedDiscoveryTests {
         let appState = AppState()
         appState.selectSidebarArticleFilter(.unread)
         // Reproduce the former app boundary, which discarded the preview payload.
-        _ = await harness.dependencies.appActions.completeFeedManagementFeedSave(id: created.id, using: appState, selectsSavedFeed: false)
+        harness.dependencies.appActions.completeFeedManagementFeedSave(id: created.id, using: appState, selectsSavedFeed: false)
         await harness.dependencies.appActions.waitForScheduledFeedSaveRefreshes()
         let feed = try #require(try harness.feedRepository.fetchFeed(id: created.id))
         #expect(feed.lastFetchedAt != nil)

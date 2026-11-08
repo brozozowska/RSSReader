@@ -4,7 +4,6 @@ import Observation
 
 /// Сборка корневого дерева приложения с app-level зависимостями и SwiftData контейнером.
 /// Для app bootstrap всегда использует единый `makeAppDependencies()` path.
-/// - Parameter modelPartition: Partition SwiftData моделей. Если `nil`, используется `current` partition.
 enum AppComposition {
     nonisolated static let resourceBudgetContract = AppResourceBudgetContract.current
     static let persistenceModelPartition = AppPersistenceModelPartition.current
@@ -12,8 +11,10 @@ enum AppComposition {
     static let syncBackedModels = persistenceModelPartition.syncBackedModels
     static let localOnlyModels = persistenceModelPartition.localOnlyModels
     static let appModels = persistenceModelPartition.allModels
+    /// All live graphs in this process share memory, disk serialization and clear semantics.
+    /// Fixtures never resolve this owner.
     @MainActor
-    static let disposableCacheMigrationGuard = AppLaunchBootstrapGuard()
+    static let liveFeedIconCache = FeedIconCacheService(diskCache: FeedIconDiskCache())
     @MainActor
     static let developmentSchemaBootstrapGuard = AppLaunchBootstrapGuard()
     @MainActor
@@ -24,11 +25,20 @@ enum AppComposition {
         modelPartition: AppPersistenceModelPartition? = nil,
         syncEnablementPolicy: AppSyncEnablementPolicy? = nil
     ) -> AppDependencies {
+#if DEBUG && targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("--ui-smoke") {
+            do {
+                let dependencies = try UISmokeBootstrap.makeDependencies(environment: ProcessInfo.processInfo.environment)
+                dependencies.articleSearchIndexMaintenance?.start()
+                return dependencies
+            } catch {
+                fatalError("UI smoke bootstrap failed: \(error)")
+            }
+        }
+#endif
         let logger = AppDependencies.makeDefaultLogger()
         let resolvedModelPartition = modelPartition ?? persistenceModelPartition
         let resolvedSyncEnablementPolicy = syncEnablementPolicy ?? self.syncEnablementPolicy
-
-        runDisposableCacheMigrationIfNeeded(logger: logger)
 
 #if DEBUG
         runDevelopmentSchemaBootstrapIfNeeded(logger: logger)
@@ -40,18 +50,15 @@ enum AppComposition {
             syncEnablementPolicy: resolvedSyncEnablementPolicy,
             syncCoordinator: syncCoordinator,
             globalOrphanSweepScheduleStore: UserDefaultsGlobalOrphanSweepScheduleStore(),
-            logger: logger
+            logger: logger,
+            articleImageRuntime: .makeLive(),
+            httpClient: URLSessionHTTPClient(),
+            feedIconCache: liveFeedIconCache,
+            sidebarFolderExpansionStore: SidebarFolderExpansionStore(userDefaults: .standard)
         )
+        dependencies.articleSearchIndexMaintenance?.start()
         dependencies.startSyncCoordinatorAppLifetime()
         return dependencies
-    }
-
-    @MainActor
-    @ViewBuilder
-    static func makeRoot(modelPartition: AppPersistenceModelPartition? = nil) -> some View {
-        let deps = makeAppDependencies(modelPartition: modelPartition)
-
-        AppRootContainer(dependencies: deps)
     }
 
     @MainActor
@@ -89,6 +96,9 @@ struct AppRootContainer: View {
             await dependencies.appActions.refreshUnreadAppIconBadgeCount()
         }
         .task(id: scenePhase) {
+            if scenePhase == .active {
+                dependencies.articleSearchIndexMaintenance?.retry()
+            }
             _ = await AppComposition.runGlobalOrphanSweepLifecycleIfNeeded(
                 from: scenePhase,
                 using: dependencies
