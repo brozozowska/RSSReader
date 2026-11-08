@@ -49,22 +49,6 @@ extension ArticleContentBodyPayloadRenderer {
         .map { nsHTML.substring(with: $0.range) }
     }
 
-    nonisolated static func firstHTMLBlock(named tagName: String, in html: String) -> String? {
-        let blockPattern = #"(?is)<\#(tagName)\b[^>]*>.*?</\#(tagName)\s*>"#
-        guard
-            let blockRegex = try? NSRegularExpression(pattern: blockPattern, options: [.caseInsensitive, .dotMatchesLineSeparators]),
-            let match = blockRegex.firstMatch(
-                in: html,
-                options: [],
-                range: NSRange(location: 0, length: (html as NSString).length)
-            )
-        else {
-            return nil
-        }
-
-        return (html as NSString).substring(with: match.range)
-    }
-
     nonisolated static func htmlAttribute(named attributeName: String, in html: String) -> String? {
         let attributePattern = #"(?:^|\s)([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))"#
         guard

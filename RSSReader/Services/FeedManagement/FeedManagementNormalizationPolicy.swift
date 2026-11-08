@@ -6,14 +6,6 @@ struct FeedManagementNormalizationPolicy {
     let feedRepository: any FeedRepository
     let folderRepository: any FolderRepository
 
-    func normalizedFeedURLString(_ value: String) throws -> String {
-        let normalizedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard normalizedValue.isEmpty == false else {
-            throw FeedManagementServiceError.invalidFeedURL(value)
-        }
-        return normalizedValue
-    }
-
     func normalizedFolderName(_ value: String) throws -> String {
         let normalizedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard normalizedValue.isEmpty == false else {

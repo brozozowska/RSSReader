@@ -491,16 +491,6 @@ struct FeedManagementAddFeedState {
         return FeedManagementLocalization.createNewFolderAction
     }
 
-    private func selectedPlacementTitle() -> String {
-        switch selectedFolderPlacement {
-        case .ungrouped:
-            return FeedManagementLocalization.ungroupedTitle
-        case .folder(let folderID):
-            return availableFolders.first(where: { $0.id == folderID })?.name
-                ?? FeedManagementLocalization.selectedFolderTitle
-        }
-    }
-
     private func kindTitle(_ kind: FeedKind) -> String {
         switch kind {
         case .rss:

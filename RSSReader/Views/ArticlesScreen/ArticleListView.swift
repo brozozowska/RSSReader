@@ -422,12 +422,6 @@ struct ArticleListView: View {
         }
     }
 
-    private func retryPrimaryLoad() {
-        Task {
-            await loadArticles()
-        }
-    }
-
     // MARK: Refresh
 
     @MainActor

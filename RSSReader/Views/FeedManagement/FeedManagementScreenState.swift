@@ -26,10 +26,6 @@ struct FeedManagementScreenState {
         refreshPresentedDestination()
     }
 
-    func addFeedValidationMessage() -> String? {
-        addFeedState.validationMessage()
-    }
-
     func addFeedURLInput() -> String {
         addFeedState.urlInput
     }
@@ -115,10 +111,6 @@ struct FeedManagementScreenState {
         addFeedState.applyAvailableFolders(folders)
         addFeedState.applyEditingFeed(feed)
         refreshPresentedDestination()
-    }
-
-    func isEditingAddFeed() -> Bool {
-        addFeedState.isEditing
     }
 
     mutating func beginAddFeedUpdate() -> FeedManagementUpdateFeedCommand? {

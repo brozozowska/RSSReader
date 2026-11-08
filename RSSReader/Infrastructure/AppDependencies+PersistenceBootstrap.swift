@@ -18,19 +18,6 @@ extension AppDependencies {
     @MainActor
     static func makeWithSwiftData(
         modelPartition: AppPersistenceModelPartition,
-        syncEnablementPolicy: AppSyncEnablementPolicy
-    ) -> AppDependencies {
-        let syncCoordinator = SyncCoordinator()
-        return makeWithSwiftData(
-            modelPartition: modelPartition,
-            syncEnablementPolicy: syncEnablementPolicy,
-            syncCoordinator: syncCoordinator
-        )
-    }
-
-    @MainActor
-    static func makeWithSwiftData(
-        modelPartition: AppPersistenceModelPartition,
         syncEnablementPolicy: AppSyncEnablementPolicy,
         syncCoordinator: SyncCoordinator,
         syncBootstrapPreferenceStore: (any AppSyncBootstrapPreferenceStoring)? = nil,

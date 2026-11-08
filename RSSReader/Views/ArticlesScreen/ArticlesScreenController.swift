@@ -89,10 +89,6 @@ final class ArticlesScreenController {
         }
     }
 
-    func shouldResetArticleSelection(for selection: SidebarSelection?) -> Bool {
-        screenState.articleListSession.context.selection != selection
-    }
-
     func shouldResetArticleSession(for context: ArticleListSession.Context) -> Bool {
         screenState.articleListSession.context != context
     }
