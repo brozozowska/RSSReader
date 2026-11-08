@@ -181,15 +181,16 @@ struct AppDependenciesSyncRuntimeOrchestratorTests {
                 && cloudKitRuntimeEventSource.subscriberCount == 1
         }
 
+        let stateBeforeDisconnect = syncCoordinator.runtimeState
         dependencies.stopSyncRuntimeAppLifetime()
 
-        try await expectAppDependenciesEventually {
+        try await waitUntil("sync coordinator runtime subscriptions removed") {
             accountAvailabilityService.subscriberCount == 0
                 && cloudKitRuntimeEventSource.subscriberCount == 0
         }
 
         await accountAvailabilityService.yield(.restricted)
-        await cloudKitRuntimeEventSource.yield(
+        try await cloudKitRuntimeEventSource.yieldAndWait(
             .started(
                 .import,
                 CloudKitRuntimeEventContext(
@@ -201,8 +202,6 @@ struct AppDependenciesSyncRuntimeOrchestratorTests {
             )
         )
 
-        try await Task.sleep(for: .milliseconds(100))
-
-        #expect(syncCoordinator.runtimeState.phase == .idle)
+        #expect(syncCoordinator.runtimeState == stateBeforeDisconnect)
     }
 }

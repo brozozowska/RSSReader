@@ -70,6 +70,7 @@ final class PrecomputedBackgroundRefreshServiceSpy: BackgroundRefreshService {
 
 @MainActor
 final class CancellableBackgroundRefreshServiceSpy: BackgroundRefreshService {
+    let started = AsyncTestGate()
     private(set) var performScheduledRefreshCallCount = 0
     private(set) var observedCancellation = false
     private let configuration: BackgroundRefreshConfiguration
@@ -92,17 +93,16 @@ final class CancellableBackgroundRefreshServiceSpy: BackgroundRefreshService {
 
     func performScheduledRefresh() async -> BackgroundRefreshServiceExecutionResult {
         performScheduledRefreshCallCount += 1
+        started.release()
 
         do {
-            try await Task.sleep(for: .seconds(60))
-            return .failedToStart(.configurationLoadFailed)
+            try await AsyncTestGate().wait("background refresh cancellation", timeout: .seconds(10))
         } catch is CancellationError {
             observedCancellation = true
-            return .failedToStart(.configurationLoadFailed)
         } catch {
             Issue.record("Unexpected error while waiting for cancellation: \(error)")
-            return .failedToStart(.configurationLoadFailed)
         }
+        return .failedToStart(.configurationLoadFailed)
     }
 }
 

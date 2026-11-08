@@ -129,14 +129,17 @@ struct SettingsScreenControllerFeedPortabilityTests {
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension("opml")
 
+        let loader = SuspendedOPMLImportFileLoader()
         let task = Task {
             await controller.prepareOPMLImportPreview(
                 fileURL: fileURL,
                 dependencies: harness.dependencies,
-                fileLoader: SuspendedOPMLImportFileLoader()
+                fileLoader: loader
             )
         }
-        await Task.yield()
+        defer { task.cancel() }
+
+        try await loader.started.wait("OPML import loader entry")
         task.cancel()
         await task.value
 
@@ -170,12 +173,15 @@ struct SettingsScreenControllerFeedPortabilityTests {
 }
 
 private nonisolated struct SuspendedOPMLImportFileLoader: OPMLImportFileLoading {
+    let started = AsyncTestGate()
+
     func loadPreview(
         fileURL: URL,
         existingFeeds: [FeedManagementFeedSummary],
         existingFolders: [FeedManagementFolderSummary]
     ) async throws -> OPMLImportPreviewPlan {
-        try await Task.sleep(for: .seconds(60))
+        started.release()
+        try await AsyncTestGate().wait("OPML import cancellation", timeout: .seconds(10))
         throw CancellationError()
     }
 }
