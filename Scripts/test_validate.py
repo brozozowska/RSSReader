@@ -24,7 +24,9 @@ if pathlib.Path(sys.argv[0]).name == "xcodebuild":
     elif "-showBuildSettings" in a:
         if "-destination" in a and "missing" in a[a.index("-destination")+1]: sys.exit(70)
         emit([{"target":t,"buildSettings":{"IPHONEOS_DEPLOYMENT_TARGET":"27.2",
-              "TARGETED_DEVICE_FAMILY":"1,2"}} for t in (["RSSReader", "RSSReaderTests"] if scenario == "missing-ui-target" else ["RSSReader", "RSSReaderTests", "RSSReaderUITests"])])
+              "TARGETED_DEVICE_FAMILY":"1,2", "SWIFT_STRICT_CONCURRENCY":"complete",
+              "SWIFT_VERSION":"5.0" if scenario == "swift-version-drift" and "Release" in a and t == "RSSReaderUITests" else "6.0"}}
+              for t in (["RSSReader", "RSSReaderTests"] if scenario == "missing-ui-target" else ["RSSReader", "RSSReaderTests", "RSSReaderUITests"])])
     elif "test" in a:
         pathlib.Path(a[a.index("-resultBundlePath")+1]).mkdir()
         if scenario == "descendant-output":
@@ -121,6 +123,12 @@ class ValidationCLI(unittest.TestCase):
         self.assertIn("clean build", commands)
         self.assertIn("-only-testing:RSSReaderTests ", commands)
         self.assertNotIn("-only-testing:RSSReaderTests/", commands)
+
+    def test_rejects_release_ui_target_language_mode_drift(self):
+        result = self.run_cli("full", scenario="swift-version-drift")
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("Swift 6 with complete concurrency checking is required in Release", result.stderr)
+        self.assertNotIn("Starting phase: build", result.stdout)
 
     def test_stderr_diagnostics_do_not_corrupt_json_or_sdk_output(self):
         result = self.run_cli("full", scenario="diagnostic-stderr")

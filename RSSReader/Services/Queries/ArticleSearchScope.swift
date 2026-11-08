@@ -1,6 +1,6 @@
 import Foundation
 
-struct ArticleSearchCandidateDTO: Sendable, Equatable {
+nonisolated struct ArticleSearchCandidateDTO: Sendable, Equatable {
     let listItem: ArticleListItemDTO
     let searchableText: String
 

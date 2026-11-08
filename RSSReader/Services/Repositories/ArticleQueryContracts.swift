@@ -48,7 +48,7 @@ struct ArticleQueryCriteria: Equatable, Sendable {
     }
 }
 
-struct ArticleQueryCursor: Equatable, Sendable {
+nonisolated struct ArticleQueryCursor: Equatable, Sendable {
     let sortDate: Date
     let articleID: UUID
 }

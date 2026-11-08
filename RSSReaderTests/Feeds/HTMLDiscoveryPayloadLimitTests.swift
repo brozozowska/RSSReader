@@ -45,6 +45,7 @@ struct HTMLDiscoveryPayloadLimitTests {
     }
 
     @Test
+    @MainActor
     func parserStopsBeforeLinkTagsBeyondInspectionLimit() throws {
         let budget = AppResourceBudgetContract.current.discoveryHTML
         let ignoredTags = (0..<budget.maximumLinkTagCountToInspect)
@@ -62,6 +63,7 @@ struct HTMLDiscoveryPayloadLimitTests {
     }
 
     @Test
+    @MainActor
     func feedAndIconBuildersCapUniqueDiscoveryCandidates() throws {
         let budget = AppResourceBudgetContract.current.discoveryHTML
         let html = (0..<(budget.maximumDiscoveryCandidateCount + 5))

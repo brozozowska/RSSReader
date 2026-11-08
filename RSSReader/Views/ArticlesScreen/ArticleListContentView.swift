@@ -14,7 +14,7 @@ struct ArticleListContentView: View {
     var listSessionID: UUID?
     @Binding var selection: UUID?
     @Binding var scrollPositionID: UUID?
-    let customRefreshPullProgressChanged: @MainActor (Double) -> Void
+    let customRefreshPullProgressChanged: @MainActor @Sendable (Double) -> Void
     let customRefreshReleaseAction: @MainActor () async -> Void
     let loadNextPageAction: @MainActor () async -> Void
     let toggleReadStatusAction: @MainActor (ArticleListItemDTO) -> Void

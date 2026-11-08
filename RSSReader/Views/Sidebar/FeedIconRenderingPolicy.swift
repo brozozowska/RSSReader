@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct FeedIconRenderingPolicy {
+nonisolated struct FeedIconRenderingPolicy {
     let containerSize: CGFloat
     let iconSize: CGFloat
     let cornerRadius: CGFloat

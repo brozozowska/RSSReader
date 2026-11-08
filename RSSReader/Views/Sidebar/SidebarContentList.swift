@@ -9,8 +9,8 @@ struct SidebarContentList: View {
     let appThemeVariant: AppThemeVariant
     let actionHandlers: SidebarActionHandlers
     let onFolderExpansionToggle: (String) -> Void
-    let onCustomRefreshPullProgressChange: (Double) -> Void
-    let onCustomRefreshRelease: () -> Void
+    let onCustomRefreshPullProgressChange: @MainActor @Sendable (Double) -> Void
+    let onCustomRefreshRelease: @MainActor @Sendable () -> Void
 
     var body: some View {
         List(selection: $selection) {

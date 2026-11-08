@@ -108,7 +108,7 @@ actor AcknowledgedTestEventIterator<Event: Sendable> {
     func next() async -> Event? {
         processedCount = deliveredCount
         var current = iterator
-        let event = await current.next()
+        let event = await current.next(isolation: self)
         iterator = current
         if event != nil { deliveredCount += 1 }
         return event

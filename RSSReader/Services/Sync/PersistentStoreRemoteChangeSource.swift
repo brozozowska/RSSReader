@@ -1,7 +1,7 @@
 import CoreData
 import Foundation
 
-struct PersistentStoreRemoteChangeEvent: Sendable {
+nonisolated struct PersistentStoreRemoteChangeEvent: Sendable {
     let storeUUID: String?
     let storeURL: URL?
 }
@@ -10,7 +10,7 @@ protocol PersistentStoreRemoteChangeSource: Sendable {
     func events() -> AsyncStream<PersistentStoreRemoteChangeEvent>
 }
 
-struct DefaultPersistentStoreRemoteChangeSource: PersistentStoreRemoteChangeSource, @unchecked Sendable {
+nonisolated struct DefaultPersistentStoreRemoteChangeSource: PersistentStoreRemoteChangeSource {
     private let notificationCenter: NotificationCenter
     private let remoteChangeNotification: Notification.Name
 
@@ -24,17 +24,11 @@ struct DefaultPersistentStoreRemoteChangeSource: PersistentStoreRemoteChangeSour
 
     func events() -> AsyncStream<PersistentStoreRemoteChangeEvent> {
         AsyncStream { continuation in
-            let observer = notificationCenter.addObserver(
-                forName: remoteChangeNotification,
-                object: nil,
-                queue: nil
-            ) { notification in
+            let observation = NotificationObservation(center: notificationCenter, name: remoteChangeNotification) { notification in
                 continuation.yield(Self.makeEvent(from: notification))
             }
 
-            continuation.onTermination = { _ in
-                notificationCenter.removeObserver(observer)
-            }
+            continuation.onTermination = { _ in observation.cancel() }
         }
     }
 

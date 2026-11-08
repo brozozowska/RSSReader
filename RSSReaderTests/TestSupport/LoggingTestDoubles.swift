@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 @testable import RSSReader
 
 struct TestLogger: Logging {
@@ -12,24 +13,29 @@ final class NoOpUnreadAppIconBadgeService: UnreadAppIconBadgeServicing {
     func applyBadgePreference(isEnabled: Bool) async {}
 }
 
-final class RecordingLogger: Logging {
-    struct Entry: Equatable {
+nonisolated final class RecordingLogger: Logging {
+    struct Entry: Equatable, Sendable {
         let level: LogLevel
         let message: String
     }
 
-    private(set) var entries: [Entry] = []
+    private let storage = Mutex<[Entry]>([])
+    var entries: [Entry] { storage.withLock { $0 } }
 
     func debug(_ message: @autoclosure () -> String) {
-        entries.append(Entry(level: .debug, message: message()))
+        append(.debug, message())
     }
 
     func info(_ message: @autoclosure () -> String) {
-        entries.append(Entry(level: .info, message: message()))
+        append(.info, message())
     }
 
     func error(_ message: @autoclosure () -> String) {
-        entries.append(Entry(level: .error, message: message()))
+        append(.error, message())
+    }
+
+    private func append(_ level: LogLevel, _ message: String) {
+        storage.withLock { $0.append(Entry(level: level, message: message)) }
     }
 
     func contains(_ fragment: String, level: LogLevel? = nil) -> Bool {

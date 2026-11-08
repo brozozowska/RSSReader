@@ -14,7 +14,8 @@ final class AppDependenciesRecordingUnreadAppIconBadgeService: UnreadAppIconBadg
     func applyBadgePreference(isEnabled: Bool) async {}
 }
 
-final class AppDependenciesTestICloudAccountAvailabilityService: ICloudAccountAvailabilityService, @unchecked Sendable {
+// The queue owns the subscription dictionary; yields use a snapshot outside it.
+nonisolated final class AppDependenciesTestICloudAccountAvailabilityService: ICloudAccountAvailabilityService, @unchecked Sendable {
     private let initialAvailability: ICloudAccountAvailability
     private let queue = DispatchQueue(label: "RSSReaderTests.AppDependencies.AccountAvailability")
     private var continuations: [UUID: AsyncStream<ICloudAccountAvailability>.Continuation] = [:]
@@ -81,7 +82,7 @@ final class AppDependenciesRecordingBackgroundRefreshForegroundHandoffCoordinato
     }
 }
 
-final class AppDependenciesTestCloudKitRuntimeEventSource: CloudKitRuntimeEventSource, @unchecked Sendable {
+nonisolated final class AppDependenciesTestCloudKitRuntimeEventSource: CloudKitRuntimeEventSource {
     private let source = AcknowledgedTestEventSource<CloudKitRuntimeEvent>()
 
     func events() -> AsyncStream<CloudKitRuntimeEvent> { source.events() }
@@ -94,7 +95,7 @@ final class AppDependenciesTestCloudKitRuntimeEventSource: CloudKitRuntimeEventS
     }
 }
 
-final class AppDependenciesTestPersistentStoreRemoteChangeSource: PersistentStoreRemoteChangeSource, @unchecked Sendable {
+nonisolated final class AppDependenciesTestPersistentStoreRemoteChangeSource: PersistentStoreRemoteChangeSource {
     private let source = AcknowledgedTestEventSource<PersistentStoreRemoteChangeEvent>()
 
     func events() -> AsyncStream<PersistentStoreRemoteChangeEvent> { source.events() }

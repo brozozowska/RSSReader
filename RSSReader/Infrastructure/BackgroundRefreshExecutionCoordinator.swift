@@ -1,5 +1,6 @@
 import BackgroundTasks
 import Foundation
+import Synchronization
 
 enum BackgroundRefreshExecutionOutcome: Sendable {
     case success(BackgroundFeedRefreshResult)
@@ -256,24 +257,19 @@ final class DefaultBackgroundRefreshExecutionCoordinator: BackgroundRefreshExecu
     }
 }
 
-private final class BackgroundRefreshCancellationMarkerState: @unchecked Sendable {
-    private let lock = NSLock()
-    nonisolated(unsafe) private var cancellationRequested = false
+private nonisolated final class BackgroundRefreshCancellationMarkerState: Sendable {
+    private let cancellationRequested = Mutex(false)
 
-    nonisolated
     func markCancellationRequested() {
-        lock.lock()
-        cancellationRequested = true
-        lock.unlock()
+        cancellationRequested.withLock { $0 = true }
     }
 
-    nonisolated
     func consumeCancellationRequested() -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        let currentValue = cancellationRequested
-        cancellationRequested = false
-        return currentValue
+        cancellationRequested.withLock {
+            let currentValue = $0
+            $0 = false
+            return currentValue
+        }
     }
 }
 

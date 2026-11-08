@@ -128,6 +128,11 @@ for configuration in Debug Release; do
       and all(.[]; .buildSettings.IPHONEOS_DEPLOYMENT_TARGET == $minimum
         and .buildSettings.TARGETED_DEVICE_FAMILY == "1,2")
     ' "$run_dir/settings-$configuration.log" >/dev/null || die "Inconsistent platform baseline"
+    jq -e '
+      [.[] | select(.target == "RSSReader" or .target == "RSSReaderTests" or .target == "RSSReaderUITests")]
+      | all(.[]; .buildSettings.SWIFT_VERSION == "6.0"
+        and .buildSettings.SWIFT_STRICT_CONCURRENCY == "complete")
+    ' "$run_dir/settings-$configuration.log" >/dev/null || die "Swift 6 with complete concurrency checking is required in $configuration"
 done
 sdk=$(cat "$run_dir/sdk-version.log")
 jq -en --arg sdk "$sdk" --arg minimum "$minimum_ios" '

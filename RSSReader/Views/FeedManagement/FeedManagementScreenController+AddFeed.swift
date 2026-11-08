@@ -190,9 +190,9 @@ extension FeedManagementScreenController {
         }
     }
 
-    func withAddFeedPreviewTimeout<T>(
+    func withAddFeedPreviewTimeout<T: Sendable>(
         timeout: Duration,
-        operation: @escaping () async throws -> T
+        operation: @escaping @MainActor @Sendable () async throws -> T
     ) async throws -> T {
         try await withThrowingTaskGroup(of: T.self) { group in
             defer { group.cancelAll() }

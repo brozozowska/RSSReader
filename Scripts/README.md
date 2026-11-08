@@ -15,8 +15,10 @@ utilities. Скрипт проверяет shared scheme и effective settings D
 Simulator SDK, точный minimum-supported runtime и доступный simulator в нём.
 Baseline берётся из project settings. При отсутствии prerequisites проверка
 завершается ошибкой; runtime и simulator автоматически не устанавливаются.
-Локальный baseline #858 — Xcode 27.2 stable `27B52`, SDK/minimum iOS 27.2,
-Swift language mode 5.0; hosted adoption ещё не подтверждён реальным run (см. GitHub Actions ниже).
+Toolchain baseline #858 — Xcode 27.2 stable `27B52`, SDK/minimum iOS 27.2.
+После #718 скрипт требует Swift 6.0 и `SWIFT_STRICT_CONCURRENCY=complete`
+в effective Debug/Release settings приложения, unit и UI targets. GitHub Actions
+использует тот же скрипт и настройки проекта.
 Shared TestAction задаёт язык `ru` и регион `RU`: часть unit assertions проверяет
 русские строки. Скрипт проверяет этот baseline, чтобы результат не зависел от
 языка Mac/Simulator. Это не заменяет отдельную locale regression matrix.

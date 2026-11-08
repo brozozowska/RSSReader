@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-public enum LogLevel: Int, Comparable {
+public nonisolated enum LogLevel: Int, Comparable, Sendable {
     case debug = 0
     case info = 1
     case error = 2
@@ -11,13 +11,13 @@ public enum LogLevel: Int, Comparable {
     }
 }
 
-public protocol Logging {
+public nonisolated protocol Logging: Sendable {
     func debug(_ message: @autoclosure () -> String)
     func info(_ message: @autoclosure () -> String)
     func error(_ message: @autoclosure () -> String)
 }
 
-public struct ConsoleLogger: Logging {
+public nonisolated struct ConsoleLogger: Logging {
     public init() {}
 
     public func debug(_ message: @autoclosure () -> String) {
@@ -33,7 +33,7 @@ public struct ConsoleLogger: Logging {
     }
 }
 
-public struct OSLogger: Logging {
+public nonisolated struct OSLogger: Logging {
     private let osLogger: Logger
 
     public init(category: String, subsystem: String = Bundle.main.bundleIdentifier ?? "RSSReader") {
@@ -54,7 +54,7 @@ public struct OSLogger: Logging {
     }
 }
 
-public struct FilteredLogger: Logging {
+public nonisolated struct FilteredLogger: Logging {
     public let minLevel: LogLevel
     private let base: Logging
 

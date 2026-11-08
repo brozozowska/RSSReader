@@ -14,13 +14,13 @@ protocol ICloudAccountAvailabilityService: Sendable {
     func availabilityChanges() -> AsyncStream<ICloudAccountAvailability>
 }
 
-nonisolated protocol CloudKitAccountStatusQuerying {
+nonisolated protocol CloudKitAccountStatusQuerying: Sendable {
     func accountStatus() async throws -> CKAccountStatus
 }
 
 extension CKContainer: CloudKitAccountStatusQuerying {}
 
-struct DefaultICloudAccountAvailabilityService: ICloudAccountAvailabilityService, @unchecked Sendable {
+nonisolated struct DefaultICloudAccountAvailabilityService: ICloudAccountAvailabilityService {
     private let accountStatusQuery: any CloudKitAccountStatusQuerying
     private let notificationCenter: NotificationCenter
     private let accountChangedNotification: Notification.Name
@@ -69,20 +69,14 @@ struct DefaultICloudAccountAvailabilityService: ICloudAccountAvailabilityService
 
     func availabilityChanges() -> AsyncStream<ICloudAccountAvailability> {
         AsyncStream { continuation in
-            let observer = notificationCenter.addObserver(
-                forName: accountChangedNotification,
-                object: nil,
-                queue: nil
-            ) { _ in
+            let observation = NotificationObservation(center: notificationCenter, name: accountChangedNotification) { _ in
                 logger.info("Received \(accountChangedNotification.rawValue) notification; requerying CloudKit account status")
                 Task {
                     continuation.yield(await currentAvailability())
                 }
             }
 
-            continuation.onTermination = { _ in
-                notificationCenter.removeObserver(observer)
-            }
+            continuation.onTermination = { _ in observation.cancel() }
         }
     }
 

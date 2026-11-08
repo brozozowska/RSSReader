@@ -104,7 +104,7 @@ public actor FeedIconMemoryCache {
     }
 }
 
-private final class FeedIconMemoryCacheEntry: NSObject, URLIdentifiedNSCacheEntry {
+private nonisolated final class FeedIconMemoryCacheEntry: NSObject, URLIdentifiedNSCacheEntry {
     let cacheURL: URL
     let data: Data
 

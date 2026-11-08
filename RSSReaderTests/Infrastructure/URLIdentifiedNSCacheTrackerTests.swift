@@ -26,7 +26,7 @@ struct URLIdentifiedNSCacheTrackerTests {
     }
 }
 
-private final class CacheTrackerTestEntry: NSObject, URLIdentifiedNSCacheEntry {
+private nonisolated final class CacheTrackerTestEntry: NSObject, URLIdentifiedNSCacheEntry {
     let cacheURL: URL
 
     init(cacheURL: URL) {

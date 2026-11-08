@@ -148,7 +148,7 @@ public struct FeedRequest: Sendable {
     }()
 }
 
-public struct FeedResponse: Sendable {
+public nonisolated struct FeedResponse: Sendable {
     public let request: FeedRequest
     public let sourceURL: URL
     public let statusCode: Int

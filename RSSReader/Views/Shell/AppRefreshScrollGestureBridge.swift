@@ -119,7 +119,7 @@ struct AppRefreshScrollGestureBridge: UIViewControllerRepresentable {
     }
 }
 
-struct AppRefreshPullGestureState {
+nonisolated struct AppRefreshPullGestureState {
     enum Event {
         case began
         case changed

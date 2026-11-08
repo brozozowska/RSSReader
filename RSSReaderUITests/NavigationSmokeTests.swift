@@ -10,7 +10,7 @@ final class NavigationSmokeTests: XCTestCase {
     private var server: LoopbackArticleServer!
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
-    override func setUpWithError() throws {
+    override func setUp() async throws {
         continueAfterFailure = false
 #if !DEBUG || !targetEnvironment(simulator)
         throw NSError(domain: "RSSReaderUISmoke", code: 1, userInfo: [
@@ -27,7 +27,7 @@ final class NavigationSmokeTests: XCTestCase {
 #endif
     }
 
-    override func tearDownWithError() throws {
+    override func tearDown() async throws {
         app?.terminate()
         server?.stop()
         XCUIDevice.shared.orientation = .portrait

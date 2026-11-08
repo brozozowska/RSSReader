@@ -3,6 +3,7 @@ import Testing
 @testable import RSSReader
 
 @Suite("Infrastructure / AppSyncBootstrapPreferenceStore")
+@MainActor
 struct AppSyncBootstrapPreferenceStoreTests {
     @Test
     func currentBootPreferencePrefersNSUbiquitousKeyValueStoreAndBackfillsUserDefaults() {
