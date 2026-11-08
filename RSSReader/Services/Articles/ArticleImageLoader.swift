@@ -96,6 +96,13 @@ final class ArticleImageLoader: ArticleImageLoading {
         memoryCache.clearPrefetchReservations()
     }
 
+    func inFlightWaiterCount(for url: URL, displayTarget: ArticleImageDisplayTarget) -> Int {
+        guard let loadID = reusableInFlightLoadID(for: url, displayTarget: displayTarget) else {
+            return 0
+        }
+        return inFlightLoads[loadID]?.waiters.count ?? 0
+    }
+
     private func registerWaiter(
         _ continuation: CheckedContinuation<UIImage, Error>,
         id waiterID: UUID,

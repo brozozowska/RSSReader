@@ -50,16 +50,18 @@ struct ArticleImageLoaderTests {
         defer { fixture.removeTemporaryDirectory() }
         if reserved { fixture.loader.replacePrefetchReservations(with: [url]) }
 
-        let smallTask = Task { @MainActor in
-            try await fixture.loader.loadImage(from: url, displayTarget: .init(maximumPixelWidth: 40))
+        let smallTask = ArticleImageTestLoad(loader: fixture.loader, url: url, width: 40)
+        defer {
+            smallTask.cancel()
+            Task { await smallGate.release() }
         }
-        await waitUntilResponseGateIsEntered(smallGate)
-        let largeTask = Task { @MainActor in
-            try await fixture.loader.loadImage(from: url, displayTarget: .init(maximumPixelWidth: 80))
+        try await waitUntilResponseGateIsEntered(smallGate)
+        let largeTask = ArticleImageTestLoad(loader: fixture.loader, url: url, width: 80)
+        defer {
+            largeTask.cancel()
+            Task { await largeGate.release() }
         }
-        await waitUntilResponseGateIsEntered(largeGate)
-        #expect(await smallGate.hasEntered())
-        #expect(await largeGate.hasEntered())
+        try await waitUntilResponseGateIsEntered(largeGate)
         await largeGate.release()
         let largeImage = try await largeTask.value
         await smallGate.release()
@@ -208,25 +210,23 @@ struct ArticleImageLoaderTests {
         )
         defer { fixture.removeTemporaryDirectory() }
 
-        let largerTargetTask = Task { @MainActor in
-            try await fixture.loader.loadImage(
-                from: imageURL,
+        let largerTargetTask = ArticleImageTestLoad(loader: fixture.loader, url: imageURL, width: 80)
+        defer {
+            largerTargetTask.cancel()
+            Task { await responseGate.release() }
+        }
+        try await waitUntilResponseGateIsEntered(responseGate)
+
+        let smallerTargetTask = ArticleImageTestLoad(loader: fixture.loader, url: imageURL, width: 40)
+        defer { smallerTargetTask.cancel() }
+        try await waitUntil("both image clients joined the 80-pixel load") {
+            fixture.loader.inFlightWaiterCount(
+                for: imageURL,
                 displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 80)
-            )
-        }
-        await waitUntilResponseGateIsEntered(responseGate)
-
-        let smallerTargetTask = Task { @MainActor in
-            try await fixture.loader.loadImage(
-                from: imageURL,
-                displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 40)
-            )
-        }
-        for _ in 0..<100 {
-            await Task.yield()
+            ) == 2
         }
 
-        #expect(await responseGate.enteredCount() == 1)
+        try #require(await responseGate.suspendedWaiterCount() == 1)
         #expect(await fixture.httpClient.recordedRequests().count == 1)
 
         await responseGate.release()
@@ -253,19 +253,22 @@ struct ArticleImageLoaderTests {
             ]
         )
         defer { fixture.removeTemporaryDirectory() }
-        let displayTarget = ArticleImageDisplayTarget(maximumPixelWidth: 80)
+        let prefetchTask = ArticleImageTestLoad(loader: fixture.loader, url: imageURL, width: 80)
+        defer {
+            prefetchTask.cancel()
+            Task { await responseGate.release() }
+        }
+        try await waitUntilResponseGateIsEntered(responseGate)
 
-        let prefetchTask = Task { @MainActor in
-            try await fixture.loader.loadImage(from: imageURL, displayTarget: displayTarget)
+        let readerTask = ArticleImageTestLoad(loader: fixture.loader, url: imageURL, width: 80)
+        defer { readerTask.cancel() }
+        try await waitUntil("prefetch and Reader joined the same image load") {
+            fixture.loader.inFlightWaiterCount(
+                for: imageURL,
+                displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 80)
+            ) == 2
         }
-        await waitUntilResponseGateIsEntered(responseGate)
-
-        let readerTask = Task { @MainActor in
-            try await fixture.loader.loadImage(from: imageURL, displayTarget: displayTarget)
-        }
-        for _ in 0..<100 {
-            await Task.yield()
-        }
+        try #require(await responseGate.suspendedWaiterCount() == 1)
         prefetchTask.cancel()
 
         await #expect(throws: CancellationError.self) {
@@ -470,26 +473,26 @@ struct ArticleImageLoaderTests {
     @Test
     func cancellationRemainsCancellationAndDoesNotPopulateCaches() async throws {
         let imageURL = try #require(URL(string: "https://example.com/images/slow.png"))
+        let responseGate = ScriptedHTTPClientResponseGate()
         let fixture = try makeFixture(
             steps: [
-                .delayedResponse(
+                .gatedDataResponse(
                     statusCode: 200,
                     headers: ["Content-Type": "image/png"],
-                    body: "not-reached",
-                    delayNanoseconds: 5_000_000_000
+                    body: makePNGData(width: 120, height: 60),
+                    gate: responseGate
                 )
             ]
         )
         defer { fixture.removeTemporaryDirectory() }
 
-        let task = Task {
-            try await fixture.loader.loadImage(
-                from: imageURL,
-                displayTarget: ArticleImageDisplayTarget(maximumPixelWidth: 320)
-            )
+        let task = ArticleImageTestLoad(loader: fixture.loader, url: imageURL, width: 320)
+        defer {
+            task.cancel()
+            Task { await responseGate.release() }
         }
 
-        await Task.yield()
+        try await waitUntilResponseGateIsEntered(responseGate)
         task.cancel()
 
         await #expect(throws: CancellationError.self) {
@@ -670,13 +673,36 @@ struct ArticleImageLoaderTests {
 
     private func waitUntilResponseGateIsEntered(
         _ responseGate: ScriptedHTTPClientResponseGate
-    ) async {
-        for _ in 0..<1_000 {
-            if await responseGate.hasEntered() {
-                return
-            }
-            await Task.yield()
+    ) async throws {
+        try await waitUntil("article image HTTP request suspended at the response gate") {
+            await responseGate.suspendedWaiterCount() == 1
         }
+    }
+}
+
+@MainActor
+private struct ArticleImageTestLoad {
+    private let task: Task<UIImage, Error>
+    private let completed: AsyncTestGate
+
+    init(loader: ArticleImageLoader, url: URL, width: Int) {
+        let completed = AsyncTestGate()
+        self.completed = completed
+        task = Task {
+            defer { completed.release() }
+            return try await loader.loadImage(from: url, displayTarget: .init(maximumPixelWidth: width))
+        }
+    }
+
+    var value: UIImage {
+        get async throws {
+            try await completed.wait("article image load completed")
+            return try await task.value
+        }
+    }
+
+    func cancel() {
+        task.cancel()
     }
 }
 
