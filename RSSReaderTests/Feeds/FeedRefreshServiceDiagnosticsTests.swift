@@ -6,6 +6,45 @@ import Testing
 @Suite("Feeds / Refresh Service / Diagnostics")
 @MainActor
 struct FeedRefreshServiceDiagnosticsTests {
+    @Test(arguments: [403, 429])
+    func httpFailureRedactsURLComponentsAndOmitsResponsePayloadFromDiagnostics(statusCode: Int) async throws {
+        let feedURL = "https://fixture-user:fixture-password@example.com/feed.xml?token=fixture-query#fixture-fragment"
+        let sanitizedURL = "https://example.com/feed.xml"
+        let logger = RecordingLogger()
+        let client = ScriptedHTTPClient(steps: [
+            .response(
+                statusCode: statusCode,
+                headers: ["Set-Cookie": "session=fixture-cookie", "Retry-After": "60"],
+                body: "fixture-response-body"
+            )
+        ])
+        let harness = try TestHarness.make(httpClient: client, logger: logger)
+        let feed = try #require(try harness.insertFeeds(urls: [feedURL]).first)
+        let refresh = try #require(harness.dependencies.feedRefreshService)
+
+        let result = await refresh.refresh(feedID: feed.id)
+
+        #expect(result.status == .failed)
+        #expect(await client.recordedRequests().map(\.url.absoluteString) == [feedURL])
+        let logs = try harness.feedFetchLogRepository.fetchLogs(feedID: feed.id, limit: nil)
+        #expect(logs.count == 1)
+        let log = try #require(logs.first)
+        #expect(log.status == "failed")
+        #expect(log.httpCode == statusCode)
+        let refreshedFeed = try #require(try harness.fetchFeed(id: feed.id))
+        let failureLog = try #require(logger.entries.first { $0.message.contains("Failed to refresh feed") })
+        let diagnosticMessages = [
+            try #require(result.errorDescription),
+            try #require(refreshedFeed.lastSyncError),
+            try #require(log.message),
+            failureLog.message
+        ]
+        for message in diagnosticMessages {
+            #expect(message.contains(sanitizedURL))
+            #expect(!message.contains("fixture-"))
+        }
+    }
+
     @Test
     func fetchedResultSurvivesStagedFetchLogSaveFailureAfterFeedAndArticleCommit() async throws {
         let feedURL = "https://example.com/log-save-failure.xml"
@@ -174,6 +213,7 @@ struct FeedRefreshServiceDiagnosticsTests {
     @Test
     func refreshFetchedPayloadPersistsRejectedEntryDiagnosticsAndFetchLogMessage() async throws {
         let feedURL = "https://example.com/diagnostics.xml"
+        let logger = RecordingLogger()
         let harness = try TestHarness.make(
             httpClient: ScriptedHTTPClient(
                 responsesByURL: [
@@ -191,7 +231,8 @@ struct FeedRefreshServiceDiagnosticsTests {
                         )
                     )
                 ]
-            )
+            ),
+            logger: logger
         )
         let feed = try #require(try harness.insertFeeds(urls: [feedURL]).first)
 
@@ -211,7 +252,14 @@ struct FeedRefreshServiceDiagnosticsTests {
         let latestLog = try #require(try harness.feedFetchLogRepository.fetchLatestLog(feedID: feed.id))
         #expect(latestLog.status == "fetched")
         #expect(latestLog.httpCode == 200)
-        #expect(latestLog.message?.contains("diagnostics(parser_anomalies=4, rejected_entries=1)") == true)
+        let message = try #require(latestLog.message)
+        #expect(message.contains("diagnostics(parser_anomalies=4, rejected_entries=1)"))
+        #expect(logger.contains("Entry has an unrecognized published date", level: .info))
+        #expect(logger.contains("rejected entry reasons:", level: .info))
+        for privateValue in ["fixture-unrecognized-date", "valid-diagnostics-article", "Readable summary"] {
+            #expect(!message.contains(privateValue))
+            #expect(!logger.contains(privateValue))
+        }
     }
 
     @Test
@@ -397,6 +445,7 @@ struct FeedRefreshServiceDiagnosticsTests {
               <pubDate>Tue, 02 Jan 2024 10:00:00 GMT</pubDate>
             </item>
             <item>
+              <pubDate>fixture-unrecognized-date</pubDate>
             </item>
           </channel>
         </rss>

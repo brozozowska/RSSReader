@@ -414,6 +414,34 @@ struct PersistenceBoundedGrowthCleanupServiceTests {
         #expect(remainingState == nil)
     }
 
+    @Test
+    func manualPurgePrunesFetchLogsUsingProductionAgeAndCountLimits() throws {
+        let harness = try TestHarness.make(httpClient: ScriptedHTTPClient())
+        let feeds = try harness.insertFeeds(urls: [
+            "https://example.com/busy-feed.xml",
+            "https://example.com/quiet-feed.xml"
+        ])
+        let busyFeed = try #require(feeds.first)
+        let quietFeed = try #require(feeds.last)
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let cutoff = FeedFetchLogRetentionContract.current.cutoffDate(now: now)
+        let recentDates = (0...200).map { now.addingTimeInterval(-TimeInterval($0)) }
+        try insertLogs(harness: harness, feedID: busyFeed.id, createdAtDates: recentDates)
+        try insertLogs(
+            harness: harness,
+            feedID: quietFeed.id,
+            createdAtDates: [cutoff, cutoff.addingTimeInterval(-1)]
+        )
+
+        let purge = harness.dependencies.appActions.purgeArchivedArticles(now: now)
+
+        #expect(purge != nil)
+        let busyLogs = try harness.feedFetchLogRepository.fetchLogs(feedID: busyFeed.id, limit: nil)
+        let quietLogs = try harness.feedFetchLogRepository.fetchLogs(feedID: quietFeed.id, limit: nil)
+        #expect(busyLogs.map(\.createdAt) == Array(recentDates.prefix(200)))
+        #expect(quietLogs.map(\.createdAt) == [cutoff])
+    }
+
     private func makeService(
         harness: TestHarness,
         contract: FeedFetchLogRetentionContract = .current,
