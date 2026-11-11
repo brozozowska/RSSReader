@@ -16,6 +16,7 @@ extension AppActionRouter {
             logger: logger,
             folderRepository: folderRepository,
             feedManagementService: feedManagementService,
+            feedIssues: dependencies.feedIssues,
             scheduleUnreadAppIconBadgeRefresh: { scheduleUnreadAppIconBadgeRefresh() }
         )
     }

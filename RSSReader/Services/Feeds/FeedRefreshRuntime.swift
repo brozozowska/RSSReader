@@ -73,6 +73,7 @@ extension FeedRefreshService {
         feedID: UUID,
         waiters: [UUID: FeedRefreshInFlightWaiter]
     ) {
+        let issueToken = feedIssues?.begin(.feed(feedID))
         let inFlightTaskID = UUID()
         let initialFetchSnapshot = waiters.values.compactMap(\.initialFetchSnapshot).first
         let task = Task<FeedRefreshResult, Never> { @MainActor [self, feedID] in
@@ -80,7 +81,8 @@ extension FeedRefreshService {
             completeInFlightRefresh(
                 id: inFlightTaskID,
                 feedID: feedID,
-                result: result
+                result: result,
+                issueToken: issueToken
             )
             return result
         }
@@ -135,13 +137,17 @@ extension FeedRefreshService {
     private func completeInFlightRefresh(
         id inFlightTaskID: UUID,
         feedID: UUID,
-        result: FeedRefreshResult
+        result: FeedRefreshResult,
+        issueToken: UUID?
     ) {
         guard let inFlightTask = inFlightRefreshTasks[feedID],
               inFlightTask.id == inFlightTaskID else {
             return
         }
 
+        if let issueToken {
+            publishFeedIssue(result, token: issueToken)
+        }
         let queuedWaiters = inFlightTask.queuedWaiters
         inFlightRefreshTasks.removeValue(forKey: feedID)
         for waiter in inFlightTask.waiters.values {
@@ -150,6 +156,29 @@ extension FeedRefreshService {
         if queuedWaiters.isEmpty == false {
             startInFlightRefresh(feedID: feedID, waiters: queuedWaiters)
         }
+    }
+
+    private func publishFeedIssue(_ result: FeedRefreshResult, token: UUID) {
+        let target = FeedIssue.Target.feed(result.feedID)
+        var cancelled = result.status == .cancelled
+        var reason = result.failureReason
+        if result.status == .failed {
+            do {
+                if try feedRepository.fetchFeed(id: result.feedID)?.isActive != true {
+                    reason = nil
+                }
+            } catch {
+                logger.error("Failed to verify active subscription for feed issue: \(error)")
+                cancelled = true
+            }
+        }
+        feedIssues?.finish(
+            target,
+            token: token,
+            attemptedAt: result.startedAt,
+            reason: reason,
+            cancelled: cancelled
+        )
     }
 
     func performRefresh(feedID: UUID, initialFetchSnapshot: FeedInitialFetchSnapshot? = nil) async -> FeedRefreshResult {
@@ -201,7 +230,7 @@ extension FeedRefreshService {
                 )
                 return result
             }
-        } catch is CancellationError {
+        } catch where error is CancellationError || Task.isCancelled {
             feedRepository.rollback()
             logger.info("Cancelled refresh for feed \(feedID.uuidString)")
             let result = makeCancelledResult(feedID: feedID, startedAt: startedAt)
@@ -233,24 +262,14 @@ extension FeedRefreshService {
                 finishedAt: finishedAt
             )
             logger.error("Failed to refresh feed \(feedID.uuidString): \(error)")
-            return makeFailureResult(
+            return .failed(
                 feedID: feedID,
                 startedAt: startedAt,
+                finishedAt: finishedAt,
+                failureReason: FeedRefreshFailureReason(error: error),
                 errorDescription: errorDescription
             )
         }
-    }
-
-    func makeFailureResult(
-        feedID: UUID,
-        startedAt: Date,
-        errorDescription: String
-    ) -> FeedRefreshResult {
-        FeedRefreshResult.failed(
-            feedID: feedID,
-            startedAt: startedAt,
-            errorDescription: errorDescription
-        )
     }
 
     func makeCancelledResult(feedID: UUID, startedAt: Date) -> FeedRefreshResult {

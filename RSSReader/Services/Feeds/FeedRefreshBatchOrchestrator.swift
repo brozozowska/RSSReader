@@ -29,6 +29,7 @@ extension FeedRefreshService {
                 finishedAt: Date(),
                 results: [],
                 targetFeedIDs: [],
+                batchFailureReason: .infrastructure,
                 batchErrorDescription: String(describing: error)
             )
         }

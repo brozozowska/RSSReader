@@ -6,21 +6,25 @@ struct FeedManagementDestructiveActions {
     private let logger: Logging
     private let folderRepository: (any FolderRepository)?
     private let feedManagementService: (any FeedManagementService)?
+    private let feedIssues: FeedIssueState?
     private let scheduleUnreadAppIconBadgeRefresh: @MainActor () -> Void
 
     init(
         logger: Logging,
         folderRepository: (any FolderRepository)?,
         feedManagementService: (any FeedManagementService)?,
+        feedIssues: FeedIssueState? = nil,
         scheduleUnreadAppIconBadgeRefresh: @escaping @MainActor () -> Void
     ) {
         self.logger = logger
         self.folderRepository = folderRepository
         self.feedManagementService = feedManagementService
+        self.feedIssues = feedIssues
         self.scheduleUnreadAppIconBadgeRefresh = scheduleUnreadAppIconBadgeRefresh
     }
 
     func finishUnsubscribingFeed(id feedID: UUID, using appState: AppState) {
+        feedIssues?.removeFeed(feedID)
         appState.requestSidebarReload()
         if appState.selectedSidebarSelection == .feed(feedID) {
             appState.reconcileSidebarSelection(

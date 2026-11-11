@@ -69,6 +69,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
     let articleRepository: any ArticleRepository
     let feedIconDiscoveryService: (any FeedIconDiscovering)?
     let feedFetchLogRepository: (any FeedFetchLogRepository)?
+    let feedIssues: FeedIssueState?
     let cancellationCheckpoint: (FeedRefreshCancellationCheckpoint) throws -> Void
     var inFlightRefreshTasks: [UUID: FeedRefreshInFlightTask] = [:]
 
@@ -80,6 +81,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         articleRepository: any ArticleRepository,
         feedIconDiscoveryService: (any FeedIconDiscovering)? = nil,
         feedFetchLogRepository: (any FeedFetchLogRepository)? = nil,
+        feedIssues: FeedIssueState? = nil,
         cancellationCheckpoint: @escaping (FeedRefreshCancellationCheckpoint) throws -> Void = { _ in
             try Task.checkCancellation()
         }
@@ -91,6 +93,7 @@ final class FeedRefreshService: FeedRefreshCoordinating {
         self.articleRepository = articleRepository
         self.feedIconDiscoveryService = feedIconDiscoveryService
         self.feedFetchLogRepository = feedFetchLogRepository
+        self.feedIssues = feedIssues
         self.cancellationCheckpoint = cancellationCheckpoint
     }
 }

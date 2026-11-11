@@ -14,7 +14,7 @@ enum SidebarArticleFilter: String, Hashable, Sendable, CaseIterable {
     case starred
 }
 
-enum ManualFeedRefreshScope: Equatable, Sendable {
+enum ManualFeedRefreshScope: Hashable, Sendable {
     case allFeeds
     case folder(String)
     case feed(UUID)

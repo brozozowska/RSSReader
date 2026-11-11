@@ -12,6 +12,7 @@ final class AppDependencies {
     let sidebarFolderExpansionStore: SidebarFolderExpansionStore
     var articleImageCache: any ArticleImageCacheManaging { articleImageRuntime }
     let feedIconCache: any FeedIconCaching
+    let feedIssues: FeedIssueState
     let feedRefreshService: FeedRefreshService?
     let feedRepository: (any FeedRepository)?
     let folderRepository: (any FolderRepository)?
@@ -200,6 +201,7 @@ final class AppDependencies {
             httpClient: httpClient,
             feedIconCache: resolvedFeedIconCache
         )
+        let feedIssues = FeedIssueState()
         let feedRefreshService: FeedRefreshService? = {
             guard let feedRepository, let articleRepository else {
                 return nil
@@ -211,7 +213,8 @@ final class AppDependencies {
                 feedRepository: feedRepository,
                 articleRepository: articleRepository,
                 feedIconDiscoveryService: resolvedFeedIconDiscoveryService,
-                feedFetchLogRepository: feedFetchLogRepository
+                feedFetchLogRepository: feedFetchLogRepository,
+                feedIssues: feedIssues
             )
         }()
         let resolvedBackgroundRefreshService = backgroundRefreshService ?? appSettingsService.map { service in
@@ -248,6 +251,7 @@ final class AppDependencies {
         self.syncBackedStoreReference = syncBackedStoreReference
         self.syncBootstrapPreferenceStore = syncBootstrapPreferenceStore
         self.syncBootstrapContext = syncBootstrapContext
+        self.feedIssues = feedIssues
         self.feedRefreshService = feedRefreshService
         self.feedRepository = feedRepository
         self.folderRepository = folderRepository

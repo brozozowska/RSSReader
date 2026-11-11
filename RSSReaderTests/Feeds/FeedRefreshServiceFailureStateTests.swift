@@ -55,6 +55,8 @@ struct FeedRefreshServiceFailureStateTests {
         let result = await service.refresh(feedID: feed.id)
 
         #expect(result.status == .failed)
+        #expect(result.failureReason == .infrastructure)
+        #expect(harness.dependencies.feedIssues.issues[.feed(feed.id)]?.reason == .infrastructure)
         #expect(result.errorDescription?.contains("injected_feed_save_failure_call_2") == true)
         #expect(service.inFlightRefreshTasks[feed.id] == nil)
         #expect(saveProbe.saveCallCount == 3)
@@ -126,6 +128,8 @@ struct FeedRefreshServiceFailureStateTests {
         let result = await service.refresh(feedID: feed.id)
 
         #expect(result.status == .failed)
+        #expect(result.failureReason == .infrastructure)
+        #expect(harness.dependencies.feedIssues.issues[.feed(feed.id)]?.reason == .infrastructure)
         #expect(result.errorDescription?.contains("injected_feed_save_failure_call_2") == true)
         #expect(saveProbe.saveCallCount == 3)
 
@@ -190,6 +194,8 @@ struct FeedRefreshServiceFailureStateTests {
         let result = await service.refresh(feedID: feed.id)
 
         #expect(result.status == .failed)
+        #expect(result.failureReason == .infrastructure)
+        #expect(harness.dependencies.feedIssues.issues[.feed(feed.id)]?.reason == .infrastructure)
         #expect(result.errorDescription?.contains("injected_feed_save_failure_call_2") == true)
         #expect(saveProbe.saveCallCount == 3)
         let failureStateSnapshot = try #require(saveProbe.failureSnapshot(for: 3))
@@ -227,7 +233,8 @@ struct FeedRefreshServiceFailureStateTests {
             ),
             feedRepository: feedRepository,
             articleRepository: harness.articleRepository,
-            feedFetchLogRepository: harness.feedFetchLogRepository
+            feedFetchLogRepository: harness.feedFetchLogRepository,
+            feedIssues: harness.dependencies.feedIssues
         )
     }
 }

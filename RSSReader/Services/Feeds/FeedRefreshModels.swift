@@ -7,6 +7,38 @@ enum FeedRefreshStatus: String, Sendable {
     case cancelled
 }
 
+enum FeedRefreshFailureReason: Equatable, Sendable {
+    case timeout
+    case transport
+    case httpStatus(Int, retryAt: Date?)
+    case invalidFeed
+    case unsupportedFeed
+    case parserFailure
+    case infrastructure
+
+    init(error: any Error) {
+        if let fetchError = error as? FeedFetchError {
+            switch fetchError {
+            case .transport(.timedOut): self = .timeout
+            case .transport: self = .transport
+            case .invalidStatusCode(let code, _): self = .httpStatus(code, retryAt: nil)
+            case .rateLimited(let retryAt, _): self = .httpStatus(429, retryAt: retryAt)
+            case .unsupportedContentType: self = .unsupportedFeed
+            }
+        } else if let parserError = error as? FeedParserError {
+            switch parserError {
+            case .emptyDocument, .missingRSSElement, .missingAtomElement: self = .invalidFeed
+            case .unsupportedFeedKind: self = .unsupportedFeed
+            case .malformedXML, .resourceLimitExceeded: self = .parserFailure
+            }
+        } else if error is FeedRequestError {
+            self = .invalidFeed
+        } else {
+            self = .infrastructure
+        }
+    }
+}
+
 struct FeedRefreshDiagnosticsSummary: Sendable, Equatable {
     let parserAnomalyCount: Int
     let rejectedEntryCount: Int
@@ -154,6 +186,7 @@ struct FeedRefreshResult: Sendable, Identifiable {
     let reconciledEntryCount: Int
     let rejectedEntryCount: Int
     let diagnosticsSummary: FeedRefreshDiagnosticsSummary
+    let failureReason: FeedRefreshFailureReason?
     let errorDescription: String?
 
     var id: UUID {
@@ -174,6 +207,7 @@ struct FeedRefreshResult: Sendable, Identifiable {
         reconciledEntryCount: Int = 0,
         rejectedEntryCount: Int = 0,
         diagnosticsSummary: FeedRefreshDiagnosticsSummary = FeedRefreshDiagnosticsSummary(),
+        failureReason: FeedRefreshFailureReason? = nil,
         errorDescription: String? = nil
     ) {
         self.feedID = feedID
@@ -185,6 +219,7 @@ struct FeedRefreshResult: Sendable, Identifiable {
         self.reconciledEntryCount = max(0, reconciledEntryCount)
         self.rejectedEntryCount = max(0, rejectedEntryCount)
         self.diagnosticsSummary = diagnosticsSummary
+        self.failureReason = status == .failed ? failureReason ?? .infrastructure : nil
         self.errorDescription = errorDescription
     }
 
@@ -234,6 +269,7 @@ struct FeedRefreshResult: Sendable, Identifiable {
         upsertedEntryCount: Int = 0,
         rejectedEntryCount: Int = 0,
         diagnosticsSummary: FeedRefreshDiagnosticsSummary = FeedRefreshDiagnosticsSummary(),
+        failureReason: FeedRefreshFailureReason = .infrastructure,
         errorDescription: String
     ) -> FeedRefreshResult {
         FeedRefreshResult(
@@ -245,6 +281,7 @@ struct FeedRefreshResult: Sendable, Identifiable {
             upsertedEntryCount: upsertedEntryCount,
             rejectedEntryCount: rejectedEntryCount,
             diagnosticsSummary: diagnosticsSummary,
+            failureReason: failureReason,
             errorDescription: errorDescription
         )
     }
@@ -299,6 +336,7 @@ struct FeedRefreshBatchResult: Sendable {
     let finishedAt: Date
     let targetFeedIDs: [UUID]
     let results: [FeedRefreshResult]
+    let batchFailureReason: FeedRefreshFailureReason?
     let batchErrorDescription: String?
     let summary: FeedRefreshBatchSummary
 
@@ -307,12 +345,14 @@ struct FeedRefreshBatchResult: Sendable {
         finishedAt: Date,
         results: [FeedRefreshResult],
         targetFeedIDs: [UUID]? = nil,
+        batchFailureReason: FeedRefreshFailureReason? = nil,
         batchErrorDescription: String? = nil
     ) {
         self.startedAt = startedAt
         self.finishedAt = finishedAt
         self.targetFeedIDs = targetFeedIDs ?? results.map(\.feedID)
         self.results = results
+        self.batchFailureReason = batchFailureReason ?? (batchErrorDescription == nil ? nil : .infrastructure)
         self.batchErrorDescription = batchErrorDescription
         self.summary = Self.makeSummary(
             from: results,
@@ -341,7 +381,7 @@ struct FeedRefreshBatchResult: Sendable {
     }
 
     var hasUnsuccessfulOutcome: Bool {
-        batchErrorDescription != nil
+        batchFailureReason != nil
             || hasExactlyOneOutcomePerTarget == false
             || retryFeedIDs.isEmpty == false
     }

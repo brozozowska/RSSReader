@@ -3,12 +3,22 @@ import Foundation
 extension AppActionRouter {
     @MainActor
     func refreshFeed(id feedID: UUID, initialFetchSnapshot: FeedInitialFetchSnapshot? = nil) async -> FeedRefreshResult? {
+        let target = FeedIssue.Target.operation(.selection(.feed(feedID)))
+        let token = dependencies.feedIssues.begin(target)
+        let startedAt = Date()
         guard let feedRefreshService else {
             logger.error("Feed refresh service is unavailable")
+            dependencies.feedIssues.finish(
+                target, token: token, attemptedAt: startedAt, reason: .infrastructure,
+                cancelled: Task.isCancelled, retryAvailable: false
+            )
             return nil
         }
 
         let result = await feedRefreshService.refresh(feedID: feedID, initialFetchSnapshot: initialFetchSnapshot)
+        dependencies.feedIssues.finish(
+            target, token: token, attemptedAt: startedAt, reason: nil, cancelled: result.status == .cancelled
+        )
         let cleanupResult = cleanupArticlesUsingCurrentSettings(scope: .feedIDs([result.feedID]))
         recordRefreshLifecycleDiagnostics(refreshResult: result, cleanupResult: cleanupResult)
         await refreshUnreadAppIconBadgeCount()
@@ -17,20 +27,28 @@ extension AppActionRouter {
 
     @MainActor
     func refreshAllFeeds() async -> FeedRefreshBatchResult? {
-        guard let feedRefreshService else {
-            logger.error("Feed refresh service is unavailable")
-            return nil
-        }
+        await refreshAllFeeds(operation: .selection(.allFeeds))
+    }
 
-        let result = await feedRefreshService.refreshAllActiveFeeds()
+    @MainActor
+    private func refreshAllFeeds(operation: FeedRefreshOperation) async -> FeedRefreshBatchResult {
+        let result = await runRefreshOperation(operation, retryAvailable: feedRefreshService != nil) {
+            guard let feedRefreshService else {
+                logger.error("Feed refresh service is unavailable")
+                return batchInfrastructureFailure()
+            }
+            return await feedRefreshService.refreshAllActiveFeeds()
+        }
         recordManualRefreshBatchDiagnostics(
             result,
             phase: "initial",
             requestedTargetFeedIDs: result.targetFeedIDs
         )
         recordFeedsRefreshIfNeeded(from: result)
-        cleanupArticlesUsingCurrentSettings(scope: .allFeeds)
-        await refreshUnreadAppIconBadgeCount()
+        if feedRefreshService != nil {
+            cleanupArticlesUsingCurrentSettings(scope: .allFeeds)
+            await refreshUnreadAppIconBadgeCount()
+        }
         return result
     }
 
@@ -41,52 +59,46 @@ extension AppActionRouter {
         using appState: AppState,
         requestsArticleListReload: Bool = true
     ) async -> FeedRefreshBatchResult? {
-        guard let feedRefreshService else {
-            logger.error("Feed refresh service is unavailable for failed-feed retry")
-            return nil
-        }
-        guard let feedRepository else {
-            logger.error("Feed repository is unavailable for failed-feed retry")
-            return nil
-        }
-
         let requestedFeedIDs = uniquePreservingOrder(feedIDs)
-        do {
-            let activeFeedIDs = Set(try feedRepository.fetchActiveFeeds().map(\.id))
-            let retryFeedIDs = requestedFeedIDs.filter(activeFeedIDs.contains)
-            let result = await feedRefreshService.refreshFeeds(retryFeedIDs)
-            recordManualRefreshBatchDiagnostics(
-                result,
-                phase: "retry",
-                requestedTargetFeedIDs: requestedFeedIDs
-            )
-            if context.scope == .allFeeds {
-                recordFeedsRefreshIfNeeded(from: result)
+        let result = await runRefreshOperation(
+            .failedFeeds(context.scope),
+            retryAvailable: feedRefreshService != nil && feedRepository != nil,
+            retryFeedIDs: requestedFeedIDs
+        ) {
+            guard let feedRefreshService, let feedRepository else {
+                logger.error("Refresh dependencies are unavailable for failed-feed retry")
+                return batchInfrastructureFailure(targetFeedIDs: requestedFeedIDs)
             }
-            cleanupArticlesUsingCurrentSettings(scope: .feedIDs(result.targetFeedIDs))
-            await refreshUnreadAppIconBadgeCount()
-            appState.requestSidebarReload()
-            if requestsArticleListReload {
-                appState.requestArticleListReload()
+            do {
+                let activeFeedIDs = Set(try feedRepository.fetchActiveFeeds().map(\.id))
+                let retryFeedIDs = requestedFeedIDs.filter(activeFeedIDs.contains)
+                if !Task.isCancelled {
+                    for feedID in requestedFeedIDs where !activeFeedIDs.contains(feedID) {
+                        dependencies.feedIssues.removeFeed(feedID)
+                    }
+                }
+                return await feedRefreshService.refreshFeeds(retryFeedIDs)
+            } catch {
+                logger.error("Failed to resolve active feeds for failed-feed retry: \(error)")
+                return batchInfrastructureFailure(targetFeedIDs: requestedFeedIDs)
             }
-            return result
-        } catch {
-            logger.error("Failed to resolve active feeds for failed-feed retry: \(error)")
-            let now = Date()
-            let result = FeedRefreshBatchResult(
-                startedAt: now,
-                finishedAt: now,
-                results: [],
-                targetFeedIDs: requestedFeedIDs,
-                batchErrorDescription: String(describing: error)
-            )
-            recordManualRefreshBatchDiagnostics(
-                result,
-                phase: "retry",
-                requestedTargetFeedIDs: requestedFeedIDs
-            )
-            return result
         }
+        recordManualRefreshBatchDiagnostics(
+            result,
+            phase: "retry",
+            requestedTargetFeedIDs: requestedFeedIDs
+        )
+        guard result.batchFailureReason == nil else { return result }
+        if context.scope == .allFeeds {
+            recordFeedsRefreshIfNeeded(from: result)
+        }
+        cleanupArticlesUsingCurrentSettings(scope: .feedIDs(result.targetFeedIDs))
+        await refreshUnreadAppIconBadgeCount()
+        appState.requestSidebarReload()
+        if requestsArticleListReload {
+            appState.requestArticleListReload()
+        }
+        return result
     }
 
     @MainActor
@@ -95,7 +107,7 @@ extension AppActionRouter {
         using appState: AppState,
         requestsArticleListReload: Bool = true
     ) async -> FeedRefreshBatchResult? {
-        let result: FeedRefreshBatchResult?
+        let result: FeedRefreshBatchResult
         switch context.scope {
         case .feed(let feedID):
             if let refreshResult = await refreshFeed(id: feedID) {
@@ -105,19 +117,17 @@ extension AppActionRouter {
                     results: [refreshResult]
                 )
             } else {
-                result = nil
+                result = batchInfrastructureFailure()
             }
         case .folder(let folderName):
             result = await refreshFeeds(in: folderName)
         case .allFeeds:
-            result = await refreshAllFeeds()
+            result = await refreshAllFeeds(operation: .selection(.allFeeds))
         }
 
-        if result != nil {
-            appState.requestSidebarReload()
-            if requestsArticleListReload {
-                appState.requestArticleListReload()
-            }
+        appState.requestSidebarReload()
+        if requestsArticleListReload {
+            appState.requestArticleListReload()
         }
 
         return result
@@ -125,7 +135,14 @@ extension AppActionRouter {
 
     @MainActor
     func refreshFeedsForBackground() async -> BackgroundRefreshServiceExecutionResult {
+        let target = FeedIssue.Target.operation(.background)
+        let token = dependencies.feedIssues.begin(target)
+        let startedAt = Date()
         guard let backgroundRefreshService else {
+            dependencies.feedIssues.finish(
+                target, token: token, attemptedAt: startedAt, reason: .infrastructure,
+                cancelled: Task.isCancelled, retryAvailable: feedRefreshService != nil
+            )
             logger.debug(
                 "Background refresh dependencies trace outcome=serviceUnavailable operation=executeBackgroundAppRefresh"
             )
@@ -133,10 +150,22 @@ extension AppActionRouter {
         }
 
         let result = await backgroundRefreshService.performScheduledRefresh()
-        if case .executed(let refreshResult) = result {
+        switch result {
+        case .executed(let refreshResult):
+            dependencies.feedIssues.finish(
+                target, token: token, attemptedAt: startedAt,
+                reason: refreshResult.batchResult.batchFailureReason, cancelled: Task.isCancelled
+            )
             recordFeedsRefreshIfNeeded(from: refreshResult.batchResult)
             cleanupFeedFetchLogs()
             await refreshUnreadAppIconBadgeCount()
+        case .failedToStart:
+            dependencies.feedIssues.finish(
+                target, token: token, attemptedAt: startedAt, reason: .infrastructure,
+                cancelled: Task.isCancelled, retryAvailable: feedRefreshService != nil
+            )
+        case .skippedManual:
+            dependencies.feedIssues.finish(target, token: token, attemptedAt: startedAt, reason: nil, cancelled: true)
         }
         return result
     }
@@ -161,30 +190,100 @@ extension AppActionRouter {
     }
 
     @MainActor
-    private func refreshFeeds(in folderName: String) async -> FeedRefreshBatchResult? {
-        guard let feedRefreshService else {
-            logger.error("Feed refresh service is unavailable")
-            return nil
-        }
-        guard let feedRepository else {
-            logger.error("Feed repository is unavailable")
-            return nil
-        }
+    private func refreshFeeds(in folderName: String) async -> FeedRefreshBatchResult {
+        let result = await runRefreshOperation(
+            .selection(.folder(folderName)),
+            retryAvailable: feedRefreshService != nil && feedRepository != nil
+        ) {
+            guard let feedRefreshService, let feedRepository else {
+                logger.error("Refresh dependencies are unavailable for folder refresh")
+                return batchInfrastructureFailure()
+            }
 
-        do {
-            let folderFeedIDs = try feedRepository.fetchActiveFeeds()
-                .filter { $0.folder?.name == folderName }
-                .map(\.id)
-            let result = await feedRefreshService.refreshFeeds(folderFeedIDs)
-            cleanupArticlesUsingCurrentSettings(
-                scope: .feedIDs(result.results.map(\.feedID))
-            )
-            await refreshUnreadAppIconBadgeCount()
-            return result
-        } catch {
-            logger.error("Failed to load folder feeds for refresh: \(error)")
-            return nil
+            do {
+                let folderFeedIDs = try feedRepository.fetchActiveFeeds()
+                    .filter { $0.folder?.name == folderName }
+                    .map(\.id)
+                return await feedRefreshService.refreshFeeds(folderFeedIDs)
+            } catch {
+                logger.error("Failed to load folder feeds for refresh: \(error)")
+                return batchInfrastructureFailure()
+            }
         }
+        if result.batchFailureReason == nil {
+            cleanupArticlesUsingCurrentSettings(scope: .feedIDs(result.results.map(\.feedID)))
+            await refreshUnreadAppIconBadgeCount()
+        }
+        return result
+    }
+
+    @MainActor
+    func retryFeedIssue(_ target: FeedIssue.Target, using appState: AppState) async -> FeedRefreshBatchResult? {
+        guard dependencies.feedIssues.issues[target]?.canRetry == true else { return nil }
+
+        switch target {
+        case .feed(let feedID):
+            return await retryFeeds(
+                [feedID],
+                context: refreshContext(for: .feed(feedID)),
+                using: appState
+            )
+        case .operation(.selection(let scope)):
+            return await refreshSelection(refreshContext(for: scope), using: appState)
+        case .operation(.failedFeeds(let scope)):
+            guard let feedIDs = dependencies.feedIssues.retryFeedIDs(for: .failedFeeds(scope)) else { return nil }
+            return await retryFeeds(feedIDs, context: refreshContext(for: scope), using: appState)
+        case .operation(.background):
+            let result = await refreshAllFeeds(operation: .background)
+            appState.requestSidebarReload()
+            appState.requestArticleListReload()
+            return result
+        }
+    }
+
+    private func refreshContext(for scope: ManualFeedRefreshScope) -> ManualFeedRefreshContext {
+        let selection: SidebarSelection
+        switch scope {
+        case .allFeeds: selection = .inbox
+        case .folder(let name): selection = .folder(name)
+        case .feed(let id): selection = .feed(id)
+        }
+        return ManualFeedRefreshContext(selection: selection, sidebarArticleFilter: .allItems)
+    }
+
+    @MainActor
+    private func runRefreshOperation(
+        _ operation: FeedRefreshOperation,
+        retryAvailable: Bool,
+        retryFeedIDs: [UUID] = [],
+        execute: () async -> FeedRefreshBatchResult
+    ) async -> FeedRefreshBatchResult {
+        let target = FeedIssue.Target.operation(operation)
+        let token = dependencies.feedIssues.begin(target)
+        let startedAt = Date()
+        let result = await execute()
+        dependencies.feedIssues.finish(
+            target,
+            token: token,
+            attemptedAt: startedAt,
+            reason: result.batchFailureReason,
+            cancelled: Task.isCancelled,
+            retryAvailable: retryAvailable,
+            retryFeedIDs: retryFeedIDs
+        )
+        return result
+    }
+
+    private func batchInfrastructureFailure(targetFeedIDs: [UUID] = []) -> FeedRefreshBatchResult {
+        let now = Date()
+        return FeedRefreshBatchResult(
+            startedAt: now,
+            finishedAt: now,
+            results: [],
+            targetFeedIDs: targetFeedIDs,
+            batchFailureReason: .infrastructure,
+            batchErrorDescription: "Unable to prepare feed refresh"
+        )
     }
 
     @MainActor

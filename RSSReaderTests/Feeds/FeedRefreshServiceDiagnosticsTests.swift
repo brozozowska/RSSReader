@@ -141,8 +141,13 @@ struct FeedRefreshServiceDiagnosticsTests {
             feedFetchLogRepository: failingLogRepository
         )
 
+        let issues = harness.dependencies.feedIssues
+        let target = FeedIssue.Target.feed(feed.id)
+        let token = issues.begin(target)
+        issues.finish(target, token: token, attemptedAt: .distantPast, reason: .timeout)
         let result = await service.refresh(feedID: feed.id)
 
+        #expect(issues.issues[target] == nil)
         #expect(result.status == .notModified)
         #expect(result.errorDescription == nil)
         let refreshedFeed = try #require(try harness.fetchFeed(id: feed.id))
@@ -466,7 +471,8 @@ struct FeedRefreshServiceDiagnosticsTests {
             ),
             feedRepository: harness.feedRepository,
             articleRepository: harness.articleRepository,
-            feedFetchLogRepository: feedFetchLogRepository
+            feedFetchLogRepository: feedFetchLogRepository,
+            feedIssues: harness.dependencies.feedIssues
         )
     }
 }
